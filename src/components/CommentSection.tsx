@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import MarkdownView from "@/components/MarkdownView";
 
 type CommentType = {
   id: string;
@@ -23,6 +25,7 @@ export default function CommentSection({
   currentUserName 
 }: CommentSectionProps) {
   const [content, setContent] = useState("");
+  const [editorKey, setEditorKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,6 +47,7 @@ export default function CommentSection({
 
       if (response.ok) {
         setContent("");
+        setEditorKey((current) => current + 1);
         window.location.reload();
       }
     } catch (error) {
@@ -66,14 +70,13 @@ export default function CommentSection({
       {/* Kommentarsskjema */}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="relative">
-          <textarea
+          <MarkdownEditor
+            key={editorKey}
             name="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
             rows={3}
-            placeholder="Skriv en kommentar eller hendelse..."
-            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-gray-50 outline-none focus:border-blue-600 resize-none"
             disabled={submitting}
+            placeholder="Skriv en kommentar eller hendelse..."
+            onChange={setContent}
           />
           {submitting && (
             <div className="absolute right-2 top-2">
@@ -103,7 +106,9 @@ export default function CommentSection({
                 <span>{comment.authorName || "Ukjent"}</span>
                 <span>{new Date(comment.createdAt).toLocaleString("no-NO", { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
-              <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">{comment.content}</p>
+              <div className="text-sm text-gray-900 font-medium">
+                <MarkdownView value={comment.content} />
+              </div>
             </div>
           ))
         )}

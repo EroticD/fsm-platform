@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MarkdownView from "@/components/MarkdownView";
 import {
   isLineCommentKey,
   needsComment,
@@ -126,7 +127,9 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
             <p className="text-[11px] text-gray-600 mt-1">{entry.report.workOrder.title}</p>
 
             {entry.comment ? (
-              <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{entry.comment}</p>
+              <div className="text-xs text-gray-700 mt-1">
+                <MarkdownView value={entry.comment} size="sm" />
+              </div>
             ) : null}
 
             {rows.length > 0 ? (
@@ -138,14 +141,29 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
                   {rows.map((row, index) => {
                     const comment = row.field ? readLineComment(answers, row.field.id) : "";
                     const alert = row.field ? needsComment(row.field, row.value) : false;
+                    // Fritekstsvar kan være skrevet i Markdown og vises som eget avsnitt.
+                    const richText =
+                      row.field?.type === "TEXTAREA" || row.field?.type === "TEXT";
+                    const richValue = typeof row.value === "string" ? row.value.trim() : "";
                     return (
                       <div key={`${row.label}-${index}`} className="text-[11px]">
                         <p className={alert ? "text-red-800 font-bold" : "text-gray-700"}>
                           <span className="font-bold text-gray-900">{row.label}: </span>
-                          {fieldValue(row.field, row.value)}
+                          {richText ? null : fieldValue(row.field, row.value)}
                         </p>
+                        {richText ? (
+                          richValue ? (
+                            <div className="text-gray-800 mt-0.5">
+                              <MarkdownView value={richValue} size="xs" />
+                            </div>
+                          ) : (
+                            <p className="text-gray-400">Ikke besvart</p>
+                          )
+                        ) : null}
                         {comment ? (
-                          <p className="text-[11px] text-amber-800 italic">↳ {comment}</p>
+                          <div className="text-[11px] text-amber-800 italic">
+                            <MarkdownView value={comment} size="xs" />
+                          </div>
                         ) : null}
                       </div>
                     );

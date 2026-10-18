@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import FieldInput, { type TemplateField } from "./FieldInput";
+import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import { readLineComment } from "@/lib/report-answers";
 import { submitReport } from "./actions";
@@ -371,13 +372,12 @@ export default function ReportForm({
             {/* KOMMENTAR PER ENHET */}
             <div>
               <label className={statusLabel}>Kommentar for denne enheten</label>
-              <textarea
+              <MarkdownEditor
                 name={`comment__${unit.key}`}
-                rows={2}
                 defaultValue={unit.comment}
+                rows={2}
                 placeholder="Avvik, utbedringer eller annet som gjelder denne enheten ..."
-                className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-              ></textarea>
+              />
             </div>
           </div>
         ))}
@@ -388,13 +388,12 @@ export default function ReportForm({
         <label className="block text-sm font-black text-gray-900 mb-2 uppercase tracking-wider">
           Generelle notater for jobben
         </label>
-        <textarea
+        <MarkdownEditor
           name="notes"
           rows={4}
           defaultValue={initialReport?.notes ?? ""}
           placeholder="Skriv inn eventuelle generelle merknader ..."
-          className="w-full border-2 border-gray-300 p-4 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700 transition"
-        ></textarea>
+        />
       </div>
 
       {/* SIGNATURER */}

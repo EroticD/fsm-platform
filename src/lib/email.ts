@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import prisma from "@/lib/prisma";
+import { LIMITS, cleanColor, cleanText, cleanUrl, escapeHtml } from "@/lib/sanitize";
 
 /** Er SMTP konfigurert i .env? */
 function isSmtpConfigured() {
@@ -31,9 +32,10 @@ export async function sendWorkOrderReport(
 ) {
   // Henter global merkevare for e-post-malen
   const branding = await prisma.branding.findFirst();
-  const primaryColor = branding?.primaryColor || "#2563eb";
-  const logoUrl = branding?.logoUrl;
-  const companyName = branding?.companyName || "FSM System";
+  // Verdiene brukes inne i HTML, så de vaskes og escapes før de settes inn.
+  const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
+  const logoUrl = cleanUrl(branding?.logoUrl);
+  const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
 
   // Sjekker om e-post er konfigurert i .env
   if (!isSmtpConfigured()) {
@@ -55,17 +57,17 @@ export async function sendWorkOrderReport(
             <p style="color: #6b7280; font-size: 12px; margin: 0;">${companyName}</p>
           </div>
         </div>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">Oppdrags-ID: #${workOrder.id.slice(-6).toUpperCase()}</p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">Oppdrags-ID: #${escapeHtml(workOrder.id.slice(-6).toUpperCase())}</p>
       </div>
 
       <table style="width: 100%; margin-bottom: 30px; font-size: 14px;">
         <tr>
-          <td style="padding-bottom: 10px;"><strong>Kunde:</strong><br/>${workOrder.customer.name}</td>
+          <td style="padding-bottom: 10px;"><strong>Kunde:</strong><br/>${escapeHtml(workOrder.customer.name)}</td>
           <td style="padding-bottom: 10px;"><strong>Dato for utførelse:</strong><br/>${new Date().toLocaleDateString("no-NO")}</td>
         </tr>
         <tr>
-          <td><strong>Oppdragstittel:</strong><br/>${workOrder.title}</td>
-          <td><strong>Utført av:</strong><br/>${workOrder.technicians.map((t: any) => t.name).join(", ")}</td>
+          <td><strong>Oppdragstittel:</strong><br/>${escapeHtml(workOrder.title)}</td>
+          <td><strong>Utført av:</strong><br/>${workOrder.technicians.map((t: any) => escapeHtml(t.name)).join(", ")}</td>
         </tr>
       </table>
 
@@ -81,12 +83,12 @@ export async function sendWorkOrderReport(
         <tbody>
           ${Object.entries(checklistData).map(([label, data]: any) => `
             <tr>
-              <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6;">${label}</td>
+              <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(label)}</td>
               <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: ${data.status ? '#16a34a' : '#dc2626'};">
                 ${data.status ? '✅ OK' : '❌ Avvik'}
               </td>
               <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6; color: #4b5563;">
-                ${data.comment || '-'}${data.photoUrl ? '<br/><span style="font-size: 10px; color: ${primaryColor};">(Bilde vedlagt i systemet)</span>' : ''}
+                ${escapeHtml(data.comment) || "-"}${data.photoUrl ? '<br/><span style="font-size: 10px; color: ${primaryColor};">(Bilde vedlagt i systemet)</span>' : ''}
               </td>
             </tr>
           `).join("")}
@@ -95,13 +97,13 @@ export async function sendWorkOrderReport(
 
       <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #e2e8f0;">
         <h3 style="margin-top: 0; color: #334155; font-size: 16px;">Montørens sluttkommentar</h3>
-        <p style="color: #475569; margin-bottom: 0; line-height: 1.5;">${comments || "Ingen kommentar."}</p>
+        <p style="color: #475569; margin-bottom: 0; line-height: 1.5;">${escapeHtml(comments) || "Ingen kommentar."}</p>
       </div>
 
       <div style="margin-top: 30px;">
         <h3 style="color: #374151; font-size: 16px; margin-bottom: 5px;">Kundesignatur</h3>
         <p style="color: #111827; font-weight: bold; font-size: 18px; font-family: 'Brush Script MT', cursive, sans-serif; margin-top: 5px;">
-          ${signatureName || "Ikke signert"}
+          ${escapeHtml(signatureName) || "Ikke signert"}
         </p>
         <p style="font-size: 11px; color: #9ca3af;">Signert digitalt på lokasjon.</p>
       </div>
@@ -116,7 +118,7 @@ export async function sendWorkOrderReport(
     await transporter.sendMail({
       from: `"${companyName}" <${process.env.SMTP_USER}>`,
       to: customerEmail,
-      subject: `Servicerapport - ${workOrder.title}`,
+      subject: `Servicerapport - ${escapeHtml(workOrder.title)}`,
       html: htmlContent,
     });
     console.log("✅ E-post sendt til", customerEmail);
@@ -135,9 +137,10 @@ export async function sendInviteEmail(
   inviteUrl: string
 ): Promise<boolean> {
   const branding = await prisma.branding.findFirst();
-  const primaryColor = branding?.primaryColor || "#2563eb";
-  const logoUrl = branding?.logoUrl;
-  const companyName = branding?.companyName || "FSM System";
+  // Verdiene brukes inne i HTML, så de vaskes og escapes før de settes inn.
+  const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
+  const logoUrl = cleanUrl(branding?.logoUrl);
+  const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
 
   if (!isSmtpConfigured()) {
     console.warn("⚠️ Mangler SMTP-variabler i .env. Invitasjons-e-post ble ikke sendt.");
@@ -157,12 +160,12 @@ export async function sendInviteEmail(
       </div>
 
       <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-        Hei${name ? ` ${name.split(" ")[0]}` : ""},<br/>
+        Hei${name ? ` ${escapeHtml(name.split(" ")[0])}` : ""},<br/>
         det er opprettet en konto til deg hos ${companyName}. Klikk på knappen under for å sette ditt eget passord.
       </p>
 
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${inviteUrl}" style="background-color: ${primaryColor}; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: bold; font-size: 15px; display: inline-block;">
+        <a href="${escapeHtml(inviteUrl)}" style="background-color: ${primaryColor}; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: bold; font-size: 15px; display: inline-block;">
           Sett passord
         </a>
       </div>
@@ -170,7 +173,7 @@ export async function sendInviteEmail(
       <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
         Lenken er gyldig i 7 dager. Hvis knappen ikke virker, kopier denne adressen inn i nettleseren:
       </p>
-      <p style="word-break: break-all; color: ${primaryColor}; font-size: 12px;">${inviteUrl}</p>
+      <p style="word-break: break-all; color: ${primaryColor}; font-size: 12px;">${escapeHtml(inviteUrl)}</p>
 
       <p style="color: #6b7280; font-size: 13px; line-height: 1.6; margin-top: 24px;">
         Etter at du har satt passordet må kontoen aktiveres av en administrator før du kan logge inn.

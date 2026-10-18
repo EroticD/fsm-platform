@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import { markdownToPlainText } from "@/lib/markdown";
+import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
 function dateKey(d: Date) {
@@ -74,10 +77,10 @@ export default async function KundeportalPage() {
   async function bookWorkOrder(formData: FormData) {
     "use server";
 
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const scheduledFor = formData.get("scheduledFor") as string;
-    const templateId = formData.get("templateId") as string;
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
+    const description = cleanMarkdown(formData.get("description"));
+    const scheduledFor = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
+    const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
 
     if (!title || !scheduledFor) return;
 
@@ -266,7 +269,7 @@ export default async function KundeportalPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">Beskrivelse</label>
-                  <textarea name="description" rows={2} placeholder="Hva trenger du hjelp med?" className="w-full border border-white/30 p-2 rounded-xl text-sm bg-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-white"></textarea>
+                  <MarkdownEditor name="description" rows={2} placeholder="Hva trenger du hjelp med?" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">Sjekklistemal (valgfritt)</label>
@@ -316,7 +319,9 @@ export default async function KundeportalPage() {
                         )}
                       </p>
                       {wo.description && (
-                        <p className="text-[10px] text-gray-700 italic mt-1">{wo.description}</p>
+                        <p className="text-[10px] text-gray-700 italic mt-1">
+                          {markdownToPlainText(wo.description)}
+                        </p>
                       )}
                     </div>
                   ))}

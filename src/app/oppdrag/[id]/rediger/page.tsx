@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 
 export default async function EditWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
@@ -38,11 +40,11 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
   // --- SERVER ACTION: LAGRE ENDRINGER ---
   async function updateWorkOrder(formData: FormData) {
     "use server";
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const customerId = formData.get("customerId") as string;
-    const scheduledFor = formData.get("scheduledFor") as string;
-    const technicianId = formData.get("technicianId") as string;
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
+    const description = cleanMarkdown(formData.get("description"));
+    const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+    const scheduledFor = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
+    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
 
     if (!title || !customerId) return;
 
@@ -141,13 +143,12 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
 
           <div>
             <label className="block text-sm font-black text-gray-900 mb-2">Arbeidsbeskrivelse / Instrukser</label>
-            <textarea 
-              name="description" 
+            <MarkdownEditor
+              name="description"
               rows={4}
               defaultValue={workOrder.description || ""}
-              className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
               placeholder="Beskriv hva som skal gjøres..."
-            ></textarea>
+            />
           </div>
 
           <div className="border-t-2 border-gray-200 pt-6">

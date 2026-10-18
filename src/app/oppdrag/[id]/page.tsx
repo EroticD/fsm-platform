@@ -7,6 +7,8 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import MarkdownView from "@/components/MarkdownView";
+import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { requireOffice, requireStaff } from "@/lib/session";
 import { deleteWorkOrder } from "./actions";
@@ -117,16 +119,33 @@ function ReportContent({ report, template }: { report: any; template: any }) {
   const fieldRow = (field: ReportField, answers: Record<string, unknown>, key: string) => {
     const comment = readLineComment(answers, field.id);
     const alert = needsComment(field, answers[field.id]);
+    const answer = answers[field.id];
+    // Fritekstsvar kan inneholde Markdown, og vises derfor som eget avsnitt.
+    const longText =
+      field.type === "TEXTAREA" || field.type === "TEXT" || !field.type || field.type === undefined;
+
     return (
       <div key={key} className="text-sm">
         <div className={alert ? "text-red-800 font-bold" : undefined}>
           <span className="font-bold text-gray-900">{field.label}: </span>
-          {renderAnswer(field, answers[field.id])}
+          {!longText && renderAnswer(field, answer)}
         </div>
+        {longText && (
+          <div className="mt-1 pl-2 border-l-2 border-gray-200 text-gray-800">
+            {typeof answer === "string" && answer.trim() ? (
+              <MarkdownView value={answer} />
+            ) : (
+              <span className="text-gray-400 font-medium">Ikke besvart</span>
+            )}
+          </div>
+        )}
         {comment && (
-          <p className="text-[13px] text-amber-900 bg-amber-50 border-l-4 border-amber-300 pl-2 py-1 mt-1 rounded-r font-medium">
-            💬 {comment}
-          </p>
+          <div className="flex gap-1.5 text-[13px] text-amber-900 bg-amber-50 border-l-4 border-amber-300 pl-2 py-1 mt-1 rounded-r">
+            <span aria-hidden>💬</span>
+            <div className="flex-1">
+              <MarkdownView value={comment} size="xs" />
+            </div>
+          </div>
         )}
       </div>
     );
@@ -193,9 +212,9 @@ function ReportContent({ report, template }: { report: any; template: any }) {
                 )}
 
                 {unit.comment && (
-                  <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 px-3 py-2 border-t-2 border-gray-200 italic font-medium">
-                    &quot;{unit.comment}&quot;
-                  </p>
+                  <div className="text-sm text-gray-900 bg-gray-50 px-3 py-2 border-t-2 border-gray-200 italic">
+                    <MarkdownView value={unit.comment} />
+                  </div>
                 )}
               </div>
             );
@@ -224,9 +243,9 @@ function ReportContent({ report, template }: { report: any; template: any }) {
       {report?.comments && (
         <div className="border-t-2 border-gray-200 pt-3">
           <span className="text-gray-500 font-black uppercase text-xs tracking-wider block mb-1">Generelle notater fra montør:</span>
-          <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg border-2 border-gray-200 italic font-medium">
-            &quot;{report.comments}&quot;
-          </p>
+          <div className="text-gray-900 bg-gray-50 p-3 rounded-lg border-2 border-gray-200 italic">
+            <MarkdownView value={report.comments} />
+          </div>
         </div>
       )}
     </div>
@@ -266,7 +285,7 @@ export default async function AdminWorkOrderPage({
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "desc" },
       },
-      comments: { orderBy: { createdAt: "desc" } },
+      workComments: { orderBy: { createdAt: "desc" } },
       product: true
     }
   });
@@ -295,7 +314,7 @@ export default async function AdminWorkOrderPage({
   async function setTemplate(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const templateId = formData.get("templateId") as string;
+    const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
     if (!templateId) return;
 
     await prisma.workOrder.update({
@@ -308,7 +327,7 @@ export default async function AdminWorkOrderPage({
   async function updateStatus(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
-    const status = formData.get("status") as any;
+    const status = cleanStatus(formData.get("status"));
     if (!status) return;
 
     await prisma.workOrder.update({
@@ -332,7 +351,7 @@ export default async function AdminWorkOrderPage({
     // Bare administratorer kan låse opp en signert rapport igjen.
     if (user?.role !== "ADMIN") return;
 
-    const reportId = formData.get("reportId") as string;
+    const reportId = cleanText(formData.get("reportId"), { maxLength: LIMITS.line });
     const shouldLock = formData.get("lock") === "1";
     if (!reportId) return;
 
@@ -420,9 +439,11 @@ export default async function AdminWorkOrderPage({
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
                 <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Arbeidsbeskrivelse</h2>
-                <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
-                  {workOrder.description || "Ingen beskrivelse lagt til."}
-                </p>
+                {workOrder.description ? (
+                  <MarkdownView value={workOrder.description} className="text-gray-900 font-medium" />
+                ) : (
+                  <p className="text-sm text-gray-900 font-medium">Ingen beskrivelse lagt til.</p>
+                )}
               </div>
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200">
@@ -616,9 +637,9 @@ export default async function AdminWorkOrderPage({
               <CommentSection
                 entityType="workOrder"
                 entityId={workOrderId}
-                existingComments={workOrder.comments?.map(c => ({
+                existingComments={workOrder.workComments?.map(c => ({
                   id: c.id,
-                  content: c.text,
+                  content: c.content,
                   authorName: c.authorName,
                   createdAt: c.createdAt.toISOString(),
                 })) || []}

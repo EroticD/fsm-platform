@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import AuditLogTable from "@/components/AuditLogTable";
 import UsersAdmin from "@/components/UsersAdmin";
 import { isOffice, requireOffice } from "@/lib/session";
+import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
 
 export default async function SettingsPage({ 
   searchParams 
@@ -135,9 +136,9 @@ export default async function SettingsPage({
   async function saveBranding(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const companyName = formData.get("companyName") as string;
-    const primaryColor = formData.get("primaryColor") as string;
-    const logoUrl = formData.get("logoUrl") as string;
+    const companyName = cleanText(formData.get("companyName"), { maxLength: LIMITS.title });
+    const primaryColor = cleanColor(formData.get("primaryColor")) || "#2563eb";
+    const logoUrl = cleanUrl(formData.get("logoUrl"));
     
     const existing = await prisma.branding.findFirst();
     if (existing) {
@@ -160,7 +161,7 @@ export default async function SettingsPage({
   async function createTemplate(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const title = formData.get("title") as string;
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     if (!title) return;
 
     await prisma.template.create({
@@ -184,7 +185,7 @@ export default async function SettingsPage({
   async function deleteTemplate(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const id = formData.get("id") as string;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
     const templateToDelete = await prisma.template.findUnique({

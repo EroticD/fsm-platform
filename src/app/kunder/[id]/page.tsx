@@ -9,8 +9,11 @@ import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
 import CopyButton from "@/components/CopyButton";
 import KpiCard from "@/components/KpiCard";
+import MarkdownView from "@/components/MarkdownView";
 import UnitHistory from "@/components/UnitHistory";
+import { markdownToPlainText } from "@/lib/markdown";
 import { buildInviteUrl } from "@/lib/invite";
+import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 import { requireOffice } from "@/lib/session";
 import {
   createPortalUser,
@@ -212,10 +215,10 @@ export default async function CustomerDetailPage({
     "use server";
     if (!(await requireOffice())) return;
 
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
-    const role = formData.get("role") as string;
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const email = cleanEmail(formData.get("email"));
+    const phone = cleanPhone(formData.get("phone"));
+    const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
 
     if (!name) return;
 
@@ -248,11 +251,11 @@ export default async function CustomerDetailPage({
     "use server";
     if (!(await requireOffice())) return;
 
-    const id = formData.get("id") as string;
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
-    const role = formData.get("role") as string;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const email = cleanEmail(formData.get("email"));
+    const phone = cleanPhone(formData.get("phone"));
+    const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
 
     if (!id || !name) return;
 
@@ -285,7 +288,7 @@ export default async function CustomerDetailPage({
     "use server";
     if (!(await requireOffice())) return;
 
-    const id = formData.get("id") as string;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
     try {
@@ -408,7 +411,12 @@ export default async function CustomerDetailPage({
                   <p><strong>Telefon:</strong><br />{customer.phone ? <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a> : "Ikke oppgitt"}</p>
                   <p><strong>E-post:</strong><br />{customer.email ? <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a> : "Ikke oppgitt"}</p>
                   {customer.notes && (
-                    <p><strong>Notat:</strong><br /><span className="text-gray-600">{customer.notes}</span></p>
+                    <div>
+                      <strong>Notat:</strong>
+                      <div className="text-gray-600 mt-0.5">
+                        <MarkdownView value={customer.notes} />
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -518,7 +526,7 @@ export default async function CustomerDetailPage({
 
                     {wo.description && (
                       <p className="text-sm text-gray-700 bg-white p-3 rounded-xl border border-gray-200 line-clamp-2 font-medium">
-                        {wo.description}
+                        {markdownToPlainText(wo.description)}
                       </p>
                     )}
 

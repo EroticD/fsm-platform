@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 import { isOffice, requireOffice } from "@/lib/session";
 
 export default async function MalerPage() {
@@ -18,7 +19,7 @@ export default async function MalerPage() {
   async function createTemplate(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const title = formData.get("title") as string;
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     if (title) {
       await prisma.template.create({
         data: {

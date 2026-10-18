@@ -5,7 +5,10 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
-import CommentSection from "@/components/CommentSection";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import MarkdownView from "@/components/MarkdownView";
+import { markdownToPlainText } from "@/lib/markdown";
+import { LIMITS, cleanMarkdown, cleanStatus, cleanText } from "@/lib/sanitize";
 import { requireStaff } from "@/lib/session";
 
 export default async function TechnicianWorkOrderPage({
@@ -35,7 +38,7 @@ export default async function TechnicianWorkOrderPage({
       contact: true,
       templates: true,
       reports: true,
-      comments: { orderBy: { createdAt: "desc" } },
+      workComments: { orderBy: { createdAt: "desc" } },
       product: true,
       technicians: true
     }
@@ -72,7 +75,7 @@ export default async function TechnicianWorkOrderPage({
   async function updateStatus(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
-    const newStatus = formData.get("status") as any;
+    const newStatus = cleanStatus(formData.get("status"));
     if (!newStatus) return;
 
     await prisma.workOrder.update({
@@ -96,12 +99,12 @@ export default async function TechnicianWorkOrderPage({
   async function addComment(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
-    const content = formData.get("content") as string;
-    if (!content || !content.trim()) return;
+    const content = cleanMarkdown(formData.get("content"));
+    if (!content) return;
 
     await prisma.comment.create({
       data: {
-        content: content.trim(),
+        content,
         workOrderId: workOrderId,
         authorName: user?.name || "Montør"
       }
@@ -111,7 +114,7 @@ export default async function TechnicianWorkOrderPage({
       data: {
         entityType: "WorkOrder",
         entityId: workOrderId,
-        action: `La til kommentar: "${content.substring(0, 30)}..."`,
+        action: `La til kommentar: "${markdownToPlainText(content).slice(0, 30)}..."`,
         userName: user?.name || "Montør"
       }
     });
@@ -123,7 +126,7 @@ export default async function TechnicianWorkOrderPage({
   async function addTemplate(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
-    const templateId = formData.get("templateId") as string;
+    const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
     if (!templateId) return;
 
     await prisma.workOrder.update({
@@ -140,7 +143,7 @@ export default async function TechnicianWorkOrderPage({
   async function addTechnician(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
-    const userId = formData.get("userId") as string;
+    const userId = cleanText(formData.get("userId"), { maxLength: LIMITS.line });
     if (!userId) return;
 
     const targetUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -168,7 +171,7 @@ export default async function TechnicianWorkOrderPage({
   async function removeTechnician(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
-    const userId = formData.get("userId") as string;
+    const userId = cleanText(formData.get("userId"), { maxLength: LIMITS.line });
     if (!userId) return;
 
     const targetUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -249,9 +252,13 @@ export default async function TechnicianWorkOrderPage({
           <div>
             <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Arbeidsbeskrivelse / Instrukser</h2>
             <div className="bg-blue-50/60 border-2 border-blue-200 p-3 sm:p-4 rounded-xl">
-              <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
-                {workOrder.description || "Ingen beskrivelse lagt til for dette oppdraget."}
-              </p>
+              {workOrder.description ? (
+                <MarkdownView value={workOrder.description} className="text-gray-900 font-medium" />
+              ) : (
+                <p className="text-sm text-gray-900 font-medium">
+                  Ingen beskrivelse lagt til for dette oppdraget.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -262,13 +269,12 @@ export default async function TechnicianWorkOrderPage({
 
           {/* Skriv ny kommentar */}
           <form action={addComment} className="space-y-3">
-            <textarea
+            <MarkdownEditor
               name="content"
               rows={3}
               required
               placeholder="Skriv en kommentar eller melding til kontoret/kolleger..."
-              className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-            ></textarea>
+            />
             <div className="flex justify-end">
               <button type="submit" className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
                 💬 Legg til kommentar
@@ -278,18 +284,18 @@ export default async function TechnicianWorkOrderPage({
 
           {/* Liste over tidligere kommentarer */}
           <div className="space-y-3 pt-4 border-t border-gray-200">
-            {workOrder.comments.length === 0 ? (
+            {workOrder.workComments.length === 0 ? (
               <p className="text-sm text-gray-500 italic">Ingen kommentarer registrert på oppdraget ennå.</p>
             ) : (
-              workOrder.comments.map((comment: any) => (
+              workOrder.workComments.map((comment: any) => (
                 <div key={comment.id} className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 space-y-1">
                   <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold">
                     <span>{comment.authorName || "Ukjent"}</span>
                     <span>{new Date(comment.createdAt).toLocaleString("no-NO", { dateStyle: 'short', timeStyle: 'short' })}</span>
                   </div>
-                  <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
-                    {comment.content}
-                  </p>
+                  <div className="text-sm text-gray-900 font-medium">
+                    <MarkdownView value={comment.content} />
+                  </div>
                 </div>
               ))
             )}
@@ -492,20 +498,6 @@ export default async function TechnicianWorkOrderPage({
           <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
           <AuditLogTable logs={auditLogs} />
         </div>
-
-        {/* Kommentarer */}
-        <CommentSection
-          entityType="workOrder"
-          entityId={workOrderId}
-          existingComments={workOrder.comments?.map(c => ({
-            id: c.id,
-            content: c.text,
-            authorName: c.authorName,
-            createdAt: c.createdAt.toISOString(),
-          })) || []}
-          currentUserName={user?.name || null}
-        />
-
       </div>
     </div>
   );

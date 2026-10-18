@@ -7,6 +7,7 @@ import {
   readLineComment,
 } from "@/lib/report-answers";
 import type { PdfImage } from "@/lib/report-images";
+import { MarkdownPdf } from "@/lib/markdown-pdf";
 
 type TemplateFieldDef = {
   id: string;
@@ -81,6 +82,8 @@ type UnitContext = {
 type PlannedRow = {
   label: string;
   text: string;
+  /** Svaret som Markdown, når feltet er et fritekstfelt. */
+  rich: string | null;
   comment: string;
   alert: boolean;
   isImage: boolean;
@@ -93,6 +96,7 @@ type PlannedRow = {
 type PreparedRow = {
   label: string;
   text: string;
+  rich: string | null;
   comment: string;
   alert: boolean;
   isImage: boolean;
@@ -229,6 +233,9 @@ export default function ReportDocument({
     return String(answer);
   };
 
+  /** Felttypene der svaret kan være skrevet i Markdown (se components/MarkdownEditor). */
+  const RICH_TEXT_TYPES = new Set(["TEXT", "TEXTAREA"]);
+
   /**
    * Sjekkpunktene i en sjekkliste, som enkle linjer å tegne. Bildene er bare
    * URL-er her; nummereringen til vedlegget skjer etterpå.
@@ -248,9 +255,19 @@ export default function ReportDocument({
 
     return rows.map((row) => {
       const comment = row.field ? readLineComment(answers, row.field.id) : "";
+      // Fritekstsvar kan inneholde Markdown og tegnes derfor av MarkdownPdf.
+      const rich =
+        row.field &&
+        RICH_TEXT_TYPES.has(row.field.type ?? "") &&
+        typeof row.value === "string" &&
+        row.value.trim() !== ""
+          ? row.value
+          : null;
+
       return {
         label: row.label,
-        text: answerText(row.field, row.value),
+        text: rich ? "" : answerText(row.field, row.value),
+        rich,
         comment,
         // Avvik/utbedring markeres i rødt i PDF-en.
         alert: Boolean(row.field) && needsComment(row.field as TemplateFieldDef, row.value),
@@ -352,6 +369,7 @@ export default function ReportDocument({
   const prepareRow = (row: PlannedRow): PreparedRow => ({
     label: row.label,
     text: row.text,
+    rich: row.rich,
     comment: row.comment,
     alert: row.alert,
     isImage: row.isImage,
@@ -441,6 +459,7 @@ export default function ReportDocument({
     answerRow: { fontSize: 11, color: '#111827', marginBottom: 5, lineHeight: 1.4 },
     answerLabel: { fontWeight: 'bold' },
     lineComment: { fontSize: 10, color: '#92400e', fontStyle: 'italic', marginBottom: 5, lineHeight: 1.4 },
+    lineCommentBlock: { marginBottom: 5 },
     missingImage: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginBottom: 5, lineHeight: 1.4 },
 
     // Små miniatyrbilder på sjekkpunktet; det store bildet ligger på vedleggssiden.
@@ -549,14 +568,26 @@ export default function ReportDocument({
     textStyle: { fontSize: number; color: string; marginBottom: number },
   ) => (
     <View key={index} style={{ marginBottom: 4 }}>
-      {(row.text !== "" || row.isImage) && (
+      {row.rich ? (
+        <View>
+          <Text
+            style={row.alert ? { ...textStyle, color: "#991b1b", fontWeight: "bold" } : textStyle}
+          >
+            {row.label}:
+          </Text>
+          <MarkdownPdf value={row.rich} base={textStyle} />
+        </View>
+      ) : (row.text !== "" || row.isImage) ? (
         <Text style={row.alert ? { ...textStyle, color: "#991b1b", fontWeight: "bold" } : textStyle}>
           <Text style={styles.answerLabel}>{row.label}: </Text>
           {row.text}
         </Text>
-      )}
+      ) : null}
       {row.comment ? (
-        <Text style={styles.lineComment}>» Kommentar: {row.comment}</Text>
+        <View style={styles.lineCommentBlock}>
+          <Text style={styles.lineComment}>» Kommentar</Text>
+          <MarkdownPdf value={row.comment} base={styles.lineComment} />
+        </View>
       ) : null}
       {row.images.length > 0 && (
         <View style={styles.thumbGrid}>
@@ -659,7 +690,7 @@ export default function ReportDocument({
                   {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.answerRow))}
                 </View>
 
-                {unit.comment && <Text style={styles.unitComment}>{unit.comment}</Text>}
+                {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
               </View>
             ))}
 
@@ -673,7 +704,7 @@ export default function ReportDocument({
             {block.comments && (
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.label}>Montørens kommentar</Text>
-                <Text style={styles.value}>{block.comments}</Text>
+                <MarkdownPdf value={block.comments} base={styles.value} />
               </View>
             )}
 
@@ -742,10 +773,10 @@ export default function ReportDocument({
                   : ""}
               </Text>
               {attachment.comment ? (
-                <Text style={styles.metaRow}>
+                <View style={styles.metaRow}>
                   <Text style={styles.metaKey}>Kommentar: </Text>
-                  {attachment.comment}
-                </Text>
+                  <MarkdownPdf value={attachment.comment} base={styles.metaRow} />
+                </View>
               ) : null}
             </View>
 

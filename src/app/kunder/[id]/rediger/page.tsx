@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { isOffice, requireOffice } from "@/lib/session";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import { LIMITS, cleanEmail, cleanMarkdown, cleanPhone, cleanText } from "@/lib/sanitize";
 
 export default async function EditCustomerPage({ 
   params 
@@ -40,16 +42,16 @@ export default async function EditCustomerPage({
     "use server";
     if (!(await requireOffice())) return;
 
-    const name = formData.get("name") as string;
-    const customerNumber = formData.get("customerNumber") as string;
-    const orgNumber = formData.get("orgNumber") as string;
-    const brandColor = formData.get("brandColor") as string;
-    const address = formData.get("address") as string;
-    const postalCode = formData.get("postalCode") as string;
-    const city = formData.get("city") as string;
-    const phone = formData.get("phone") as string;
-    const email = formData.get("email") as string;
-    const notes = formData.get("notes") as string;
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const customerNumber = cleanText(formData.get("customerNumber"), { maxLength: LIMITS.line });
+    const orgNumber = cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line });
+    const brandColor = cleanText(formData.get("brandColor"), { maxLength: 20 });
+    const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
+    const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
+    const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
+    const phone = cleanPhone(formData.get("phone"));
+    const email = cleanEmail(formData.get("email"));
+    const notes = cleanMarkdown(formData.get("notes"));
 
     if (!name) return;
 
@@ -231,13 +233,12 @@ export default async function EditCustomerPage({
           {/* Noter */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Noter (valgfritt)</label>
-            <textarea 
-              name="notes" 
-              rows={4} 
-              defaultValue={customer.notes || ""} 
-              placeholder="Noter om kunden..." 
-              className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-            ></textarea>
+            <MarkdownEditor
+              name="notes"
+              rows={4}
+              defaultValue={customer.notes || ""}
+              placeholder="Noter om kunden..."
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">

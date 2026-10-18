@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
 
 /**
@@ -19,7 +20,7 @@ export async function deleteWorkOrder(formData: FormData) {
   const actor = await getCurrentUser();
   if (actor?.role !== "ADMIN") return;
 
-  const workOrderId = formData.get("workOrderId") as string;
+  const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
   if (!workOrderId) return;
 
   const target = await prisma.workOrder.findUnique({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
+import { markdownToPlainText } from "@/lib/markdown";
 
 // Hvor mange treff vi viser per kategori i hurtigsøket.
 const LIMIT = 5;
@@ -214,7 +215,7 @@ export async function GET(request: Request) {
         title: `${r.template?.title ?? "Rapport"} – ${r.workOrder.title}`,
         subtitle: joinInfo([
           r.workOrder.customer?.name,
-          r.comments ? r.comments.slice(0, 80) : null,
+          r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null,
           formatDay(r.completedAt),
         ]),
         href: `/oppdrag/${r.workOrderId}`,
@@ -232,9 +233,11 @@ export async function GET(request: Request) {
             : c.contact
               ? `/kunder/${c.contact.customerId}?tab=kontakter`
               : "/";
+        // Kommentaren kan inneholde Markdown; søketreffet viser ren tekst.
+        const text = markdownToPlainText(c.content);
         return {
           id: c.id,
-          title: c.content.length > 90 ? `${c.content.slice(0, 90)}…` : c.content,
+          title: text.length > 90 ? `${text.slice(0, 90)}…` : text,
           subtitle: joinInfo([
             c.workOrder?.title ?? c.customer?.name ?? c.contact?.name,
             c.authorName,

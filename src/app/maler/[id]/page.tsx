@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 
 export default async function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
@@ -30,7 +31,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
 
   async function updateTitle(formData: FormData) {
     "use server";
-    const title = formData.get("title") as string;
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     if (title) {
       await prisma.template.update({ where: { id: templateId }, data: { title } });
       revalidatePath(`/maler/${templateId}`);
@@ -39,7 +40,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
 
   async function addField(formData: FormData) {
     "use server";
-    const label = formData.get("label") as string;
+    const label = cleanText(formData.get("label"), { maxLength: LIMITS.title });
     const requirePhoto = formData.get("requirePhoto") === "on";
     const requireComment = formData.get("requireComment") === "on";
 

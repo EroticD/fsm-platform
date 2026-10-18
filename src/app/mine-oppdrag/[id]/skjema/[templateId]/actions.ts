@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { actorName, getCurrentUser, isOffice, isStaff } from "@/lib/session";
-import { lineCommentKey } from "@/lib/report-answers";
+import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
+import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 
 type TemplateField = {
   id: string;
@@ -55,17 +56,34 @@ function parseFields(fieldsJson: string | null | undefined): TemplateField[] {
 /** Leser sjekkpunktene for én enhet ut fra feltnavnene i skjemaet. */
 function readAnswers(formData: FormData, fields: TemplateField[], key: string) {
   const answers: Record<string, string | boolean> = {};
+
   for (const field of fields) {
-    const value = formData.get(`answer__${key}__${field.id}`);
-    answers[field.id] =
-      field.type === "CHECKBOX" ? value !== null : typeof value === "string" ? value : "";
+    const raw = formData.get(`answer__${key}__${field.id}`);
+
+    if (field.type === "CHECKBOX") {
+      answers[field.id] = raw !== null;
+    } else if (field.type === "IMAGE") {
+      // Bare bilder som er lastet opp i denne appen godtas, uansett hva det
+      // skjulte feltet måtte inneholde.
+      const urls = parseImageUrls(typeof raw === "string" ? raw : "").filter((url) =>
+        url.startsWith("/uploads/"),
+      );
+      answers[field.id] = JSON.stringify(urls);
+    } else if (field.type === "TEXTAREA") {
+      answers[field.id] = cleanMarkdown(typeof raw === "string" ? raw : "");
+    } else if (typeof raw === "string") {
+      answers[field.id] = cleanText(raw, { maxLength: LIMITS.text });
+    } else {
+      answers[field.id] = "";
+    }
 
     // Tilstandsfelt: kommentaren til linjen lagres sammen med svaret, slik at
     // rapporten viser "Utbedres – kommentar" på samme linje.
     const lineComment = formData.get(`linecomment__${key}__${field.id}`);
     answers[lineCommentKey(field.id)] =
-      typeof lineComment === "string" ? lineComment.trim() : "";
+      typeof lineComment === "string" ? cleanMarkdown(lineComment) : "";
   }
+
   return answers;
 }
 
@@ -127,8 +145,8 @@ export async function submitReport(formData: FormData) {
   // Rapportinnsending er en felt-handling: montører og kontor, ikke kunder.
   if (!isStaff(user.role)) redirect("/");
 
-  const workOrderId = formData.get("workOrderId") as string;
-  const templateId = (formData.get("templateId") as string) || null;
+  const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line }) || null;
   if (!workOrderId) return;
 
   const workOrder = await prisma.workOrder.findUnique({ where: { id: workOrderId } });
@@ -156,30 +174,33 @@ export async function submitReport(formData: FormData) {
   const unitRows = [];
 
   for (const [index, unit] of parseUnits(formData.get("unitsJson")).entries()) {
-    const label = (unit.label || "").trim();
+    const label = cleanText(unit.label, { maxLength: LIMITS.title });
     if (!label) continue; // hopper over tomme rader
 
     const status = formData.get(`status__${unit.key}`) === "AVVIK" ? "AVVIK" : "GODKJENT";
     unitStatus.push(status);
 
+    const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
+    const location = cleanText(unit.location, { maxLength: LIMITS.line }) || null;
+
     unitRows.push({
       productId: await resolveProductId(workOrder.customerId, {
         productId: unit.productId || "",
         label,
-        serialNumber: unit.serialNumber || "",
-        location: unit.location || "",
+        serialNumber: serialNumber ?? "",
+        location: location ?? "",
       }),
       label,
-      serialNumber: (unit.serialNumber || "").trim() || null,
-      location: (unit.location || "").trim() || null,
+      serialNumber,
+      location,
       status,
       answersJson: JSON.stringify(readAnswers(formData, fields, unit.key)),
-      comment: ((formData.get(`comment__${unit.key}`) as string) || "").trim() || null,
+      comment: cleanMarkdown(formData.get(`comment__${unit.key}`)) || null,
       sortOrder: index,
     });
   }
 
-  const text = (name: string) => ((formData.get(name) as string) || "").trim() || null;
+  const text = (name: string) => cleanText(formData.get(name), { maxLength: LIMITS.title }) || null;
 
   // Rapporten er "godkjent" bare når ingen av enhetene har avvik.
   const overallStatus = unitStatus.includes("AVVIK") ? "AVVIK" : "GODKJENT";
@@ -190,15 +211,17 @@ export async function submitReport(formData: FormData) {
   // signaturer beholdes hvis man ikke signerer på nytt ved en gjenopplåst
   // redigering.
   const data = {
-    comments: text("notes") ?? "",
+    comments: cleanMarkdown(formData.get("notes")),
     dataJson: JSON.stringify({
       status: overallStatus,
       answers: {},
       unitCount: unitRows.length,
     }),
-    technicianSignatureUrl: text("technicianSignature") ?? existing?.technicianSignatureUrl ?? null,
+    technicianSignatureUrl:
+      cleanDataImage(formData.get("technicianSignature")) || existing?.technicianSignatureUrl || null,
     technicianName: text("technicianName") ?? existing?.technicianName ?? null,
-    customerSignatureUrl: text("customerSignature") ?? existing?.customerSignatureUrl ?? null,
+    customerSignatureUrl:
+      cleanDataImage(formData.get("customerSignature")) || existing?.customerSignatureUrl || null,
     customerName: text("customerName") ?? existing?.customerName ?? null,
     isLocked: true,
     lockedAt: now,

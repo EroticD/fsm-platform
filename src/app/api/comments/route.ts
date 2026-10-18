@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
+import { markdownToPlainText } from "@/lib/markdown";
+import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+
+/** Kommentarer kan festes til disse tre tingene – og ikke noe annet. */
+const ENTITY_TYPES = ["workOrder", "customer", "contact"] as const;
 
 export async function POST(request: Request) {
   const session = await getServerSession();
@@ -14,17 +19,26 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { entityType, entityId, content, authorName } = body;
+  const entityType = String(body.entityType ?? "");
+  const entityId = cleanText(body.entityId, { maxLength: LIMITS.line });
+  const content = cleanMarkdown(body.content);
+  const authorName = cleanText(body.authorName, { maxLength: LIMITS.title }) || user.name || "Ukjent";
 
-  if (!entityType || !entityId || !content) {
+  if (!ENTITY_TYPES.includes(entityType as (typeof ENTITY_TYPES)[number])) {
+    return NextResponse.json({ error: "Ukjent type" }, { status: 400 });
+  }
+  if (!entityId || !content) {
     return NextResponse.json({ error: "Manglende felt" }, { status: 400 });
   }
 
   try {
-    const data: any = {
-      content,
-      authorName: authorName || user.name || "Ukjent",
-    };
+    const data: {
+      content: string;
+      authorName: string;
+      workOrderId?: string;
+      customerId?: string;
+      contactId?: string;
+    } = { content, authorName };
     if (entityType === "workOrder") data.workOrderId = entityId;
     if (entityType === "customer") data.customerId = entityId;
     if (entityType === "contact") data.contactId = entityId;
@@ -37,7 +51,7 @@ export async function POST(request: Request) {
       data: {
         entityType: entityType.charAt(0).toUpperCase() + entityType.slice(1),
         entityId,
-        action: `La til kommentar: "${content.substring(0, 50)}..."`,
+        action: `La til kommentar: "${markdownToPlainText(content).slice(0, 50)}..."`,
         userName: user.name || "Ukjent",
       },
     });

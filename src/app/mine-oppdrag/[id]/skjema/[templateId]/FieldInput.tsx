@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ImageUploadField from "@/components/ImageUploadField";
+import MarkdownEditor from "@/components/MarkdownEditor";
 import {
   commentTriggerOptions,
   fieldOptions,
@@ -52,7 +53,6 @@ function StatusInput({
   const options = fieldOptions(field);
   const triggers = commentTriggerOptions(field);
   const [value, setValue] = useState(asText(defaultValue));
-  const [comment, setComment] = useState(defaultComment ?? "");
   const mustComment = triggers.includes(value);
 
   // Rapporterer tilstanden både ved første visning (f.eks. en opplåst rapport)
@@ -102,14 +102,12 @@ function StatusInput({
           <label className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
             💬 Kommentar til «{value}» – påkrevd
           </label>
-          <textarea
+          <MarkdownEditor
             name={commentName}
             required
             rows={3}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            defaultValue={defaultComment}
             placeholder="Beskriv avviket eller hva som må utbedres på denne linjen ..."
-            className="w-full border-2 border-amber-300 p-3 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-amber-600"
           />
         </div>
       ) : (
@@ -177,13 +175,12 @@ export default function FieldInput({
           <label className="block text-sm font-black text-gray-900 mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
-          <textarea
+          <MarkdownEditor
             name={name}
             rows={3}
             required={field.required}
             defaultValue={asText(defaultValue)}
             placeholder="Utdypende svar..."
-            className={inputClass}
           />
         </div>
       );

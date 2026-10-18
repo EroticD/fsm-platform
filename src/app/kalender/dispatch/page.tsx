@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import { markdownToPlainText } from "@/lib/markdown";
+import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
 import { requireOffice } from "@/lib/session";
 
 // Hjelpekomponent for status-etikett
@@ -52,8 +54,8 @@ export default async function DispatchPage() {
   async function assignTechnician(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const workOrderId = formData.get("workOrderId") as string;
-    const technicianId = formData.get("technicianId") as string;
+    const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
 
     if (!workOrderId || !technicianId) return;
 
@@ -96,8 +98,8 @@ export default async function DispatchPage() {
   async function removeTechnician(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const workOrderId = formData.get("workOrderId") as string;
-    const technicianId = formData.get("technicianId") as string;
+    const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
 
     if (!workOrderId || !technicianId) return;
 
@@ -130,8 +132,8 @@ export default async function DispatchPage() {
   async function updateStatus(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const workOrderId = formData.get("workOrderId") as string;
-    const status = formData.get("status") as string;
+    const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+    const status = cleanStatus(formData.get("status"));
 
     if (!workOrderId || !status) return;
 
@@ -245,7 +247,9 @@ export default async function DispatchPage() {
                         )}
                       </p>
                       {wo.description && (
-                        <p className="text-[10px] text-gray-700 italic mt-1">{wo.description}</p>
+                        <p className="text-[10px] text-gray-700 italic mt-1">
+                          {markdownToPlainText(wo.description)}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">

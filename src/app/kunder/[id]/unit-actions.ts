@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 import { actorName, requireOffice } from "@/lib/session";
 
 /** Kort hjelper: henter enheten og sjekker at den faktisk tilhører kunden. */
@@ -15,10 +16,10 @@ async function findUnitForCustomer(id: string, customerId: string) {
 /** Registrerer en ny enhet (maskin/utstyr) på kunden. */
 export async function createUnit(formData: FormData) {
   if (!(await requireOffice())) return;
-  const customerId = formData.get("customerId") as string;
-  const model = (formData.get("model") as string)?.trim();
-  const serialNumber = (formData.get("serialNumber") as string)?.trim() || null;
-  const location = (formData.get("location") as string)?.trim() || null;
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
+  const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
+  const location = cleanText(formData.get("location"), { maxLength: LIMITS.line }) || null;
 
   if (!customerId || !model) return;
 
@@ -44,11 +45,11 @@ export async function createUnit(formData: FormData) {
 /** Oppdaterer navn, serienummer og plassering på en enhet. */
 export async function updateUnit(formData: FormData) {
   if (!(await requireOffice())) return;
-  const customerId = formData.get("customerId") as string;
-  const id = formData.get("id") as string;
-  const model = (formData.get("model") as string)?.trim();
-  const serialNumber = (formData.get("serialNumber") as string)?.trim() || null;
-  const location = (formData.get("location") as string)?.trim() || null;
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+  const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
+  const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
+  const location = cleanText(formData.get("location"), { maxLength: LIMITS.line }) || null;
 
   if (!model) return;
 
@@ -78,8 +79,8 @@ export async function updateUnit(formData: FormData) {
  */
 export async function deleteUnit(formData: FormData) {
   if (!(await requireOffice())) return;
-  const customerId = formData.get("customerId") as string;
-  const id = formData.get("id") as string;
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
 
   const unit = await findUnitForCustomer(id, customerId);
   if (!unit) return;

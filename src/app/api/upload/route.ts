@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { uploadDir } from "@/lib/uploads";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 
 export async function POST(request: Request) {
   const session = await getServerSession();
@@ -18,9 +19,18 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: "Ingen fil valgt" }), { status: 400 });
     }
 
-    // Valider filtype (bare bilder og PDF)
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
-    if (!allowedTypes.includes(file.type)) {
+    // Valider filtype (bare bilder og PDF). Endelsen utledes av typen, ikke av
+    // filnavnet brukeren oppgir – et filnavn kan inneholde «/» og «..», og skal
+    // aldri få bestemme hvor filen havner.
+    const allowedTypes: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "application/pdf": "pdf",
+    };
+    const fileExtension = allowedTypes[file.type];
+    if (!fileExtension) {
       return new Response(JSON.stringify({ error: "Ugyldig filtype. Bare bilder og PDF er tillatt." }), { status: 400 });
     }
 
@@ -30,8 +40,7 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: "Filen er for stor (maks 10MB)" }), { status: 400 });
     }
 
-    // Lag unik filnavn
-    const fileExtension = file.name.split(".").pop();
+    // Lag unikt filnavn
     const fileName = `${crypto.randomUUID()}.${fileExtension}`;
 
     // Filene ligger utenfor public/ og leses gjennom /uploads/[...sti].
@@ -54,7 +63,9 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({
       success: true,
       fileUrl,
-      fileName: file.name,
+      // Filnavnet vises bare i grensesnittet; det lagres ikke og brukes aldri
+      // som sti på disk (se filnavnet over).
+      fileName: cleanText(file.name, { maxLength: LIMITS.line }),
       fileSize: file.size,
       fileType: file.type
     }), { status: 200 });

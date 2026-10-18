@@ -16,6 +16,9 @@ signerte servicerapporten kan lastes ned som PDF.
   portalbrukere som bare ser sin egen bedrift.
 - **Rapportering** – dashboard med nøkkeltall, globalt søk (⌘K / `/`) og
   aktivitetslogg for alle endringer.
+- **Markdown i fritekst** – beskrivelser, notater, kommentarer og fritekstsvar i
+  rapporter skrives med en enkel formateringslinje, og vises likt på nettsiden og
+  i PDF-en.
 
 ## Kom i gang lokalt
 
@@ -87,8 +90,12 @@ Alle variabler er dokumentert i [`.env.example`](.env.example). De viktigste:
   aktiveres manuelt; brukeren setter passordet sitt via en invitasjonslenke.
 - **@react-pdf/renderer** genererer servicerapporten på serveren, slik at PDF-en
   også virker uten JavaScript i nettleseren.
+- **Markdown** (Obsidian-syntaks + GFM) i fritekstfeltene, med felles oppsett i
+  `src/lib/markdown.ts`: `MarkdownEditor` i skjemaene, `MarkdownView` på
+  nettsiden og `MarkdownPdf` i rapporten. All tekst blir renset i
+  `src/lib/sanitize.ts` før den lagres, og Markdown-viseren tolker aldri HTML.
 - **Tailwind CSS 4** med et lyst tema.
-- Roller: `ADMIN`, `TECHNICIAN` og `CUSTOMER`.
+- Roller: `ADMIN`, `OFFICE`, `TECHNICIAN` og `CUSTOMER`.
 
 ### Datamodell i korte trekk
 
@@ -106,6 +113,10 @@ eller enheten redigeres senere.
   enkelt rute.
 - `.env` er ignorert av git. Del aldri filen, og roter passordet om det har vært
   eksponert.
+- Alle skjemafelt renses på serveren før de lagres (`src/lib/sanitize.ts`): HTML,
+  skript og kontrolltegn fjernes, lengdene begrenses, og e-post, telefon, lenker,
+  farger, roller og statuser valideres. Fritekst beholder Markdown, men viseren
+  tolker aldri HTML – og e-postmalene escaper verdiene sine.
 
 ## Kjente gjeldsposter
 
@@ -115,6 +126,8 @@ eller enheten redigeres senere.
   ryddes gradvis.
 - Eldre sider under `src/app/maler/` er erstattet av mal-byggeren under
   `src/app/innstillinger/maler/` og kan fjernes.
+- `JobComment`-modellen i `schema.prisma` er ikke lenger i bruk (kommentarer
+  lagres i `Comment`) og kan fjernes i en egen migrasjon.
 
 ## Lisens
 

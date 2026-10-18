@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
+import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 
 export async function POST(request: Request) {
   const session = await getServerSession();
@@ -14,17 +15,16 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const title = formData.get("title") as string;
-  const description = formData.get("description") as string;
-  const customerId = formData.get("customerId") as string;
-  const scheduledForStr = formData.get("scheduledFor") as string;
-  const templateId = formData.get("templateId") as string;
+  const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
+  const description = cleanMarkdown(formData.get("description"));
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const scheduledForStr = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
+  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
 
-  if (!title || !scheduledForStr) {
+  const scheduledFor = scheduledForStr ? new Date(scheduledForStr) : null;
+  if (!title || !scheduledFor || Number.isNaN(scheduledFor.getTime())) {
     return NextResponse.json({ error: "Manglende felt" }, { status: 400 });
   }
-
-  const scheduledFor = new Date(scheduledForStr);
 
   const newWo = await prisma.workOrder.create({
     data: {

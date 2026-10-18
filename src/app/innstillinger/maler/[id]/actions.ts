@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { isOffice } from "@/lib/session";
+import { LIMITS, cleanText } from "@/lib/sanitize";
+import { cleanTemplateFieldsJson } from "@/lib/template-fields";
 
 export async function saveTemplate(formData: FormData) {
   const session = await getServerSession();
@@ -11,9 +13,9 @@ export async function saveTemplate(formData: FormData) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!isOffice(user?.role)) return;
   
-  const id = formData.get("id") as string;
-  const title = formData.get("title") as string;
-  const fieldsJson = formData.get("fieldsJson") as string;
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+  const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
+  const fieldsJson = cleanTemplateFieldsJson(formData.get("fieldsJson"));
 
   if (!title || !id) return;
 
@@ -25,7 +27,7 @@ export async function saveTemplate(formData: FormData) {
       where: { id },
       data: {
         title,
-        fieldsJson: fieldsJson || "[]",
+        fieldsJson: fieldsJson,
       },
     });
     await prisma.auditLog.create({

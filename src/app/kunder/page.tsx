@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { getCurrentUser, isOffice, requireOffice } from "@/lib/session";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 
 export default async function KunderPage() {
   // Sjekk at brukeren er logget inn
@@ -24,13 +25,13 @@ export default async function KunderPage() {
     "use server";
     if (!(await requireOffice())) return;
     
-    const name = formData.get("name") as string;
-    const orgNumber = formData.get("orgNumber") as string;
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const orgNumber = cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line });
 
     if (name) {
       // Lagrer i databasen
       await prisma.customer.create({
-        data: { name, orgNumber },
+        data: { name, orgNumber: orgNumber || null },
       });
       // Oppdaterer siden umiddelbart slik at den nye kunden vises
       revalidatePath("/kunder"); 

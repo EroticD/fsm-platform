@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
+import { LIMITS, cleanText } from "@/lib/sanitize";
 
 export async function PATCH(
   request: Request,
@@ -13,16 +14,17 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { newDate } = body;
+  const newDate = cleanText(body.newDate, { maxLength: LIMITS.line });
 
-  if (!newDate) {
+  const scheduledFor = newDate ? new Date(newDate) : null;
+  if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
     return NextResponse.json({ error: "Dato mangler" }, { status: 400 });
   }
 
   try {
     await prisma.workOrder.update({
       where: { id },
-      data: { scheduledFor: new Date(newDate) },
+      data: { scheduledFor },
     });
     return NextResponse.json({ success: true });
   } catch (error) {

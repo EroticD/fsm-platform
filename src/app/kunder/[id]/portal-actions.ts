@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
+import { LIMITS, cleanEmail, cleanText } from "@/lib/sanitize";
 import { actorName, requireOffice } from "@/lib/session";
 
 /**
@@ -13,10 +14,10 @@ import { actorName, requireOffice } from "@/lib/session";
  */
 export async function createPortalUser(formData: FormData) {
   if (!(await requireOffice())) return;
-  const customerId = formData.get("customerId") as string;
-  const name = (formData.get("name") as string)?.trim();
-  const email = (formData.get("email") as string)?.trim().toLowerCase();
-  const contactId = formData.get("contactId") as string;
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+  const email = cleanEmail(formData.get("email"));
+  const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
 
   if (!customerId) return;
   if (!name || !email || !contactId) {
@@ -65,8 +66,8 @@ export async function createPortalUser(formData: FormData) {
 /** Aktiverer eller deaktiverer en kundeportalbruker. */
 export async function setPortalUserActive(formData: FormData) {
   if (!(await requireOffice())) return;
-  const customerId = formData.get("customerId") as string;
-  const id = formData.get("id") as string;
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const active = formData.get("active") === "true";
   if (!customerId || !id) return;
 
@@ -88,8 +89,8 @@ export async function setPortalUserActive(formData: FormData) {
 /** Lager en ny invitasjonslenke for en kundeportalbruker. */
 export async function resendPortalInvite(formData: FormData) {
   if (!(await requireOffice())) return;
-  const customerId = formData.get("customerId") as string;
-  const id = formData.get("id") as string;
+  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!customerId || !id) return;
 
   const user = await prisma.user.findUnique({ where: { id } });

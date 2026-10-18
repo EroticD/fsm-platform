@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import CustomerSelect from "./CustomerSelect";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { createWorkOrderSchema } from "./schemas";
 import { z } from "zod";
 
@@ -20,10 +22,10 @@ export default async function AdminCreateWorkOrderPage() {
   async function createWorkOrder(formData: FormData): Promise<void> {
     "use server";
 
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const customerId = formData.get("customerId") as string;
-    const dateInput = formData.get("scheduledFor") as string;
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
+    const description = cleanMarkdown(formData.get("description"));
+    const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+    const dateInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
     const scheduledFor = dateInput ? new Date(dateInput) : new Date();
 
     const technicianIds = formData.getAll("technicianIds") as string[];
@@ -139,7 +141,7 @@ export default async function AdminCreateWorkOrderPage() {
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Beskrivelse / Instrukser</label>
-            <textarea name="description" rows={3} placeholder="Skriv instruksjoner til montøren..." className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"></textarea>
+            <MarkdownEditor name="description" rows={3} placeholder="Skriv instruksjoner til montøren..." />
           </div>
 
           <button type="submit" className="w-full bg-[var(--primary-color)] text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">

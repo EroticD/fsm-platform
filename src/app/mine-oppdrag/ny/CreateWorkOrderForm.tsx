@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import MarkdownEditor from "@/components/MarkdownEditor";
 
 export default function CreateWorkOrderForm({ customers, templates }: { customers: any[], templates: any[] }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,7 +112,7 @@ export default function CreateWorkOrderForm({ customers, templates }: { customer
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Beskrivelse / Instruks</label>
-            <textarea name="description" rows={3} placeholder="Hva skal gjøres?" className="w-full border p-3 rounded-xl text-sm text-gray-800"></textarea>
+            <MarkdownEditor name="description" rows={3} placeholder="Hva skal gjøres?" />
           </div>
 
           <button type="submit" className="w-full bg-[var(--primary-color)] text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
