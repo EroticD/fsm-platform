@@ -1,0 +1,368 @@
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import ConfirmSubmitForm from "./ConfirmSubmitForm";
+
+// Hjelpekomponent for status-etikett
+function DispatchStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'COMPLETED': return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200 shadow-sm">✅ Fullført</span>;
+    case 'IN_PROGRESS': return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm">🔄 Påbegynt</span>;
+    case 'CANCELLED': return <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold border border-red-200 shadow-sm">❌ Kansellert</span>;
+    case 'OPEN': return <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm">✨ Åpen</span>;
+    case 'PENDING': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">⏳ Planlagt</span>;
+    case 'PLANNED': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">📅 Planlagt</span>;
+    case 'WAITING': return <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold border border-orange-200 shadow-sm">⏸️ Venter</span>;
+    default: return <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-bold border border-gray-200 shadow-sm">{status}</span>;
+  }
+}
+
+export default async function DispatchPage() {
+  const session = await getServerSession();
+  if (!session || !session.user?.email) redirect("/api/auth/signin");
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
+
+  // Hent alle åpne oppdrag som ikke er fullført eller kansellert
+  const workOrders = await prisma.workOrder.findMany({
+    where: {
+      status: { notIn: ['COMPLETED', 'CANCELLED'] as any }
+    },
+    include: {
+      customer: true,
+      technicians: true,
+      product: true
+    },
+    orderBy: {
+      scheduledFor: 'asc'
+    }
+  });
+
+  // Hent alle tilgjengelige montører (ADMIN, TECHNICIAN, OFFICE)
+  const availableTechnicians = await prisma.user.findMany({
+    where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] as any } },
+    orderBy: { name: 'asc' }
+  });
+
+  // --- SERVER ACTION: TILDEL MONTØR ---
+  async function assignTechnician(formData: FormData) {
+    "use server";
+    const workOrderId = formData.get("workOrderId") as string;
+    const technicianId = formData.get("technicianId") as string;
+
+    if (!workOrderId || !technicianId) return;
+
+    try {
+      // Sjekk om montøren allerede er tildelt
+      const existing = await prisma.workOrder.findUnique({
+        where: { id: workOrderId },
+        include: { technicians: true }
+      });
+
+      const alreadyAssigned = existing?.technicians.some(t => t.id === technicianId);
+
+      if (!alreadyAssigned) {
+        await prisma.workOrder.update({
+          where: { id: workOrderId },
+          data: {
+            technicians: {
+              connect: { id: technicianId }
+            }
+          }
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            entityType: "WorkOrder",
+            entityId: workOrderId,
+            action: `Kontoret tildelte montør til oppdraget`,
+            userName: user?.name || "Kontor"
+          }
+        });
+      }
+
+      revalidatePath("/kalender/dispatch");
+    } catch (error) {
+      console.error("Feil ved tildeling av montør:", error);
+    }
+  }
+
+  // --- SERVER ACTION: FJERN MONTØR ---
+  async function removeTechnician(formData: FormData) {
+    "use server";
+    const workOrderId = formData.get("workOrderId") as string;
+    const technicianId = formData.get("technicianId") as string;
+
+    if (!workOrderId || !technicianId) return;
+
+    try {
+      await prisma.workOrder.update({
+        where: { id: workOrderId },
+        data: {
+          technicians: {
+            disconnect: { id: technicianId }
+          }
+        }
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          entityType: "WorkOrder",
+          entityId: workOrderId,
+          action: `Kontoret fjernet montør fra oppdraget`,
+          userName: user?.name || "Kontor"
+        }
+      });
+
+      revalidatePath("/kalender/dispatch");
+    } catch (error) {
+      console.error("Feil ved fjerning av montør:", error);
+    }
+  }
+
+  // --- SERVER ACTION: OPPRETT STATUS ---
+  async function updateStatus(formData: FormData) {
+    "use server";
+    const workOrderId = formData.get("workOrderId") as string;
+    const status = formData.get("status") as string;
+
+    if (!workOrderId || !status) return;
+
+    try {
+      await prisma.workOrder.update({
+        where: { id: workOrderId },
+        data: { status: status as any }
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          entityType: "WorkOrder",
+          entityId: workOrderId,
+          action: `Kontoret endret status til: ${status}`,
+          userName: user?.name || "Kontor"
+        }
+      });
+
+      revalidatePath("/kalender/dispatch");
+    } catch (error) {
+      console.error("Feil ved oppdatering av status:", error);
+    }
+  }
+
+  // Sorter oppdrag: utdelte først, så tildelte
+  const unassigned = workOrders.filter(wo => wo.technicians.length === 0);
+  const assigned = workOrders.filter(wo => wo.technicians.length > 0);
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">🎛️ Dispatch & Ressursstyring</h1>
+            <p className="text-gray-600 text-sm">Fordel montører på åpne oppdrag.</p>
+          </div>
+          <div className="flex gap-2">
+            <Link href="/kalender" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm whitespace-nowrap">
+              &larr; Tilbake til kalender
+            </Link>
+          </div>
+        </div>
+
+        {/* FANER (TABS) FOR Å BYTTE VISNING */}
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-1 bg-gray-200 p-1 rounded-xl min-w-max">
+            <Link href="/kalender" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
+              🎛️ Ressursoversikt
+            </Link>
+            <Link href="/kalender/maned" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
+              📅 Måned
+            </Link>
+            <Link href="/kalender/uke" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
+              📅 Uke
+            </Link>
+            <Link href="/kalender/uke-2" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
+              📅 2 uker
+            </Link>
+            <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-gray-900 pointer-events-none whitespace-nowrap">
+              🎛️ Dispatch
+            </Link>
+          </div>
+        </div>
+
+        {/* ANTALL UTASSIGNERTE */}
+        {unassigned.length > 0 && (
+          <div className="bg-amber-50 border-2 border-amber-200 p-4 rounded-xl shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-amber-800 text-lg flex items-center gap-2">
+                  ⚠️ Uten montør ({unassigned.length})
+                </h2>
+                <p className="text-amber-700 text-sm mt-1">Disse oppdragene mangler montør og må fordeles.</p>
+              </div>
+              <Link href="/kalender/dispatch" className="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-700 transition whitespace-nowrap text-sm">
+                Oppdater
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* UTASSIGNERTE OPPDRAG */}
+        {unassigned.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 p-4 border-b border-gray-200">
+              <h2 className="font-bold text-lg text-gray-900">Ikke tildelt montør</h2>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {unassigned.map(wo => (
+                <div key={wo.id} className="p-4 hover:bg-gray-50 transition">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-base">
+                          <Link
+                            href={`/oppdrag/${wo.id}`}
+                            className="text-gray-900 hover:text-blue-700 hover:underline transition-colors"
+                          >
+                            {wo.title}
+                          </Link>
+                        </h3>
+                        <DispatchStatusBadge status={wo.status} />
+                      </div>
+                      <p className="text-[10px] text-gray-600">
+                        🏢 {wo.customer?.name || "Uten kunde"}
+                        {wo.product && <span className="text-gray-400 ml-1">• {wo.product.model}</span>}
+                        {wo.scheduledFor && (
+                          <span className="text-gray-400 ml-2">📅 {new Date(wo.scheduledFor).toLocaleDateString("no-NO")}</span>
+                        )}
+                      </p>
+                      {wo.description && (
+                        <p className="text-[10px] text-gray-700 italic mt-1">{wo.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ConfirmSubmitForm
+                        action={assignTechnician}
+                        confirmMessage="Tildel montør til dette oppdraget?"
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="workOrderId" value={wo.id} />
+                        <select
+                          name="technicianId"
+                          required
+                          className="border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-600"
+                        >
+                          <option value="">-- Velg montør --</option>
+                          {availableTechnicians.map(t => (
+                            <option key={t.id} value={t.id}>{t.name} ({t.role === 'ADMIN' ? 'Admin' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'})</option>
+                          ))}
+                        </select>
+                        <button type="submit" className="bg-[var(--primary-color)] text-white px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition whitespace-nowrap">
+                          Tildel
+                        </button>
+                      </ConfirmSubmitForm>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TILDELTE OPPDRAG */}
+        {assigned.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
+            <div className="bg-gray-50 p-4 border-b border-gray-200">
+              <h2 className="font-bold text-lg text-gray-900">Tildelte oppdrag</h2>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {assigned.map(wo => (
+                <div key={wo.id} className="p-4 hover:bg-gray-50 transition">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-base">
+                          <Link
+                            href={`/oppdrag/${wo.id}`}
+                            className="text-gray-900 hover:text-blue-700 hover:underline transition-colors"
+                          >
+                            {wo.title}
+                          </Link>
+                        </h3>
+                        <DispatchStatusBadge status={wo.status} />
+                      </div>
+                      <p className="text-[10px] text-gray-600">
+                        🏢 {wo.customer?.name || "Uten kunde"}
+                        {wo.technicians.map(t => t.name).join(", ")}
+                      </p>
+                      {wo.scheduledFor && (
+                        <p className="text-[10px] text-gray-500">
+                          📅 {new Date(wo.scheduledFor).toLocaleDateString("no-NO")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ConfirmSubmitForm
+                        action={removeTechnician}
+                        confirmMessage="Fjern montør fra dette oppdraget?"
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="workOrderId" value={wo.id} />
+                        <select
+                          name="technicianId"
+                          required
+                          className="border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-600"
+                        >
+                          {wo.technicians.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                        <button type="submit" className="bg-red-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition whitespace-nowrap">
+                          Fjern
+                        </button>
+                      </ConfirmSubmitForm>
+                      <form action={updateStatus} className="flex items-center gap-2">
+                        <input type="hidden" name="workOrderId" value={wo.id} />
+                        <select
+                          name="status"
+                          required
+                          className="border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-600"
+                        >
+                          <option value={wo.status}>{wo.status === 'OPEN' ? 'Åpen' : wo.status === 'IN_PROGRESS' ? 'Påbegynt' : wo.status === 'COMPLETED' ? 'Fullført' : wo.status === 'CANCELLED' ? 'Kansellert' : wo.status === 'PENDING' ? 'Planlagt' : wo.status === 'PLANNED' ? 'Planlagt' : wo.status === 'WAITING' ? 'Venter' : wo.status}</option>
+                          <option value="OPEN">Åpen</option>
+                          <option value="IN_PROGRESS">Påbegynt</option>
+                          <option value="WAITING">Venter</option>
+                          <option value="COMPLETED">Fullført</option>
+                          <option value="CANCELLED">Kansellert</option>
+                          <option value="PENDING">Planlagt</option>
+                          <option value="PLANNED">Planlagt</option>
+                        </select>
+                        <button type="submit" className="bg-gray-900 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition whitespace-nowrap">
+                          Oppdater
+                        </button>
+                      </form>
+                      <Link href={`/oppdrag/${wo.id}`} className="text-blue-600 text-xs font-bold hover:underline whitespace-nowrap">
+                        Se detaljer &rarr;
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {workOrders.length === 0 && (
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+            <p className="text-gray-500 italic">Ingen åpne oppdrag å fordele.</p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}

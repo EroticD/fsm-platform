@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("TECHNICIAN")
+
+  password         String?
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  isTwoFactorEnabled Boolean @default(false)
+  twoFactorSecret    String?
+
+  // Konto må aktiveres manuelt av en administrator før innlogging er tillatt
+  isActive Boolean @default(false)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  // Kundeportalbrukere kobles til en kontaktperson på kundekortet
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  workOrders WorkOrder[] @relation("WorkOrderTechnicians")
+}
+
+model Customer {
+  id             String  @id @default(cuid())
+  name           String
+  customerNumber String?
+  orgNumber      String?
+  brandColor     String?
+  logoUrl        String?
+
+  address    String?
+  postalCode String?
+  city       String?
+  phone      String?
+  email      String?
+  notes      String?
+
+  products   Product[]
+  contracts  Contract[]
+  workOrder  WorkOrder[]
+  contacts   Contact[]
+  comments   Comment[]
+
+  users User[]
+
+  @@index([email])
+  @@index([orgNumber])
+}
+
+model Contact {
+  id    String  @id @default(cuid())
+  name  String
+  email String?
+  phone String?
+  role  String?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  workOrder WorkOrder[]
+  comments  Comment[]
+  users     User[]
+}
+
+// En enhet er en maskin/utstyr som står hos kunden, f.eks. en port, en pumpe
+// eller et aggregat. Kunden kan ha mange enheter.
+model Product {
+  id           String  @id @default(cuid())
+  model        String
+  serialNumber String?
+  location     String?
+
+  customerId String
+  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  workOrder  WorkOrder[]
+  reportUnits ReportUnit[]
+
+  @@index([customerId])
+}
+
+model Contract {
+  id        String   @id @default(cuid())
+  title     String
+  interval  String
+  startDate DateTime
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+}
+
+enum WorkStatus {
+  PLANNED
+  IN_PROGRESS
+  WAITING
+  COMPLETED
+  PENDING
+  CANCELLED
+  OPEN
+}
+
+model WorkOrder {
+  id           String     @id @default(cuid())
+  title        String
+  description  String?
+  scheduledFor DateTime?
+  status       WorkStatus @default(PLANNED)
+  creatorName  String?
+
+  technicians User[] @relation("WorkOrderTechnicians")
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  comments    JobComment[]
+  attachments Attachment[]
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  templates    Template[] @relation("WorkOrderTemplates")
+  reports      Report[]
+  workComments Comment[]  @relation("WorkOrderComments")
+  @@index([customerId])
+  @@index([status])
+  @@index([scheduledFor])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  dataJson    String
+  comments    String?
+  completedAt DateTime @default(now())
+
+  // Signaturer. Tekniker og kunde signerer hver for seg, og begge er valgfrie
+  // (en jobb kan signeres av bare én av partene).
+  technicianSignatureUrl String?
+  technicianName         String?
+  customerSignatureUrl   String?
+  customerName           String?
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  templateId String?
+  template   Template? @relation(fields: [templateId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Rapporten låses automatisk når den er fylt ut, og kan ikke endres igjen før
+  // en administrator låser den opp. Det hindrer at en signert rapport endres i
+  // ettertid – noe som er viktig for sporbarheten.
+  isLocked     Boolean   @default(false)
+  lockedAt     DateTime?
+  lockedByName String?
+
+  units ReportUnit[]
+
+  @@index([workOrderId])
+}
+
+// Én enhet som inngår i en rapport. Feltene er øyeblikksbilder av enheten slik
+// den var da rapporten ble skrevet, slik at rapporten forblir lesbar selv om
+// enheten endres eller slettes på kundekortet senere.
+model ReportUnit {
+  id           String  @id @default(cuid())
+  label        String
+  serialNumber String?
+  location     String?
+
+  // GODKJENT | AVVIK – samme verdier som hovedresultatet.
+  status      String  @default("GODKJENT")
+  answersJson String  @default("{}")
+  comment     String?
+
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([reportId])
+  @@index([productId])
+}
+
+model Template {
+  id         String      @id @default(cuid())
+  title      String
+  fieldsJson String
+  reports    Report[]
+  workOrder  WorkOrder[] @relation("WorkOrderTemplates")
+}
+
+model JobComment {
+  id         String   @id @default(cuid())
+  text       String
+  authorName String
+  createdAt  DateTime @default(now())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+}
+
+model Attachment {
+  id       String @id @default(cuid())
+  fileName String
+  dataUrl  String
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  @@index([workOrderId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  userName   String
+  createdAt  DateTime @default(now())
+
+  @@index([entityType])
+  @@index([entityId])
+}
+
+model Branding {
+  id           String   @id @default(cuid())
+  companyName  String   @default("Min Bedrift")
+  logoUrl      String?
+  primaryColor String   @default("#2563eb")
+  updatedAt    DateTime @updatedAt
+}
+
+model Comment {
+  id          String    @id @default(cuid())
+  content     String
+  authorName  String?
+  workOrderId String?
+  workOrder   WorkOrder? @relation("WorkOrderComments", fields: [workOrderId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([workOrderId])
+  @@index([customerId])
+  @@index([contactId])
+}

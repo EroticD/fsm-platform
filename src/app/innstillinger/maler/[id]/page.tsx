@@ -1,0 +1,53 @@
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import Link from "next/link";
+import TemplateBuilder from "./TemplateBuilder";
+import { saveTemplate } from "./actions";
+
+export default async function EditTemplatePage({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}) {
+  const session = await getServerSession();
+  if (!session || !session.user?.email) redirect("/api/auth/signin");
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
+
+  const resolvedParams = await params;
+  
+  const template = await prisma.template.findUnique({
+    where: { id: resolvedParams.id }
+  });
+
+  if (!template) redirect("/innstillinger?tab=maler");
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
+      <div className="max-w-3xl mx-auto space-y-6">
+        
+        {/* HEADER */}
+        <div className="flex justify-between items-center border-b pb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">📝 Rediger Mal</h1>
+            <p className="text-gray-500 mt-1 text-sm">Bygg opp skjemaet visuelt.</p>
+          </div>
+          <Link href="/innstillinger?tab=maler" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
+            &larr; Avbryt
+          </Link>
+        </div>
+
+        {/* DEN VISUELLE BYGGEREN */}
+        <TemplateBuilder 
+          initialTitle={template.title} 
+          initialFieldsJson={template.fieldsJson || "[]"} 
+          saveAction={saveTemplate}
+          templateId={template.id}
+        />
+
+      </div>
+    </div>
+  );
+}

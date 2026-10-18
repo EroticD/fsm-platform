@@ -30,8 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — real environment files with secrets are ignored,
+# but .env.example is committed as a template for new developers.
+.env
+.env.local
+.env.*.local
 
 # vercel
 .vercel
@@ -39,3 +42,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+node_modules/
+dist/
+
+# bilder og vedlegg lastet opp i drift – ikke kildekode.
+# Mappen holdes i git (.gitkeep) slik at opplasting virker etter kloning.
+/uploads/*
+!/uploads/.gitkeep
+
+# lokale hjelpefiler fra AI-assistenter
+.claude/
+.cursor/
+.agents/
+.devin/

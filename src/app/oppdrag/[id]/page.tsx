@@ -1,0 +1,579 @@
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import GoogleMapsLink from "@/components/GoogleMapsLink";
+import AuditLogTable from "@/components/AuditLogTable";
+import CommentSection from "@/components/CommentSection";
+import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
+
+function StatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'COMPLETED': return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200 shadow-sm">✅ Fullført</span>;
+    case 'IN_PROGRESS': return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm">🔄 Påbegynt</span>;
+    case 'CANCELLED': return <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold border border-red-200 shadow-sm">❌ Kansellert</span>;
+    case 'OPEN': return <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm">✨ Åpen</span>;
+    case 'PLANNED': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">📅 Planlagt</span>;
+    case 'WAITING': return <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold border border-orange-200 shadow-sm">⏸️ Venter</span>;
+    default: return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">⏳ Planlagt</span>;
+  }
+}
+
+type ReportField = {
+  id: string;
+  type?: string;
+  label?: string;
+  options?: string[];
+  commentOptions?: string[];
+};
+
+type ReportUnitView = {
+  id: string;
+  label: string;
+  serialNumber: string | null;
+  location: string | null;
+  status: string;
+  answersJson: string;
+  comment: string | null;
+};
+
+function ReportContent({ report, template }: { report: any; template: any }) {
+  let reportStatus = "UKJENT";
+  let parsedAnswers: Record<string, unknown> = {};
+
+  if (report?.dataJson) {
+    try {
+      const parsed = JSON.parse(report.dataJson);
+      reportStatus = parsed.status || "UKJENT";
+      parsedAnswers = parsed.answers || {};
+    } catch {}
+  }
+
+  let fields: ReportField[] = [];
+  if (template?.fieldsJson) {
+    try {
+      const parsed = JSON.parse(template.fieldsJson);
+      if (Array.isArray(parsed)) fields = parsed;
+    } catch {}
+  }
+
+  const units: ReportUnitView[] = report?.units ?? [];
+
+  // Viser svaret på ett sjekkpunkt. Brukes både for enheter og for eldre rapporter.
+  const renderAnswer = (field: ReportField, answer: unknown) => {
+    if (field.type === "CHECKBOX") {
+      return (
+        <span className={answer ? "text-green-700 font-black" : "text-gray-500 font-bold"}>
+          {answer ? "Ja / Utført" : "Nei / Ikke krysset av"}
+        </span>
+      );
+    }
+    if (field.type === "STATUS") {
+      return answer ? (
+        <span className={needsComment(field, answer) ? "text-red-800 font-black" : "text-green-800 font-black"}>
+          {String(answer)}
+        </span>
+      ) : (
+        <span className="text-gray-400">Ikke vurdert</span>
+      );
+    }
+    if (field.type === "SIGNATURE") {
+      return (
+        <span className="text-blue-800 font-black bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block">
+          ✍️ {answer ? `Signert av: ${String(answer)}` : "Ikke signert"}
+        </span>
+      );
+    }
+    if (field.type === "IMAGE") {
+      const urls = parseImageUrls(answer);
+      if (urls.length === 0) return <span className="text-gray-400">Ikke vedlagt</span>;
+      return (
+        <span className="flex flex-wrap gap-2">
+          {urls.map((url, index) => (
+            <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer" className="block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt={`Vedlegg ${index + 1}`}
+                className="h-20 w-20 object-cover rounded-lg border-2 border-gray-200 bg-white hover:border-blue-400 transition"
+              />
+            </a>
+          ))}
+        </span>
+      );
+    }
+    return (
+      <span className="text-gray-900 font-medium italic">
+        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-gray-400">Ikke besvart</span>}
+      </span>
+    );
+  };
+
+  /** Én linje i rapporten: sjekkpunktet, svaret og eventuell kommentar til linjen. */
+  const fieldRow = (field: ReportField, answers: Record<string, unknown>, key: string) => {
+    const comment = readLineComment(answers, field.id);
+    const alert = needsComment(field, answers[field.id]);
+    return (
+      <div key={key} className="text-sm">
+        <div className={alert ? "text-red-800 font-bold" : undefined}>
+          <span className="font-bold text-gray-900">{field.label}: </span>
+          {renderAnswer(field, answers[field.id])}
+        </div>
+        {comment && (
+          <p className="text-[13px] text-amber-900 bg-amber-50 border-l-4 border-amber-300 pl-2 py-1 mt-1 rounded-r font-medium">
+            💬 {comment}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const signatureBlock = (label: string, url?: string | null, name?: string | null) => {
+    if (!url && !name) return null;
+    return (
+      <div className="bg-gray-50 p-3 rounded-xl border-2 border-gray-200">
+        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+        {url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt={label} className="h-20 bg-white border border-gray-200 rounded" />
+        )}
+        <p className="text-sm font-bold text-gray-900 mt-1">{name || "Uten navn"}</p>
+      </div>
+    );
+  };
+
+  const technicianSignature = signatureBlock("✍️ Montør / tekniker", report?.technicianSignatureUrl, report?.technicianName);
+  const customerSignature = signatureBlock("✍️ Kunde", report?.customerSignatureUrl, report?.customerName);
+
+  return (
+    <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm text-sm space-y-4">
+      <div className="flex gap-2 items-center">
+        <span className="text-gray-500 font-black uppercase text-xs tracking-wider">Hovedresultat:</span>
+        <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
+          {reportStatus === "GODKJENT" ? "✅ Godkjent / Utført" : "❌ Avvik funnet"}
+        </span>
+      </div>
+
+      {/* ENHETER */}
+      {units.length > 0 && (
+        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-3">
+          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">
+            Enheter som ble kontrollert ({units.length})
+          </p>
+
+          {units.map((unit, index: number) => {
+            let answers: Record<string, unknown> = {};
+            try {
+              answers = JSON.parse(unit.answersJson || "{}");
+            } catch {}
+
+            return (
+              <div key={unit.id} className="border-2 border-gray-200 rounded-xl overflow-hidden">
+                <div className="flex flex-wrap justify-between items-center gap-2 bg-gray-50 px-3 py-2 border-b-2 border-gray-200">
+                  <div>
+                    <p className="font-black text-gray-900 text-sm">{index + 1}. {unit.label}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
+                      {unit.location ? ` • ${unit.location}` : ""}
+                    </p>
+                  </div>
+                  <span className={`font-bold px-3 py-1 rounded-full text-[11px] border ${unit.status === "AVVIK" ? "bg-red-100 text-red-800 border-red-200" : "bg-green-100 text-green-800 border-green-200"}`}>
+                    {unit.status === "AVVIK" ? "❌ Avvik" : "✅ Godkjent"}
+                  </span>
+                </div>
+
+                {fields.length > 0 && (
+                  <div className="p-3 space-y-2 bg-white">
+                    {fields.map((field) => fieldRow(field, answers, field.id))}
+                  </div>
+                )}
+
+                {unit.comment && (
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 px-3 py-2 border-t-2 border-gray-200 italic font-medium">
+                    &quot;{unit.comment}&quot;
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* SJEKKPUNKTER (eldre rapporter som ikke har enheter) */}
+      {units.length === 0 && fields.length > 0 && (
+        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
+          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">Svar på sjekkpunkter:</p>
+          <div className="bg-gray-50 p-3 rounded-xl space-y-2 border-2 border-gray-200">
+            {fields.map((field) => fieldRow(field, parsedAnswers, field.id))}
+          </div>
+        </div>
+      )}
+
+      {/* SIGNATURER */}
+      {(technicianSignature || customerSignature) && (
+        <div className="border-t-2 border-gray-200 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {technicianSignature}
+          {customerSignature}
+        </div>
+      )}
+
+      {report?.comments && (
+        <div className="border-t-2 border-gray-200 pt-3">
+          <span className="text-gray-500 font-black uppercase text-xs tracking-wider block mb-1">Generelle notater fra montør:</span>
+          <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg border-2 border-gray-200 italic font-medium">
+            &quot;{report.comments}&quot;
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default async function AdminWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession();
+  if (!session || !session.user?.email) redirect("/api/auth/signin");
+
+  const resolvedParams = await params;
+  const workOrderId = resolvedParams.id;
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+
+  const workOrder = await prisma.workOrder.findUnique({
+    where: { id: workOrderId },
+    include: {
+      customer: { include: { contacts: true } },
+      contact: true,
+      technicians: true,
+      templates: true,
+      reports: {
+        include: { units: { orderBy: { sortOrder: "asc" } } },
+        orderBy: { createdAt: "desc" },
+      },
+      comments: { orderBy: { createdAt: "desc" } },
+      product: true
+    }
+  });
+
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      entityType: "WorkOrder",
+      entityId: workOrderId,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50
+  });
+
+  if (!workOrder) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Oppdraget finnes ikke</h1>
+        <Link href="/" className="text-blue-700 font-bold hover:underline">Gå til dashbordet</Link>
+      </div>
+    );
+  }
+
+  const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
+  const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
+
+  async function setTemplate(formData: FormData) {
+    "use server";
+    const templateId = formData.get("templateId") as string;
+    if (!templateId) return;
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { templates: { connect: { id: templateId } } }
+    });
+    revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
+  async function updateStatus(formData: FormData) {
+    "use server";
+    const status = formData.get("status") as any;
+    if (!status) return;
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { status }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Kontoret endret status til: ${status}`,
+        userName: user?.name || "Admin"
+      }
+    });
+    revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
+  async function setReportLock(formData: FormData) {
+    "use server";
+    // Bare administratorer kan låse opp en signert rapport igjen.
+    if (user?.role !== "ADMIN") return;
+
+    const reportId = formData.get("reportId") as string;
+    const shouldLock = formData.get("lock") === "1";
+    if (!reportId) return;
+
+    const report = await prisma.report.findUnique({ where: { id: reportId } });
+    if (!report) return;
+
+    if (shouldLock) {
+      await prisma.report.update({
+        where: { id: reportId },
+        data: { isLocked: true, lockedAt: new Date(), lockedByName: user.name || user.email },
+      });
+    } else {
+      await prisma.report.update({
+        where: { id: reportId },
+        data: { isLocked: false, lockedAt: null, lockedByName: null },
+      });
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: shouldLock
+          ? "Låste rapporten igjen"
+          : "Låste opp rapporten slik at den kan rettes (sporbarhet: endringer logges)",
+        userName: user.name || user.email || "Administrator",
+      },
+    });
+
+    revalidatePath(`/oppdrag/${workOrderId}`);
+    revalidatePath(`/rapporter/${workOrderId}`);
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+
+        {/* HEADER MED REDIGERINGS-KNAPP */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <h1 className="text-xl md:text-3xl font-black text-gray-900">{workOrder.title}</h1>
+              <StatusBadge status={workOrder.status} />
+            </div>
+            <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || "Uten kunde"}</Link></p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/oppdrag/${workOrder.id}/rediger`}
+              className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm flex items-center gap-2"
+            >
+              ✏️ Rediger oppdrag
+            </Link>
+            <Link href="/" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm">
+              &larr; Tilbake
+            </Link>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+                <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Arbeidsbeskrivelse</h2>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
+                  {workOrder.description || "Ingen beskrivelse lagt til."}
+                </p>
+              </div>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200">
+                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                  <h2 className="font-black text-lg text-gray-900">📋 Sjekklister & Rapporter</h2>
+                </div>
+
+                {workOrder.templates.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic mb-4">Ingen sjekklister er lagt til dette oppdraget ennå.</p>
+                ) : (
+                  <div className="space-y-4 mb-6">
+                    {workOrder.templates.map(template => {
+                      const report = workOrder.reports.find(r => r.templateId === template.id);
+
+                      return (
+                        <div key={template.id} className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                          <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+                            <span className="font-black text-gray-900 text-base">{template.title}</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {report ? (
+                                <>
+                                  <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full border border-green-200">✅ Utfylt av montør</span>
+                                  {report.isLocked ? (
+                                    <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">🔒 Låst</span>
+                                  ) : (
+                                    <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">🔓 Låst opp</span>
+                                  )}
+                                  <Link
+                                    href={`/rapporter/${workOrder.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                                  >
+                                    📄 Åpne PDF
+                                  </Link>
+                                  {user?.role === "ADMIN" && (
+                                    <form action={setReportLock}>
+                                      <input type="hidden" name="reportId" value={report.id} />
+                                      <input type="hidden" name="lock" value={report.isLocked ? "0" : "1"} />
+                                      <button
+                                        type="submit"
+                                        className={`text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm whitespace-nowrap ${
+                                          report.isLocked
+                                            ? "bg-white border-2 border-amber-300 text-amber-900 hover:bg-amber-50"
+                                            : "bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-100"
+                                        }`}
+                                      >
+                                        {report.isLocked ? "🔓 Lås opp for retting" : "🔒 Lås igjen"}
+                                      </button>
+                                    </form>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">⏳ Venter på utfylling</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {report && !report.isLocked && (
+                            <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 text-xs font-bold rounded-xl px-3 py-2 mb-3">
+                              ⚠️ Rapporten er låst opp og kan endres av montør i felt. Lås den igjen når rettingen er ferdig.
+                            </div>
+                          )}
+
+                          {report ? (
+                            <ReportContent report={report} template={template} />
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">Skjemaet venter på utfylling fra montør i felt.</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  )}
+                  
+                  {availableTemplates.length > 0 && (
+                    <div className="border-t-2 border-gray-200 pt-4">
+                      <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Krev flere sjekklister på oppdraget</p>
+                      <form action={setTemplate} className="flex gap-2 flex-wrap">
+                        <select
+                          name="templateId"
+                          required
+                          defaultValue=""
+                          className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
+                        >
+                          <option value="" disabled>-- Velg sjekklistemal --</option>
+                          {availableTemplates.map(t => (
+                            <option key={t.id} value={t.id}>{t.title}</option>
+                          ))}
+                        </select>
+                        <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+                          + Legg til
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+
+            </div>
+
+            <div className="space-y-6">
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">Endre Status</h2>
+                <form action={updateStatus} className="flex flex-col gap-3">
+                  <select
+                    name="status"
+                    defaultValue={workOrder.status}
+                    className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
+                  >
+                    <option value="OPEN">Åpen / Ny</option>
+                    <option value="PENDING">Venter / Planlagt</option>
+                    <option value="IN_PROGRESS">Påbegynt</option>
+                    <option value="COMPLETED">Fullført</option>
+                    <option value="CANCELLED">Kansellert</option>
+                  </select>
+                  <button type="submit" className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
+                    Oppdater Status
+                  </button>
+                </form>
+              </div>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📍 Lokasjon & Kontakt</h2>
+                <div className="space-y-2 text-gray-800 mb-4">
+                  <p><strong>Firma:</strong> {workOrder.customer?.name || "Uten kunde"}</p>
+                  <p><strong>Adresse:</strong>
+                    <GoogleMapsLink
+                      address={workOrder.customer?.address}
+                      postalCode={workOrder.customer?.postalCode}
+                      city={workOrder.customer?.city}
+                    />
+                  </p>
+                </div>
+
+                {workOrder.contact ? (
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border-2 border-gray-200">
+                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1">Kontaktperson</p>
+                    <p className="font-black text-gray-900">{workOrder.contact.name}</p>
+                    <p className="text-gray-600">📞 <a href={`tel:${workOrder.contact.phone}`} className="text-blue-700 font-bold hover:underline">{workOrder.contact.phone || "-"}</a></p>
+                    <p className="text-gray-600">✉️ <a href={`mailto:${workOrder.contact.email}`} className="text-blue-700 font-bold hover:underline">{workOrder.contact.email || "-"}</a></p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">Ingen kontaktperson valgt for oppdraget.</p>
+                )}
+              </div>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">👷 Tildelte Montører</h2>
+                {workOrder.technicians.length > 0 ? (
+                  <div className="space-y-2">
+                    {workOrder.technicians.map(tech => (
+                      <div key={tech.id} className="bg-gray-50 p-2.5 rounded-xl font-bold text-gray-900 flex items-center gap-2 border-2 border-gray-200">
+                        <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                        {tech.name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-red-600 font-bold">Ingen montører er tildelt ennå!</p>
+                )}
+              </div>
+
+              {/* Audit log */}
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
+                <AuditLogTable logs={auditLogs} />
+              </div>
+
+              {/* Kommentarer */}
+              <CommentSection
+                entityType="workOrder"
+                entityId={workOrderId}
+                existingComments={workOrder.comments?.map(c => ({
+                  id: c.id,
+                  content: c.text,
+                  authorName: c.authorName,
+                  createdAt: c.createdAt.toISOString(),
+                })) || []}
+                currentUserName={user?.name || null}
+              />
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}

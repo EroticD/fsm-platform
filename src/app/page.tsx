@@ -1,69 +1,519 @@
-import Image from "next/image";
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import Link from "next/link";
+import { WorkStatus } from "@prisma/client";
+import StatusBadge from "@/components/StatusBadge";
+import KpiCard from "@/components/KpiCard";
 
-export default function Home() {
+// ------------------------------------------------------------------
+// Hjelpere (definert utenfor komponenten slik at render forblir ren)
+// ------------------------------------------------------------------
+
+// Dagens dato-grenser til bruk i spørringene.
+function getDateContext() {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { startOfToday, endOfToday, startOfMonth };
+}
+
+function formatDay(value: Date | string | null | undefined) {
+  return value
+    ? new Date(value).toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "short" })
+    : "Ingen dato";
+}
+
+function formatFullDate(value: Date) {
+  return value.toLocaleDateString("no-NO", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function formatTimestamp(value: Date | string) {
+  return new Date(value).toLocaleString("no-NO", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type OrderWith = {
+  id: string;
+  title: string;
+  status: string;
+  scheduledFor: Date | null;
+  customer: { name: string } | null;
+  technicians: { name: string | null }[];
+};
+
+// Kompakt oppdragsliste brukt i flere av dashbord-panelene.
+function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
+  if (orders.length === 0) {
+    return <p className="text-xs text-gray-500 italic">{empty}</p>;
+  }
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="space-y-2">
+      {orders.map((wo) => (
+        <Link
+          key={wo.id}
+          href={`/oppdrag/${wo.id}`}
+          className="block bg-gray-50 hover:bg-blue-50/60 border border-gray-200 hover:border-blue-300 p-3 rounded-xl transition"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-bold text-gray-900 text-sm truncate">{wo.title}</span>
+            <StatusBadge status={wo.status} />
+          </div>
+          <p className="text-[10px] text-gray-500 mt-1">
+            🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDay(wo.scheduledFor)}
+            {wo.technicians.length === 0
+              ? " • ⚠️ Ikke tildelt"
+              : ` • 👷 ${wo.technicians.map((t) => t.name?.split(" ")[0]).filter(Boolean).join(", ")}`}
           </p>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+const STATUS_OPTIONS = [
+  { value: "", label: "Alle statuser" },
+  { value: "OPEN", label: "Åpen" },
+  { value: "PENDING", label: "Venter / Planlagt" },
+  { value: "WAITING", label: "Venter" },
+  { value: "IN_PROGRESS", label: "Påbegynt" },
+  { value: "PLANNED", label: "Planlagt" },
+  { value: "COMPLETED", label: "Fullført" },
+  { value: "CANCELLED", label: "Kansellert" },
+];
+
+const QUICK_ACTIONS = [
+  { href: "/oppdrag/ny", icon: "➕", label: "Nytt oppdrag" },
+  { href: "/kalender", icon: "📅", label: "Kalender" },
+  { href: "/kalender/dispatch", icon: "🎛️", label: "Dispatch" },
+  { href: "/kunder", icon: "🏢", label: "Kunder" },
+  { href: "/kundeportal", icon: "👤", label: "Kundeportal" },
+  { href: "/innstillinger?tab=maler", icon: "📋", label: "Sjekklister" },
+  { href: "/innstillinger?tab=ansatte", icon: "👥", label: "Ansatte" },
+  { href: "/innstillinger?tab=statistikk", icon: "📊", label: "Statistikk" },
+];
+
+const ACTIVE_STATUSES = ["OPEN", "PENDING", "WAITING", "IN_PROGRESS"];
+
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string; status?: string }>;
+}) {
+  const session = await getServerSession();
+  if (!session || !session.user?.email) redirect("/api/auth/signin");
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+
+  const resolvedParams = await searchParams;
+  const searchQuery = resolvedParams.q?.trim() || "";
+  const rawStatus = resolvedParams.status?.trim() || "";
+  const statusFilter = Object.values(WorkStatus).includes(rawStatus as WorkStatus)
+    ? (rawStatus as WorkStatus)
+    : undefined;
+
+  const branding = await prisma.branding.findFirst();
+  const companyName = branding?.companyName || "FSM System";
+
+  const page = Math.max(1, parseInt(resolvedParams.page?.toString() || "1", 10) || 1);
+  const pageSize = 10;
+  const skip = (page - 1) * pageSize;
+
+  const { startOfToday, endOfToday, startOfMonth } = getDateContext();
+
+  // --- GLOBALE TALL ---
+  const statusGroups = await prisma.workOrder.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+  });
+  const countByStatus = (s: string) =>
+    statusGroups.find((g) => g.status === s)?._count._all ?? 0;
+  const openCount = ACTIVE_STATUSES.reduce((sum, s) => sum + countByStatus(s), 0);
+  const inProgressCount = countByStatus("IN_PROGRESS");
+  const completedCount = countByStatus("COMPLETED");
+  const awaitingCount = countByStatus("OPEN") + countByStatus("PENDING") + countByStatus("WAITING");
+
+  const listSearchWhere = searchQuery
+    ? {
+        OR: [
+          { title: { contains: searchQuery, mode: "insensitive" as const } },
+          { description: { contains: searchQuery, mode: "insensitive" as const } },
+          { customer: { name: { contains: searchQuery, mode: "insensitive" as const } } },
+          { customer: { city: { contains: searchQuery, mode: "insensitive" as const } } },
+        ],
+      }
+    : {};
+  const listWhere = {
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...listSearchWhere,
+  };
+
+  const [
+    todayOrders,
+    overdueCount,
+    overdueOrders,
+    unassignedCount,
+    unassignedOrders,
+    reportsThisMonth,
+    customerCount,
+    productCount,
+    recentLogs,
+    listTotal,
+    listOrders,
+  ] = await Promise.all([
+    prisma.workOrder.findMany({
+      where: { scheduledFor: { gte: startOfToday, lt: endOfToday } },
+      orderBy: { scheduledFor: "asc" },
+      include: { customer: true, technicians: true },
+    }),
+    prisma.workOrder.count({
+      where: {
+        scheduledFor: { lt: startOfToday },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+    }),
+    prisma.workOrder.findMany({
+      where: {
+        scheduledFor: { lt: startOfToday },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+      orderBy: { scheduledFor: "asc" },
+      take: 8,
+      include: { customer: true, technicians: true },
+    }),
+    prisma.workOrder.count({
+      where: {
+        technicians: { none: {} },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+    }),
+    prisma.workOrder.findMany({
+      where: {
+        technicians: { none: {} },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+      orderBy: { scheduledFor: "asc" },
+      take: 8,
+      include: { customer: true, technicians: true },
+    }),
+    prisma.report.count({ where: { completedAt: { gte: startOfMonth } } }),
+    prisma.customer.count(),
+    prisma.product.count(),
+    prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8 }),
+    prisma.workOrder.count({ where: listWhere }),
+    prisma.workOrder.findMany({
+      where: listWhere,
+      orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }],
+      take: pageSize,
+      skip,
+      include: { customer: true, technicians: true, reports: true },
+    }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
+  const listQuery = `${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}${
+    statusFilter ? `&status=${statusFilter}` : ""
+  }`;
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900">
+              Velkommen, {user?.name?.split(" ")[0] || "Admin"} 👋
+            </h1>
+            <p className="text-gray-500 mt-1 font-medium text-sm">
+              Du administrerer <span className="font-bold text-gray-700">{companyName}</span>
+              {" • "}
+              {formatFullDate(startOfToday)}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/oppdrag/ny"
+              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+            >
+              ➕ Nytt oppdrag
+            </Link>
+            <Link
+              href="/kalender"
+              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+            >
+              📅 Kalender
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+        {/* HURTIGHANDLINGER */}
+        <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200">
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-2">Hurtighandlinger</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {QUICK_ACTIONS.map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-800 transition"
+              >
+                <span className="text-base leading-none">{a.icon}</span>
+                <span className="truncate">{a.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* KPI-ER */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard
+            icon="📂"
+            label="Åpne oppdrag"
+            value={openCount}
+            sub={`${awaitingCount} venter på oppstart`}
+            tone="blue"
+            href="/innstillinger?tab=statistikk"
+          />
+          <KpiCard
+            icon="🔄"
+            label="Påbegynt"
+            value={inProgressCount}
+            sub="Jobbes med nå"
+            tone="purple"
+          />
+          <KpiCard
+            icon="📅"
+            label="Dagens oppdrag"
+            value={todayOrders.length}
+            sub={formatDay(startOfToday)}
+            tone="gray"
+            href="/kalender"
+          />
+          <KpiCard
+            icon="⚠️"
+            label="Forfalte"
+            value={overdueCount}
+            sub="Ikke fullført i tide"
+            tone={overdueCount > 0 ? "red" : "gray"}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard
+            icon="🙋"
+            label="Ikke tildelt"
+            value={unassignedCount}
+            sub="Mangler montør"
+            tone={unassignedCount > 0 ? "amber" : "gray"}
+            href="/kalender/dispatch"
+          />
+          <KpiCard
+            icon="📋"
+            label="Rapporter i mnd."
+            value={reportsThisMonth}
+            sub="Utfylte sjekklister"
+            tone="green"
+          />
+          <KpiCard
+            icon="🏢"
+            label="Kunder"
+            value={customerCount}
+            sub="Totalt i registeret"
+            tone="gray"
+            href="/kunder"
+          />
+          <KpiCard
+            icon="🔧"
+            label="Enheter"
+            value={productCount}
+            sub={`${completedCount} fullførte oppdrag`}
+            tone="gray"
+          />
+        </div>
+
+        {/* DAGENS + FORFALTE */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h2 className="font-black text-gray-900 text-base">📅 Dagens oppdrag</h2>
+              <Link href="/kalender" className="text-[11px] font-bold text-blue-600 hover:underline">
+                Kalender
+              </Link>
+            </div>
+            <OrderList orders={todayOrders} empty="Ingen oppdrag planlagt i dag." />
+          </div>
+
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h2 className="font-black text-gray-900 text-base">⚠️ Forfalte oppdrag</h2>
+              {overdueCount > 0 && (
+                <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                  {overdueCount}
+                </span>
+              )}
+            </div>
+            <OrderList orders={overdueOrders} empty="Ingen forfalte oppdrag. Bra jobbet! 🎉" />
+          </div>
+        </div>
+
+        {/* IKKE TILDELTE */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h2 className="font-black text-gray-900 text-base">🙋 Oppdrag uten montør</h2>
+            <Link href="/kalender/dispatch" className="text-[11px] font-bold text-blue-600 hover:underline">
+              Åpne dispatch
+            </Link>
+          </div>
+          <OrderList
+            orders={unassignedOrders}
+            empty="Alle aktive oppdrag har en montør. 👏"
+          />
+        </div>
+
+        {/* OPPDRAGSLISTE MED SØK OG FILTER */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h2 className="font-black text-gray-900 text-base">📂 Oppdrag</h2>
+            <span className="text-[11px] text-gray-500">{listTotal} treff</span>
+          </div>
+
+          <form method="GET" action="/" className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <input
+              type="text"
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Filtrer oppdragslisten på tittel, beskrivelse, kunde eller sted..."
+              className="flex-1 min-w-[200px] border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <select
+              name="status"
+              defaultValue={statusFilter}
+              className="border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="bg-gray-900 text-white px-5 py-3 rounded-xl font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap text-sm"
+            >
+              Søk
+            </button>
+            {(searchQuery || statusFilter) && (
+              <Link
+                href="/"
+                className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center whitespace-nowrap text-sm"
+              >
+                Nullstill
+              </Link>
+            )}
+          </form>
+
+          {listOrders.length === 0 ? (
+            <div className="p-6 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+              <p className="text-gray-500 font-medium">Ingen oppdrag matcher søket.</p>
+              <Link href="/oppdrag/ny" className="text-blue-600 font-bold hover:underline mt-2 inline-block">
+                Opprett et nytt oppdrag
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {listOrders.map((wo) => (
+                <Link
+                  key={wo.id}
+                  href={`/oppdrag/${wo.id}`}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 hover:bg-gray-50 transition gap-3 sm:gap-4 rounded-xl"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-1 flex-wrap">
+                      <h3 className="font-bold text-gray-900 text-base truncate">{wo.title}</h3>
+                      <StatusBadge status={wo.status} />
+                    </div>
+                    <p className="text-[10px] text-gray-500">
+                      🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDay(wo.scheduledFor)}
+                      {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r)` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <div className="text-gray-600">
+                      <p className="font-bold text-gray-700 text-[10px] uppercase tracking-wider">Montører</p>
+                      <p className="truncate">
+                        {wo.technicians.length > 0 ? (
+                          wo.technicians.map((t) => t.name?.split(" ")[0]).filter(Boolean).join(", ")
+                        ) : (
+                          <span className="text-red-500 font-medium">Ikke tildelt</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-gray-400 font-bold">&rarr;</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {page > 1 && (
+                <Link
+                  href={`/?page=${page - 1}${listQuery}`}
+                  className="text-blue-600 text-sm font-bold hover:underline whitespace-nowrap"
+                >
+                  &larr; Forrige
+                </Link>
+              )}
+              <span className="text-sm text-gray-600">
+                Side {page} av {totalPages}
+              </span>
+              {page < totalPages && (
+                <Link
+                  href={`/?page=${page + 1}${listQuery}`}
+                  className="text-blue-600 font-bold hover:underline text-sm whitespace-nowrap"
+                >
+                  Neste &rarr;
+                </Link>
+              )}
+            </div>
+          )}
         </div>
-      </main>
+
+        {/* SISTE AKTIVITET */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+          <div className="flex items-center justify-between border-b pb-2 mb-3">
+            <h2 className="font-black text-gray-900 text-base">📋 Siste aktivitet</h2>
+            <Link href="/innstillinger?tab=auditlog" className="text-[11px] font-bold text-blue-600 hover:underline">
+              Se all aktivitet
+            </Link>
+          </div>
+          {recentLogs.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">Ingen aktivitet registrert.</p>
+          ) : (
+            <ol className="space-y-2">
+              {recentLogs.map((log) => (
+                <li key={log.id} className="flex items-start gap-3 text-sm">
+                  <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-gray-800 font-medium">{log.action}</p>
+                    <p className="text-[10px] text-gray-500">
+                      {log.userName || "Ukjent"} • {formatTimestamp(log.createdAt)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 }

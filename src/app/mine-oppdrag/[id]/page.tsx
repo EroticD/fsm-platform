@@ -1,0 +1,506 @@
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import GoogleMapsLink from "@/components/GoogleMapsLink";
+import AuditLogTable from "@/components/AuditLogTable";
+import CommentSection from "@/components/CommentSection";
+
+export default async function TechnicianWorkOrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const session = await getServerSession();
+  if (!session || !session.user?.email) redirect("/api/auth/signin");
+
+  const { error } = await searchParams;
+
+  const resolvedParams = await params;
+  const workOrderId = resolvedParams.id;
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user) redirect("/api/auth/signin");
+
+  const workOrder = await prisma.workOrder.findUnique({
+    where: { id: workOrderId },
+    include: {
+      customer: {
+        include: { contacts: true }
+      },
+      contact: true,
+      templates: true,
+      reports: true,
+      comments: { orderBy: { createdAt: "desc" } },
+      product: true,
+      technicians: true
+    }
+  });
+
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      entityType: "WorkOrder",
+      entityId: workOrderId,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50
+  });
+
+  if (!workOrder) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Oppdraget finnes ikke</h1>
+        <p className="text-gray-500 mb-4">Det kan ha blitt slettet, eller så er lenken feil.</p>
+        <Link href="/mine-oppdrag" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
+          Gå tilbake til oversikten
+        </Link>
+      </div>
+    );
+  }
+
+  const allUsers = await prisma.user.findMany({ orderBy: { name: 'asc' } });
+  const availableUsers = allUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
+
+  const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
+  const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
+
+  // --- SERVER ACTION: OPPDATER STATUS ---
+  async function updateStatus(formData: FormData) {
+    "use server";
+    const newStatus = formData.get("status") as any;
+    if (!newStatus) return;
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { status: newStatus }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Montør endret status til: ${newStatus}`,
+        userName: user?.name || "Ukjent montør"
+      }
+    });
+
+    revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  }
+
+  // --- SERVER ACTION: LEGG TIL KOMMENTAR ---
+  async function addComment(formData: FormData) {
+    "use server";
+    const content = formData.get("content") as string;
+    if (!content || !content.trim()) return;
+
+    await prisma.comment.create({
+      data: {
+        content: content.trim(),
+        workOrderId: workOrderId,
+        authorName: user?.name || "Montør"
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `La til kommentar: "${content.substring(0, 30)}..."`,
+        userName: user?.name || "Montør"
+      }
+    });
+
+    revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  }
+
+  // --- SERVER ACTION: LEGG TIL SJEKKLISTE ---
+  async function addTemplate(formData: FormData) {
+    "use server";
+    const templateId = formData.get("templateId") as string;
+    if (!templateId) return;
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: {
+        templates: { connect: { id: templateId } }
+      }
+    });
+
+    revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  }
+
+  // --- SERVER ACTION: LEGG TIL NY MONTØR / KONTORPERSON ---
+  async function addTechnician(formData: FormData) {
+    "use server";
+    const userId = formData.get("userId") as string;
+    if (!userId) return;
+
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: {
+        technicians: { connect: { id: userId } }
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `La til ${targetUser?.name || 'bruker'} på oppdraget`,
+        userName: user?.name || "Montør"
+      }
+    });
+
+    revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  }
+
+  // --- SERVER ACTION: FJERN MONTØR / SEG SELV ---
+  async function removeTechnician(formData: FormData) {
+    "use server";
+    const userId = formData.get("userId") as string;
+    if (!userId) return;
+
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: {
+        technicians: { disconnect: { id: userId } }
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Fjernet ${targetUser?.name || 'bruker'} fra oppdraget`,
+        userName: user?.name || "Montør"
+      }
+    });
+
+    revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-3xl mx-auto space-y-6">
+
+        {/* HEADER */}
+        <div className="flex justify-between items-start border-b pb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900">{workOrder.title}</h1>
+            <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || "Uten kunde"}</p>
+          </div>
+          <Link href="/mine-oppdrag" className="bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-bold border-2 border-gray-200 shadow-sm hover:bg-gray-100 transition">
+            &larr; Tilbake
+          </Link>
+        </div>
+
+        {error === "locked" && (
+          <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl px-4 py-3 text-sm font-bold">
+            🔒 Rapporten er låst og ble ikke lagret. Kontakt en administrator hvis den må endres.
+          </div>
+        )}
+
+        {/* STATUS & INFO */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 border-b pb-4 mb-4">
+
+            <div>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Oppdragsstatus</p>
+              <form action={updateStatus} className="flex items-center gap-2 flex-wrap">
+                <select
+                  name="status"
+                  defaultValue={workOrder.status}
+                  className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
+                >
+                  <option value="OPEN">Åpen / Ny</option>
+                  <option value="PENDING">Venter / Planlagt</option>
+                  <option value="IN_PROGRESS">Påbegynt</option>
+                  <option value="COMPLETED">Fullført</option>
+                  <option value="CANCELLED">Kansellert</option>
+                </select>
+                <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap">
+                  Oppdater
+                </button>
+              </form>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Planlagt Dato</p>
+              <p className="font-bold text-gray-900 bg-gray-50 p-2.5 border-2 border-gray-200 rounded-xl inline-block w-full">
+                📅 {workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toLocaleDateString("no-NO") : "Ingen dato valgt"}
+              </p>
+            </div>
+
+          </div>
+
+          <div>
+            <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Arbeidsbeskrivelse / Instrukser</h2>
+            <div className="bg-blue-50/60 border-2 border-blue-200 p-3 sm:p-4 rounded-xl">
+              <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
+                {workOrder.description || "Ingen beskrivelse lagt til for dette oppdraget."}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* KOMMENTARER / LOGG */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
+          <h2 className="font-black text-lg text-gray-900 border-b pb-2">💬 Kommentarer & Oppdateringer</h2>
+
+          {/* Skriv ny kommentar */}
+          <form action={addComment} className="space-y-3">
+            <textarea
+              name="content"
+              rows={3}
+              required
+              placeholder="Skriv en kommentar eller melding til kontoret/kolleger..."
+              className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+            ></textarea>
+            <div className="flex justify-end">
+              <button type="submit" className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+                💬 Legg til kommentar
+              </button>
+            </div>
+          </form>
+
+          {/* Liste over tidligere kommentarer */}
+          <div className="space-y-3 pt-4 border-t border-gray-200">
+            {workOrder.comments.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">Ingen kommentarer registrert på oppdraget ennå.</p>
+            ) : (
+              workOrder.comments.map((comment: any) => (
+                <div key={comment.id} className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 space-y-1">
+                  <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold">
+                    <span>{comment.authorName || "Ukjent"}</span>
+                    <span>{new Date(comment.createdAt).toLocaleString("no-NO", { dateStyle: 'short', timeStyle: 'short' })}</span>
+                  </div>
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
+                    {comment.content}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* TILDELTE MONTØRER & KONTOR */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
+          <h2 className="font-black text-lg text-gray-900 border-b pb-2">👷 Tildelte personell & Kontor</h2>
+
+          <div className="space-y-2">
+            {workOrder.technicians.length === 0 ? (
+              <p className="text-sm text-red-600 font-bold">Ingen er tildelt dette oppdraget ennå.</p>
+            ) : (
+              <div className="space-y-2">
+                {workOrder.technicians.map((t: any) => (
+                  <div key={t.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                      <div>
+                        <p className="font-black text-gray-900 text-sm">{t.name} {t.id === user.id ? <span className="text-[10px] text-blue-600">(Du)</span> : ""}</p>
+                        <p className="text-[10px] text-gray-500">{t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'}</p>
+                      </div>
+                    </div>
+
+                    <form action={removeTechnician}>
+                      <input type="hidden" name="userId" value={t.id} />
+                      <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
+                        {t.id === user.id ? "Fjern meg" : "Fjern"}
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {availableUsers.length > 0 && (
+            <div className="border-t pt-4">
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Legg til kollega eller kontor for oppfølging</p>
+              <form action={addTechnician} className="flex gap-2 flex-wrap">
+                <select
+                  name="userId"
+                  required
+                  defaultValue=""
+                  className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
+                >
+                  <option value="" disabled>-- Velg person --</option>
+                  {availableUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role === 'ADMIN' ? 'Admin / Kontor' : u.role === 'OFFICE' ? 'Kontor' : u.role === 'TECHNICIAN' ? 'Montør' : u.role === 'CUSTOMER' ? 'Kundeportal' : 'Standard'})</option>
+                  ))}
+                </select>
+                <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
+                  + Legg til
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        {/* LOKASJON & KONTAKTPERSON */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">📍 Lokasjon & Kontakt</h2>
+          <div className="text-sm text-gray-800 space-y-4">
+            <div>
+              <p className="text-gray-900">
+                <strong>Adresse:</strong>
+                <GoogleMapsLink
+                  address={workOrder.customer?.address}
+                  postalCode={workOrder.customer?.postalCode}
+                  city={workOrder.customer?.city}
+                  label={workOrder.customer?.address || "Ikke oppgitt"}
+                />
+                {workOrder.customer?.postalCode || ""} {workOrder.customer?.city || ""}
+              </p>
+              {workOrder.customer?.phone && (
+                <p className="mt-1">
+                  <strong>Firma-tlf:</strong> <a href={`tel:${workOrder.customer?.phone}`} className="text-blue-600 font-bold hover:underline">{workOrder.customer?.phone}</a>
+                </p>
+              )}
+            </div>
+
+            {workOrder.contact ? (
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Oppdragets kontaktperson</p>
+                <p className="font-black text-gray-900 text-base">{workOrder.contact.name}</p>
+                <div className="mt-2 space-y-1 text-sm">
+                  {workOrder.contact.phone && <p>📞 <a href={`tel:${workOrder.contact.phone}`} className="text-blue-600 font-bold hover:underline">{workOrder.contact.phone}</a></p>}
+                  {workOrder.contact.email && <p>✉️ <a href={`mailto:${workOrder.contact.email}`} className="text-blue-600 font-bold hover:underline">{workOrder.contact.email}</a></p>}
+                </div>
+              </div>
+            ) : workOrder.customer?.contacts && workOrder.customer?.contacts.length > 0 ? (
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">Kundens kontaktpersoner</p>
+                <div className="space-y-3 divide-y divide-gray-200">
+                  {workOrder.customer?.contacts.map((c: any) => (
+                    <div key={c.id} className="pt-3 first:pt-0">
+                      <p className="font-black text-gray-900">{c.name} {c.role ? <span className="text-gray-500 font-normal">({c.role})</span> : ""}</p>
+                      <div className="mt-1 space-y-0.5 text-sm">
+                        {c.phone && <p>📞 <a href={`tel:${c.phone}`} className="text-blue-600 font-bold hover:underline">{c.phone}</a></p>}
+                        {c.email && <p>✉️ <a href={`mailto:${c.email}`} className="text-blue-600 font-bold hover:underline">{c.email}</a></p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 italic">Ingen spesifikk kontaktperson registrert på dette oppdraget eller kunden.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SJEKKLISTER */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200">
+          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">📋 Sjekklister for oppdraget</h2>
+
+          {workOrder.templates.length === 0 ? (
+            <p className="text-sm text-gray-500 italic mb-4">Ingen sjekklister er knyttet til dette oppdraget ennå.</p>
+          ) : (
+            <div className="space-y-3 mb-6">
+              {workOrder.templates.map(template => {
+                const report = workOrder.reports.find(report => report.templateId === template.id);
+
+                return (
+                  <div key={template.id} className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                    <span className={`font-bold text-sm ${report ? 'text-green-900' : 'text-blue-900'} flex items-center gap-2`}>
+                      {template.title}
+                      {report?.isLocked && (
+                        <span className="bg-gray-800 text-white text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                          🔒 LÅST
+                        </span>
+                      )}
+                      {report && !report.isLocked && (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                          🔓 LÅST OPP
+                        </span>
+                      )}
+                    </span>
+
+                    {report ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/rapporter/${workOrderId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                        >
+                          📄 Se rapport (PDF)
+                        </Link>
+                        {!report.isLocked && (
+                          <Link
+                            href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
+                            className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
+                          >
+                            ✏️ Rediger
+                          </Link>
+                        )}
+                      </div>
+                    ) : (
+                      <Link
+                        href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
+                        className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                      >
+                        Fyll ut skjema &rarr;
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {availableTemplates.length > 0 && (
+            <div className="border-t pt-4">
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Trenger du et ekstra skjema?</p>
+              <form action={addTemplate} className="flex gap-2 flex-wrap">
+                <select
+                  name="templateId"
+                  required
+                  defaultValue=""
+                  className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
+                >
+                  <option value="" disabled>-- Velg sjekklistemal --</option>
+                  {availableTemplates.map(t => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+                <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2.5 rounded-xl text-sm font-black hover:bg-gray-300 transition shadow-sm whitespace-nowrap">
+                  + Legg til
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        {/* Audit log */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+          <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
+          <AuditLogTable logs={auditLogs} />
+        </div>
+
+        {/* Kommentarer */}
+        <CommentSection
+          entityType="workOrder"
+          entityId={workOrderId}
+          existingComments={workOrder.comments?.map(c => ({
+            id: c.id,
+            content: c.text,
+            authorName: c.authorName,
+            createdAt: c.createdAt.toISOString(),
+          })) || []}
+          currentUserName={user?.name || null}
+        />
+
+      </div>
+    </div>
+  );
+}

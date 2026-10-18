@@ -1,0 +1,113 @@
+"use client";
+
+import { useState } from "react";
+
+type CommentType = {
+  id: string;
+  content: string;
+  authorName: string | null;
+  createdAt: string;
+};
+
+type CommentSectionProps = {
+  entityType: "workOrder" | "customer" | "contact";
+  entityId: string;
+  existingComments: CommentType[];
+  currentUserName: string | null;
+};
+
+export default function CommentSection({ 
+  entityType, 
+  entityId, 
+  existingComments = [], 
+  currentUserName 
+}: CommentSectionProps) {
+  const [content, setContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim() || submitting) return;
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityType,
+          entityId,
+          content: content.trim(),
+          authorName: currentUserName || "Ukjent",
+        }),
+      });
+
+      if (response.ok) {
+        setContent("");
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Feil ved lagring av kommentar:", error);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+      <div className="flex justify-between items-center border-b pb-2">
+        <h2 className="font-black text-gray-900 text-lg mb-0">
+          {entityType === "workOrder" ? "💬 Kommentarer" : entityType === "customer" ? "💬 Kundeaktivitet" : "💬 Kontaktaktivitet"}
+        </h2>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+          {existingComments.length} innlegg
+        </span>
+      </div>
+
+      {/* Kommentarsskjema */}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="relative">
+          <textarea
+            name="content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={3}
+            placeholder="Skriv en kommentar eller hendelse..."
+            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-gray-50 outline-none focus:border-blue-600 resize-none"
+            disabled={submitting}
+          />
+          {submitting && (
+            <div className="absolute right-2 top-2">
+              <div className="w-3 h-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+            </div>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={!content.trim() || submitting}
+          className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50 whitespace-nowrap"
+        >
+          {submitting ? "Lagrer..." : "Legg til kommentar"}
+        </button>
+      </form>
+
+      {/* Kommentarer liste */}
+      <div className="space-y-3">
+        {existingComments.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-gray-500 italic">Ingen kommentarer eller hendelser ennå.</p>
+          </div>
+        ) : (
+          existingComments.map((comment) => (
+            <div key={comment.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 mb-1">
+                <span>{comment.authorName || "Ukjent"}</span>
+                <span>{new Date(comment.createdAt).toLocaleString("no-NO", { dateStyle: 'short', timeStyle: 'short' })}</span>
+              </div>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">{comment.content}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

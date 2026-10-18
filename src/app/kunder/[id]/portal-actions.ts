@@ -1,0 +1,108 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import { createInviteToken, buildInviteUrl } from "@/lib/invite";
+import { sendInviteEmail } from "@/lib/email";
+import { actorName } from "@/lib/session";
+
+/**
+ * Oppretter en kundeportalbruker koblet til en kontaktperson på kundekortet.
+ * Brukeren er inaktiv og får en invitasjonslenke for å sette eget passord.
+ */
+export async function createPortalUser(formData: FormData) {
+  const customerId = formData.get("customerId") as string;
+  const name = (formData.get("name") as string)?.trim();
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
+  const contactId = formData.get("contactId") as string;
+
+  if (!customerId) return;
+  if (!name || !email || !contactId) {
+    redirect(`/kunder/${customerId}?tab=portal&error=mangler_felt`);
+  }
+
+  // Kontaktpersonen må faktisk tilhøre denne kunden.
+  const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+  if (!contact || contact.customerId !== customerId) {
+    redirect(`/kunder/${customerId}?tab=portal&error=ugyldig_kontakt`);
+  }
+
+  let newUser;
+  try {
+    newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        role: "CUSTOMER",
+        customerId,
+        contactId: contact.id,
+        isActive: false,
+      },
+    });
+  } catch (err) {
+    console.error("Feil ved opprettelse av kundeportalbruker", err);
+    redirect(`/kunder/${customerId}?tab=portal&error=epost_finnes`);
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      entityType: "Customer",
+      entityId: customerId,
+      action: `Opprettet kundeportalbruker: ${name} (${email})`,
+      userName: await actorName(),
+    },
+  });
+
+  const token = await createInviteToken(newUser.id);
+  const mailSent = await sendInviteEmail(email, name, buildInviteUrl(token));
+
+  revalidatePath(`/kunder/${customerId}`);
+  redirect(`/kunder/${customerId}?tab=portal&invite=${newUser.id}&mail=${mailSent ? "sent" : "manual"}`);
+}
+
+/** Aktiverer eller deaktiverer en kundeportalbruker. */
+export async function setPortalUserActive(formData: FormData) {
+  const customerId = formData.get("customerId") as string;
+  const id = formData.get("id") as string;
+  const active = formData.get("active") === "true";
+  if (!customerId || !id) return;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target || target.customerId !== customerId) return;
+
+  await prisma.user.update({ where: { id }, data: { isActive: active } });
+  await prisma.auditLog.create({
+    data: {
+      entityType: "Customer",
+      entityId: customerId,
+      action: `${active ? "Aktiverte" : "Deaktiverte"} kundeportalbruker: ${target.name || target.email}`,
+      userName: await actorName(),
+    },
+  });
+  revalidatePath(`/kunder/${customerId}`);
+}
+
+/** Lager en ny invitasjonslenke for en kundeportalbruker. */
+export async function resendPortalInvite(formData: FormData) {
+  const customerId = formData.get("customerId") as string;
+  const id = formData.get("id") as string;
+  if (!customerId || !id) return;
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user || user.customerId !== customerId) return;
+
+  const token = await createInviteToken(id);
+  const mailSent = await sendInviteEmail(user.email || "", user.name, buildInviteUrl(token));
+
+  await prisma.auditLog.create({
+    data: {
+      entityType: "Customer",
+      entityId: customerId,
+      action: `Sendte ny invitasjonslenke til kundeportalbruker: ${user.name || user.email}`,
+      userName: await actorName(),
+    },
+  });
+  revalidatePath(`/kunder/${customerId}`);
+  redirect(`/kunder/${customerId}?tab=portal&invite=${id}&mail=${mailSent ? "sent" : "manual"}`);
+}
