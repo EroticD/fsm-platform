@@ -1,0 +1,65 @@
+# FSM-plattformen – lokal utvikling og selvhosting.
+#
+# Alle hemmeligheter leses fra .env (se .env.example). Kopier filen og fyll inn
+# dine egne verdier før du starter:
+#
+#   cp .env.example .env
+#   docker compose up -d --build
+#
+# Appen svarer da på http://localhost:3000
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-fsm_db}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD i .env}
+    ports:
+      # Bindes til localhost slik at databasen ikke eksponeres på nettverket.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - fsm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-fsm_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public
+      # NEXTAUTH_URL må være den offentlige adressen i produksjon.
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # AUTH_TRUST_HOST gjør at appen kan kjøre bak en proxy/container uten at
+      # NextAuth avviser vertsnavnet.
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
+      # E-post (valgfritt). Uten SMTP-innstillinger viser appen invitasjonslenker
+      # som må deles manuelt.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      # Opprett en administrator første gang appen starter.
+      SEED_DATABASE: ${SEED_DATABASE:-true}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      # Opplastede bilder og vedlegg ligger utenfor containeren.
+      - fsm_uploads:/app/uploads
+
+volumes:
+  fsm_postgres_data:
+  fsm_uploads:

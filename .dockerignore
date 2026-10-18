@@ -1,0 +1,49 @@
+# Byggekonteksten holdes så liten som mulig, og hemmeligheter skal aldri inn i imaget.
+
+# Avhengigheter og byggeresultater gjenskapes i imaget.
+node_modules
+.next
+out
+build
+dist
+
+# Git og CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Lokale hjelpefiler fra AI-assistenter og editorer
+.agents
+.claude
+.cursor
+.devin
+.vscode
+.idea
+
+# Dokumentasjon
+*.md
+LICENSE
+
+# Miljøfiler. .env inneholder hemmeligheter og skal ALDRI inn i imaget.
+.env
+.env.*
+!.env.example
+
+# Opplastede filer er runtime-data som skal ligge på et volum, ikke i imaget.
+/uploads/*
+!/uploads/.gitkeep
+
+# Docker-filene trengs ikke inne i imaget.
+# (docker-entrypoint.sh må være med, siden Dockerfile kopierer den inn.)
+Dockerfile
+Dockerfile.*
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Div
+npm-debug.log*
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+coverage

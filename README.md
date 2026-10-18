@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FSM-plattformen
 
-## Getting Started
+Et feltvennlig service- og vedlikeholdssystem (FSM) bygget med Next.js, Prisma og
+PostgreSQL. Plattformen dekker hele flyten fra oppdraget planlegges til den
+signerte servicerapporten kan lastes ned som PDF.
 
-First, run the development server:
+## Hva systemet gjør
+
+- **Oppdrag og kalender** – planlegg, fordel og følg opp serviceoppdrag i måneds-,
+  ukes- og dispatcher-visning.
+- **Servicerapporter** – sjekklister per enhet, kommentarer per sjekkpunkt,
+  bilder og signaturer tegnet på skjermen, og ferdig PDF med firmaets logo.
+- **Enheter og servicehistorikk** – hver kunde har oversikt over utstyret sitt,
+  og hver enhet viser alle tidligere servicer med resultat, kommentarer og bilder.
+- **Kunder og kundeportal** – kundekort med kontakter, avtaler og egne
+  portalbrukere som bare ser sin egen bedrift.
+- **Rapportering** – dashboard med nøkkeltall, globalt søk (⌘K / `/`) og
+  aktivitetslogg for alle endringer.
+
+## Kom i gang lokalt
+
+Forutsetninger: Node.js 22+, Docker og npm.
 
 ```bash
+git clone <repo-url> fsm-platform
+cd fsm-platform
+npm install
+cp .env.example .env      # fyll inn DATABASE_URL og NEXTAUTH_SECRET
+docker compose up -d postgres
+npx prisma migrate deploy # oppretter tabellene
+npm run seed              # valgfritt: oppretter en administrator
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Appen er da tilgjengelig på <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Ny nyttig kommando:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run seed        # opprett administrator (idempotent)
+npm run build       # produksjonsbygg
+npm run lint        # eslint
+npx tsc --noEmit    # typesjekk
+```
 
-## Learn More
+## Kjøre med Docker
 
-To learn more about Next.js, take a look at the following resources:
+`docker-compose.yml` setter opp både appen og databasen. Appen kjører
+migrasjonene sine selv ved oppstart.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cp .env.example .env
+# Sett minst DATABASE_URL, POSTGRES_PASSWORD, NEXTAUTH_SECRET og
+# NEXTAUTH_URL. Vil du at administratoren opprettes automatisk, sett
+# SEED_ADMIN_EMAIL og SEED_ADMIN_PASSWORD også.
+docker compose up -d --build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Appen svarer på <http://localhost:3000> og har helsesjekk på `/api/health`.
+- Opplastede bilder ligger på volumet `fsm_uploads` og overlever nytt bygg.
+- Databasen eksponeres bare på `127.0.0.1`.
 
-## Deploy on Vercel
+Ved oppstart utfører containeren følgende: venter på databasen, kjører
+`prisma migrate deploy`, kjører seed hvis `SEED_DATABASE=true`, og starter
+deretter serveren. Migrasjonene kan hoppes over med `SKIP_MIGRATIONS=true` hvis
+de kjøres som et eget steg i produksjon.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Miljøvariabler
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Alle variabler er dokumentert i [`.env.example`](.env.example). De viktigste:
+
+| Variabel | Beskrivelse |
+| --- | --- |
+| `DATABASE_URL` | Tilkobling til PostgreSQL (påkrevd) |
+| `NEXTAUTH_SECRET` | Hemmelighet for økter; lag med `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Appens offentlige adresse (påkrevd i produksjon, må være https) |
+| `SMTP_*` | E-post for invitasjoner; uten disse vises delbare lenker |
+| `UPLOAD_DIR` | Hvor opplastede filer lagres (standard `./uploads`) |
+| `SEED_*` | Styrer den automatiske administratoren ved første oppstart |
+
+## Teknisk oppbygning
+
+- **Next.js 16** (App Router, React 19) med server components der det passer.
+- **Prisma 5** mot PostgreSQL; skjemaet ligger i `prisma/schema.prisma` og
+  migrasjonene i `prisma/migrations/`.
+- **NextAuth** med kodeord-innlogging. Konti opprettes av en administrator og
+  aktiveres manuelt; brukeren setter passordet sitt via en invitasjonslenke.
+- **@react-pdf/renderer** genererer servicerapporten på serveren, slik at PDF-en
+  også virker uten JavaScript i nettleseren.
+- **Tailwind CSS 4** med et lyst tema.
+- Roller: `ADMIN`, `TECHNICIAN` og `CUSTOMER`.
+
+### Datamodell i korte trekk
+
+`Customer` har `Product` (utstyr), `Contact` og `WorkOrder`. Hvert oppdrag har
+`Report`, som igjen har `ReportUnit` – ett øyeblikksbilde per kontrollert enhet
+med svar, kommentarer og status. Historikken endres derfor ikke selv om malen
+eller enheten redigeres senere.
+
+## Sikkerhet
+
+- Passord hashes med bcrypt og sendes aldri i URL-er.
+- Rapporter låses automatisk når de er fylt ut. Bare en administrator kan låse
+  dem opp igjen, og hver opplåsing logges i aktivitetsloggen.
+- Kundeportalbrukere begrenses til egen kundedata i `src/proxy.ts` og i hver
+  enkelt rute.
+- `.env` er ignorert av git. Del aldri filen, og roter passordet om det har vært
+  eksponert.
+
+## Kjente gjeldsposter
+
+- `@typescript-eslint/no-explicit-any` er satt til advarsel i
+  `eslint.config.mjs` fordi noen steder bruker `any` der Prisma- og
+  Next-typene er tungvinte å uttrykke. Lint kjører grønt, men advarslene bør
+  ryddes gradvis.
+- Eldre sider under `src/app/maler/` er erstattet av mal-byggeren under
+  `src/app/innstillinger/maler/` og kan fjernes.
+
+## Lisens
+
+Apache License 2.0 – se [LICENSE](LICENSE).

@@ -1,0 +1,77 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# base – felles utgangspunkt. Debian (glibc) brukes fordi Prismas query-engine
+# er kompilert mot OpenSSL 3.0, som er det som finnes i Debian bookworm.
+# ---------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS base
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# deps – installerer alle avhengigheter (også utvikleravhengigheter, siden
+# Prisma-CLI-en trengs ved oppstart for å kjøre migrasjoner).
+# ---------------------------------------------------------------------------
+FROM base AS deps
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+RUN npm ci
+
+# ---------------------------------------------------------------------------
+# builder – genererer Prisma-klienten og bygger Next.js-appen.
+# ---------------------------------------------------------------------------
+FROM base AS builder
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npx prisma generate
+RUN npm run build
+
+# ---------------------------------------------------------------------------
+# runner – det ferdige imaget. Inneholder bare det som trengs i drift.
+# ---------------------------------------------------------------------------
+FROM base AS runner
+ENV NODE_ENV=production
+ENV PORT=3000
+# Next.js sin standalone-server lytter på dette vertsnavnet i containeren.
+ENV HOSTNAME=0.0.0.0
+# Opplastede bilder og vedlegg havner her, og mappen monteres som et volum.
+ENV UPLOAD_DIR=/app/uploads
+
+# Kjør som en vanlig bruker, ikke root.
+RUN groupadd --system --gid 1001 nodejs \
+ && useradd --system --uid 1001 --gid nodejs nextjs
+
+# Selve appen: standalone-serveren, statiske filer og public-mappen.
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+# Prisma-skjema, seed-skript og CLI – trengs for `prisma migrate deploy` og
+# `node scripts/seed.mjs` ved oppstart.
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# CLI-en kalles via sin egen fil (node_modules/prisma/build/index.js) fordi den
+# finner hjelpefilene sine relativt til sin egen mappe. Symbolet i .bin blir en
+# vanlig fil når den kopieres mellom byggesteg, og da feiler oppslaget.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+
+COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+ && mkdir -p /app/uploads \
+ && chown -R nextjs:nodejs /app/uploads
+
+USER nextjs
+EXPOSE 3000
+
+# Containeren regnes som frisk når appen svarer på helsesjekken (som også
+# verifiserer at databasen er tilgjengelig).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "server.js"]
