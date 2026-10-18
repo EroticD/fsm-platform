@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { actorName, getCurrentUser, isStaff } from "@/lib/session";
+import { actorName, getCurrentUser, isOffice, isStaff } from "@/lib/session";
 import { lineCommentKey } from "@/lib/report-answers";
 
 type TemplateField = {
@@ -109,6 +109,18 @@ async function resolveProductId(
   return created.id;
 }
 
+/**
+ * Hvor skal brukeren sendes etter at rapporten er lagret? Skjemaet kan åpnes fra
+ * feltportalen eller fra kontorets oppdragsside, og bare de to godtas – da kan
+ * ikke feltet misbrukes til å viderekoble til noe annet.
+ */
+function returnPath(formData: FormData, workOrderId: string): string {
+  const raw = (formData.get("returnTo") as string) || "";
+  return [`/oppdrag/${workOrderId}`, `/mine-oppdrag/${workOrderId}`].includes(raw)
+    ? raw
+    : `/mine-oppdrag/${workOrderId}`;
+}
+
 export async function submitReport(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/logg-inn");
@@ -137,7 +149,7 @@ export async function submitReport(formData: FormData) {
     : null;
 
   if (existing?.isLocked) {
-    redirect(`/mine-oppdrag/${workOrderId}?error=locked`);
+    redirect(`${returnPath(formData, workOrderId)}?error=locked`);
   }
 
   const unitStatus: string[] = [];
@@ -219,7 +231,7 @@ export async function submitReport(formData: FormData) {
       entityType: "Report",
       entityId: workOrderId,
       action:
-        `${existing ? "Rapport oppdatert" : "Montør fylte ut skjema"}: ${template?.title || "Ukjent skjema"}` +
+        `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template?.title || "Ukjent skjema"}` +
         ` (${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
         " – rapporten låses automatisk",
       userName: actor,
@@ -229,5 +241,5 @@ export async function submitReport(formData: FormData) {
   revalidatePath(`/mine-oppdrag/${workOrderId}`);
   revalidatePath(`/rapporter/${workOrderId}`);
   revalidatePath(`/oppdrag/${workOrderId}`);
-  redirect(`/mine-oppdrag/${workOrderId}`);
+  redirect(returnPath(formData, workOrderId));
 }

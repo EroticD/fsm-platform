@@ -231,12 +231,19 @@ function ReportContent({ report, template }: { report: any; template: any }) {
   );
 }
 
-export default async function AdminWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminWorkOrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const session = await getServerSession();
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
+  const { error } = await searchParams;
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) redirect("/api/auth/signin");
@@ -244,6 +251,7 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
   // Montører får lese hele oppdraget – historikk, enheter, rapporter og PDF –
   // men ser ikke kontorets skjemaknapper. Skrivingen er sperret i handlingene.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
+  const staff = office || user.role === "TECHNICIAN";
 
   const workOrder = await prisma.workOrder.findUnique({
     where: { id: workOrderId },
@@ -383,6 +391,12 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
           </div>
         </div>
 
+        {error === "locked" && (
+          <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 rounded-2xl px-5 py-4 text-sm font-bold">
+            🔒 Rapporten er låst og kan ikke endres. En administrator må låse den opp først.
+          </div>
+        )}
+
         <div className="space-y-6">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -406,6 +420,8 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
                   <div className="space-y-4 mb-6">
                     {workOrder.templates.map(template => {
                       const report = workOrder.reports.find(r => r.templateId === template.id);
+                      // Skjemaet kan fylles ut både fra feltportalen og herfra.
+                      const fillHref = `/mine-oppdrag/${workOrder.id}/skjema/${template.id}?returnTo=${encodeURIComponent(`/oppdrag/${workOrder.id}`)}`;
 
                       return (
                         <div key={template.id} className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
@@ -414,7 +430,7 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
                             <div className="flex items-center gap-2 flex-wrap">
                               {report ? (
                                 <>
-                                  <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full border border-green-200">✅ Utfylt av montør</span>
+                                  <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full border border-green-200">✅ Utfylt</span>
                                   {report.isLocked ? (
                                     <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">🔒 Låst</span>
                                   ) : (
@@ -428,6 +444,14 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
                                   >
                                     📄 Åpne PDF
                                   </Link>
+                                  {staff && !report.isLocked && (
+                                    <Link
+                                      href={fillHref}
+                                      className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
+                                    >
+                                      ✍️ Fyll ut på nytt
+                                    </Link>
+                                  )}
                                   {user?.role === "ADMIN" && (
                                     <form action={setReportLock}>
                                       <input type="hidden" name="reportId" value={report.id} />
@@ -446,21 +470,31 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
                                   )}
                                 </>
                               ) : (
-                                <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">⏳ Venter på utfylling</span>
+                                <>
+                                  <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">⏳ Venter på utfylling</span>
+                                  {staff && (
+                                    <Link
+                                      href={fillHref}
+                                      className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
+                                    >
+                                      ✍️ Fyll ut skjema
+                                    </Link>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
 
                           {report && !report.isLocked && (
                             <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 text-xs font-bold rounded-xl px-3 py-2 mb-3">
-                              ⚠️ Rapporten er låst opp og kan endres av montør i felt. Lås den igjen når rettingen er ferdig.
+                              ⚠️ Rapporten er låst opp og kan endres. Lås den igjen når rettingen er ferdig.
                             </div>
                           )}
 
                           {report ? (
                             <ReportContent report={report} template={template} />
                           ) : (
-                            <p className="text-xs text-gray-500 italic">Skjemaet venter på utfylling fra montør i felt.</p>
+                            <p className="text-xs text-gray-500 italic">Skjemaet venter på utfylling.</p>
                           )}
                         </div>
                       );

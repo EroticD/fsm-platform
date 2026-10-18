@@ -8,13 +8,24 @@ import { parseJsonObject } from "@/lib/report-answers";
 
 export default async function TechnicianFillFormPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; templateId: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }) {
   const session = await getServerSession();
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const { id: workOrderId, templateId } = await params;
+  const { returnTo: returnToParam } = await searchParams;
+
+  // Skjemaet kan åpnes både fra feltportalen og fra kontorets oppdragsside.
+  // Bare de to oppdragssidene godtas som returmål.
+  const returnTo = [`/oppdrag/${workOrderId}`, `/mine-oppdrag/${workOrderId}`].includes(
+    returnToParam || ""
+  )
+    ? (returnToParam as string)
+    : `/mine-oppdrag/${workOrderId}`;
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) redirect("/api/auth/signin");
@@ -55,7 +66,7 @@ export default async function TechnicianFillFormPage({
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-            <Link href={`/mine-oppdrag/${workOrderId}`} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
+            <Link href={returnTo} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
               &larr; Tilbake til oppdraget
             </Link>
             <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
@@ -79,7 +90,7 @@ export default async function TechnicianFillFormPage({
                 📄 Se rapporten (PDF)
               </Link>
               <Link
-                href={`/mine-oppdrag/${workOrderId}`}
+                href={returnTo}
                 className="bg-white border-2 border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm"
               >
                 Tilbake til oppdraget
@@ -131,7 +142,7 @@ export default async function TechnicianFillFormPage({
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <Link href={`/mine-oppdrag/${workOrderId}`} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
+          <Link href={returnTo} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
             &larr; Tilbake til oppdraget
           </Link>
           <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
@@ -149,6 +160,7 @@ export default async function TechnicianFillFormPage({
           defaultUnitId={workOrder.productId}
           technicianName={user.name || undefined}
           initialReport={initialReport}
+          returnTo={returnTo}
         />
       </div>
     </div>

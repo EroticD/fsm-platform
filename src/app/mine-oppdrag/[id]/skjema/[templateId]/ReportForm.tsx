@@ -69,6 +69,7 @@ export default function ReportForm({
   defaultUnitId,
   technicianName,
   initialReport,
+  returnTo,
 }: {
   workOrderId: string;
   templateId: string;
@@ -77,6 +78,8 @@ export default function ReportForm({
   defaultUnitId?: string | null;
   technicianName?: string;
   initialReport?: InitialReport;
+  /** Siden skjemaet ble åpnet fra, så vi kan sende brukeren tilbake dit. */
+  returnTo?: string;
 }) {
   const isEditing = Boolean(initialReport);
 
@@ -168,6 +171,7 @@ export default function ReportForm({
       <input type="hidden" name="templateId" value={templateId} />
       <input type="hidden" name="unitsJson" value={unitsJson} />
       <input type="hidden" name="status" value={overallStatus} />
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
 
       {isEditing && (
         <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-xl px-4 py-3 text-sm font-medium">
