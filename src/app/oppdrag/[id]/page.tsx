@@ -8,7 +8,7 @@ import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
-import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
+import { LIMITS, cleanEmail, cleanPhone, cleanStatus, cleanText } from "@/lib/sanitize";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { requireOffice, requireStaff } from "@/lib/session";
 import { deleteWorkOrder } from "./actions";
@@ -311,6 +311,9 @@ export default async function AdminWorkOrderPage({
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
 
+  // Fanges opp her slik at handlingene under har en ikke-null kunde.
+  const customerId = workOrder.customerId;
+
   async function setTemplate(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
@@ -322,6 +325,78 @@ export default async function AdminWorkOrderPage({
       data: { templates: { connect: { id: templateId } } }
     });
     revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
+  async function setContact(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+
+    const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
+
+    let contactName: string | null = null;
+    if (contactId) {
+      // Kontaktpersonen må tilhøre kunden oppdraget gjelder.
+      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+      if (!contact || contact.customerId !== customerId) return;
+      contactName = contact.name;
+    }
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { contactId: contactId || null }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: contactName ? `Valgte kontaktperson: ${contactName}` : "Fjernet kontaktpersonen fra oppdraget",
+        userName: user?.name || "Kontor"
+      }
+    });
+
+    revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
+  async function addContactToCustomer(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    if (!customerId) return;
+
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const email = cleanEmail(formData.get("email"));
+    const phone = cleanPhone(formData.get("phone"));
+    const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
+
+    if (!name) return;
+
+    const contact = await prisma.contact.create({
+      data: {
+        name,
+        email: email || null,
+        phone: phone || null,
+        role: role || null,
+        customerId
+      }
+    });
+
+    // Den nye kontaktpersonen blir valgt på oppdraget med en gang.
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { contactId: contact.id }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `La til kontaktperson: ${name}`,
+        userName: user?.name || "Kontor"
+      }
+    });
+
+    revalidatePath(`/oppdrag/${workOrderId}`);
+    revalidatePath(`/kunder/${customerId}`);
   }
 
   async function updateStatus(formData: FormData) {
@@ -608,6 +683,45 @@ export default async function AdminWorkOrderPage({
                   </div>
                 ) : (
                   <p className="text-xs text-gray-500 italic">Ingen kontaktperson valgt for oppdraget.</p>
+                )}
+
+                {office && workOrder.customer && (
+                  <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
+                    <form action={setContact} className="flex flex-col sm:flex-row gap-2">
+                      <select
+                        name="contactId"
+                        defaultValue={workOrder.contactId || ""}
+                        className="flex-1 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                      >
+                        <option value="">— Ingen kontaktperson —</option>
+                        {workOrder.customer.contacts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{c.role ? ` (${c.role})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+                        Lagre kontakt
+                      </button>
+                    </form>
+
+                    <details className="rounded-xl border-2 border-gray-200 bg-gray-50">
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-black text-blue-800 select-none">
+                        + Ny kontaktperson for kunden
+                      </summary>
+                      <form action={addContactToCustomer} className="space-y-2 p-3 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input required name="name" placeholder="Navn *" className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                          <input name="role" placeholder="Rolle (valgfritt)" className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                          <input type="email" name="email" placeholder="E-post (valgfritt)" className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                          <input type="tel" name="phone" placeholder="Telefon (valgfritt)" className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                        </div>
+                        <button type="submit" className="w-full bg-gray-900 text-white py-2 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm">
+                          Legg til og velg på oppdraget
+                        </button>
+                      </form>
+                    </details>
+                  </div>
                 )}
               </div>
 

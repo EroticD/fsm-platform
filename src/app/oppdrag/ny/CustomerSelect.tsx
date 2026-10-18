@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function CustomerSelect({ customers, optional = false }: { customers: any[]; optional?: boolean }) {
+export default function CustomerSelect({ customers, contacts = [], optional = false }: { customers: any[]; contacts?: any[]; optional?: boolean }) {
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -69,6 +69,32 @@ export default function CustomerSelect({ customers, optional = false }: { custom
 
       {customers.length === 0 && (
         <p className="text-xs text-red-500 mt-1">Ingen kunder funnet i systemet.</p>
+      )}
+
+      {selectedCustomer && (
+        <div className="mt-3">
+          <label className="block text-sm font-bold text-gray-700 mb-1">Kontaktperson (valgfritt)</label>
+          {contacts.filter((c) => c.customerId === selectedCustomer.id).length === 0 ? (
+            <p className="text-xs text-gray-500 italic">
+              Kunden har ingen registrerte kontaktpersoner. Du kan legge til én når oppdraget er opprettet.
+            </p>
+          ) : (
+            <select
+              name="contactId"
+              defaultValue=""
+              className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium shadow-sm outline-none focus:border-blue-500"
+            >
+              <option value="">— Ingen kontaktperson —</option>
+              {contacts
+                .filter((c) => c.customerId === selectedCustomer.id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.role ? ` (${c.role})` : ""}
+                  </option>
+                ))}
+            </select>
+          )}
+        </div>
       )}
     </div>
   );

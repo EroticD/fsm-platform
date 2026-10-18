@@ -16,6 +16,7 @@ export default async function AdminCreateWorkOrderPage() {
   if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
 
   const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
+  const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const technicians = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } } });
 
@@ -25,8 +26,16 @@ export default async function AdminCreateWorkOrderPage() {
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+    const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
     const dateInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
     const scheduledFor = dateInput ? new Date(dateInput) : new Date();
+
+    // Kontaktpersonen må tilhøre den valgte kunden.
+    let validContactId = contactId;
+    if (contactId) {
+      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+      if (!contact || contact.customerId !== customerId) validContactId = "";
+    }
 
     const technicianIds = formData.getAll("technicianIds") as string[];
     const templateIds = formData.getAll("templateIds") as string[];
@@ -35,6 +44,7 @@ export default async function AdminCreateWorkOrderPage() {
       title,
       description,
       customerId,
+      contactId: validContactId,
       scheduledFor: dateInput,
       technicianIds,
       templateIds,
@@ -50,6 +60,7 @@ export default async function AdminCreateWorkOrderPage() {
           title,
           description: description || "",
           customerId: customerId || undefined,
+          contactId: parsed.data.contactId || undefined,
           scheduledFor,
           creatorName: user?.name || "Kontor",
           status: "PENDING",
@@ -106,7 +117,7 @@ export default async function AdminCreateWorkOrderPage() {
             />
           </div>
 
-          <CustomerSelect customers={customers} optional={true} />
+          <CustomerSelect customers={customers} contacts={contacts} optional={true} />
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Dato for utførelse</label>

@@ -36,6 +36,7 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
 
   const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
   const technicians = await prisma.user.findMany({ orderBy: { name: 'asc' } });
+  const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
 
   // --- SERVER ACTION: LAGRE ENDRINGER ---
   async function updateWorkOrder(formData: FormData) {
@@ -45,8 +46,15 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
     const scheduledFor = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
+    let contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
 
     if (!title || !customerId) return;
+
+    // Kontaktpersonen må tilhøre den valgte kunden; ellers tømmes feltet.
+    if (contactId) {
+      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+      if (!contact || contact.customerId !== customerId) contactId = "";
+    }
 
     // Oppdater grunnleggende info og oppdater tildelt montør
     await prisma.workOrder.update({
@@ -55,6 +63,7 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
         title,
         description,
         customerId,
+        contactId: contactId || null,
         scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
         technicians: technicianId ? { set: [{ id: technicianId }] } : { set: [] }
       }
@@ -113,6 +122,33 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
                 <option key={c.id} value={c.id}>{c.name} {c.city ? `(${c.city})` : ""}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-gray-900 mb-2">Kontaktperson (valgfritt)</label>
+            <select
+              name="contactId"
+              defaultValue={workOrder.contactId || ""}
+              className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+            >
+              <option value="">— Ingen kontaktperson —</option>
+              {customers.map(c => {
+                const customerContacts = contacts.filter((k) => k.customerId === c.id);
+                if (customerContacts.length === 0) return null;
+                return (
+                  <optgroup key={c.id} label={c.name}>
+                    {customerContacts.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.name}{k.role ? ` (${k.role})` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Velger du en ny kunde, må du også velge kontaktperson på nytt.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
