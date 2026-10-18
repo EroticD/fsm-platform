@@ -278,7 +278,7 @@ export default async function AdminDashboard({
             value={openCount}
             sub={`${awaitingCount} venter på oppstart`}
             tone="blue"
-            href="/innstillinger?tab=statistikk"
+            href="/oppdrag?vis=apne"
           />
           <KpiCard
             icon="🔄"
@@ -286,6 +286,7 @@ export default async function AdminDashboard({
             value={inProgressCount}
             sub="Jobbes med nå"
             tone="purple"
+            href="/oppdrag?vis=pagaaende"
           />
           <KpiCard
             icon="📅"
@@ -293,7 +294,7 @@ export default async function AdminDashboard({
             value={todayOrders.length}
             sub={formatDay(startOfToday)}
             tone="gray"
-            href="/kalender"
+            href="/oppdrag?vis=idag"
           />
           <KpiCard
             icon="⚠️"
@@ -301,6 +302,7 @@ export default async function AdminDashboard({
             value={overdueCount}
             sub="Ikke fullført i tide"
             tone={overdueCount > 0 ? "red" : "gray"}
+            href="/oppdrag?vis=forfalte"
           />
         </div>
 
@@ -311,7 +313,7 @@ export default async function AdminDashboard({
             value={unassignedCount}
             sub="Mangler montør"
             tone={unassignedCount > 0 ? "amber" : "gray"}
-            href="/kalender/dispatch"
+            href="/oppdrag?vis=ikke-tildelt"
           />
           <KpiCard
             icon="📋"
@@ -319,6 +321,7 @@ export default async function AdminDashboard({
             value={reportsThisMonth}
             sub="Utfylte sjekklister"
             tone="green"
+            href="/rapporter"
           />
           <KpiCard
             icon="🏢"
@@ -334,6 +337,7 @@ export default async function AdminDashboard({
             value={productCount}
             sub={`${completedCount} fullførte oppdrag`}
             tone="gray"
+            href="/enheter"
           />
         </div>
 

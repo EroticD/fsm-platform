@@ -6,7 +6,6 @@ import { getToken } from "next-auth/jwt";
 // Alt annet sendes tilbake til kundeportalen.
 const CUSTOMER_ALLOWED_PREFIXES = [
   "/kundeportal",
-  "/rapporter", // PDF-visning (tilgang sjekkes per oppdrag i siden)
   "/api/rapporter", // selve PDF-filen (tilgang sjekkes per oppdrag i ruten)
   "/uploads", // bilder og vedlegg som vises i rapportene
   "/api/auth", // innlogging / utlogging
@@ -15,7 +14,13 @@ const CUSTOMER_ALLOWED_PREFIXES = [
   "/aktiver-konto",
 ];
 
+// Rapportviseren per oppdrag: /rapporter/<oppdragsId>. Innholdet krever at
+// kunden eier oppdraget, noe siden selv sjekker. Den interne rapportlisten
+// (/rapporter uten id) er derimot kun for kontoret og er ikke tillatt her.
+const REPORT_VIEWER = /^\/rapporter\/[^/]+/;
+
 function isAllowedForCustomer(pathname: string) {
+  if (REPORT_VIEWER.test(pathname)) return true;
   return CUSTOMER_ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
