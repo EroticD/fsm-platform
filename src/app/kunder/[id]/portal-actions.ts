@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
-import { actorName } from "@/lib/session";
+import { actorName, requireOffice } from "@/lib/session";
 
 /**
  * Oppretter en kundeportalbruker koblet til en kontaktperson på kundekortet.
  * Brukeren er inaktiv og får en invitasjonslenke for å sette eget passord.
  */
 export async function createPortalUser(formData: FormData) {
+  if (!(await requireOffice())) return;
   const customerId = formData.get("customerId") as string;
   const name = (formData.get("name") as string)?.trim();
   const email = (formData.get("email") as string)?.trim().toLowerCase();
@@ -63,6 +64,7 @@ export async function createPortalUser(formData: FormData) {
 
 /** Aktiverer eller deaktiverer en kundeportalbruker. */
 export async function setPortalUserActive(formData: FormData) {
+  if (!(await requireOffice())) return;
   const customerId = formData.get("customerId") as string;
   const id = formData.get("id") as string;
   const active = formData.get("active") === "true";
@@ -85,6 +87,7 @@ export async function setPortalUserActive(formData: FormData) {
 
 /** Lager en ny invitasjonslenke for en kundeportalbruker. */
 export async function resendPortalInvite(formData: FormData) {
+  if (!(await requireOffice())) return;
   const customerId = formData.get("customerId") as string;
   const id = formData.get("id") as string;
   if (!customerId || !id) return;

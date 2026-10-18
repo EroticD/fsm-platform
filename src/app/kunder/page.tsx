@@ -3,11 +3,16 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+import { getCurrentUser, isOffice, requireOffice } from "@/lib/session";
 
 export default async function KunderPage() {
   // Sjekk at brukeren er logget inn
   const session = await getServerSession();
   if (!session) redirect("/api/auth/signin");
+
+  // Montører får lese kundekatalogen, men ikke registrere nye kunder.
+  const user = await getCurrentUser();
+  const office = isOffice(user?.role);
 
   // Hent alle kunder fra databasen, sortert alfabetisk
   const customers = await prisma.customer.findMany({
@@ -17,6 +22,7 @@ export default async function KunderPage() {
   // Dette er en "Server Action" som kjører trygt på serveren når skjemaet sendes inn
   async function addCustomer(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     
     const name = formData.get("name") as string;
     const orgNumber = formData.get("orgNumber") as string;
@@ -43,28 +49,30 @@ export default async function KunderPage() {
           </Link>
         </div>
 
-        {/* Skjema for å legge til ny kunde */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">Registrer ny kunde</h2>
-          <form action={addCustomer} className="flex gap-4">
-            <input 
-              type="text" 
-              name="name" 
-              placeholder="Firmanavn" 
-              required 
-              className="border p-2 rounded flex-1 text-gray-800"
-            />
-            <input 
-              type="text" 
-              name="orgNumber" 
-              placeholder="Org.nummer (valgfritt)" 
-              className="border p-2 rounded flex-1 text-gray-800"
-            />
-            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition font-medium">
-              Lagre kunde
-            </button>
-          </form>
-        </div>
+        {/* Skjema for å legge til ny kunde – kun kontor/admin */}
+        {office && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Registrer ny kunde</h2>
+            <form action={addCustomer} className="flex gap-4">
+              <input
+                type="text"
+                name="name"
+                placeholder="Firmanavn"
+                required
+                className="border p-2 rounded flex-1 text-gray-800"
+              />
+              <input
+                type="text"
+                name="orgNumber"
+                placeholder="Org.nummer (valgfritt)"
+                className="border p-2 rounded flex-1 text-gray-800"
+              />
+              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition font-medium">
+                Lagre kunde
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Tabell med eksisterende kunder */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

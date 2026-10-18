@@ -3,11 +3,13 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { isOffice } from "@/lib/session";
 
 export async function saveTemplate(formData: FormData) {
   const session = await getServerSession();
   const email = (session as any)?.user?.email as string | undefined;
   const user = await prisma.user.findUnique({ where: { email } });
+  if (!isOffice(user?.role)) return;
   
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;

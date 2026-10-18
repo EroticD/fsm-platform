@@ -75,7 +75,6 @@ export default async function ReportsPage({
   // Proxyen slipper kundeportalbrukere inn på /rapporter for å se egne PDF-er.
   // Selve listen er en intern oversikt, så de sendes tilbake til portalen.
   if (user?.role === "CUSTOMER") redirect("/kundeportal");
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
 
   const { vis } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";

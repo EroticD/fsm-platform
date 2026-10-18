@@ -87,7 +87,8 @@ const STATUS_OPTIONS = [
   { value: "CANCELLED", label: "Kansellert" },
 ];
 
-const QUICK_ACTIONS = [
+// Hurtighandlinger for kontoret.
+const OFFICE_ACTIONS = [
   { href: "/oppdrag/ny", icon: "➕", label: "Nytt oppdrag" },
   { href: "/kalender", icon: "📅", label: "Kalender" },
   { href: "/kalender/dispatch", icon: "🎛️", label: "Dispatch" },
@@ -96,6 +97,17 @@ const QUICK_ACTIONS = [
   { href: "/innstillinger?tab=maler", icon: "📋", label: "Sjekklister" },
   { href: "/innstillinger?tab=ansatte", icon: "👥", label: "Ansatte" },
   { href: "/innstillinger?tab=statistikk", icon: "📊", label: "Statistikk" },
+];
+
+// Hurtighandlinger for montører: feltrelevante sider, ingen kontorverktøy.
+const FIELD_ACTIONS = [
+  { href: "/mine-oppdrag/ny", icon: "➕", label: "Nytt oppdrag" },
+  { href: "/mine-oppdrag", icon: "📋", label: "Mine oppdrag" },
+  { href: "/oppdrag", icon: "📂", label: "Alle oppdrag" },
+  { href: "/kalender", icon: "📅", label: "Kalender" },
+  { href: "/kunder", icon: "🏢", label: "Kunder" },
+  { href: "/enheter", icon: "🔧", label: "Enheter" },
+  { href: "/rapporter", icon: "📄", label: "Rapporter" },
 ];
 
 const ACTIVE_STATUSES = ["OPEN", "PENDING", "WAITING", "IN_PROGRESS"];
@@ -109,7 +121,12 @@ export default async function AdminDashboard({
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  if (!user) redirect("/api/auth/signin");
+
+  // Dashbordet er felles for kontor og montører. Montørene ser de samme
+  // tallene og listene, men hurtighandlingene peker til feltportalen deres.
+  const office = user.role === "ADMIN" || user.role === "OFFICE";
+  const quickActions = office ? OFFICE_ACTIONS : FIELD_ACTIONS;
 
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
@@ -239,7 +256,7 @@ export default async function AdminDashboard({
           </div>
           <div className="flex gap-2">
             <Link
-              href="/oppdrag/ny"
+              href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
               className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
             >
               ➕ Nytt oppdrag
@@ -257,7 +274,7 @@ export default async function AdminDashboard({
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-2">Hurtighandlinger</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {QUICK_ACTIONS.map((a) => (
+            {quickActions.map((a) => (
               <Link
                 key={a.href}
                 href={a.href}
@@ -370,9 +387,11 @@ export default async function AdminDashboard({
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">🙋 Oppdrag uten montør</h2>
-            <Link href="/kalender/dispatch" className="text-[11px] font-bold text-blue-600 hover:underline">
-              Åpne dispatch
-            </Link>
+            {office && (
+              <Link href="/kalender/dispatch" className="text-[11px] font-bold text-blue-600 hover:underline">
+                Åpne dispatch
+              </Link>
+            )}
           </div>
           <OrderList
             orders={unassignedOrders}
@@ -425,7 +444,7 @@ export default async function AdminDashboard({
           {listOrders.length === 0 ? (
             <div className="p-6 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
               <p className="text-gray-500 font-medium">Ingen oppdrag matcher søket.</p>
-              <Link href="/oppdrag/ny" className="text-blue-600 font-bold hover:underline mt-2 inline-block">
+              <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className="text-blue-600 font-bold hover:underline mt-2 inline-block">
                 Opprett et nytt oppdrag
               </Link>
             </div>
@@ -494,9 +513,11 @@ export default async function AdminDashboard({
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
           <div className="flex items-center justify-between border-b pb-2 mb-3">
             <h2 className="font-black text-gray-900 text-base">📋 Siste aktivitet</h2>
-            <Link href="/innstillinger?tab=auditlog" className="text-[11px] font-bold text-blue-600 hover:underline">
-              Se all aktivitet
-            </Link>
+            {office && (
+              <Link href="/innstillinger?tab=auditlog" className="text-[11px] font-bold text-blue-600 hover:underline">
+                Se all aktivitet
+              </Link>
+            )}
           </div>
           {recentLogs.length === 0 ? (
             <p className="text-xs text-gray-500 italic">Ingen aktivitet registrert.</p>

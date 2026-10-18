@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
+import { requireStaff } from "@/lib/session";
 
 export default async function TechnicianWorkOrderPage({
   params,
@@ -70,6 +71,7 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: OPPDATER STATUS ---
   async function updateStatus(formData: FormData) {
     "use server";
+    if (!(await requireStaff())) return;
     const newStatus = formData.get("status") as any;
     if (!newStatus) return;
 
@@ -93,6 +95,7 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: LEGG TIL KOMMENTAR ---
   async function addComment(formData: FormData) {
     "use server";
+    if (!(await requireStaff())) return;
     const content = formData.get("content") as string;
     if (!content || !content.trim()) return;
 
@@ -119,6 +122,7 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: LEGG TIL SJEKKLISTE ---
   async function addTemplate(formData: FormData) {
     "use server";
+    if (!(await requireStaff())) return;
     const templateId = formData.get("templateId") as string;
     if (!templateId) return;
 
@@ -135,6 +139,7 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: LEGG TIL NY MONTØR / KONTORPERSON ---
   async function addTechnician(formData: FormData) {
     "use server";
+    if (!(await requireStaff())) return;
     const userId = formData.get("userId") as string;
     if (!userId) return;
 
@@ -162,6 +167,7 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: FJERN MONTØR / SEG SELV ---
   async function removeTechnician(formData: FormData) {
     "use server";
+    if (!(await requireStaff())) return;
     const userId = formData.get("userId") as string;
     if (!userId) return;
 

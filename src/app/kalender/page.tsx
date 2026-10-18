@@ -8,9 +8,11 @@ export default async function CalendarPage() {
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user) redirect("/api/auth/signin");
 
-  // Kun admin/kontor skal ha tilgang til denne dispatch-visningen
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  // Montører får se kalenderen, men ikke kontorets verktøy (dispatch-tavla og
+  // oppretting av oppdrag fra kontoret er egne, sperrede sider).
+  const office = user.role === "ADMIN" || user.role === "OFFICE";
 
   // Hent alle ansatte som kan ta oppdrag
   const technicians = await prisma.user.findMany({
@@ -53,9 +55,11 @@ export default async function CalendarPage() {
             <Link href="/" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm">
               &larr; Hjem
             </Link>
-            <Link href="/oppdrag/ny" className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg font-bold hover:opacity-90 shadow-sm transition flex items-center gap-2 text-sm">
-              ➕ Nytt oppdrag
-            </Link>
+            {office && (
+              <Link href="/oppdrag/ny" className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg font-bold hover:opacity-90 shadow-sm transition flex items-center gap-2 text-sm">
+                ➕ Nytt oppdrag
+              </Link>
+            )}
           </div>
         </div>
 
@@ -74,9 +78,11 @@ export default async function CalendarPage() {
             <Link href="/kalender/uke-2" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
               📅 2 uker
             </Link>
-            <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              🎛️ Dispatch
-            </Link>
+            {office && (
+              <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
+                🎛️ Dispatch
+              </Link>
+            )}
           </div>
         </div>
 

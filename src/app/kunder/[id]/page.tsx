@@ -11,6 +11,7 @@ import CopyButton from "@/components/CopyButton";
 import KpiCard from "@/components/KpiCard";
 import UnitHistory from "@/components/UnitHistory";
 import { buildInviteUrl } from "@/lib/invite";
+import { requireOffice } from "@/lib/session";
 import {
   createPortalUser,
   setPortalUserActive,
@@ -98,7 +99,12 @@ export default async function CustomerDetailPage({
   const { invite, error, mail, tab } = await searchParams;
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  if (!user) redirect("/api/auth/signin");
+
+  // Montører får lese kundekortet – bedriftsinfo, oppdragshistorikk, enheter og
+  // kontakter – men ikke kontorets skriveknapper. Handlingene selv er sperret i
+  // unit-actions/portal-actions, uavhengig av hva som vises her.
+  const office = user.role === "ADMIN" || user.role === "OFFICE";
 
   // Hent kunden sammen med tilhørende oppdrag (sortert på dato, nyeste først) og kontaktpersoner
   const customer = await prisma.customer.findUnique({
@@ -188,7 +194,7 @@ export default async function CustomerDetailPage({
     { key: "oppdrag", label: "📂 Oppdrag" },
     { key: "enheter", label: "🔧 Enheter" },
     { key: "kontakter", label: "👤 Kontakter" },
-    { key: "portal", label: "🔐 Kundeportal" },
+    ...(office ? [{ key: "portal", label: "🔐 Kundeportal" }] : []),
     { key: "aktivitet", label: "📋 Aktivitet" },
   ];
   const currentTab = tabs.some((t) => t.key === tab) ? (tab as string) : "oversikt";
@@ -204,6 +210,7 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTION: LEGG TIL KONTAKTPERSON ---
   async function addContact(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
 
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
@@ -239,6 +246,7 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTION: OPPRETT KONTAKTPERSON ---
   async function updateContact(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
 
     const id = formData.get("id") as string;
     const name = formData.get("name") as string;
@@ -275,6 +283,7 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTION: SLETT KONTAKTPERSON ---
   async function deleteContact(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
 
     const id = formData.get("id") as string;
     if (!id) return;
@@ -314,12 +323,16 @@ export default async function CustomerDetailPage({
             </p>
           </div>
           <div className="flex gap-2 sm:gap-3">
-            <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-              ➕ Nytt oppdrag
-            </Link>
-            <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-              ✏️ Rediger
-            </Link>
+            {office && (
+              <>
+                <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+                  ➕ Nytt oppdrag
+                </Link>
+                <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+                  ✏️ Rediger
+                </Link>
+              </>
+            )}
             <Link href="/kunder" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
               &larr; Kunder
             </Link>
@@ -357,7 +370,9 @@ export default async function CustomerDetailPage({
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <KpiCard icon="🔧" label="Enheter" value={customer.products.length} tone="gray" href="?tab=enheter" />
               <KpiCard icon="👤" label="Kontaktpersoner" value={customer.contacts.length} tone="gray" href="?tab=kontakter" />
-              <KpiCard icon="🔐" label="Portalbrukere" value={portalUsers.length} tone="gray" href="?tab=portal" />
+              {office && (
+                <KpiCard icon="🔐" label="Portalbrukere" value={portalUsers.length} tone="gray" href="?tab=portal" />
+              )}
               <KpiCard
                 icon="🗓️"
                 label="Neste oppdrag"
@@ -373,9 +388,11 @@ export default async function CustomerDetailPage({
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4 lg:col-span-1">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h2 className="font-black text-gray-900 text-base">🏢 Bedriftsinformasjon</h2>
-                  <Link href={`/kunder/${customerId}/rediger`} className="text-[11px] font-bold text-blue-600 hover:underline">
-                    Endre
-                  </Link>
+                  {office && (
+                    <Link href={`/kunder/${customerId}/rediger`} className="text-[11px] font-bold text-blue-600 hover:underline">
+                      Endre
+                    </Link>
+                  )}
                 </div>
                 <div className="text-sm space-y-3 text-gray-800">
                   <p><strong>Adresse:</strong><br />
@@ -526,27 +543,29 @@ export default async function CustomerDetailPage({
             title="🔧 Utstyr / enheter"
             description="Maskinene og utstyret kunden har. Enhetene kan velges når montøren fyller ut en servicerapport, og rapporten husker hvilke enheter som ble kontrollert."
           >
-            {/* Skjema for ny enhet */}
-            <form action={createUnit} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <input type="hidden" name="customerId" value={customerId} />
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Betegnelse *</label>
-                  <input type="text" name="model" required placeholder="F.eks. Port Nord" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+            {/* Skjema for ny enhet – kun kontor/admin */}
+            {office && (
+              <form action={createUnit} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <input type="hidden" name="customerId" value={customerId} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Betegnelse *</label>
+                    <input type="text" name="model" required placeholder="F.eks. Port Nord" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Serienummer</label>
+                    <input type="text" name="serialNumber" placeholder="F.eks. 12-3456" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Plassering</label>
+                    <input type="text" name="location" placeholder="F.eks. Bygg A, plan 2" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Serienummer</label>
-                  <input type="text" name="serialNumber" placeholder="F.eks. 12-3456" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Plassering</label>
-                  <input type="text" name="location" placeholder="F.eks. Bygg A, plan 2" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap">
-                Legg til enhet
-              </button>
-            </form>
+                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap">
+                  Legg til enhet
+                </button>
+              </form>
+            )}
 
             {customer.products.length === 0 ? (
               <p className="text-xs text-gray-500 italic">Ingen registrerte enheter på denne kunden.</p>
@@ -585,42 +604,46 @@ export default async function CustomerDetailPage({
                           <UnitHistory entries={unit.reportUnits} />
                         </div>
 
-                        <details className="mt-3 border-t border-gray-200 pt-3">
-                          <summary className="cursor-pointer text-[11px] font-black text-gray-600 uppercase tracking-wider">
-                            ✏️ Endre enhet
-                          </summary>
+                        {office && (
+                          <details className="mt-3 border-t border-gray-200 pt-3">
+                            <summary className="cursor-pointer text-[11px] font-black text-gray-600 uppercase tracking-wider">
+                              ✏️ Endre enhet
+                            </summary>
 
-                          <form action={updateUnit} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-                            <input type="hidden" name="customerId" value={customerId} />
-                            <input type="hidden" name="id" value={unit.id} />
-                            <div>
-                              <label className="block text-[10px] font-bold text-gray-600 mb-1">Betegnelse *</label>
-                              <input type="text" name="model" required defaultValue={unit.model} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-gray-600 mb-1">Serienummer</label>
-                              <input type="text" name="serialNumber" defaultValue={unit.serialNumber || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-gray-600 mb-1">Plassering</label>
-                              <input type="text" name="location" defaultValue={unit.location || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
-                            </div>
-                            <div className="sm:col-span-3 flex justify-end">
-                              <button type="submit" className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 transition">
-                                Lagre endringer
-                              </button>
-                            </div>
-                          </form>
-                        </details>
+                            <form action={updateUnit} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                              <input type="hidden" name="customerId" value={customerId} />
+                              <input type="hidden" name="id" value={unit.id} />
+                              <div>
+                                <label className="block text-[10px] font-bold text-gray-600 mb-1">Betegnelse *</label>
+                                <input type="text" name="model" required defaultValue={unit.model} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-gray-600 mb-1">Serienummer</label>
+                                <input type="text" name="serialNumber" defaultValue={unit.serialNumber || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-gray-600 mb-1">Plassering</label>
+                                <input type="text" name="location" defaultValue={unit.location || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
+                              </div>
+                              <div className="sm:col-span-3 flex justify-end">
+                                <button type="submit" className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 transition">
+                                  Lagre endringer
+                                </button>
+                              </div>
+                            </form>
+                          </details>
+                        )}
                       </details>
 
-                      <form action={deleteUnit}>
-                        <input type="hidden" name="customerId" value={customerId} />
-                        <input type="hidden" name="id" value={unit.id} />
-                        <button type="submit" title="Slett enhet" className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
-                          🗑️
-                        </button>
-                      </form>
+                      {office && (
+                        <form action={deleteUnit}>
+                          <input type="hidden" name="customerId" value={customerId} />
+                          <input type="hidden" name="id" value={unit.id} />
+                          <button type="submit" title="Slett enhet" className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
+                            🗑️
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -635,32 +658,34 @@ export default async function CustomerDetailPage({
             title="👤 Kontaktpersoner"
             description="Personer hos kunden vi forholder oss til. Kundeportalbrukere kobles til en kontaktperson."
           >
-            {/* Skjema for ny kontaktperson (alltid synlig) */}
-            <form action={addContact} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Navn *</label>
-                  <input type="text" name="name" required placeholder="F.eks. Kari Nordmann" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+            {/* Skjema for ny kontaktperson – kun kontor/admin */}
+            {office && (
+              <form action={addContact} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Navn *</label>
+                    <input type="text" name="name" required placeholder="F.eks. Kari Nordmann" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Rolle (valgfritt)</label>
+                    <input type="text" name="role" placeholder="F.eks. Driftssjef" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Rolle (valgfritt)</label>
-                  <input type="text" name="role" placeholder="F.eks. Driftssjef" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">E-post (valgfritt)</label>
+                    <input type="email" name="email" placeholder="kari@bedriften.no" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Telefon (valgfritt)</label>
+                    <input type="tel" name="phone" placeholder="+47 900 00 000" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">E-post (valgfritt)</label>
-                  <input type="email" name="email" placeholder="kari@bedriften.no" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Telefon (valgfritt)</label>
-                  <input type="tel" name="phone" placeholder="+47 900 00 000" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap">
-                Legg til kontaktperson
-              </button>
-            </form>
+                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap">
+                  Legg til kontaktperson
+                </button>
+              </form>
+            )}
 
             {customer.contacts.length === 0 ? (
               <p className="text-xs text-gray-500 italic">Ingen registrerte kontaktpersoner.</p>
@@ -673,6 +698,7 @@ export default async function CustomerDetailPage({
                     customerId={customerId}
                     onUpdate={updateContact}
                     onDelete={deleteContact}
+                    readOnly={!office}
                   />
                 ))}
               </div>

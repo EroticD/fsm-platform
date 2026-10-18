@@ -3,17 +3,21 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { isOffice, requireOffice } from "@/lib/session";
 
 export default async function MalerPage() {
   const session = await getServerSession();
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  // Sjekklistemaler er kontorets verktøy – montørene får dem servert i skjemaet.
+  if (!isOffice(user?.role)) redirect("/");
   
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
 
   async function createTemplate(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const title = formData.get("title") as string;
     if (title) {
       await prisma.template.create({

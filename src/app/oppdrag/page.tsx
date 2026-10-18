@@ -129,7 +129,10 @@ export default async function WorkOrdersPage({
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  if (!user) redirect("/api/auth/signin");
+
+  // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
+  const office = user.role === "ADMIN" || user.role === "OFFICE";
 
   const { vis, q, side } = await searchParams;
   const view: ViewKey = vis && isViewKey(vis) ? vis : "alle";
@@ -225,7 +228,7 @@ export default async function WorkOrdersPage({
               ← Dashbord
             </Link>
             <Link
-              href="/oppdrag/ny"
+              href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
               className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
             >
               ➕ Nytt oppdrag

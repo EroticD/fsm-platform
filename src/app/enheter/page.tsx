@@ -47,7 +47,7 @@ export default async function UnitsPage({
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  if (!user) redirect("/api/auth/signin");
 
   const { q } = await searchParams;
   const search = q?.trim() || "";

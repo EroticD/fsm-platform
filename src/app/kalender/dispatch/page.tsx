@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import ConfirmSubmitForm from "./ConfirmSubmitForm";
+import { requireOffice } from "@/lib/session";
 
 // Hjelpekomponent for status-etikett
 function DispatchStatusBadge({ status }: { status: string }) {
@@ -50,6 +51,7 @@ export default async function DispatchPage() {
   // --- SERVER ACTION: TILDEL MONTØR ---
   async function assignTechnician(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const workOrderId = formData.get("workOrderId") as string;
     const technicianId = formData.get("technicianId") as string;
 
@@ -93,6 +95,7 @@ export default async function DispatchPage() {
   // --- SERVER ACTION: FJERN MONTØR ---
   async function removeTechnician(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const workOrderId = formData.get("workOrderId") as string;
     const technicianId = formData.get("technicianId") as string;
 
@@ -126,6 +129,7 @@ export default async function DispatchPage() {
   // --- SERVER ACTION: OPPRETT STATUS ---
   async function updateStatus(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const workOrderId = formData.get("workOrderId") as string;
     const status = formData.get("status") as string;
 

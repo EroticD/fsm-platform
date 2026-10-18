@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
-import { actorName } from "@/lib/session";
+import { actorName, requireOffice } from "@/lib/session";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
@@ -37,6 +37,7 @@ function revalidateUserAdmin() {
 }
 
 export async function createUser(formData: FormData) {
+  if (!(await requireOffice())) return;
   const back = returnPath(formData);
   const name = formData.get("name") as string;
   const email = (formData.get("email") as string)?.trim().toLowerCase();
@@ -105,6 +106,7 @@ export async function createUser(formData: FormData) {
 }
 
 export async function deleteUser(formData: FormData) {
+  if (!(await requireOffice())) return;
   const id = formData.get("id") as string;
   if (!id) return;
 
@@ -124,6 +126,7 @@ export async function deleteUser(formData: FormData) {
 }
 
 export async function changeRole(formData: FormData) {
+  if (!(await requireOffice())) return;
   const id = formData.get("id") as string;
   const newRole = formData.get("role") as string;
   if (!id || !newRole) return;
@@ -144,6 +147,7 @@ export async function changeRole(formData: FormData) {
 }
 
 export async function setActive(formData: FormData) {
+  if (!(await requireOffice())) return;
   const id = formData.get("id") as string;
   const active = formData.get("active") === "true";
   if (!id) return;
@@ -164,6 +168,7 @@ export async function setActive(formData: FormData) {
 }
 
 export async function generateInvite(formData: FormData) {
+  if (!(await requireOffice())) return;
   const back = returnPath(formData);
   const id = formData.get("id") as string;
   if (!id) return;

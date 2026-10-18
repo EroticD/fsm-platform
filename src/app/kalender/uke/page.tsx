@@ -16,7 +16,7 @@ export default async function WeekCalendarPage() {
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  if (!user) redirect("/api/auth/signin");
 
   // Hent oppdrag i en bred datoøk (6 måneder bakover og fremover)
   // slik at FullCalendar kan navigere mellom uker uten å hente nye data

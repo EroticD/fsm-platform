@@ -8,6 +8,7 @@ export default function ContactCard({
   customerId,
   onUpdate,
   onDelete,
+  readOnly = false,
 }: {
   contact: {
     id: string;
@@ -19,6 +20,8 @@ export default function ContactCard({
   customerId: string;
   onUpdate: (formData: FormData) => Promise<void>;
   onDelete: (formData: FormData) => Promise<void>;
+  /** Montører ser kontaktinfo, men får ikke redigere eller slette. */
+  readOnly?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
 
@@ -40,7 +43,7 @@ export default function ContactCard({
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${readOnly ? "hidden" : ""}`}>
           <button
             onClick={() => setIsEditing(!isEditing)}
             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition p-1"

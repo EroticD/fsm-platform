@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { isOffice, requireOffice } from "@/lib/session";
 
 export default async function EditCustomerPage({ 
   params 
@@ -20,6 +21,8 @@ export default async function EditCustomerPage({
   });
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  // Å redigere kundedata er kontorets oppgave – montører får lese kundekortet.
+  if (!isOffice(user?.role)) redirect(`/kunder/${customerId}`);
 
   if (!customer) {
     return (
@@ -35,6 +38,7 @@ export default async function EditCustomerPage({
   // --- SERVER ACTION: OPPRETT KUNDE ---
   async function updateCustomer(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
 
     const name = formData.get("name") as string;
     const customerNumber = formData.get("customerNumber") as string;

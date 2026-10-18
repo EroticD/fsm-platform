@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { actorName, getCurrentUser } from "@/lib/session";
+import { actorName, getCurrentUser, isStaff } from "@/lib/session";
 import { lineCommentKey } from "@/lib/report-answers";
 
 type TemplateField = {
@@ -112,6 +112,8 @@ async function resolveProductId(
 export async function submitReport(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/logg-inn");
+  // Rapportinnsending er en felt-handling: montører og kontor, ikke kunder.
+  if (!isStaff(user.role)) redirect("/");
 
   const workOrderId = formData.get("workOrderId") as string;
   const templateId = (formData.get("templateId") as string) || null;

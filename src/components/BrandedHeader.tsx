@@ -14,6 +14,7 @@ type NavItem = {
   icon: string;
 };
 
+// Kontor og admin: full oversikt, inkludert kontorverktøyene.
 const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "dashboard", icon: "🏠" },
   { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
@@ -23,6 +24,31 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/oppdrag/ny", labelKey: "newWorkOrder", icon: "" },
   { href: "/innstillinger", labelKey: "settings", icon: "⚙️" },
 ];
+
+// Montører: alt som er relevant ute hos kunden – kundeinfo, oppdrag, enheter og
+// rapporter. Dispatch, ansatte, maler og innstillinger er kontorverktøy og
+// utelates helt, slik at menyen ikke peker på sider de ikke kommer inn på.
+const TECHNICIAN_NAV: NavItem[] = [
+  { href: "/", labelKey: "dashboard", icon: "🏠" },
+  { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
+  { href: "/oppdrag", labelKey: "workOrders", icon: "📂" },
+  { href: "/kalender", labelKey: "calendar", icon: "📅" },
+  { href: "/kunder", labelKey: "customers", icon: "🏢" },
+  { href: "/enheter", labelKey: "equipment", icon: "🔧" },
+  { href: "/rapporter", labelKey: "reports", icon: "📄" },
+  { href: "/mine-oppdrag/ny", labelKey: "newWorkOrder", icon: "" },
+];
+
+// Kundeportalbrukere har bare sin egen portal.
+const CUSTOMER_NAV: NavItem[] = [
+  { href: "/kundeportal", labelKey: "customerPortal", icon: "👤" },
+];
+
+function navItemsFor(role?: string): NavItem[] {
+  if (role === "TECHNICIAN") return TECHNICIAN_NAV;
+  if (role === "CUSTOMER") return CUSTOMER_NAV;
+  return NAV_ITEMS;
+}
 
 export default function BrandedHeader({
   title,
@@ -136,7 +162,7 @@ export default function BrandedHeader({
         {/* Desktop navigation */}
         {showNav && (
           <div className="hidden lg:flex gap-1">
-            <GlobalNavDesktop primaryColor={pc} />
+            <GlobalNavDesktop primaryColor={pc} role={role} />
           </div>
         )}
 
@@ -166,7 +192,7 @@ export default function BrandedHeader({
               ✕
             </button>
           </div>
-          <GlobalNavMobile primaryColor={pc} onNavigate={closeMobileMenu} />
+          <GlobalNavMobile primaryColor={pc} onNavigate={closeMobileMenu} role={role} />
           <div className="mt-4 pt-4 border-t border-gray-200">
             <LanguageSwitcher />
           </div>
@@ -176,12 +202,13 @@ export default function BrandedHeader({
   );
 }
 
-function GlobalNavDesktop({ primaryColor }: { primaryColor: string }) {
+function GlobalNavDesktop({ primaryColor, role }: { primaryColor: string; role?: string }) {
   const pathname = usePathname();
   const t = useTranslations("common");
+  const items = navItemsFor(role);
   return (
     <nav className="flex gap-1 flex-wrap">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
         return (
           <Link
@@ -206,15 +233,18 @@ function GlobalNavDesktop({ primaryColor }: { primaryColor: string }) {
 function GlobalNavMobile({
   primaryColor,
   onNavigate,
+  role,
 }: {
   primaryColor: string;
   onNavigate?: () => void;
+  role?: string;
 }) {
   const pathname = usePathname();
   const t = useTranslations("common");
+  const items = navItemsFor(role);
   return (
     <nav className="flex flex-col gap-2">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
         return (
           <Link

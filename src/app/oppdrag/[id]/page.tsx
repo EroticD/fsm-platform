@@ -7,6 +7,7 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
+import { requireOffice, requireStaff } from "@/lib/session";
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -238,7 +239,11 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
   const workOrderId = resolvedParams.id;
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  if (!user) redirect("/api/auth/signin");
+
+  // Montører får lese hele oppdraget – historikk, enheter, rapporter og PDF –
+  // men ser ikke kontorets skjemaknapper. Skrivingen er sperret i handlingene.
+  const office = user.role === "ADMIN" || user.role === "OFFICE";
 
   const workOrder = await prisma.workOrder.findUnique({
     where: { id: workOrderId },
@@ -279,6 +284,7 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
 
   async function setTemplate(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const templateId = formData.get("templateId") as string;
     if (!templateId) return;
 
@@ -291,6 +297,7 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
 
   async function updateStatus(formData: FormData) {
     "use server";
+    if (!(await requireStaff())) return;
     const status = formData.get("status") as any;
     if (!status) return;
 
@@ -303,7 +310,7 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
       data: {
         entityType: "WorkOrder",
         entityId: workOrderId,
-        action: `Kontoret endret status til: ${status}`,
+        action: `${office ? "Kontoret" : "Montør"} endret status til: ${status}`,
         userName: user?.name || "Admin"
       }
     });
@@ -461,7 +468,7 @@ export default async function AdminWorkOrderPage({ params }: { params: Promise<{
                   </div>
                   )}
                   
-                  {availableTemplates.length > 0 && (
+                  {office && availableTemplates.length > 0 && (
                     <div className="border-t-2 border-gray-200 pt-4">
                       <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Krev flere sjekklister på oppdraget</p>
                       <form action={setTemplate} className="flex gap-2 flex-wrap">

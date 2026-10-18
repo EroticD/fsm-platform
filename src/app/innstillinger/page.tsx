@@ -5,6 +5,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import AuditLogTable from "@/components/AuditLogTable";
 import UsersAdmin from "@/components/UsersAdmin";
+import { isOffice, requireOffice } from "@/lib/session";
 
 export default async function SettingsPage({ 
   searchParams 
@@ -16,6 +17,9 @@ export default async function SettingsPage({
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) redirect("/");
+  // Innstillinger er kontorets verktøy (merkevare, maler, ansatte, statistikk
+  // og aktivitetslogg). Montører bruker feltportalen i stedet.
+  if (!isOffice(user.role)) redirect("/");
 
   // Vent på searchParams (kreves i nyere Next.js) og sett standardfane
   const resolvedParams = await searchParams;
@@ -130,6 +134,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: LAGRE BRANDING ---
   async function saveBranding(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const companyName = formData.get("companyName") as string;
     const primaryColor = formData.get("primaryColor") as string;
     const logoUrl = formData.get("logoUrl") as string;
@@ -154,6 +159,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: OPPRETT SJEKKLISTE ---
   async function createTemplate(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const title = formData.get("title") as string;
     if (!title) return;
 
@@ -177,6 +183,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: SLETT SJEKKLISTE ---
   async function deleteTemplate(formData: FormData) {
     "use server";
+    if (!(await requireOffice())) return;
     const id = formData.get("id") as string;
     if (!id) return;
 
