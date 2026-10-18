@@ -159,7 +159,7 @@ model Report {
   customerName           String?
 
   workOrderId String
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   templateId String?
   template   Template? @relation(fields: [templateId], references: [id])
@@ -220,7 +220,7 @@ model JobComment {
   createdAt  DateTime @default(now())
 
   workOrderId String
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
 
 model Attachment {
@@ -229,7 +229,7 @@ model Attachment {
   dataUrl  String
 
   workOrderId String
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
 }

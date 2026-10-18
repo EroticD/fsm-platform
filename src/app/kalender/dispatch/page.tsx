@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import ConfirmSubmitForm from "./ConfirmSubmitForm";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { requireOffice } from "@/lib/session";
 
 // Hjelpekomponent for status-etikett

@@ -6,8 +6,10 @@ import { revalidatePath } from "next/cache";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { requireOffice, requireStaff } from "@/lib/session";
+import { deleteWorkOrder } from "./actions";
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -378,13 +380,27 @@ export default async function AdminWorkOrderPage({
             <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || "Uten kunde"}</Link></p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
               href={`/oppdrag/${workOrder.id}/rediger`}
               className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm flex items-center gap-2"
             >
               ✏️ Rediger oppdrag
             </Link>
+            {user.role === "ADMIN" && (
+              <ConfirmSubmitForm
+                action={deleteWorkOrder}
+                confirmMessage={`Slette oppdraget «${workOrder.title}»? Alle rapporter, kommentarer og vedlegg til oppdraget blir slettet. Dette kan ikke angres.`}
+              >
+                <input type="hidden" name="workOrderId" value={workOrder.id} />
+                <button
+                  type="submit"
+                  className="bg-white border-2 border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition shadow-sm"
+                >
+                  🗑️ Slett oppdrag
+                </button>
+              </ConfirmSubmitForm>
+            )}
             <Link href="/" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm">
               &larr; Tilbake
             </Link>
