@@ -3,8 +3,10 @@ import {
   isLineCommentKey,
   needsComment,
   parseImageUrls,
+  parseJsonObject,
   readLineComment,
 } from "@/lib/report-answers";
+import type { PdfImage } from "@/lib/report-images";
 
 type TemplateFieldDef = {
   id: string;
@@ -63,11 +65,70 @@ type ReportBlock = {
   customerName?: string | null;
 };
 
+/** Opplysningene et sjekkpunkt arver fra enheten det hører til. */
+type UnitContext = {
+  key: string;
+  checklist: string;
+  date: string | null;
+  unitLabel: string | null;
+  serialNumber: string | null;
+  location: string | null;
+  unitComment: string | null;
+  status: string | null;
+};
+
+/** Et planlagt sjekkpunkt: innholdet, bildene og hvor det hører til. */
+type PlannedRow = {
+  label: string;
+  text: string;
+  comment: string;
+  alert: boolean;
+  isImage: boolean;
+  urls: string[];
+  rowIndex: number;
+  context: UnitContext | null;
+};
+
+/** Et sjekkpunkt slik det tegnes, med nummererte miniatyrbilder. */
+type PreparedRow = {
+  label: string;
+  text: string;
+  comment: string;
+  alert: boolean;
+  isImage: boolean;
+  /** Numrene viser til vedleggssidene bakerst i rapporten. */
+  images: Array<{ n: number; src: string }>;
+};
+
+type PlannedBlock = {
+  block: ReportBlock;
+  units: Array<{ unit: ReportUnit; index: number; rows: PlannedRow[] }>;
+  legacy: PlannedRow[];
+};
+
+/** Ett vedlagt bilde, med opplysningene som sier hvor det hører til. */
+type Attachment = {
+  n: number;
+  url: string;
+  checklist: string;
+  date: string | null;
+  unitLabel: string | null;
+  serialNumber: string | null;
+  location: string | null;
+  point: string;
+  comment: string;
+  status: string | null;
+};
+
 /**
  * Selve PDF-innholdet for en servicerapport.
  *
- * Komponenten er bevisst uten "use client": den brukes både av server-ruten
- * /api/rapporter/[id]/pdf (renderToBuffer) og kan brukes i nettleseren.
+ * Bilder vises som små miniatyrbilder på sjekkpunktet de hører til, og kommer i
+ * tillegg på sin egen vedleggsside bakerst i rapporten – med sjekkliste,
+ * sjekkpunkt og serienummer. Innholdet flyter over så mange sider det trenger.
+ *
+ * Komponenten er bevisst uten "use client": den brukes av server-ruten
+ * /api/rapporter/[id]/pdf (renderToBuffer).
  */
 export default function ReportDocument({
   data,
@@ -75,6 +136,7 @@ export default function ReportDocument({
   globalPrimaryColor,
   globalCompanyName,
   baseUrl,
+  pdfImages,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
@@ -83,6 +145,8 @@ export default function ReportDocument({
   globalCompanyName?: string;
   /** F.eks. "https://fsm.example.com" – brukes til å gjøre /uploads/... absolutt. */
   baseUrl?: string;
+  /** Nedskalerte bilder, nøklet på den opprinnelige URL-en. */
+  pdfImages?: Record<string, PdfImage>;
 }) {
   // `data` er oppdraget, med rapportene sine i `reports`.
   const workOrder = data.workOrder || data || {};
@@ -90,12 +154,7 @@ export default function ReportDocument({
   const templates: WorkOrderTemplate[] = workOrder.templates || [];
 
   const blocks: ReportBlock[] = reports.map((report) => {
-    let parsed: { status?: string; answers?: Record<string, unknown> } = {};
-    try {
-      const json = JSON.parse(report.dataJson || "{}");
-      if (json && typeof json === "object" && !Array.isArray(json)) parsed = json;
-    } catch {}
-
+    const parsed = parseJsonObject(report.dataJson);
     const template = templates.find((t) => t.id === report.templateId) || null;
     let fields: TemplateFieldDef[] = [];
     try {
@@ -107,15 +166,17 @@ export default function ReportDocument({
       id: report.id,
       templateTitle: template?.title ?? null,
       date: report.createdAt ? new Date(report.createdAt).toLocaleDateString("no-NO") : null,
-      status: parsed.status || "UKJENT",
+      status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,
-      answers: parsed.answers || {},
+      answers:
+        parsed.answers && typeof parsed.answers === "object" && !Array.isArray(parsed.answers)
+          ? (parsed.answers as Record<string, unknown>)
+          : {},
       units: report.units || [],
       comments: report.comments,
       // "Utførende tekniker": navnet montøren skrev ved signaturen, ellers
       // brukeren som fylte ut og låste rapporten.
-      technician:
-        (report.technicianName || report.lockedByName || "").trim() || null,
+      technician: (report.technicianName || report.lockedByName || "").trim() || null,
       technicianSignatureUrl: report.technicianSignatureUrl,
       technicianName: report.technicianName,
       customerSignatureUrl: report.customerSignatureUrl,
@@ -149,12 +210,6 @@ export default function ReportDocument({
   const logoUrl = globalLogoUrl || null;
   const companyName = globalCompanyName || "FSM System";
 
-  const answerText = (field: TemplateFieldDef | null, answer: unknown): string => {
-    if (field?.type === "CHECKBOX") return answer ? "Ja / utført" : "Nei / ikke krysset av";
-    if (field?.type === "IMAGE") return "Se vedlagt bilde";
-    if (answer === undefined || answer === null || answer === "") return "Ikke besvart";
-    return String(answer);
-  };
   /** Relativ bilde-URL (/uploads/...) må gjøres absolutt for at PDF-en skal kunne hente den. */
   const absoluteUrl = (url: string) => {
     if (/^(https?:|data:)/.test(url)) return url;
@@ -163,7 +218,21 @@ export default function ReportDocument({
     return `${origin}${url}`;
   };
 
-  /** Gjør sjekkpunktene om til rader som er enkle å tegne i PDF-en. */
+  /** Bildet slik det skal tegnes: nedskalert hvis vi klarte det, ellers original-URL. */
+  const pdfImage = (url: string): PdfImage =>
+    pdfImages?.[url] ?? { src: absoluteUrl(url) };
+
+  const answerText = (field: TemplateFieldDef | null, answer: unknown): string => {
+    if (field?.type === "CHECKBOX") return answer ? "Ja / utført" : "Nei / ikke krysset ut";
+    if (field?.type === "IMAGE") return "";
+    if (answer === undefined || answer === null || answer === "") return "Ikke besvart";
+    return String(answer);
+  };
+
+  /**
+   * Sjekkpunktene i en sjekkliste, som enkle linjer å tegne. Bildene er bare
+   * URL-er her; nummereringen til vedlegget skjer etterpå.
+   */
   const buildRows = (fields: TemplateFieldDef[], answers: Record<string, unknown>) => {
     const rows =
       fields.length > 0
@@ -185,16 +254,115 @@ export default function ReportDocument({
         comment,
         // Avvik/utbedring markeres i rødt i PDF-en.
         alert: Boolean(row.field) && needsComment(row.field as TemplateFieldDef, row.value),
-        images:
-          row.field?.type === "IMAGE"
-            ? parseImageUrls(row.value).map((url) => absoluteUrl(url))
-            : [],
+        isImage: row.field?.type === "IMAGE",
+        urls: row.field?.type === "IMAGE" ? parseImageUrls(row.value) : [],
+        context: null as UnitContext | null,
       };
     });
   };
 
+  /*
+   * Alle sjekkpunkter i rapporten, i den rekkefølgen de vises. Bildene
+   * nummereres etterpå ut fra denne listen, slik at nummeret på
+   * miniatyrbildet og vedleggssiden alltid er det samme.
+   */
+  const planUnit = (
+    fields: TemplateFieldDef[],
+    answers: Record<string, unknown>,
+    context: UnitContext,
+  ): PlannedRow[] =>
+    buildRows(fields, answers).map((row, rowIndex) => ({ ...row, rowIndex, context }));
+
+  const planned: PlannedBlock[] = [];
+  for (const block of blocks) {
+    const checklist = block.templateTitle || `Sjekkliste ${block.id.slice(0, 6)}`;
+
+    const units: Array<{ unit: ReportUnit; index: number; rows: PlannedRow[] }> = [];
+    for (let index = 0; index < block.units.length; index += 1) {
+      const unit = block.units[index];
+      units.push({
+        unit,
+        index,
+        rows: planUnit(block.fields, parseJsonObject(unit.answersJson), {
+          key: `${block.id}::${unit.id}`,
+          checklist,
+          date: block.date,
+          unitLabel: unit.label,
+          serialNumber: unit.serialNumber ?? null,
+          location: unit.location ?? null,
+          unitComment: unit.comment ?? null,
+          status: unit.status,
+        }),
+      });
+    }
+
+    // Eldre rapporter uten enheter.
+    const legacy: PlannedRow[] =
+      block.units.length === 0
+        ? planUnit(block.fields, block.answers, {
+            key: `${block.id}::uten-enhet`,
+            checklist,
+            date: block.date,
+            unitLabel: null,
+            serialNumber: null,
+            location: null,
+            unitComment: block.comments ?? null,
+            status: block.status,
+          })
+        : [];
+
+    planned.push({ block, units, legacy });
+  }
+
+  // Hvert vedlagte bilde, i den rekkefølgen de forekommer.
+  const imageItems: PlannedRow[] = [];
+  for (const entry of planned) {
+    for (const { rows } of entry.units) {
+      for (const row of rows) if (row.urls.length > 0) imageItems.push(row);
+    }
+    for (const row of entry.legacy) if (row.urls.length > 0) imageItems.push(row);
+  }
+
+  // Nummer på hvert bilde, og hvilke nummer hvert sjekkpunkt viser til.
+  const rowKey = (row: PlannedRow) => `${row.context?.key ?? ""}|${row.rowIndex}`;
+  const imageNumbers = new Map<string, number[]>();
+  const attachments: Attachment[] = [];
+  let imageNumber = 0;
+  for (const row of imageItems) {
+    const context = row.context!;
+    for (const url of row.urls) {
+      imageNumber += 1;
+      imageNumbers.set(rowKey(row), [...(imageNumbers.get(rowKey(row)) ?? []), imageNumber]);
+      attachments.push({
+        n: imageNumber,
+        url,
+        checklist: context.checklist,
+        date: context.date,
+        unitLabel: context.unitLabel,
+        serialNumber: context.serialNumber,
+        location: context.location,
+        point: row.label,
+        comment: row.comment || context.unitComment || "",
+        status: context.status,
+      });
+    }
+  }
+
+  /** Sjekkpunktet slik det tegnes: med numrene til bildene sine. */
+  const prepareRow = (row: PlannedRow): PreparedRow => ({
+    label: row.label,
+    text: row.text,
+    comment: row.comment,
+    alert: row.alert,
+    isImage: row.isImage,
+    images: row.urls.map((url, i) => ({
+      n: imageNumbers.get(rowKey(row))?.[i] ?? 0,
+      src: pdfImage(url).src,
+    })),
+  });
+
   const styles = StyleSheet.create({
-    page: { padding: 40, fontFamily: 'Helvetica' },
+    page: { padding: 40, fontFamily: 'Helvetica', fontSize: 10 },
 
     headerContainer: {
       flexDirection: 'row',
@@ -211,9 +379,9 @@ export default function ReportDocument({
     companyName: { fontSize: 10, color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right' },
 
     section: { marginBottom: 20 },
-    label: { fontSize: 10, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase' },
-    value: { fontSize: 12, color: '#111827', marginBottom: 8 },
-    checklistItem: { fontSize: 12, color: '#111827', marginBottom: 4 },
+    label: { fontSize: 10, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', lineHeight: 1.35 },
+    value: { fontSize: 12, color: '#111827', marginBottom: 8, lineHeight: 1.35 },
+    checklistItem: { fontSize: 12, color: '#111827', marginBottom: 4, lineHeight: 1.35 },
 
     infoGrid: {
       flexDirection: 'row',
@@ -236,10 +404,11 @@ export default function ReportDocument({
     statusText: {
       fontSize: 12,
       fontWeight: 'bold',
-      color: overallStatus === "AVVIK" ? '#991b1b' : overallStatus === "GODKJENT" ? '#166534' : '#374151'
+      color: overallStatus === "AVVIK" ? '#991b1b' : overallStatus === "GODKJENT" ? '#166534' : '#374151',
+      lineHeight: 1.35
     },
 
-    reportTitle: { fontSize: 13, fontWeight: 'bold', color: '#111827', marginBottom: 10 },
+    reportTitle: { fontSize: 13, fontWeight: 'bold', color: '#111827', marginBottom: 10, lineHeight: 1.35 },
 
     unitCard: {
       borderWidth: 1,
@@ -256,26 +425,36 @@ export default function ReportDocument({
       borderBottomWidth: 1,
       borderBottomColor: '#e5e7eb'
     },
-    unitTitle: { fontSize: 12, fontWeight: 'bold', color: '#111827' },
-    unitMeta: { fontSize: 9, color: '#6b7280', marginTop: 2 },
+    // Tittelen skal kunne brekke over flere linjer uten å kollidere med statusen.
+    unitHeaderText: { flexGrow: 1, flexShrink: 1, paddingRight: 8 },
+    unitTitle: { fontSize: 12, fontWeight: 'bold', color: '#111827', lineHeight: 1.35 },
+    unitMeta: { fontSize: 9, color: '#6b7280', marginTop: 2, lineHeight: 1.35 },
     unitStatus: {
       fontSize: 9,
       fontWeight: 'bold',
       paddingVertical: 3,
       paddingHorizontal: 8,
-      borderRadius: 10
+      borderRadius: 10,
+      flexShrink: 0
     },
     unitBody: { padding: 10 },
-    answerRow: { fontSize: 11, color: '#111827', marginBottom: 5 },
+    answerRow: { fontSize: 11, color: '#111827', marginBottom: 5, lineHeight: 1.4 },
     answerLabel: { fontWeight: 'bold' },
-    lineComment: { fontSize: 10, color: '#92400e', fontStyle: 'italic', marginBottom: 5 },
-    imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4, marginBottom: 6 },
-    answerImage: { width: 165, height: 120, objectFit: 'contain' },
+    lineComment: { fontSize: 10, color: '#92400e', fontStyle: 'italic', marginBottom: 5, lineHeight: 1.4 },
+    missingImage: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginBottom: 5, lineHeight: 1.4 },
+
+    // Små miniatyrbilder på sjekkpunktet; det store bildet ligger på vedleggssiden.
+    thumbGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 2, marginBottom: 6 },
+    thumbBox: { marginRight: 6, marginBottom: 4, alignItems: 'center' },
+    thumbImage: { width: 78, height: 58, objectFit: 'contain', borderWidth: 0.5, borderColor: '#d1d5db', borderRadius: 2 },
+    thumbLabel: { fontSize: 7, color: '#6b7280', marginTop: 1, lineHeight: 1.2 },
+
     unitComment: {
       fontSize: 11,
       color: '#374151',
       fontStyle: 'italic',
       padding: 10,
+      lineHeight: 1.4,
       backgroundColor: '#f9fafb',
       borderTopWidth: 1,
       borderTopColor: '#e5e7eb'
@@ -290,19 +469,58 @@ export default function ReportDocument({
       padding: 10
     },
     signatureImage: { width: 200, height: 60, objectFit: 'contain', marginTop: 6, marginBottom: 4 },
-    signatureLine: { borderTopWidth: 1, borderTopColor: '#9ca3af', marginTop: 8, paddingTop: 4, fontSize: 10, color: '#111827' },
-    signatureMissing: { fontSize: 10, color: '#9ca3af', fontStyle: 'italic', marginTop: 8 },
+    signatureLine: { borderTopWidth: 1, borderTopColor: '#9ca3af', marginTop: 8, paddingTop: 4, fontSize: 10, color: '#111827', lineHeight: 1.35 },
+    signatureMissing: { fontSize: 10, color: '#9ca3af', fontStyle: 'italic', marginTop: 8, lineHeight: 1.35 },
+
+    // Vedleggssidene: ett bilde per side, stort nok til å se detaljene.
+    attachmentHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      borderBottom: `2px solid ${brandColor}`,
+      paddingBottom: 6,
+      marginBottom: 12
+    },
+    attachmentKicker: { fontSize: 9, color: '#6b7280', textTransform: 'uppercase', fontWeight: 'bold', lineHeight: 1.35 },
+    attachmentTitle: { fontSize: 18, fontWeight: 'bold', color: brandColor, lineHeight: 1.3 },
+    attachmentImageBox: { alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    attachmentImage: { objectFit: 'contain' },
+    attachmentMeta: { borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8 },
+    metaRow: { fontSize: 10, color: '#111827', marginBottom: 3, lineHeight: 1.4 },
+    metaKey: { fontWeight: 'bold', color: '#6b7280' },
 
     footer: {
-      marginTop: 40,
+      // Festet nederst på hver side, utenfor innholdsflaten.
+      position: 'absolute',
+      bottom: 22,
+      left: 40,
+      right: 40,
       borderTop: `1px solid #e5e7eb`,
-      paddingTop: 20
+      paddingTop: 5,
+      flexDirection: 'row',
+      justifyContent: 'space-between'
     },
     footerText: {
       fontSize: 8,
-      color: '#6b7280'
+      color: '#6b7280',
+      lineHeight: 1.35
     }
   });
+
+  /*
+   * Felles bunntekst på hver side.
+   *
+   * Merk: `render`-prop (sidetall) kan ikke brukes sammen med `fixed` –
+   * react-pdf 4 tegner da ikke bunnteksten i det hele tatt.
+   */
+  const renderFooter = () => (
+    <View style={styles.footer} fixed>
+      <Text style={styles.footerText}>{companyName} – generert av FSM-plattformen</Text>
+      <Text style={styles.footerText}>
+        {new Date().toLocaleDateString("no-NO")}
+      </Text>
+    </View>
+  );
 
   const signatureBox = (label: string, url?: string | null, name?: string | null) => (
     <View style={styles.signatureBox} wrap={false}>
@@ -318,27 +536,41 @@ export default function ReportDocument({
     </View>
   );
 
-  /** Sjekkpunkt med eventuelle vedlagte bilder (én eller flere per felt). */
+  /**
+   * Sjekkpunkt med miniatyrbilder.
+   *
+   * Bevisst uten `wrap={false}`: et punkt med mange bilder kan være høyere enn
+   * en side, og et element som ikke får plass på siden ødelegger linjeflyten i
+   * react-pdf (teksten havner oppå hverandre).
+   */
   const answerBlock = (
-    row: { label: string; text: string; comment?: string; alert?: boolean; images: string[] },
+    row: PreparedRow,
     index: number,
     textStyle: { fontSize: number; color: string; marginBottom: number },
   ) => (
     <View key={index} style={{ marginBottom: 4 }}>
-      <Text style={row.alert ? { ...textStyle, color: "#991b1b", fontWeight: "bold" } : textStyle}>
-        <Text style={styles.answerLabel}>{row.label}: </Text>
-        {row.text}
-      </Text>
+      {(row.text !== "" || row.isImage) && (
+        <Text style={row.alert ? { ...textStyle, color: "#991b1b", fontWeight: "bold" } : textStyle}>
+          <Text style={styles.answerLabel}>{row.label}: </Text>
+          {row.text}
+        </Text>
+      )}
       {row.comment ? (
         <Text style={styles.lineComment}>» Kommentar: {row.comment}</Text>
       ) : null}
       {row.images.length > 0 && (
-        <View style={styles.imageRow}>
-          {row.images.map((src, i) => (
-            // eslint-disable-next-line jsx-a11y/alt-text
-            <Image key={i} src={src} style={styles.answerImage} />
+        <View style={styles.thumbGrid}>
+          {row.images.map((image) => (
+            <View key={image.n} style={styles.thumbBox}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image src={image.src} style={styles.thumbImage} />
+              <Text style={styles.thumbLabel}>Bilde {image.n}</Text>
+            </View>
           ))}
         </View>
+      )}
+      {row.images.length === 0 && row.isImage && (
+        <Text style={styles.missingImage}>Ingen bilder lagt ved</Text>
       )}
     </View>
   );
@@ -391,7 +623,7 @@ export default function ReportDocument({
         </View>
 
         {/* ÉN SEKSJON PER UTFYLT SJEKKLISTE */}
-        {blocks.map((block, blockIndex) => (
+        {planned.map(({ block, units, legacy }, blockIndex) => (
           <View key={block.id} style={styles.section} wrap>
             {blocks.length > 1 || block.templateTitle ? (
               <Text style={styles.reportTitle}>
@@ -402,50 +634,39 @@ export default function ReportDocument({
             ) : null}
 
             {/* Enheter med sine egne sjekkpunkter */}
-            {block.units.map((unit, index) => {
-              let answers: Record<string, unknown> = {};
-              try {
-                answers = JSON.parse(unit.answersJson || "{}");
-              } catch {}
-
-              const rows = buildRows(block.fields, answers);
-
-              return (
-                <View key={unit.id} style={styles.unitCard} wrap={false}>
-                  <View style={styles.unitHeader}>
-                    <View>
-                      <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
-                      <Text style={styles.unitMeta}>
-                        {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
-                        {unit.location ? `  •  ${unit.location}` : ""}
-                      </Text>
-                    </View>
-                    <Text
-                      style={{
-                        ...styles.unitStatus,
-                        backgroundColor: unit.status === "AVVIK" ? '#fee2e2' : '#dcfce7',
-                        color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
-                      }}
-                    >
-                      {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
+            {units.map(({ unit, index, rows }) => (
+              <View key={unit.id} style={styles.unitCard}>
+                <View style={styles.unitHeader}>
+                  <View style={styles.unitHeaderText}>
+                    <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
+                    <Text style={styles.unitMeta}>
+                      {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
+                      {unit.location ? `  •  ${unit.location}` : ""}
                     </Text>
                   </View>
-
-                  <View style={styles.unitBody}>
-                    {rows.map((row, i) => answerBlock(row, i, styles.answerRow))}
-                  </View>
-
-                  {unit.comment && <Text style={styles.unitComment}>{unit.comment}</Text>}
+                  <Text
+                    style={{
+                      ...styles.unitStatus,
+                      backgroundColor: unit.status === "AVVIK" ? '#fee2e2' : '#dcfce7',
+                      color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
+                    }}
+                  >
+                    {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
+                  </Text>
                 </View>
-              );
-            })}
+
+                <View style={styles.unitBody}>
+                  {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.answerRow))}
+                </View>
+
+                {unit.comment && <Text style={styles.unitComment}>{unit.comment}</Text>}
+              </View>
+            ))}
 
             {/* Eldre rapporter uten enheter */}
-            {block.units.length === 0 && block.fields.length > 0 && (
+            {legacy.length > 0 && (
               <View style={styles.unitBody}>
-                {buildRows(block.fields, block.answers).map((row, i) =>
-                  answerBlock(row, i, styles.checklistItem),
-                )}
+                {legacy.map((row, i) => answerBlock(prepareRow(row), i, styles.checklistItem))}
               </View>
             )}
 
@@ -457,23 +678,81 @@ export default function ReportDocument({
             )}
 
             {/* Signaturer: holdes samlet og dyttes til neste side om det blir for trangt */}
-            <View style={{ ...styles.signatureGrid, marginTop: 10 }} wrap={false} minPresenceAhead={120}>
+            <View style={{ ...styles.signatureGrid, marginTop: 10 }} wrap={false}>
               {signatureBox("Montør / tekniker", block.technicianSignatureUrl, block.technicianName)}
               {signatureBox("Kunde", block.customerSignatureUrl, block.customerName)}
             </View>
           </View>
         ))}
 
-        {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {companyName} - {new Date().toLocaleDateString('no-NO')}
-          </Text>
-          <Text style={styles.footerText}>
-            Generert av FSM-plattformen
-          </Text>
-        </View>
+        {renderFooter()}
       </Page>
+
+      {/*
+        VEDLEGG: hvert bilde får sin egen side, slik at detaljene faktisk er
+        lesbare. Nummeret viser tilbake til sjekkpunktet i rapporten.
+      */}
+      {attachments.map((attachment) => {
+        const image = pdfImage(attachment.url);
+
+        return (
+          <Page key={attachment.n} size="A4" style={styles.page}>
+            <View style={styles.attachmentHeader}>
+              <View>
+                <Text style={styles.attachmentKicker}>Vedlegg – bilde</Text>
+                <Text style={styles.attachmentTitle}>
+                  {attachment.n} av {attachments.length}
+                </Text>
+              </View>
+              <View style={styles.headerTextBlock}>
+                <Text style={styles.attachmentKicker}>Servicerapport</Text>
+                <Text style={styles.companyName}>{companyName}</Text>
+              </View>
+            </View>
+
+            <View style={styles.attachmentImageBox}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image
+                src={image.src}
+                style={{
+                  ...styles.attachmentImage,
+                  width: image.width ?? '100%',
+                  height: image.height ?? 560,
+                }}
+              />
+            </View>
+
+            <View style={styles.attachmentMeta}>
+              <Text style={styles.metaRow}>
+                <Text style={styles.metaKey}>Sjekkpunkt: </Text>
+                {attachment.point}
+              </Text>
+              <Text style={styles.metaRow}>
+                <Text style={styles.metaKey}>Enhet: </Text>
+                {attachment.unitLabel || "Uten enhet"}
+                {attachment.serialNumber ? `  •  Serienummer: ${attachment.serialNumber}` : ""}
+                {attachment.location ? `  •  Plassering: ${attachment.location}` : ""}
+              </Text>
+              <Text style={styles.metaRow}>
+                <Text style={styles.metaKey}>Sjekkliste: </Text>
+                {attachment.checklist}
+                {attachment.date ? `  •  ${attachment.date}` : ""}
+                {attachment.status
+                  ? `  •  ${attachment.status === "AVVIK" ? "Avvik" : "Godkjent"}`
+                  : ""}
+              </Text>
+              {attachment.comment ? (
+                <Text style={styles.metaRow}>
+                  <Text style={styles.metaKey}>Kommentar: </Text>
+                  {attachment.comment}
+                </Text>
+              ) : null}
+            </View>
+
+            {renderFooter()}
+          </Page>
+        );
+      })}
     </Document>
   );
 }

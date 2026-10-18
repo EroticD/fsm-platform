@@ -5,6 +5,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import prisma from "@/lib/prisma";
 import ReportDocument from "@/components/ReportDocument";
+import { buildPdfImages, collectReportImageUrls } from "@/lib/report-images";
 
 export const runtime = "nodejs";
 
@@ -67,12 +68,16 @@ export async function GET(
 
   const branding = await prisma.branding.findFirst().catch(() => null);
 
+  // Bildene skaleres ned på forhånd, slik at PDF-en blir til å sende på e-post.
+  const pdfImages = await buildPdfImages(collectReportImageUrls(workOrder.reports));
+
   const element = React.createElement(ReportDocument, {
     data: workOrder,
     globalLogoUrl: branding?.logoUrl ?? null,
     globalPrimaryColor: branding?.primaryColor ?? undefined,
     globalCompanyName: branding?.companyName ?? undefined,
     baseUrl,
+    pdfImages,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

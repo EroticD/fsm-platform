@@ -16,6 +16,16 @@ const nextConfig: NextConfig = {
   // Bygger en selvstendig server i .next/standalone med bare nødvendige filer.
   // Dockerfile bruker denne i stedet for `next start`.
   output: "standalone",
+
+  // Opplastede filer skrives og leses med en sti som først er kjent når
+  // programmet kjører (se src/lib/uploads.ts). Da kan ikke Next.js avgjøre
+  // statisk hva som trengs, og "sporer" hele prosjektet – inkludert
+  // uploads-mappen med alle bildene. Den mappen har ingenting i den ferdige
+  // serveren å gjøre: i Docker peker UPLOAD_DIR på et eget volum. Uten dette
+  // ville hvert bygg pakket alle opplastede bilder inn i image-en.
+  outputFileTracingExcludes: {
+    "*": ["./uploads/**/*"],
+  },
 };
 
 const withNextIntl = createNextIntlPlugin();
