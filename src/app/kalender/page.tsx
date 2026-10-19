@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { formatAddress } from "@/lib/address";
+import { formatDateRange } from "@/lib/dates";
 
 export default async function CalendarPage() {
   const session = await getServerSession();
@@ -99,13 +101,14 @@ export default async function CalendarPage() {
                 <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group bg-white p-3 sm:p-4 rounded-xl border border-red-100 hover:border-red-400 shadow-sm transition">
                   <div className="flex justify-between items-start mb-1">
                     <span className="text-[10px] font-bold text-red-500 uppercase">
-                      {wo.scheduledFor
-                        ? new Date(wo.scheduledFor).toLocaleDateString("no-NO", { weekday: 'short', day: '2-digit', month: 'short' })
-                        : "Ingen dato"}
+                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
                     </span>
                   </div>
                   <p className="font-bold text-gray-900 text-sm group-hover:text-red-700">{wo.title}</p>
                   <p className="text-[10px] text-gray-600 mt-1 truncate">🏢 {wo.customer?.name || "Uten kunde"}</p>
+                  {formatAddress(wo.customer) && (
+                    <p className="text-[10px] text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
+                  )}
                   <div className="mt-3">
                     <span className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-sm">Tildel montør &rarr;</span>
                   </div>
@@ -153,9 +156,7 @@ export default async function CalendarPage() {
                             <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 group-hover:border-blue-400 hover:shadow-sm transition">
                               <div className="flex justify-between items-start mb-2">
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                  {wo.scheduledFor
-                                    ? new Date(wo.scheduledFor).toLocaleDateString("no-NO", { day: '2-digit', month: 'short' })
-                                    : "Ingen dato"}
+                                  {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
                                 </span>
                                 <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${badgeColor}`}>
                                   {badgeText}
@@ -163,6 +164,9 @@ export default async function CalendarPage() {
                               </div>
                               <p className="font-bold text-gray-900 text-sm group-hover:text-blue-700 leading-tight mb-1">{wo.title}</p>
                               <p className="text-[10px] text-gray-600 truncate">🏢 {wo.customer?.name || "Uten kunde"}</p>
+                              {formatAddress(wo.customer) && (
+                                <p className="text-[10px] text-gray-500">📍 {formatAddress(wo.customer)}</p>
+                              )}
                             </div>
                           </Link>
                         );

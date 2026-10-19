@@ -55,3 +55,7 @@ dist/
 .cursor/
 .agents/
 .devin/
+
+# OCR-språkdata caches lokalt av tesseract.js
+*.traineddata
+*.traineddata.gz

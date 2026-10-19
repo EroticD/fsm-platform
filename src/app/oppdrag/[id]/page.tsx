@@ -4,10 +4,12 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import TagSelector from "@/components/TagSelector";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
+import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { LIMITS, cleanEmail, cleanPhone, cleanStatus, cleanText } from "@/lib/sanitize";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { requireOffice, requireStaff } from "@/lib/session";
@@ -281,11 +283,13 @@ export default async function AdminWorkOrderPage({
       contact: true,
       technicians: true,
       templates: true,
+      tags: true,
       reports: {
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "desc" },
       },
       workComments: { orderBy: { createdAt: "desc" } },
+      attachments: { orderBy: { id: "desc" } },
       product: true
     }
   });
@@ -310,6 +314,13 @@ export default async function AdminWorkOrderPage({
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
+  const allTags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
+
+  const staffUsers = await prisma.user.findMany({
+    where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } },
+    orderBy: { name: 'asc' }
+  });
+  const availableTechnicians = staffUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
 
   // Fanges opp her slik at handlingene under har en ikke-null kunde.
   const customerId = workOrder.customerId;
@@ -399,6 +410,59 @@ export default async function AdminWorkOrderPage({
     revalidatePath(`/kunder/${customerId}`);
   }
 
+  async function assignTechnician(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+
+    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
+    if (!technicianId) return;
+
+    const target = await prisma.user.findUnique({ where: { id: technicianId } });
+    if (!target) return;
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { technicians: { connect: { id: technicianId } } }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `La til ${target.name} som montør`,
+        userName: user?.name || "Kontor"
+      }
+    });
+
+    revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
+  async function unassignTechnician(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+
+    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
+    if (!technicianId) return;
+
+    const target = await prisma.user.findUnique({ where: { id: technicianId } });
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { technicians: { disconnect: { id: technicianId } } }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Fjernet ${target?.name || 'montør'} fra oppdraget`,
+        userName: user?.name || "Kontor"
+      }
+    });
+
+    revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
   async function updateStatus(formData: FormData) {
     "use server";
     if (!(await requireStaff())) return;
@@ -418,6 +482,38 @@ export default async function AdminWorkOrderPage({
         userName: user?.name || "Admin"
       }
     });
+    revalidatePath(`/oppdrag/${workOrderId}`);
+  }
+
+  async function setTags(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const tagNames = formData.getAll("tags")
+      .map(t => cleanText(t, { maxLength: LIMITS.short }))
+      .filter(Boolean);
+
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: {
+        tags: {
+          set: [],
+          connectOrCreate: tagNames.map(name => ({
+            where: { name },
+            create: { name }
+          }))
+        }
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Oppdaterte tags: ${tagNames.join(", ") || "(ingen)"}`,
+        userName: user?.name || "Kontor"
+      }
+    });
+
     revalidatePath(`/oppdrag/${workOrderId}`);
   }
 
@@ -471,6 +567,32 @@ export default async function AdminWorkOrderPage({
               <h1 className="text-xl md:text-3xl font-black text-gray-900">{workOrder.title}</h1>
               <StatusBadge status={workOrder.status} />
             </div>
+            {/* Tags */}
+            {office ? (
+              <form action={setTags} className="mb-3 space-y-2">
+                <TagSelector
+                  allTags={allTags}
+                  selectedTagNames={workOrder.tags.map((t: any) => t.name)}
+                />
+                <button type="submit" className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm">
+                  💾 Lagre tags
+                </button>
+              </form>
+            ) : (
+              workOrder.tags && workOrder.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {workOrder.tags.map((tag: any) => (
+                    <span
+                      key={tag.id}
+                      className="text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm"
+                      style={{ backgroundColor: tag.color || "#3b82f6" }}
+                    >
+                      🏷️ {tag.name}
+                    </span>
+                  ))}
+                </div>
+              )
+            )}
             <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || "Uten kunde"}</Link></p>
           </div>
 
@@ -637,6 +759,19 @@ export default async function AdminWorkOrderPage({
                   )}
                 </div>
 
+              {/* Kommentarer */}
+              <CommentSection
+                entityType="workOrder"
+                entityId={workOrderId}
+                existingComments={workOrder.workComments?.map(c => ({
+                  id: c.id,
+                  content: c.content,
+                  authorName: c.authorName,
+                  createdAt: c.createdAt.toISOString(),
+                })) || []}
+                currentUserName={user?.name || null}
+              />
+
             </div>
 
             <div className="space-y-6">
@@ -691,7 +826,7 @@ export default async function AdminWorkOrderPage({
                       <select
                         name="contactId"
                         defaultValue={workOrder.contactId || ""}
-                        className="flex-1 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                        className="flex-1 min-w-0 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
                       >
                         <option value="">— Ingen kontaktperson —</option>
                         {workOrder.customer.contacts.map((c) => (
@@ -700,7 +835,7 @@ export default async function AdminWorkOrderPage({
                           </option>
                         ))}
                       </select>
-                      <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+                      <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap flex-shrink-0">
                         Lagre kontakt
                       </button>
                     </form>
@@ -730,37 +865,63 @@ export default async function AdminWorkOrderPage({
                 {workOrder.technicians.length > 0 ? (
                   <div className="space-y-2">
                     {workOrder.technicians.map(tech => (
-                      <div key={tech.id} className="bg-gray-50 p-2.5 rounded-xl font-bold text-gray-900 flex items-center gap-2 border-2 border-gray-200">
-                        <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                        {tech.name}
+                      <div key={tech.id} className="bg-gray-50 p-2.5 rounded-xl font-bold text-gray-900 flex items-center gap-2 border-2 border-gray-200 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                        <span className="flex-1 min-w-0 truncate">{tech.name}</span>
+                        {office && (
+                          <form action={unassignTechnician} className="flex-shrink-0">
+                            <input type="hidden" name="technicianId" value={tech.id} />
+                            <button type="submit" className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
+                              Fjern
+                            </button>
+                          </form>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-red-600 font-bold">Ingen montører er tildelt ennå!</p>
                 )}
+
+                {office && availableTechnicians.length > 0 && (
+                  <form action={assignTechnician} className="flex flex-col sm:flex-row gap-2 mt-4 border-t-2 border-gray-100 pt-4">
+                    <select
+                      name="technicianId"
+                      required
+                      defaultValue=""
+                      className="flex-1 min-w-0 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                    >
+                      <option value="" disabled>-- Velg montør --</option>
+                      {availableTechnicians.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'})
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap flex-shrink-0">
+                      + Legg til montør
+                    </button>
+                  </form>
+                )}
               </div>
 
-              {/* Audit log */}
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
-                <AuditLogTable logs={auditLogs} />
-              </div>
-
-              {/* Kommentarer */}
-              <CommentSection
-                entityType="workOrder"
-                entityId={workOrderId}
-                existingComments={workOrder.workComments?.map(c => ({
-                  id: c.id,
-                  content: c.content,
-                  authorName: c.authorName,
-                  createdAt: c.createdAt.toISOString(),
-                })) || []}
-                currentUserName={user?.name || null}
+              <WorkOrderAttachments
+                workOrderId={workOrderId}
+                attachments={workOrder.attachments.map((a) => ({
+                  id: a.id,
+                  fileName: a.fileName,
+                  dataUrl: a.dataUrl,
+                }))}
+                canManage={staff}
               />
 
             </div>
+          </div>
+
+          {/* Audit log - full width bottom */}
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+            <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
+            <AuditLogTable logs={auditLogs} />
           </div>
 
         </div>

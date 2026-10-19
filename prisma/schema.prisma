@@ -120,6 +120,8 @@ model WorkOrder {
   title        String
   description  String?
   scheduledFor DateTime?
+  /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
+  scheduledTo  DateTime?
   status       WorkStatus @default(PLANNED)
   creatorName  String?
 
@@ -140,9 +142,62 @@ model WorkOrder {
   templates    Template[] @relation("WorkOrderTemplates")
   reports      Report[]
   workComments Comment[]  @relation("WorkOrderComments")
+  tags         Tag[]      @relation("WorkOrderTags")
   @@index([customerId])
   @@index([status])
   @@index([scheduledFor])
+}
+
+model Tag {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  color      String      @default("#3b82f6")
+  workOrders WorkOrder[] @relation("WorkOrderTags")
+}
+
+model DocumentTag {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  color     String     @default("#3b82f6")
+  documents Document[] @relation("DocumentTagRelation")
+}
+
+model DocumentFolder {
+  id        String           @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    DocumentFolder?  @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  DocumentFolder[] @relation("FolderChildren")
+  documents Document[]
+
+  @@index([parentId])
+}
+
+model Document {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  fileName    String
+  filePath    String
+  fileSize    Int             @default(0)
+  mimeType    String          @default("application/pdf")
+
+  // Ekstrahert tekst fra PDF for fulltekst-søk. pageTexts er JSON-array
+  // [{page: number, text: string}] for side-spesifikk navigasjon.
+  contentText String?
+  pageTexts   String?
+
+  folderId    String?
+  folder      DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  tags        DocumentTag[]   @relation("DocumentTagRelation")
+
+  uploadedBy  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([folderId])
+  @@index([title])
 }
 
 model Report {

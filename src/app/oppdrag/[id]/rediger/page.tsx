@@ -4,7 +4,9 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import TagSelector from "@/components/TagSelector";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { parseDateOnly } from "@/lib/dates";
 
 export default async function EditWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
@@ -21,7 +23,8 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
     include: {
       customer: true,
       technicians: true,
-      templates: true
+      templates: true,
+      tags: true
     }
   });
 
@@ -35,8 +38,12 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
   }
 
   const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
-  const technicians = await prisma.user.findMany({ orderBy: { name: 'asc' } });
+  const technicians = await prisma.user.findMany({
+    where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } },
+    orderBy: { name: 'asc' }
+  });
   const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
+  const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
   // --- SERVER ACTION: LAGRE ENDRINGER ---
   async function updateWorkOrder(formData: FormData) {
@@ -45,10 +52,17 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
     const description = cleanMarkdown(formData.get("description"));
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
     const scheduledFor = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
-    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
+    const scheduledToInput = cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line });
+    const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
+    const scheduledToDate = scheduledToInput ? parseDateOnly(scheduledToInput) : null;
+    const technicianIds = formData.getAll("technicianIds") as string[];
     let contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
+    const tagNames = formData.getAll("tags")
+      .map(t => cleanText(t, { maxLength: LIMITS.short }))
+      .filter(Boolean);
 
     if (!title || !customerId) return;
+    if (scheduledToDate && scheduledForDate && scheduledToDate < scheduledForDate) return;
 
     // Kontaktpersonen må tilhøre den valgte kunden; ellers tømmes feltet.
     if (contactId) {
@@ -56,7 +70,10 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
       if (!contact || contact.customerId !== customerId) contactId = "";
     }
 
-    // Oppdater grunnleggende info og oppdater tildelt montør
+    // Bare kjente ansatte kan tildeles.
+    const validTechnicianIds = technicianIds.filter(id => technicians.some(t => t.id === id));
+
+    // Oppdater grunnleggende info og bytt ut tildelte montører
     await prisma.workOrder.update({
       where: { id: workOrderId },
       data: {
@@ -64,8 +81,18 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
         description,
         customerId,
         contactId: contactId || null,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
-        technicians: technicianId ? { set: [{ id: technicianId }] } : { set: [] }
+        scheduledFor: scheduledForDate,
+        scheduledTo: scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
+          ? scheduledToDate
+          : null,
+        technicians: { set: validTechnicianIds.map(id => ({ id })) },
+        tags: {
+          set: [],
+          connectOrCreate: tagNames.map(name => ({
+            where: { name },
+            create: { name }
+          }))
+        }
       }
     });
 
@@ -151,30 +178,56 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-black text-gray-900 mb-2">Planlagt dato</label>
-              <input 
-                type="date" 
-                name="scheduledFor" 
-                defaultValue={workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toISOString().split('T')[0] : ""} 
+              <input
+                type="date"
+                name="scheduledFor"
+                defaultValue={workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toISOString().split('T')[0] : ""}
                 className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-black text-gray-900 mb-2">Primær montør</label>
-              <select 
-                name="technicianId" 
-                defaultValue={workOrder.technicians[0]?.id || ""}
+              <label className="block text-sm font-black text-gray-900 mb-2">Til dato (valgfritt)</label>
+              <input
+                type="date"
+                name="scheduledTo"
+                defaultValue={workOrder.scheduledTo ? new Date(workOrder.scheduledTo).toISOString().split('T')[0] : ""}
                 className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-              >
-                <option value="">-- Ingen tildelt --</option>
-                {technicians.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.role})</option>
-                ))}
-              </select>
+              />
+              <p className="text-xs text-gray-500 mt-1">Siste dag oppdraget varer. Tom = éndagsoppdrag.</p>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-gray-900 mb-2">Tildelte montører</label>
+            <p className="text-xs text-gray-500 mb-2">Kryss av alle som skal jobbe med oppdraget.</p>
+            <div className="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-xl border-2 border-gray-200 space-y-1">
+              {technicians.map(t => (
+                <label key={t.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
+                  <input
+                    type="checkbox"
+                    name="technicianIds"
+                    value={t.id}
+                    defaultChecked={workOrder.technicians.some(wt => wt.id === t.id)}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                  <span className="font-medium text-gray-800 text-sm">
+                    {t.name} ({t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'})
+                  </span>
+                </label>
+              ))}
+              {technicians.length === 0 && (
+                <p className="text-sm text-gray-500 p-2">Ingen ansatte funnet.</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-gray-900 mb-2">Tags</label>
+            <TagSelector allTags={tags} selectedTagNames={workOrder.tags.map((t: any) => t.name)} />
+            <p className="text-xs text-gray-500 mt-1">Brukes for å spore beredskap for fullføring / arbeid.</p>
           </div>
 
           <div>

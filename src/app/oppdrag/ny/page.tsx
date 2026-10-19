@@ -4,7 +4,9 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import CustomerSelect from "./CustomerSelect";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import TagSelector from "@/components/TagSelector";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { parseDateOnly } from "@/lib/dates";
 import { createWorkOrderSchema } from "./schemas";
 import { z } from "zod";
 
@@ -19,6 +21,7 @@ export default async function AdminCreateWorkOrderPage() {
   const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const technicians = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } } });
+  const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
   async function createWorkOrder(formData: FormData): Promise<void> {
     "use server";
@@ -28,7 +31,10 @@ export default async function AdminCreateWorkOrderPage() {
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
     const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
     const dateInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
-    const scheduledFor = dateInput ? new Date(dateInput) : new Date();
+    const endInput = cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line });
+    const scheduledFor = parseDateOnly(dateInput) ?? new Date();
+    const parsedEnd = parseDateOnly(endInput);
+    const scheduledTo = parsedEnd && parsedEnd > scheduledFor ? parsedEnd : null;
 
     // Kontaktpersonen må tilhøre den valgte kunden.
     let validContactId = contactId;
@@ -39,6 +45,9 @@ export default async function AdminCreateWorkOrderPage() {
 
     const technicianIds = formData.getAll("technicianIds") as string[];
     const templateIds = formData.getAll("templateIds") as string[];
+    const tagNames = formData.getAll("tags")
+      .map(t => cleanText(t, { maxLength: LIMITS.short }))
+      .filter(Boolean);
 
     const parsed = createWorkOrderSchema.safeParse({
       title,
@@ -46,6 +55,7 @@ export default async function AdminCreateWorkOrderPage() {
       customerId,
       contactId: validContactId,
       scheduledFor: dateInput,
+      scheduledTo: endInput,
       technicianIds,
       templateIds,
     });
@@ -62,6 +72,7 @@ export default async function AdminCreateWorkOrderPage() {
           customerId: customerId || undefined,
           contactId: parsed.data.contactId || undefined,
           scheduledFor,
+          scheduledTo,
           creatorName: user?.name || "Kontor",
           status: "PENDING",
           technicians: {
@@ -69,6 +80,12 @@ export default async function AdminCreateWorkOrderPage() {
           },
           templates: {
             connect: templateIds.map(id => ({ id }))
+          },
+          tags: {
+            connectOrCreate: tagNames.map(name => ({
+              where: { name },
+              create: { name }
+            }))
           }
         }
       });
@@ -119,9 +136,16 @@ export default async function AdminCreateWorkOrderPage() {
 
           <CustomerSelect customers={customers} contacts={contacts} optional={true} />
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Dato for utførelse</label>
-            <input type="date" name="scheduledFor" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Dato for utførelse</label>
+              <input type="date" name="scheduledFor" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Til dato (valgfritt)</label>
+              <input type="date" name="scheduledTo" className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <p className="text-xs text-gray-500 mt-1">Siste dag oppdraget varer. Tom = éndagsoppdrag.</p>
+            </div>
           </div>
 
           <div>
@@ -148,6 +172,12 @@ export default async function AdminCreateWorkOrderPage() {
               ))}
               {templates.length === 0 && <p className="text-sm text-gray-500 p-2">Ingen sjekklistemaler finnes i systemet.</p>}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Tags</label>
+            <TagSelector allTags={tags} />
+            <p className="text-xs text-gray-500 mt-1">Brukes for å spore beredskap for fullføring / arbeid.</p>
           </div>
 
           <div>

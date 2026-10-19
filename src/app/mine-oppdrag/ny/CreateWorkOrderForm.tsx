@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import TagSelector from "@/components/TagSelector";
 
-export default function CreateWorkOrderForm({ customers, templates }: { customers: any[], templates: any[] }) {
+export default function CreateWorkOrderForm({ customers, templates, tags }: { customers: any[], templates: any[], tags: any[] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
@@ -95,9 +96,16 @@ export default function CreateWorkOrderForm({ customers, templates }: { customer
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Dato for utførelse</label>
-            <input type="date" name="scheduledFor" defaultValue={new Date().toISOString().split('T')[0]} required className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Dato for utførelse</label>
+              <input type="date" name="scheduledFor" defaultValue={new Date().toISOString().split('T')[0]} required className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Til dato (valgfritt)</label>
+              <input type="date" name="scheduledTo" className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
+              <p className="text-[11px] text-gray-500 mt-1">Tom = éndagsoppdrag.</p>
+            </div>
           </div>
 
           <div>
@@ -108,6 +116,11 @@ export default function CreateWorkOrderForm({ customers, templates }: { customer
                 <option key={t.id} value={t.id}>{t.title}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Tags</label>
+            <TagSelector allTags={tags} />
           </div>
 
           <div>

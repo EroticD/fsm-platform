@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import { formatAddress } from "@/lib/address";
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
@@ -102,9 +103,20 @@ function whereFor(
     case "pagaaende":
       return { status: "IN_PROGRESS" };
     case "idag":
-      return { scheduledFor: { gte: startOfToday, lt: endOfToday } };
+      // Tar med flerdagersoppdrag som er i gang i dag.
+      return {
+        scheduledFor: { lte: endOfToday },
+        OR: [
+          { scheduledTo: { gte: startOfToday } },
+          { scheduledTo: null, scheduledFor: { gte: startOfToday } },
+        ],
+      };
     case "forfalte":
-      return { scheduledFor: { lt: startOfToday }, status: { notIn: CLOSED_STATUSES } };
+      return {
+        scheduledFor: { lt: startOfToday },
+        OR: [{ scheduledTo: null }, { scheduledTo: { lt: startOfToday } }],
+        status: { notIn: CLOSED_STATUSES },
+      };
     case "ikke-tildelt":
       return { technicians: { none: {} }, status: { notIn: CLOSED_STATUSES } };
     case "fullforte":
@@ -148,6 +160,7 @@ export default async function WorkOrdersPage({
           { description: { contains: search, mode: "insensitive" } },
           { customer: { name: { contains: search, mode: "insensitive" } } },
           { customer: { city: { contains: search, mode: "insensitive" } } },
+          { customer: { address: { contains: search, mode: "insensitive" } } },
         ],
       }
     : {};
@@ -160,7 +173,7 @@ export default async function WorkOrdersPage({
     await Promise.all([
       prisma.workOrder.groupBy({ by: ["status"], _count: { _all: true } }),
       prisma.workOrder.count({
-        where: { AND: [{ scheduledFor: { gte: dates.startOfToday, lt: dates.endOfToday } }, searchWhere] },
+        where: { AND: [whereFor("idag", dates), searchWhere] },
       }),
       prisma.workOrder.count({ where: { AND: [whereFor("forfalte", dates), searchWhere] } }),
       prisma.workOrder.count({ where: { AND: [whereFor("ikke-tildelt", dates), searchWhere] } }),
@@ -171,10 +184,11 @@ export default async function WorkOrdersPage({
         take: PAGE_SIZE,
         skip: (page - 1) * PAGE_SIZE,
         include: {
-          customer: { select: { name: true, city: true } },
+          customer: { select: { name: true, address: true, postalCode: true, city: true } },
           technicians: { select: { name: true } },
           templates: { select: { id: true } },
           reports: { select: { id: true } },
+          tags: { select: { id: true, name: true } },
         },
       }),
     ]);
@@ -305,7 +319,9 @@ export default async function WorkOrdersPage({
           </div>
         ) : (
           <div className="space-y-2">
-            {orders.map((wo) => (
+            {orders.map((wo) => {
+              const address = formatAddress(wo.customer);
+              return (
               <Link
                 key={wo.id}
                 href={`/oppdrag/${wo.id}`}
@@ -316,10 +332,26 @@ export default async function WorkOrdersPage({
                     <p className="font-black text-gray-900 truncate">{wo.title}</p>
                     <p className="text-[11px] text-gray-500 mt-1">
                       🏢 {wo.customer?.name || "Uten kunde"}
-                      {wo.customer?.city ? ` (${wo.customer.city})` : ""}
+                      {address ? ` • 📍 ${address}` : ""}
                       {" • 📅 "}
                       {formatDay(wo.scheduledFor)}
+                      {wo.scheduledTo && wo.scheduledFor && new Date(wo.scheduledTo) > new Date(wo.scheduledFor)
+                        ? ` – ${formatDay(wo.scheduledTo)}`
+                        : ""}
                     </p>
+                    {wo.tags && wo.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {wo.tags.map((tag: any) => (
+                          <span
+                            key={tag.id}
+                            className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm"
+                            style={{ backgroundColor: tag.color || "#3b82f6" }}
+                          >
+                            🏷️ {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <StatusBadge status={wo.status} />
                 </div>
@@ -333,13 +365,14 @@ export default async function WorkOrdersPage({
                   <span className="text-gray-600">
                     📋 {wo.reports.length}/{wo.templates.length} sjekklister utfylt
                   </span>
-                  {wo.scheduledFor && new Date(wo.scheduledFor) < new Date() &&
+                  {wo.scheduledFor && new Date(wo.scheduledTo || wo.scheduledFor) < dates.startOfToday &&
                     !CLOSED_STATUSES.includes(wo.status) && (
                       <span className="text-red-700">⚠️ Forfalt</span>
                     )}
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
 

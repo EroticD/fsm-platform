@@ -5,6 +5,8 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { markdownToPlainText } from "@/lib/markdown";
+import { formatAddress } from "@/lib/address";
+import { formatDateRange } from "@/lib/dates";
 import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
 import { requireOffice } from "@/lib/session";
 
@@ -243,9 +245,12 @@ export default async function DispatchPage() {
                         🏢 {wo.customer?.name || "Uten kunde"}
                         {wo.product && <span className="text-gray-400 ml-1">• {wo.product.model}</span>}
                         {wo.scheduledFor && (
-                          <span className="text-gray-400 ml-2">📅 {new Date(wo.scheduledFor).toLocaleDateString("no-NO")}</span>
+                          <span className="text-gray-400 ml-2">📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo)}</span>
                         )}
                       </p>
+                      {formatAddress(wo.customer) && (
+                        <p className="text-[10px] text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
+                      )}
                       {wo.description && (
                         <p className="text-[10px] text-gray-700 italic mt-1">
                           {markdownToPlainText(wo.description)}
@@ -305,11 +310,16 @@ export default async function DispatchPage() {
                       </div>
                       <p className="text-[10px] text-gray-600">
                         🏢 {wo.customer?.name || "Uten kunde"}
-                        {wo.technicians.map(t => t.name).join(", ")}
+                        {wo.technicians.length > 0
+                          ? ` • 👷 ${wo.technicians.map(t => t.name).join(", ")}`
+                          : ""}
                       </p>
+                      {formatAddress(wo.customer) && (
+                        <p className="text-[10px] text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
+                      )}
                       {wo.scheduledFor && (
                         <p className="text-[10px] text-gray-500">
-                          📅 {new Date(wo.scheduledFor).toLocaleDateString("no-NO")}
+                          📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo)}
                         </p>
                       )}
                     </div>

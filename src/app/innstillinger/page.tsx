@@ -30,6 +30,8 @@ export default async function SettingsPage({
   // Hent data for alle fanene
   const branding = await prisma.branding.findFirst();
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
+  const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
+  const documentTags = await prisma.documentTag.findMany({ orderBy: { name: 'asc' } });
 
   // --- AUDIT LOG DATA ---
   const auditDateFrom = resolvedParams.dateFrom || "";
@@ -205,6 +207,139 @@ export default async function SettingsPage({
     revalidatePath("/innstillinger");
   }
 
+  // --- SERVER ACTION: OPPRETT TAG ---
+  async function createTag(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const color = cleanColor(formData.get("color")) || "#3b82f6";
+    if (!name) return;
+
+    await prisma.tag.create({
+      data: { name, color }
+    });
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Tag",
+        entityId: name,
+        action: `Opprettet tag: ${name}`,
+        userName: user?.name || "Ukjent"
+      }
+    });
+    revalidatePath("/innstillinger");
+  }
+
+  // --- SERVER ACTION: OPPDATER TAG ---
+  async function updateTag(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const color = cleanColor(formData.get("color")) || "#3b82f6";
+    if (!id || !name) return;
+
+    const existing = await prisma.tag.findUnique({ where: { id } });
+    if (!existing) return;
+
+    await prisma.tag.update({
+      where: { id },
+      data: { name, color }
+    });
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Tag",
+        entityId: id,
+        action: `Oppdaterte tag: ${existing.name} -> ${name}`,
+        userName: user?.name || "Ukjent"
+      }
+    });
+    revalidatePath("/innstillinger");
+  }
+
+  // --- SERVER ACTION: SLETT TAG ---
+  async function deleteTag(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    if (!id) return;
+
+    const tagToDelete = await prisma.tag.findUnique({ where: { id } });
+    await prisma.tag.delete({ where: { id } });
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Tag",
+        entityId: id,
+        action: `Slettet tag: ${tagToDelete?.name || "Ukjent"}`,
+        userName: user?.name || "Ukjent"
+      }
+    });
+    revalidatePath("/innstillinger");
+  }
+
+  // --- SERVER ACTION: OPPRETT DOKUMENT-TAG ---
+  async function createDocumentTag(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const color = cleanColor(formData.get("color")) || "#3b82f6";
+    if (!name) return;
+
+    await prisma.documentTag.create({ data: { name, color } });
+    await prisma.auditLog.create({
+      data: {
+        entityType: "DocumentTag",
+        entityId: name,
+        action: `Opprettet dokument-tag: ${name}`,
+        userName: user?.name || "Ukjent"
+      }
+    });
+    revalidatePath("/innstillinger");
+  }
+
+  // --- SERVER ACTION: OPPDATER DOKUMENT-TAG ---
+  async function updateDocumentTag(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
+    const color = cleanColor(formData.get("color")) || "#3b82f6";
+    if (!id || !name) return;
+
+    const existing = await prisma.documentTag.findUnique({ where: { id } });
+    if (!existing) return;
+
+    await prisma.documentTag.update({ where: { id }, data: { name, color } });
+    await prisma.auditLog.create({
+      data: {
+        entityType: "DocumentTag",
+        entityId: id,
+        action: `Oppdaterte dokument-tag: ${existing.name} -> ${name}`,
+        userName: user?.name || "Ukjent"
+      }
+    });
+    revalidatePath("/innstillinger");
+  }
+
+  // --- SERVER ACTION: SLETT DOKUMENT-TAG ---
+  async function deleteDocumentTag(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    if (!id) return;
+
+    const tagToDelete = await prisma.documentTag.findUnique({ where: { id } });
+    await prisma.documentTag.delete({ where: { id } });
+    await prisma.auditLog.create({
+      data: {
+        entityType: "DocumentTag",
+        entityId: id,
+        action: `Slettet dokument-tag: ${tagToDelete?.name || "Ukjent"}`,
+        userName: user?.name || "Ukjent"
+      }
+    });
+    revalidatePath("/innstillinger");
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -239,6 +374,12 @@ export default async function SettingsPage({
             className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'maler' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
           >
             📋 Sjekklister / Maler
+          </Link>
+          <Link
+            href="?tab=tags"
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'tags' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            🏷️ Tags
           </Link>
           {user?.role === "ADMIN" && (
             <Link 
@@ -355,6 +496,145 @@ export default async function SettingsPage({
                           <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
                             Slett
                           </button>
+                        </form>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* FANE: TAGS */}
+        {currentTab === 'tags' && (
+          <div className="space-y-6">
+
+            {/* OPPDRAG-TAGS */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Tags for oppdrag</h2>
+              <p className="text-sm text-gray-500 mb-5">Brukes for å spore beredskap på oppdrag (f.eks. klar, mangler-deler, trenger-gjennomgang).</p>
+
+              <form action={createTag} className="flex gap-3 max-w-lg flex-wrap mb-6">
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Navn på tag"
+                  required
+                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 min-w-[150px]"
+                />
+                <input
+                  type="color"
+                  name="color"
+                  defaultValue="#3b82f6"
+                  className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
+                />
+                <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+                  + Opprett
+                </button>
+              </form>
+
+              {tags.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">Ingen oppdrag-tags opprettet ennå.</p>
+              ) : (
+                <div className="space-y-3">
+                  {tags.map(tag => (
+                    <div key={tag.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} />
+                        <span className="font-bold text-gray-800">{tag.name}</span>
+                        <span className="text-xs text-gray-500">{tag.color}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <details className="relative">
+                          <summary className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition cursor-pointer">
+                            Rediger
+                          </summary>
+                          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-10 w-72">
+                            <form action={updateTag} className="space-y-3">
+                              <input type="hidden" name="id" value={tag.id} />
+                              <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Navn</label>
+                                <input type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Farge</label>
+                                <input type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
+                              </div>
+                              <button type="submit" className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition">Lagre</button>
+                            </form>
+                          </div>
+                        </details>
+                        <form action={deleteTag}>
+                          <input type="hidden" name="id" value={tag.id} />
+                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
+                        </form>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* DOKUMENT-TAGS */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Tags for dokumenter</h2>
+              <p className="text-sm text-gray-500 mb-5">Brukes for å kategorisere og søke i dokumentbiblioteket.</p>
+
+              <form action={createDocumentTag} className="flex gap-3 max-w-lg flex-wrap mb-6">
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Navn på tag"
+                  required
+                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 min-w-[150px]"
+                />
+                <input
+                  type="color"
+                  name="color"
+                  defaultValue="#10b981"
+                  className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
+                />
+                <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+                  + Opprett
+                </button>
+              </form>
+
+              {documentTags.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">Ingen dokument-tags opprettet ennå.</p>
+              ) : (
+                <div className="space-y-3">
+                  {documentTags.map(tag => (
+                    <div key={tag.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} />
+                        <span className="font-bold text-gray-800">{tag.name}</span>
+                        <span className="text-xs text-gray-500">{tag.color}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <details className="relative">
+                          <summary className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition cursor-pointer">
+                            Rediger
+                          </summary>
+                          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-10 w-72">
+                            <form action={updateDocumentTag} className="space-y-3">
+                              <input type="hidden" name="id" value={tag.id} />
+                              <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Navn</label>
+                                <input type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Farge</label>
+                                <input type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
+                              </div>
+                              <button type="submit" className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition">Lagre</button>
+                            </form>
+                          </div>
+                        </details>
+                        <form action={deleteDocumentTag}>
+                          <input type="hidden" name="id" value={tag.id} />
+                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
                         </form>
                       </div>
                     </div>

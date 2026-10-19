@@ -20,7 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
   { href: "/kalender", labelKey: "calendar", icon: "📅" },
   { href: "/kunder", labelKey: "customers", icon: "🏢" },
-  { href: "/kundeportal", labelKey: "customerPortal", icon: "👤" },
+  { href: "/dokumenter", labelKey: "documents", icon: "📚" },
   { href: "/oppdrag/ny", labelKey: "newWorkOrder", icon: "" },
   { href: "/innstillinger", labelKey: "settings", icon: "⚙️" },
 ];
@@ -34,6 +34,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { href: "/oppdrag", labelKey: "workOrders", icon: "📂" },
   { href: "/kalender", labelKey: "calendar", icon: "📅" },
   { href: "/kunder", labelKey: "customers", icon: "🏢" },
+  { href: "/dokumenter", labelKey: "documents", icon: "📚" },
   { href: "/enheter", labelKey: "equipment", icon: "🔧" },
   { href: "/rapporter", labelKey: "reports", icon: "📄" },
   { href: "/mine-oppdrag/ny", labelKey: "newWorkOrder", icon: "" },

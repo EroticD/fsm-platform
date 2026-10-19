@@ -2,9 +2,10 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { WorkStatus } from "@prisma/client";
+import { type Prisma, WorkStatus } from "@prisma/client";
 import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
+import { formatAddress } from "@/lib/address";
 
 // ------------------------------------------------------------------
 // Hjelpere (definert utenfor komponenten slik at render forblir ren)
@@ -25,6 +26,14 @@ function formatDay(value: Date | string | null | undefined) {
     : "Ingen dato";
 }
 
+function formatDayRange(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined
+) {
+  if (!start || !end || new Date(end) <= new Date(start)) return formatDay(start);
+  return `${formatDay(start)} – ${formatDay(end)}`;
+}
+
 function formatFullDate(value: Date) {
   return value.toLocaleDateString("no-NO", { weekday: "long", day: "numeric", month: "long" });
 }
@@ -43,8 +52,10 @@ type OrderWith = {
   title: string;
   status: string;
   scheduledFor: Date | null;
-  customer: { name: string } | null;
+  scheduledTo?: Date | null;
+  customer: { name: string; address?: string | null; postalCode?: string | null; city?: string | null } | null;
   technicians: { name: string | null }[];
+  tags?: { id: string; name: string }[];
 };
 
 // Kompakt oppdragsliste brukt i flere av dashbord-panelene.
@@ -54,7 +65,9 @@ function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
   }
   return (
     <div className="space-y-2">
-      {orders.map((wo) => (
+      {orders.map((wo) => {
+        const address = formatAddress(wo.customer);
+        return (
         <Link
           key={wo.id}
           href={`/oppdrag/${wo.id}`}
@@ -65,13 +78,30 @@ function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
             <StatusBadge status={wo.status} />
           </div>
           <p className="text-[10px] text-gray-500 mt-1">
-            🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDay(wo.scheduledFor)}
+            🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDayRange(wo.scheduledFor, wo.scheduledTo)}
             {wo.technicians.length === 0
               ? " • ⚠️ Ikke tildelt"
               : ` • 👷 ${wo.technicians.map((t) => t.name?.split(" ")[0]).filter(Boolean).join(", ")}`}
           </p>
+          {address && (
+            <p className="text-[10px] text-gray-500 mt-0.5">📍 {address}</p>
+          )}
+          {wo.tags && wo.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {wo.tags.map((tag: any) => (
+                <span
+                  key={tag.id}
+                  className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                  style={{ backgroundColor: tag.color || "#3b82f6" }}
+                >
+                  🏷️ {tag.name}
+                </span>
+              ))}
+            </div>
+          )}
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -93,7 +123,7 @@ const OFFICE_ACTIONS = [
   { href: "/kalender", icon: "📅", label: "Kalender" },
   { href: "/kalender/dispatch", icon: "🎛️", label: "Dispatch" },
   { href: "/kunder", icon: "🏢", label: "Kunder" },
-  { href: "/kundeportal", icon: "👤", label: "Kundeportal" },
+  { href: "/dokumenter", icon: "📚", label: "Dokumenter" },
   { href: "/innstillinger?tab=maler", icon: "📋", label: "Sjekklister" },
   { href: "/innstillinger?tab=ansatte", icon: "👥", label: "Ansatte" },
   { href: "/innstillinger?tab=statistikk", icon: "📊", label: "Statistikk" },
@@ -163,6 +193,7 @@ export default async function AdminDashboard({
           { description: { contains: searchQuery, mode: "insensitive" as const } },
           { customer: { name: { contains: searchQuery, mode: "insensitive" as const } } },
           { customer: { city: { contains: searchQuery, mode: "insensitive" as const } } },
+          { customer: { address: { contains: searchQuery, mode: "insensitive" as const } } },
         ],
       }
     : {};
@@ -170,6 +201,21 @@ export default async function AdminDashboard({
     ...(statusFilter ? { status: statusFilter } : {}),
     ...listSearchWhere,
   };
+
+  // Flerdagersoppdrag teller som «i dag» så lenge perioden dekker dagen.
+  const todayWhere = {
+    scheduledFor: { lte: endOfToday },
+    OR: [
+      { scheduledTo: { gte: startOfToday } },
+      { scheduledTo: null, scheduledFor: { gte: startOfToday } },
+    ],
+  } satisfies Prisma.WorkOrderWhereInput;
+
+  const overdueWhere = {
+    scheduledFor: { lt: startOfToday },
+    OR: [{ scheduledTo: null }, { scheduledTo: { lt: startOfToday } }],
+    status: { notIn: ["COMPLETED", "CANCELLED"] },
+  } satisfies Prisma.WorkOrderWhereInput;
 
   const [
     todayOrders,
@@ -185,24 +231,16 @@ export default async function AdminDashboard({
     listOrders,
   ] = await Promise.all([
     prisma.workOrder.findMany({
-      where: { scheduledFor: { gte: startOfToday, lt: endOfToday } },
+      where: todayWhere,
       orderBy: { scheduledFor: "asc" },
-      include: { customer: true, technicians: true },
+      include: { customer: true, technicians: true, tags: true },
     }),
-    prisma.workOrder.count({
-      where: {
-        scheduledFor: { lt: startOfToday },
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
-      },
-    }),
+    prisma.workOrder.count({ where: overdueWhere }),
     prisma.workOrder.findMany({
-      where: {
-        scheduledFor: { lt: startOfToday },
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
-      },
+      where: overdueWhere,
       orderBy: { scheduledFor: "asc" },
       take: 8,
-      include: { customer: true, technicians: true },
+      include: { customer: true, technicians: true, tags: true },
     }),
     prisma.workOrder.count({
       where: {
@@ -217,7 +255,7 @@ export default async function AdminDashboard({
       },
       orderBy: { scheduledFor: "asc" },
       take: 8,
-      include: { customer: true, technicians: true },
+      include: { customer: true, technicians: true, tags: true },
     }),
     prisma.report.count({ where: { completedAt: { gte: startOfMonth } } }),
     prisma.customer.count(),
@@ -229,7 +267,7 @@ export default async function AdminDashboard({
       orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }],
       take: pageSize,
       skip,
-      include: { customer: true, technicians: true, reports: true },
+      include: { customer: true, technicians: true, reports: true, tags: true },
     }),
   ]);
 
@@ -462,9 +500,25 @@ export default async function AdminDashboard({
                       <StatusBadge status={wo.status} />
                     </div>
                     <p className="text-[10px] text-gray-500">
-                      🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDay(wo.scheduledFor)}
+                      🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDayRange(wo.scheduledFor, wo.scheduledTo)}
                       {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r)` : ""}
                     </p>
+                    {formatAddress(wo.customer) && (
+                      <p className="text-[10px] text-gray-500">📍 {formatAddress(wo.customer)}</p>
+                    )}
+                    {wo.tags && wo.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {wo.tags.map((tag: any) => (
+                          <span
+                            key={tag.id}
+                            className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                            style={{ backgroundColor: tag.color || "#3b82f6" }}
+                          >
+                            🏷️ {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 text-[10px]">
                     <div className="text-gray-600">

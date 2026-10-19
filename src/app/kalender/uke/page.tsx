@@ -3,13 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import FullCalendarClient from "@/app/kalender/FullCalendarClient";
-
-type EventData = {
-  id: string;
-  title: string;
-  start: string;
-  allDay: boolean;
-};
+import { toCalendarEvent } from "@/lib/calendar-events";
 
 export default async function WeekCalendarPage() {
   const session = await getServerSession();
@@ -27,10 +21,12 @@ export default async function WeekCalendarPage() {
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
-      scheduledFor: {
-        gte: sixMonthsAgo,
-        lte: sixMonthsAhead,
-      },
+      scheduledFor: { not: null, lte: sixMonthsAhead },
+      OR: [
+        { scheduledFor: { gte: sixMonthsAgo } },
+        // Tar med oppdrag som startet før vinduet og varer inn i det.
+        { scheduledTo: { gte: sixMonthsAgo } },
+      ],
     },
     include: {
       customer: true,
@@ -41,12 +37,10 @@ export default async function WeekCalendarPage() {
     },
   });
 
-  const events: EventData[] = workOrders.map(wo => ({
-    id: wo.id,
-    title: wo.title,
-    start: wo.scheduledFor ? wo.scheduledFor.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    allDay: true,
-  }));
+  const events = workOrders.flatMap((wo) => {
+    const event = toCalendarEvent(wo);
+    return event ? [event] : [];
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">

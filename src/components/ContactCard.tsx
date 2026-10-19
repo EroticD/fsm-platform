@@ -27,8 +27,8 @@ export default function ContactCard({
 
   return (
     <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm space-y-1 relative">
-      <div className="flex justify-between items-start">
-        <div>
+      <div className="flex justify-between items-start gap-2 flex-wrap">
+        <div className="min-w-0 flex-1">
           <p className="font-black text-gray-900">
             {contact.name} {contact.role ? <span className="text-xs font-normal text-gray-500">({contact.role})</span> : ""}
           </p>
@@ -43,7 +43,7 @@ export default function ContactCard({
             </p>
           )}
         </div>
-        <div className={`flex gap-2 ${readOnly ? "hidden" : ""}`}>
+        <div className={`flex gap-2 flex-shrink-0 ${readOnly ? "hidden" : ""}`}>
           <button
             onClick={() => setIsEditing(!isEditing)}
             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition p-1"

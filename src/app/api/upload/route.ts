@@ -34,10 +34,10 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: "Ugyldig filtype. Bare bilder og PDF er tillatt." }), { status: 400 });
     }
 
-    // Max 10MB
-    const maxSize = 10 * 1024 * 1024;
+    // Max 100MB (stemmer overens med middlewareClientMaxBodySize i next.config.ts)
+    const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
-      return new Response(JSON.stringify({ error: "Filen er for stor (maks 10MB)" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Filen er for stor (maks 100MB)" }), { status: 400 });
     }
 
     // Lag unikt filnavn

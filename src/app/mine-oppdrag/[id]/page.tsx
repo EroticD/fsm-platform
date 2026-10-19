@@ -7,9 +7,11 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
+import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanStatus, cleanText } from "@/lib/sanitize";
 import { requireStaff } from "@/lib/session";
+import { formatDateRange } from "@/lib/dates";
 
 export default async function TechnicianWorkOrderPage({
   params,
@@ -38,7 +40,9 @@ export default async function TechnicianWorkOrderPage({
       contact: true,
       templates: true,
       reports: true,
+      tags: true,
       workComments: { orderBy: { createdAt: "desc" } },
+      attachments: { orderBy: { id: "desc" } },
       product: true,
       technicians: true
     }
@@ -204,6 +208,19 @@ export default async function TechnicianWorkOrderPage({
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-gray-900">{workOrder.title}</h1>
             <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || "Uten kunde"}</p>
+            {workOrder.tags && workOrder.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {workOrder.tags.map((tag: any) => (
+                  <span
+                    key={tag.id}
+                    className="text-white px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm"
+                    style={{ backgroundColor: tag.color || "#3b82f6" }}
+                  >
+                    🏷️ {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <Link href="/mine-oppdrag" className="bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-bold border-2 border-gray-200 shadow-sm hover:bg-gray-100 transition">
             &larr; Tilbake
@@ -243,7 +260,7 @@ export default async function TechnicianWorkOrderPage({
             <div>
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Planlagt Dato</p>
               <p className="font-bold text-gray-900 bg-gray-50 p-2.5 border-2 border-gray-200 rounded-xl inline-block w-full">
-                📅 {workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toLocaleDateString("no-NO") : "Ingen dato valgt"}
+                📅 {formatDateRange(workOrder.scheduledFor, workOrder.scheduledTo) || "Ingen dato valgt"}
               </p>
             </div>
 
@@ -312,16 +329,16 @@ export default async function TechnicianWorkOrderPage({
             ) : (
               <div className="space-y-2">
                 {workOrder.technicians.map((t: any) => (
-                  <div key={t.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                      <div>
-                        <p className="font-black text-gray-900 text-sm">{t.name} {t.id === user.id ? <span className="text-[10px] text-blue-600">(Du)</span> : ""}</p>
+                  <div key={t.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200 gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                      <div className="min-w-0">
+                        <p className="font-black text-gray-900 text-sm truncate">{t.name} {t.id === user.id ? <span className="text-[10px] text-blue-600">(Du)</span> : ""}</p>
                         <p className="text-[10px] text-gray-500">{t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'}</p>
                       </div>
                     </div>
 
-                    <form action={removeTechnician}>
+                    <form action={removeTechnician} className="flex-shrink-0">
                       <input type="hidden" name="userId" value={t.id} />
                       <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
                         {t.id === user.id ? "Fjern meg" : "Fjern"}
@@ -492,6 +509,17 @@ export default async function TechnicianWorkOrderPage({
             </div>
           )}
         </div>
+
+        {/* Vedlegg */}
+        <WorkOrderAttachments
+          workOrderId={workOrderId}
+          attachments={workOrder.attachments.map((a) => ({
+            id: a.id,
+            fileName: a.fileName,
+            dataUrl: a.dataUrl,
+          }))}
+          canManage={user.role !== "CUSTOMER"}
+        />
 
         {/* Audit log */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">

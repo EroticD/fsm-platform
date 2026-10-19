@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import { formatAddress } from "@/lib/address";
+import { formatDateRange } from "@/lib/dates";
 
 // Hjelpekomponent for status-etikett
 function StatusBadge({ status }: { status: string }) {
@@ -44,10 +46,11 @@ export default async function TechnicianDashboard({
           { title: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
           { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { city: { contains: searchQuery, mode: 'insensitive' } } }
+          { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
+          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
         ]
       },
-      include: { customer: true, reports: true, technicians: true },
+      include: { customer: true, reports: true, technicians: true, tags: true },
       orderBy: { scheduledFor: 'asc' }
     });
 
@@ -58,10 +61,11 @@ export default async function TechnicianDashboard({
           { title: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
           { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { city: { contains: searchQuery, mode: 'insensitive' } } }
+          { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
+          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
         ]
       },
-      include: { customer: true, reports: true, technicians: true },
+      include: { customer: true, reports: true, technicians: true, tags: true },
       orderBy: { scheduledFor: 'asc' }
     });
   } else {
@@ -69,7 +73,7 @@ export default async function TechnicianDashboard({
       where: {
         technicians: { some: { id: user.id } }
       },
-      include: { customer: true, reports: true, technicians: true },
+      include: { customer: true, reports: true, technicians: true, tags: true },
       orderBy: { scheduledFor: 'asc' }
     });
 
@@ -77,7 +81,7 @@ export default async function TechnicianDashboard({
       where: {
         technicians: { none: {} }
       },
-      include: { customer: true, reports: true, technicians: true },
+      include: { customer: true, reports: true, technicians: true, tags: true },
       orderBy: { scheduledFor: 'asc' }
     });
   }
@@ -150,10 +154,28 @@ export default async function TechnicianDashboard({
                   <p className="text-[10px] text-gray-600 font-medium">
                     🏢 {wo.customer.name}
                   </p>
+                  {formatAddress(wo.customer) && (
+                    <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                      📍 {formatAddress(wo.customer)}
+                    </p>
+                  )}
+                  {wo.tags && wo.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {wo.tags.map((tag: any) => (
+                        <span
+                          key={tag.id}
+                          className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                          style={{ backgroundColor: tag.color || "#3b82f6" }}
+                        >
+                          🏷️ {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center text-[10px] pt-2 border-t border-gray-100 text-gray-500 font-medium">
                     <span className="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
-                      📅 {wo.scheduledFor ? new Date(wo.scheduledFor).toLocaleDateString("no-NO", { weekday: 'short', day: 'numeric', month: 'short' }) : "Ingen dato satt"}
+                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato satt"}
                     </span>
                     <span className="font-black text-blue-600 hover:underline whitespace-nowrap">
                       Åpne oppdrag &rarr;
@@ -188,10 +210,15 @@ export default async function TechnicianDashboard({
                   <p className="text-[10px] text-gray-600 font-medium">
                     🏢 {wo.customer.name}
                   </p>
+                  {formatAddress(wo.customer) && (
+                    <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                      📍 {formatAddress(wo.customer)}
+                    </p>
+                  )}
 
                   <div className="flex justify-between items-center text-[10px] pt-2 border-t border-amber-200 text-gray-600 font-medium">
                     <span className="font-bold bg-white px-2 py-1 rounded-lg border border-amber-200">
-                      📅 {wo.scheduledFor ? new Date(wo.scheduledFor).toLocaleDateString("no-NO", { weekday: 'short', day: 'numeric', month: 'short' }) : "Ingen dato satt"}
+                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato satt"}
                     </span>
                     <span className="font-black text-amber-800 hover:underline whitespace-nowrap">
                       Se og ta oppdrag &rarr;
@@ -222,6 +249,11 @@ export default async function TechnicianDashboard({
                   <p className="text-[10px] text-gray-500 font-medium">
                     🏢 {wo.customer.name} • Fullført / Arkivert
                   </p>
+                  {formatAddress(wo.customer) && (
+                    <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                      📍 {formatAddress(wo.customer)}
+                    </p>
+                  )}
                 </Link>
               ))}
             </div>

@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
 
+  // Middleware (proxy.ts) begrenser forespørselens body til 10 MB som standard.
+  // Store PDF-filer overstiger dette, og da blir multipart-bodyen avkuttet før
+  // den når opplastingsruten. Øker grensen så store dokumenter kommer gjennom.
+  experimental: {
+    middlewareClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
+  },
+
   // I utviklingsmodus blokkerer Next.js forespørsler fra andre "origins" enn
   // localhost (for eksempel når man tester fra mobilen på LAN-IP-en
   // http://10.0.0.115:3000). Uten dette lastes ikke utviklingsressursene, og
