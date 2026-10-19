@@ -1,0 +1,50 @@
+name: Funksjonsforslag
+description: Foreslå en ny funksjon eller en forbedring.
+title: "[Forslag]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Hvilket problem løser forslaget?
+      description: Beskriv situasjonen eller behovet, ikke bare løsningen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: losning
+    attributes:
+      label: Foreslått løsning
+      description: Hvordan ser du for deg at det bør fungere?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativer
+    attributes:
+      label: Alternativer du har vurdert
+      description: Andre måter å løse behovet på, eller hvorfor de ikke passer.
+
+  - type: dropdown
+    id: omrade
+    attributes:
+      label: Område
+      options:
+        - Oppdrag og kalender
+        - Servicerapporter og PDF
+        - Kunder og enheter
+        - Brukere og roller
+        - Dokumenter og OCR
+        - Sikkerhet
+        - Drift og Docker
+        - Annet
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: sjekkliste
+    attributes:
+      label: Sjekkliste
+      options:
+        - label: Jeg har søkt i eksisterende issues etter samme forslag.
+          required: true

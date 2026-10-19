@@ -1,0 +1,10 @@
+# Tomme issues er slått av, slik at malene blir brukt.
+blank_issues_enabled: false
+
+# Når repoet har en kjent adresse, legg gjerne til en kontaktlenke til
+# sikkerhetsrådgivningen:
+#
+# contact_links:
+#   - name: Rapporter en sikkerhetssårbarhet
+#     url: https://github.com/<bruker>/fsm-platform/security/advisories/new
+#     about: Rapporter sikkerhetsproblemer privat, ikke som en offentlig issue.

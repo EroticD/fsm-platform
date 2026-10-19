@@ -30,6 +30,8 @@ services:
   app:
     build:
       context: .
+    # Navnet imaget får lokalt ved `docker compose build`.
+    image: fsm-platform:local
     restart: unless-stopped
     depends_on:
       postgres:
@@ -55,6 +57,8 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
     ports:
+      # I produksjon bør dette være "127.0.0.1:3000:3000" når appen står bak en
+      # reverse proxy på samme maskin. Da kan ikke appen nås direkte utenom TLS.
       - "3000:3000"
     volumes:
       # Opplastede bilder og vedlegg ligger utenfor containeren.

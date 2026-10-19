@@ -66,10 +66,23 @@ docker compose up -d --build
 ```
 
 - Appen svarer på <http://localhost:3000> og har helsesjekk på `/api/health`.
-- Opplastede bilder ligger på volumet `fsm_uploads` og overlever nytt bygg.
+- Opplastede bilder ligger på et eget volum og overlever nytt bygg.
 - Databasen eksponeres bare på `127.0.0.1`.
 - OCR fungerer uten nettverkstilgang: imaget har `poppler-utils` og norsk/engelsk
   språkdata i `/app/tessdata`.
+
+Imaget kan også bygges og kjøres uten Compose. På Linux kan `--network host`
+brukes slik at `DATABASE_URL` i `.env` når databasen på vertsmaskinen:
+
+```bash
+docker build -t fsm-platform .
+docker run --rm --network host --env-file .env \
+  -v "$PWD/uploads:/app/uploads" fsm-platform
+```
+
+`docker-compose.yml` merker imaget som `fsm-platform:local`. Se
+[Publisere til GitHub](#publisere-til-github) for hvordan CI-en kan bygge og
+publisere imaget til GitHub Container Registry.
 
 Ved oppstart utfører containeren følgende: venter på databasen, kjører
 `prisma migrate deploy`, kjører seed hvis `SEED_DATABASE=true`, og starter
@@ -213,6 +226,49 @@ eller enheten redigeres senere.
 - Tekstuttrekk/OCR kjører i en kø i app-prosessen (`src/lib/pdf-queue.ts`). Ved
   flere app-instanser bør den flyttes til en ekstern jobbkø.
 
+## Publisere til GitHub
+
+Repoet er klart til å legges ut på GitHub. Opprett et tomt repo i nettleseren
+(uten README, `.gitignore` eller lisens – de finnes allerede), og koble det til:
+
+```bash
+git remote add origin git@github.com:<bruker>/fsm-platform.git
+git push -u origin master
+```
+
+CI-en i `.github/workflows/ci.yml` kjører typesjekk, tester, lint,
+migrasjonsdrift og et Docker-bygg ved hver push og pull request.
+
+Vil du også publisere et ferdig Docker-image til GitHub Container Registry,
+legg inn en versjonstag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Da bygger `.github/workflows/docker-publish.yml` imaget og publiserer det som
+`ghcr.io/<bruker>/fsm-platform:v0.1.0` (og `:latest`). Workflowen bruker
+`GITHUB_TOKEN`, så ingen egne hemmeligheter trengs. Image-navnet utledes fra
+repoet.
+
 ## Lisens
 
-Apache License 2.0 – se [LICENSE](LICENSE).
+Programmet er tilgjengelig under **Business Source License 1.1 (BSL 1.1)** – en
+kildeåpen lisens, ikke en OSI-godkjent åpen kildekodelisens. Se
+[LICENSE](LICENSE) for den fullstendige teksten.
+
+| Parameter | Verdi |
+| --- | --- |
+| Lisensgiver | Kristoffer Garshol |
+| Lisensiert verk | FSM-plattformen (fsm-platform), versjon 0.1.0 og senere |
+| Ekstra bruksrett | Ingen |
+| Endringsdato | 2030-10-19 |
+| Endringslisens | Apache License 2.0 |
+
+Uten en ekstra bruksrett krever all produksjonsbruk en egen kommersiell avtale
+med lisensgiveren. Fra endringsdatoen gjelder Apache 2.0 for den aktuelle
+versjonen av verket. Lisensgiveren kan selv bruke, endre og videreutvikle
+programmet uten begrensninger.
+
+Kontakt lisensgiveren for kommersiell lisensiering.

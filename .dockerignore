@@ -21,9 +21,8 @@ dist
 .vscode
 .idea
 
-# Dokumentasjon
+# Dokumentasjon (LICENSE må være med, se Dockerfile)
 *.md
-LICENSE
 
 # Miljøfiler. .env inneholder hemmeligheter og skal ALDRI inn i imaget.
 .env

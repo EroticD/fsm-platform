@@ -1,0 +1,64 @@
+name: Feilrapport
+description: Meld fra om en feil eller noe som ikke virker som forventet.
+title: "[Feil]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Takk for at du rapporterer! Fjern passord, tokens og persondata før du
+        sender. Sikkerhetssårbarheter skal **ikke** rapporteres her – se
+        `SECURITY.md`.
+
+  - type: textarea
+    id: hva-skjedde
+    attributes:
+      label: Hva skjedde?
+      description: Beskriv feilen og hva du forventet skulle skje.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduksjon
+    attributes:
+      label: Steg for å reprodusere
+      placeholder: |
+        1. Gå til ...
+        2. Klikk på ...
+        3. Se at ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: miljo
+    attributes:
+      label: Miljø
+      options:
+        - Lokal utvikling (npm run dev)
+        - Docker Compose
+        - Produksjon
+    validations:
+      required: true
+
+  - type: input
+    id: versjon
+    attributes:
+      label: Versjon eller commit
+      placeholder: f.eks. v0.1.0 eller b4a7d9a
+
+  - type: textarea
+    id: logger
+    attributes:
+      label: Logger eller skjermbilde
+      description: Lim inn relevante logger. Fjern hemmeligheter og persondata.
+      render: shell
+
+  - type: checkboxes
+    id: sjekkliste
+    attributes:
+      label: Sjekkliste
+      options:
+        - label: Jeg har fjernet passord, tokens og persondata fra rapporten.
+          required: true
+        - label: Jeg har søkt i eksisterende issues etter samme feil.
+          required: true

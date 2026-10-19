@@ -18,7 +18,22 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+
+# ---------------------------------------------------------------------------
+# tessdata – henter OCR-språkdata i et eget steg. Da slipper det ferdige
+# imaget curl og annet som bare trengs under bygging.
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS tessdata
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /tessdata \
+ && curl -fsSL -o /tmp/nor.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/nor/4.0.0_best_int/nor.traineddata.gz \
+ && curl -fsSL -o /tmp/eng.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz \
+ && gunzip -f /tmp/nor.traineddata.gz /tmp/eng.traineddata.gz \
+ && mv /tmp/nor.traineddata /tmp/eng.traineddata /tessdata/
 
 # ---------------------------------------------------------------------------
 # builder – genererer Prisma-klienten og bygger Next.js-appen.
@@ -40,6 +55,18 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 # Opplastede bilder og vedlegg havner her, og mappen monteres som et volum.
 ENV UPLOAD_DIR=/app/uploads
+# OCR-språkdata legges inn på forhånd, slik at OCR ikke trenger nettverkstilgang
+# når appen kjører. Koden leser TESSDATA_DIR (se src/lib/pdf-text.ts).
+ENV TESSDATA_DIR=/app/tessdata
+
+# Metadata som brukes av GitHub Container Registry og andre registere.
+ARG BUILD_VERSION=dev
+ARG BUILD_REVISION=unknown
+LABEL org.opencontainers.image.title="FSM-plattformen" \
+      org.opencontainers.image.description="Service- og vedlikeholdssystem (FSM) med oppdrag, kalender, servicerapporter og PDF." \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.revision="${BUILD_REVISION}" \
+      org.opencontainers.image.licenses="BUSL-1.1"
 
 # Kjør som en vanlig bruker, ikke root.
 RUN groupadd --system --gid 1001 nodejs \
@@ -47,18 +74,10 @@ RUN groupadd --system --gid 1001 nodejs \
 
 # poppler-utils gir pdftotext/pdftoppm, som tekstuttrekk og OCR bygger på.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils curl \
+ && apt-get install -y --no-install-recommends poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 
-# OCR-språkdata legges inn på forhånd, slik at OCR ikke trenger nettverkstilgang
-# når appen kjører. Koden leser TESSDATA_DIR (se src/lib/pdf-text.ts).
-ENV TESSDATA_DIR=/app/tessdata
-RUN mkdir -p /app/tessdata \
- && curl -fsSL -o /tmp/nor.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/nor/4.0.0_best_int/nor.traineddata.gz \
- && curl -fsSL -o /tmp/eng.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz \
- && gunzip -f /tmp/nor.traineddata.gz /tmp/eng.traineddata.gz \
- && mv /tmp/nor.traineddata /tmp/eng.traineddata /app/tessdata/ \
- && chown -R nextjs:nodejs /app/tessdata
+COPY --from=tessdata --chown=nextjs:nodejs /tessdata /app/tessdata
 
 # Selve appen: standalone-serveren, statiske filer og public-mappen.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -74,6 +93,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 # vanlig fil når den kopieres mellom byggesteg, og da feiler oppslaget.
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+
+# BSL 1.1 krever at lisensen vises sammen med hver kopi av programvaren.
+COPY --chown=nextjs:nodejs LICENSE ./LICENSE
 
 COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
