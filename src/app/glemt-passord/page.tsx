@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import Link from "next/link";
+import { hashToken } from "@/lib/invite";
 
 export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string }> }) {
   const resolvedParams = await searchParams;
@@ -24,16 +25,19 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
       // Lagrer nøkkelen på brukeren i databasen
       await prisma.user.update({
         where: { email },
-        data: { resetToken: token, resetTokenExpiry: expiry }
+        data: { resetToken: hashToken(token), resetTokenExpiry: expiry }
       });
 
       const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/tilbakestill-passord?token=${token}`;
 
-      // TIDSBESPARENDE TRIKS FOR LOKAL TESTING: Printer linken rett i konsollen!
-      console.log("\n=======================================================");
-      console.log("🔐 LINK FOR TILBAKESTILLING AV PASSORD (Klikk på denne):");
-      console.log(resetUrl);
-      console.log("=======================================================\n");
+      // Lokal hjelp når SMTP ikke er satt opp. Aldri i produksjon: en gyldig
+      // tilbakestillingslenke i serverloggen er det samme som kontotilgang.
+      if (process.env.NODE_ENV !== "production") {
+        console.log("\n=======================================================");
+        console.log("🔐 LINK FOR TILBAKESTILLING AV PASSORD (Klikk på denne):");
+        console.log(resetUrl);
+        console.log("=======================================================\n");
+      }
 
       // Forsøker å sende e-post (Fungerer når du legger inn SMTP_HOST i .env senere)
       if (process.env.SMTP_HOST && process.env.SMTP_USER) {

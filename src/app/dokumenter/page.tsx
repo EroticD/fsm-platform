@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import path from "path";
-import { extractPdfText } from "@/lib/pdf-text";
+import { enqueuePdfText } from "@/lib/pdf-queue";
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
 import { isOffice, requireOffice } from "@/lib/session";
 import TagSelector from "@/components/TagSelector";
@@ -174,20 +174,9 @@ export default async function DocumentsPage({
       },
     });
 
-    // Hvis filen ble byttet, trekk ut ny tekst
+    // Hvis filen ble byttet, trekk ut ny tekst i bakgrunnen
     if (fileUrl && fileUrl !== existing.filePath) {
-      try {
-        const { text, pages } = await extractPdfText(fileUrl);
-        await prisma.document.update({
-          where: { id },
-          data: {
-            contentText: text || null,
-            pageTexts: pages.length > 0 ? JSON.stringify(pages) : null,
-          },
-        });
-      } catch (e) {
-        console.error("PDF-tekstekstraksjon feilet ved oppdatering:", e);
-      }
+      enqueuePdfText(id, fileUrl);
     }
 
     await prisma.auditLog.create({
@@ -235,19 +224,8 @@ export default async function DocumentsPage({
       },
     });
 
-    // Ekstraher PDF-tekst for fulltekst-søk (best-effort)
-    try {
-      const { text, pages } = await extractPdfText(fileUrl);
-      await prisma.document.update({
-        where: { id: newDoc.id },
-        data: {
-          contentText: text || null,
-          pageTexts: pages.length > 0 ? JSON.stringify(pages) : null,
-        },
-      });
-    } catch (e) {
-      console.error("PDF-tekstekstraksjon feilet:", e);
-    }
+    // Ekstraher PDF-tekst for fulltekst-søk i bakgrunnen (best-effort)
+    enqueuePdfText(newDoc.id, fileUrl);
 
     await prisma.auditLog.create({
       data: {
@@ -350,19 +328,8 @@ export default async function DocumentsPage({
         },
       });
 
-      // Ekstraher PDF-tekst (best-effort, blokkerer ikke)
-      try {
-        const { text, pages } = await extractPdfText(item.fileUrl);
-        await prisma.document.update({
-          where: { id: newDoc.id },
-          data: {
-            contentText: text || null,
-            pageTexts: pages.length > 0 ? JSON.stringify(pages) : null,
-          },
-        });
-      } catch (e) {
-        console.error("PDF-tekstekstraksjon feilet:", e);
-      }
+      // Ekstraher PDF-tekst (best-effort, legges i bakgrunnskø)
+      enqueuePdfText(newDoc.id, item.fileUrl);
 
       count++;
     }
@@ -387,18 +354,7 @@ export default async function DocumentsPage({
       select: { id: true, filePath: true },
     });
     for (const doc of docs) {
-      try {
-        const { text, pages } = await extractPdfText(doc.filePath);
-        await prisma.document.update({
-          where: { id: doc.id },
-          data: {
-            contentText: text || null,
-            pageTexts: pages.length > 0 ? JSON.stringify(pages) : null,
-          },
-        });
-      } catch (e) {
-        console.error("Reindeksering feilet for", doc.id, e);
-      }
+      enqueuePdfText(doc.id, doc.filePath);
     }
     await prisma.auditLog.create({
       data: {

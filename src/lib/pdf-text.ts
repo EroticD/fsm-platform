@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { execFileSync } from "child_process";
 import { uploadDir } from "@/lib/uploads";
@@ -68,8 +69,8 @@ export async function extractPdfText(filePath: string): Promise<{ text: string; 
  * tesseract.js på hver side.
  */
 async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[]> {
-  const tmpDir = path.join("/tmp/opencode", `ocr-${Date.now()}`);
-  fs.mkdirSync(tmpDir, { recursive: true });
+  // mkdtemp gir en unik, privat mappe under systemets temp-område.
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "fsm-ocr-"));
 
   try {
     // Render sider til PNG
@@ -79,7 +80,17 @@ async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[
 
     const files = fs.readdirSync(tmpDir).filter((f) => f.endsWith(".png")).sort();
     const { createWorker } = await import("tesseract.js");
-    const worker = await createWorker("nor+eng");
+
+    // I Docker ligger språkdata ferdig i TESSDATA_DIR (uten nettverkstilgang).
+    // Uten den henter tesseract.js dem fra nett og cacher i temp-mappen.
+    const tessdataDir = process.env.TESSDATA_DIR;
+    const worker = await createWorker(
+      "nor+eng",
+      undefined,
+      tessdataDir
+        ? { langPath: tessdataDir, gzip: false, cachePath: os.tmpdir(), cacheMethod: "none" }
+        : { cachePath: os.tmpdir() },
+    );
 
     const results: { page: number; text: string }[] = [];
     for (let i = 0; i < files.length; i++) {

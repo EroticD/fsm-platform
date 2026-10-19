@@ -45,6 +45,21 @@ ENV UPLOAD_DIR=/app/uploads
 RUN groupadd --system --gid 1001 nodejs \
  && useradd --system --uid 1001 --gid nodejs nextjs
 
+# poppler-utils gir pdftotext/pdftoppm, som tekstuttrekk og OCR bygger på.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# OCR-språkdata legges inn på forhånd, slik at OCR ikke trenger nettverkstilgang
+# når appen kjører. Koden leser TESSDATA_DIR (se src/lib/pdf-text.ts).
+ENV TESSDATA_DIR=/app/tessdata
+RUN mkdir -p /app/tessdata \
+ && curl -fsSL -o /tmp/nor.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/nor/4.0.0_best_int/nor.traineddata.gz \
+ && curl -fsSL -o /tmp/eng.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz \
+ && gunzip -f /tmp/nor.traineddata.gz /tmp/eng.traineddata.gz \
+ && mv /tmp/nor.traineddata /tmp/eng.traineddata /app/tessdata/ \
+ && chown -R nextjs:nodejs /app/tessdata
+
 # Selve appen: standalone-serveren, statiske filer og public-mappen.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

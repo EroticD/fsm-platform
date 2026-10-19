@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
+import { hashToken } from "@/lib/invite";
 
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string, error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -27,14 +28,14 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
     const newPassword = formData.get("password") as string;
     const token = formData.get("token") as string;
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!newPassword || newPassword.length < 8) {
       redirect(`/tilbakestill-passord?token=${token}&error=for_kort`);
     }
 
     // Finner brukeren som eier denne koden, og sjekker at tiden ikke har gått ut
     const user = await prisma.user.findFirst({
       where: {
-        resetToken: token,
+        resetToken: hashToken(token),
         resetTokenExpiry: { gt: new Date() } // Må være i fremtiden
       }
     });
@@ -73,8 +74,8 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
           </div>
         )}
         {error === "for_kort" && (
-          <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg mb-4 text-sm font-semibold border border-yellow-200">
-            Passordet må være minst 6 tegn.
+          <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg border border-yellow-200 text-sm font-semibold mb-4">
+            Passordet må være minst 8 tegn.
           </div>
         )}
 
@@ -83,7 +84,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
           
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Nytt passord</label>
-            <input type="password" name="password" required minLength={6} placeholder="Minst 6 tegn..." className="w-full border p-3 rounded-xl text-gray-800" />
+            <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder="Minst 8 tegn..." className="w-full border p-3 rounded-xl text-gray-800" />
           </div>
           
           <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition">

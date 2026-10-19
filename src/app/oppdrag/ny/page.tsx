@@ -7,6 +7,7 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
+import { requireOffice } from "@/lib/session";
 import { createWorkOrderSchema } from "./schemas";
 import { z } from "zod";
 
@@ -25,6 +26,8 @@ export default async function AdminCreateWorkOrderPage() {
 
   async function createWorkOrder(formData: FormData): Promise<void> {
     "use server";
+    // Autorisasjonen må ligge i handlingen, ikke bare i sidevisningen.
+    if (!(await requireOffice())) return;
 
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));

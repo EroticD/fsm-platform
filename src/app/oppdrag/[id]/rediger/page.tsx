@@ -7,6 +7,7 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
+import { requireOffice } from "@/lib/session";
 
 export default async function EditWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
@@ -48,6 +49,9 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
   // --- SERVER ACTION: LAGRE ENDRINGER ---
   async function updateWorkOrder(formData: FormData) {
     "use server";
+    // Autorisasjonen må ligge i handlingen, ikke bare i sidevisningen.
+    if (!(await requireOffice())) return;
+
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });

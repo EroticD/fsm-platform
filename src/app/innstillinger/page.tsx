@@ -11,7 +11,7 @@ import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
 export default async function SettingsPage({ 
   searchParams 
 }: { 
-  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; error?: string; mail?: string }> 
+  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string }>
 }) {
   const session = await getServerSession();
   if (!session || !session.user?.email) redirect("/api/auth/signin");
@@ -440,7 +440,9 @@ export default async function SettingsPage({
           <UsersAdmin
             returnTo="/innstillinger?tab=ansatte"
             currentUserEmail={user.email}
+            isAdmin={user.role === "ADMIN"}
             invite={resolvedParams.invite}
+            inviteToken={resolvedParams.inviteToken}
             error={resolvedParams.error}
             mail={resolvedParams.mail}
           />

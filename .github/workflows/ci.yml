@@ -50,8 +50,17 @@ jobs:
       - name: Bruk migrasjonene på en tom database
         run: npx prisma migrate deploy
 
+      - name: Sjekk at migrasjonene gir samme skjema som schema.prisma
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Generer rutetyper
+        run: npx next typegen
+
       - name: Typesjekk
         run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
 
       - name: Lint
         run: npm run lint

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
+import { hashToken } from "@/lib/invite";
 
 export default async function ActivateAccountPage({
   searchParams,
@@ -26,7 +27,7 @@ export default async function ActivateAccountPage({
 
     const user = await prisma.user.findFirst({
       where: {
-        resetToken: formToken,
+        resetToken: hashToken(formToken),
         resetTokenExpiry: { gt: new Date() },
       },
     });
@@ -107,7 +108,7 @@ export default async function ActivateAccountPage({
   // --- VALIDER NØKKEL ---
   const user = await prisma.user.findFirst({
     where: {
-      resetToken: token,
+      resetToken: hashToken(token),
       resetTokenExpiry: { gt: new Date() },
     },
   });

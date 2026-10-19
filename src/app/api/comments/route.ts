@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user) {
+  if (!user?.isActive) {
     return NextResponse.json({ error: "Bruker ikke funnet" }, { status: 404 });
   }
 
@@ -22,7 +22,9 @@ export async function POST(request: Request) {
   const entityType = String(body.entityType ?? "");
   const entityId = cleanText(body.entityId, { maxLength: LIMITS.line });
   const content = cleanMarkdown(body.content);
-  const authorName = cleanText(body.authorName, { maxLength: LIMITS.title }) || user.name || "Ukjent";
+  // Forfatteren hentes fra økten, ikke fra klienten, slik at aktivitetsloggen
+  // ikke kan forfalskes ved å sende et annet navn.
+  const authorName = user.name || user.email || "Ukjent";
 
   if (!ENTITY_TYPES.includes(entityType as (typeof ENTITY_TYPES)[number])) {
     return NextResponse.json({ error: "Ukjent type" }, { status: 400 });

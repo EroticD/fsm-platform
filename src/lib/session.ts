@@ -47,11 +47,20 @@ export function isStaff(role?: string | null): boolean {
  */
 export async function requireOffice(): Promise<boolean> {
   const user = await getCurrentUser();
-  return isOffice(user?.role);
+  return Boolean(user?.isActive) && isOffice(user?.role);
 }
 
 /** Som `requireOffice`, men slipper også inn montører (felt-handlinger). */
 export async function requireStaff(): Promise<boolean> {
   const user = await getCurrentUser();
-  return isStaff(user?.role);
+  return Boolean(user?.isActive) && isStaff(user?.role);
+}
+
+/**
+ * Bare administrator. Brukes for handlinger som kan gi andre full tilgang
+ * (roller, sletting/deaktivering av administratorer, invitasjoner til admins).
+ */
+export async function requireAdmin(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return Boolean(user?.isActive) && user?.role === "ADMIN";
 }

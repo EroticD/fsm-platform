@@ -18,11 +18,19 @@ export const authOptions: NextAuthOptions = {
         email: { label: "E-post", type: "email", placeholder: "din@epost.no" },
         password: { label: "Passord", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
+        const forwarded = request?.headers?.["x-forwarded-for"];
+        const ip = forwarded?.split(",")[0]?.trim() || request?.headers?.["x-real-ip"];
+
         const result = await verifyCredentials(
           credentials?.email ?? "",
-          credentials?.password ?? ""
+          credentials?.password ?? "",
+          ip
         );
+
+        if (result.status === "locked") {
+          throw new Error("TooManyAttempts");
+        }
 
         if (result.status === "invalid") return null;
 
@@ -44,6 +52,10 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt", // Bruker tokens for sikkerhet
+    // Kortere økt enn NextAuths standard på 30 dager: en deaktivert bruker
+    // mister da tilgangen innen rimelig tid, og skrivehandlingene sjekker
+    // uansett isActive mot databasen.
+    maxAge: 12 * 60 * 60,
   },
   pages: {
     signIn: "/logg-inn",

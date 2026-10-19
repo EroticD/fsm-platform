@@ -17,13 +17,17 @@ import {
 export default async function UsersAdmin({
   returnTo,
   currentUserEmail,
+  isAdmin = false,
   invite,
+  inviteToken,
   error,
   mail,
 }: {
   returnTo: string;
   currentUserEmail?: string | null;
+  isAdmin?: boolean;
   invite?: string;
+  inviteToken?: string;
   error?: string;
   mail?: string;
 }) {
@@ -38,13 +42,9 @@ export default async function UsersAdmin({
   });
 
   // Brukeren vi nettopp lagde invitasjonslenke for (vises i banneret øverst).
+  // Selve nøkkelen lagres bare som hash, så den rå lenken kommer i redirecten.
   const inviteUser = invite ? users.find((u) => u.id === invite) : undefined;
-  const inviteUrl =
-    inviteUser?.resetToken &&
-    inviteUser.resetTokenExpiry &&
-    inviteUser.resetTokenExpiry > new Date()
-      ? buildInviteUrl(inviteUser.resetToken)
-      : null;
+  const inviteUrl = inviteToken ? buildInviteUrl(inviteToken) : null;
 
   const errorMessage =
     error === "mangler_kontakt"
@@ -128,7 +128,9 @@ export default async function UsersAdmin({
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
                 >
                   <option value="TECHNICIAN">📱 Montør (Kun felt-portal)</option>
-                  <option value="ADMIN">🎛️ Kontor / Admin (Full tilgang)</option>
+                  {isAdmin && (
+                    <option value="ADMIN">🎛️ Kontor / Admin (Full tilgang)</option>
+                  )}
                   <option value="OFFICE">🏢 Kontor (Administrasjon, ingen logg)</option>
                   <option value="USER">🔒 Standard (Ingen tilgang)</option>
                   <option value="CUSTOMER">👤 Kundeportal (Kundedata)</option>
@@ -192,6 +194,8 @@ export default async function UsersAdmin({
                 const isMe = u.email === currentUserEmail;
                 const hasPendingInvite =
                   !!u.resetToken && !!u.resetTokenExpiry && u.resetTokenExpiry > new Date();
+                // Bare administrator kan gjøre endringer på en administrator.
+                const canManageTarget = isAdmin || u.role !== "ADMIN";
 
                 return (
                   <div key={u.id} className="p-5 flex flex-col gap-4 hover:bg-gray-50 transition">
@@ -240,6 +244,7 @@ export default async function UsersAdmin({
                       </div>
                     </div>
 
+                    {canManageTarget && (
                     <div className="flex flex-wrap items-center gap-3">
                       <form action={changeRole} className="flex items-center gap-2">
                         <input type="hidden" name="returnTo" value={returnTo} />
@@ -260,11 +265,10 @@ export default async function UsersAdmin({
                                     : "border-gray-300"
                           }`}
                         >
-                          <option value="ADMIN">Admin</option>
+                          {isAdmin && <option value="ADMIN">Admin</option>}
                           <option value="OFFICE">Kontor</option>
                           <option value="TECHNICIAN">Montør</option>
                           <option value="CUSTOMER">Kundeportal</option>
-                          <option value="USER">Standard</option>
                         </select>
 
                         {!isMe && (
@@ -326,6 +330,7 @@ export default async function UsersAdmin({
                         </form>
                       )}
                     </div>
+                    )}
                   </div>
                 );
               })}

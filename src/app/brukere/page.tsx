@@ -7,7 +7,7 @@ import UsersAdmin from "@/components/UsersAdmin";
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; error?: string; mail?: string }>;
+  searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string }>;
 }) {
   const session = await getServerSession();
   if (!session || !session.user?.email) redirect("/logg-inn");
@@ -17,7 +17,7 @@ export default async function UsersPage({
   if (currentUser?.role === "TECHNICIAN") redirect("/mine-oppdrag");
   if (currentUser?.role === "CUSTOMER") redirect("/kundeportal");
 
-  const { invite, error, mail } = await searchParams;
+  const { invite, inviteToken, error, mail } = await searchParams;
   const userCount = await prisma.user.count();
 
   return (
@@ -41,7 +41,9 @@ export default async function UsersPage({
         <UsersAdmin
           returnTo="/brukere"
           currentUserEmail={currentUser?.email}
+          isAdmin={currentUser?.role === "ADMIN"}
           invite={invite}
+          inviteToken={inviteToken}
           error={error}
           mail={mail}
         />

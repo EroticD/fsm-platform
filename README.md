@@ -24,6 +24,11 @@ signerte servicerapporten kan lastes ned som PDF.
 
 Forutsetninger: Node.js 22+, Docker og npm.
 
+For OCR av skannede PDF-er trenger du `poppler-utils` lokalt
+(`pdftotext`/`pdftoppm`). I Docker-imaget er det allerede installert, sammen med
+norsk og engelsk språkdata. Uten språkdata henter tesseract.js dem fra nettet ved
+første kjøring.
+
 ```bash
 git clone <repo-url> fsm-platform
 cd fsm-platform
@@ -37,13 +42,14 @@ npm run dev
 
 Appen er da tilgjengelig på <http://localhost:3000>.
 
-Ny nyttig kommando:
+Nyttige kommandoer:
 
 ```bash
 npm run seed        # opprett administrator (idempotent)
+npm test            # enhetstester (vitest)
+npm run typecheck   # generer rutetyper og kjør tsc
 npm run build       # produksjonsbygg
 npm run lint        # eslint
-npx tsc --noEmit    # typesjekk
 ```
 
 ## Kjøre med Docker
@@ -62,11 +68,79 @@ docker compose up -d --build
 - Appen svarer på <http://localhost:3000> og har helsesjekk på `/api/health`.
 - Opplastede bilder ligger på volumet `fsm_uploads` og overlever nytt bygg.
 - Databasen eksponeres bare på `127.0.0.1`.
+- OCR fungerer uten nettverkstilgang: imaget har `poppler-utils` og norsk/engelsk
+  språkdata i `/app/tessdata`.
 
 Ved oppstart utfører containeren følgende: venter på databasen, kjører
 `prisma migrate deploy`, kjører seed hvis `SEED_DATABASE=true`, og starter
 deretter serveren. Migrasjonene kan hoppes over med `SKIP_MIGRATIONS=true` hvis
 de kjøres som et eget steg i produksjon.
+
+### Produksjon
+
+Appen må stå bak en reverse proxy som terminerer TLS. Sett
+`NEXTAUTH_URL=https://ditt-domene.no` – ellers blir øktcookien ikke markert som
+`Secure`, og innlogging kan oppføre seg feil bak HTTPS.
+
+Eksempel med Caddy:
+
+```caddyfile
+fsm.example.com {
+    encode gzip
+    # Last opp store PDF-er; appen selv tillater 100 MB.
+    request_body {
+        max_size 110MB
+    }
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+- Begrens body-størrelse i proxyen. Appen tar imot inntil 100 MB per opplasting,
+  og uten en grense kan uautentiserte forespørsler bruke mye minne.
+- Kjør én app-instans, eller flytt innloggingsbegrensningen til Redis: den ligger
+  i minnet i `src/lib/rate-limit.ts`.
+- Sett opp sikkerhetskopier (se under) og overvåk `/api/health`.
+
+### Oppgradere en eksisterende database
+
+Hvis databasen allerede har `Tag`/`Document`-tabellene fra før migrasjonen
+`20261019182918_tags_og_dokumenter` fantes (for eksempel laget med
+`prisma db push`), vil `prisma migrate deploy` prøve å opprette dem på nytt og
+feile. Kontroller først at skjemaet stemmer, og marker migrasjonen som kjørt:
+
+```bash
+npx prisma migrate status
+npx prisma migrate resolve --applied 20261019182918_tags_og_dokumenter
+```
+
+En helt ny database trenger ikke dette; der kjøres alle migrasjonene i rekkefølge.
+
+## Sikkerhetskopi og gjenoppretting
+
+`scripts/backup.sh` dumper databasen og opplastingsvolumet til `./backups/`, og
+sletter filer eldre enn 30 dager:
+
+```bash
+./scripts/backup.sh
+# eller med egne verdier:
+BACKUP_DIR=/var/backups/fsm UPLOADS_VOLUME=fsm-platform_fsm_uploads ./scripts/backup.sh
+```
+
+Gjenoppretting:
+
+```bash
+gunzip -c backups/db-20261019-120000.sql.gz | \
+  docker compose exec -T postgres psql -U admin -d fsm_db
+
+docker run --rm \
+  -v fsm-platform_fsm_uploads:/data \
+  -v "$PWD/backups:/backup:ro" \
+  postgres:15 \
+  tar xzf /backup/uploads-20261019-120000.tar.gz -C /data
+```
+
+Kjør sikkerhetskopien fra en cron-jobb eller systemd-timer, og legg kopiene et
+annet sted enn maskinen appen kjører på.
 
 ## Miljøvariabler
 
@@ -107,16 +181,26 @@ eller enheten redigeres senere.
 ## Sikkerhet
 
 - Passord hashes med bcrypt og sendes aldri i URL-er.
+- Innlogging har hastighetsbegrensning per e-postkonto og per IP
+  (`src/lib/rate-limit.ts`). Økten varer i 12 timer, og skrivehandlingene sjekker
+  at brukeren fortsatt er aktiv.
+- Bare administratorer kan endre roller som berører `ADMIN`, opprette
+  administratorer, slette/deaktivere dem eller lage invitasjonslenker til dem.
+  En kontorbruker kan ikke gi seg selv full tilgang.
 - Rapporter låses automatisk når de er fylt ut. Bare en administrator kan låse
   dem opp igjen, og hver opplåsing logges i aktivitetsloggen.
 - Kundeportalbrukere begrenses til egen kundedata i `src/proxy.ts` og i hver
   enkelt rute.
+- Opplastede filer under `/uploads` krever en gyldig økt. Merkevarelogoen er en
+  ekstern URL, slik at den kan vises på innloggingssiden og i e-post.
 - `.env` er ignorert av git. Del aldri filen, og roter passordet om det har vært
   eksponert.
 - Alle skjemafelt renses på serveren før de lagres (`src/lib/sanitize.ts`): HTML,
   skript og kontrolltegn fjernes, lengdene begrenses, og e-post, telefon, lenker,
   farger, roller og statuser valideres. Fritekst beholder Markdown, men viseren
   tolker aldri HTML – og e-postmalene escaper verdiene sine.
+- Responsene får sikkerhetsheadere (`X-Content-Type-Options`, `X-Frame-Options`,
+  CSP for innramming, HSTS) i `next.config.ts`.
 
 ## Kjente gjeldsposter
 
@@ -124,10 +208,10 @@ eller enheten redigeres senere.
   `eslint.config.mjs` fordi noen steder bruker `any` der Prisma- og
   Next-typene er tungvinte å uttrykke. Lint kjører grønt, men advarslene bør
   ryddes gradvis.
-- Eldre sider under `src/app/maler/` er erstattet av mal-byggeren under
-  `src/app/innstillinger/maler/` og kan fjernes.
 - `JobComment`-modellen i `schema.prisma` er ikke lenger i bruk (kommentarer
   lagres i `Comment`) og kan fjernes i en egen migrasjon.
+- Tekstuttrekk/OCR kjører i en kø i app-prosessen (`src/lib/pdf-queue.ts`). Ved
+  flere app-instanser bør den flyttes til en ekstern jobbkø.
 
 ## Lisens
 

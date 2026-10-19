@@ -92,14 +92,14 @@ export default async function CustomerDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ invite?: string; error?: string; mail?: string; tab?: string }>;
+  searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string; tab?: string }>;
 }) {
   const session = await getServerSession();
   if (!session || !session.user?.email) redirect("/api/auth/signin");
 
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
-  const { invite, error, mail, tab } = await searchParams;
+  const { invite, inviteToken, error, mail, tab } = await searchParams;
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) redirect("/api/auth/signin");
@@ -176,11 +176,9 @@ export default async function CustomerDetailPage({
     include: { contact: true },
   });
 
+  // Nøkkelen lagres som hash, så den rå invitasjonslenken kommer i redirecten.
   const inviteUser = invite ? portalUsers.find((u) => u.id === invite) : undefined;
-  const inviteUrl =
-    inviteUser?.resetToken && inviteUser.resetTokenExpiry && inviteUser.resetTokenExpiry > new Date()
-      ? buildInviteUrl(inviteUser.resetToken)
-      : null;
+  const inviteUrl = inviteToken ? buildInviteUrl(inviteToken) : null;
 
   const portalError =
     error === "mangler_felt"

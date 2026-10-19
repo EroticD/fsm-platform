@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { encode } from "next-auth/jwt";
 import { verifyCredentials } from "@/lib/credentials";
 
-const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 dager, samme som NextAuth sin standard
+// Samme levetid som `session.maxAge` i auth-options.ts.
+const SESSION_MAX_AGE = 12 * 60 * 60;
 
 /**
  * Godtar både relative stier ("/kunder") og absolutte URL-er
@@ -46,8 +47,19 @@ export async function loginAction(formData: FormData): Promise<never> {
     return `/logg-inn?${params.toString()}`;
   };
 
-  const result = await verifyCredentials(email, password);
+  // Bak en reverse proxy er x-forwarded-for satt av proxyen. Uten proxy faller
+  // vi tilbake til å bare begrense per e-postkonto.
+  const requestHeaders = await headers();
+  const ip =
+    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    requestHeaders.get("x-real-ip") ||
+    undefined;
+
+  const result = await verifyCredentials(email, password, ip);
   if (result.status !== "ok") {
+    if (result.status === "locked") {
+      redirect(fail("TooManyAttempts"));
+    }
     redirect(
       fail(result.status === "inactive" ? "AccountNotActivated" : "CredentialsSignin")
     );
@@ -60,7 +72,6 @@ export async function loginAction(formData: FormData): Promise<never> {
 
   // Cookienavnet må matche det NextAuth selv ville brukt, ellers ser ikke
   // proxyen og server-komponentene økten etterpå.
-  const requestHeaders = await headers();
   const secure =
     (process.env.NEXTAUTH_URL ?? "").startsWith("https://") ||
     requestHeaders.get("x-forwarded-proto") === "https";

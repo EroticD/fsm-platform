@@ -5,7 +5,16 @@ import prisma from "@/lib/prisma";
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Genererer en ny invitasjonsnøkkel for en bruker og lagrer den.
+ * Nøkkelen lagres som en SHA-256-hash, aldri i klartekst. Da kan ikke en
+ * databasekopi brukes til å ta over kontoer. Den rå nøkkelen finnes bare i
+ * lenken som vises/sendes én gang.
+ */
+export function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Genererer en ny invitasjonsnøkkel for en bruker og lagrer hashen.
  * Returnerer den rå nøkkelen som skal legges i invitasjonslenken.
  */
 export async function createInviteToken(userId: string): Promise<string> {
@@ -13,7 +22,7 @@ export async function createInviteToken(userId: string): Promise<string> {
   await prisma.user.update({
     where: { id: userId },
     data: {
-      resetToken: token,
+      resetToken: hashToken(token),
       resetTokenExpiry: new Date(Date.now() + INVITE_TTL_MS),
     },
   });

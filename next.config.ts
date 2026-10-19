@@ -33,6 +33,34 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "*": ["./uploads/**/*"],
   },
+
+  // Enkle sikkerhetsheadere. En fullverdig CSP krever testing av alle sidene
+  // (inline-stiler fra Tailwind/FullCalendar), så her settes bare de direktivene
+  // som ikke kan bryte renderingen. TLS termineres i en reverse proxy foran appen.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 const withNextIntl = createNextIntlPlugin();

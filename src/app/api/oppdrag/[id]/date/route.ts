@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
+import { isStaff } from "@/lib/session";
 
 export async function PATCH(
   request: Request,
@@ -11,6 +12,11 @@ export async function PATCH(
   const session = await getServerSession();
   if (!session || !session.user?.email) {
     return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user?.isActive || !isStaff(user.role)) {
+    return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
   }
 
   const { id } = await params;

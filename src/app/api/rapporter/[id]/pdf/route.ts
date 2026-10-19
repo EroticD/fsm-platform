@@ -33,6 +33,9 @@ export async function GET(
   const { id } = await params;
 
   const viewer = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!viewer?.isActive) {
+    return new NextResponse("Ingen tilgang", { status: 403 });
+  }
 
   const workOrder = await prisma.workOrder.findUnique({
     where: { id },

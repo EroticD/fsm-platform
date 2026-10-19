@@ -14,6 +14,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Kontoen din er ikke aktivert ennå. En administrator må aktivere den før du kan logge inn.",
   AccessDenied: "Du har ikke tilgang til denne kontoen.",
   SessionRequired: "Du må logge inn for å se denne siden.",
+  TooManyAttempts:
+    "For mange innloggingsforsøk. Vent noen minutter og prøv igjen.",
 };
 
 const DEFAULT_ERROR = "Kunne ikke logge inn. Prøv igjen.";

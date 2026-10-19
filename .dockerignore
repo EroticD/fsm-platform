@@ -47,3 +47,8 @@ npm-debug.log*
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 coverage
+
+# Lokale sikkerhetskopier og OCR-data trengs ikke i byggekonteksten.
+backups
+*.traineddata
+*.traineddata.gz

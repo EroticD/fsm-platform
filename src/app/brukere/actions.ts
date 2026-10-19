@@ -6,7 +6,13 @@ import prisma from "@/lib/prisma";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
 import { LIMITS, cleanEmail, cleanRole, cleanText } from "@/lib/sanitize";
-import { actorName, requireOffice } from "@/lib/session";
+import {
+  actorName,
+  getCurrentUser,
+  isOffice,
+  requireAdmin,
+  requireOffice,
+} from "@/lib/session";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
@@ -37,13 +43,30 @@ function revalidateUserAdmin() {
   revalidatePath("/innstillinger");
 }
 
+/** Antall aktive administratorer, eventuelt utenom én bestemt bruker. */
+async function activeAdminCount(excludeId?: string): Promise<number> {
+  return prisma.user.count({
+    where: {
+      role: "ADMIN",
+      isActive: true,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+  });
+}
+
 export async function createUser(formData: FormData) {
-  if (!(await requireOffice())) return;
   const back = returnPath(formData);
   const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
   const email = cleanEmail(formData.get("email"));
   const role = cleanRole(formData.get("role"));
   const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
+
+  // Bare administrator kan opprette nye administratorer.
+  if (role === "ADMIN") {
+    if (!(await requireAdmin())) return;
+  } else if (!(await requireOffice())) {
+    return;
+  }
 
   if (!name || !email || !role) return;
 
@@ -99,7 +122,11 @@ export async function createUser(formData: FormData) {
   revalidateUserAdmin();
   redirect(
     withParam(
-      withParam(back, "invite", newUser.id),
+      withParam(
+        withParam(back, "invite", newUser.id),
+        "inviteToken",
+        token
+      ),
       "mail",
       mailSent ? "sent" : "manual"
     )
@@ -107,12 +134,23 @@ export async function createUser(formData: FormData) {
 }
 
 export async function deleteUser(formData: FormData) {
-  if (!(await requireOffice())) return;
+  const actor = await getCurrentUser();
+  if (!actor?.isActive || !isOffice(actor.role)) return;
+
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!id) return;
 
   const userToDelete = await prisma.user.findUnique({ where: { id } });
   if (!userToDelete) return;
+
+  // Ikke slett deg selv, og bare administrator kan slette en administrator.
+  if (userToDelete.id === actor.id) return;
+  if (userToDelete.role === "ADMIN") {
+    if (!(await requireAdmin())) return;
+    if (userToDelete.isActive && (await activeAdminCount(userToDelete.id)) === 0) {
+      return;
+    }
+  }
 
   await prisma.user.delete({ where: { id } });
   await prisma.auditLog.create({
@@ -127,13 +165,30 @@ export async function deleteUser(formData: FormData) {
 }
 
 export async function changeRole(formData: FormData) {
-  if (!(await requireOffice())) return;
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const newRole = cleanRole(formData.get("role"));
   if (!id || !newRole) return;
 
   const userToUpdate = await prisma.user.findUnique({ where: { id } });
   if (!userToUpdate) return;
+
+  // Roller som berører administrator krever administrator. Det hindrer at en
+  // kontorbruker gir seg selv – eller noen andre – full tilgang.
+  const touchesAdmin = userToUpdate.role === "ADMIN" || newRole === "ADMIN";
+  if (touchesAdmin) {
+    if (!(await requireAdmin())) return;
+  } else if (!(await requireOffice())) {
+    return;
+  }
+
+  // Ikke fjern den siste aktive administratoren.
+  if (
+    userToUpdate.role === "ADMIN" &&
+    newRole !== "ADMIN" &&
+    (await activeAdminCount(userToUpdate.id)) === 0
+  ) {
+    return;
+  }
 
   await prisma.user.update({ where: { id }, data: { role: newRole } });
   await prisma.auditLog.create({
@@ -148,13 +203,27 @@ export async function changeRole(formData: FormData) {
 }
 
 export async function setActive(formData: FormData) {
-  if (!(await requireOffice())) return;
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
+
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const active = formData.get("active") === "true";
   if (!id) return;
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return;
+
+  // Endringer på en administrator krever administrator.
+  if (target.role === "ADMIN") {
+    if (!(await requireAdmin())) return;
+    // Ikke deaktiver deg selv eller den siste aktive administratoren.
+    if (!active && target.id === actor.id) return;
+    if (!active && target.isActive && (await activeAdminCount(target.id)) === 0) {
+      return;
+    }
+  } else if (!isOffice(actor.role)) {
+    return;
+  }
 
   await prisma.user.update({ where: { id }, data: { isActive: active } });
   await prisma.auditLog.create({
@@ -169,13 +238,20 @@ export async function setActive(formData: FormData) {
 }
 
 export async function generateInvite(formData: FormData) {
-  if (!(await requireOffice())) return;
   const back = returnPath(formData);
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!id) return;
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return;
+
+  // En invitasjonslenke gir mulighet til å sette nytt passord. For en
+  // administrator er det derfor en full kontoovertakelse, og krever admin.
+  if (user.role === "ADMIN") {
+    if (!(await requireAdmin())) return;
+  } else if (!(await requireOffice())) {
+    return;
+  }
 
   const token = await createInviteToken(id);
   const mailSent = await sendInviteEmail(
@@ -193,6 +269,10 @@ export async function generateInvite(formData: FormData) {
   });
   revalidateUserAdmin();
   redirect(
-    withParam(withParam(back, "invite", id), "mail", mailSent ? "sent" : "manual")
+    withParam(
+      withParam(withParam(back, "invite", id), "inviteToken", token),
+      "mail",
+      mailSent ? "sent" : "manual"
+    )
   );
 }

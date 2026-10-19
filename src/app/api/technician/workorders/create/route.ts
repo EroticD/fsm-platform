@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user || (user.role !== "TECHNICIAN" && user.role !== "ADMIN" && user.role !== "OFFICE")) {
+  if (!user || !user.isActive || (user.role !== "TECHNICIAN" && user.role !== "ADMIN" && user.role !== "OFFICE")) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

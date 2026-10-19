@@ -1,14 +1,17 @@
-import { getServerSession } from "next-auth/next";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { uploadDir } from "@/lib/uploads";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { getCurrentUser, isStaff } from "@/lib/session";
 
 export async function POST(request: Request) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) {
+  const user = await getCurrentUser();
+  if (!user?.isActive) {
     return new Response(JSON.stringify({ error: "Ikke autentisert" }), { status: 401 });
+  }
+  if (!isStaff(user.role)) {
+    return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
   }
 
   try {

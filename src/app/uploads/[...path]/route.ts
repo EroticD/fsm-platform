@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
 import fs from "fs/promises";
 import path from "path";
 import { contentTypeFor, uploadDir } from "@/lib/uploads";
@@ -11,6 +12,14 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
+  // Bilder og vedlegg kan inneholde kundedata. UUID-navnet er ikke en
+  // tilgangskontroll i seg selv, så alle filer krever en gyldig økt.
+  // Merkevarelogoen er en ekstern URL (se Branding.logoUrl) og rammes ikke.
+  const session = await getServerSession();
+  if (!session?.user?.email) {
+    return new NextResponse("Ikke autentisert", { status: 401 });
+  }
+
   const { path: segments } = await params;
   const root = uploadDir();
   const filePath = path.join(root, ...segments);
@@ -25,8 +34,10 @@ export async function GET(
     return new NextResponse(new Uint8Array(data), {
       headers: {
         "Content-Type": contentTypeFor(filePath),
-        // Filnavnet er en tilfeldig UUID, så innholdet endres aldri.
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+        // Filnavnet er en tilfeldig UUID, så innholdet endres aldri. private:
+        // filen skal ikke mellomlagres i delte proxyer.
+        "Cache-Control": "private, max-age=31536000, immutable",
       },
     });
   } catch {

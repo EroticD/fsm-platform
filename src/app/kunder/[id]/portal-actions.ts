@@ -60,7 +60,9 @@ export async function createPortalUser(formData: FormData) {
   const mailSent = await sendInviteEmail(email, name, buildInviteUrl(token));
 
   revalidatePath(`/kunder/${customerId}`);
-  redirect(`/kunder/${customerId}?tab=portal&invite=${newUser.id}&mail=${mailSent ? "sent" : "manual"}`);
+  redirect(
+    `/kunder/${customerId}?tab=portal&invite=${newUser.id}&inviteToken=${encodeURIComponent(token)}&mail=${mailSent ? "sent" : "manual"}`
+  );
 }
 
 /** Aktiverer eller deaktiverer en kundeportalbruker. */
@@ -108,5 +110,7 @@ export async function resendPortalInvite(formData: FormData) {
     },
   });
   revalidatePath(`/kunder/${customerId}`);
-  redirect(`/kunder/${customerId}?tab=portal&invite=${id}&mail=${mailSent ? "sent" : "manual"}`);
+  redirect(
+    `/kunder/${customerId}?tab=portal&invite=${id}&inviteToken=${encodeURIComponent(token)}&mail=${mailSent ? "sent" : "manual"}`
+  );
 }

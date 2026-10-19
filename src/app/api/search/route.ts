@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   }
 
   const currentUser = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!currentUser || currentUser.role === "CUSTOMER") {
+  if (!currentUser || !currentUser.isActive || currentUser.role === "CUSTOMER") {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
   }
 

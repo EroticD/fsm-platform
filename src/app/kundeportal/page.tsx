@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { parseDateOnly } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
 function dateKey(d: Date) {
@@ -77,21 +79,28 @@ export default async function KundeportalPage() {
   async function bookWorkOrder(formData: FormData) {
     "use server";
 
+    // Sjekk økten på nytt i handlingen; ikke stol på sidevisningens closure.
+    const current = await getCurrentUser();
+    if (!current?.isActive || current.role !== "CUSTOMER" || !current.customerId) {
+      return;
+    }
+
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
-    const scheduledFor = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
+    const scheduledForInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
+    const scheduledFor = parseDateOnly(scheduledForInput);
     const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
 
     if (!title || !scheduledFor) return;
 
     try {
-      await prisma.workOrder.create({
+      const created = await prisma.workOrder.create({
         data: {
           title,
           description: description || "",
-          customerId: customer.id,
-          scheduledFor: new Date(scheduledFor),
-          creatorName: user?.name || "Kunde",
+          customerId: current.customerId,
+          scheduledFor,
+          creatorName: current.name || "Kunde",
           status: "OPEN",
           technicians: {
             connect: []
@@ -105,9 +114,9 @@ export default async function KundeportalPage() {
       await prisma.auditLog.create({
         data: {
           entityType: "WorkOrder",
-          entityId: "temp",
+          entityId: created.id,
           action: `Kunde booket nytt oppdrag: ${title}`,
-          userName: user?.name || "Kunde"
+          userName: current.name || "Kunde"
         }
       });
 
