@@ -87,9 +87,7 @@ docker run --rm --network host --env-file .env \
   -v "$PWD/uploads:/app/uploads" fsm-platform
 ```
 
-`docker-compose.yml` merker imaget som `fsm-platform:local`. Se
-[Publisere til GitHub](#publisere-til-github) for hvordan CI-en kan bygge og
-publisere imaget til GitHub Container Registry.
+`docker-compose.yml` merker imaget som `fsm-platform:local`.
 
 Ved oppstart utfører containeren følgende: venter på databasen, kjører
 `prisma migrate deploy`, kjører seed hvis `SEED_DATABASE=true`, og starter
