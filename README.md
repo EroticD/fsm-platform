@@ -226,32 +226,6 @@ eller enheten redigeres senere.
 - Tekstuttrekk/OCR kjører i en kø i app-prosessen (`src/lib/pdf-queue.ts`). Ved
   flere app-instanser bør den flyttes til en ekstern jobbkø.
 
-## Publisere til GitHub
-
-Repoet er klart til å legges ut på GitHub. Opprett et tomt repo i nettleseren
-(uten README, `.gitignore` eller lisens – de finnes allerede), og koble det til:
-
-```bash
-git remote add origin git@github.com:<bruker>/fsm-platform.git
-git push -u origin master
-```
-
-CI-en i `.github/workflows/ci.yml` kjører typesjekk, tester, lint,
-migrasjonsdrift og et Docker-bygg ved hver push og pull request.
-
-Vil du også publisere et ferdig Docker-image til GitHub Container Registry,
-legg inn en versjonstag:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-Da bygger `.github/workflows/docker-publish.yml` imaget og publiserer det som
-`ghcr.io/<bruker>/fsm-platform:v0.1.0` (og `:latest`). Workflowen bruker
-`GITHUB_TOKEN`, så ingen egne hemmeligheter trengs. Image-navnet utledes fra
-repoet.
-
 ## Lisens
 
 Programmet er tilgjengelig under **Business Source License 1.1 (BSL 1.1)** – en
