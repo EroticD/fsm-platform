@@ -190,6 +190,12 @@ Alle variabler er dokumentert i [`.env.example`](.env.example). De viktigste:
 | `UPLOAD_DIR` | Hvor opplastede filer lagres (standard `./uploads`) |
 | `SEED_*` | Styrer den automatiske administratoren ved første oppstart |
 
+> **Passord med spesialtegn:** `#`, `/`, `?`, `@`, `:` og `%` må URL-kodes i
+> `DATABASE_URL` – for eksempel `Test#123` → `Test%23123`. `POSTGRES_PASSWORD`
+> skal være det rå passordet. Docker Compose bygger `DATABASE_URL` fra
+> `POSTGRES_PASSWORD`, så der må passordet være URL-trygt, eller `DATABASE_URL`
+> overstyres i en `docker-compose.override.yml`.
+
 ## Teknisk oppbygning
 
 - **Next.js 16** (App Router, React 19) med server components der det passer.
