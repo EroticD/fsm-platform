@@ -47,7 +47,24 @@ Appen er da tilgjengelig på <http://localhost:3000>.
 > er en filkopi i stedet for en lenke – typisk når `node_modules` er kopiert fra
 > en annen maskin. Skriptene kaller Prisma via sin virkelige sti, så en fersk
 > klone rammes ikke. Har du allerede en slik mappe, slett `node_modules` og kjør
-> `npm install` på nytt.
+> `npm install` på nytt. På NixOS, se [NixOS](#nixos).
+
+### NixOS
+
+Prisma 5.22 har ikke ferdigbygde motorer for NixOS, så `prisma generate` prøver
+å laste ned en motor for `linux-nixos` som ikke finnes. `shell.nix` bruker
+`prisma-engines` 5.22.0 fra nixpkgs 24.11 og peker Prisma mot dem i stedet:
+
+```bash
+nix-shell
+rm -rf node_modules
+npm install
+npm run db:migrate
+npm run dev
+```
+
+Shellen bruker Node 22 fra nixpkgs 24.11, som er versjonen Docker-imaget og CI
+bruker. Utenfor shellen vil `prisma generate` fortsatt feile på NixOS.
 
 Nyttige kommandoer:
 
