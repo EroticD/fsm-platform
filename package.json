@@ -12,9 +12,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "seed": "node scripts/seed.mjs",
-    "db:migrate": "prisma migrate deploy",
-    "db:status": "prisma migrate status",
-    "postinstall": "prisma generate"
+    "db:migrate": "node ./node_modules/prisma/build/index.js migrate deploy",
+    "db:status": "node ./node_modules/prisma/build/index.js migrate status",
+    "postinstall": "node ./node_modules/prisma/build/index.js generate"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.22",

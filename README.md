@@ -35,12 +35,19 @@ cd fsm-platform
 npm install
 cp .env.example .env      # fyll inn DATABASE_URL og NEXTAUTH_SECRET
 docker compose up -d postgres
-npx prisma migrate deploy # oppretter tabellene
+npm run db:migrate        # oppretter tabellene
 npm run seed              # valgfritt: oppretter en administrator
 npm run dev
 ```
 
 Appen er da tilgjengelig på <http://localhost:3000>.
+
+> **Feilsøking:** `npm install` kan stoppe i `prisma generate` med
+> `ENOENT ... .bin/prisma_schema_build_bg.wasm` hvis `node_modules/.bin/prisma`
+> er en filkopi i stedet for en lenke – typisk når `node_modules` er kopiert fra
+> en annen maskin. Skriptene kaller Prisma via sin virkelige sti, så en fersk
+> klone rammes ikke. Har du allerede en slik mappe, slett `node_modules` og kjør
+> `npm install` på nytt.
 
 Nyttige kommandoer:
 
@@ -122,7 +129,7 @@ Hvis databasen allerede har `Tag`/`Document`-tabellene fra før migrasjonen
 feile. Kontroller først at skjemaet stemmer, og marker migrasjonen som kjørt:
 
 ```bash
-npx prisma migrate status
+npm run db:status
 npx prisma migrate resolve --applied 20261019182918_tags_og_dokumenter
 ```
 
