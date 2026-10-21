@@ -5,7 +5,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { requireStaff, actorName } from "@/lib/session";
+import { requireOffice, requireStaff, actorName } from "@/lib/session";
 import { uploadDir } from "@/lib/uploads";
 
 export type AttachmentActionResult = { ok: boolean; error?: string };
@@ -111,6 +111,98 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
   });
 
   revalidateAttachmentViews(attachment.workOrderId);
+  return { ok: true };
+}
+
+/** Knytter en opplastet fil til kundekortet. */
+export async function addCustomerAttachment(
+  formData: FormData,
+): Promise<AttachmentActionResult> {
+  if (!(await requireOffice())) return { ok: false, error: "Ikke tilgang" };
+
+  const customerId = cleanText(formData.get("customerId"), {
+    maxLength: LIMITS.line,
+  });
+  const fileUrl = cleanText(formData.get("fileUrl"), { maxLength: LIMITS.line });
+  const fileName = cleanText(formData.get("fileName"), { maxLength: LIMITS.title });
+
+  if (!customerId || !fileUrl) return { ok: false, error: "Mangler data" };
+
+  const filePath = attachmentPath(fileUrl);
+  if (!filePath) return { ok: false, error: "Ugyldig fil" };
+
+  try {
+    await fs.access(filePath);
+  } catch {
+    return { ok: false, error: "Filen ble ikke funnet" };
+  }
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true },
+  });
+  if (!customer) return { ok: false, error: "Kunden finnes ikke" };
+
+  const existing = await prisma.customerAttachment.findFirst({
+    where: { customerId, dataUrl: fileUrl },
+    select: { id: true },
+  });
+  if (existing) return { ok: true };
+
+  const displayName = fileName || "Vedlegg";
+
+  await prisma.customerAttachment.create({
+    data: { customerId, fileName: displayName, dataUrl: fileUrl },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      entityType: "Customer",
+      entityId: customerId,
+      action: `La ved fil: ${displayName}`,
+      userName: (await actorName()) || "Ukjent",
+    },
+  });
+
+  revalidatePath(`/kunder/${customerId}`);
+  return { ok: true };
+}
+
+/** Fjerner et kundeverlegg og sletter filen fra disk. */
+export async function removeCustomerAttachment(
+  formData: FormData,
+): Promise<AttachmentActionResult> {
+  if (!(await requireOffice())) return { ok: false, error: "Ikke tilgang" };
+
+  const attachmentId = cleanText(formData.get("attachmentId"), {
+    maxLength: LIMITS.line,
+  });
+  if (!attachmentId) return { ok: false, error: "Mangler data" };
+
+  const attachment = await prisma.customerAttachment.findUnique({
+    where: { id: attachmentId },
+  });
+  if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
+
+  await prisma.customerAttachment.delete({ where: { id: attachmentId } });
+
+  const filePath = attachmentPath(attachment.dataUrl);
+  if (filePath) {
+    try {
+      await fs.unlink(filePath);
+    } catch {}
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      entityType: "Customer",
+      entityId: attachment.customerId,
+      action: `Slettet vedlegg: ${attachment.fileName}`,
+      userName: (await actorName()) || "Ukjent",
+    },
+  });
+
+  revalidatePath(`/kunder/${attachment.customerId}`);
   return { ok: true };
 }
 

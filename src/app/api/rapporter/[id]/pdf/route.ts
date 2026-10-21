@@ -1,25 +1,10 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth/next";
-import { renderToBuffer } from "@react-pdf/renderer";
-import React from "react";
 import prisma from "@/lib/prisma";
-import ReportDocument from "@/components/ReportDocument";
-import { buildPdfImages, collectReportImageUrls } from "@/lib/report-images";
+import { loadReportPdf } from "@/lib/report-pdf";
 
 export const runtime = "nodejs";
-
-/** Gjør om "Tore Ligaard AS – Servicerapport" til et trygt filnavn. */
-function safeFileName(input: string) {
-  const cleaned = input
-    .replace(/[æÆ]/g, "ae")
-    .replace(/[øØ]/g, "o")
-    .replace(/[åÅ]/g, "a")
-    .replace(/[^\w\s.-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-  return cleaned || "servicerapport";
-}
 
 export async function GET(
   request: Request,
@@ -37,25 +22,17 @@ export async function GET(
     return new NextResponse("Ingen tilgang", { status: 403 });
   }
 
+  // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
   const workOrder = await prisma.workOrder.findUnique({
     where: { id },
-    include: {
-      customer: true,
-      templates: true,
-      technicians: true,
-      reports: {
-        include: { units: { orderBy: { sortOrder: "asc" } } },
-        orderBy: { createdAt: "asc" },
-      },
-    },
+    select: { customerId: true, reports: { select: { id: true } } },
   });
 
   if (!workOrder) {
     return new NextResponse("Fant ikke oppdraget", { status: 404 });
   }
 
-  // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
-  if (viewer?.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
+  if (viewer.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
     return new NextResponse("Ingen tilgang", { status: 403 });
   }
 
@@ -69,32 +46,17 @@ export async function GET(
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
   const baseUrl = host ? `${proto}://${host}` : new URL(request.url).origin;
 
-  const branding = await prisma.branding.findFirst().catch(() => null);
-
-  // Bildene skaleres ned på forhånd, slik at PDF-en blir til å sende på e-post.
-  const pdfImages = await buildPdfImages(collectReportImageUrls(workOrder.reports));
-
-  const element = React.createElement(ReportDocument, {
-    data: workOrder,
-    globalLogoUrl: branding?.logoUrl ?? null,
-    globalPrimaryColor: branding?.primaryColor ?? undefined,
-    globalCompanyName: branding?.companyName ?? undefined,
-    baseUrl,
-    pdfImages,
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const buffer = await renderToBuffer(element as any);
+  const pdf = await loadReportPdf(id, baseUrl);
+  if (!pdf) {
+    return new NextResponse("Oppdraget har ingen rapport ennå", { status: 404 });
+  }
 
   const asDownload = new URL(request.url).searchParams.get("download") === "1";
-  const customerName = workOrder.customer?.name ?? "kunde";
-  const datePart = new Date().toISOString().slice(0, 10);
-  const fileName = safeFileName(`${customerName}-servicerapport-${datePart}`);
 
-  return new NextResponse(new Uint8Array(buffer), {
+  return new NextResponse(new Uint8Array(pdf.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${fileName}.pdf"`,
+      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${pdf.fileName}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

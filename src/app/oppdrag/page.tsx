@@ -12,8 +12,8 @@ import { formatDateRange } from "@/lib/dates";
 // ---------------------------------------------------------------------------
 
 // Samme definisjoner som dashbordet bruker, slik at tallene stemmer.
-const ACTIVE_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "WAITING", "IN_PROGRESS"];
-const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "WAITING"];
+const ACTIVE_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"];
+const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING"];
 const CLOSED_STATUSES: WorkStatus[] = ["COMPLETED", "CANCELLED"];
 const PAGE_SIZE = 20;
 

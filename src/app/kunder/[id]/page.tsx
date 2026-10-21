@@ -4,16 +4,31 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import ContactCard from "@/components/ContactCard";
+import CustomerAttachments from "@/components/CustomerAttachments";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import CopyButton from "@/components/CopyButton";
 import KpiCard from "@/components/KpiCard";
 import MarkdownView from "@/components/MarkdownView";
 import UnitHistory from "@/components/UnitHistory";
 import { markdownToPlainText } from "@/lib/markdown";
-import { formatDate, formatDateTime } from "@/lib/dates";
+import {
+  firstOccurrenceOnOrAfter,
+  formatDate,
+  formatDateTime,
+  parseDateOnly,
+  toDateOnly,
+  todayUtc,
+} from "@/lib/dates";
 import { buildInviteUrl } from "@/lib/invite";
+import {
+  CONTRACT_INTERVAL_MONTHS,
+  contractIntervalLabel,
+  isContractInterval,
+} from "@/lib/contracts";
+import { generateRecurringWorkOrderForContract } from "@/lib/recurring";
 import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 import { requireOffice } from "@/lib/session";
 import {
@@ -111,6 +126,18 @@ export default async function CustomerDetailPage({
     where: { id: customerId },
     include: {
       contacts: true,
+      contracts: {
+        orderBy: { startDate: "desc" },
+        include: {
+          template: true,
+          workOrders: {
+            orderBy: { scheduledFor: "desc" },
+            take: 1,
+            select: { id: true, title: true, scheduledFor: true, status: true },
+          },
+        },
+      },
+      attachments: { orderBy: { createdAt: "desc" } },
       products: {
         orderBy: { model: 'asc' },
         // Servicehistorikk: alle rapporter der enheten har vært kontrollert.
@@ -173,6 +200,10 @@ export default async function CustomerDetailPage({
     include: { contact: true },
   });
 
+  const templates = office
+    ? await prisma.template.findMany({ orderBy: { title: "asc" } })
+    : [];
+
   // Nøkkelen lagres som hash, så den rå invitasjonslenken kommer i redirecten.
   const inviteUser = invite ? portalUsers.find((u) => u.id === invite) : undefined;
   const inviteUrl = inviteToken ? buildInviteUrl(inviteToken) : null;
@@ -190,6 +221,8 @@ export default async function CustomerDetailPage({
   const tabs = [
     { key: "oversikt", label: "📊 Oversikt" },
     { key: "oppdrag", label: "📂 Oppdrag" },
+    { key: "avtaler", label: "📄 Serviceavtaler" },
+    { key: "vedlegg", label: "📎 Vedlegg" },
     { key: "enheter", label: "🔧 Enheter" },
     { key: "kontakter", label: "👤 Kontakter" },
     ...(office ? [{ key: "portal", label: "🔐 Kundeportal" }] : []),
@@ -313,6 +346,167 @@ export default async function CustomerDetailPage({
     }
   }
 
+  // --- SERVER ACTIONS: SERVICEAVTALER ---
+  async function createContract(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+
+    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
+    const startDate = parseDateOnly(
+      cleanText(formData.get("startDate"), { maxLength: LIMITS.line }),
+    );
+    const intervalMonths = Number(
+      cleanText(formData.get("intervalMonths"), { maxLength: LIMITS.short }),
+    );
+    const contactId = cleanText(formData.get("contactId"), {
+      maxLength: LIMITS.line,
+    });
+    const templateId = cleanText(formData.get("templateId"), {
+      maxLength: LIMITS.line,
+    });
+
+    if (!title || !startDate || !isContractInterval(intervalMonths)) return;
+
+    const customerExists = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true },
+    });
+    if (!customerExists) return;
+
+    // Kontaktpersonen og malen må faktisk finnes og høre til denne kunden.
+    let validContactId: string | null = null;
+    if (contactId) {
+      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+      if (contact?.customerId === customerId) validContactId = contactId;
+    }
+
+    let validTemplateId: string | null = null;
+    if (templateId) {
+      const template = await prisma.template.findUnique({
+        where: { id: templateId },
+        select: { id: true },
+      });
+      if (template) validTemplateId = templateId;
+    }
+
+    const nextServiceDate = firstOccurrenceOnOrAfter(
+      startDate,
+      intervalMonths,
+      todayUtc(),
+    );
+
+    const contract = await prisma.contract.create({
+      data: {
+        title,
+        startDate,
+        intervalMonths,
+        nextServiceDate,
+        isActive: true,
+        customerId,
+        contactId: validContactId,
+        templateId: validTemplateId,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Customer",
+        entityId: customerId,
+        action: `Opprettet serviceavtale: ${title} (${contractIntervalLabel(intervalMonths)})`,
+        userName: user?.name || "Ukjent",
+      },
+    });
+
+    // Starter avtalen i dag, skal første oppdrag lages med en gang. Ellers tar
+    // bakgrunnsjobben det når neste service forfaller.
+    if (nextServiceDate <= new Date()) {
+      try {
+        await generateRecurringWorkOrderForContract(contract.id);
+      } catch (error) {
+        console.error("Kunne ikke opprette første serviceavtale-oppdrag:", error);
+      }
+    }
+
+    revalidatePath(`/kunder/${customerId}`);
+    revalidatePath("/kalender");
+    revalidatePath("/oppdrag");
+    revalidatePath("/mine-oppdrag");
+    revalidatePath("/");
+  }
+
+  async function toggleContract(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    const active = formData.get("active") === "true";
+    if (!id) return;
+
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      select: { id: true, customerId: true, title: true },
+    });
+    if (!contract || contract.customerId !== customerId) return;
+
+    await prisma.contract.update({
+      where: { id },
+      data: { isActive: active },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Customer",
+        entityId: customerId,
+        action: `${active ? "Aktiverte" : "Pauset"} serviceavtale: ${contract.title}`,
+        userName: user?.name || "Ukjent",
+      },
+    });
+
+    // Ved gjenaktivering kan neste service allerede ha forfalt. Da lages det
+    // nyeste forfalte oppdraget med en gang i stedet for å vente på jobben.
+    if (active) {
+      try {
+        await generateRecurringWorkOrderForContract(id);
+      } catch (error) {
+        console.error("Kunne ikke gjenoppta serviceavtale:", error);
+      }
+    }
+
+    revalidatePath(`/kunder/${customerId}`);
+    revalidatePath("/kalender");
+    revalidatePath("/oppdrag");
+    revalidatePath("/mine-oppdrag");
+    revalidatePath("/");
+  }
+
+  async function deleteContract(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+
+    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+    if (!id) return;
+
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      select: { id: true, customerId: true, title: true },
+    });
+    if (!contract || contract.customerId !== customerId) return;
+
+    await prisma.contract.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Customer",
+        entityId: customerId,
+        action: `Slettet serviceavtale: ${contract.title}`,
+        userName: user?.name || "Ukjent",
+      },
+    });
+
+    revalidatePath(`/kunder/${customerId}`);
+    revalidatePath("/kalender");
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -374,6 +568,8 @@ export default async function CustomerDetailPage({
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <KpiCard icon="🔧" label="Enheter" value={customer.products.length} tone="gray" href="?tab=enheter" />
               <KpiCard icon="👤" label="Kontaktpersoner" value={customer.contacts.length} tone="gray" href="?tab=kontakter" />
+              <KpiCard icon="📄" label="Serviceavtaler" value={customer.contracts.length} tone="blue" href="?tab=avtaler" />
+              <KpiCard icon="📎" label="Vedlegg" value={customer.attachments.length} tone="gray" href="?tab=vedlegg" />
               {office && (
                 <KpiCard icon="🔐" label="Portalbrukere" value={portalUsers.length} tone="gray" href="?tab=portal" />
               )}
@@ -544,6 +740,215 @@ export default async function CustomerDetailPage({
               </div>
             )}
           </div>
+        )}
+
+        {/* --- FANE: SERVICEAVTALER --- */}
+        {currentTab === "avtaler" && (
+          <TabPanel
+            title="📄 Serviceavtaler"
+            description="Gjentagende service med fast intervall. Ved hvert intervall opprettes et nytt oppdrag med kundedata og en ny, tom sjekkliste. Forrige rapport legges ved som PDF."
+          >
+            {office && (
+              <form
+                action={createContract}
+                className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Tittel *
+                    </label>
+                    <input
+                      type="text"
+                      name="title"
+                      required
+                      placeholder="F.eks. Årlig service på portanlegg"
+                      className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Startdato *
+                    </label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      required
+                      defaultValue={toDateOnly(new Date())}
+                      className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Intervall *
+                    </label>
+                    <select
+                      name="intervalMonths"
+                      required
+                      defaultValue="12"
+                      className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                    >
+                      {CONTRACT_INTERVAL_MONTHS.map((months) => (
+                        <option key={months} value={months}>
+                          {contractIntervalLabel(months)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Kontaktperson (valgfritt)
+                    </label>
+                    <select
+                      name="contactId"
+                      defaultValue=""
+                      className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                    >
+                      <option value="">Bruk kundens første kontaktperson</option>
+                      {customer.contacts.map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {contact.name}
+                          {contact.role ? ` (${contact.role})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Sjekkliste (valgfritt)
+                    </label>
+                    <select
+                      name="templateId"
+                      defaultValue=""
+                      className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                    >
+                      <option value="">Ingen sjekkliste</option>
+                      {templates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  Sjekklisten festes til hvert nye oppdrag, men rapporten er alltid
+                  ny og tom. Er startdatoen i dag, opprettes første oppdrag med en
+                  gang. Er den i fortiden, brukes neste framtidige intervall.
+                </p>
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
+                >
+                  Opprett serviceavtale
+                </button>
+              </form>
+            )}
+
+            {customer.contracts.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">
+                Ingen serviceavtaler registrert på denne kunden.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {customer.contracts.map((contract) => {
+                  const latestOrder = contract.workOrders[0];
+                  return (
+                    <div
+                      key={contract.id}
+                      className="bg-gray-50 rounded-xl border border-gray-200 p-3 sm:p-4 space-y-2"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div>
+                          <p className="font-black text-gray-900 text-sm">
+                            {contract.title}
+                          </p>
+                          <p className="text-[11px] text-gray-600 mt-0.5">
+                            Startdato: {formatDate(contract.startDate, "–")} • Intervall:{" "}
+                            {contractIntervalLabel(contract.intervalMonths)} • Neste
+                            service: {formatDate(contract.nextServiceDate, "–")}
+                          </p>
+                          <p className="text-[11px] text-gray-600">
+                            Sjekkliste:{" "}
+                            <span className="font-bold text-blue-800">
+                              {contract.template?.title || "Ingen"}
+                            </span>
+                          </p>
+                        </div>
+                        <span
+                          className={`self-start text-[10px] font-bold px-2 py-1 rounded-full border uppercase ${
+                            contract.isActive
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : "bg-amber-100 text-amber-800 border-amber-200"
+                          }`}
+                        >
+                          {contract.isActive ? "Aktiv" : "Pauset"}
+                        </span>
+                      </div>
+
+                      {latestOrder && (
+                        <Link
+                          href={`/oppdrag/${latestOrder.id}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:underline"
+                        >
+                          Siste oppdrag: {latestOrder.title} •{" "}
+                          {formatDate(latestOrder.scheduledFor, "Ingen dato")} →
+                        </Link>
+                      )}
+
+                      {office && (
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                          <form action={toggleContract}>
+                            <input type="hidden" name="id" value={contract.id} />
+                            <input
+                              type="hidden"
+                              name="active"
+                              value={contract.isActive ? "false" : "true"}
+                            />
+                            <button
+                              type="submit"
+                              className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition ${
+                                contract.isActive
+                                  ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                  : "bg-green-600 text-white border-green-600 hover:bg-green-700"
+                              }`}
+                            >
+                              {contract.isActive ? "Pause" : "Aktiver"}
+                            </button>
+                          </form>
+                          <ConfirmSubmitForm
+                            action={deleteContract}
+                            confirmMessage={`Slette serviceavtalen «${contract.title}»? Oppdrag som allerede er opprettet blir liggende.`}
+                          >
+                            <input type="hidden" name="id" value={contract.id} />
+                            <button
+                              type="submit"
+                              className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition"
+                            >
+                              Slett
+                            </button>
+                          </ConfirmSubmitForm>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabPanel>
+        )}
+
+        {/* --- FANE: VEDLEGG --- */}
+        {currentTab === "vedlegg" && (
+          <CustomerAttachments
+            customerId={customerId}
+            attachments={customer.attachments.map((attachment) => ({
+              id: attachment.id,
+              fileName: attachment.fileName,
+              dataUrl: attachment.dataUrl,
+            }))}
+            canManage={office}
+          />
         )}
 
         {/* --- FANE: ENHETER --- */}

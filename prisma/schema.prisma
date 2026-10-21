@@ -50,11 +50,12 @@ model Customer {
   email      String?
   notes      String?
 
-  products   Product[]
-  contracts  Contract[]
-  workOrder  WorkOrder[]
-  contacts   Contact[]
-  comments   Comment[]
+  products    Product[]
+  contracts   Contract[]
+  workOrder   WorkOrder[]
+  contacts    Contact[]
+  comments    Comment[]
+  attachments CustomerAttachment[]
 
   users User[]
 
@@ -75,6 +76,7 @@ model Contact {
   workOrder WorkOrder[]
   comments  Comment[]
   users     User[]
+  contracts Contract[]
 }
 
 // En enhet er en maskin/utstyr som står hos kunden, f.eks. en port, en pumpe
@@ -85,22 +87,54 @@ model Product {
   serialNumber String?
   location     String?
 
-  customerId String
-  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  workOrder  WorkOrder[]
+  customerId  String
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder[]
   reportUnits ReportUnit[]
 
   @@index([customerId])
 }
 
+// En serviceavtale beskriver en gjentagende service for en kunde. Hver gang
+// neste service faller forfaller, opprettes et nytt oppdrag med kundedataene
+// ferdig utfylt. Sjekklisten er en mal som festes til oppdraget, men selve
+// rapporten er alltid ny og tom – den forrige rapporten legges ved som PDF.
 model Contract {
-  id        String   @id @default(cuid())
-  title     String
-  interval  String
-  startDate DateTime
+  id              String   @id @default(cuid())
+  title           String
+  /// Intervall i måneder. Bare 3, 6, 12 og 24 er gyldige.
+  intervalMonths  Int
+  startDate       DateTime
+  /// Neste dato det skal opprettes et oppdrag for.
+  nextServiceDate DateTime
+  isActive        Boolean  @default(true)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
+
+  // Kontaktpersonen som skal stå på de genererte oppdragene. Tom betyr at
+  // kundens første kontaktperson brukes.
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  // Sjekklistemalen som festes til hvert genererte oppdrag.
+  templateId String?
+  template   Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  workOrders WorkOrder[]
+
+  @@index([customerId])
+  @@index([nextServiceDate])
+}
+
+model CustomerAttachment {
+  id        String   @id @default(cuid())
+  fileName  String
+  dataUrl   String
+  createdAt DateTime @default(now())
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
 }
@@ -139,13 +173,19 @@ model WorkOrder {
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
 
+  // Satt når oppdraget er generert fra en serviceavtale.
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
   templates    Template[] @relation("WorkOrderTemplates")
   reports      Report[]
   workComments Comment[]  @relation("WorkOrderComments")
   tags         Tag[]      @relation("WorkOrderTags")
+
   @@index([customerId])
   @@index([status])
   @@index([scheduledFor])
+  @@index([contractId])
 }
 
 model Tag {
@@ -174,27 +214,27 @@ model DocumentFolder {
 }
 
 model Document {
-  id          String          @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
   fileName    String
   filePath    String
-  fileSize    Int             @default(0)
-  mimeType    String          @default("application/pdf")
+  fileSize    Int     @default(0)
+  mimeType    String  @default("application/pdf")
 
   // Ekstrahert tekst fra PDF for fulltekst-søk. pageTexts er JSON-array
   // [{page: number, text: string}] for side-spesifikk navigasjon.
   contentText String?
   pageTexts   String?
 
-  folderId    String?
-  folder      DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folderId String?
+  folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
-  tags        DocumentTag[]   @relation("DocumentTagRelation")
+  tags DocumentTag[] @relation("DocumentTagRelation")
 
-  uploadedBy  String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([folderId])
   @@index([title])
@@ -266,6 +306,7 @@ model Template {
   fieldsJson String
   reports    Report[]
   workOrder  WorkOrder[] @relation("WorkOrderTemplates")
+  contracts  Contract[]
 }
 
 model JobComment {
@@ -310,16 +351,16 @@ model Branding {
 }
 
 model Comment {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   content     String
   authorName  String?
   workOrderId String?
   workOrder   WorkOrder? @relation("WorkOrderComments", fields: [workOrderId], references: [id], onDelete: Cascade)
   customerId  String?
-  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer    Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   contactId   String?
-  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
+  contact     Contact?   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
 
   @@index([workOrderId])
   @@index([customerId])

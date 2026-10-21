@@ -114,7 +114,7 @@ const FIELD_ACTIONS = [
   { href: "/rapporter", icon: "📄", label: "Rapporter" },
 ];
 
-const ACTIVE_STATUSES = ["OPEN", "PENDING", "WAITING", "IN_PROGRESS"];
+const ACTIVE_STATUSES = ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"];
 
 export default async function AdminDashboard({
   searchParams,
@@ -168,7 +168,11 @@ export default async function AdminDashboard({
   const openCount = ACTIVE_STATUSES.reduce((sum, s) => sum + countByStatus(s), 0);
   const inProgressCount = countByStatus("IN_PROGRESS");
   const completedCount = countByStatus("COMPLETED");
-  const awaitingCount = countByStatus("OPEN") + countByStatus("PENDING") + countByStatus("WAITING");
+  const awaitingCount =
+    countByStatus("OPEN") +
+    countByStatus("PENDING") +
+    countByStatus("PLANNED") +
+    countByStatus("WAITING");
 
   const listSearchWhere = searchQuery
     ? {

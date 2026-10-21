@@ -7,6 +7,7 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { formatDate, parseDateOnly, toDateOnly } from "@/lib/dates";
+import { contractIntervalLabel } from "@/lib/contracts";
 import { getCurrentUser } from "@/lib/session";
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
@@ -248,8 +249,21 @@ export default async function KundeportalPage() {
                 ) : (
                   customer.contracts.map(contract => (
                     <div key={contract.id} className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                      <p className="font-bold text-blue-900 text-sm">{contract.title}</p>
-                      <p className="text-[10px] text-blue-700">Intervall: {contract.interval}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-bold text-blue-900 text-sm">{contract.title}</p>
+                        {!contract.isActive && (
+                          <span className="text-[9px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                            Pauset
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-blue-700">
+                        Startdato: {formatDate(contract.startDate, "–")} • Intervall:{" "}
+                        {contractIntervalLabel(contract.intervalMonths)}
+                      </p>
+                      <p className="text-[10px] text-blue-700">
+                        Neste service: {formatDate(contract.nextServiceDate, "–")}
+                      </p>
                     </div>
                   ))
                 )}

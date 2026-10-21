@@ -12,8 +12,11 @@ signerte servicerapporten kan lastes ned som PDF.
   bilder og signaturer tegnet på skjermen, og ferdig PDF med firmaets logo.
 - **Enheter og servicehistorikk** – hver kunde har oversikt over utstyret sitt,
   og hver enhet viser alle tidligere servicer med resultat, kommentarer og bilder.
-- **Kunder og kundeportal** – kundekort med kontakter, avtaler og egne
-  portalbrukere som bare ser sin egen bedrift.
+- **Kunder og kundeportal** – kundekort med kontakter, kundeverlegg, avtaler og
+  egne portalbrukere som bare ser sin egen bedrift.
+- **Gjentagende serviceavtaler** – avtaler med startdato og intervall på 3, 6,
+  12 eller 24 måneder. Neste oppdrag opprettes automatisk med kundedata og en ny,
+  tom sjekkliste; forrige rapports PDF legges ved som dokumentasjon.
 - **Rapportering** – dashboard med nøkkeltall, globalt søk (⌘K / `/`) og
   aktivitetslogg for alle endringer.
 - **Markdown i fritekst** – beskrivelser, notater, kommentarer og fritekstsvar i
@@ -189,12 +192,28 @@ Alle variabler er dokumentert i [`.env.example`](.env.example). De viktigste:
 | `SMTP_*` | E-post for invitasjoner; uten disse vises delbare lenker |
 | `UPLOAD_DIR` | Hvor opplastede filer lagres (standard `./uploads`) |
 | `SEED_*` | Styrer den automatiske administratoren ved første oppstart |
+| `RECURRING_SCHEDULER` | Sett til `false` for å slå av den innebygde serviceavtale-jobben |
+| `CRON_SECRET` | Hemmelighet for ekstern kjøring av `/api/cron/recurring` |
 
 > **Passord med spesialtegn:** `#`, `/`, `?`, `@`, `:` og `%` må URL-kodes i
 > `DATABASE_URL` – for eksempel `Test#123` → `Test%23123`. `POSTGRES_PASSWORD`
 > skal være det rå passordet. Docker Compose bygger `DATABASE_URL` fra
 > `POSTGRES_PASSWORD`, så der må passordet være URL-trygt, eller `DATABASE_URL`
 > overstyres i en `docker-compose.override.yml`.
+
+### Serviceavtaler i drift
+
+Appen starter en liten bakgrunnsjobb sammen med serveren. Den sjekker for
+forfalte serviceavtaler hver 6. time og oppretter ett nytt oppdrag per avtale.
+Jobben kan også kjøres manuelt eller fra en ekstern cron:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://fsm.example.com/api/cron/recurring
+```
+
+Uten `CRON_SECRET` er ruten slått av. Sett `RECURRING_SCHEDULER=false` hvis du
+heller vil styre kjøringen helt fra en ekstern cron.
 
 ## Teknisk oppbygning
 
@@ -214,7 +233,9 @@ Alle variabler er dokumentert i [`.env.example`](.env.example). De viktigste:
 
 ### Datamodell i korte trekk
 
-`Customer` har `Product` (utstyr), `Contact` og `WorkOrder`. Hvert oppdrag har
+`Customer` har `Product` (utstyr), `Contact`, `CustomerAttachment` og
+`WorkOrder`. `Contract` beskriver en gjentagende serviceavtale og peker på
+kunden, en valgfri kontaktperson og en valgfri sjekklistemal. Hvert oppdrag har
 `Report`, som igjen har `ReportUnit` – ett øyeblikksbilde per kontrollert enhet
 med svar, kommentarer og status. Historikken endres derfor ikke selv om malen
 eller enheten redigeres senere.

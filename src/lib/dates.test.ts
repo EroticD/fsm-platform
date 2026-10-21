@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   addDaysUtc,
+  addMonthsUtc,
+  firstOccurrenceOnOrAfter,
   formatDate,
   formatDateRange,
   formatDateTime,
   inclusiveLastDay,
+  latestOccurrenceOnOrBefore,
   parseDateOnly,
   toDateOnly,
 } from "@/lib/dates";
@@ -43,6 +46,56 @@ describe("addDaysUtc", () => {
     expect(toDateOnly(addDaysUtc(new Date("2026-03-01T00:00:00.000Z"), -1))).toBe(
       "2026-02-28",
     );
+  });
+});
+
+describe("addMonthsUtc", () => {
+  it("håndterer måneder med færre dager", () => {
+    expect(toDateOnly(addMonthsUtc(new Date("2026-01-31T00:00:00.000Z"), 1))).toBe(
+      "2026-02-28",
+    );
+  });
+
+  it("regner fra opprinnelig dato, ikke fra forrige forekomst", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    expect(toDateOnly(addMonthsUtc(start, 2))).toBe("2026-03-31");
+  });
+});
+
+describe("firstOccurrenceOnOrAfter", () => {
+  it("finner første intervallforekomst på eller etter datoen", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    const notBefore = new Date("2026-03-01T00:00:00.000Z");
+    expect(toDateOnly(firstOccurrenceOnOrAfter(start, 3, notBefore))).toBe("2026-04-30");
+  });
+
+  it("returnerer startdatoen når den allerede er innenfor", () => {
+    const start = new Date("2026-10-21T00:00:00.000Z");
+    expect(
+      toDateOnly(firstOccurrenceOnOrAfter(start, 3, new Date("2026-10-21T00:00:00.000Z"))),
+    ).toBe("2026-10-21");
+  });
+});
+
+describe("latestOccurrenceOnOrBefore", () => {
+  it("finner siste forfalte forekomst", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    const result = latestOccurrenceOnOrBefore(
+      start,
+      3,
+      new Date("2026-10-21T00:00:00.000Z"),
+    );
+    expect(toDateOnly(result)).toBe("2026-07-31");
+  });
+
+  it("bruker siste dag i måneden når startdagen ikke finnes", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    const result = latestOccurrenceOnOrBefore(
+      start,
+      1,
+      new Date("2026-04-15T00:00:00.000Z"),
+    );
+    expect(toDateOnly(result)).toBe("2026-03-31");
   });
 });
 

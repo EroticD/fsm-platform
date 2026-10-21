@@ -56,6 +56,10 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+      # Innebygd jobb for serviceavtaler. Kan slås av hvis en ekstern cron
+      # bruker /api/cron/recurring i stedet.
+      RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
+      CRON_SECRET: ${CRON_SECRET:-}
     ports:
       # I produksjon bør dette være "127.0.0.1:3000:3000" når appen står bak en
       # reverse proxy på samme maskin. Da kan ikke appen nås direkte utenom TLS.

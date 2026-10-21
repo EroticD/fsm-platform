@@ -31,6 +31,85 @@ export function addDaysUtc(value: Date, days: number): Date {
 }
 
 /**
+ * Legger til hele måneder i UTC. Hvis startdagen ikke finnes i målmåneden,
+ * brukes siste dag i måneden (31. januar + 1 måned = 28./29. februar).
+ */
+export function addMonthsUtc(value: Date, months: number): Date {
+  const copy = new Date(value.getTime());
+  const day = copy.getUTCDate();
+  copy.setUTCDate(1);
+  copy.setUTCMonth(copy.getUTCMonth() + months);
+  const lastDay = new Date(
+    Date.UTC(copy.getUTCFullYear(), copy.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  copy.setUTCDate(Math.min(day, lastDay));
+  return copy;
+}
+
+/**
+ * Første forekomst av et intervall på eller etter `notBefore`.
+ *
+ * Forekomstene regnes alltid fra `start`, ikke fra forrige forekomst. Da
+ * beholder en avtale som startet 31. januar, dagen sin også etter februar.
+ */
+export function firstOccurrenceOnOrAfter(
+  start: Date,
+  months: number,
+  notBefore: Date,
+): Date {
+  if (months <= 0) return new Date(start.getTime());
+
+  let index = 0;
+  let occurrence = new Date(start.getTime());
+  while (occurrence < notBefore && index < 10000) {
+    index += 1;
+    occurrence = addMonthsUtc(start, index * months);
+  }
+  return occurrence;
+}
+
+/**
+ * Siste forekomst av et intervall på eller før `notAfter`. Brukes for å finne
+ * servicedatoen som faktisk forfaller nå, selv om bakgrunnsjobben har vært
+ * nede en stund. Kalleren må selv sjekke at datoen ikke er før avtalens
+ * `nextServiceDate`.
+ */
+export function latestOccurrenceOnOrBefore(
+  start: Date,
+  months: number,
+  notAfter: Date,
+): Date {
+  if (months <= 0) return new Date(start.getTime());
+  if (start > notAfter) return new Date(start.getTime());
+
+  const startMonth = start.getUTCFullYear() * 12 + start.getUTCMonth();
+  const endMonth = notAfter.getUTCFullYear() * 12 + notAfter.getUTCMonth();
+  let index = Math.max(0, Math.floor((endMonth - startMonth) / months));
+  let occurrence = addMonthsUtc(start, index * months);
+
+  while (occurrence > notAfter && index > 0) {
+    index -= 1;
+    occurrence = addMonthsUtc(start, index * months);
+  }
+
+  while (index < 10000) {
+    const next = addMonthsUtc(start, (index + 1) * months);
+    if (next > notAfter) break;
+    index += 1;
+    occurrence = next;
+  }
+
+  return occurrence;
+}
+
+/** Dagens dato som UTC-midnatt, uten klokkeslett. */
+export function todayUtc(now = new Date()): Date {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
+
+/**
  * Gjør om en eksklusiv sluttdato (slik FullCalendar bruker) til siste
  * inkluderte dag. Returnerer tom streng når det ikke finnes en sluttdato.
  */
