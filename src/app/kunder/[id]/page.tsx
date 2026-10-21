@@ -12,6 +12,7 @@ import KpiCard from "@/components/KpiCard";
 import MarkdownView from "@/components/MarkdownView";
 import UnitHistory from "@/components/UnitHistory";
 import { markdownToPlainText } from "@/lib/markdown";
+import { formatDate, formatDateTime } from "@/lib/dates";
 import { buildInviteUrl } from "@/lib/invite";
 import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 import { requireOffice } from "@/lib/session";
@@ -55,10 +56,6 @@ function TabPanel({
 }
 
 const ACTIVE_STATUSES = ["PLANNED", "IN_PROGRESS", "PENDING", "OPEN", "WAITING"];
-
-function formatDate(value: Date | string | null | undefined) {
-  return value ? new Date(value).toLocaleDateString("no-NO") : "Ingen dato";
-}
 
 /** Datoen for den nyeste servicen på en enhet (eller null hvis den aldri er kontrollert). */
 function lastServiceDate(
@@ -200,12 +197,18 @@ export default async function CustomerDetailPage({
   ];
   const currentTab = tabs.some((t) => t.key === tab) ? (tab as string) : "oversikt";
 
-  const totalOrders = customer.workOrder.length;
-  const activeOrders = customer.workOrder.filter((wo) => ACTIVE_STATUSES.includes(wo.status)).length;
-  const completedOrders = customer.workOrder.filter((wo) => wo.status === "COMPLETED").length;
-  const reportCount = customer.workOrder.reduce((sum, wo) => sum + wo.reports.length, 0);
-  const nextOrder = pickNextOrder(customer.workOrder);
-  const recentOrders = customer.workOrder.slice(0, 3);
+  // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
+  // Kontoret ser dem fortsatt i kundekortet.
+  const visibleWorkOrders = office
+    ? customer.workOrder
+    : customer.workOrder.filter((wo) => wo.status !== "CANCELLED");
+
+  const totalOrders = visibleWorkOrders.length;
+  const activeOrders = visibleWorkOrders.filter((wo) => ACTIVE_STATUSES.includes(wo.status)).length;
+  const completedOrders = visibleWorkOrders.filter((wo) => wo.status === "COMPLETED").length;
+  const reportCount = visibleWorkOrders.reduce((sum, wo) => sum + wo.reports.length, 0);
+  const nextOrder = pickNextOrder(visibleWorkOrders);
+  const recentOrders = visibleWorkOrders.slice(0, 3);
   const recentLogs = customerAuditLogs.slice(0, 5);
 
   // --- SERVER ACTION: LEGG TIL KONTAKTPERSON ---
@@ -377,7 +380,7 @@ export default async function CustomerDetailPage({
               <KpiCard
                 icon="🗓️"
                 label="Neste oppdrag"
-                value={nextOrder ? formatDate(nextOrder.scheduledFor) : "Ingen"}
+                value={nextOrder ? formatDate(nextOrder.scheduledFor, "Ingen dato") : "Ingen"}
                 sub={nextOrder?.title}
                 tone="blue"
                 href="?tab=oppdrag"
@@ -443,7 +446,7 @@ export default async function CustomerDetailPage({
                           <StatusBadge status={wo.status} />
                         </div>
                         <p className="text-[10px] text-gray-500 mt-1">
-                          {formatDate(wo.scheduledFor)}
+                          {formatDate(wo.scheduledFor, "Ingen dato")}
                           {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r)` : ""}
                         </p>
                       </Link>
@@ -471,7 +474,7 @@ export default async function CustomerDetailPage({
                       <div className="min-w-0">
                         <p className="text-gray-800 font-medium">{log.action}</p>
                         <p className="text-[10px] text-gray-500">
-                          {log.userName || "Ukjent"} • {new Date(log.createdAt).toLocaleString("no-NO")}
+                          {log.userName || "Ukjent"} • {formatDateTime(log.createdAt)}
                         </p>
                       </div>
                     </li>
@@ -498,14 +501,14 @@ export default async function CustomerDetailPage({
               </Link>
             </div>
 
-            {customer.workOrder.length === 0 ? (
+            {visibleWorkOrders.length === 0 ? (
               <div className="bg-gray-50 border-2 border-dashed border-gray-200 p-6 rounded-2xl text-center">
                 <p className="text-gray-600 font-bold mb-1">Ingen oppdrag registrert på kunden ennå.</p>
                 <p className="text-xs text-gray-500">Opprett et oppdrag for å komme i gang med historikken.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {customer.workOrder.map(wo => (
+                {visibleWorkOrders.map(wo => (
                   <Link
                     key={wo.id}
                     href={`/oppdrag/${wo.id}`}
@@ -515,7 +518,7 @@ export default async function CustomerDetailPage({
                       <div>
                         <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
                         <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                          Planlagt: {formatDate(wo.scheduledFor)}
+                          Planlagt: {formatDate(wo.scheduledFor, "Ingen dato")}
                           {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r) utfylt` : ""}
                         </p>
                       </div>
@@ -594,7 +597,7 @@ export default async function CustomerDetailPage({
                               <span className="text-blue-800 font-bold">
                                 🕓 {unit.reportUnits.length}{" "}
                                 {unit.reportUnits.length === 1 ? "service" : "servicer"} • siste{" "}
-                                {formatDate(lastServiceDate(unit.reportUnits))}
+                                {formatDate(lastServiceDate(unit.reportUnits), "Ingen dato")}
                               </span>
                             )}
                             <span className="ml-2 text-blue-600 font-bold">

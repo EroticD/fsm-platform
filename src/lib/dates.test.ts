@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   addDaysUtc,
+  formatDate,
   formatDateRange,
+  formatDateTime,
   inclusiveLastDay,
   parseDateOnly,
   toDateOnly,
@@ -55,15 +57,35 @@ describe("inclusiveLastDay", () => {
   });
 });
 
-describe("formatDateRange", () => {
-  it("viser én dato når start og slutt er samme dag", () => {
-    const text = formatDateRange("2026-10-19", "2026-10-19");
-    expect(text).toContain("19.");
-    expect(text).not.toContain("–");
+describe("formatDate", () => {
+  it("formaterer dato som ISO 8601", () => {
+    expect(formatDate(new Date("2026-10-19T00:00:00.000Z"))).toBe("2026-10-19");
   });
 
-  it("viser et intervall på tvers av dager", () => {
+  it("bruker fallback når datoen mangler", () => {
+    expect(formatDate(null, "Ingen dato")).toBe("Ingen dato");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("formaterer dato og klokkeslett som ISO 8601 i lokal tid", () => {
+    const date = new Date(2026, 9, 19, 14, 5);
+    expect(formatDateTime(date)).toBe("2026-10-19T14:05");
+  });
+
+  it("returnerer tom streng for manglende dato", () => {
+    expect(formatDateTime(null)).toBe("");
+  });
+});
+
+describe("formatDateRange", () => {
+  it("viser én ISO-dato når start og slutt er samme dag", () => {
+    const text = formatDateRange("2026-10-19", "2026-10-19");
+    expect(text).toBe("2026-10-19");
+  });
+
+  it("viser et ISO-intervall på tvers av dager", () => {
     const text = formatDateRange("2026-10-19", "2026-10-22");
-    expect(text).toContain("–");
+    expect(text).toBe("2026-10-19 – 2026-10-22");
   });
 });

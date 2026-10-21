@@ -312,6 +312,12 @@ export default async function AdminWorkOrderPage({
     );
   }
 
+  // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
+  // Kontoret kan fortsatt åpne dem for oppfølging og historikk.
+  if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
+    redirect("/oppdrag");
+  }
+
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
   const allTags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });

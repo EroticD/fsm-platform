@@ -42,6 +42,7 @@ export default async function TechnicianDashboard({
     assignedWorkOrders = await prisma.workOrder.findMany({
       where: {
         technicians: { some: { id: user.id } },
+        status: { not: 'CANCELLED' },
         OR: [
           { title: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
@@ -57,6 +58,7 @@ export default async function TechnicianDashboard({
     unassignedWorkOrders = await prisma.workOrder.findMany({
       where: {
         technicians: { none: {} },
+        status: { not: 'CANCELLED' },
         OR: [
           { title: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
@@ -71,7 +73,8 @@ export default async function TechnicianDashboard({
   } else {
     assignedWorkOrders = await prisma.workOrder.findMany({
       where: {
-        technicians: { some: { id: user.id } }
+        technicians: { some: { id: user.id } },
+        status: { not: 'CANCELLED' }
       },
       include: { customer: true, reports: true, technicians: true, tags: true },
       orderBy: { scheduledFor: 'asc' }
@@ -79,7 +82,8 @@ export default async function TechnicianDashboard({
 
     unassignedWorkOrders = await prisma.workOrder.findMany({
       where: {
-        technicians: { none: {} }
+        technicians: { none: {} },
+        status: { not: 'CANCELLED' }
       },
       include: { customer: true, reports: true, technicians: true, tags: true },
       orderBy: { scheduledFor: 'asc' }
@@ -88,7 +92,7 @@ export default async function TechnicianDashboard({
 
   // Del opp de tildelte oppdragene i "Aktive / Kommende" og "Fullførte"
   const activeAssigned = assignedWorkOrders.filter(wo => wo.status !== 'COMPLETED' && wo.status !== 'CANCELLED');
-  const completedAssigned = assignedWorkOrders.filter(wo => wo.status === 'COMPLETED' || wo.status === 'CANCELLED');
+  const completedAssigned = assignedWorkOrders.filter(wo => wo.status === 'COMPLETED');
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">

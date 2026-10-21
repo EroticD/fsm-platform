@@ -11,7 +11,7 @@ import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanStatus, cleanText } from "@/lib/sanitize";
 import { requireStaff } from "@/lib/session";
-import { formatDateRange } from "@/lib/dates";
+import { formatDateRange, formatDateTime } from "@/lib/dates";
 
 export default async function TechnicianWorkOrderPage({
   params,
@@ -68,6 +68,10 @@ export default async function TechnicianWorkOrderPage({
       </div>
     );
   }
+
+  // Kansellerte oppdrag er avsluttet og skal ikke vises i feltportalen.
+  // De finnes fortsatt som historikk på kundesiden.
+  if (workOrder.status === "CANCELLED") redirect("/mine-oppdrag");
 
   const allUsers = await prisma.user.findMany({ orderBy: { name: 'asc' } });
   const availableUsers = allUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
@@ -308,7 +312,7 @@ export default async function TechnicianWorkOrderPage({
                 <div key={comment.id} className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 space-y-1">
                   <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold">
                     <span>{comment.authorName || "Ukjent"}</span>
-                    <span>{new Date(comment.createdAt).toLocaleString("no-NO", { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    <span>{formatDateTime(comment.createdAt)}</span>
                   </div>
                   <div className="text-sm text-gray-900 font-medium">
                     <MarkdownView value={comment.content} />

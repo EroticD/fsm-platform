@@ -5,6 +5,7 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { formatAddress } from "@/lib/address";
+import { formatDateRange } from "@/lib/dates";
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
@@ -21,17 +22,6 @@ function getDateContext() {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
   return { startOfToday, endOfToday };
-}
-
-function formatDay(value: Date | string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleDateString("no-NO", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "Ingen dato";
 }
 
 /**
@@ -165,18 +155,32 @@ export default async function WorkOrdersPage({
       }
     : {};
 
+  // Kansellerte oppdrag er avsluttet og vises ikke til montørene. Kontoret
+  // trenger dem fortsatt for oppfølging og historikk.
+  const visibleStatus: Prisma.WorkOrderWhereInput = office
+    ? {}
+    : { status: { not: "CANCELLED" } };
+
   const activeWhere: Prisma.WorkOrderWhereInput = {
-    AND: [whereFor(view, dates), searchWhere],
+    AND: [visibleStatus, whereFor(view, dates), searchWhere],
   };
 
   const [statusGroups, todayCount, overdueCount, unassignedCount, total, orders] =
     await Promise.all([
-      prisma.workOrder.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.workOrder.count({
-        where: { AND: [whereFor("idag", dates), searchWhere] },
+      prisma.workOrder.groupBy({
+        by: ["status"],
+        where: visibleStatus,
+        _count: { _all: true },
       }),
-      prisma.workOrder.count({ where: { AND: [whereFor("forfalte", dates), searchWhere] } }),
-      prisma.workOrder.count({ where: { AND: [whereFor("ikke-tildelt", dates), searchWhere] } }),
+      prisma.workOrder.count({
+        where: { AND: [visibleStatus, whereFor("idag", dates), searchWhere] },
+      }),
+      prisma.workOrder.count({
+        where: { AND: [visibleStatus, whereFor("forfalte", dates), searchWhere] },
+      }),
+      prisma.workOrder.count({
+        where: { AND: [visibleStatus, whereFor("ikke-tildelt", dates), searchWhere] },
+      }),
       prisma.workOrder.count({ where: activeWhere }),
       prisma.workOrder.findMany({
         where: activeWhere,
@@ -334,10 +338,7 @@ export default async function WorkOrdersPage({
                       🏢 {wo.customer?.name || "Uten kunde"}
                       {address ? ` • 📍 ${address}` : ""}
                       {" • 📅 "}
-                      {formatDay(wo.scheduledFor)}
-                      {wo.scheduledTo && wo.scheduledFor && new Date(wo.scheduledTo) > new Date(wo.scheduledFor)
-                        ? ` – ${formatDay(wo.scheduledTo)}`
-                        : ""}
+                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
                     </p>
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">

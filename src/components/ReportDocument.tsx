@@ -8,6 +8,7 @@ import {
 } from "@/lib/report-answers";
 import type { PdfImage } from "@/lib/report-images";
 import { MarkdownPdf } from "@/lib/markdown-pdf";
+import { formatDate } from "@/lib/dates";
 
 type TemplateFieldDef = {
   id: string;
@@ -169,7 +170,7 @@ export default function ReportDocument({
     return {
       id: report.id,
       templateTitle: template?.title ?? null,
-      date: report.createdAt ? new Date(report.createdAt).toLocaleDateString("no-NO") : null,
+      date: formatDate(report.createdAt) || null,
       status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,
       answers:
@@ -536,7 +537,7 @@ export default function ReportDocument({
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>{companyName} – generert av FSM-plattformen</Text>
       <Text style={styles.footerText}>
-        {new Date().toLocaleDateString("no-NO")}
+        {formatDate(new Date())}
       </Text>
     </View>
   );
@@ -637,7 +638,7 @@ export default function ReportDocument({
             <Text style={styles.value}>{workOrder.title || "Ikke angitt"}</Text>
             <Text style={styles.value}>Status: {workOrder.status || 'Ukjent'}</Text>
             <Text style={styles.value}>
-              Dato: {workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toLocaleDateString("no-NO") : "Ingen dato"}
+              Dato: {formatDate(workOrder.scheduledFor, "Ingen dato")}
             </Text>
             <Text style={styles.value}>
               Utførende tekniker: {technicianNames.length > 0 ? technicianNames.join(", ") : "Ikke angitt"}

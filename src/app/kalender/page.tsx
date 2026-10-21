@@ -27,6 +27,7 @@ export default async function CalendarPage() {
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
+      status: { not: "CANCELLED" },
       OR: [
         { status: { not: "COMPLETED" } },
         { scheduledFor: { gte: thirtyDaysAgo } }

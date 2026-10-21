@@ -6,6 +6,7 @@ import { type Prisma, WorkStatus } from "@prisma/client";
 import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
 import { formatAddress } from "@/lib/address";
+import { formatDate, formatDateRange, formatDateTime } from "@/lib/dates";
 
 // ------------------------------------------------------------------
 // Hjelpere (definert utenfor komponenten slik at render forblir ren)
@@ -18,33 +19,6 @@ function getDateContext() {
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   return { startOfToday, endOfToday, startOfMonth };
-}
-
-function formatDay(value: Date | string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "short" })
-    : "Ingen dato";
-}
-
-function formatDayRange(
-  start: Date | string | null | undefined,
-  end: Date | string | null | undefined
-) {
-  if (!start || !end || new Date(end) <= new Date(start)) return formatDay(start);
-  return `${formatDay(start)} – ${formatDay(end)}`;
-}
-
-function formatFullDate(value: Date) {
-  return value.toLocaleDateString("no-NO", { weekday: "long", day: "numeric", month: "long" });
-}
-
-function formatTimestamp(value: Date | string) {
-  return new Date(value).toLocaleString("no-NO", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 type OrderWith = {
@@ -78,7 +52,7 @@ function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
             <StatusBadge status={wo.status} />
           </div>
           <p className="text-[10px] text-gray-500 mt-1">
-            🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDayRange(wo.scheduledFor, wo.scheduledTo)}
+            🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
             {wo.technicians.length === 0
               ? " • ⚠️ Ikke tildelt"
               : ` • 👷 ${wo.technicians.map((t) => t.name?.split(" ")[0]).filter(Boolean).join(", ")}`}
@@ -161,9 +135,18 @@ export default async function AdminDashboard({
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
   const rawStatus = resolvedParams.status?.trim() || "";
-  const statusFilter = Object.values(WorkStatus).includes(rawStatus as WorkStatus)
+  const requestedStatus = Object.values(WorkStatus).includes(rawStatus as WorkStatus)
     ? (rawStatus as WorkStatus)
     : undefined;
+  // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
+  const statusFilter =
+    !office && requestedStatus === "CANCELLED" ? undefined : requestedStatus;
+  const statusOptions = office
+    ? STATUS_OPTIONS
+    : STATUS_OPTIONS.filter((option) => option.value !== "CANCELLED");
+  const visibleStatus: Prisma.WorkOrderWhereInput = office
+    ? {}
+    : { status: { not: "CANCELLED" } };
 
   const branding = await prisma.branding.findFirst();
   const companyName = branding?.companyName || "FSM System";
@@ -177,6 +160,7 @@ export default async function AdminDashboard({
   // --- GLOBALE TALL ---
   const statusGroups = await prisma.workOrder.groupBy({
     by: ["status"],
+    where: visibleStatus,
     _count: { _all: true },
   });
   const countByStatus = (s: string) =>
@@ -197,13 +181,15 @@ export default async function AdminDashboard({
         ],
       }
     : {};
-  const listWhere = {
+  const listWhere: Prisma.WorkOrderWhereInput = {
+    ...visibleStatus,
     ...(statusFilter ? { status: statusFilter } : {}),
     ...listSearchWhere,
   };
 
   // Flerdagersoppdrag teller som «i dag» så lenge perioden dekker dagen.
   const todayWhere = {
+    ...visibleStatus,
     scheduledFor: { lte: endOfToday },
     OR: [
       { scheduledTo: { gte: startOfToday } },
@@ -289,7 +275,7 @@ export default async function AdminDashboard({
             <p className="text-gray-500 mt-1 font-medium text-sm">
               Du administrerer <span className="font-bold text-gray-700">{companyName}</span>
               {" • "}
-              {formatFullDate(startOfToday)}
+              {formatDate(startOfToday, "Ingen dato")}
             </p>
           </div>
           <div className="flex gap-2">
@@ -347,7 +333,7 @@ export default async function AdminDashboard({
             icon="📅"
             label="Dagens oppdrag"
             value={todayOrders.length}
-            sub={formatDay(startOfToday)}
+            sub={formatDate(startOfToday, "Ingen dato")}
             tone="gray"
             href="/oppdrag?vis=idag"
           />
@@ -457,7 +443,7 @@ export default async function AdminDashboard({
               defaultValue={statusFilter}
               className="border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             >
-              {STATUS_OPTIONS.map((o) => (
+              {statusOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -500,7 +486,7 @@ export default async function AdminDashboard({
                       <StatusBadge status={wo.status} />
                     </div>
                     <p className="text-[10px] text-gray-500">
-                      🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDayRange(wo.scheduledFor, wo.scheduledTo)}
+                      🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
                       {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r)` : ""}
                     </p>
                     {formatAddress(wo.customer) && (
@@ -583,7 +569,7 @@ export default async function AdminDashboard({
                   <div className="min-w-0">
                     <p className="text-gray-800 font-medium">{log.action}</p>
                     <p className="text-[10px] text-gray-500">
-                      {log.userName || "Ukjent"} • {formatTimestamp(log.createdAt)}
+                      {log.userName || "Ukjent"} • {formatDateTime(log.createdAt)}
                     </p>
                   </div>
                 </li>

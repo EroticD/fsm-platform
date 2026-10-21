@@ -18,7 +18,8 @@ export default async function SearchResultsPage({
   const resolvedParams = await searchParams;
   const query = resolvedParams.q?.trim() || "";
 
-  const results = await performSearch(query);
+  const includeCancelled = user?.role === "ADMIN" || user?.role === "OFFICE";
+  const results = await performSearch(query, { includeCancelled });
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">

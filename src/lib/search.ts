@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
 import { fuzzyScore } from "@/lib/fuzzy";
+import { formatDate } from "@/lib/dates";
 
 export type SearchItem = {
   id: string;
@@ -44,10 +45,6 @@ const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: "Kundeportal",
 };
 
-function formatDay(value: Date | null | undefined) {
-  return value ? new Date(value).toLocaleDateString("no-NO") : null;
-}
-
 function joinInfo(parts: (string | null | undefined | false)[]) {
   return parts.filter(Boolean).join(" • ");
 }
@@ -59,16 +56,26 @@ function textOr(fields: string[], q: string) {
   };
 }
 
+type SearchOptions = {
+  /** Kontoret kan søke i kansellerte oppdrag; montørene skal ikke se dem. */
+  includeCancelled?: boolean;
+};
+
 /**
  * Kjernesøkelogikken — brukes av både det globale hurtigsøket (/api/search)
  * og søkeresultatsiden (/sok). Henter først kandidater fra databasen (raskt),
  * og rangerer dem deretter fuzzy.
  */
-export async function performSearch(query: string): Promise<SearchResults> {
+export async function performSearch(
+  query: string,
+  options: SearchOptions = {}
+): Promise<SearchResults> {
   const q = query.trim();
   if (q.length < 2) {
     return { query: q, total: 0, groups: [] };
   }
+
+  const includeCancelled = options.includeCancelled ?? false;
 
   const contains = { contains: q, mode: "insensitive" as const };
 
@@ -87,11 +94,19 @@ export async function performSearch(query: string): Promise<SearchResults> {
         include: { customer: { select: { id: true, name: true } } }, orderBy: { model: "asc" }, take: CANDIDATES,
       }),
       prisma.workOrder.findMany({
-        where: textOr(["title", "description", "creatorName"], q),
+        where: {
+          ...textOr(["title", "description", "creatorName"], q),
+          ...(includeCancelled ? {} : { status: { not: "CANCELLED" } }),
+        },
         include: { customer: { select: { name: true } } }, orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }], take: CANDIDATES,
       }),
       prisma.report.findMany({
-        where: { comments: contains },
+        where: {
+          comments: contains,
+          ...(includeCancelled
+            ? {}
+            : { workOrder: { status: { not: "CANCELLED" } } }),
+        },
         include: { template: { select: { title: true } }, workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } } }, orderBy: { completedAt: "desc" }, take: CANDIDATES,
       }),
       prisma.comment.findMany({
@@ -156,7 +171,7 @@ export async function performSearch(query: string): Promise<SearchResults> {
       items: fuzzyWorkOrders.map((wo) => ({
         id: wo.id,
         title: wo.title,
-        subtitle: joinInfo([wo.customer?.name ?? "Uten kunde", STATUS_LABELS[wo.status] ?? wo.status, formatDay(wo.scheduledFor)]),
+        subtitle: joinInfo([wo.customer?.name ?? "Uten kunde", STATUS_LABELS[wo.status] ?? wo.status, formatDate(wo.scheduledFor)]),
         href: `/oppdrag/${wo.id}`,
       })),
     },
@@ -189,7 +204,7 @@ export async function performSearch(query: string): Promise<SearchResults> {
       items: fuzzyReports.map((r) => ({
         id: r.id,
         title: `${r.template?.title ?? "Rapport"} – ${r.workOrder.title}`,
-        subtitle: joinInfo([r.workOrder.customer?.name, r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null, formatDay(r.completedAt)]),
+        subtitle: joinInfo([r.workOrder.customer?.name, r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null, formatDate(r.completedAt)]),
         href: `/oppdrag/${r.workOrderId}`,
       })),
     },
@@ -209,7 +224,7 @@ export async function performSearch(query: string): Promise<SearchResults> {
         return {
           id: c.id,
           title: text.length > 90 ? `${text.slice(0, 90)}…` : text,
-          subtitle: joinInfo([c.workOrder?.title ?? c.customer?.name ?? c.contact?.name, c.authorName, formatDay(c.createdAt)]),
+          subtitle: joinInfo([c.workOrder?.title ?? c.customer?.name ?? c.contact?.name, c.authorName, formatDate(c.createdAt)]),
           href,
         };
       }),

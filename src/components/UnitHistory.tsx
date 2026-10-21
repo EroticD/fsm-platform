@@ -1,5 +1,6 @@
 import Link from "next/link";
 import MarkdownView from "@/components/MarkdownView";
+import { formatDate } from "@/lib/dates";
 import {
   isLineCommentKey,
   needsComment,
@@ -31,10 +32,6 @@ export type UnitHistoryEntry = {
     workOrder: { id: string; title: string; scheduledFor: Date | string | null };
   };
 };
-
-function formatDate(value: Date | string | null | undefined) {
-  return value ? new Date(value).toLocaleDateString("no-NO") : "Ingen dato";
-}
 
 /** Datoen servicen ble utført – oppdragets dato er den montøren forholder seg til. */
 function serviceDate(entry: UnitHistoryEntry) {
@@ -107,7 +104,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
           <li key={entry.id} className="bg-white border border-gray-200 rounded-lg p-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold text-gray-900">
-                {formatDate(serviceDate(entry))}
+                {formatDate(serviceDate(entry), "Ingen dato")}
                 <span className="font-normal text-gray-500">
                   {" • "}
                   {entry.report.template?.title ?? "Servicerapport"}

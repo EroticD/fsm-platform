@@ -21,6 +21,7 @@ export default async function WeekCalendarPage() {
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
+      status: { not: "CANCELLED" },
       scheduledFor: { not: null, lte: sixMonthsAhead },
       OR: [
         { scheduledFor: { gte: sixMonthsAgo } },

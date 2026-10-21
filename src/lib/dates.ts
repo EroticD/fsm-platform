@@ -40,14 +40,51 @@ export function inclusiveLastDay(endExclusive: string | Date | null | undefined)
   return toDateOnly(addDaysUtc(date, -1));
 }
 
-const rangeFormatter = new Intl.DateTimeFormat("no-NO", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
+const pad2 = (num: number) => String(num).padStart(2, "0");
 
-/** Formaterer en datoperiode på norsk. Éndagsoppdrag får én dato. */
+/** Formaterer en dato som ISO 8601 (YYYY-MM-DD). */
+export function formatDate(
+  value: Date | string | null | undefined,
+  fallback = ""
+): string {
+  if (!value) return fallback;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return fallback;
+
+  // Rene datoer lagres som UTC-midnatt. Tidspunkter vises i lokal tid.
+  if (
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+  ) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/**
+ * Formaterer dato og klokkeslett som ISO 8601 i lokal tid
+ * (YYYY-MM-DDTHH:mm).
+ */
+export function formatDateTime(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(
+    date.getHours()
+  )}:${pad2(date.getMinutes())}`;
+}
+
+/**
+ * Formaterer en datoperiode som ISO 8601 (YYYY-MM-DD).
+ * Éndagsoppdrag får én dato.
+ */
 export function formatDateRange(
   start: Date | string | null | undefined,
   end: Date | string | null | undefined
@@ -55,8 +92,6 @@ export function formatDateRange(
   const startText = toDateOnly(start);
   const endText = toDateOnly(end);
   if (!startText) return "";
-  if (!endText || endText <= startText) return rangeFormatter.format(new Date(`${startText}T00:00:00.000Z`));
-  return `${rangeFormatter.format(new Date(`${startText}T00:00:00.000Z`))} – ${rangeFormatter.format(
-    new Date(`${endText}T00:00:00.000Z`)
-  )}`;
+  if (!endText || endText <= startText) return startText;
+  return `${startText} – ${endText}`;
 }

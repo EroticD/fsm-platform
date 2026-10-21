@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanColor, cleanText, cleanUrl, escapeHtml } from "@/lib/sanitize";
+import { formatDate } from "@/lib/dates";
 
 /** Er SMTP konfigurert i .env? */
 function isSmtpConfigured() {
@@ -63,7 +64,7 @@ export async function sendWorkOrderReport(
       <table style="width: 100%; margin-bottom: 30px; font-size: 14px;">
         <tr>
           <td style="padding-bottom: 10px;"><strong>Kunde:</strong><br/>${escapeHtml(workOrder.customer.name)}</td>
-          <td style="padding-bottom: 10px;"><strong>Dato for utførelse:</strong><br/>${new Date().toLocaleDateString("no-NO")}</td>
+          <td style="padding-bottom: 10px;"><strong>Dato for utførelse:</strong><br/>${formatDate(new Date())}</td>
         </tr>
         <tr>
           <td><strong>Oppdragstittel:</strong><br/>${escapeHtml(workOrder.title)}</td>

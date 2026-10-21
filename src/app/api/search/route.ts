@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   }
 
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
-  const results = await performSearch(q);
+  const includeCancelled = currentUser.role === "ADMIN" || currentUser.role === "OFFICE";
+  const results = await performSearch(q, { includeCancelled });
   return NextResponse.json(results);
 }

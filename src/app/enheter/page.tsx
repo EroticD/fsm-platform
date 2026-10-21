@@ -3,20 +3,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { formatDate } from "@/lib/dates";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
 // ---------------------------------------------------------------------------
-
-function formatDate(value: Date | string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleDateString("no-NO", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "Aldri";
-}
 
 type UnitWithHistory = Prisma.ProductGetPayload<{
   include: {
@@ -231,7 +222,7 @@ export default async function UnitsPage({
                     </div>
                   </div>
                   <p className="text-[11px] text-gray-500 mt-2 font-bold">
-                    🕓 {services} service{services === 1 ? "" : "r"} • siste {formatDate(last)}
+                    🕓 {services} service{services === 1 ? "" : "r"} • siste {formatDate(last, "Aldri")}
                   </p>
                 </Link>
               );

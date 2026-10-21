@@ -3,21 +3,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { formatDate } from "@/lib/dates";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
 // ---------------------------------------------------------------------------
-
-function formatDate(value: Date | string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleDateString("no-NO", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "Ingen dato";
-}
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -187,7 +177,7 @@ export default async function ReportsPage({
                         {report.template?.title || "Servicerapport"}
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
-                        📅 {formatDate(report.completedAt)}
+                        📅 {formatDate(report.completedAt, "Ingen dato")}
                         {" • 🏢 "}
                         {report.workOrder?.customer?.name || "Uten kunde"}
                         {" • 📂 "}

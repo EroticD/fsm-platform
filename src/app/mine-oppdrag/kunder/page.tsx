@@ -31,6 +31,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
         contacts: true,
         products: true,
         workOrder: {
+          where: { status: { not: 'CANCELLED' } },
           orderBy: { scheduledFor: 'desc' },
           take: 5,
           include: {
@@ -47,6 +48,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
         contacts: true,
         products: true,
         workOrder: {
+          where: { status: { not: 'CANCELLED' } },
           orderBy: { scheduledFor: 'desc' },
           take: 5,
           include: {

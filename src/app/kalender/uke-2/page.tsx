@@ -20,6 +20,7 @@ export default async function BiweeklyCalendarPage() {
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
+      status: { not: "CANCELLED" },
       scheduledFor: { not: null, lte: sixMonthsAhead },
       OR: [
         { scheduledFor: { gte: sixMonthsAgo } },

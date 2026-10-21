@@ -3,6 +3,7 @@
 import { useState } from "react";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
+import { formatDateTime } from "@/lib/dates";
 
 type CommentType = {
   id: string;
@@ -104,7 +105,7 @@ export default function CommentSection({
             <div key={comment.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
               <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 mb-1">
                 <span>{comment.authorName || "Ukjent"}</span>
-                <span>{new Date(comment.createdAt).toLocaleString("no-NO", { dateStyle: 'short', timeStyle: 'short' })}</span>
+                <span>{formatDateTime(comment.createdAt)}</span>
               </div>
               <div className="text-sm text-gray-900 font-medium">
                 <MarkdownView value={comment.content} />

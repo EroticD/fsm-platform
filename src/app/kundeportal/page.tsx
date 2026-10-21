@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
-import { parseDateOnly } from "@/lib/dates";
+import { formatDate, parseDateOnly, toDateOnly } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
@@ -72,7 +72,7 @@ export default async function KundeportalPage() {
     wo.status !== 'COMPLETED' && wo.status !== 'CANCELLED'
   );
   const completedWorkOrders = customer.workOrder.filter(wo => 
-    wo.status === 'COMPLETED'
+    wo.status === 'COMPLETED' || wo.status === 'CANCELLED'
   );
 
   // --- SERVER ACTION: BOOK NYTT OPPDRAG ---
@@ -316,7 +316,7 @@ export default async function KundeportalPage() {
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
                           <p className="text-[10px] text-gray-500">
-                            📅 {wo.scheduledFor ? new Date(wo.scheduledFor).toLocaleDateString("no-NO") : "Ingen dato"}
+                            📅 {formatDate(wo.scheduledFor, "Ingen dato")}
                           </p>
                         </div>
                         <StatusBadge status={wo.status} />
@@ -343,7 +343,7 @@ export default async function KundeportalPage() {
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <h2 className="font-bold text-lg text-gray-900">📋 Servicehistorikk & Rapporter</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Utførte jobber og rapporter.</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Utførte og kansellerte jobber, med rapporter.</p>
                 </div>
               </div>
 
@@ -356,7 +356,7 @@ export default async function KundeportalPage() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
-                          <p className="text-[10px] text-gray-500">{wo.scheduledFor ? new Date(wo.scheduledFor).toLocaleDateString("no-NO") : "Ingen dato"}</p>
+                          <p className="text-[10px] text-gray-500">{formatDate(wo.scheduledFor, "Ingen dato")}</p>
                         </div>
                         <StatusBadge status={wo.status} />
                       </div>
@@ -404,7 +404,7 @@ export default async function KundeportalPage() {
                           {d.toLocaleDateString("no-NO", { weekday: "short" })}
                         </span>
                         <span className="block text-[10px] font-medium text-gray-400">
-                          {d.toLocaleDateString("no-NO", { day: "2-digit", month: "2-digit" })}
+                          {toDateOnly(d)}
                         </span>
                       </th>
                     ))}

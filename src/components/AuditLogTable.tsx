@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDateTime } from "@/lib/dates";
 
 export default function AuditLogTable({ 
   logs, 
@@ -55,10 +56,7 @@ export default function AuditLogTable({
           {logs.map(log => (
             <tr key={log.id} className="hover:bg-gray-50 transition">
               <td className="px-4 py-3 text-[10px] text-gray-600 font-medium">
-                {new Date(log.createdAt).toLocaleString("no-NO", { 
-                  dateStyle: 'short', 
-                  timeStyle: 'short' 
-                })}
+                {formatDateTime(log.createdAt)}
               </td>
               <td className="px-4 py-3 text-[10px] font-bold text-gray-900 truncate max-w-[150px]">
                 {log.userName || "Ukjent"}
