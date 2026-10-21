@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
   // Dockerfile bruker denne i stedet for `next start`.
   output: "standalone",
 
+  // Prisma 7 og driver-adapteren lastes fra node_modules i standalone-bygget,
+  // slik at Next ikke prøver å bundle WASM-motoren og node-postgres.
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
+
   // Opplastede filer skrives og leses med en sti som først er kjent når
   // programmet kjører (se src/lib/uploads.ts). Da kan ikke Next.js avgjøre
   // statisk hva som trengs, og "sporer" hele prosjektet – inkludert

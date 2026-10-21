@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Tilkoblingsadressen settes i prisma.config.mjs (Prisma 7). Klienten får
+  // den via driver-adapteren i src/lib/prisma.ts.
 }
 
 model User {

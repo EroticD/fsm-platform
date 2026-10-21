@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# Må holdes i sync med `prisma` i package.json. CLI-en installeres i et eget
+# steg fordi den har toppnivåavhengigheter (effect, c12, ...) som ikke følger
+# med @prisma-mappen.
+ARG PRISMA_VERSION=7.10.1
+
 # ---------------------------------------------------------------------------
 # base – felles utgangspunkt. Debian (glibc) brukes fordi Prismas query-engine
 # er kompilert mot OpenSSL 3.0, som er det som finnes i Debian bookworm.
@@ -16,10 +21,22 @@ WORKDIR /app
 # Prisma-CLI-en trengs ved oppstart for å kjøre migrasjoner).
 # ---------------------------------------------------------------------------
 FROM base AS deps
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.mjs ./
 COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
+
+# ---------------------------------------------------------------------------
+# prisma-cli – et minimalt node_modules med Prisma-CLI-en og alle dens
+# toppnivåavhengigheter. Appens egne avhengigheter kommer fra standalone-treet.
+# ---------------------------------------------------------------------------
+FROM base AS prisma-cli
+ARG PRISMA_VERSION
+RUN --mount=type=cache,target=/root/.npm \
+    mkdir -p /cli \
+ && cd /cli \
+ && npm init -y >/dev/null \
+ && npm install --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}"
 
 # ---------------------------------------------------------------------------
 # tessdata – henter OCR-språkdata i et eget steg. Da slipper det ferdige
@@ -85,15 +102,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Prisma-skjema, seed-skript og CLI – trengs for `prisma migrate deploy` og
-# `node scripts/seed.mjs` ved oppstart.
+# Prisma-skjema, konfigurasjon, seed-skript og CLI – trengs for
+# `prisma migrate deploy` og `node scripts/seed.mjs` ved oppstart.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.mjs ./prisma.config.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 # CLI-en kalles via sin egen fil (node_modules/prisma/build/index.js) fordi den
 # finner hjelpefilene sine relativt til sin egen mappe. Symbolet i .bin blir en
 # vanlig fil når den kopieres mellom byggesteg, og da feiler oppslaget.
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=prisma-cli --chown=nextjs:nodejs /cli/node_modules ./node_modules
 
 # BSL 1.1 krever at lisensen vises sammen med hver kopi av programvaren.
 COPY --chown=nextjs:nodejs LICENSE ./LICENSE

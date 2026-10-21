@@ -45,29 +45,27 @@ npm run dev
 
 Appen er da tilgjengelig på <http://localhost:3000>.
 
-> **Feilsøking:** `npm install` kan stoppe i `prisma generate` med
-> `ENOENT ... .bin/prisma_schema_build_bg.wasm` hvis `node_modules/.bin/prisma`
-> er en filkopi i stedet for en lenke – typisk når `node_modules` er kopiert fra
-> en annen maskin. Skriptene kaller Prisma via sin virkelige sti, så en fersk
-> klone rammes ikke. Har du allerede en slik mappe, slett `node_modules` og kjør
-> `npm install` på nytt. På NixOS, se [NixOS](#nixos).
+> **Feilsøking:** Hvis `npm install` stopper i `prisma generate`, slett
+> `node_modules` og kjør `npm install` på nytt. På NixOS må schema-engine
+> hentes fra nixpkgs, se [NixOS](#nixos).
 
 ### NixOS
 
-Prisma 5.22 har ikke ferdigbygde motorer for NixOS, så `prisma generate` prøver
-å laste ned en motor for `linux-nixos` som ikke finnes. `shell.nix` bruker
-`prisma-engines` 5.22.0 fra nixpkgs 24.11 og peker Prisma mot dem i stedet:
+Prisma 7 bruker en Rust-fri klient, men CLI-en trenger fortsatt en native
+schema-engine for migreringer, og Prisma publiserer ikke binaries for NixOS.
+`shell.nix` henter derfor `prisma-engines_7` fra en pinnet nixpkgs
+unstable-revisjon, som setter `PRISMA_SCHEMA_ENGINE_BINARY` automatisk. Node 22
+holdes fra nixpkgs 24.11 for å matche Docker-imaget og CI:
 
 ```bash
 nix-shell
-rm -rf node_modules
 npm install
 npm run db:migrate
 npm run dev
 ```
 
-Shellen bruker Node 22 fra nixpkgs 24.11, som er versjonen Docker-imaget og CI
-bruker. Utenfor shellen vil `prisma generate` fortsatt feile på NixOS.
+Holder du Prisma oppdatert i `package.json`, bør `prisma-engines_7` i den
+pinnede nixpkgs-revisjonen være samme versjon.
 
 Nyttige kommandoer:
 
@@ -106,6 +104,10 @@ docker build -t fsm-platform .
 docker run --rm --network host --env-file .env \
   -v "$PWD/uploads:/app/uploads" fsm-platform
 ```
+
+> `docker run --env-file` fjerner ikke anførselstegn. `.env.example` bruker
+> derfor verdier uten `"..."`; har du en eldre `.env` med anførselstegn, fjern
+> dem før du bruker `--env-file`. Docker Compose håndterer begge formene.
 
 `docker-compose.yml` merker imaget som `fsm-platform:local`.
 
@@ -218,8 +220,9 @@ heller vil styre kjøringen helt fra en ekstern cron.
 ## Teknisk oppbygning
 
 - **Next.js 16** (App Router, React 19) med server components der det passer.
-- **Prisma 5** mot PostgreSQL; skjemaet ligger i `prisma/schema.prisma` og
-  migrasjonene i `prisma/migrations/`.
+- **Prisma 7** mot PostgreSQL via `@prisma/adapter-pg`; skjemaet ligger i
+  `prisma/schema.prisma`, migrasjonene i `prisma/migrations/` og
+  tilkoblingen i `prisma.config.mjs` + `src/lib/prisma.ts`.
 - **NextAuth** med kodeord-innlogging. Konti opprettes av en administrator og
   aktiveres manuelt; brukeren setter passordet sitt via en invitasjonslenke.
 - **@react-pdf/renderer** genererer servicerapporten på serveren, slik at PDF-en

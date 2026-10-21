@@ -51,7 +51,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Sjekk at migrasjonene gir samme skjema som schema.prisma
-        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
       - name: Generer rutetyper
         run: npx next typegen

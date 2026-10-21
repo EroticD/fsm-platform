@@ -10,13 +10,27 @@
  *   SEED_ADMIN_PASSWORD  (standard: admin123 – nektes i produksjon)
  *   SEED_ADMIN_NAME      (standard: Administrator)
  */
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcrypt";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("✖ DATABASE_URL må være satt for å kjøre seed.");
+  process.exit(1);
+}
 
-const email = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
-const name = process.env.SEED_ADMIN_NAME ?? "Administrator";
+const url = new URL(connectionString);
+const schema = url.searchParams.get("schema") ?? undefined;
+url.searchParams.delete("schema");
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: url.toString() }, { schema }),
+});
+
+const email = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
+const name = process.env.SEED_ADMIN_NAME || "Administrator";
 // Standardpassordet brukes bare når SEED_ADMIN_PASSWORD ikke er satt. Da nekter
 // vi å opprette brukeren i produksjon, slik at et svakt passord ikke sniker seg inn.
 const configuredPassword = process.env.SEED_ADMIN_PASSWORD;
