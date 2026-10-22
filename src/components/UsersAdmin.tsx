@@ -1,3 +1,4 @@
+import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { buildInviteUrl } from "@/lib/invite";
 import CopyButton from "@/components/CopyButton";
@@ -7,14 +8,11 @@ import {
   changeRole,
   changeDepartment,
   changePermissions,
+  resetPermissions,
   setActive,
   generateInvite,
 } from "@/app/brukere/actions";
-import {
-  effectivePermissions,
-  defaultPermissionsForRole,
-  PERMISSIONS,
-} from "@/lib/permissions";
+import { effectivePermissions, PERMISSIONS } from "@/lib/permissions";
 
 /**
  * Brukeradministrasjon (ansatte, roller, aktivering og invitasjoner).
@@ -27,6 +25,7 @@ export default async function UsersAdmin({
   isAdmin = false,
   departmentId,
   canManageCustomers = false,
+  actorPermissions = [],
   invite,
   inviteToken,
   error,
@@ -39,6 +38,8 @@ export default async function UsersAdmin({
   departmentId?: string | null;
   /** Kundeportalbrukere krever customers.manage. */
   canManageCustomers?: boolean;
+  /** Rettighetene innlogget bruker har, brukt til å filtrere roller. */
+  actorPermissions?: string[];
   invite?: string;
   inviteToken?: string;
   error?: string;
@@ -49,8 +50,33 @@ export default async function UsersAdmin({
   const users = await prisma.user.findMany({
     where: isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" },
     orderBy: { name: "asc" },
-    include: { contact: true, customer: true, department: true },
+    include: {
+      contact: true,
+      customer: true,
+      department: true,
+      roleDefinition: true,
+    },
   });
+
+  const allRoles = await prisma.role.findMany({
+    orderBy: [{ isSystem: "desc" }, { label: "asc" }],
+  });
+
+  // Ikke-administratorer kan bare tildele roller som ikke gir mer tilgang enn
+  // de har selv. Administrator kan tildele alle roller.
+  const actorPermissionSet = new Set(actorPermissions);
+  const roles = allRoles.filter((role) => {
+    if (role.key === "ADMIN" && !isAdmin) return false;
+    if (role.key === "CUSTOMER" && !canManageCustomers) return false;
+    if (isAdmin) return true;
+    return role.permissions.every(
+      (permission) => !permission || actorPermissionSet.has(permission),
+    );
+  });
+  const defaultRole =
+    roles.find((role) => role.key === "TECHNICIAN") ??
+    roles.find((role) => role.key === "USER") ??
+    roles[0];
 
   const departments = await prisma.department.findMany({
     where: {
@@ -94,6 +120,26 @@ export default async function UsersAdmin({
       {errorMessage && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
           {errorMessage}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-purple-900">
+              Roller og rettigheter
+            </p>
+            <p className="text-xs text-purple-700">
+              Opprett egne roller, endre rettighetene deres, eller fjern roller
+              som ikke er i bruk.
+            </p>
+          </div>
+          <Link
+            href="/innstillinger?tab=roller"
+            className="text-xs font-bold bg-purple-700 text-white px-3 py-2 rounded-lg hover:bg-purple-800 transition whitespace-nowrap"
+          >
+            Administrer roller →
+          </Link>
         </div>
       )}
 
@@ -159,18 +205,22 @@ export default async function UsersAdmin({
                 </label>
                 <select
                   name="role"
+                  defaultValue={defaultRole?.key ?? ""}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
                 >
-                  <option value="TECHNICIAN">📱 Montør (Kun felt-portal)</option>
-                  {isAdmin && (
-                    <option value="ADMIN">🎛️ Kontor / Admin (Full tilgang)</option>
-                  )}
-                  <option value="OFFICE">🏢 Kontor (Administrasjon, ingen logg)</option>
-                  <option value="USER">🔒 Standard (Ingen tilgang)</option>
-                  {canManageCustomers && (
-                    <option value="CUSTOMER">👤 Kundeportal (Kundedata)</option>
-                  )}
+                  {roles.map((role) => (
+                    <option key={role.key} value={role.key}>
+                      {role.label}
+                      {role.key === "CUSTOMER" ? " (kundedata)" : ""}
+                    </option>
+                  ))}
                 </select>
+                {roles.length === 0 && (
+                  <p className="text-[11px] text-red-600 mt-1">
+                    Ingen roller er tilgjengelige. Be en administrator opprette
+                    eller tildele en rolle.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
@@ -255,8 +305,8 @@ export default async function UsersAdmin({
                   !!u.resetToken && !!u.resetTokenExpiry && u.resetTokenExpiry > new Date();
                 // Bare administrator kan gjøre endringer på en administrator.
                 const canManageTarget = isAdmin || u.role !== "ADMIN";
-                const defaults = new Set(defaultPermissionsForRole(u.role));
                 const effective = effectivePermissions(u);
+                const roleLabel = u.roleDefinition?.label ?? u.role;
 
                 return (
                   <div key={u.id} className="p-5 flex flex-col gap-4 hover:bg-gray-50 transition">
@@ -276,7 +326,8 @@ export default async function UsersAdmin({
                           </p>
                           <p className="text-sm text-gray-500">{u.email}</p>
                           <p className="text-[11px] text-gray-500 mt-0.5">
-                            🏷️ {u.department?.name || "Ingen avdeling"}
+                            🔐 {roleLabel} • 🏷️{" "}
+                            {u.department?.name || "Ingen avdeling"}
                           </p>
                           {u.customer && (
                             <p className="text-[11px] text-gray-500 mt-0.5">
@@ -318,24 +369,16 @@ export default async function UsersAdmin({
                           name="role"
                           defaultValue={u.role}
                           disabled={isMe}
-                          className={`text-xs font-bold border rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900 ${
-                            u.role === "ADMIN"
-                              ? "border-purple-300"
-                              : u.role === "OFFICE"
-                                ? "border-indigo-300"
-                                : u.role === "TECHNICIAN"
-                                  ? "border-blue-300"
-                                  : u.role === "CUSTOMER"
-                                    ? "border-green-300"
-                                    : "border-gray-300"
-                          }`}
+                          className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
                         >
-                          {isAdmin && <option value="ADMIN">Admin</option>}
-                          <option value="OFFICE">Kontor</option>
-                          <option value="TECHNICIAN">Montør</option>
-                          {canManageCustomers && (
-                            <option value="CUSTOMER">Kundeportal</option>
+                          {!roles.some((role) => role.key === u.role) && (
+                            <option value={u.role}>{roleLabel}</option>
                           )}
+                          {roles.map((role) => (
+                            <option key={role.key} value={role.key}>
+                              {role.label}
+                            </option>
+                          ))}
                         </select>
 
                         {!isMe && (
@@ -426,66 +469,92 @@ export default async function UsersAdmin({
                     {isAdmin && (
                       <form action={changePermissions} className="border-t border-gray-100 pt-3 space-y-3">
                         <input type="hidden" name="id" value={u.id} />
-                        <div>
-                          <p className="text-xs font-bold text-gray-800">Ekstra rettigheter</p>
-                          <p className="text-[11px] text-gray-500">
-                            Rettigheter som følger rollen er låst. Kryss av for å gi flere
-                            rettigheter uten å endre rollen.
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {permissionGroups.map((group) => (
-                            <fieldset
-                              key={group.group}
-                              className="border border-gray-200 rounded-xl p-3"
-                            >
-                              <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
-                                {group.group}
-                              </legend>
-                              <div className="space-y-2">
-                                {group.permissions.map((permission) => {
-                                  const roleDefault = defaults.has(permission.key);
-                                  const checked = effective.has(permission.key);
-                                  return (
-                                    <label
-                                      key={permission.key}
-                                      className="flex items-start gap-2 text-xs text-gray-700"
-                                      title={permission.description}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        name="permissions"
-                                        value={permission.key}
-                                        defaultChecked={checked && !roleDefault}
-                                        disabled={roleDefault}
-                                        className="mt-0.5"
-                                      />
-                                      <span>
-                                        <span className="font-semibold">{permission.label}</span>
-                                        {roleDefault && (
-                                          <span className="ml-1 text-[10px] font-bold text-gray-400 uppercase">
-                                            Rolle
-                                          </span>
-                                        )}
-                                        <span className="block text-[11px] text-gray-500">
-                                          {permission.description}
-                                        </span>
-                                      </span>
-                                    </label>
-                                  );
-                                })}
+                        {u.role === "ADMIN" || u.role === "CUSTOMER" ? (
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                            {u.role === "ADMIN"
+                              ? "Administrator har alltid alle rettigheter, uavhengig av rollens liste."
+                              : "Kundeportalbrukere styres av kundetilknytningen, ikke av interne rettigheter."}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-bold text-gray-800">
+                                  Rettigheter for denne brukeren
+                                </p>
+                                <p className="text-[11px] text-gray-500">
+                                  Listen overstyrer rollen. La stå lik rollens
+                                  rettigheter for å følge rollen videre.
+                                </p>
                               </div>
-                            </fieldset>
-                          ))}
-                        </div>
-                        <button
-                          type="submit"
-                          className="text-[10px] font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
-                        >
-                          Lagre rettigheter
-                        </button>
+                              {u.permissionsCustomized && (
+                                <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
+                                  Tilpasset
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {permissionGroups.map((group) => (
+                                <fieldset
+                                  key={group.group}
+                                  className="border border-gray-200 rounded-xl p-3"
+                                >
+                                  <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
+                                    {group.group}
+                                  </legend>
+                                  <div className="space-y-2">
+                                    {group.permissions.map((permission) => (
+                                      <label
+                                        key={permission.key}
+                                        className="flex items-start gap-2 text-xs text-gray-700"
+                                        title={permission.description}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          name="permissions"
+                                          value={permission.key}
+                                          defaultChecked={effective.has(
+                                            permission.key,
+                                          )}
+                                          className="mt-0.5"
+                                        />
+                                        <span>
+                                          <span className="font-semibold">
+                                            {permission.label}
+                                          </span>
+                                          <span className="block text-[11px] text-gray-500">
+                                            {permission.description}
+                                          </span>
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </fieldset>
+                              ))}
+                            </div>
+                            <button
+                              type="submit"
+                              className="text-[10px] font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
+                            >
+                              Lagre rettigheter
+                            </button>
+                          </>
+                        )}
                       </form>
                     )}
+
+                    {isAdmin && u.permissionsCustomized &&
+                      u.role !== "ADMIN" && u.role !== "CUSTOMER" && (
+                        <form action={resetPermissions}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button
+                            type="submit"
+                            className="text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
+                          >
+                            Bruk rollens rettigheter
+                          </button>
+                        </form>
+                      )}
                     </>
                     )}
                   </div>

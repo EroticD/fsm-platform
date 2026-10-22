@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import UsersAdmin from "@/components/UsersAdmin";
 import { getCurrentUser } from "@/lib/session";
-import { hasPermission } from "@/lib/permissions";
+import { effectivePermissions, hasPermission } from "@/lib/permissions";
 
 export default async function UsersPage({
   searchParams,
@@ -50,6 +50,7 @@ export default async function UsersPage({
           isAdmin={currentUser?.role === "ADMIN"}
           departmentId={currentUser?.departmentId}
           canManageCustomers={hasPermission(currentUser, "customers.manage")}
+          actorPermissions={Array.from(effectivePermissions(currentUser))}
           invite={invite}
           inviteToken={inviteToken}
           error={error}

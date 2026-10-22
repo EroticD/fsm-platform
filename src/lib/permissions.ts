@@ -1,10 +1,10 @@
 /**
- * Rettigheter i tillegg til rollen.
+ * Rettigheter og roller.
  *
- * Rollene gir et trygt standardnivå. En administrator kan gi enkelte brukere
- * flere rettigheter uten å endre rollen deres. Sletting er bevisst ikke en
- * vanlig rettighet: bare administrator kan slette kunder, oppdrag, filer og
- * annet, uavhengig av hvilke ekstra rettigheter brukeren har fått.
+ * Rettighetene ligger på rollen og kan redigeres av administrator. En enkelt
+ * bruker kan i tillegg få en tilpasset rettighetsliste som overstyrer rollen.
+ * Sletting er bevisst ikke en vanlig rettighet: bare administrator kan slette
+ * kunder, oppdrag, filer og annet, uavhengig av hvilke rettigheter brukeren har.
  */
 export const PERMISSION_KEYS = [
   "workorders.view",
@@ -201,6 +201,10 @@ type PermissionUser = {
   role?: string | null;
   isActive?: boolean | null;
   permissions?: string[] | null;
+  /** True når permissions skal overstyre rollen helt. */
+  permissionsCustomized?: boolean | null;
+  /** Rollen med rettighetene slik de er lagret i databasen. */
+  roleDefinition?: { permissions?: string[] | null } | null;
 };
 
 /** Er verdien en kjent rettighet? Ukjente verdier ignoreres alltid. */
@@ -208,20 +212,38 @@ export function isPermission(value: string): value is Permission {
   return (PERMISSION_KEYS as readonly string[]).includes(value);
 }
 
-/** Standardrettighetene som følger med rollen. */
+/** Standardrettighetene som følger med den innebygde rollen. */
 export function defaultPermissionsForRole(role?: string | null): Permission[] {
   if (!role) return [];
   return ROLE_PERMISSIONS[role] ?? [];
 }
 
-/** Alle rettigheter brukeren faktisk har (rolle + eventuelle ekstra). */
-export function effectivePermissions(user?: PermissionUser | null): Set<Permission> {
-  const result = new Set<Permission>();
-  if (!user || !user.isActive) return result;
+/** Rettighetene rollen gir, med fallback for eldre objekter uten rolle-data. */
+function rolePermissions(user: PermissionUser): Permission[] {
+  const configured = user.roleDefinition?.permissions;
+  if (Array.isArray(configured)) {
+    return configured.filter(isPermission);
+  }
+  return defaultPermissionsForRole(user.role);
+}
 
-  for (const permission of defaultPermissionsForRole(user.role)) {
+/** Alle rettigheter brukeren faktisk har. Administrator har alltid alt. */
+export function effectivePermissions(user?: PermissionUser | null): Set<Permission> {
+  if (!user || !user.isActive) return new Set<Permission>();
+  if (user.role === "ADMIN") return new Set(ALL_PERMISSIONS);
+
+  const result = new Set<Permission>();
+  if (user.permissionsCustomized === true) {
+    for (const permission of user.permissions ?? []) {
+      if (isPermission(permission)) result.add(permission);
+    }
+    return result;
+  }
+
+  for (const permission of rolePermissions(user)) {
     result.add(permission);
   }
+  // Bakoverkompatibilitet: eldre kall kan sende permissions uten flagget.
   for (const permission of user.permissions ?? []) {
     if (isPermission(permission)) result.add(permission);
   }
@@ -236,20 +258,6 @@ export function hasPermission(
   if (!user || !user.isActive) return false;
   if (user.role === "ADMIN") return true;
   return effectivePermissions(user).has(permission);
-}
-
-/**
- * Ekstra rettigheter som er lagt til utenom rollens standardnivå. Brukes av
- * brukeradministrasjonen, slik at standardrettighetene vises som låste.
- */
-export function extraPermissionsForUser(user?: PermissionUser | null): Permission[] {
-  if (!user) return [];
-  const defaults = new Set(defaultPermissionsForRole(user.role));
-  const extras = new Set<Permission>();
-  for (const permission of user.permissions ?? []) {
-    if (isPermission(permission) && !defaults.has(permission)) extras.add(permission);
-  }
-  return Array.from(extras);
 }
 
 /** Rydder innsendte rettigheter til kjente verdier uten duplikater. */

@@ -28,13 +28,32 @@ model Department {
   @@index([isActive])
 }
 
+// Roller kan opprettes og redigeres av administrator. Nøkkelen er stabil og
+// brukes av koden for spesialroller som ADMIN, TECHNICIAN og CUSTOMER, mens
+// visningsnavnet og rettighetene kan endres.
+model Role {
+  key         String   @id
+  label       String   @unique
+  description String?
+  permissions String[] @default([])
+  isSystem    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@index([isSystem])
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  role          String    @default("TECHNICIAN")
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  role           String    @default("TECHNICIAN")
+  roleDefinition Role      @relation(fields: [role], references: [key], onUpdate: Cascade, onDelete: Restrict)
 
   password         String?
   resetToken       String?
@@ -57,13 +76,16 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
-  // Ekstra rettigheter utover rollens standardnivå. Sletting er ikke en
-  // rettighet her; det er alltid forbeholdt administrator.
-  permissions String[] @default([])
+  // Tilpassede rettigheter. Når permissionsCustomized er true overstyrer
+  // permissions rollens rettigheter helt. Sletting er ikke en rettighet her;
+  // det er alltid forbeholdt administrator.
+  permissions           String[] @default([])
+  permissionsCustomized Boolean  @default(false)
 
   workOrders WorkOrder[] @relation("WorkOrderTechnicians")
 
   @@index([departmentId])
+  @@index([role])
 }
 
 model Customer {

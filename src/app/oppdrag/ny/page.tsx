@@ -9,7 +9,7 @@ import { parseDateOnly } from "@/lib/dates";
 import { getCurrentUser, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
-import { staffForDepartment } from "@/lib/access";
+import { staffForDepartment, staffWhere } from "@/lib/access";
 import { createWorkOrderSchema } from "./schemas";
 
 export default async function AdminCreateWorkOrderPage({
@@ -35,9 +35,7 @@ export default async function AdminCreateWorkOrderPage({
   const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const technicians = await prisma.user.findMany({
-    where: isAdmin
-      ? { role: { in: ["ADMIN", "TECHNICIAN", "OFFICE"] } }
-      : staffForDepartment(ownDepartmentId),
+    where: isAdmin ? staffWhere() : staffForDepartment(ownDepartmentId),
     include: { department: true },
     orderBy: { name: "asc" },
   });

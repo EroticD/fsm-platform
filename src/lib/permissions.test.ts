@@ -38,6 +38,31 @@ describe("rettigheter", () => {
     expect(hasPermission(technician, "audit.view")).toBe(true);
   });
 
+  it("bruker rettighetene som er lagret på rollen", () => {
+    const custom = {
+      role: "SERVICELEDER",
+      isActive: true,
+      permissions: [],
+      roleDefinition: { permissions: ["customers.manage", "reports.view"] },
+    };
+    expect(hasPermission(custom, "customers.manage")).toBe(true);
+    expect(hasPermission(custom, "reports.view")).toBe(true);
+    expect(hasPermission(custom, "workorders.edit")).toBe(false);
+  });
+
+  it("lar en tilpasset liste overstyre rollen helt", () => {
+    const customized = {
+      role: "TECHNICIAN",
+      isActive: true,
+      permissionsCustomized: true,
+      permissions: ["documents.manage"],
+      roleDefinition: { permissions: ["workorders.view", "reports.write"] },
+    };
+    expect(hasPermission(customized, "documents.manage")).toBe(true);
+    expect(hasPermission(customized, "workorders.view")).toBe(false);
+    expect(hasPermission(customized, "reports.write")).toBe(false);
+  });
+
   it("gir ingen rettigheter til inaktive brukere", () => {
     const inactive = {
       role: "ADMIN",

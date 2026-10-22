@@ -21,6 +21,9 @@ const mocks = vi.hoisted(() => {
         delete: vi.fn(),
         create: vi.fn(),
       },
+      role: {
+        findUnique: vi.fn(),
+      },
       auditLog: { create: vi.fn() },
       department: {
         findFirst: vi.fn(async () => null),
@@ -83,6 +86,28 @@ beforeEach(() => {
   mocks.state.targetDepartmentId = "dep-a";
   mocks.state.activeAdminCount = 1;
   vi.clearAllMocks();
+  const roles = {
+    ADMIN: {
+      key: "ADMIN",
+      label: "Administrator",
+      permissions: ["workorders.view", "settings.manage", "audit.view"],
+    },
+    OFFICE: {
+      key: "OFFICE",
+      label: "Kontor",
+      permissions: ["workorders.view", "customers.manage", "users.manage"],
+    },
+    TECHNICIAN: {
+      key: "TECHNICIAN",
+      label: "Montør",
+      permissions: ["workorders.view", "reports.write"],
+    },
+    USER: { key: "USER", label: "Standard", permissions: [] },
+    CUSTOMER: { key: "CUSTOMER", label: "Kundeportal", permissions: [] },
+  };
+  mocks.prisma.role.findUnique.mockImplementation(
+    async ({ where }: { where: { key: string } }) => roles[where.key as keyof typeof roles] ?? null,
+  );
   mocks.prisma.user.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) => {
     if (where.id === "actor") {
       return {
@@ -132,7 +157,12 @@ describe("changeRole", () => {
     await changeRole(formData({ id: "target", role: "TECHNICIAN" }));
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "target" },
-      data: { role: "TECHNICIAN" },
+      data: {
+        role: "TECHNICIAN",
+        departmentId: "dep-a",
+        permissions: [],
+        permissionsCustomized: false,
+      },
     });
   });
 

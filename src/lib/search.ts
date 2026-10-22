@@ -188,6 +188,7 @@ export async function performSearch(
         where: canUsers
           ? { AND: [textOr(["name", "email"], q), departmentUsersScope(user)] }
           : noRows,
+        include: { roleDefinition: { select: { label: true } } },
         orderBy: { name: "asc" }, take: CANDIDATES,
       }),
       prisma.template.findMany({
@@ -314,7 +315,10 @@ export async function performSearch(
       items: fuzzyUsers.map((u) => ({
         id: u.id,
         title: u.name || u.email || "Uten navn",
-        subtitle: joinInfo([ROLE_LABELS[u.role] ?? u.role, u.email]),
+        subtitle: joinInfo([
+          u.roleDefinition?.label ?? ROLE_LABELS[u.role] ?? u.role,
+          u.email,
+        ]),
         href: u.customerId ? `/kunder/${u.customerId}?tab=portal` : "/innstillinger?tab=ansatte",
       })),
     },

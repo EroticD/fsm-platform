@@ -8,7 +8,7 @@ export async function getCurrentUser() {
   if (!session?.user?.email) return null;
   return prisma.user.findUnique({
     where: { email: session.user.email },
-    include: { department: true },
+    include: { department: true, roleDefinition: true },
   });
 }
 
@@ -23,14 +23,16 @@ export async function actorName(): Promise<string> {
 // ---------------------------------------------------------------------------
 // Roller
 //
+// Rollene ligger i databasen og kan redigeres av administrator. Noen få
+// nøkler har fast betydning i koden:
+//
 //   ADMIN      – alt, inkludert sletting og aktivitetslogg
-//   OFFICE     – kontor: kunder, utstyr, oppdrag, maler og ansatte i egen
-//                avdeling
-//   TECHNICIAN – felt: leser kunder, utstyr, rapporter og oppdrag i egen
-//                avdeling, og skriver rapporter, kommentarer og fremdrift
+//   OFFICE     – kontor (standardnivå, kan redigeres)
+//   TECHNICIAN – felt (standardnivå, kan redigeres)
+//   USER       – standard uten tilgang
 //   CUSTOMER   – kundeportal: kun egen kundedata (håndheves i src/proxy.ts)
 //
-// Standardnivået og eventuelle ekstra rettigheter ligger i permissions.ts.
+// Rettighetene og eventuelle tilpassede lister ligger i permissions.ts.
 // Sletting er alltid forbeholdt administrator.
 // ---------------------------------------------------------------------------
 

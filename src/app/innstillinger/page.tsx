@@ -5,15 +5,16 @@ import { revalidatePath } from "next/cache";
 import AuditLogTable from "@/components/AuditLogTable";
 import UsersAdmin from "@/components/UsersAdmin";
 import DepartmentsAdmin from "@/components/DepartmentsAdmin";
+import RolesAdmin from "@/components/RolesAdmin";
 import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
-import { hasPermission } from "@/lib/permissions";
+import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import { workOrderScope, staffScope } from "@/lib/access";
 import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
 
 export default async function SettingsPage({
   searchParams
 }: {
-  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string }>
+  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string; role?: string }>
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
@@ -71,6 +72,21 @@ export default async function SettingsPage({
     users: department._count.users,
     workOrders: department._count.workOrders,
     contracts: department._count.contracts,
+  }));
+
+  const roles = isAdmin
+    ? await prisma.role.findMany({
+        orderBy: [{ isSystem: "desc" }, { label: "asc" }],
+        include: { _count: { select: { users: true } } },
+      })
+    : [];
+  const roleRows = roles.map((role) => ({
+    key: role.key,
+    label: role.label,
+    description: role.description,
+    permissions: role.permissions,
+    isSystem: role.isSystem,
+    users: role._count.users,
   }));
 
   // --- AUDIT LOG DATA ---
@@ -447,6 +463,14 @@ export default async function SettingsPage({
           )}
           {isAdmin && (
             <Link
+              href="?tab=roller"
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'roller' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              🔐 Roller & rettigheter
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
               href="?tab=avdelinger"
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'avdelinger' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
@@ -499,6 +523,7 @@ export default async function SettingsPage({
             isAdmin={user.role === "ADMIN"}
             departmentId={user.departmentId}
             canManageCustomers={hasPermission(user, "customers.manage")}
+            actorPermissions={Array.from(effectivePermissions(user))}
             invite={resolvedParams.invite}
             inviteToken={resolvedParams.inviteToken}
             error={resolvedParams.error}
@@ -914,6 +939,26 @@ export default async function SettingsPage({
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {currentTab === 'roller' && isAdmin && (
+          <div>
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                🔐 Roller & rettigheter
+              </h2>
+              <p className="text-gray-500 text-sm">
+                Lag egne roller, endre hvilke rettigheter rollene gir, og fjern
+                roller som ikke er i bruk. Enkelte brukere kan i tillegg få en
+                tilpasset rettighetsliste på brukerkortet.
+              </p>
+            </div>
+            <RolesAdmin
+              roles={roleRows}
+              error={resolvedParams.error}
+              message={resolvedParams.role}
+            />
           </div>
         )}
 

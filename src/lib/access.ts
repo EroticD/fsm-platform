@@ -3,22 +3,15 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission, type Permission } from "@/lib/permissions";
 
-/** Rollene som regnes som interne ansatte. */
-export const STAFF_ROLES = ["ADMIN", "OFFICE", "TECHNICIAN"] as const;
-
 export type AccessUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
 export function isAdminUser(user?: { role?: string | null } | null): boolean {
   return user?.role === "ADMIN";
 }
 
-export function isStaffUser(user?: { role?: string | null } | null): boolean {
-  return Boolean(user && (STAFF_ROLES as readonly string[]).includes(user.role ?? ""));
-}
-
 /**
- * Rettigheter som gir tilgang til oppdrag. Vanlige ansattroller har dette via
- * rollen, men en bruker med rollen USER kan få det som ekstra rettighet.
+ * Rettigheter som gjør en bruker til intern ansatt i oppdragssammenheng.
+ * Roller er data, så vi spør etter rettigheter i stedet for faste rollenavn.
  */
 const WORK_ORDER_PERMISSIONS: Permission[] = [
   "workorders.view",
@@ -30,10 +23,34 @@ const WORK_ORDER_PERMISSIONS: Permission[] = [
 ];
 
 function canUseWorkOrders(user: AccessUser): boolean {
-  return (
-    isStaffUser(user) ||
-    WORK_ORDER_PERMISSIONS.some((permission) => hasPermission(user, permission))
+  return WORK_ORDER_PERMISSIONS.some((permission) =>
+    hasPermission(user, permission),
   );
+}
+
+/**
+ * Ansatte med oppdragstilgang. En tilpasset rettighetsliste overstyrer rollen,
+ * og må derfor vurderes i stedet for rollens liste.
+ */
+export function staffWhere(departmentId?: string | null): Prisma.UserWhereInput {
+  const permissionFilter: Prisma.UserWhereInput = {
+    role: { not: "CUSTOMER" },
+    OR: [
+      {
+        permissionsCustomized: false,
+        roleDefinition: {
+          permissions: { hasSome: [...WORK_ORDER_PERMISSIONS] },
+        },
+      },
+      {
+        permissionsCustomized: true,
+        permissions: { hasSome: [...WORK_ORDER_PERMISSIONS] },
+      },
+    ],
+  };
+
+  if (!departmentId) return permissionFilter;
+  return { AND: [permissionFilter, { departmentId }] };
 }
 
 /**
@@ -109,17 +126,15 @@ export async function requireWorkOrderAccess(
 /** Ansatte brukeren kan se i lister (egen avdeling, eller alle for admin). */
 export function staffScope(user?: AccessUser | null): Prisma.UserWhereInput {
   if (!user?.isActive) return { id: { in: [] } };
-  if (user.role === "ADMIN") {
-    return { role: { in: [...STAFF_ROLES] } };
-  }
+  if (user.role === "ADMIN") return staffWhere();
   if (!user.departmentId) return { id: { in: [] } };
-  return { role: { in: [...STAFF_ROLES] }, departmentId: user.departmentId };
+  return staffWhere(user.departmentId);
 }
 
 /** Ansatte i en bestemt avdeling – brukes ved tildeling av montører. */
 export function staffForDepartment(departmentId?: string | null): Prisma.UserWhereInput {
   if (!departmentId) return { id: { in: [] } };
-  return { role: { in: [...STAFF_ROLES] }, departmentId };
+  return staffWhere(departmentId);
 }
 
 /** Ansatte i samme avdeling som brukeren, for søk og oversikter. */

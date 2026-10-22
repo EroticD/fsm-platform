@@ -118,15 +118,6 @@ export function cleanColor(value: unknown, fallback = ""): string {
   return HEX_COLOR.test(color) ? color.toLowerCase() : fallback;
 }
 
-/** Rollene appen kjenner. Alt annet blir avvist. */
-export const ROLES = ["ADMIN", "OFFICE", "TECHNICIAN", "CUSTOMER"] as const;
-
-/** Rollekode fra et skjema. Ukjent rolle blir tom tekst. */
-export function cleanRole(value: unknown): string {
-  const role = strip(value, false).trim().toUpperCase();
-  return (ROLES as readonly string[]).includes(role) ? role : "";
-}
-
 /** Statusene et oppdrag kan ha (samme som WorkStatus i schema.prisma). */
 export const WORK_STATUSES = [
   "PLANNED",

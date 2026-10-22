@@ -14,10 +14,11 @@ signerte servicerapporten kan lastes ned som PDF.
   og hver enhet viser alle tidligere servicer med resultat, kommentarer og bilder.
 - **Kunder og kundeportal** – kundekort med kontakter, kundeverlegg, avtaler og
   egne portalbrukere som bare ser sin egen bedrift.
-- **Avdelinger og rettigheter** – hvert oppdrag og hver serviceavtale tilhører en
-  avdeling. Ansatte ser bare oppdrag i egen avdeling, mens administrator ser
-  alt. Rollene har et trygt standardnivå, og administrator kan gi enkelte
-  brukere flere rettigheter uten å endre rollen.
+- **Avdelinger, roller og rettigheter** – hvert oppdrag og hver serviceavtale
+  tilhører en avdeling. Ansatte ser bare oppdrag i egen avdeling, mens
+  administrator ser alt. Administrator kan opprette og fjerne egne roller,
+  endre hvilke rettigheter hver rolle gir, og gi enkelte brukere en tilpasset
+  rettighetsliste. Sletting er fortsatt forbeholdt administrator.
 - **Gjentagende serviceavtaler** – avtaler med startdato og intervall på 3, 6,
   12 eller 24 måneder. Neste oppdrag opprettes automatisk med kundedata og en ny,
   tom sjekkliste; forrige rapports PDF legges ved som dokumentasjon.
@@ -236,11 +237,17 @@ heller vil styre kjøringen helt fra en ekstern cron.
   nettsiden og `MarkdownPdf` i rapporten. All tekst blir renset i
   `src/lib/sanitize.ts` før den lagres, og Markdown-viseren tolker aldri HTML.
 - **Tailwind CSS 4** med et lyst tema.
-- Roller: `ADMIN`, `OFFICE`, `TECHNICIAN` og `CUSTOMER`.
+- Roller lagres i `Role` med en stabil nøkkel, visningsnavn og en liste med
+  rettigheter. `ADMIN`, `OFFICE`, `TECHNICIAN`, `USER` og `CUSTOMER` er
+  innebygde systemroller; administrator kan opprette flere og redigere
+  rettighetene deres. `User.permissionsCustomized` gjør det mulig å overstyre
+  rollen for en enkelt bruker.
 
 ### Datamodell i korte trekk
 
-`Department` grupperer ansatte, oppdrag og serviceavtaler. `Customer` har
+`Role` definerer standardrettighetene for en rolle, og `User` peker på en rolle
+samt en valgfri tilpasset rettighetsliste. `Department` grupperer ansatte,
+oppdrag og serviceavtaler. `Customer` har
 `Product` (utstyr), `Contact`, `CustomerAttachment` og `WorkOrder`. `Contract`
 beskriver en gjentagende serviceavtale og peker på kunden, en valgfri
 kontaktperson, en valgfri sjekklistemal og avdelingen som eier avtalen. Hvert
@@ -255,14 +262,16 @@ eller enheten redigeres senere.
 - Innlogging har hastighetsbegrensning per e-postkonto og per IP
   (`src/lib/rate-limit.ts`). Økten varer i 12 timer, og skrivehandlingene sjekker
   at brukeren fortsatt er aktiv.
-- Bare administratorer kan endre roller som berører `ADMIN`, opprette
-  administratorer, slette/deaktivere dem eller lage invitasjonslenker til dem.
-  En kontorbruker kan ikke gi seg selv full tilgang, og kan bare administrere
-  brukere i egen avdeling.
+- Bare administratorer kan opprette, endre og slette roller, endre rettighetene
+  til en rolle, eller gi en bruker en tilpasset rettighetsliste. Roller som
+  berører `ADMIN` krever også administrator. En kontorbruker kan ikke gi seg
+  selv full tilgang: nye roller må ikke gi rettigheter vedkommende ikke har fra
+  før, og brukere kan bare administreres i egen avdeling. Systemroller kan ikke
+  slettes, og en rolle som er i bruk må tømmes før den kan fjernes.
 - Oppdrag er avdelingssperret i alle lister, kalendere, søk og handlinger.
   Kunder, dokumenter, enheter og rapporter er felles for alle avdelinger.
   Sletting av kunder, oppdrag, brukere, filer og andre registreringer er alltid
-  forbeholdt administrator, uavhengig av ekstra rettigheter.
+  forbeholdt administrator, uavhengig av rolle og tilpassede rettigheter.
 - Rapporter låses automatisk når de er fylt ut. Bare en administrator kan låse
   dem opp igjen, og hver opplåsing logges i aktivitetsloggen.
 - Kundeportalbrukere begrenses til egen kundedata i `src/proxy.ts` og i hver
