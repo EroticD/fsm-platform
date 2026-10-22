@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
+import { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 /** Kommentarer kan festes til disse tre tingene – og ikke noe annet. */
 const ENTITY_TYPES = ["workOrder", "customer", "contact"] as const;
 
 export async function POST(request: Request) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user?.isActive) {
+  if (!user.isActive) {
     return NextResponse.json({ error: "Bruker ikke funnet" }, { status: 404 });
   }
 
@@ -31,6 +33,48 @@ export async function POST(request: Request) {
   }
   if (!entityId || !content) {
     return NextResponse.json({ error: "Manglende felt" }, { status: 400 });
+  }
+
+  // Kontroller at brukeren faktisk har tilgang til det kommentaren festes til.
+  if (entityType === "workOrder") {
+    if (!hasPermission(user, "workorders.update")) {
+      return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    }
+    const target = await prisma.workOrder.findFirst({
+      where: {
+        id: entityId,
+        ...workOrderScope(user),
+        ...(user.role === "TECHNICIAN"
+          ? { status: { not: WorkStatus.CANCELLED } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    if (!target) {
+      return NextResponse.json({ error: "Oppdraget finnes ikke" }, { status: 404 });
+    }
+  } else if (entityType === "customer") {
+    if (!hasPermission(user, "customers.manage")) {
+      return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    }
+    const target = await prisma.customer.findUnique({
+      where: { id: entityId },
+      select: { id: true },
+    });
+    if (!target) {
+      return NextResponse.json({ error: "Kunden finnes ikke" }, { status: 404 });
+    }
+  } else {
+    if (!hasPermission(user, "customers.manage")) {
+      return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    }
+    const target = await prisma.contact.findUnique({
+      where: { id: entityId },
+      select: { id: true },
+    });
+    if (!target) {
+      return NextResponse.json({ error: "Kontakten finnes ikke" }, { status: 404 });
+    }
   }
 
   try {

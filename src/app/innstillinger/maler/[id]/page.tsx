@@ -1,20 +1,19 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import TemplateBuilder from "./TemplateBuilder";
 import { saveTemplate } from "./actions";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function EditTemplatePage({ 
   params 
 }: { 
   params: Promise<{ id: string }> 
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "templates.manage")) redirect("/");
 
   const resolvedParams = await params;
   

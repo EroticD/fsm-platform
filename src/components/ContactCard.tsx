@@ -9,6 +9,7 @@ export default function ContactCard({
   onUpdate,
   onDelete,
   readOnly = false,
+  canDelete = false,
 }: {
   contact: {
     id: string;
@@ -22,6 +23,8 @@ export default function ContactCard({
   onDelete: (formData: FormData) => Promise<void>;
   /** Montører ser kontaktinfo, men får ikke redigere eller slette. */
   readOnly?: boolean;
+  /** Sletting er forbeholdt administrator. */
+  canDelete?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
 
@@ -50,7 +53,7 @@ export default function ContactCard({
           >
             {isEditing ? "Skjul" : "✏️ Rediger"}
           </button>
-          <form action={onDelete} className="inline">
+          <form action={onDelete} className={`inline ${canDelete ? "" : "hidden"}`}>
             <input type="hidden" name="id" value={contact.id} />
             <button
               type="submit"

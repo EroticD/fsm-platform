@@ -1,15 +1,14 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function TechnicianCustomerLookupPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "customers.view")) redirect("/");
 
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q ? resolvedParams.q.trim() : "";
@@ -30,14 +29,6 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
       include: {
         contacts: true,
         products: true,
-        workOrder: {
-          where: { status: { not: 'CANCELLED' } },
-          orderBy: { scheduledFor: 'desc' },
-          take: 5,
-          include: {
-            reports: true // RETTET TIL FLERTALL HER
-          }
-        }
       },
       take: 20
     });
@@ -47,14 +38,6 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
       include: {
         contacts: true,
         products: true,
-        workOrder: {
-          where: { status: { not: 'CANCELLED' } },
-          orderBy: { scheduledFor: 'desc' },
-          take: 5,
-          include: {
-            reports: true // RETTET TIL FLERTALL HER OGSÅ
-          }
-        }
       },
       take: 10
     });

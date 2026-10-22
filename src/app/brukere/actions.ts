@@ -9,10 +9,10 @@ import { LIMITS, cleanEmail, cleanRole, cleanText } from "@/lib/sanitize";
 import {
   actorName,
   getCurrentUser,
-  isOffice,
   requireAdmin,
-  requireOffice,
+  requirePermission,
 } from "@/lib/session";
+import { cleanPermissions, hasPermission } from "@/lib/permissions";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
@@ -54,21 +54,46 @@ async function activeAdminCount(excludeId?: string): Promise<number> {
   });
 }
 
+/** Godtar bare en aktiv avdeling, ellers null. */
+async function validDepartmentId(raw: FormDataEntryValue | null): Promise<string | null> {
+  const id = cleanText(raw, { maxLength: LIMITS.line });
+  if (!id) return null;
+  const department = await prisma.department.findFirst({
+    where: { id, isActive: true },
+    select: { id: true },
+  });
+  return department?.id ?? null;
+}
+
 export async function createUser(formData: FormData) {
   const back = returnPath(formData);
   const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
   const email = cleanEmail(formData.get("email"));
   const role = cleanRole(formData.get("role"));
   const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
+  let departmentId = await validDepartmentId(formData.get("departmentId"));
+
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
 
   // Bare administrator kan opprette nye administratorer.
   if (role === "ADMIN") {
-    if (!(await requireAdmin())) return;
-  } else if (!(await requireOffice())) {
+    if (actor.role !== "ADMIN") return;
+  } else if (!hasPermission(actor, "users.manage")) {
     return;
   }
 
+  // Kundeportalbrukere gir tilgang til kundedata og krever customers.manage.
+  if (role === "CUSTOMER" && !hasPermission(actor, "customers.manage")) return;
+
   if (!name || !email || !role) return;
+  if (role === "CUSTOMER") {
+    departmentId = null;
+  } else if (actor.role !== "ADMIN") {
+    // En avdelingsansvarlig kan bare opprette ansatte i egen avdeling.
+    if (!actor.departmentId) return;
+    departmentId = actor.departmentId;
+  }
 
   // Kundeportalbrukere må kobles til en kontaktperson på kundekortet.
   let customerId: string | null = null;
@@ -96,6 +121,7 @@ export async function createUser(formData: FormData) {
         name,
         email,
         role,
+        departmentId,
         customerId,
         contactId: linkedContactId,
         isActive: false,
@@ -134,8 +160,11 @@ export async function createUser(formData: FormData) {
 }
 
 export async function deleteUser(formData: FormData) {
+  // Sletting er alltid forbeholdt administrator.
+  if (!(await requireAdmin())) return;
+
   const actor = await getCurrentUser();
-  if (!actor?.isActive || !isOffice(actor.role)) return;
+  if (!actor?.isActive) return;
 
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!id) return;
@@ -143,10 +172,9 @@ export async function deleteUser(formData: FormData) {
   const userToDelete = await prisma.user.findUnique({ where: { id } });
   if (!userToDelete) return;
 
-  // Ikke slett deg selv, og bare administrator kan slette en administrator.
+  // Ikke slett deg selv, og ikke fjern den siste aktive administratoren.
   if (userToDelete.id === actor.id) return;
   if (userToDelete.role === "ADMIN") {
-    if (!(await requireAdmin())) return;
     if (userToDelete.isActive && (await activeAdminCount(userToDelete.id)) === 0) {
       return;
     }
@@ -169,6 +197,9 @@ export async function changeRole(formData: FormData) {
   const newRole = cleanRole(formData.get("role"));
   if (!id || !newRole) return;
 
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
+
   const userToUpdate = await prisma.user.findUnique({ where: { id } });
   if (!userToUpdate) return;
 
@@ -176,8 +207,19 @@ export async function changeRole(formData: FormData) {
   // kontorbruker gir seg selv – eller noen andre – full tilgang.
   const touchesAdmin = userToUpdate.role === "ADMIN" || newRole === "ADMIN";
   if (touchesAdmin) {
-    if (!(await requireAdmin())) return;
-  } else if (!(await requireOffice())) {
+    if (actor.role !== "ADMIN") return;
+  } else if (!hasPermission(actor, "users.manage")) {
+    return;
+  }
+
+  // Kundeportalbrukere gir tilgang til kundedata og krever customers.manage.
+  if (newRole === "CUSTOMER" && !hasPermission(actor, "customers.manage")) return;
+
+  // Avdelingsansvarlige kan bare endre brukere i egen avdeling.
+  if (
+    actor.role !== "ADMIN" &&
+    (!actor.departmentId || userToUpdate.departmentId !== actor.departmentId)
+  ) {
     return;
   }
 
@@ -213,6 +255,14 @@ export async function setActive(formData: FormData) {
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return;
 
+  // Avdelingsansvarlige kan bare endre brukere i egen avdeling.
+  if (
+    actor.role !== "ADMIN" &&
+    (!actor.departmentId || target.departmentId !== actor.departmentId)
+  ) {
+    return;
+  }
+
   // Endringer på en administrator krever administrator.
   if (target.role === "ADMIN") {
     if (!(await requireAdmin())) return;
@@ -221,7 +271,7 @@ export async function setActive(formData: FormData) {
     if (!active && target.isActive && (await activeAdminCount(target.id)) === 0) {
       return;
     }
-  } else if (!isOffice(actor.role)) {
+  } else if (!(await requirePermission("users.manage"))) {
     return;
   }
 
@@ -237,6 +287,72 @@ export async function setActive(formData: FormData) {
   revalidateUserAdmin();
 }
 
+/**
+ * Flytter en ansatt til en annen avdeling. Bare administrator kan gjøre dette:
+ * avdelingen avgjør hvilke oppdrag brukeren ser, så en avdelingsansvarlig må
+ * ikke kunne flytte seg selv eller andre til en annen avdeling.
+ */
+export async function changeDepartment(formData: FormData) {
+  if (!(await requireAdmin())) return;
+
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+  if (!id) return;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return;
+
+  const departmentId = target.role === "CUSTOMER"
+    ? null
+    : await validDepartmentId(formData.get("departmentId"));
+
+  await prisma.user.update({ where: { id }, data: { departmentId } });
+
+  let departmentName = "Ingen avdeling";
+  if (departmentId) {
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { name: true },
+    });
+    departmentName = department?.name ?? departmentName;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      entityType: "User",
+      entityId: id,
+      action: `Endret avdeling for ${target.name || target.email || "Ukjent"} til ${departmentName}`,
+      userName: await actorName(),
+    },
+  });
+  revalidateUserAdmin();
+}
+
+/** Lagrer ekstra rettigheter utover rollens standardnivå. Bare admin. */
+export async function changePermissions(formData: FormData) {
+  if (!(await requireAdmin())) return;
+
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+  if (!id) return;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return;
+
+  const permissions = cleanPermissions(
+    formData.getAll("permissions").map((value) => String(value)),
+  );
+
+  await prisma.user.update({ where: { id }, data: { permissions } });
+  await prisma.auditLog.create({
+    data: {
+      entityType: "User",
+      entityId: id,
+      action: `Endret ekstra rettigheter for ${target.name || target.email || "Ukjent"}`,
+      userName: await actorName(),
+    },
+  });
+  revalidateUserAdmin();
+}
+
 export async function generateInvite(formData: FormData) {
   const back = returnPath(formData);
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
@@ -245,11 +361,22 @@ export async function generateInvite(formData: FormData) {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return;
 
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
+
   // En invitasjonslenke gir mulighet til å sette nytt passord. For en
   // administrator er det derfor en full kontoovertakelse, og krever admin.
   if (user.role === "ADMIN") {
-    if (!(await requireAdmin())) return;
-  } else if (!(await requireOffice())) {
+    if (actor.role !== "ADMIN") return;
+  } else if (!hasPermission(actor, "users.manage")) {
+    return;
+  }
+
+  // Avdelingsansvarlige kan bare invitere brukere i egen avdeling.
+  if (
+    actor.role !== "ADMIN" &&
+    (!actor.departmentId || user.departmentId !== actor.departmentId)
+  ) {
     return;
   }
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { actorName, requireOffice } from "@/lib/session";
+import { actorName, requireAdmin, requirePermission } from "@/lib/session";
 
 /** Kort hjelper: henter enheten og sjekker at den faktisk tilhører kunden. */
 async function findUnitForCustomer(id: string, customerId: string) {
@@ -15,7 +15,7 @@ async function findUnitForCustomer(id: string, customerId: string) {
 
 /** Registrerer en ny enhet (maskin/utstyr) på kunden. */
 export async function createUnit(formData: FormData) {
-  if (!(await requireOffice())) return;
+  if (!(await requirePermission("equipment.manage"))) return;
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
   const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
@@ -44,7 +44,7 @@ export async function createUnit(formData: FormData) {
 
 /** Oppdaterer navn, serienummer og plassering på en enhet. */
 export async function updateUnit(formData: FormData) {
-  if (!(await requireOffice())) return;
+  if (!(await requirePermission("equipment.manage"))) return;
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
@@ -78,7 +78,7 @@ export async function updateUnit(formData: FormData) {
  * øyeblikksbilde av enheten, så servicehistorikken blir stående.
  */
 export async function deleteUnit(formData: FormData) {
-  if (!(await requireOffice())) return;
+  if (!(await requireAdmin())) return;
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
 

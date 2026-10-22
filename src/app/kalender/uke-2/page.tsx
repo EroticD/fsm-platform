@@ -1,16 +1,17 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import FullCalendarClient from "@/app/kalender/FullCalendarClient";
 import { toCalendarEvent } from "@/lib/calendar-events";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 export default async function BiweeklyCalendarPage() {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
+  const canCreate = hasPermission(user, "workorders.create");
 
   // Hent oppdrag i en bred datoøk (6 måneder bakover og fremover)
   const sixMonthsAgo = new Date();
@@ -20,12 +21,17 @@ export default async function BiweeklyCalendarPage() {
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
-      status: { not: "CANCELLED" },
-      scheduledFor: { not: null, lte: sixMonthsAhead },
-      OR: [
-        { scheduledFor: { gte: sixMonthsAgo } },
-        // Tar med oppdrag som startet før vinduet og varer inn i det.
-        { scheduledTo: { gte: sixMonthsAgo } },
+      AND: [
+        workOrderScope(user),
+        {
+          status: { not: "CANCELLED" },
+          scheduledFor: { not: null, lte: sixMonthsAhead },
+          OR: [
+            { scheduledFor: { gte: sixMonthsAgo } },
+            // Tar med oppdrag som startet før vinduet og varer inn i det.
+            { scheduledTo: { gte: sixMonthsAgo } },
+          ],
+        },
       ],
     },
     include: {
@@ -56,9 +62,11 @@ export default async function BiweeklyCalendarPage() {
             <Link href="/kalender" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition">
               &larr; Hjem
             </Link>
-            <Link href="/oppdrag/ny" className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
-              ➕ Nytt oppdrag
-            </Link>
+            {canCreate && (
+              <Link href="/oppdrag/ny" className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
+                ➕ Nytt oppdrag
+              </Link>
+            )}
           </div>
         </div>
 

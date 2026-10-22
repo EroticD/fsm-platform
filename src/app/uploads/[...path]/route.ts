@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import fs from "fs/promises";
 import path from "path";
 import { contentTypeFor, uploadDir } from "@/lib/uploads";
+import { getCurrentUser } from "@/lib/session";
 
 // Bilder og vedlegg leses fra disk for hver forespørsel, slik at filer som
 // lastes opp mens appen kjører blir synlige umiddelbart.
@@ -15,8 +15,8 @@ export async function GET(
   // Bilder og vedlegg kan inneholde kundedata. UUID-navnet er ikke en
   // tilgangskontroll i seg selv, så alle filer krever en gyldig økt.
   // Merkevarelogoen er en ekstern URL (se Branding.logoUrl) og rammes ikke.
-  const session = await getServerSession();
-  if (!session?.user?.email) {
+  const user = await getCurrentUser();
+  if (!user?.isActive) {
     return new NextResponse("Ikke autentisert", { status: 401 });
   }
 

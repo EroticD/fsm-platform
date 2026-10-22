@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   // Store PDF-filer overstiger dette, og da blir multipart-bodyen avkuttet før
   // den når opplastingsruten. Øker grensen så store dokumenter kommer gjennom.
   experimental: {
-    middlewareClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
+    proxyClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
   },
 
   // I utviklingsmodus blokkerer Next.js forespørsler fra andre "origins" enn

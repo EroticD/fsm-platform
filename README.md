@@ -14,6 +14,10 @@ signerte servicerapporten kan lastes ned som PDF.
   og hver enhet viser alle tidligere servicer med resultat, kommentarer og bilder.
 - **Kunder og kundeportal** – kundekort med kontakter, kundeverlegg, avtaler og
   egne portalbrukere som bare ser sin egen bedrift.
+- **Avdelinger og rettigheter** – hvert oppdrag og hver serviceavtale tilhører en
+  avdeling. Ansatte ser bare oppdrag i egen avdeling, mens administrator ser
+  alt. Rollene har et trygt standardnivå, og administrator kan gi enkelte
+  brukere flere rettigheter uten å endre rollen.
 - **Gjentagende serviceavtaler** – avtaler med startdato og intervall på 3, 6,
   12 eller 24 måneder. Neste oppdrag opprettes automatisk med kundedata og en ny,
   tom sjekkliste; forrige rapports PDF legges ved som dokumentasjon.
@@ -236,11 +240,13 @@ heller vil styre kjøringen helt fra en ekstern cron.
 
 ### Datamodell i korte trekk
 
-`Customer` har `Product` (utstyr), `Contact`, `CustomerAttachment` og
-`WorkOrder`. `Contract` beskriver en gjentagende serviceavtale og peker på
-kunden, en valgfri kontaktperson og en valgfri sjekklistemal. Hvert oppdrag har
-`Report`, som igjen har `ReportUnit` – ett øyeblikksbilde per kontrollert enhet
-med svar, kommentarer og status. Historikken endres derfor ikke selv om malen
+`Department` grupperer ansatte, oppdrag og serviceavtaler. `Customer` har
+`Product` (utstyr), `Contact`, `CustomerAttachment` og `WorkOrder`. `Contract`
+beskriver en gjentagende serviceavtale og peker på kunden, en valgfri
+kontaktperson, en valgfri sjekklistemal og avdelingen som eier avtalen. Hvert
+oppdrag har `Report`, som igjen har `ReportUnit` – ett øyeblikksbilde per
+kontrollert enhet med svar, kommentarer og status. Historikken endres derfor
+ikke selv om malen
 eller enheten redigeres senere.
 
 ## Sikkerhet
@@ -251,7 +257,12 @@ eller enheten redigeres senere.
   at brukeren fortsatt er aktiv.
 - Bare administratorer kan endre roller som berører `ADMIN`, opprette
   administratorer, slette/deaktivere dem eller lage invitasjonslenker til dem.
-  En kontorbruker kan ikke gi seg selv full tilgang.
+  En kontorbruker kan ikke gi seg selv full tilgang, og kan bare administrere
+  brukere i egen avdeling.
+- Oppdrag er avdelingssperret i alle lister, kalendere, søk og handlinger.
+  Kunder, dokumenter, enheter og rapporter er felles for alle avdelinger.
+  Sletting av kunder, oppdrag, brukere, filer og andre registreringer er alltid
+  forbeholdt administrator, uavhengig av ekstra rettigheter.
 - Rapporter låses automatisk når de er fylt ut. Bare en administrator kan låse
   dem opp igjen, og hver opplåsing logges i aktivitetsloggen.
 - Kundeportalbrukere begrenses til egen kundedata i `src/proxy.ts` og i hver

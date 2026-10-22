@@ -1,9 +1,10 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatDate } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
@@ -34,11 +35,9 @@ export default async function UnitsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "equipment.view")) redirect("/");
 
   const { q } = await searchParams;
   const search = q?.trim() || "";

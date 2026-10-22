@@ -2,6 +2,9 @@ import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
 import { fuzzyScore } from "@/lib/fuzzy";
 import { formatDate } from "@/lib/dates";
+import { WorkStatus } from "@prisma/client";
+import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
+import { hasPermission } from "@/lib/permissions";
 
 export type SearchItem = {
   id: string;
@@ -57,6 +60,8 @@ function textOr(fields: string[], q: string) {
 }
 
 type SearchOptions = {
+  /** Brukeren som søker. Styrer avdelingssynlige oppdrag, kommentarer og ansatte. */
+  user: AccessUser;
   /** Kontoret kan søke i kansellerte oppdrag; montørene skal ikke se dem. */
   includeCancelled?: boolean;
 };
@@ -68,7 +73,7 @@ type SearchOptions = {
  */
 export async function performSearch(
   query: string,
-  options: SearchOptions = {}
+  options: SearchOptions
 ): Promise<SearchResults> {
   const q = query.trim();
   if (q.length < 2) {
@@ -76,59 +81,132 @@ export async function performSearch(
   }
 
   const includeCancelled = options.includeCancelled ?? false;
+  const user = options.user;
+
+  // Søket skal bare vise kategorier brukeren faktisk har tilgang til.
+  // Kunder, enheter, rapporter, dokumenter og maler er felles for alle
+  // avdelinger, men fortsatt avhengige av rettighetene.
+  const canCustomers = hasPermission(user, "customers.view");
+  const canWorkOrders = hasPermission(user, "workorders.view");
+  const canEquipment = hasPermission(user, "equipment.view");
+  const canReports = hasPermission(user, "reports.view");
+  const canUsers = hasPermission(user, "users.view");
+  // Det finnes ingen egen leservisning for maler; treffene lenker til editoren.
+  const canTemplates = hasPermission(user, "templates.manage");
+  const canDocuments = hasPermission(user, "documents.view");
+
+  if (
+    !canCustomers &&
+    !canWorkOrders &&
+    !canEquipment &&
+    !canReports &&
+    !canUsers &&
+    !canTemplates &&
+    !canDocuments
+  ) {
+    return { query: q, total: 0, groups: [] };
+  }
 
   const contains = { contains: q, mode: "insensitive" as const };
+  const noRows = { id: { in: [] } };
+
+  const commentAccess = canWorkOrders || canCustomers
+    ? {
+        OR: [
+          ...(canWorkOrders
+            ? [
+                {
+                  AND: [
+                    { workOrderId: { not: null } },
+                    {
+                      workOrder: {
+                        ...workOrderScope(user),
+                        ...(includeCancelled
+                          ? {}
+                          : { status: { not: WorkStatus.CANCELLED } }),
+                      },
+                    },
+                  ],
+                },
+              ]
+            : []),
+          ...(canCustomers ? [{ workOrderId: null }] : []),
+        ],
+      }
+    : noRows;
 
   const [customers, contacts, units, workOrders, reports, comments, users, templates, documents, folders] =
     await Promise.all([
       prisma.customer.findMany({
-        where: textOr(["name", "customerNumber", "orgNumber", "address", "postalCode", "city", "phone", "email", "notes"], q),
+        where: canCustomers
+          ? textOr(["name", "customerNumber", "orgNumber", "address", "postalCode", "city", "phone", "email", "notes"], q)
+          : noRows,
         orderBy: { name: "asc" }, take: CANDIDATES,
       }),
       prisma.contact.findMany({
-        where: textOr(["name", "email", "phone", "role"], q),
+        where: canCustomers
+          ? textOr(["name", "email", "phone", "role"], q)
+          : noRows,
         include: { customer: { select: { name: true } } }, orderBy: { name: "asc" }, take: CANDIDATES,
       }),
       prisma.product.findMany({
-        where: textOr(["model", "serialNumber", "location"], q),
+        where: canEquipment
+          ? textOr(["model", "serialNumber", "location"], q)
+          : noRows,
         include: { customer: { select: { id: true, name: true } } }, orderBy: { model: "asc" }, take: CANDIDATES,
       }),
       prisma.workOrder.findMany({
-        where: {
-          ...textOr(["title", "description", "creatorName"], q),
-          ...(includeCancelled ? {} : { status: { not: "CANCELLED" } }),
-        },
+        where: canWorkOrders
+          ? {
+              AND: [
+                workOrderScope(user),
+                textOr(["title", "description", "creatorName"], q),
+                ...(includeCancelled ? [] : [{ status: { not: WorkStatus.CANCELLED } }]),
+              ],
+            }
+          : noRows,
         include: { customer: { select: { name: true } } }, orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }], take: CANDIDATES,
       }),
       prisma.report.findMany({
-        where: {
-          comments: contains,
-          ...(includeCancelled
-            ? {}
-            : { workOrder: { status: { not: "CANCELLED" } } }),
-        },
+        where: canReports
+          ? {
+              comments: contains,
+              ...(includeCancelled
+                ? {}
+                : { workOrder: { status: { not: "CANCELLED" } } }),
+            }
+          : noRows,
         include: { template: { select: { title: true } }, workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } } }, orderBy: { completedAt: "desc" }, take: CANDIDATES,
       }),
       prisma.comment.findMany({
-        where: textOr(["content", "authorName"], q),
+        where: {
+          AND: [textOr(["content", "authorName"], q), commentAccess],
+        },
         include: { workOrder: { select: { id: true, title: true } }, customer: { select: { id: true, name: true } }, contact: { select: { id: true, name: true, customerId: true } } }, orderBy: { createdAt: "desc" }, take: CANDIDATES,
       }),
       prisma.user.findMany({
-        where: textOr(["name", "email"], q), orderBy: { name: "asc" }, take: CANDIDATES,
+        where: canUsers
+          ? { AND: [textOr(["name", "email"], q), departmentUsersScope(user)] }
+          : noRows,
+        orderBy: { name: "asc" }, take: CANDIDATES,
       }),
       prisma.template.findMany({
-        where: { title: contains }, orderBy: { title: "asc" }, take: CANDIDATES,
+        where: canTemplates ? { title: contains } : noRows,
+        orderBy: { title: "asc" }, take: CANDIDATES,
       }),
       prisma.document.findMany({
-        where: { OR: [
-          { title: contains }, { description: contains }, { fileName: contains },
-          { contentText: contains },
-          { tags: { some: { name: contains } } },
-        ] },
+        where: canDocuments
+          ? { OR: [
+              { title: contains }, { description: contains }, { fileName: contains },
+              { contentText: contains },
+              { tags: { some: { name: contains } } },
+            ] }
+          : noRows,
         include: { tags: { select: { name: true } } }, orderBy: { title: "asc" }, take: CANDIDATES,
       }),
       prisma.documentFolder.findMany({
-        where: { name: contains }, orderBy: { name: "asc" }, take: CANDIDATES,
+        where: canDocuments ? { name: contains } : noRows,
+        orderBy: { name: "asc" }, take: CANDIDATES,
       }),
     ]);
 
@@ -205,7 +283,7 @@ export async function performSearch(
         id: r.id,
         title: `${r.template?.title ?? "Rapport"} – ${r.workOrder.title}`,
         subtitle: joinInfo([r.workOrder.customer?.name, r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null, formatDate(r.completedAt)]),
-        href: `/oppdrag/${r.workOrderId}`,
+        href: `/rapporter/${r.workOrderId}`,
       })),
     },
     {

@@ -1,9 +1,11 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
+import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatDate } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { canAccessWorkOrder } from "@/lib/access";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
@@ -39,18 +41,30 @@ function rangeLabel(key: RangeKey) {
   return "hele historikken";
 }
 
-function whereFor(range: RangeKey): Prisma.ReportWhereInput {
+function whereFor(
+  range: RangeKey,
+  excludeCancelled = false,
+): Prisma.ReportWhereInput {
   const now = new Date();
-  if (range === "denne-maneden") return { completedAt: { gte: startOfMonth(now) } };
-  if (range === "forrige-maned") {
-    return {
+  let base: Prisma.ReportWhereInput = {};
+  if (range === "denne-maneden") {
+    base = { completedAt: { gte: startOfMonth(now) } };
+  } else if (range === "forrige-maned") {
+    base = {
       completedAt: {
         gte: startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
         lt: startOfMonth(now),
       },
     };
   }
-  return {};
+
+  if (!excludeCancelled) return base;
+  return {
+    AND: [
+      base,
+      { workOrder: { status: { not: WorkStatus.CANCELLED } } },
+    ],
+  };
 }
 
 export default async function ReportsPage({
@@ -58,32 +72,42 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ vis?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  // Proxyen slipper kundeportalbrukere inn på /rapporter for å se egne PDF-er.
-  // Selve listen er en intern oversikt, så de sendes tilbake til portalen.
-  if (user?.role === "CUSTOMER") redirect("/kundeportal");
+  // Kundeportalbrukere slipper inn for å se egne PDF-er via kundeportalen,
+  // men selve rapportlisten er en intern oversikt.
+  if (user.role === "CUSTOMER") redirect("/kundeportal");
+  if (!hasPermission(user, "reports.view")) redirect("/");
 
   const { vis } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
+  const excludeCancelled = user.role === "TECHNICIAN";
 
   const [reports, total, thisMonth, lastMonth, allReports] = await Promise.all([
     prisma.report.findMany({
-      where: whereFor(range),
+      where: whereFor(range, excludeCancelled),
       orderBy: { completedAt: "desc" },
       take: 100,
       include: {
         template: { select: { title: true } },
-        workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } },
+        workOrder: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            departmentId: true,
+            customerId: true,
+            customer: { select: { name: true } },
+          },
+        },
         units: { select: { id: true, status: true } },
       },
     }),
-    prisma.report.count({ where: whereFor(range) }),
-    prisma.report.count({ where: whereFor("denne-maneden") }),
-    prisma.report.count({ where: whereFor("forrige-maned") }),
-    prisma.report.count(),
+    prisma.report.count({ where: whereFor(range, excludeCancelled) }),
+    prisma.report.count({ where: whereFor("denne-maneden", excludeCancelled) }),
+    prisma.report.count({ where: whereFor("forrige-maned", excludeCancelled) }),
+    prisma.report.count({ where: whereFor("alle", excludeCancelled) }),
   ]);
 
   const rangeCounts: Record<RangeKey, number> = {
@@ -166,6 +190,10 @@ export default async function ReportsPage({
           <div className="space-y-2">
             {reports.map((report) => {
               const deviations = report.units.filter((u) => u.status === "AVVIK").length;
+              const canOpenWorkOrder =
+                Boolean(report.workOrder) &&
+                canAccessWorkOrder(user, report.workOrder!) &&
+                (user.role !== "TECHNICIAN" || report.workOrder!.status !== "CANCELLED");
               return (
                 <div
                   key={report.id}
@@ -220,12 +248,14 @@ export default async function ReportsPage({
                     >
                       📄 Se rapport (PDF)
                     </Link>
-                    <Link
-                      href={`/oppdrag/${report.workOrderId}`}
-                      className="font-bold text-gray-600 hover:underline"
-                    >
-                      📂 Åpne oppdraget
-                    </Link>
+                    {canOpenWorkOrder && (
+                      <Link
+                        href={`/oppdrag/${report.workOrderId}`}
+                        className="font-bold text-gray-600 hover:underline"
+                      >
+                        📂 Åpne oppdraget
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

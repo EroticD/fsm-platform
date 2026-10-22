@@ -9,6 +9,8 @@ import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { formatDate, parseDateOnly, toDateOnly } from "@/lib/dates";
 import { contractIntervalLabel } from "@/lib/contracts";
 import { getCurrentUser } from "@/lib/session";
+import { getDefaultDepartmentId } from "@/lib/departments";
+import { staffForDepartment } from "@/lib/access";
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
 function dateKey(d: Date) {
@@ -55,7 +57,7 @@ export default async function KundeportalPage() {
     }
   });
 
-  if (user?.role !== "CUSTOMER" || !user.customer) {
+  if (!user?.isActive || user.role !== "CUSTOMER" || !user.customer) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-xl shadow border text-center">
@@ -67,6 +69,7 @@ export default async function KundeportalPage() {
   }
 
   const customer = user.customer;
+  const defaultDepartmentId = await getDefaultDepartmentId();
 
   // Sorter oppdrag i kategorier
   const upcomingWorkOrders = customer.workOrder.filter(wo => 
@@ -94,11 +97,17 @@ export default async function KundeportalPage() {
 
     if (!title || !scheduledFor) return;
 
+    // Kundebestillinger havner i standardavdelingen. Finnes ingen aktiv
+    // avdeling, kan bestillingen ikke opprettes.
+    const departmentId = await getDefaultDepartmentId();
+    if (!departmentId) return;
+
     try {
       const created = await prisma.workOrder.create({
         data: {
           title,
           description: description || "",
+          departmentId,
           customerId: current.customerId,
           scheduledFor,
           creatorName: current.name || "Kunde",
@@ -146,13 +155,14 @@ export default async function KundeportalPage() {
   });
 
   const technicians = await prisma.user.findMany({
-    where: { role: { in: ["ADMIN", "TECHNICIAN", "OFFICE"] }, isActive: true },
+    where: { ...staffForDepartment(defaultDepartmentId), isActive: true },
     orderBy: { name: 'asc' },
     select: { id: true, name: true },
   });
 
   const scheduledWorkOrders = await prisma.workOrder.findMany({
     where: {
+      departmentId: defaultDepartmentId ?? "__ingen_avdeling__",
       scheduledFor: { gte: today, lt: horizon },
       status: { notIn: ["CANCELLED"] },
     },

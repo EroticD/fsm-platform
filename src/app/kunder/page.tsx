@@ -1,19 +1,18 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
-import { getCurrentUser, isOffice, requireOffice } from "@/lib/session";
+import { getCurrentUser, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 
 export default async function KunderPage() {
-  // Sjekk at brukeren er logget inn
-  const session = await getServerSession();
-  if (!session) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "customers.view")) redirect("/");
 
   // Montører får lese kundekatalogen, men ikke registrere nye kunder.
-  const user = await getCurrentUser();
-  const office = isOffice(user?.role);
+  const office = hasPermission(user, "customers.manage");
 
   // Hent alle kunder fra databasen, sortert alfabetisk
   const customers = await prisma.customer.findMany({
@@ -23,7 +22,7 @@ export default async function KunderPage() {
   // Dette er en "Server Action" som kjører trygt på serveren når skjemaet sendes inn
   async function addCustomer(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("customers.manage"))) return;
     
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const orgNumber = cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line });
@@ -99,7 +98,9 @@ export default async function KunderPage() {
                     <td className="p-4 text-gray-600">{customer.orgNumber || "-"}</td>
                     <td className="p-4">
                       <Link href={`/kunder/${customer.id}`} className="text-blue-600 hover:underline text-sm font-medium block">Se detaljer</Link>
-                      <Link href={`/kunder/${customer.id}/rediger`} className="text-gray-600 hover:underline text-sm font-medium">Rediger</Link>
+                      {office && (
+                        <Link href={`/kunder/${customer.id}/rediger`} className="text-gray-600 hover:underline text-sm font-medium">Rediger</Link>
+                      )}
                     </td>
                   </tr>
                 ))

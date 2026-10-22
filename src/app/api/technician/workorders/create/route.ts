@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 export async function POST(request: Request) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.redirect(new URL("/api/auth/signin", request.url));
   }
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user || !user.isActive || (user.role !== "TECHNICIAN" && user.role !== "ADMIN" && user.role !== "OFFICE")) {
+  if (!user.isActive || !hasPermission(user, "workorders.create")) {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+  if (!user.departmentId) {
+    return NextResponse.redirect(
+      new URL("/mine-oppdrag/ny?error=avdeling", request.url),
+      { status: 303 },
+    );
   }
 
   const formData = await request.formData();
@@ -42,6 +47,7 @@ export async function POST(request: Request) {
     data: {
       title,
       description,
+      departmentId: user.departmentId,
       customerId: customerId || undefined,
       scheduledFor,
       scheduledTo:

@@ -1,30 +1,51 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import AuditLogTable from "@/components/AuditLogTable";
 import UsersAdmin from "@/components/UsersAdmin";
-import { isOffice, requireOffice } from "@/lib/session";
+import DepartmentsAdmin from "@/components/DepartmentsAdmin";
+import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope, staffScope } from "@/lib/access";
 import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
 
-export default async function SettingsPage({ 
-  searchParams 
-}: { 
+export default async function SettingsPage({
+  searchParams
+}: {
   searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string }>
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/");
-  // Innstillinger er kontorets verktøy (merkevare, maler, ansatte, statistikk
-  // og aktivitetslogg). Montører bruker feltportalen i stedet.
-  if (!isOffice(user.role)) redirect("/");
+
+  const isAdmin = user.role === "ADMIN";
+  const canBranding = hasPermission(user, "settings.manage");
+  const canUsers = hasPermission(user, "users.view");
+  const canTemplates = hasPermission(user, "templates.manage");
+  const canDocuments = hasPermission(user, "documents.manage");
+  const canAudit = hasPermission(user, "audit.view");
+  const canStats = hasPermission(user, "reports.view");
+  const canUseSettings =
+    canBranding || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
+
+  // Brukere uten administrasjons- eller statistikkrettigheter skal ikke inn her.
+  if (!canUseSettings) redirect("/");
 
   // Vent på searchParams (kreves i nyere Next.js) og sett standardfane
   const resolvedParams = await searchParams;
-  const currentTab = resolvedParams.tab || "branding";
+  const currentTab =
+    resolvedParams.tab ||
+    (canBranding
+      ? "branding"
+      : canUsers
+        ? "ansatte"
+        : canTemplates
+          ? "maler"
+          : canAudit
+            ? "auditlog"
+            : canStats
+              ? "statistikk"
+              : "avdelinger");
   const searchQuery = resolvedParams.search || "";
 
   // Hent data for alle fanene
@@ -32,6 +53,25 @@ export default async function SettingsPage({
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
   const documentTags = await prisma.documentTag.findMany({ orderBy: { name: 'asc' } });
+
+  const departments = isAdmin
+    ? await prisma.department.findMany({
+        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        include: {
+          _count: { select: { users: true, workOrders: true, contracts: true } },
+        },
+      })
+    : [];
+  const departmentRows = departments.map((department) => ({
+    id: department.id,
+    name: department.name,
+    description: department.description,
+    isActive: department.isActive,
+    isDefault: department.isDefault,
+    users: department._count.users,
+    workOrders: department._count.workOrders,
+    contracts: department._count.contracts,
+  }));
 
   // --- AUDIT LOG DATA ---
   const auditDateFrom = resolvedParams.dateFrom || "";
@@ -83,12 +123,12 @@ export default async function SettingsPage({
     take: 50
   });
   const statsTechnicians = await prisma.user.findMany({
-    where: { role: { in: ['TECHNICIAN', 'ADMIN', 'OFFICE'] } },
+    where: staffScope(user),
     orderBy: { name: 'asc' }
   });
 
-  // Bygg where-clause for statistikk
-  const statsWhere: any = {};
+  // Bygg where-clause for statistikk. Oppdrag er alltid avdelingssperret.
+  const statsWhere: any = { ...workOrderScope(user) };
   if (dateFrom) statsWhere.scheduledFor = { gte: new Date(dateFrom) };
   if (dateTo) {
     statsWhere.scheduledFor = {
@@ -137,11 +177,11 @@ export default async function SettingsPage({
   // --- SERVER ACTION: LAGRE BRANDING ---
   async function saveBranding(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("settings.manage"))) return;
     const companyName = cleanText(formData.get("companyName"), { maxLength: LIMITS.title });
     const primaryColor = cleanColor(formData.get("primaryColor")) || "#2563eb";
     const logoUrl = cleanUrl(formData.get("logoUrl"));
-    
+
     const existing = await prisma.branding.findFirst();
     if (existing) {
       await prisma.branding.update({ where: { id: existing.id }, data: { companyName, primaryColor, logoUrl: logoUrl || null } });
@@ -162,12 +202,12 @@ export default async function SettingsPage({
   // --- SERVER ACTION: OPPRETT SJEKKLISTE ---
   async function createTemplate(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("templates.manage"))) return;
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     if (!title) return;
 
     await prisma.template.create({
-      data: { 
+      data: {
         title,
         fieldsJson: "[]"
       }
@@ -186,7 +226,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: SLETT SJEKKLISTE ---
   async function deleteTemplate(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireAdmin())) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
@@ -210,7 +250,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: OPPRETT TAG ---
   async function createTag(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("templates.manage"))) return;
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const color = cleanColor(formData.get("color")) || "#3b82f6";
     if (!name) return;
@@ -232,7 +272,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: OPPDATER TAG ---
   async function updateTag(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("templates.manage"))) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const color = cleanColor(formData.get("color")) || "#3b82f6";
@@ -259,7 +299,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: SLETT TAG ---
   async function deleteTag(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireAdmin())) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
@@ -279,7 +319,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: OPPRETT DOKUMENT-TAG ---
   async function createDocumentTag(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const color = cleanColor(formData.get("color")) || "#3b82f6";
     if (!name) return;
@@ -299,7 +339,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: OPPDATER DOKUMENT-TAG ---
   async function updateDocumentTag(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const color = cleanColor(formData.get("color")) || "#3b82f6";
@@ -323,7 +363,7 @@ export default async function SettingsPage({
   // --- SERVER ACTION: SLETT DOKUMENT-TAG ---
   async function deleteDocumentTag(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireAdmin())) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
@@ -343,7 +383,7 @@ export default async function SettingsPage({
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-6">
-        
+
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
@@ -357,52 +397,68 @@ export default async function SettingsPage({
 
         {/* FANER (TABS) */}
         <div className="flex space-x-2 border-b border-gray-200">
-          <Link 
-            href="?tab=branding" 
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'branding' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            🎨 Merkevare
-          </Link>
-          <Link 
-            href="?tab=ansatte" 
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'ansatte' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            👥 Ansatte & Roller
-          </Link>
-          <Link 
-            href="?tab=maler" 
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'maler' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            📋 Sjekklister / Maler
-          </Link>
-          <Link
-            href="?tab=tags"
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'tags' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            🏷️ Tags
-          </Link>
-          {user?.role === "ADMIN" && (
-            <Link 
-              href="?tab=auditlog" 
+          {canBranding && (
+            <Link
+              href="?tab=branding"
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'branding' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              🎨 Merkevare
+            </Link>
+          )}
+          {canUsers && (
+            <Link
+              href="?tab=ansatte"
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'ansatte' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              👥 Ansatte & Roller
+            </Link>
+          )}
+          {canTemplates && (
+            <Link
+              href="?tab=maler"
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'maler' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              📋 Sjekklister / Maler
+            </Link>
+          )}
+          {(canTemplates || canDocuments) && (
+            <Link
+              href="?tab=tags"
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'tags' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              🏷️ Tags
+            </Link>
+          )}
+          {canAudit && (
+            <Link
+              href="?tab=auditlog"
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'auditlog' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               📋 Aktivitetslogg
             </Link>
           )}
-          {(user?.role === "ADMIN" || user?.role === "OFFICE") && (
-            <Link 
-              href="?tab=statistikk" 
+          {canStats && (
+            <Link
+              href="?tab=statistikk"
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'statistikk' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               📊 Statistikk
             </Link>
           )}
+          {isAdmin && (
+            <Link
+              href="?tab=avdelinger"
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'avdelinger' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              🏷️ Avdelinger
+            </Link>
+          )}
         </div>
 
         {/* INNHOLD BASERT PÅ VALGT FANE */}
-        
+
         {/* FANE 1: BRANDING */}
-        {currentTab === 'branding' && (
+        {currentTab === 'branding' && canBranding && (
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-6">White-label Innstillinger</h2>
             <form action={saveBranding} className="space-y-5 max-w-md">
@@ -419,11 +475,11 @@ export default async function SettingsPage({
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Logo URL (valgfritt)</label>
-                <input 
-                  type="url" 
-                  name="logoUrl" 
-                  defaultValue={branding?.logoUrl || ""} 
-                  placeholder="https://..." 
+                <input
+                  type="url"
+                  name="logoUrl"
+                  defaultValue={branding?.logoUrl || ""}
+                  placeholder="https://..."
                   className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
                 />
                 <p className="text-xs text-gray-500 mt-1">Ekstern URL til firmanlogo. Brukes på rapporter, e-post og dashbord-header.</p>
@@ -436,11 +492,13 @@ export default async function SettingsPage({
         )}
 
         {/* FANE 2: ANSATTE */}
-        {currentTab === 'ansatte' && (
+        {currentTab === 'ansatte' && canUsers && (
           <UsersAdmin
             returnTo="/innstillinger?tab=ansatte"
             currentUserEmail={user.email}
             isAdmin={user.role === "ADMIN"}
+            departmentId={user.departmentId}
+            canManageCustomers={hasPermission(user, "customers.manage")}
             invite={resolvedParams.invite}
             inviteToken={resolvedParams.inviteToken}
             error={resolvedParams.error}
@@ -449,21 +507,21 @@ export default async function SettingsPage({
         )}
 
         {/* FANE 3: MALER & SJEKKLISTER */}
-        {currentTab === 'maler' && (
+        {currentTab === 'maler' && canTemplates && (
           <div className="space-y-6">
-            
+
             {/* Opprett ny mal */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 mb-2">Opprett ny sjekkliste</h2>
               <p className="text-sm text-gray-500 mb-5">Lag en ny mal som kan knyttes til fremtidige oppdrag.</p>
-              
+
               <form action={createTemplate} className="flex gap-3 max-w-lg">
-                <input 
-                  type="text" 
-                  name="title" 
-                  placeholder="Navn på sjekkliste (f.eks. Årlig Service Varmepumpe)" 
-                  required 
-                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500" 
+                <input
+                  type="text"
+                  name="title"
+                  placeholder="Navn på sjekkliste (f.eks. Årlig Service Varmepumpe)"
+                  required
+                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
                 />
                 <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
                   + Opprett
@@ -474,7 +532,7 @@ export default async function SettingsPage({
             {/* Eksisterende maler */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Tilgjengelige Maler ({templates.length})</h2>
-              
+
               {templates.length === 0 ? (
                 <p className="text-sm text-gray-500 italic">Du har ikke opprettet noen sjekklistemaler ennå.</p>
               ) : (
@@ -482,23 +540,24 @@ export default async function SettingsPage({
                    {templates.map(template => (
                     <div key={template.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl">
                       <span className="font-bold text-gray-800">{template.title}</span>
-                      
+
                       <div className="flex gap-2">
                         {/* NY KNAPP: Rediger */}
-                        <Link 
-                          href={`/innstillinger/maler/${template.id}`} 
+                        <Link
+                          href={`/innstillinger/maler/${template.id}`}
                           className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition"
                         >
                           Rediger
                         </Link>
-                        
-                        {/* Eksisterende Slett-knapp */}
-                        <form action={deleteTemplate}>
-                          <input type="hidden" name="id" value={template.id} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
-                            Slett
-                          </button>
-                        </form>
+
+                        {isAdmin && (
+                          <form action={deleteTemplate}>
+                            <input type="hidden" name="id" value={template.id} />
+                            <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
+                              Slett
+                            </button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -510,7 +569,7 @@ export default async function SettingsPage({
         )}
 
         {/* FANE: TAGS */}
-        {currentTab === 'tags' && (
+        {currentTab === 'tags' && (canTemplates || canDocuments) && (
           <div className="space-y-6">
 
             {/* OPPDRAG-TAGS */}
@@ -568,10 +627,12 @@ export default async function SettingsPage({
                             </form>
                           </div>
                         </details>
-                        <form action={deleteTag}>
-                          <input type="hidden" name="id" value={tag.id} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
-                        </form>
+                        {isAdmin && (
+                          <form action={deleteTag}>
+                            <input type="hidden" name="id" value={tag.id} />
+                            <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -634,10 +695,12 @@ export default async function SettingsPage({
                             </form>
                           </div>
                         </details>
-                        <form action={deleteDocumentTag}>
-                          <input type="hidden" name="id" value={tag.id} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
-                        </form>
+                        {isAdmin && (
+                          <form action={deleteDocumentTag}>
+                            <input type="hidden" name="id" value={tag.id} />
+                            <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -649,11 +712,11 @@ export default async function SettingsPage({
         )}
 
         {/* FANE 4: AKTIVITETSLOGG (ADMIN ONLY) */}
-        {currentTab === 'auditlog' && (
+        {currentTab === 'auditlog' && canAudit && (
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-6">📋 Systemaktivitetslogg</h2>
             <p className="text-gray-500 text-sm mb-6">Alle systemhendelser og brukeraktiviteter.</p>
-            
+
             {/* FILTER OG SØK */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
               <form method="GET" className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -689,9 +752,9 @@ export default async function SettingsPage({
               </form>
             </div>
 
-            <AuditLogTable 
-              logs={auditLogs} 
-              showEntityFilter 
+            <AuditLogTable
+              logs={auditLogs}
+              showEntityFilter
               page={page}
               pageSize={pageSize}
               totalCount={totalAuditLogs}
@@ -700,8 +763,8 @@ export default async function SettingsPage({
           </div>
         )}
 
-        {/* FANE 5: STATISTIKK (ADMIN ONLY) */}
-        {currentTab === 'statistikk' && (
+        {/* FANE 5: STATISTIKK (AVDELINGSBEGRENSET) */}
+        {currentTab === 'statistikk' && canStats && (
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-6">📊 Statistikk</h2>
             <p className="text-gray-500 text-sm mb-6">Oppdragsstatistikk og filtrering.</p>
@@ -851,6 +914,19 @@ export default async function SettingsPage({
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {currentTab === 'avdelinger' && isAdmin && (
+          <div>
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">🏷️ Avdelinger</h2>
+              <p className="text-gray-500 text-sm">
+                Oppdrag og serviceavtaler hører til en avdeling. Ansatte ser bare oppdrag i
+                egen avdeling, mens kunder, dokumenter og rapporter er felles.
+              </p>
+            </div>
+            <DepartmentsAdmin departments={departmentRows} />
           </div>
         )}
 

@@ -1,11 +1,15 @@
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
+import { hasPermission, type Permission } from "@/lib/permissions";
 
 /** Henter den innloggede brukeren fra databasen, eller null. */
 export async function getCurrentUser() {
   const session = await getServerSession();
   if (!session?.user?.email) return null;
-  return prisma.user.findUnique({ where: { email: session.user.email } });
+  return prisma.user.findUnique({
+    where: { email: session.user.email },
+    include: { department: true },
+  });
 }
 
 /** Navnet på den innloggede brukeren (til aktivitetsloggen). */
@@ -19,13 +23,15 @@ export async function actorName(): Promise<string> {
 // ---------------------------------------------------------------------------
 // Roller
 //
-//   ADMIN      – alt
-//   OFFICE     – kontor: kunder, utstyr, oppdrag, maler, ansatte
-//   TECHNICIAN – felt: leser alt feltrelevant (kunder, oppdrag, enheter,
-//                rapporter, kalender) og skriver rapporter, kommentarer,
-//                oppdrag og tildelinger – men ikke kunder, utstyr, maler
-//                eller brukere
+//   ADMIN      – alt, inkludert sletting og aktivitetslogg
+//   OFFICE     – kontor: kunder, utstyr, oppdrag, maler og ansatte i egen
+//                avdeling
+//   TECHNICIAN – felt: leser kunder, utstyr, rapporter og oppdrag i egen
+//                avdeling, og skriver rapporter, kommentarer og fremdrift
 //   CUSTOMER   – kundeportal: kun egen kundedata (håndheves i src/proxy.ts)
+//
+// Standardnivået og eventuelle ekstra rettigheter ligger i permissions.ts.
+// Sletting er alltid forbeholdt administrator.
 // ---------------------------------------------------------------------------
 
 /** Kontor eller admin: de som administrerer kunder, utstyr, maler og brukere. */
@@ -63,4 +69,18 @@ export async function requireStaff(): Promise<boolean> {
 export async function requireAdmin(): Promise<boolean> {
   const user = await getCurrentUser();
   return Boolean(user?.isActive) && user?.role === "ADMIN";
+}
+
+/**
+ * Vakt for en navngitt rettighet. Rollen gir standardrettigheter, og en
+ * administrator kan i tillegg gi enkelte brukere flere rettigheter.
+ */
+export async function requirePermission(permission: Permission): Promise<boolean> {
+  const user = await getCurrentUser();
+  return Boolean(user?.isActive) && hasPermission(user, permission);
+}
+
+/** Sletting er alltid forbeholdt administrator, uansett ekstra rettigheter. */
+export async function requireDelete(): Promise<boolean> {
+  return requireAdmin();
 }

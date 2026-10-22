@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -12,7 +11,13 @@ import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { LIMITS, cleanEmail, cleanPhone, cleanStatus, cleanText } from "@/lib/sanitize";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
-import { requireOffice, requireStaff } from "@/lib/session";
+import { getCurrentUser, requireAdmin } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import {
+  requireWorkOrderAccess,
+  staffForDepartment,
+  workOrderScope,
+} from "@/lib/access";
 import { deleteWorkOrder } from "./actions";
 
 function StatusBadge({ status }: { status: string }) {
@@ -261,24 +266,20 @@ export default async function AdminWorkOrderPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
   const { error } = await searchParams;
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
 
-  // Montører får lese hele oppdraget – historikk, enheter, rapporter og PDF –
-  // men ser ikke kontorets skjemaknapper. Skrivingen er sperret i handlingene.
-  const office = user.role === "ADMIN" || user.role === "OFFICE";
-  const staff = office || user.role === "TECHNICIAN";
-
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  // Avdelingssperren gjelder også direkte lenker: en montør kan ikke åpne et
+  // oppdrag som hører til en annen avdeling.
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
     include: {
+      department: true,
       customer: { include: { contacts: true } },
       contact: true,
       technicians: true,
@@ -318,12 +319,19 @@ export default async function AdminWorkOrderPage({
     redirect("/oppdrag");
   }
 
+  const isAdmin = user.role === "ADMIN";
+  const canUpdate = hasPermission(user, "workorders.update");
+  const canEdit = hasPermission(user, "workorders.edit");
+  const canAssign = hasPermission(user, "workorders.assign");
+  const canWriteReports = hasPermission(user, "reports.write");
+  const canManageCustomers = hasPermission(user, "customers.manage");
+
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
   const allTags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
   const staffUsers = await prisma.user.findMany({
-    where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } },
+    where: staffForDepartment(workOrder.departmentId),
     orderBy: { name: 'asc' }
   });
   const availableTechnicians = staffUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
@@ -333,7 +341,7 @@ export default async function AdminWorkOrderPage({
 
   async function setTemplate(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireWorkOrderAccess("workorders.edit", workOrderId))) return;
     const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
     if (!templateId) return;
 
@@ -346,7 +354,8 @@ export default async function AdminWorkOrderPage({
 
   async function setContact(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
+    if (!access || !hasPermission(access.user, "customers.manage")) return;
 
     const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
 
@@ -377,7 +386,8 @@ export default async function AdminWorkOrderPage({
 
   async function addContactToCustomer(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
+    if (!access || !hasPermission(access.user, "customers.manage")) return;
     if (!customerId) return;
 
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
@@ -418,12 +428,16 @@ export default async function AdminWorkOrderPage({
 
   async function assignTechnician(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+    if (!access) return;
 
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
     if (!technicianId) return;
 
-    const target = await prisma.user.findUnique({ where: { id: technicianId } });
+    // Bare ansatte i oppdragets avdeling kan tildeles.
+    const target = await prisma.user.findFirst({
+      where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
+    });
     if (!target) return;
 
     await prisma.workOrder.update({
@@ -445,12 +459,16 @@ export default async function AdminWorkOrderPage({
 
   async function unassignTechnician(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+    if (!access) return;
 
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
     if (!technicianId) return;
 
-    const target = await prisma.user.findUnique({ where: { id: technicianId } });
+    const target = await prisma.user.findFirst({
+      where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
+    });
+    if (!target) return;
 
     await prisma.workOrder.update({
       where: { id: workOrderId },
@@ -471,9 +489,16 @@ export default async function AdminWorkOrderPage({
 
   async function updateStatus(formData: FormData) {
     "use server";
-    if (!(await requireStaff())) return;
+    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+    if (!access) return;
     const status = cleanStatus(formData.get("status"));
     if (!status) return;
+
+    // Kansellering er en kontorhandling og krever workorders.edit. Montører
+    // kan oppdatere fremdrift, men ikke lukke oppdraget slik at det forsvinner.
+    if (status === "CANCELLED" && !hasPermission(access.user, "workorders.edit")) {
+      return;
+    }
 
     await prisma.workOrder.update({
       where: { id: workOrderId },
@@ -484,8 +509,8 @@ export default async function AdminWorkOrderPage({
       data: {
         entityType: "WorkOrder",
         entityId: workOrderId,
-        action: `${office ? "Kontoret" : "Montør"} endret status til: ${status}`,
-        userName: user?.name || "Admin"
+        action: `${access.user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`,
+        userName: access.user.name || access.user.email || "Ukjent"
       }
     });
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -493,7 +518,7 @@ export default async function AdminWorkOrderPage({
 
   async function setTags(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireWorkOrderAccess("workorders.edit", workOrderId))) return;
     const tagNames = formData.getAll("tags")
       .map(t => cleanText(t, { maxLength: LIMITS.short }))
       .filter(Boolean);
@@ -526,19 +551,24 @@ export default async function AdminWorkOrderPage({
   async function setReportLock(formData: FormData) {
     "use server";
     // Bare administratorer kan låse opp en signert rapport igjen.
-    if (user?.role !== "ADMIN") return;
+    if (!(await requireAdmin())) return;
 
     const reportId = cleanText(formData.get("reportId"), { maxLength: LIMITS.line });
     const shouldLock = formData.get("lock") === "1";
     if (!reportId) return;
 
-    const report = await prisma.report.findUnique({ where: { id: reportId } });
+    const report = await prisma.report.findFirst({
+      where: { id: reportId, workOrderId },
+    });
     if (!report) return;
+
+    const actor = await getCurrentUser();
+    if (!actor) return;
 
     if (shouldLock) {
       await prisma.report.update({
         where: { id: reportId },
-        data: { isLocked: true, lockedAt: new Date(), lockedByName: user.name || user.email },
+        data: { isLocked: true, lockedAt: new Date(), lockedByName: actor.name || actor.email },
       });
     } else {
       await prisma.report.update({
@@ -554,7 +584,7 @@ export default async function AdminWorkOrderPage({
         action: shouldLock
           ? "Låste rapporten igjen"
           : "Låste opp rapporten slik at den kan rettes (sporbarhet: endringer logges)",
-        userName: user.name || user.email || "Administrator",
+        userName: actor.name || actor.email || "Administrator",
       },
     });
 
@@ -574,7 +604,7 @@ export default async function AdminWorkOrderPage({
               <StatusBadge status={workOrder.status} />
             </div>
             {/* Tags */}
-            {office ? (
+            {canEdit ? (
               <form action={setTags} className="mb-3 space-y-2">
                 <TagSelector
                   allTags={allTags}
@@ -600,16 +630,19 @@ export default async function AdminWorkOrderPage({
               )
             )}
             <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || "Uten kunde"}</Link></p>
+            <p className="text-xs text-gray-500 font-bold mt-1">🏷️ Avdeling: {workOrder.department.name}</p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href={`/oppdrag/${workOrder.id}/rediger`}
-              className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm flex items-center gap-2"
-            >
-              ✏️ Rediger oppdrag
-            </Link>
-            {user.role === "ADMIN" && (
+            {canEdit && (
+              <Link
+                href={`/oppdrag/${workOrder.id}/rediger`}
+                className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm flex items-center gap-2"
+              >
+                ✏️ Rediger oppdrag
+              </Link>
+            )}
+            {isAdmin && (
               <ConfirmSubmitForm
                 action={deleteWorkOrder}
                 confirmMessage={`Slette oppdraget «${workOrder.title}»? Alle rapporter, kommentarer og vedlegg til oppdraget blir slettet. Dette kan ikke angres.`}
@@ -684,7 +717,7 @@ export default async function AdminWorkOrderPage({
                                   >
                                     📄 Åpne PDF
                                   </Link>
-                                  {staff && !report.isLocked && (
+                                  {canWriteReports && canUpdate && !report.isLocked && (
                                     <Link
                                       href={fillHref}
                                       className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
@@ -692,7 +725,7 @@ export default async function AdminWorkOrderPage({
                                       ✍️ Fyll ut på nytt
                                     </Link>
                                   )}
-                                  {user?.role === "ADMIN" && (
+                                  {isAdmin && (
                                     <form action={setReportLock}>
                                       <input type="hidden" name="reportId" value={report.id} />
                                       <input type="hidden" name="lock" value={report.isLocked ? "0" : "1"} />
@@ -712,7 +745,7 @@ export default async function AdminWorkOrderPage({
                               ) : (
                                 <>
                                   <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">⏳ Venter på utfylling</span>
-                                  {staff && (
+                                  {canWriteReports && canUpdate && (
                                     <Link
                                       href={fillHref}
                                       className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
@@ -742,7 +775,7 @@ export default async function AdminWorkOrderPage({
                   </div>
                   )}
                   
-                  {office && availableTemplates.length > 0 && (
+                  {canEdit && availableTemplates.length > 0 && (
                     <div className="border-t-2 border-gray-200 pt-4">
                       <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Krev flere sjekklister på oppdraget</p>
                       <form action={setTemplate} className="flex gap-2 flex-wrap">
@@ -776,6 +809,7 @@ export default async function AdminWorkOrderPage({
                   createdAt: c.createdAt.toISOString(),
                 })) || []}
                 currentUserName={user?.name || null}
+                canWrite={canUpdate}
               />
 
             </div>
@@ -784,22 +818,28 @@ export default async function AdminWorkOrderPage({
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
                 <h2 className="font-black text-gray-900 mb-3 border-b pb-2">Endre Status</h2>
-                <form action={updateStatus} className="flex flex-col gap-3">
-                  <select
-                    name="status"
-                    defaultValue={workOrder.status}
-                    className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
-                  >
-                    <option value="OPEN">Åpen / Ny</option>
-                    <option value="PENDING">Venter / Planlagt</option>
-                    <option value="IN_PROGRESS">Påbegynt</option>
-                    <option value="COMPLETED">Fullført</option>
-                    <option value="CANCELLED">Kansellert</option>
-                  </select>
-                  <button type="submit" className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
-                    Oppdater Status
-                  </button>
-                </form>
+                {canUpdate ? (
+                  <form action={updateStatus} className="flex flex-col gap-3">
+                    <select
+                      name="status"
+                      defaultValue={workOrder.status}
+                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
+                    >
+                      <option value="OPEN">Åpen / Ny</option>
+                      <option value="PENDING">Venter / Planlagt</option>
+                      <option value="IN_PROGRESS">Påbegynt</option>
+                      <option value="COMPLETED">Fullført</option>
+                      {canEdit && <option value="CANCELLED">Kansellert</option>}
+                    </select>
+                    <button type="submit" className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
+                      Oppdater Status
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">
+                    Du har ikke rettighet til å endre status på dette oppdraget.
+                  </p>
+                )}
               </div>
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
@@ -826,7 +866,7 @@ export default async function AdminWorkOrderPage({
                   <p className="text-xs text-gray-500 italic">Ingen kontaktperson valgt for oppdraget.</p>
                 )}
 
-                {office && workOrder.customer && (
+                {canEdit && canManageCustomers && workOrder.customer && (
                   <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
                     <form action={setContact} className="flex flex-col sm:flex-row gap-2">
                       <select
@@ -874,7 +914,7 @@ export default async function AdminWorkOrderPage({
                       <div key={tech.id} className="bg-gray-50 p-2.5 rounded-xl font-bold text-gray-900 flex items-center gap-2 border-2 border-gray-200 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
                         <span className="flex-1 min-w-0 truncate">{tech.name}</span>
-                        {office && (
+                        {canAssign && (
                           <form action={unassignTechnician} className="flex-shrink-0">
                             <input type="hidden" name="technicianId" value={tech.id} />
                             <button type="submit" className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
@@ -889,7 +929,7 @@ export default async function AdminWorkOrderPage({
                   <p className="text-red-600 font-bold">Ingen montører er tildelt ennå!</p>
                 )}
 
-                {office && availableTechnicians.length > 0 && (
+                {canAssign && availableTechnicians.length > 0 && (
                   <form action={assignTechnician} className="flex flex-col sm:flex-row gap-2 mt-4 border-t-2 border-gray-100 pt-4">
                     <select
                       name="technicianId"
@@ -918,7 +958,8 @@ export default async function AdminWorkOrderPage({
                   fileName: a.fileName,
                   dataUrl: a.dataUrl,
                 }))}
-                canManage={staff}
+                canUpload={canUpdate}
+                canDelete={isAdmin}
               />
 
             </div>

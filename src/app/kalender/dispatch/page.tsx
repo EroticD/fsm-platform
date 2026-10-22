@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -8,7 +7,14 @@ import { markdownToPlainText } from "@/lib/markdown";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
 import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
-import { requireOffice } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import {
+  requireWorkOrderAccess,
+  staffForDepartment,
+  staffScope,
+  workOrderScope,
+} from "@/lib/access";
 
 // Hjelpekomponent for status-etikett
 function DispatchStatusBadge({ status }: { status: string }) {
@@ -25,16 +31,17 @@ function DispatchStatusBadge({ status }: { status: string }) {
 }
 
 export default async function DispatchPage() {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.assign")) redirect("/");
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
-
-  // Hent alle åpne oppdrag som ikke er fullført eller kansellert
+  // Hent alle åpne oppdrag som ikke er fullført eller kansellert, i egen avdeling.
   const workOrders = await prisma.workOrder.findMany({
     where: {
-      status: { notIn: ['COMPLETED', 'CANCELLED'] as any }
+      AND: [
+        workOrderScope(user),
+        { status: { notIn: ['COMPLETED', 'CANCELLED'] as any } },
+      ],
     },
     include: {
       customer: true,
@@ -46,20 +53,28 @@ export default async function DispatchPage() {
     }
   });
 
-  // Hent alle tilgjengelige montører (ADMIN, TECHNICIAN, OFFICE)
+  // Hent alle tilgjengelige montører i egen avdeling.
   const availableTechnicians = await prisma.user.findMany({
-    where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] as any } },
+    where: staffScope(user),
     orderBy: { name: 'asc' }
   });
 
   // --- SERVER ACTION: TILDEL MONTØR ---
   async function assignTechnician(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-
     if (!workOrderId || !technicianId) return;
+
+    const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+    if (!access) return;
+
+    // Bare ansatte i oppdragets avdeling kan tildeles.
+    const target = await prisma.user.findFirst({
+      where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
+      select: { id: true },
+    });
+    if (!target) return;
 
     try {
       // Sjekk om montøren allerede er tildelt
@@ -85,7 +100,7 @@ export default async function DispatchPage() {
             entityType: "WorkOrder",
             entityId: workOrderId,
             action: `Kontoret tildelte montør til oppdraget`,
-            userName: user?.name || "Kontor"
+            userName: access.user.name || access.user.email || "Kontor"
           }
         });
       }
@@ -99,11 +114,12 @@ export default async function DispatchPage() {
   // --- SERVER ACTION: FJERN MONTØR ---
   async function removeTechnician(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-
     if (!workOrderId || !technicianId) return;
+
+    const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+    if (!access) return;
 
     try {
       await prisma.workOrder.update({
@@ -120,7 +136,7 @@ export default async function DispatchPage() {
           entityType: "WorkOrder",
           entityId: workOrderId,
           action: `Kontoret fjernet montør fra oppdraget`,
-          userName: user?.name || "Kontor"
+          userName: access.user.name || access.user.email || "Kontor"
         }
       });
 
@@ -133,11 +149,12 @@ export default async function DispatchPage() {
   // --- SERVER ACTION: OPPRETT STATUS ---
   async function updateStatus(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
     const status = cleanStatus(formData.get("status"));
-
     if (!workOrderId || !status) return;
+
+    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+    if (!access) return;
 
     try {
       await prisma.workOrder.update({
@@ -150,7 +167,7 @@ export default async function DispatchPage() {
           entityType: "WorkOrder",
           entityId: workOrderId,
           action: `Kontoret endret status til: ${status}`,
-          userName: user?.name || "Kontor"
+          userName: access.user.name || access.user.email || "Kontor"
         }
       });
 

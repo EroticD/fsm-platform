@@ -130,6 +130,7 @@ export async function generateRecurringWorkOrderForContract(
           description:
             `Gjentagende serviceavtale – intervall ${contractIntervalLabel(contract.intervalMonths)}.` +
             (pdfFile ? " Forrige rapport er vedlagt som PDF." : ""),
+          departmentId: contract.departmentId,
           customerId: contract.customerId,
           contactId: contract.contactId ?? contract.customer.contacts[0]?.id ?? null,
           scheduledFor: due,

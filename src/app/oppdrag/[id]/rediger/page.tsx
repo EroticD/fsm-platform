@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -7,21 +6,23 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
-import { requireOffice } from "@/lib/session";
+import { getCurrentUser, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { getActiveDepartments } from "@/lib/departments";
+import { staffForDepartment, workOrderScope } from "@/lib/access";
 
 export default async function EditWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "TECHNICIAN") redirect("/mine-oppdrag");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.edit")) redirect("/");
 
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
     include: {
+      department: true,
       customer: true,
       technicians: true,
       templates: true,
@@ -38,9 +39,15 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
     );
   }
 
+  const isAdmin = user.role === "ADMIN";
+  const departments = isAdmin ? await getActiveDepartments() : [];
+
   const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
   const technicians = await prisma.user.findMany({
-    where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } },
+    where: isAdmin
+      ? { role: { in: ["ADMIN", "TECHNICIAN", "OFFICE"] } }
+      : staffForDepartment(workOrder.departmentId),
+    include: { department: true },
     orderBy: { name: 'asc' }
   });
   const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
@@ -50,7 +57,29 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
   async function updateWorkOrder(formData: FormData) {
     "use server";
     // Autorisasjonen må ligge i handlingen, ikke bare i sidevisningen.
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("workorders.edit"))) return;
+    const actor = await getCurrentUser();
+    if (!actor) return;
+
+    const currentWorkOrder = await prisma.workOrder.findFirst({
+      where: { id: workOrderId, ...workOrderScope(actor) },
+      select: { id: true, departmentId: true },
+    });
+    if (!currentWorkOrder) return;
+
+    // Administrator kan flytte oppdraget til en annen aktiv avdeling.
+    let departmentId = currentWorkOrder.departmentId;
+    if (actor.role === "ADMIN") {
+      const requested = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
+      if (requested) {
+        const department = await prisma.department.findFirst({
+          where: { id: requested, isActive: true },
+          select: { id: true },
+        });
+        if (!department) return;
+        departmentId = department.id;
+      }
+    }
 
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
@@ -74,8 +103,14 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
       if (!contact || contact.customerId !== customerId) contactId = "";
     }
 
-    // Bare kjente ansatte kan tildeles.
-    const validTechnicianIds = technicianIds.filter(id => technicians.some(t => t.id === id));
+    // Bare ansatte i oppdragets avdeling kan tildeles.
+    const allowedTechnicians = technicianIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: technicianIds }, ...staffForDepartment(departmentId) },
+          select: { id: true },
+        })
+      : [];
+    const validTechnicianIds = allowedTechnicians.map((technician) => technician.id);
 
     // Oppdater grunnleggende info og bytt ut tildelte montører
     await prisma.workOrder.update({
@@ -83,6 +118,7 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
       data: {
         title,
         description,
+        departmentId,
         customerId,
         contactId: contactId || null,
         scheduledFor: scheduledForDate,
@@ -104,8 +140,8 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
       data: {
         entityType: "WorkOrder",
         entityId: workOrderId,
-        action: `Admin oppdaterte oppdraget: ${title}`,
-        userName: user?.name || "Admin"
+        action: `Oppdaterte oppdraget: ${title}`,
+        userName: actor.name || actor.email || "Ukjent"
       }
     });
 
@@ -139,6 +175,30 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
               required 
               className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-gray-900 mb-2">Avdeling</label>
+            {isAdmin ? (
+              <select
+                name="departmentId"
+                defaultValue={workOrder.departmentId}
+                className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+              >
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="w-full border-2 border-gray-200 bg-gray-50 p-3.5 rounded-xl text-base font-bold text-gray-800">
+                {workOrder.department.name}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Flytter du oppdraget, må montører fra den nye avdelingen velges på nytt.
+            </p>
           </div>
 
           <div>
@@ -219,6 +279,7 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
                   />
                   <span className="font-medium text-gray-800 text-sm">
                     {t.name} ({t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'})
+                    {isAdmin && t.department ? ` – ${t.department.name}` : ""}
                   </span>
                 </label>
               ))}

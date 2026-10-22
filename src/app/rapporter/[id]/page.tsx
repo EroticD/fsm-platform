@@ -1,13 +1,12 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function ReportViewerPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/logg-inn");
-
-  const viewer = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const viewer = await getCurrentUser();
+  if (!viewer?.isActive) redirect("/logg-inn");
 
   const resolvedParams = await params;
 
@@ -34,6 +33,13 @@ export default async function ReportViewerPage({ params }: { params: Promise<{ i
   // Sjekkes før alt annet, slik at man ikke engang kan se at oppdraget finnes.
   if (viewer?.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
     redirect("/kundeportal");
+  }
+  if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
+    redirect("/");
+  }
+  // Kansellerte oppdrag er lukket for montørene, også rapportene deres.
+  if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
+    redirect("/rapporter");
   }
 
   if (workOrder.reports.length === 0) {

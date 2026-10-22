@@ -27,11 +27,13 @@ function isImage(url: string) {
 export default function CustomerAttachments({
   customerId,
   attachments,
-  canManage,
+  canUpload,
+  canDelete,
 }: {
   customerId: string;
   attachments: CustomerAttachment[];
-  canManage: boolean;
+  canUpload: boolean;
+  canDelete: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -167,7 +169,7 @@ export default function CustomerAttachments({
                 >
                   {attachment.fileName}
                 </a>
-                {canManage && (
+                {canDelete && (
                   <button
                     type="button"
                     onClick={() => handleRemove(attachment)}
@@ -183,7 +185,7 @@ export default function CustomerAttachments({
         </div>
       )}
 
-      {canManage && (
+      {canUpload && (
         <div className="space-y-2">
           <input
             type="file"

@@ -1,24 +1,25 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { staffScope, workOrderScope } from "@/lib/access";
 
 export default async function CalendarPage() {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
 
   // Montører får se kalenderen, men ikke kontorets verktøy (dispatch-tavla og
   // oppretting av oppdrag fra kontoret er egne, sperrede sider).
-  const office = user.role === "ADMIN" || user.role === "OFFICE";
+  const office = hasPermission(user, "workorders.assign");
+  const canCreate = hasPermission(user, "workorders.create");
 
-  // Hent alle ansatte som kan ta oppdrag
+  // Hent alle ansatte som kan ta oppdrag, innenfor egen avdeling.
   const technicians = await prisma.user.findMany({
-    where: { role: { in: ['TECHNICIAN', 'ADMIN', 'OFFICE'] } },
+    where: staffScope(user),
     orderBy: { name: 'asc' }
   });
 
@@ -27,11 +28,16 @@ export default async function CalendarPage() {
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
-      status: { not: "CANCELLED" },
-      OR: [
-        { status: { not: "COMPLETED" } },
-        { scheduledFor: { gte: thirtyDaysAgo } }
-      ]
+      AND: [
+        workOrderScope(user),
+        {
+          status: { not: "CANCELLED" },
+          OR: [
+            { status: { not: "COMPLETED" } },
+            { scheduledFor: { gte: thirtyDaysAgo } }
+          ],
+        },
+      ],
     },
     include: {
       customer: true,
@@ -58,7 +64,7 @@ export default async function CalendarPage() {
             <Link href="/" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm">
               &larr; Hjem
             </Link>
-            {office && (
+            {canCreate && (
               <Link href="/oppdrag/ny" className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg font-bold hover:opacity-90 shadow-sm transition flex items-center gap-2 text-sm">
                 ➕ Nytt oppdrag
               </Link>

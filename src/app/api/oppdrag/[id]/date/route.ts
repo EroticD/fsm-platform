@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
+import { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
-import { isStaff } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user?.isActive || !isStaff(user.role)) {
+  if (!user.isActive || !hasPermission(user, "workorders.update")) {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
   }
 
@@ -49,10 +50,19 @@ export async function PATCH(
   }
 
   try {
-    await prisma.workOrder.update({
-      where: { id },
+    const updated = await prisma.workOrder.updateMany({
+      where: {
+        id,
+        ...workOrderScope(user),
+        ...(user.role === "TECHNICIAN"
+          ? { status: { not: WorkStatus.CANCELLED } }
+          : {}),
+      },
       data: hasEnd ? { scheduledFor, scheduledTo } : { scheduledFor },
     });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Oppdraget finnes ikke" }, { status: 404 });
+    }
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Kunne ikke oppdatere dato" }, { status: 500 });

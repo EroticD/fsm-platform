@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { actorName, getCurrentUser, isOffice, isStaff } from "@/lib/session";
+import { actorName, getCurrentUser, isOffice } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 
@@ -142,15 +144,20 @@ function returnPath(formData: FormData, workOrderId: string): string {
 export async function submitReport(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/logg-inn");
-  // Rapportinnsending er en felt-handling: montører og kontor, ikke kunder.
-  if (!isStaff(user.role)) redirect("/");
+  // Rapportinnsending krever reports.write og tilgang til oppdragets avdeling.
+  if (!hasPermission(user, "reports.write")) redirect("/");
 
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
   const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line }) || null;
   if (!workOrderId) return;
 
-  const workOrder = await prisma.workOrder.findUnique({ where: { id: workOrderId } });
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
+  });
   if (!workOrder) return;
+  if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
+    redirect("/oppdrag");
+  }
 
   const template = templateId
     ? await prisma.template.findUnique({ where: { id: templateId } })

@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -7,6 +6,9 @@ import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
 import { formatAddress } from "@/lib/address";
 import { formatDate, formatDateRange, formatDateTime } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 // ------------------------------------------------------------------
 // Hjelpere (definert utenfor komponenten slik at render forblir ren)
@@ -121,16 +123,50 @@ export default async function AdminDashboard({
 }: {
   searchParams: Promise<{ q?: string; page?: string; status?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+
+  // Dashbordet bygger på oppdrag. En bruker med utvidede rettigheter, men uten
+  // oppdragstilgang, sendes til den første siden vedkommende faktisk kan bruke.
+  if (!hasPermission(user, "workorders.view")) {
+    if (user.role === "CUSTOMER") redirect("/kundeportal");
+    if (hasPermission(user, "customers.view")) redirect("/kunder");
+    if (hasPermission(user, "documents.view")) redirect("/dokumenter");
+    if (hasPermission(user, "equipment.view")) redirect("/enheter");
+    if (hasPermission(user, "reports.view")) redirect("/rapporter");
+    if (hasPermission(user, "users.view")) redirect("/brukere");
+    redirect("/kundeportal");
+  }
 
   // Dashbordet er felles for kontor og montører. Montørene ser de samme
   // tallene og listene, men hurtighandlingene peker til feltportalen deres.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
-  const quickActions = office ? OFFICE_ACTIONS : FIELD_ACTIONS;
+  const canCreate = hasPermission(user, "workorders.create");
+  const canSeeCancelled = user.role !== "TECHNICIAN";
+  const canViewAudit = hasPermission(user, "audit.view");
+  const canAssign = hasPermission(user, "workorders.assign");
+
+  // Vis bare hurtighandlinger brukeren faktisk har tilgang til.
+  const allowedHrefs = new Set<string>([
+    "/kalender",
+    "/oppdrag",
+    "/mine-oppdrag",
+  ]);
+  if (canCreate) {
+    allowedHrefs.add("/oppdrag/ny");
+    allowedHrefs.add("/mine-oppdrag/ny");
+  }
+  if (hasPermission(user, "workorders.assign")) allowedHrefs.add("/kalender/dispatch");
+  if (hasPermission(user, "customers.view")) allowedHrefs.add("/kunder");
+  if (hasPermission(user, "documents.view")) allowedHrefs.add("/dokumenter");
+  if (hasPermission(user, "templates.manage")) allowedHrefs.add("/innstillinger?tab=maler");
+  if (hasPermission(user, "users.view")) allowedHrefs.add("/innstillinger?tab=ansatte");
+  if (hasPermission(user, "reports.view")) allowedHrefs.add("/innstillinger?tab=statistikk");
+  if (hasPermission(user, "equipment.view")) allowedHrefs.add("/enheter");
+  if (hasPermission(user, "reports.view")) allowedHrefs.add("/rapporter");
+  const quickActions = (office ? OFFICE_ACTIONS : FIELD_ACTIONS).filter((a) =>
+    allowedHrefs.has(a.href),
+  );
 
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
@@ -140,13 +176,14 @@ export default async function AdminDashboard({
     : undefined;
   // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
   const statusFilter =
-    !office && requestedStatus === "CANCELLED" ? undefined : requestedStatus;
-  const statusOptions = office
+    !canSeeCancelled && requestedStatus === "CANCELLED" ? undefined : requestedStatus;
+  const statusOptions = canSeeCancelled
     ? STATUS_OPTIONS
     : STATUS_OPTIONS.filter((option) => option.value !== "CANCELLED");
-  const visibleStatus: Prisma.WorkOrderWhereInput = office
+  const visibleStatus: Prisma.WorkOrderWhereInput = canSeeCancelled
     ? {}
     : { status: { not: "CANCELLED" } };
+  const scope = workOrderScope(user);
 
   const branding = await prisma.branding.findFirst();
   const companyName = branding?.companyName || "FSM System";
@@ -160,7 +197,7 @@ export default async function AdminDashboard({
   // --- GLOBALE TALL ---
   const statusGroups = await prisma.workOrder.groupBy({
     by: ["status"],
-    where: visibleStatus,
+    where: { AND: [scope, visibleStatus] },
     _count: { _all: true },
   });
   const countByStatus = (s: string) =>
@@ -186,25 +223,39 @@ export default async function AdminDashboard({
       }
     : {};
   const listWhere: Prisma.WorkOrderWhereInput = {
-    ...visibleStatus,
-    ...(statusFilter ? { status: statusFilter } : {}),
-    ...listSearchWhere,
+    AND: [
+      scope,
+      visibleStatus,
+      statusFilter ? { status: statusFilter } : {},
+      listSearchWhere,
+    ],
   };
 
   // Flerdagersoppdrag teller som «i dag» så lenge perioden dekker dagen.
   const todayWhere = {
-    ...visibleStatus,
-    scheduledFor: { lte: endOfToday },
-    OR: [
-      { scheduledTo: { gte: startOfToday } },
-      { scheduledTo: null, scheduledFor: { gte: startOfToday } },
+    AND: [
+      scope,
+      visibleStatus,
+      {
+        scheduledFor: { lte: endOfToday },
+        OR: [
+          { scheduledTo: { gte: startOfToday } },
+          { scheduledTo: null, scheduledFor: { gte: startOfToday } },
+        ],
+      },
     ],
   } satisfies Prisma.WorkOrderWhereInput;
 
   const overdueWhere = {
-    scheduledFor: { lt: startOfToday },
-    OR: [{ scheduledTo: null }, { scheduledTo: { lt: startOfToday } }],
-    status: { notIn: ["COMPLETED", "CANCELLED"] },
+    AND: [
+      scope,
+      visibleStatus,
+      {
+        scheduledFor: { lt: startOfToday },
+        OR: [{ scheduledTo: null }, { scheduledTo: { lt: startOfToday } }],
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+    ],
   } satisfies Prisma.WorkOrderWhereInput;
 
   const [
@@ -234,14 +285,26 @@ export default async function AdminDashboard({
     }),
     prisma.workOrder.count({
       where: {
-        technicians: { none: {} },
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
+        AND: [
+          scope,
+          visibleStatus,
+          {
+            technicians: { none: {} },
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          },
+        ],
       },
     }),
     prisma.workOrder.findMany({
       where: {
-        technicians: { none: {} },
-        status: { notIn: ["COMPLETED", "CANCELLED"] },
+        AND: [
+          scope,
+          visibleStatus,
+          {
+            technicians: { none: {} },
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          },
+        ],
       },
       orderBy: { scheduledFor: "asc" },
       take: 8,
@@ -250,7 +313,9 @@ export default async function AdminDashboard({
     prisma.report.count({ where: { completedAt: { gte: startOfMonth } } }),
     prisma.customer.count(),
     prisma.product.count(),
-    prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8 }),
+    canViewAudit
+      ? prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8 })
+      : Promise.resolve([]),
     prisma.workOrder.count({ where: listWhere }),
     prisma.workOrder.findMany({
       where: listWhere,
@@ -283,12 +348,14 @@ export default async function AdminDashboard({
             </p>
           </div>
           <div className="flex gap-2">
-            <Link
-              href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-            >
-              ➕ Nytt oppdrag
-            </Link>
+            {canCreate && (
+              <Link
+                href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
+                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+              >
+                ➕ Nytt oppdrag
+              </Link>
+            )}
             <Link
               href="/kalender"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
@@ -415,7 +482,7 @@ export default async function AdminDashboard({
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">🙋 Oppdrag uten montør</h2>
-            {office && (
+            {canAssign && (
               <Link href="/kalender/dispatch" className="text-[11px] font-bold text-blue-600 hover:underline">
                 Åpne dispatch
               </Link>
@@ -472,9 +539,11 @@ export default async function AdminDashboard({
           {listOrders.length === 0 ? (
             <div className="p-6 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
               <p className="text-gray-500 font-medium">Ingen oppdrag matcher søket.</p>
-              <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className="text-blue-600 font-bold hover:underline mt-2 inline-block">
-                Opprett et nytt oppdrag
-              </Link>
+              {canCreate && (
+                <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className="text-blue-600 font-bold hover:underline mt-2 inline-block">
+                  Opprett et nytt oppdrag
+                </Link>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -554,33 +623,33 @@ export default async function AdminDashboard({
         </div>
 
         {/* SISTE AKTIVITET */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <div className="flex items-center justify-between border-b pb-2 mb-3">
-            <h2 className="font-black text-gray-900 text-base">📋 Siste aktivitet</h2>
-            {office && (
+        {canViewAudit && (
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+            <div className="flex items-center justify-between border-b pb-2 mb-3">
+              <h2 className="font-black text-gray-900 text-base">📋 Siste aktivitet</h2>
               <Link href="/innstillinger?tab=auditlog" className="text-[11px] font-bold text-blue-600 hover:underline">
                 Se all aktivitet
               </Link>
+            </div>
+            {recentLogs.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">Ingen aktivitet registrert.</p>
+            ) : (
+              <ol className="space-y-2">
+                {recentLogs.map((log) => (
+                  <li key={log.id} className="flex items-start gap-3 text-sm">
+                    <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-gray-800 font-medium">{log.action}</p>
+                      <p className="text-[10px] text-gray-500">
+                        {log.userName || "Ukjent"} • {formatDateTime(log.createdAt)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
-          {recentLogs.length === 0 ? (
-            <p className="text-xs text-gray-500 italic">Ingen aktivitet registrert.</p>
-          ) : (
-            <ol className="space-y-2">
-              {recentLogs.map((log) => (
-                <li key={log.id} className="flex items-start gap-3 text-sm">
-                  <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-gray-800 font-medium">{log.action}</p>
-                    <p className="text-[10px] text-gray-500">
-                      {log.userName || "Ukjent"} • {formatDateTime(log.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
+        )}
 
       </div>
     </div>

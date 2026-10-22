@@ -6,14 +6,14 @@ import prisma from "@/lib/prisma";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
 import { LIMITS, cleanEmail, cleanText } from "@/lib/sanitize";
-import { actorName, requireOffice } from "@/lib/session";
+import { actorName, requirePermission } from "@/lib/session";
 
 /**
  * Oppretter en kundeportalbruker koblet til en kontaktperson på kundekortet.
  * Brukeren er inaktiv og får en invitasjonslenke for å sette eget passord.
  */
 export async function createPortalUser(formData: FormData) {
-  if (!(await requireOffice())) return;
+  if (!(await requirePermission("customers.manage"))) return;
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
   const email = cleanEmail(formData.get("email"));
@@ -67,7 +67,7 @@ export async function createPortalUser(formData: FormData) {
 
 /** Aktiverer eller deaktiverer en kundeportalbruker. */
 export async function setPortalUserActive(formData: FormData) {
-  if (!(await requireOffice())) return;
+  if (!(await requirePermission("customers.manage"))) return;
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const active = formData.get("active") === "true";
@@ -90,7 +90,7 @@ export async function setPortalUserActive(formData: FormData) {
 
 /** Lager en ny invitasjonslenke for en kundeportalbruker. */
 export async function resendPortalInvite(formData: FormData) {
-  if (!(await requireOffice())) return;
+  if (!(await requirePermission("customers.manage"))) return;
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!customerId || !id) return;

@@ -5,9 +5,16 @@ import {
   createUser,
   deleteUser,
   changeRole,
+  changeDepartment,
+  changePermissions,
   setActive,
   generateInvite,
 } from "@/app/brukere/actions";
+import {
+  effectivePermissions,
+  defaultPermissionsForRole,
+  PERMISSIONS,
+} from "@/lib/permissions";
 
 /**
  * Brukeradministrasjon (ansatte, roller, aktivering og invitasjoner).
@@ -18,6 +25,8 @@ export default async function UsersAdmin({
   returnTo,
   currentUserEmail,
   isAdmin = false,
+  departmentId,
+  canManageCustomers = false,
   invite,
   inviteToken,
   error,
@@ -26,20 +35,45 @@ export default async function UsersAdmin({
   returnTo: string;
   currentUserEmail?: string | null;
   isAdmin?: boolean;
+  /** Avdelingen en ikke-administrator får administrere brukere i. */
+  departmentId?: string | null;
+  /** Kundeportalbrukere krever customers.manage. */
+  canManageCustomers?: boolean;
   invite?: string;
   inviteToken?: string;
   error?: string;
   mail?: string;
 }) {
+  // Administrator ser alle. Avdelingsansvarlige ser bare egen avdeling, slik
+  // at brukeradministrasjon ikke blir en vei rundt avdelingssperren.
   const users = await prisma.user.findMany({
+    where: isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" },
     orderBy: { name: "asc" },
-    include: { contact: true, customer: true },
+    include: { contact: true, customer: true, department: true },
   });
 
-  const customers = await prisma.customer.findMany({
-    orderBy: { name: "asc" },
-    include: { contacts: { orderBy: { name: "asc" } } },
+  const departments = await prisma.department.findMany({
+    where: {
+      isActive: true,
+      ...(isAdmin ? {} : { id: departmentId ?? "__ingen_avdeling__" }),
+    },
+    orderBy: [{ isDefault: "desc" }, { name: "asc" }],
   });
+  const defaultDepartment = departments.find((department) => department.isDefault) ?? departments[0];
+
+  const permissionGroups = Array.from(
+    new Set(PERMISSIONS.map((permission) => permission.group)),
+  ).map((group) => ({
+    group,
+    permissions: PERMISSIONS.filter((permission) => permission.group === group),
+  }));
+
+  const customers = canManageCustomers
+    ? await prisma.customer.findMany({
+        orderBy: { name: "asc" },
+        include: { contacts: { orderBy: { name: "asc" } } },
+      })
+    : [];
 
   // Brukeren vi nettopp lagde invitasjonslenke for (vises i banneret øverst).
   // Selve nøkkelen lagres bare som hash, så den rå lenken kommer i redirecten.
@@ -133,37 +167,62 @@ export default async function UsersAdmin({
                   )}
                   <option value="OFFICE">🏢 Kontor (Administrasjon, ingen logg)</option>
                   <option value="USER">🔒 Standard (Ingen tilgang)</option>
-                  <option value="CUSTOMER">👤 Kundeportal (Kundedata)</option>
+                  {canManageCustomers && (
+                    <option value="CUSTOMER">👤 Kundeportal (Kundedata)</option>
+                  )}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                  Kontaktperson{" "}
-                  <span className="font-normal text-gray-400">(påkrevd for kundeportal)</span>
+                  Avdeling
                 </label>
                 <select
-                  name="contactId"
-                  defaultValue=""
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-xs font-medium bg-white text-gray-900"
+                  name="departmentId"
+                  defaultValue={defaultDepartment?.id ?? ""}
+                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
                 >
-                  <option value="">-- Ingen kontaktperson --</option>
-                  {customers
-                    .filter((c) => c.contacts.length > 0)
-                    .map((c) => (
-                      <optgroup key={c.id} label={c.name}>
-                        {c.contacts.map((ct) => (
-                          <option key={ct.id} value={ct.id}>
-                            {ct.name}
-                            {ct.role ? ` (${ct.role})` : ""}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
+                  <option value="">-- Ingen avdeling --</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                      {department.isDefault ? " (standard)" : ""}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Kobler brukeren til kunden og gir tilgang til kundeportalen.
+                  Ansatte må være i en avdeling for å kunne opprette og se oppdrag.
                 </p>
               </div>
+              {canManageCustomers && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    Kontaktperson{" "}
+                    <span className="font-normal text-gray-400">(påkrevd for kundeportal)</span>
+                  </label>
+                  <select
+                    name="contactId"
+                    defaultValue=""
+                    className="w-full border border-gray-300 p-2.5 rounded-xl text-xs font-medium bg-white text-gray-900"
+                  >
+                    <option value="">-- Ingen kontaktperson --</option>
+                    {customers
+                      .filter((c) => c.contacts.length > 0)
+                      .map((c) => (
+                        <optgroup key={c.id} label={c.name}>
+                          {c.contacts.map((ct) => (
+                            <option key={ct.id} value={ct.id}>
+                              {ct.name}
+                              {ct.role ? ` (${ct.role})` : ""}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                  </select>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Kobler brukeren til kunden og gir tilgang til kundeportalen.
+                  </p>
+                </div>
+              )}
 
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
                 Nye brukere er inaktive. Etter at du har opprettet dem får du en invitasjonslenke de
@@ -196,6 +255,8 @@ export default async function UsersAdmin({
                   !!u.resetToken && !!u.resetTokenExpiry && u.resetTokenExpiry > new Date();
                 // Bare administrator kan gjøre endringer på en administrator.
                 const canManageTarget = isAdmin || u.role !== "ADMIN";
+                const defaults = new Set(defaultPermissionsForRole(u.role));
+                const effective = effectivePermissions(u);
 
                 return (
                   <div key={u.id} className="p-5 flex flex-col gap-4 hover:bg-gray-50 transition">
@@ -214,6 +275,9 @@ export default async function UsersAdmin({
                             )}
                           </p>
                           <p className="text-sm text-gray-500">{u.email}</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            🏷️ {u.department?.name || "Ingen avdeling"}
+                          </p>
                           {u.customer && (
                             <p className="text-[11px] text-gray-500 mt-0.5">
                               🏢 {u.customer.name}
@@ -245,6 +309,7 @@ export default async function UsersAdmin({
                     </div>
 
                     {canManageTarget && (
+                    <>
                     <div className="flex flex-wrap items-center gap-3">
                       <form action={changeRole} className="flex items-center gap-2">
                         <input type="hidden" name="returnTo" value={returnTo} />
@@ -268,7 +333,9 @@ export default async function UsersAdmin({
                           {isAdmin && <option value="ADMIN">Admin</option>}
                           <option value="OFFICE">Kontor</option>
                           <option value="TECHNICIAN">Montør</option>
-                          <option value="CUSTOMER">Kundeportal</option>
+                          {canManageCustomers && (
+                            <option value="CUSTOMER">Kundeportal</option>
+                          )}
                         </select>
 
                         {!isMe && (
@@ -280,6 +347,31 @@ export default async function UsersAdmin({
                           </button>
                         )}
                       </form>
+
+                      {isAdmin && (
+                        <form action={changeDepartment} className="flex items-center gap-2">
+                          <input type="hidden" name="id" value={u.id} />
+                          <select
+                            name="departmentId"
+                            defaultValue={u.departmentId ?? ""}
+                            disabled={u.role === "CUSTOMER"}
+                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
+                          >
+                            <option value="">Ingen avdeling</option>
+                            {departments.map((department) => (
+                              <option key={department.id} value={department.id}>
+                                {department.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                          >
+                            Lagre avdeling
+                          </button>
+                        </form>
+                      )}
 
                       {!isMe && (
                         <form action={generateInvite}>
@@ -316,7 +408,7 @@ export default async function UsersAdmin({
                         </form>
                       )}
 
-                      {!isMe && (
+                      {!isMe && isAdmin && (
                         <form action={deleteUser}>
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={u.id} />
@@ -330,6 +422,71 @@ export default async function UsersAdmin({
                         </form>
                       )}
                     </div>
+
+                    {isAdmin && (
+                      <form action={changePermissions} className="border-t border-gray-100 pt-3 space-y-3">
+                        <input type="hidden" name="id" value={u.id} />
+                        <div>
+                          <p className="text-xs font-bold text-gray-800">Ekstra rettigheter</p>
+                          <p className="text-[11px] text-gray-500">
+                            Rettigheter som følger rollen er låst. Kryss av for å gi flere
+                            rettigheter uten å endre rollen.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {permissionGroups.map((group) => (
+                            <fieldset
+                              key={group.group}
+                              className="border border-gray-200 rounded-xl p-3"
+                            >
+                              <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
+                                {group.group}
+                              </legend>
+                              <div className="space-y-2">
+                                {group.permissions.map((permission) => {
+                                  const roleDefault = defaults.has(permission.key);
+                                  const checked = effective.has(permission.key);
+                                  return (
+                                    <label
+                                      key={permission.key}
+                                      className="flex items-start gap-2 text-xs text-gray-700"
+                                      title={permission.description}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        name="permissions"
+                                        value={permission.key}
+                                        defaultChecked={checked && !roleDefault}
+                                        disabled={roleDefault}
+                                        className="mt-0.5"
+                                      />
+                                      <span>
+                                        <span className="font-semibold">{permission.label}</span>
+                                        {roleDefault && (
+                                          <span className="ml-1 text-[10px] font-bold text-gray-400 uppercase">
+                                            Rolle
+                                          </span>
+                                        )}
+                                        <span className="block text-[11px] text-gray-500">
+                                          {permission.description}
+                                        </span>
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </fieldset>
+                          ))}
+                        </div>
+                        <button
+                          type="submit"
+                          className="text-[10px] font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
+                        >
+                          Lagre rettigheter
+                        </button>
+                      </form>
+                    )}
+                    </>
                     )}
                   </div>
                 );

@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -10,7 +9,13 @@ import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanStatus, cleanText } from "@/lib/sanitize";
-import { requireStaff } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import {
+  requireWorkOrderAccess,
+  staffForDepartment,
+  workOrderScope,
+} from "@/lib/access";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
 
 export default async function TechnicianWorkOrderPage({
@@ -20,20 +25,19 @@ export default async function TechnicianWorkOrderPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
   const { error } = await searchParams;
 
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
 
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
     include: {
+      department: true,
       customer: {
         include: { contacts: true }
       },
@@ -73,7 +77,15 @@ export default async function TechnicianWorkOrderPage({
   // De finnes fortsatt som historikk på kundesiden.
   if (workOrder.status === "CANCELLED") redirect("/mine-oppdrag");
 
-  const allUsers = await prisma.user.findMany({ orderBy: { name: 'asc' } });
+  const isAdmin = user.role === "ADMIN";
+  const canUpdate = hasPermission(user, "workorders.update");
+  const canEdit = hasPermission(user, "workorders.edit");
+  const canWriteReports = hasPermission(user, "reports.write");
+
+  const allUsers = await prisma.user.findMany({
+    where: staffForDepartment(workOrder.departmentId),
+    orderBy: { name: 'asc' },
+  });
   const availableUsers = allUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
@@ -82,9 +94,16 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: OPPDATER STATUS ---
   async function updateStatus(formData: FormData) {
     "use server";
-    if (!(await requireStaff())) return;
+    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+    if (!access) return;
     const newStatus = cleanStatus(formData.get("status"));
     if (!newStatus) return;
+
+    // Kansellering er en kontorhandling. Montører skal ikke kunne lukke et
+    // oppdrag slik at det forsvinner fra feltportalen.
+    if (newStatus === "CANCELLED" && !hasPermission(access.user, "workorders.edit")) {
+      return;
+    }
 
     await prisma.workOrder.update({
       where: { id: workOrderId },
@@ -96,7 +115,7 @@ export default async function TechnicianWorkOrderPage({
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `Montør endret status til: ${newStatus}`,
-        userName: user?.name || "Ukjent montør"
+        userName: access.user.name || access.user.email || "Ukjent montør"
       }
     });
 
@@ -106,7 +125,8 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: LEGG TIL KOMMENTAR ---
   async function addComment(formData: FormData) {
     "use server";
-    if (!(await requireStaff())) return;
+    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+    if (!access) return;
     const content = cleanMarkdown(formData.get("content"));
     if (!content) return;
 
@@ -114,7 +134,7 @@ export default async function TechnicianWorkOrderPage({
       data: {
         content,
         workOrderId: workOrderId,
-        authorName: user?.name || "Montør"
+        authorName: access.user.name || access.user.email || "Montør"
       }
     });
 
@@ -123,7 +143,7 @@ export default async function TechnicianWorkOrderPage({
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `La til kommentar: "${markdownToPlainText(content).slice(0, 30)}..."`,
-        userName: user?.name || "Montør"
+        userName: access.user.name || access.user.email || "Montør"
       }
     });
 
@@ -133,7 +153,7 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: LEGG TIL SJEKKLISTE ---
   async function addTemplate(formData: FormData) {
     "use server";
-    if (!(await requireStaff())) return;
+    if (!(await requireWorkOrderAccess("workorders.update", workOrderId))) return;
     const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
     if (!templateId) return;
 
@@ -150,11 +170,15 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: LEGG TIL NY MONTØR / KONTORPERSON ---
   async function addTechnician(formData: FormData) {
     "use server";
-    if (!(await requireStaff())) return;
+    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+    if (!access) return;
     const userId = cleanText(formData.get("userId"), { maxLength: LIMITS.line });
     if (!userId) return;
 
-    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    const targetUser = await prisma.user.findFirst({
+      where: { id: userId, ...staffForDepartment(access.workOrder.departmentId) },
+    });
+    if (!targetUser) return;
 
     await prisma.workOrder.update({
       where: { id: workOrderId },
@@ -167,8 +191,8 @@ export default async function TechnicianWorkOrderPage({
       data: {
         entityType: "WorkOrder",
         entityId: workOrderId,
-        action: `La til ${targetUser?.name || 'bruker'} på oppdraget`,
-        userName: user?.name || "Montør"
+        action: `La til ${targetUser.name || 'bruker'} på oppdraget`,
+        userName: access.user.name || access.user.email || "Montør"
       }
     });
 
@@ -178,11 +202,15 @@ export default async function TechnicianWorkOrderPage({
   // --- SERVER ACTION: FJERN MONTØR / SEG SELV ---
   async function removeTechnician(formData: FormData) {
     "use server";
-    if (!(await requireStaff())) return;
+    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+    if (!access) return;
     const userId = cleanText(formData.get("userId"), { maxLength: LIMITS.line });
     if (!userId) return;
 
-    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    const targetUser = await prisma.user.findFirst({
+      where: { id: userId, ...staffForDepartment(access.workOrder.departmentId) },
+    });
+    if (!targetUser) return;
 
     await prisma.workOrder.update({
       where: { id: workOrderId },
@@ -196,7 +224,7 @@ export default async function TechnicianWorkOrderPage({
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `Fjernet ${targetUser?.name || 'bruker'} fra oppdraget`,
-        userName: user?.name || "Montør"
+        userName: access.user.name || access.user.email || "Montør"
       }
     });
 
@@ -212,6 +240,7 @@ export default async function TechnicianWorkOrderPage({
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-gray-900">{workOrder.title}</h1>
             <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || "Uten kunde"}</p>
+            <p className="text-xs text-gray-500 font-bold mt-1">🏷️ Avdeling: {workOrder.department.name}</p>
             {workOrder.tags && workOrder.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {workOrder.tags.map((tag: any) => (
@@ -243,22 +272,28 @@ export default async function TechnicianWorkOrderPage({
 
             <div>
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Oppdragsstatus</p>
-              <form action={updateStatus} className="flex items-center gap-2 flex-wrap">
-                <select
-                  name="status"
-                  defaultValue={workOrder.status}
-                  className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
-                >
-                  <option value="OPEN">Åpen / Ny</option>
-                  <option value="PENDING">Venter / Planlagt</option>
-                  <option value="IN_PROGRESS">Påbegynt</option>
-                  <option value="COMPLETED">Fullført</option>
-                  <option value="CANCELLED">Kansellert</option>
-                </select>
-                <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap">
-                  Oppdater
-                </button>
-              </form>
+              {canUpdate ? (
+                <form action={updateStatus} className="flex items-center gap-2 flex-wrap">
+                  <select
+                    name="status"
+                    defaultValue={workOrder.status}
+                    className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
+                  >
+                    <option value="OPEN">Åpen / Ny</option>
+                    <option value="PENDING">Venter / Planlagt</option>
+                    <option value="IN_PROGRESS">Påbegynt</option>
+                    <option value="COMPLETED">Fullført</option>
+                    {canEdit && <option value="CANCELLED">Kansellert</option>}
+                  </select>
+                  <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap">
+                    Oppdater
+                  </button>
+                </form>
+              ) : (
+                <p className="text-sm text-gray-500 italic">
+                  Du har ikke rettighet til å endre status.
+                </p>
+              )}
             </div>
 
             <div>
@@ -289,19 +324,21 @@ export default async function TechnicianWorkOrderPage({
           <h2 className="font-black text-lg text-gray-900 border-b pb-2">💬 Kommentarer & Oppdateringer</h2>
 
           {/* Skriv ny kommentar */}
-          <form action={addComment} className="space-y-3">
-            <MarkdownEditor
-              name="content"
-              rows={3}
-              required
-              placeholder="Skriv en kommentar eller melding til kontoret/kolleger..."
-            />
-            <div className="flex justify-end">
-              <button type="submit" className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
-                💬 Legg til kommentar
-              </button>
-            </div>
-          </form>
+          {canUpdate && (
+            <form action={addComment} className="space-y-3">
+              <MarkdownEditor
+                name="content"
+                rows={3}
+                required
+                placeholder="Skriv en kommentar eller melding til kontoret/kolleger..."
+              />
+              <div className="flex justify-end">
+                <button type="submit" className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+                  💬 Legg til kommentar
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Liste over tidligere kommentarer */}
           <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -342,19 +379,21 @@ export default async function TechnicianWorkOrderPage({
                       </div>
                     </div>
 
-                    <form action={removeTechnician} className="flex-shrink-0">
-                      <input type="hidden" name="userId" value={t.id} />
-                      <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
-                        {t.id === user.id ? "Fjern meg" : "Fjern"}
-                      </button>
-                    </form>
+                    {canUpdate && (
+                      <form action={removeTechnician} className="flex-shrink-0">
+                        <input type="hidden" name="userId" value={t.id} />
+                        <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
+                          {t.id === user.id ? "Fjern meg" : "Fjern"}
+                        </button>
+                      </form>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {availableUsers.length > 0 && (
+          {canUpdate && availableUsers.length > 0 && (
             <div className="border-t pt-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Legg til kollega eller kontor for oppfølging</p>
               <form action={addTechnician} className="flex gap-2 flex-wrap">
@@ -468,7 +507,7 @@ export default async function TechnicianWorkOrderPage({
                         >
                           📄 Se rapport (PDF)
                         </Link>
-                        {!report.isLocked && (
+                        {canWriteReports && canUpdate && !report.isLocked && (
                           <Link
                             href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
                             className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
@@ -477,13 +516,17 @@ export default async function TechnicianWorkOrderPage({
                           </Link>
                         )}
                       </div>
-                    ) : (
+                    ) : canWriteReports && canUpdate ? (
                       <Link
                         href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
                         className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                       >
                         Fyll ut skjema &rarr;
                       </Link>
+                    ) : (
+                      <span className="text-[10px] font-bold text-gray-500">
+                        Venter på utfylling
+                      </span>
                     )}
                   </div>
                 );
@@ -491,7 +534,7 @@ export default async function TechnicianWorkOrderPage({
             </div>
           )}
 
-          {availableTemplates.length > 0 && (
+          {canUpdate && availableTemplates.length > 0 && (
             <div className="border-t pt-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Trenger du et ekstra skjema?</p>
               <form action={addTemplate} className="flex gap-2 flex-wrap">
@@ -522,7 +565,8 @@ export default async function TechnicianWorkOrderPage({
             fileName: a.fileName,
             dataUrl: a.dataUrl,
           }))}
-          canManage={user.role !== "CUSTOMER"}
+          canUpload={canUpdate}
+          canDelete={isAdmin}
         />
 
         {/* Audit log */}

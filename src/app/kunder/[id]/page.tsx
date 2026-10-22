@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -30,7 +29,10 @@ import {
 } from "@/lib/contracts";
 import { generateRecurringWorkOrderForContract } from "@/lib/recurring";
 import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
-import { requireOffice } from "@/lib/session";
+import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
+import { workOrderScope } from "@/lib/access";
 import {
   createPortalUser,
   setPortalUserActive,
@@ -106,20 +108,23 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string; tab?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
   const { invite, inviteToken, error, mail, tab } = await searchParams;
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "customers.view")) redirect("/");
 
-  // Montører får lese kundekortet – bedriftsinfo, oppdragshistorikk, enheter og
-  // kontakter – men ikke kontorets skriveknapper. Handlingene selv er sperret i
-  // unit-actions/portal-actions, uavhengig av hva som vises her.
-  const office = user.role === "ADMIN" || user.role === "OFFICE";
+  // Kunder, kontakter, enheter, avtaler, dokumenter og rapporter er felles for
+  // alle avdelinger. Oppdragene på kundekortet er derimot avdelingssperret.
+  const canManageCustomers = hasPermission(user, "customers.manage");
+  const canManageEquipment = hasPermission(user, "equipment.manage");
+  const canCreateWorkOrders = hasPermission(user, "workorders.create");
+  const isAdmin = user.role === "ADMIN";
+  const office = canManageCustomers;
+  const canSeeCancelled = user.role !== "TECHNICIAN";
+  const ownDepartmentId = user.departmentId;
 
   // Hent kunden sammen med tilhørende oppdrag (sortert på dato, nyeste først) og kontaktpersoner
   const customer = await prisma.customer.findUnique({
@@ -129,8 +134,10 @@ export default async function CustomerDetailPage({
       contracts: {
         orderBy: { startDate: "desc" },
         include: {
+          department: true,
           template: true,
           workOrders: {
+            where: workOrderScope(user),
             orderBy: { scheduledFor: "desc" },
             take: 1,
             select: { id: true, title: true, scheduledFor: true, status: true },
@@ -158,6 +165,7 @@ export default async function CustomerDetailPage({
         },
       },
       workOrder: {
+        where: workOrderScope(user),
         orderBy: { scheduledFor: 'desc' },
         include: {
           technicians: true,
@@ -203,6 +211,8 @@ export default async function CustomerDetailPage({
   const templates = office
     ? await prisma.template.findMany({ orderBy: { title: "asc" } })
     : [];
+  const departments = isAdmin ? await getActiveDepartments() : [];
+  const defaultDepartmentId = office ? await getDefaultDepartmentId() : null;
 
   // Nøkkelen lagres som hash, så den rå invitasjonslenken kommer i redirecten.
   const inviteUser = invite ? portalUsers.find((u) => u.id === invite) : undefined;
@@ -232,7 +242,7 @@ export default async function CustomerDetailPage({
 
   // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
   // Kontoret ser dem fortsatt i kundekortet.
-  const visibleWorkOrders = office
+  const visibleWorkOrders = canSeeCancelled
     ? customer.workOrder
     : customer.workOrder.filter((wo) => wo.status !== "CANCELLED");
 
@@ -247,7 +257,7 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTION: LEGG TIL KONTAKTPERSON ---
   async function addContact(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("customers.manage"))) return;
 
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const email = cleanEmail(formData.get("email"));
@@ -283,7 +293,7 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTION: OPPRETT KONTAKTPERSON ---
   async function updateContact(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("customers.manage"))) return;
 
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
@@ -292,6 +302,12 @@ export default async function CustomerDetailPage({
     const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
 
     if (!id || !name) return;
+
+    const existing = await prisma.contact.findFirst({
+      where: { id, customerId },
+      select: { id: true },
+    });
+    if (!existing) return;
 
     try {
       await prisma.contact.update({
@@ -320,15 +336,16 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTION: SLETT KONTAKTPERSON ---
   async function deleteContact(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireAdmin())) return;
 
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
     try {
-      const contactToDelete = await prisma.contact.findUnique({
-        where: { id },
+      const contactToDelete = await prisma.contact.findFirst({
+        where: { id, customerId },
       });
+      if (!contactToDelete) return;
       await prisma.contact.delete({
         where: { id },
       });
@@ -349,7 +366,25 @@ export default async function CustomerDetailPage({
   // --- SERVER ACTIONS: SERVICEAVTALER ---
   async function createContract(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    const actor = await getCurrentUser();
+    if (!actor || !hasPermission(actor, "customers.manage")) return;
+
+    // Administrator kan velge avdeling. Andre oppretter avtaler i egen avdeling.
+    let departmentId: string | null = null;
+    if (actor.role === "ADMIN") {
+      const requested = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
+      if (requested) {
+        const department = await prisma.department.findFirst({
+          where: { id: requested, isActive: true },
+          select: { id: true },
+        });
+        departmentId = department?.id ?? null;
+      }
+      departmentId = departmentId ?? (await getDefaultDepartmentId());
+    } else {
+      departmentId = actor.departmentId;
+    }
+    if (!departmentId) return;
 
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const startDate = parseDateOnly(
@@ -403,6 +438,7 @@ export default async function CustomerDetailPage({
         nextServiceDate,
         isActive: true,
         customerId,
+        departmentId,
         contactId: validContactId,
         templateId: validTemplateId,
       },
@@ -413,7 +449,7 @@ export default async function CustomerDetailPage({
         entityType: "Customer",
         entityId: customerId,
         action: `Opprettet serviceavtale: ${title} (${contractIntervalLabel(intervalMonths)})`,
-        userName: user?.name || "Ukjent",
+        userName: actor.name || actor.email || "Ukjent",
       },
     });
 
@@ -436,7 +472,8 @@ export default async function CustomerDetailPage({
 
   async function toggleContract(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    const actor = await getCurrentUser();
+    if (!actor || !hasPermission(actor, "customers.manage")) return;
 
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     const active = formData.get("active") === "true";
@@ -444,9 +481,10 @@ export default async function CustomerDetailPage({
 
     const contract = await prisma.contract.findUnique({
       where: { id },
-      select: { id: true, customerId: true, title: true },
+      select: { id: true, customerId: true, departmentId: true, title: true },
     });
     if (!contract || contract.customerId !== customerId) return;
+    if (actor.role !== "ADMIN" && contract.departmentId !== actor.departmentId) return;
 
     await prisma.contract.update({
       where: { id },
@@ -458,7 +496,7 @@ export default async function CustomerDetailPage({
         entityType: "Customer",
         entityId: customerId,
         action: `${active ? "Aktiverte" : "Pauset"} serviceavtale: ${contract.title}`,
-        userName: user?.name || "Ukjent",
+        userName: actor.name || actor.email || "Ukjent",
       },
     });
 
@@ -481,7 +519,10 @@ export default async function CustomerDetailPage({
 
   async function deleteContract(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    // Sletting er alltid forbeholdt administrator.
+    if (!(await requireAdmin())) return;
+    const actor = await getCurrentUser();
+    if (!actor) return;
 
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
@@ -499,7 +540,7 @@ export default async function CustomerDetailPage({
         entityType: "Customer",
         entityId: customerId,
         action: `Slettet serviceavtale: ${contract.title}`,
-        userName: user?.name || "Ukjent",
+        userName: actor.name || actor.email || "Ukjent",
       },
     });
 
@@ -521,15 +562,15 @@ export default async function CustomerDetailPage({
             </p>
           </div>
           <div className="flex gap-2 sm:gap-3">
+            {canCreateWorkOrders && (
+              <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+                ➕ Nytt oppdrag
+              </Link>
+            )}
             {office && (
-              <>
-                <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                  ➕ Nytt oppdrag
-                </Link>
-                <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                  ✏️ Rediger
-                </Link>
-              </>
+              <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+                ✏️ Rediger
+              </Link>
             )}
             <Link href="/kunder" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
               &larr; Kunder
@@ -689,12 +730,14 @@ export default async function CustomerDetailPage({
                 <h2 className="text-lg font-black text-gray-900">📂 Oppdragshistorikk</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Viser alle tidligere og aktive oppdrag for denne kunden.</p>
               </div>
-              <Link
-                href={`/oppdrag/ny?customerId=${customer.id}`}
-                className="bg-blue-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-black hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-              >
-                ➕ Nytt oppdrag
-              </Link>
+              {canCreateWorkOrders && (
+                <Link
+                  href={`/oppdrag/ny?customerId=${customer.id}`}
+                  className="bg-blue-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-black hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                >
+                  ➕ Nytt oppdrag
+                </Link>
+              )}
             </div>
 
             {visibleWorkOrders.length === 0 ? (
@@ -748,7 +791,7 @@ export default async function CustomerDetailPage({
             title="📄 Serviceavtaler"
             description="Gjentagende service med fast intervall. Ved hvert intervall opprettes et nytt oppdrag med kundedata og en ny, tom sjekkliste. Forrige rapport legges ved som PDF."
           >
-            {office && (
+            {office && (isAdmin || ownDepartmentId) && (
               <form
                 action={createContract}
                 className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200"
@@ -765,6 +808,30 @@ export default async function CustomerDetailPage({
                       placeholder="F.eks. Årlig service på portanlegg"
                       className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
                     />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Avdeling *
+                    </label>
+                    {isAdmin ? (
+                      <select
+                        name="departmentId"
+                        required
+                        defaultValue={defaultDepartmentId ?? ""}
+                        className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                      >
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                            {department.isDefault ? " (standard)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="w-full border border-gray-200 bg-white p-2 rounded-xl text-sm text-gray-800 font-bold">
+                        {user.department?.name || "Ingen avdeling"}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -845,6 +912,12 @@ export default async function CustomerDetailPage({
               </form>
             )}
 
+            {office && !isAdmin && !ownDepartmentId && (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 font-bold">
+                Du må være knyttet til en avdeling for å opprette serviceavtaler.
+              </p>
+            )}
+
             {customer.contracts.length === 0 ? (
               <p className="text-xs text-gray-500 italic">
                 Ingen serviceavtaler registrert på denne kunden.
@@ -874,6 +947,10 @@ export default async function CustomerDetailPage({
                               {contract.template?.title || "Ingen"}
                             </span>
                           </p>
+                          <p className="text-[11px] text-gray-600">
+                            🏷️ Avdeling:{" "}
+                            <span className="font-bold">{contract.department.name}</span>
+                          </p>
                         </div>
                         <span
                           className={`self-start text-[10px] font-bold px-2 py-1 rounded-full border uppercase ${
@@ -896,7 +973,7 @@ export default async function CustomerDetailPage({
                         </Link>
                       )}
 
-                      {office && (
+                      {office && (isAdmin || contract.departmentId === ownDepartmentId) && (
                         <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
                           <form action={toggleContract}>
                             <input type="hidden" name="id" value={contract.id} />
@@ -916,18 +993,20 @@ export default async function CustomerDetailPage({
                               {contract.isActive ? "Pause" : "Aktiver"}
                             </button>
                           </form>
-                          <ConfirmSubmitForm
-                            action={deleteContract}
-                            confirmMessage={`Slette serviceavtalen «${contract.title}»? Oppdrag som allerede er opprettet blir liggende.`}
-                          >
-                            <input type="hidden" name="id" value={contract.id} />
-                            <button
-                              type="submit"
-                              className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition"
+                          {isAdmin && (
+                            <ConfirmSubmitForm
+                              action={deleteContract}
+                              confirmMessage={`Slette serviceavtalen «${contract.title}»? Oppdrag som allerede er opprettet blir liggende.`}
                             >
-                              Slett
-                            </button>
-                          </ConfirmSubmitForm>
+                              <input type="hidden" name="id" value={contract.id} />
+                              <button
+                                type="submit"
+                                className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition"
+                              >
+                                Slett
+                              </button>
+                            </ConfirmSubmitForm>
+                          )}
                         </div>
                       )}
                     </div>
@@ -947,7 +1026,8 @@ export default async function CustomerDetailPage({
               fileName: attachment.fileName,
               dataUrl: attachment.dataUrl,
             }))}
-            canManage={office}
+            canUpload={canManageCustomers}
+            canDelete={isAdmin}
           />
         )}
 
@@ -957,8 +1037,8 @@ export default async function CustomerDetailPage({
             title="🔧 Utstyr / enheter"
             description="Maskinene og utstyret kunden har. Enhetene kan velges når montøren fyller ut en servicerapport, og rapporten husker hvilke enheter som ble kontrollert."
           >
-            {/* Skjema for ny enhet – kun kontor/admin */}
-            {office && (
+            {/* Skjema for ny enhet – krever equipment.manage */}
+            {canManageEquipment && (
               <form action={createUnit} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <input type="hidden" name="customerId" value={customerId} />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1018,7 +1098,7 @@ export default async function CustomerDetailPage({
                           <UnitHistory entries={unit.reportUnits} />
                         </div>
 
-                        {office && (
+                        {canManageEquipment && (
                           <details className="mt-3 border-t border-gray-200 pt-3">
                             <summary className="cursor-pointer text-[11px] font-black text-gray-600 uppercase tracking-wider">
                               ✏️ Endre enhet
@@ -1049,7 +1129,7 @@ export default async function CustomerDetailPage({
                         )}
                       </details>
 
-                      {office && (
+                      {isAdmin && (
                         <form action={deleteUnit}>
                           <input type="hidden" name="customerId" value={customerId} />
                           <input type="hidden" name="id" value={unit.id} />
@@ -1113,6 +1193,7 @@ export default async function CustomerDetailPage({
                     onUpdate={updateContact}
                     onDelete={deleteContact}
                     readOnly={!office}
+                    canDelete={isAdmin}
                   />
                 ))}
               </div>
@@ -1121,7 +1202,7 @@ export default async function CustomerDetailPage({
         )}
 
         {/* --- FANE: KUNDEPORTAL --- */}
-        {currentTab === "portal" && (
+        {currentTab === "portal" && office && (
           <TabPanel
             title="🔐 Kundeportalbrukere"
             description="Brukere som kan logge inn i kundeportalen og se denne kundens data og teknikertilgjengelighet."
@@ -1303,6 +1384,7 @@ export default async function CustomerDetailPage({
                 createdAt: c.createdAt.toISOString(),
               }))}
               currentUserName={user?.name || null}
+              canWrite={canManageCustomers}
             />
           </div>
         )}

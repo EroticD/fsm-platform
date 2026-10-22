@@ -1,10 +1,11 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import GoogleMapsLink from "@/components/GoogleMapsLink";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 // Hjelpekomponent for status-etikett
 function StatusBadge({ status }: { status: string }) {
@@ -24,14 +25,13 @@ export default async function TechnicianDashboard({
 }: { 
   searchParams: Promise<{ q?: string }> 
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
+  const accessScope = workOrderScope(user);
 
   // 1. Hent oppdrag som er tildelt denne montøren
   let assignedWorkOrders: any[] = [];
@@ -41,6 +41,7 @@ export default async function TechnicianDashboard({
   if (searchQuery) {
     assignedWorkOrders = await prisma.workOrder.findMany({
       where: {
+        AND: [accessScope],
         technicians: { some: { id: user.id } },
         status: { not: 'CANCELLED' },
         OR: [
@@ -57,6 +58,7 @@ export default async function TechnicianDashboard({
 
     unassignedWorkOrders = await prisma.workOrder.findMany({
       where: {
+        AND: [accessScope],
         technicians: { none: {} },
         status: { not: 'CANCELLED' },
         OR: [
@@ -73,6 +75,7 @@ export default async function TechnicianDashboard({
   } else {
     assignedWorkOrders = await prisma.workOrder.findMany({
       where: {
+        AND: [accessScope],
         technicians: { some: { id: user.id } },
         status: { not: 'CANCELLED' }
       },
@@ -82,6 +85,7 @@ export default async function TechnicianDashboard({
 
     unassignedWorkOrders = await prisma.workOrder.findMany({
       where: {
+        AND: [accessScope],
         technicians: { none: {} },
         status: { not: 'CANCELLED' }
       },
@@ -102,7 +106,10 @@ export default async function TechnicianDashboard({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-300 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-gray-900">Hei, {user.name || "Montør"} 👋</h1>
-            <p className="text-sm text-gray-500 font-medium">Felt-portal for oppdrag og kalender.</p>
+            <p className="text-sm text-gray-500 font-medium">
+              Felt-portal for oppdrag og kalender.
+              {user.department ? ` • 🏷️ ${user.department.name}` : " • Ingen avdeling"}
+            </p>
           </div>
           <form action="/api/auth/signout" method="POST">
             <button type="submit" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">

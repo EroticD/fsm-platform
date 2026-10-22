@@ -41,10 +41,39 @@ if (process.env.NODE_ENV === "production" && !configuredPassword) {
 const password = configuredPassword ?? "admin123";
 
 try {
+  // Sørg for at det finnes en standardavdeling også i en database som er
+  // seedet uten at migreringen har opprettet den.
+  let department = await prisma.department.findFirst({
+    // Navnet fanges opp i tillegg til isDefault, slik at en database der
+    // migreringen alt har opprettet «Hovedavdeling» ikke får en unik-konflikt.
+    where: {
+      OR: [{ isDefault: true }, { name: "Hovedavdeling" }],
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
+  if (!department) {
+    department = await prisma.department.create({
+      data: {
+        name: "Hovedavdeling",
+        description: "Standardavdeling opprettet av seed-skriptet.",
+        isDefault: true,
+      },
+    });
+    console.log("✔ Opprettet standardavdeling Hovedavdeling");
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (existing) {
-    console.log(`→ Brukeren ${email} finnes allerede, hopper over.`);
+    if (!existing.departmentId) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { departmentId: department.id },
+      });
+      console.log(`→ Koblet ${email} til avdelingen ${department.name}.`);
+    } else {
+      console.log(`→ Brukeren ${email} finnes allerede, hopper over.`);
+    }
   } else {
     const admin = await prisma.user.create({
       data: {
@@ -52,6 +81,7 @@ try {
         name,
         password: await bcrypt.hash(password, 10),
         role: "ADMIN",
+        departmentId: department.id,
         // Kontoer må aktiveres manuelt før innlogging er tillatt.
         isActive: true,
       },

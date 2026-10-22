@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -7,27 +6,69 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
-import { requireOffice } from "@/lib/session";
+import { getCurrentUser, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
+import { staffForDepartment } from "@/lib/access";
 import { createWorkOrderSchema } from "./schemas";
-import { z } from "zod";
 
-export default async function AdminCreateWorkOrderPage() {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+export default async function AdminCreateWorkOrderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.create")) redirect("/");
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
+  const { error } = await searchParams;
+  const isAdmin = user.role === "ADMIN";
+  const departments = await getActiveDepartments();
+  const defaultDepartmentId = await getDefaultDepartmentId();
+  // Administrator kan opprette i alle avdelinger. Alle andre må selv være
+  // knyttet til en avdeling – vi faller ikke tilbake til standardavdelingen.
+  const ownDepartmentId = isAdmin
+    ? (user.departmentId ?? defaultDepartmentId)
+    : user.departmentId;
 
   const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
   const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
-  const technicians = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'TECHNICIAN', 'OFFICE'] } } });
+  const technicians = await prisma.user.findMany({
+    where: isAdmin
+      ? { role: { in: ["ADMIN", "TECHNICIAN", "OFFICE"] } }
+      : staffForDepartment(ownDepartmentId),
+    include: { department: true },
+    orderBy: { name: "asc" },
+  });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
   async function createWorkOrder(formData: FormData): Promise<void> {
     "use server";
     // Autorisasjonen må ligge i handlingen, ikke bare i sidevisningen.
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("workorders.create"))) return;
+    const actor = await getCurrentUser();
+    if (!actor) return;
+
+    // Administrator kan velge avdeling, alle andre oppretter i egen avdeling.
+    let departmentId: string | null = null;
+    if (actor.role === "ADMIN") {
+      const requested = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
+      if (requested) {
+        const department = await prisma.department.findFirst({
+          where: { id: requested, isActive: true },
+          select: { id: true },
+        });
+        departmentId = department?.id ?? null;
+      }
+      departmentId = departmentId ?? (await getDefaultDepartmentId());
+    } else {
+      departmentId = actor.departmentId;
+    }
+
+    if (!departmentId) {
+      redirect("/oppdrag/ny?error=avdeling");
+    }
 
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
@@ -46,11 +87,20 @@ export default async function AdminCreateWorkOrderPage() {
       if (!contact || contact.customerId !== customerId) validContactId = "";
     }
 
-    const technicianIds = formData.getAll("technicianIds") as string[];
+    const requestedTechnicianIds = formData.getAll("technicianIds") as string[];
     const templateIds = formData.getAll("templateIds") as string[];
     const tagNames = formData.getAll("tags")
       .map(t => cleanText(t, { maxLength: LIMITS.short }))
       .filter(Boolean);
+
+    // Montører som ikke hører til oppdragets avdeling skal ikke kunne tildeles.
+    const allowedTechnicians = requestedTechnicianIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: requestedTechnicianIds }, ...staffForDepartment(departmentId) },
+          select: { id: true },
+        })
+      : [];
+    const technicianIds = allowedTechnicians.map((technician) => technician.id);
 
     const parsed = createWorkOrderSchema.safeParse({
       title,
@@ -72,11 +122,12 @@ export default async function AdminCreateWorkOrderPage() {
         data: {
           title,
           description: description || "",
+          departmentId,
           customerId: customerId || undefined,
           contactId: parsed.data.contactId || undefined,
           scheduledFor,
           scheduledTo,
-          creatorName: user?.name || "Kontor",
+          creatorName: actor.name || actor.email || "Kontor",
           status: "PENDING",
           technicians: {
             connect: technicianIds.map(id => ({ id }))
@@ -98,7 +149,7 @@ export default async function AdminCreateWorkOrderPage() {
           entityType: "WorkOrder",
           entityId: newWo.id,
           action: `Kontoret opprettet nytt oppdrag: ${title}`,
-          userName: user?.name || "Admin"
+          userName: actor.name || actor.email || "Admin"
         }
       });
     } catch (dbError) {
@@ -125,7 +176,40 @@ export default async function AdminCreateWorkOrderPage() {
           </Link>
         </div>
 
+        {error === "avdeling" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            Oppdraget må tilhøre en avdeling. Be en administrator legge deg til i en
+            aktiv avdeling, eller opprett en avdeling først.
+          </div>
+        )}
+
         <form action={createWorkOrder} className="bg-white p-6 rounded-2xl shadow-sm border space-y-5">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Avdeling</label>
+            {isAdmin ? (
+              <select
+                name="departmentId"
+                defaultValue={ownDepartmentId ?? ""}
+                required
+                className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
+              >
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                    {department.isDefault ? " (standard)" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl text-sm text-gray-800 font-bold">
+                {user.department?.name || departments.find((d) => d.id === ownDepartmentId)?.name || "Ingen avdeling"}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Oppdraget blir bare synlig for ansatte i denne avdelingen.
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Oppdragstittel</label>
             <input
@@ -157,7 +241,10 @@ export default async function AdminCreateWorkOrderPage() {
               {technicians.map(tech => (
                 <label key={tech.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
                   <input type="checkbox" name="technicianIds" value={tech.id} className="w-4 h-4 text-blue-600 rounded" />
-                  <span className="font-medium text-gray-800 text-sm">{tech.name}</span>
+                  <span className="font-medium text-gray-800 text-sm">
+                    {tech.name}
+                    {tech.department ? ` (${tech.department.name})` : ""}
+                  </span>
                 </label>
               ))}
             </div>

@@ -27,11 +27,13 @@ function isImage(url: string) {
 export default function WorkOrderAttachments({
   workOrderId,
   attachments,
-  canManage,
+  canUpload,
+  canDelete,
 }: {
   workOrderId: string;
   attachments: WorkOrderAttachment[];
-  canManage: boolean;
+  canUpload: boolean;
+  canDelete: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -159,7 +161,7 @@ export default function WorkOrderAttachments({
                 >
                   {attachment.fileName}
                 </a>
-                {canManage && (
+                {canDelete && (
                   <button
                     type="button"
                     onClick={() => handleRemove(attachment)}
@@ -175,7 +177,7 @@ export default function WorkOrderAttachments({
         </div>
       )}
 
-      {canManage && (
+      {canUpload && (
         <div className="space-y-2">
           <input
             type="file"

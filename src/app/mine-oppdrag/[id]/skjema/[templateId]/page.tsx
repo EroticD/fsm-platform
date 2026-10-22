@@ -1,10 +1,12 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import ReportForm, { type CustomerUnit, type InitialReport } from "./ReportForm";
 import { type TemplateField } from "./FieldInput";
 import { parseJsonObject } from "@/lib/report-answers";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 export default async function TechnicianFillFormPage({
   params,
@@ -13,8 +15,9 @@ export default async function TechnicianFillFormPage({
   params: Promise<{ id: string; templateId: string }>;
   searchParams: Promise<{ returnTo?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "reports.write")) redirect("/");
 
   const { id: workOrderId, templateId } = await params;
   const { returnTo: returnToParam } = await searchParams;
@@ -27,11 +30,8 @@ export default async function TechnicianFillFormPage({
     ? (returnToParam as string)
     : `/mine-oppdrag/${workOrderId}`;
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user) redirect("/api/auth/signin");
-
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
     include: {
       customer: {
         include: { products: { orderBy: { model: "asc" } } },
@@ -40,6 +40,11 @@ export default async function TechnicianFillFormPage({
   });
 
   const template = await prisma.template.findUnique({ where: { id: templateId } });
+
+  // Kansellerte oppdrag er lukket og skal ikke kunne fylles ut i feltportalen.
+  if (workOrder?.status === "CANCELLED" && user.role === "TECHNICIAN") {
+    redirect("/mine-oppdrag");
+  }
 
   if (!workOrder || !template) {
     return (

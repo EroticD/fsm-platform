@@ -1,9 +1,9 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { isOffice, requireOffice } from "@/lib/session";
+import { getCurrentUser, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { LIMITS, cleanEmail, cleanMarkdown, cleanPhone, cleanText } from "@/lib/sanitize";
 
@@ -12,8 +12,8 @@ export default async function EditCustomerPage({
 }: { 
   params: Promise<{ id: string }> 
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const session = await getCurrentUser();
+  if (!session) redirect("/api/auth/signin");
 
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
@@ -22,9 +22,8 @@ export default async function EditCustomerPage({
     where: { id: customerId },
   });
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  // Å redigere kundedata er kontorets oppgave – montører får lese kundekortet.
-  if (!isOffice(user?.role)) redirect(`/kunder/${customerId}`);
+  // Å redigere kundedata krever customers.manage. Montører får lese kundekortet.
+  if (!hasPermission(session, "customers.manage")) redirect(`/kunder/${customerId}`);
 
   if (!customer) {
     return (
@@ -40,7 +39,9 @@ export default async function EditCustomerPage({
   // --- SERVER ACTION: OPPRETT KUNDE ---
   async function updateCustomer(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("customers.manage"))) return;
+    const actor = await getCurrentUser();
+    if (!actor) return;
 
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const customerNumber = cleanText(formData.get("customerNumber"), { maxLength: LIMITS.line });
@@ -76,7 +77,7 @@ export default async function EditCustomerPage({
           entityType: "Customer",
           entityId: customerId,
           action: `Endret kundeinformasjon: ${name}`,
-          userName: user?.name || "Ukjent"
+          userName: actor.name || actor.email || "Ukjent"
         }
       });
       revalidatePath(`/kunder/${customerId}`);

@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -6,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import path from "path";
 import { enqueuePdfText } from "@/lib/pdf-queue";
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
-import { isOffice, requireOffice } from "@/lib/session";
+import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import TagSelector from "@/components/TagSelector";
 import MarkdownView from "@/components/MarkdownView";
 import UploadDocumentForm from "./UploadDocumentForm";
@@ -19,12 +19,11 @@ export default async function DocumentsPage({
 }: {
   searchParams: Promise<{ folder?: string; q?: string; tag?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
-  const office = isOffice(user.role);
+  if (!hasPermission(user, "documents.view")) redirect("/");
+  const office = hasPermission(user, "documents.manage");
+  const isAdmin = user.role === "ADMIN";
 
   const resolved = await searchParams;
   const folderId = resolved.folder || null;
@@ -82,7 +81,7 @@ export default async function DocumentsPage({
   // --- SERVER ACTIONS ---
   async function createFolder(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     if (!name) return;
     await prisma.documentFolder.create({
@@ -101,7 +100,7 @@ export default async function DocumentsPage({
 
   async function deleteFolder(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireAdmin())) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
     const f = await prisma.documentFolder.findUnique({ where: { id } });
@@ -119,7 +118,7 @@ export default async function DocumentsPage({
 
   async function deleteDocument(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requireAdmin())) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
     const doc = await prisma.document.findUnique({ where: { id } });
@@ -138,7 +137,7 @@ export default async function DocumentsPage({
   // --- SERVER ACTION: OPPDATER DOKUMENT (mappe, tags, tittel, fil) ---
   async function updateDocument(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
     if (!id) return;
 
@@ -192,7 +191,7 @@ export default async function DocumentsPage({
 
   async function createDocument(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanText(formData.get("description"), { maxLength: LIMITS.text });
     const fileUrl = cleanUrl(formData.get("fileUrl"));
@@ -241,7 +240,7 @@ export default async function DocumentsPage({
   // --- SERVER ACTION: BULK OPPRETT DOKUMENTER (fra klient-opplastet mappe) ---
   async function bulkCreateDocuments(formData: FormData) {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const itemsJson = cleanText(formData.get("items"), { maxLength: 100000 });
     if (!itemsJson) return;
 
@@ -348,7 +347,7 @@ export default async function DocumentsPage({
   // --- SERVER ACTION: INDEKSER PÅ NYTT (ekstraher PDF-tekst) ---
   async function reindexDocuments() {
     "use server";
-    if (!(await requireOffice())) return;
+    if (!(await requirePermission("documents.manage"))) return;
     const docs = await prisma.document.findMany({
       where: { OR: [{ contentText: null }, { contentText: "" }] },
       select: { id: true, filePath: true },
@@ -548,7 +547,7 @@ export default async function DocumentsPage({
                           updateDocument={updateDocument}
                         />
                       )}
-                      {office && (
+                      {isAdmin && (
                         <ConfirmSubmitForm action={deleteDocument} confirmMessage={`Slette dokumentet «${doc.title}»?`}>
                           <input type="hidden" name="id" value={doc.id} />
                           <button

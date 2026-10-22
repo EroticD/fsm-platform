@@ -17,13 +17,15 @@ type CommentSectionProps = {
   entityId: string;
   existingComments: CommentType[];
   currentUserName: string | null;
+  canWrite?: boolean;
 };
 
 export default function CommentSection({ 
   entityType, 
   entityId, 
-  existingComments = [], 
-  currentUserName 
+  existingComments = [],
+  currentUserName,
+  canWrite = true,
 }: CommentSectionProps) {
   const [content, setContent] = useState("");
   const [editorKey, setEditorKey] = useState(0);
@@ -69,30 +71,32 @@ export default function CommentSection({
       </div>
 
       {/* Kommentarsskjema */}
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="relative">
-          <MarkdownEditor
-            key={editorKey}
-            name="content"
-            rows={3}
-            disabled={submitting}
-            placeholder="Skriv en kommentar eller hendelse..."
-            onChange={setContent}
-          />
-          {submitting && (
-            <div className="absolute right-2 top-2">
-              <div className="w-3 h-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
-            </div>
-          )}
-        </div>
-        <button
-          type="submit"
-          disabled={!content.trim() || submitting}
-          className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50 whitespace-nowrap"
-        >
-          {submitting ? "Lagrer..." : "Legg til kommentar"}
-        </button>
-      </form>
+      {canWrite && (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="relative">
+            <MarkdownEditor
+              key={editorKey}
+              name="content"
+              rows={3}
+              disabled={submitting}
+              placeholder="Skriv en kommentar eller hendelse..."
+              onChange={setContent}
+            />
+            {submitting && (
+              <div className="absolute right-2 top-2">
+                <div className="w-3 h-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+              </div>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={!content.trim() || submitting}
+            className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50 whitespace-nowrap"
+          >
+            {submitting ? "Lagrer..." : "Legg til kommentar"}
+          </button>
+        </form>
+      )}
 
       {/* Kommentarer liste */}
       <div className="space-y-3">

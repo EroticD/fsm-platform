@@ -8,6 +8,26 @@ datasource db {
   // den via driver-adapteren i src/lib/prisma.ts.
 }
 
+// Avdelingene avgjør hvilke oppdrag en ansatt kan se. Kunder, dokumenter og
+// rapporter er felles for alle avdelinger, mens oppdrag er avdelingssperret.
+model Department {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+  /// Standardavdeling for kundebestillinger og nye oppdrag uten valgt avdeling.
+  isDefault   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  workOrders WorkOrder[]
+  contracts  Contract[]
+
+  @@index([isActive])
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -33,7 +53,17 @@ model User {
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
 
+  // Ansatte tilhører en avdeling. Kundeportalbrukere kan stå uten.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  // Ekstra rettigheter utover rollens standardnivå. Sletting er ikke en
+  // rettighet her; det er alltid forbeholdt administrator.
+  permissions String[] @default([])
+
   workOrders WorkOrder[] @relation("WorkOrderTechnicians")
+
+  @@index([departmentId])
 }
 
 model Customer {
@@ -113,6 +143,10 @@ model Contract {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
+  // Avtalen eier avdelingen som de genererte oppdragene havner i.
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
   // Kontaktpersonen som skal stå på de genererte oppdragene. Tom betyr at
   // kundens første kontaktperson brukes.
   contactId String?
@@ -125,6 +159,7 @@ model Contract {
   workOrders WorkOrder[]
 
   @@index([customerId])
+  @@index([departmentId])
   @@index([nextServiceDate])
 }
 
@@ -162,6 +197,10 @@ model WorkOrder {
 
   technicians User[] @relation("WorkOrderTechnicians")
 
+  // Oppdraget tilhører én avdeling, og er bare synlig for ansatte der.
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 
@@ -183,6 +222,7 @@ model WorkOrder {
   workComments Comment[]  @relation("WorkOrderComments")
   tags         Tag[]      @relation("WorkOrderTags")
 
+  @@index([departmentId])
   @@index([customerId])
   @@index([status])
   @@index([scheduledFor])

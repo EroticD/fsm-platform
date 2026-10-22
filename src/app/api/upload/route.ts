@@ -3,14 +3,25 @@ import path from "path";
 import crypto from "crypto";
 import { uploadDir } from "@/lib/uploads";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { getCurrentUser, isStaff } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user?.isActive) {
     return new Response(JSON.stringify({ error: "Ikke autentisert" }), { status: 401 });
   }
-  if (!isStaff(user.role)) {
+  // Opplasting i seg selv gir ingen tilgang til filen. Selve vedlegget eller
+  // dokumentet krever en av rettighetene under, også for brukere med rollen
+  // USER som har fått utvidede rettigheter.
+  const canUpload =
+    hasPermission(user, "customers.manage") ||
+    hasPermission(user, "workorders.update") ||
+    hasPermission(user, "reports.write") ||
+    hasPermission(user, "documents.manage") ||
+    hasPermission(user, "equipment.manage");
+
+  if (!canUpload) {
     return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
   }
 
@@ -37,7 +48,7 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: "Ugyldig filtype. Bare bilder og PDF er tillatt." }), { status: 400 });
     }
 
-    // Max 100MB (stemmer overens med middlewareClientMaxBodySize i next.config.ts)
+    // Max 100MB (stemmer overens med proxyClientMaxBodySize i next.config.ts)
     const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
       return new Response(JSON.stringify({ error: "Filen er for stor (maks 100MB)" }), { status: 400 });
@@ -55,7 +66,9 @@ export async function POST(request: Request) {
       fs.mkdirSync(uploadDirPath, { recursive: true });
     }
 
-    const filePath = path.join(uploadDirPath, fileName);
+    // Turbopack skal ikke prøve å spore opplastingsmappen: den er en dynamisk
+    // datamappe på containeren, ikke en del av app-bundelen.
+    const filePath = path.join(/*turbopackIgnore: true*/ uploadDirPath, fileName);
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     fs.writeFileSync(filePath, buffer);

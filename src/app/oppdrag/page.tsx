@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Prisma, WorkStatus } from "@prisma/client";
@@ -6,6 +5,9 @@ import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
@@ -127,14 +129,13 @@ export default async function WorkOrdersPage({
 }: {
   searchParams: Promise<{ vis?: string; q?: string; side?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
 
   // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
+  const canCreate = hasPermission(user, "workorders.create");
 
   const { vis, q, side } = await searchParams;
   const view: ViewKey = vis && isViewKey(vis) ? vis : "alle";
@@ -156,10 +157,14 @@ export default async function WorkOrdersPage({
     : {};
 
   // Kansellerte oppdrag er avsluttet og vises ikke til montørene. Kontoret
-  // trenger dem fortsatt for oppfølging og historikk.
-  const visibleStatus: Prisma.WorkOrderWhereInput = office
-    ? {}
-    : { status: { not: "CANCELLED" } };
+  // trenger dem fortsatt for oppfølging og historikk. Avdelingsfilteret gjelder
+  // uansett rolle; bare administrator ser oppdrag fra alle avdelinger.
+  const visibleStatus: Prisma.WorkOrderWhereInput = {
+    AND: [
+      workOrderScope(user),
+      office ? {} : { status: { not: "CANCELLED" } },
+    ],
+  };
 
   const activeWhere: Prisma.WorkOrderWhereInput = {
     AND: [visibleStatus, whereFor(view, dates), searchWhere],
@@ -245,12 +250,14 @@ export default async function WorkOrdersPage({
             >
               ← Dashbord
             </Link>
-            <Link
-              href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-            >
-              ➕ Nytt oppdrag
-            </Link>
+            {canCreate && (
+              <Link
+                href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
+                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+              >
+                ➕ Nytt oppdrag
+              </Link>
+            )}
           </div>
         </div>
 

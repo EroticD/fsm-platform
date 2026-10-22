@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import { loadReportPdf } from "@/lib/report-pdf";
 
 export const runtime = "nodejs";
@@ -10,22 +11,21 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession();
-  if (!session?.user?.email) {
-    return new NextResponse("Ikke autentisert", { status: 401 });
+  const viewer = await getCurrentUser();
+  if (!viewer?.isActive) {
+    return new NextResponse("Ingen tilgang", { status: 403 });
   }
 
   const { id } = await params;
 
-  const viewer = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!viewer?.isActive) {
+  if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
     return new NextResponse("Ingen tilgang", { status: 403 });
   }
 
   // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
   const workOrder = await prisma.workOrder.findUnique({
     where: { id },
-    select: { customerId: true, reports: { select: { id: true } } },
+    select: { customerId: true, status: true, reports: { select: { id: true } } },
   });
 
   if (!workOrder) {
@@ -33,6 +33,9 @@ export async function GET(
   }
 
   if (viewer.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
+    return new NextResponse("Ingen tilgang", { status: 403 });
+  }
+  if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return new NextResponse("Ingen tilgang", { status: 403 });
   }
 

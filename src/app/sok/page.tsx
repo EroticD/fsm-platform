@@ -1,25 +1,22 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { performSearch } from "@/lib/search";
+import { getCurrentUser } from "@/lib/session";
 
 export default async function SearchResultsPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role === "CUSTOMER") redirect("/kundeportal");
+  const user = await getCurrentUser();
+  if (!user?.isActive) redirect("/api/auth/signin");
+  if (user.role === "CUSTOMER") redirect("/kundeportal");
 
   const resolvedParams = await searchParams;
   const query = resolvedParams.q?.trim() || "";
 
-  const includeCancelled = user?.role === "ADMIN" || user?.role === "OFFICE";
-  const results = await performSearch(query, { includeCancelled });
+  const includeCancelled = user.role === "ADMIN" || user.role === "OFFICE";
+  const results = await performSearch(query, { user, includeCancelled });
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">

@@ -5,7 +5,8 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { requireOffice, requireStaff, actorName } from "@/lib/session";
+import { requireAdmin, requirePermission, actorName } from "@/lib/session";
+import { requireWorkOrderAccess } from "@/lib/access";
 import { uploadDir } from "@/lib/uploads";
 
 export type AttachmentActionResult = { ok: boolean; error?: string };
@@ -26,13 +27,16 @@ function attachmentPath(fileUrl: string): string | null {
  * filer, og gjenbruker samme validering og lagring som resten av appen.
  */
 export async function addAttachment(formData: FormData): Promise<AttachmentActionResult> {
-  if (!(await requireStaff())) return { ok: false, error: "Ikke tilgang" };
-
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+  if (!workOrderId) return { ok: false, error: "Mangler data" };
+  if (!(await requireWorkOrderAccess("workorders.update", workOrderId))) {
+    return { ok: false, error: "Ikke tilgang" };
+  }
+
   const fileUrl = cleanText(formData.get("fileUrl"), { maxLength: LIMITS.line });
   const fileName = cleanText(formData.get("fileName"), { maxLength: LIMITS.title });
 
-  if (!workOrderId || !fileUrl) return { ok: false, error: "Mangler data" };
+  if (!fileUrl) return { ok: false, error: "Mangler data" };
 
   const filePath = attachmentPath(fileUrl);
   if (!filePath) return { ok: false, error: "Ugyldig fil" };
@@ -43,12 +47,6 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
   } catch {
     return { ok: false, error: "Filen ble ikke funnet" };
   }
-
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
-    select: { id: true }
-  });
-  if (!workOrder) return { ok: false, error: "Oppdraget finnes ikke" };
 
   // Ikke legg ved samme fil to ganger på samme oppdrag.
   const existing = await prisma.attachment.findFirst({
@@ -82,7 +80,8 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
 
 /** Fjerner vedlegget fra oppdraget og sletter filen fra disk. */
 export async function removeAttachment(formData: FormData): Promise<AttachmentActionResult> {
-  if (!(await requireStaff())) return { ok: false, error: "Ikke tilgang" };
+  // Sletting av filer er forbeholdt administrator.
+  if (!(await requireAdmin())) return { ok: false, error: "Ikke tilgang" };
 
   const attachmentId = cleanText(formData.get("attachmentId"), { maxLength: LIMITS.line });
   if (!attachmentId) return { ok: false, error: "Mangler data" };
@@ -118,7 +117,9 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
 export async function addCustomerAttachment(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
-  if (!(await requireOffice())) return { ok: false, error: "Ikke tilgang" };
+  if (!(await requirePermission("customers.manage"))) {
+    return { ok: false, error: "Ikke tilgang" };
+  }
 
   const customerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
@@ -172,7 +173,8 @@ export async function addCustomerAttachment(
 export async function removeCustomerAttachment(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
-  if (!(await requireOffice())) return { ok: false, error: "Ikke tilgang" };
+  // Sletting av filer er forbeholdt administrator.
+  if (!(await requireAdmin())) return { ok: false, error: "Ikke tilgang" };
 
   const attachmentId = cleanText(formData.get("attachmentId"), {
     maxLength: LIMITS.line,
