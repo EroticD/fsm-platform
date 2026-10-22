@@ -5,8 +5,9 @@ import Link from "next/link";
 import { getCurrentUser, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 export default async function KunderPage({
   searchParams,
@@ -22,7 +23,7 @@ export default async function KunderPage({
 
   const resolved = await searchParams;
   const search = resolved.q?.trim() || "";
-  const page = Math.max(1, parseInt(resolved.side?.toString() || "1", 10) || 1);
+  const page = parsePage(resolved.side);
 
   const where = search
     ? {

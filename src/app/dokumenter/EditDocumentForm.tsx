@@ -30,11 +30,13 @@ export default function EditDocumentForm({
   allFolders,
   allTags,
   updateDocument,
+  restoreVersion,
 }: {
   doc: Doc;
   allFolders: Folder[];
   allTags: Tag[];
   updateDocument: (formData: FormData) => Promise<void>;
+  restoreVersion: (formData: FormData) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -97,7 +99,8 @@ export default function EditDocumentForm({
       </button>
 
       {open && (
-        <form onSubmit={handleSubmit} className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+        <div className="mt-3 space-y-3">
+        <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
           <input type="hidden" name="id" value={doc.id} />
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">Tittel</label>
@@ -155,34 +158,6 @@ export default function EditDocumentForm({
               </p>
             )}
           </div>
-          {doc.versions && doc.versions.length > 0 && (
-            <div className="border-t border-gray-200 pt-3">
-              <p className="text-xs font-bold text-gray-700 mb-2">🗂️ Tidligere versjoner ({doc.versions.length})</p>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {doc.versions.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]">
-                    <div className="min-w-0">
-                      <p className="text-gray-800 font-medium truncate">{v.fileName}</p>
-                      <p className="text-gray-500">
-                        {new Date(v.createdAt).toLocaleString("no-NO")}
-                        {v.createdBy ? ` • ${v.createdBy}` : ""}
-                        {` • ${(v.fileSize / 1024).toFixed(0)} KB`}
-                      </p>
-                    </div>
-                    <a
-                      href={v.filePath}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-700 font-bold hover:underline whitespace-nowrap"
-                    >
-                      Åpne
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {error && <p className="text-xs text-red-600">{error}</p>}
           <button
             type="submit"
@@ -191,6 +166,46 @@ export default function EditDocumentForm({
             💾 Lagre endringer
           </button>
         </form>
+
+        {doc.versions && doc.versions.length > 0 && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-bold text-gray-700 mb-2">🗂️ Tidligere versjoner ({doc.versions.length})</p>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {doc.versions.map((v) => (
+                <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]">
+                  <div className="min-w-0">
+                    <p className="text-gray-800 font-medium truncate">{v.fileName}</p>
+                    <p className="text-gray-500">
+                      {new Date(v.createdAt).toLocaleString("no-NO")}
+                      {v.createdBy ? ` • ${v.createdBy}` : ""}
+                      {` • ${(v.fileSize / 1024).toFixed(0)} KB`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <a
+                      href={v.filePath}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-700 font-bold hover:underline whitespace-nowrap"
+                    >
+                      Åpne
+                    </a>
+                    <form action={restoreVersion}>
+                      <input type="hidden" name="versionId" value={v.id} />
+                      <button
+                        type="submit"
+                        className="text-amber-700 font-bold hover:underline whitespace-nowrap"
+                      >
+                        Gjenopprett
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        </div>
       )}
     </div>
   );

@@ -48,6 +48,9 @@ migrasjonene gir samme skjema som `prisma/schema.prisma`.
   aldri tolkes. Bruk hjelperne i `src/lib/sanitize.ts` og `src/lib/markdown.ts`.
 - **Ikke endre eksisterende migrasjoner.** Legg nye endringer i en egen mappe
   under `prisma/migrations/` med `npx prisma migrate dev --name <navn>`.
+- **Aldri `prisma db push` i delt kode.** Produksjon og CI kjører
+  `prisma migrate deploy`; en skjemaendring uten migrasjon vil mangle i
+  produksjon. Verifiser alltid med `npx prisma migrate diff` før du pusher.
 - **Legg til tester** for ny logikk som er lett å teste isolert (datoer, rensing,
   autorisasjon, kalenderhendelser). Se `src/lib/*.test.ts`.
 - **Ingen hemmeligheter eller persondata** i kode, tester, logger eller

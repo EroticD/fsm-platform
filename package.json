@@ -1,7 +1,7 @@
 {
   "name": "fsm-platform",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "private": true,
   "license": "BUSL-1.1",
   "scripts": {
@@ -21,7 +21,6 @@
     "@fullcalendar/daygrid": "^6.1.22",
     "@fullcalendar/interaction": "^6.1.22",
     "@fullcalendar/timegrid": "^6.1.22",
-    "@hookform/resolvers": "^5.9.2",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@react-pdf/renderer": "^4.9.0",
@@ -39,7 +38,6 @@
     "qrcode": "^1.5.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "react-intl": "^12.1.5",
     "react-markdown": "^10.1.0",
     "react-signature-canvas": "^1.1.0-alpha.2",
     "rehype-sanitize": "^6.0.0",
@@ -59,7 +57,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcrypt": "^6.0.0",
-    "@types/bcryptjs": "^2.4.6",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",

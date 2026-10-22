@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import path from "path";
 import { enqueuePdfText } from "@/lib/pdf-queue";
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
-import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
+import { getCurrentUser, requireAdmin, requireOffice, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import TagSelector from "@/components/TagSelector";
 import MarkdownView from "@/components/MarkdownView";
@@ -113,6 +113,51 @@ export default async function DocumentsPage({
         entityType: "DocumentFolder",
         entityId: id,
         action: `Slettet mappe: ${f?.name || "Ukjent"}`,
+        userName: user?.name || "Kontor",
+      },
+    });
+    revalidatePath("/dokumenter");
+  }
+
+  async function restoreVersion(formData: FormData) {
+    "use server";
+    if (!(await requireOffice())) return;
+    const versionId = cleanText(formData.get("versionId"), { maxLength: LIMITS.line });
+    if (!versionId) return;
+
+    const version = await prisma.documentVersion.findUnique({ where: { id: versionId } });
+    if (!version) return;
+
+    const doc = await prisma.document.findUnique({ where: { id: version.documentId } });
+    if (!doc) return;
+
+    // Arkiver nåværende fil før vi ruller tilbake.
+    await prisma.documentVersion.create({
+      data: {
+        documentId: doc.id,
+        fileName: doc.fileName,
+        filePath: doc.filePath,
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+        createdBy: user?.name || "Kontor",
+      },
+    });
+
+    await prisma.document.update({
+      where: { id: doc.id },
+      data: {
+        fileName: version.fileName,
+        filePath: version.filePath,
+        fileSize: version.fileSize,
+        mimeType: version.mimeType,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Document",
+        entityId: doc.id,
+        action: `Gjenopprettet tidligere versjon av dokument: ${doc.title}`,
         userName: user?.name || "Kontor",
       },
     });
@@ -564,6 +609,7 @@ export default async function DocumentsPage({
                           allFolders={allFolders}
                           allTags={allTags}
                           updateDocument={updateDocument}
+                          restoreVersion={restoreVersion}
                         />
                       )}
                       {isAdmin && (

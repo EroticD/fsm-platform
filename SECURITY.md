@@ -35,6 +35,10 @@ Aktuelle områder:
 
 ## Sikkerhetsnotater for drift
 
+- To-trinns verifisering (TOTP) er tilgjengelig for alle innloggede under
+  Innstillinger → Sikkerhet. Oppfordre administratorer til å slå det på.
+- Opplasting, søk og kommentarer har hastighetsbegrensning per konto, i tillegg
+  til innloggingsbegrensningen.
 - `.env` skal aldri committes eller deles. Roter `NEXTAUTH_SECRET` og
   databasepassordet hvis de kan ha vært eksponert.
 - Kjør bak en reverse proxy med TLS, og sett `NEXTAUTH_URL` til den offentlige

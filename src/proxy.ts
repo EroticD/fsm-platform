@@ -6,6 +6,7 @@ import { getToken } from "next-auth/jwt";
 // Alt annet sendes tilbake til kundeportalen.
 const CUSTOMER_ALLOWED_PREFIXES = [
   "/kundeportal",
+  "/api/kundeportal", // CSV-eksport av egne oppdrag (tilgang sjekkes i ruten)
   "/api/rapporter", // selve PDF-filen (tilgang sjekkes per oppdrag i ruten)
   "/uploads", // bilder og vedlegg som vises i rapportene
   "/api/auth", // innlogging / utlogging

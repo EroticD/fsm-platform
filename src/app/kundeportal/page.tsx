@@ -413,6 +413,12 @@ export default async function KundeportalPage() {
                   <h2 className="font-bold text-lg text-gray-900">📅 Kommende oppdrag</h2>
                   <p className="text-[10px] text-gray-500 mt-0.5">Oppdrag som er planlagt eller pågår.</p>
                 </div>
+                <a
+                  href="/api/kundeportal/export"
+                  className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
+                >
+                  ⬇️ Eksporter CSV
+                </a>
               </div>
 
               {upcomingWorkOrders.length === 0 ? (

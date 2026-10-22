@@ -14,6 +14,7 @@ import {
   generateInvite,
 } from "@/app/brukere/actions";
 import { effectivePermissions, PERMISSIONS } from "@/lib/permissions";
+import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
 
 /**
  * Brukeradministrasjon (ansatte, roller, aktivering og invitasjoner).
@@ -32,7 +33,7 @@ export default async function UsersAdmin({
   error,
   mail,
   page = 1,
-  pageSize = 25,
+  pageSize = DEFAULT_PAGE_SIZE,
   baseUrl = "/brukere",
 }: {
   returnTo: string;
@@ -55,7 +56,7 @@ export default async function UsersAdmin({
   // Administrator ser alle. Avdelingsansvarlige ser bare egen avdeling, slik
   // at brukeradministrasjon ikke blir en vei rundt avdelingssperren.
   const where = isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" };
-  const safePage = Math.max(1, page);
+  const safePage = parsePage(page);
   const [users, totalUsers] = await Promise.all([
     prisma.user.findMany({
       where,

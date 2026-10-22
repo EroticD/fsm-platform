@@ -253,7 +253,6 @@ model WorkOrder {
   productId String?
   product   Product? @relation(fields: [productId], references: [id])
 
-  comments    JobComment[]
   attachments Attachment[]
 
   contactId String?
@@ -414,16 +413,6 @@ model Template {
   reports    Report[]
   workOrder  WorkOrder[] @relation("WorkOrderTemplates")
   contracts  Contract[]
-}
-
-model JobComment {
-  id         String   @id @default(cuid())
-  text       String
-  authorName String
-  createdAt  DateTime @default(now())
-
-  workOrderId String
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
 
 model Attachment {

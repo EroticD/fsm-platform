@@ -22,11 +22,23 @@ signerte servicerapporten kan lastes ned som PDF.
 - **Gjentagende serviceavtaler** – avtaler med startdato og intervall på 3, 6,
   12 eller 24 måneder. Neste oppdrag opprettes automatisk med kundedata og en ny,
   tom sjekkliste; forrige rapports PDF legges ved som dokumentasjon.
-- **Rapportering** – dashboard med nøkkeltall, globalt søk (⌘K / `/`) og
+- **Dokumentbibliotek** – PDF-filer med mapper, tags og versjonering. Teksten i
+  PDF-ene indekseres (med OCR for skannede dokumenter), og det globale søket
+  finner innhold og lenker direkte til riktig side i PDF-en.
+- **Tags** – egne tags for oppdrag (beredskap/status) og for dokumenter, med
+  fargekoder og redigering under Innstillinger.
+- **To-trinns verifisering (2FA)** – TOTP via autentiseringsapp, slås på under
+  Innstillinger → Sikkerhet for alle innloggede.
+- **PWA / feltapp** – appen kan installeres på mobil og viser en offline-side
+  når nettet forsvinner.
+- **Rapportering** – dashboard med nøkkeltall, globalt fuzzy-søk (⌘K / `/`) og
   aktivitetslogg for alle endringer.
 - **Markdown i fritekst** – beskrivelser, notater, kommentarer og fritekstsvar i
   rapporter skrives med en enkel formateringslinje, og vises likt på nettsiden og
   i PDF-en.
+- **Kundetilknytning** – kunder kan knyttes til en avdeling og en ansvarlig
+  montør, slik at kundeportalen viser riktig lokasjon med direkte telefon og
+  e-post. Nye bestillinger varsler kontoret på e-post og bekreftes til kunden.
 
 ## Kom i gang lokalt
 
@@ -159,7 +171,7 @@ publiserer det til `ghcr.io/eroticd/fsm-platform` med taggene `0.2.0`, `0.2` og
 På serveren deployer du det publiserte imaget – ikke bygger der:
 
 ```bash
-echo "IMAGE_TAG=0.2.0" >> .env
+echo "APP_IMAGE=ghcr.io/eroticd/fsm-platform:0.2.2" >> .env
 docker compose up -d postgres          # publiserer 127.0.0.1:5432
 docker compose -f docker-compose.prod.yml up -d
 ```
@@ -291,8 +303,13 @@ eller enheten redigeres senere.
   slettes, og en rolle som er i bruk må tømmes før den kan fjernes.
 - Oppdrag er avdelingssperret i alle lister, kalendere, søk og handlinger.
   Kunder, dokumenter, enheter og rapporter er felles for alle avdelinger.
-  Sletting av kunder, oppdrag, brukere, filer og andre registreringer er alltid
-  forbeholdt administrator, uavhengig av rolle og tilpassede rettigheter.
+  Sletting av oppdrag styres av rettigheten `workorders.delete` (kan gis til
+  roller/brukere, men er som standard bare administrator). Sletting av kunder,
+  brukere, dokumenter, filer og andre registreringer er alltid forbeholdt
+  administrator.
+- To-trinns verifisering (TOTP) kan slås på per bruker og kreves ved innlogging.
+- Opplastings-, søke- og kommentar-API-ene har hastighetsbegrensning per konto,
+  i tillegg til innloggingsbegrensningen.
 - Rapporter låses automatisk når de er fylt ut. Bare en administrator kan låse
   dem opp igjen, og hver opplåsing logges i aktivitetsloggen.
 - Kundeportalbrukere begrenses til egen kundedata i `src/proxy.ts` og i hver
@@ -314,10 +331,11 @@ eller enheten redigeres senere.
   `eslint.config.mjs` fordi noen steder bruker `any` der Prisma- og
   Next-typene er tungvinte å uttrykke. Lint kjører grønt, men advarslene bør
   ryddes gradvis.
-- `JobComment`-modellen i `schema.prisma` er ikke lenger i bruk (kommentarer
-  lagres i `Comment`) og kan fjernes i en egen migrasjon.
 - Tekstuttrekk/OCR kjører i en kø i app-prosessen (`src/lib/pdf-queue.ts`). Ved
   flere app-instanser bør den flyttes til en ekstern jobbkø.
+- Innloggings- og API-hastighetsbegrensningen ligger i minnet
+  (`src/lib/rate-limit.ts`). Ved flere app-instanser bør den flyttes til Redis
+  eller tilsvarende slik at alle instansene deler telleverket.
 
 ## Lisens
 
