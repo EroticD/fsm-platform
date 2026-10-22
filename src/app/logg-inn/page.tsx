@@ -40,6 +40,7 @@ export default async function LoginPage({
         <div className="flex flex-col items-center mb-6">
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-sm mb-3"
+            suppressHydrationWarning
             style={{ backgroundColor: "var(--primary-color)" }}
           >
             {companyName.charAt(0).toUpperCase()}

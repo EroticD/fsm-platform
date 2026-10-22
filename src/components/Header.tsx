@@ -16,6 +16,7 @@ export default async function Header({ title }: { title: string }) {
         ) : (
           <div 
             className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm"
+            suppressHydrationWarning
             style={{ backgroundColor: primaryColor }}
           >
             {companyName.charAt(0)}

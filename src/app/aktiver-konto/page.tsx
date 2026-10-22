@@ -75,6 +75,7 @@ export default async function ActivateAccountPage({
           <Link
             href="/logg-inn"
             className="inline-block text-white px-6 py-2.5 rounded-xl font-bold"
+            suppressHydrationWarning
             style={{ backgroundColor: "var(--primary-color)" }}
           >
             Til innlogging
@@ -191,6 +192,7 @@ export default async function ActivateAccountPage({
           <button
             type="submit"
             className="w-full text-white py-3 rounded-xl font-bold hover:opacity-90 transition"
+            suppressHydrationWarning
             style={{ backgroundColor: "var(--primary-color)" }}
           >
             Lagre passord

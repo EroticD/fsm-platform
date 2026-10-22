@@ -1,32 +1,56 @@
-# Produksjon: kjører det publiserte imaget fra GitHub Container Registry.
+# Produksjon med ferdig image fra GitHub Container Registry.
+# Bruk dette i stedet for docker-compose.yml når du ikke vil bygge på dropleten:
 #
-# Bygg aldri på en liten maskin (f.eks. 1 GB): Next.js-byggen blir
-# OOM-killet. Imaget publiseres av .github/workflows/docker-publish.yml hver
-# gang du dytter en versjonstag (v0.2.0, v0.3.0 …).
-#
-#   echo "IMAGE_TAG=0.2.0" >> .env
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# Databasen startes med den vanlige docker-compose.yml, som publiserer
-# 127.0.0.1:5432. Appen kjører på vertsnettverket, slik at DATABASE_URL i .env
-# kan peke på localhost.
+# Imaget hentes fra ghcr.io/<eier>/<repo>. Sett APP_IMAGE i .env hvis du vil
+# peke på en spesifikk tag (standard: latest).
+
 services:
-  app:
-    image: ghcr.io/eroticd/fsm-platform:${IMAGE_TAG:-latest}
-    container_name: fsm-app
-    restart: unless-stopped
-    network_mode: host
-    env_file: .env
+  postgres:
+    image: postgres:15
+    restart: always
     environment:
-      PORT: "3000"
-      HOSTNAME: "0.0.0.0"
-      UPLOAD_DIR: /app/uploads
-      TESSDATA_DIR: /app/tessdata
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-fsm_db}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD i .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - fsm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-fsm_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${APP_IMAGE:-ghcr.io/garshol/fsm-platform:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SEED_DATABASE: ${SEED_DATABASE:-true}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+      RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
+      CRON_SECRET: ${CRON_SECRET:-}
+    ports:
+      - "127.0.0.1:3000:3000"
     volumes:
       - fsm_uploads:/app/uploads
 
 volumes:
+  fsm_postgres_data:
   fsm_uploads:
-    # Sett UPLOADS_VOLUME hvis volumet har et annet navn, for eksempel når
-    # appen tidligere ble startet med docker run.
-    name: ${UPLOADS_VOLUME:-fsm_uploads}

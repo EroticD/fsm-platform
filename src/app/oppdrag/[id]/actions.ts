@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 /**
  * Sletter et oppdrag med rapporter, kommentarer og vedlegg.
@@ -18,7 +19,7 @@ import { getCurrentUser } from "@/lib/session";
  */
 export async function deleteWorkOrder(formData: FormData) {
   const actor = await getCurrentUser();
-  if (actor?.role !== "ADMIN") return;
+  if (!actor || !actor.isActive || !hasPermission(actor, "workorders.delete")) return;
 
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
   if (!workOrderId) return;

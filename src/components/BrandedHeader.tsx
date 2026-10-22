@@ -120,6 +120,7 @@ export default function BrandedHeader({
         <Link
           href="/"
           className="flex items-center gap-3"
+          suppressHydrationWarning
           style={{ color: pc }}
         >
           {logoUrl ? (
@@ -131,6 +132,7 @@ export default function BrandedHeader({
           ) : (
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0"
+              suppressHydrationWarning
               style={{ backgroundColor: pc }}
             >
               {companyName.charAt(0).toUpperCase()}

@@ -82,7 +82,8 @@ export async function requirePermission(permission: Permission): Promise<boolean
   return Boolean(user?.isActive) && hasPermission(user, permission);
 }
 
-/** Sletting er alltid forbeholdt administrator, uansett ekstra rettigheter. */
+/** Sletting er som standard forbeholdt administrator. Sletting av oppdrag styres
+ *  av rettigheten `workorders.delete`, som kan gis til andre roller/brukere. */
 export async function requireDelete(): Promise<boolean> {
   return requireAdmin();
 }

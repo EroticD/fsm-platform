@@ -11,6 +11,9 @@ import { verifyCredentials } from "@/lib/credentials";
  * komponenter som trenger rollen bruker `getServerSession(authOptions)`.
  */
 export const authOptions: NextAuthOptions = {
+  // Bak Caddy/nginx (reverse proxy) bruker vi AUTH_TRUST_HOST=true i .env,
+  // som gjør at NextAuth utleder verten fra X-Forwarded-* headere. Da peker
+  // den ikke tilbake til localhost, og innlogging looper ikke.
   providers: [
     CredentialsProvider({
       name: "Logg inn",

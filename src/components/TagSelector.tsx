@@ -114,6 +114,7 @@ export default function TagSelector({
               <span
                 key={tagName}
                 className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                suppressHydrationWarning
                 style={{ backgroundColor: color }}
               >
                 🏷️ {tagName}

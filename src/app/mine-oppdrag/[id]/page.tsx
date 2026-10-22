@@ -247,6 +247,7 @@ export default async function TechnicianWorkOrderPage({
                   <span
                     key={tag.id}
                     className="text-white px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm"
+                    suppressHydrationWarning
                     style={{ backgroundColor: tag.color || "#3b82f6" }}
                   >
                     🏷️ {tag.name}

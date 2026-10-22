@@ -12,6 +12,7 @@ export const PERMISSION_KEYS = [
   "workorders.update",
   "workorders.edit",
   "workorders.assign",
+  "workorders.delete",
   "customers.view",
   "customers.manage",
   "equipment.view",
@@ -67,6 +68,12 @@ export const PERMISSIONS: PermissionDefinition[] = [
     group: "Oppdrag",
     label: "Tildele montører",
     description: "Tildele og fjerne montører på oppdrag i egen avdeling.",
+  },
+  {
+    key: "workorders.delete",
+    group: "Oppdrag",
+    label: "Slette oppdrag",
+    description: "Slette oppdrag og alt tilhørende (rapporter, kommentarer, vedlegg). Forbeholdt administrator som standard.",
   },
   {
     key: "customers.view",

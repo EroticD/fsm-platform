@@ -628,7 +628,7 @@ export default async function SettingsPage({
                   {tags.map(tag => (
                     <div key={tag.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl flex-wrap gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} />
+                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} suppressHydrationWarning />
                         <span className="font-bold text-gray-800">{tag.name}</span>
                         <span className="text-xs text-gray-500">{tag.color}</span>
                       </div>
@@ -696,7 +696,7 @@ export default async function SettingsPage({
                   {documentTags.map(tag => (
                     <div key={tag.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl flex-wrap gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} />
+                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} suppressHydrationWarning />
                         <span className="font-bold text-gray-800">{tag.name}</span>
                         <span className="text-xs text-gray-500">{tag.color}</span>
                       </div>

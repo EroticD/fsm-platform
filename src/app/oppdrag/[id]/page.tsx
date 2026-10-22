@@ -323,6 +323,7 @@ export default async function AdminWorkOrderPage({
   const canUpdate = hasPermission(user, "workorders.update");
   const canEdit = hasPermission(user, "workorders.edit");
   const canAssign = hasPermission(user, "workorders.assign");
+  const canDeleteWorkOrder = hasPermission(user, "workorders.delete");
   const canWriteReports = hasPermission(user, "reports.write");
   const canManageCustomers = hasPermission(user, "customers.manage");
 
@@ -621,6 +622,7 @@ export default async function AdminWorkOrderPage({
                     <span
                       key={tag.id}
                       className="text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm"
+                      suppressHydrationWarning
                       style={{ backgroundColor: tag.color || "#3b82f6" }}
                     >
                       🏷️ {tag.name}
@@ -642,7 +644,7 @@ export default async function AdminWorkOrderPage({
                 ✏️ Rediger oppdrag
               </Link>
             )}
-            {isAdmin && (
+            {canDeleteWorkOrder && (
               <ConfirmSubmitForm
                 action={deleteWorkOrder}
                 confirmMessage={`Slette oppdraget «${workOrder.title}»? Alle rapporter, kommentarer og vedlegg til oppdraget blir slettet. Dette kan ikke angres.`}

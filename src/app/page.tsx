@@ -68,6 +68,7 @@ function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
                 <span
                   key={tag.id}
                   className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                  suppressHydrationWarning
                   style={{ backgroundColor: tag.color || "#3b82f6" }}
                 >
                   🏷️ {tag.name}
@@ -571,6 +572,7 @@ export default async function AdminDashboard({
                           <span
                             key={tag.id}
                             className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                            suppressHydrationWarning
                             style={{ backgroundColor: tag.color || "#3b82f6" }}
                           >
                             🏷️ {tag.name}
