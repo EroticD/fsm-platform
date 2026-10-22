@@ -26,7 +26,8 @@ offentlig før en rettelse er publisert.
 Aktuelle områder:
 
 - innlogging, økter, invitasjoner og tilbakestilling av passord
-- autorisasjon og rollegrenser (`ADMIN`, `OFFICE`, `TECHNICIAN`, `CUSTOMER`)
+- autorisasjon og rollegrenser (innebygde roller `ADMIN`, `OFFICE`, `TECHNICIAN`,
+  `USER` og `CUSTOMER`, samt roller admin oppretter)
 - opplasting og visning av filer under `/uploads`
 - server actions og API-ruter
 - PDF-generering og tekstuttrekk/OCR
