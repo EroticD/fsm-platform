@@ -6,6 +6,7 @@ import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import { allowRequest } from "@/lib/rate-limit";
 
 /** Kommentarer kan festes til disse tre tingene – og ikke noe annet. */
 const ENTITY_TYPES = ["workOrder", "customer", "contact"] as const;
@@ -18,6 +19,15 @@ export async function POST(request: Request) {
 
   if (!user.isActive) {
     return NextResponse.json({ error: "Bruker ikke funnet" }, { status: 404 });
+  }
+
+  // Maks 30 kommentarer per minutt per konto (hindrer spam).
+  const limit = allowRequest(`comments:${user.id}`, 30, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "For mange kommentarer. Prøv igjen om litt." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   const body = await request.json();

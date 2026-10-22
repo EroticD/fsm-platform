@@ -6,6 +6,7 @@ import AuditLogTable from "@/components/AuditLogTable";
 import UsersAdmin from "@/components/UsersAdmin";
 import DepartmentsAdmin from "@/components/DepartmentsAdmin";
 import RolesAdmin from "@/components/RolesAdmin";
+import SecuritySettings from "@/components/SecuritySettings";
 import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import { workOrderScope, staffScope } from "@/lib/access";
@@ -14,7 +15,7 @@ import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
 export default async function SettingsPage({
   searchParams
 }: {
-  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string; role?: string }>
+  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string; role?: string; setup?: string; ok?: string }>
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
@@ -29,24 +30,31 @@ export default async function SettingsPage({
   const canUseSettings =
     canBranding || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
 
-  // Brukere uten administrasjons- eller statistikkrettigheter skal ikke inn her.
-  if (!canUseSettings) redirect("/");
-
-  // Vent på searchParams (kreves i nyere Next.js) og sett standardfane
+  // Vent på searchParams (kreves i nyere Next.js) og sett standardfane.
+  // Sikkerhetsfanen er åpen for alle innloggede, slik at også montører kan
+  // slå på to-trinns verifisering.
   const resolvedParams = await searchParams;
+  const requestedTab = resolvedParams.tab;
+
+  // Brukere uten administrasjons- eller statistikkrettigheter skal ikke inn her
+  // – med mindre de ber om sikkerhetsfanen.
+  if (!canUseSettings && requestedTab !== "sikkerhet") redirect("/");
+
   const currentTab =
-    resolvedParams.tab ||
-    (canBranding
-      ? "branding"
-      : canUsers
-        ? "ansatte"
-        : canTemplates
-          ? "maler"
-          : canAudit
-            ? "auditlog"
-            : canStats
-              ? "statistikk"
-              : "avdelinger");
+    requestedTab ||
+    (canUseSettings
+      ? canBranding
+        ? "branding"
+        : canUsers
+          ? "ansatte"
+          : canTemplates
+            ? "maler"
+            : canAudit
+              ? "auditlog"
+              : canStats
+                ? "statistikk"
+                : "avdelinger"
+      : "sikkerhet");
   const searchQuery = resolvedParams.search || "";
 
   // Hent data for alle fanene
@@ -67,6 +75,11 @@ export default async function SettingsPage({
     id: department.id,
     name: department.name,
     description: department.description,
+    phone: department.phone,
+    email: department.email,
+    address: department.address,
+    city: department.city,
+    postalCode: department.postalCode,
     isActive: department.isActive,
     isDefault: department.isDefault,
     users: department._count.users,
@@ -477,6 +490,12 @@ export default async function SettingsPage({
               🏷️ Avdelinger
             </Link>
           )}
+          <Link
+            href="?tab=sikkerhet"
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'sikkerhet' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            🔐 Sikkerhet
+          </Link>
         </div>
 
         {/* INNHOLD BASERT PÅ VALGT FANE */}
@@ -528,6 +547,8 @@ export default async function SettingsPage({
             inviteToken={resolvedParams.inviteToken}
             error={resolvedParams.error}
             mail={resolvedParams.mail}
+            page={Math.max(1, parseInt(resolvedParams.page?.toString() || "1", 10) || 1)}
+            baseUrl="/innstillinger?tab=ansatte"
           />
         )}
 
@@ -973,6 +994,21 @@ export default async function SettingsPage({
             </div>
             <DepartmentsAdmin departments={departmentRows} />
           </div>
+        )}
+
+        {currentTab === 'sikkerhet' && (
+          <SecuritySettings
+            user={{
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              isTwoFactorEnabled: user.isTwoFactorEnabled,
+              twoFactorSecret: user.twoFactorSecret,
+            }}
+            setup={resolvedParams.setup}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+          />
         )}
 
       </div>

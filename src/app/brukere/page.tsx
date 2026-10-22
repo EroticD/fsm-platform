@@ -8,7 +8,7 @@ import { effectivePermissions, hasPermission } from "@/lib/permissions";
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string }>;
+  searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string; side?: string }>;
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/logg-inn");
@@ -16,7 +16,8 @@ export default async function UsersPage({
   if (currentUser.role === "CUSTOMER") redirect("/kundeportal");
   if (!hasPermission(currentUser, "users.view")) redirect("/");
 
-  const { invite, inviteToken, error, mail } = await searchParams;
+  const { invite, inviteToken, error, mail, side } = await searchParams;
+  const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
   const userCount = await prisma.user.count({
     where:
       currentUser.role === "ADMIN"
@@ -55,6 +56,8 @@ export default async function UsersPage({
           inviteToken={inviteToken}
           error={error}
           mail={mail}
+          page={page}
+          baseUrl="/brukere"
         />
       </div>
     </div>

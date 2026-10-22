@@ -5,6 +5,7 @@ import { uploadDir } from "@/lib/uploads";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { allowRequest } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -23,6 +24,17 @@ export async function POST(request: Request) {
 
   if (!canUpload) {
     return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+  }
+
+  // Maks 30 opplastinger per minutt per konto.
+  const limit = allowRequest(`upload:${user.id}`, 30, 60_000);
+  if (!limit.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: `For mange opplastinger. Prøv igjen om ${limit.retryAfterSeconds} sekunder.`,
+      }),
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   try {
@@ -54,8 +66,45 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: "Filen er for stor (maks 100MB)" }), { status: 400 });
     }
 
+    // Komprimer bilder før de skrives til disk. Feltbilder kan være store;
+    // vi begrenser til 2000 px og reduserer kvaliteten. PDF-er røres ikke.
+    let buffer = Buffer.from(await file.arrayBuffer());
+    let finalExtension = fileExtension;
+    let finalMime = file.type;
+    let finalBytes = file.size;
+
+    if (file.type.startsWith("image/") && file.type !== "image/gif") {
+      try {
+        const sharp = (await import("sharp")).default;
+        const image = sharp(buffer).rotate();
+        const meta = await image.metadata();
+        const needsResize =
+          (meta.width && meta.width > 2000) || (meta.height && meta.height > 2000);
+        const pipeline = needsResize
+          ? image.resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+          : image;
+
+        if (file.type === "image/png") {
+          buffer = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+          finalExtension = "png";
+          finalMime = "image/png";
+        } else if (file.type === "image/webp") {
+          buffer = await pipeline.webp({ quality: 82 }).toBuffer();
+          finalExtension = "webp";
+          finalMime = "image/webp";
+        } else {
+          buffer = await pipeline.jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+          finalExtension = "jpg";
+          finalMime = "image/jpeg";
+        }
+        finalBytes = buffer.length;
+      } catch (error) {
+        console.error("Bildekomprimering feilet, bruker original:", error);
+      }
+    }
+
     // Lag unikt filnavn
-    const fileName = `${crypto.randomUUID()}.${fileExtension}`;
+    const fileName = `${crypto.randomUUID()}.${finalExtension}`;
 
     // Filene ligger utenfor public/ og leses gjennom /uploads/[...sti].
     // Se src/lib/uploads.ts for hvorfor.
@@ -69,8 +118,6 @@ export async function POST(request: Request) {
     // Turbopack skal ikke prøve å spore opplastingsmappen: den er en dynamisk
     // datamappe på containeren, ikke en del av app-bundelen.
     const filePath = path.join(/*turbopackIgnore: true*/ uploadDirPath, fileName);
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
     fs.writeFileSync(filePath, buffer);
 
     // Returner fil-URL
@@ -82,8 +129,8 @@ export async function POST(request: Request) {
       // Filnavnet vises bare i grensesnittet; det lagres ikke og brukes aldri
       // som sti på disk (se filnavnet over).
       fileName: cleanText(file.name, { maxLength: LIMITS.line }),
-      fileSize: file.size,
-      fileType: file.type
+      fileSize: finalBytes,
+      fileType: finalMime
     }), { status: 200 });
   } catch (error) {
     console.error("Feil ved opplasting:", error);

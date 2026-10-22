@@ -25,6 +25,15 @@ export default async function EditCustomerPage({
   // Å redigere kundedata krever customers.manage. Montører får lese kundekortet.
   if (!hasPermission(session, "customers.manage")) redirect(`/kunder/${customerId}`);
 
+  const departments = await prisma.department.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+  const technicians = await prisma.user.findMany({
+    where: { isActive: true, role: { in: ["ADMIN", "OFFICE", "TECHNICIAN"] } },
+    orderBy: { name: "asc" },
+  });
+
   if (!customer) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
@@ -53,6 +62,8 @@ export default async function EditCustomerPage({
     const phone = cleanPhone(formData.get("phone"));
     const email = cleanEmail(formData.get("email"));
     const notes = cleanMarkdown(formData.get("notes"));
+    const departmentId = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
+    const responsibleTechnicianId = cleanText(formData.get("responsibleTechnicianId"), { maxLength: LIMITS.line });
 
     if (!name) return;
 
@@ -70,6 +81,8 @@ export default async function EditCustomerPage({
           phone: phone || null,
           email: email || null,
           notes: notes || null,
+          departmentId: departmentId || null,
+          responsibleTechnicianId: responsibleTechnicianId || null,
         },
       });
       await prisma.auditLog.create({
@@ -229,6 +242,38 @@ export default async function EditCustomerPage({
               />
             </div>
 
+          </div>
+
+          {/* Avdeling og ansvarlig montør */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Tilhørende avdeling (valgfritt)</label>
+              <select
+                name="departmentId"
+                defaultValue={customer.departmentId || ""}
+                className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
+              >
+                <option value="">— Ingen avdeling —</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Brukes i kundeportalen for å vise riktig avdelingsinformasjon.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Ansvarlig montør (valgfritt)</label>
+              <select
+                name="responsibleTechnicianId"
+                defaultValue={customer.responsibleTechnicianId || ""}
+                className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
+              >
+                <option value="">— Ingen ansvarlig —</option>
+                {technicians.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name || t.email}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Vises som direkte kontakt i kundeportalen.</p>
+            </div>
           </div>
 
           {/* Noter */}

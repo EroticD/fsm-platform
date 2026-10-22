@@ -868,6 +868,12 @@ export default async function AdminWorkOrderPage({
                   <p className="text-xs text-gray-500 italic">Ingen kontaktperson valgt for oppdraget.</p>
                 )}
 
+                {workOrder.creatorName && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    <strong>Opprettet av:</strong> {workOrder.creatorName}
+                  </p>
+                )}
+
                 {canEdit && canManageCustomers && workOrder.customer && (
                   <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
                     <form action={setContact} className="flex flex-col sm:flex-row gap-2">

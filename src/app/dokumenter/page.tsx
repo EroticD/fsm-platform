@@ -71,7 +71,10 @@ export default async function DocumentsPage({
 
   const documents = await prisma.document.findMany({
     where: docWhere,
-    include: { tags: true },
+    include: {
+      tags: true,
+      versions: { orderBy: { createdAt: "desc" } },
+    },
     orderBy: { title: "asc" },
   });
 
@@ -155,6 +158,21 @@ export default async function DocumentsPage({
 
     const existing = await prisma.document.findUnique({ where: { id } });
     if (!existing) return;
+
+    // Behold den gamle filen som en versjon før den byttes ut.
+    const replacingFile = Boolean(fileUrl && fileUrl !== existing.filePath);
+    if (replacingFile) {
+      await prisma.documentVersion.create({
+        data: {
+          documentId: id,
+          fileName: existing.fileName,
+          filePath: existing.filePath,
+          fileSize: existing.fileSize,
+          mimeType: existing.mimeType,
+          createdBy: user?.name || "Kontor",
+        },
+      });
+    }
 
     await prisma.document.update({
       where: { id },

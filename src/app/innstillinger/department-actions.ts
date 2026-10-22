@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { actorName, requireAdmin } from "@/lib/session";
-import { LIMITS, cleanText } from "@/lib/sanitize";
+import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 
 function revalidateDepartments() {
   revalidatePath("/innstillinger");
@@ -16,11 +16,24 @@ export async function createDepartment(formData: FormData) {
 
   const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
   const description = cleanText(formData.get("description"), { maxLength: LIMITS.line });
+  const phone = cleanPhone(formData.get("phone"));
+  const email = cleanEmail(formData.get("email"));
+  const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
+  const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
+  const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
   if (!name) return;
 
   try {
     const department = await prisma.department.create({
-      data: { name, description: description || null },
+      data: {
+        name,
+        description: description || null,
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        city: city || null,
+        postalCode: postalCode || null,
+      },
     });
     await prisma.auditLog.create({
       data: {
@@ -42,6 +55,11 @@ export async function updateDepartment(formData: FormData) {
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
   const description = cleanText(formData.get("description"), { maxLength: LIMITS.line });
+  const phone = cleanPhone(formData.get("phone"));
+  const email = cleanEmail(formData.get("email"));
+  const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
+  const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
+  const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
   if (!id || !name) return;
 
   const existing = await prisma.department.findUnique({ where: { id } });
@@ -50,7 +68,15 @@ export async function updateDepartment(formData: FormData) {
   try {
     await prisma.department.update({
       where: { id },
-      data: { name, description: description || null },
+      data: {
+        name,
+        description: description || null,
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        city: city || null,
+        postalCode: postalCode || null,
+      },
     });
     await prisma.auditLog.create({
       data: {

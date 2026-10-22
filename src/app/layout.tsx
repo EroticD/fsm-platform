@@ -7,6 +7,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
 import BrandingColors from "@/components/BrandingColors";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,6 +22,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FSM-plattformen",
   description: "Service- og vedlikeholdssystem for oppdrag, rapporter og utstyr",
+  manifest: "/manifest.webmanifest",
+  applicationName: "FSM",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FSM",
+  },
+};
+
+export const viewport = {
+  themeColor: "#2563eb",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -39,6 +51,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <BrandingColors />
           <BrandedHeader showNav role={session?.user?.role} />
           {children}
+          <ServiceWorkerRegister />
         </NextIntlClientProvider>
       </body>
     </html>

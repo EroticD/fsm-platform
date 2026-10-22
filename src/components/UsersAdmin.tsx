@@ -7,6 +7,7 @@ import {
   deleteUser,
   changeRole,
   changeDepartment,
+  changePhone,
   changePermissions,
   resetPermissions,
   setActive,
@@ -30,6 +31,9 @@ export default async function UsersAdmin({
   inviteToken,
   error,
   mail,
+  page = 1,
+  pageSize = 25,
+  baseUrl = "/brukere",
 }: {
   returnTo: string;
   currentUserEmail?: string | null;
@@ -44,19 +48,30 @@ export default async function UsersAdmin({
   inviteToken?: string;
   error?: string;
   mail?: string;
+  page?: number;
+  pageSize?: number;
+  baseUrl?: string;
 }) {
   // Administrator ser alle. Avdelingsansvarlige ser bare egen avdeling, slik
   // at brukeradministrasjon ikke blir en vei rundt avdelingssperren.
-  const users = await prisma.user.findMany({
-    where: isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" },
-    orderBy: { name: "asc" },
-    include: {
-      contact: true,
-      customer: true,
-      department: true,
-      roleDefinition: true,
-    },
-  });
+  const where = isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" };
+  const safePage = Math.max(1, page);
+  const [users, totalUsers] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      orderBy: { name: "asc" },
+      take: pageSize,
+      skip: (safePage - 1) * pageSize,
+      include: {
+        contact: true,
+        customer: true,
+        department: true,
+        roleDefinition: true,
+      },
+    }),
+    prisma.user.count({ where }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
 
   const allRoles = await prisma.role.findMany({
     orderBy: [{ isSystem: "desc" }, { label: "asc" }],
@@ -200,6 +215,15 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Telefon <span className="font-normal text-gray-400">(valgfritt)</span></label>
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="F.eks. 900 00 000"
+                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
                   Rolle / Tilgangsnivå
                 </label>
@@ -294,7 +318,7 @@ export default async function UsersAdmin({
             <div className="p-6 border-b bg-gray-50/50 flex justify-between items-center">
               <h2 className="font-bold text-lg text-gray-800">Alle brukere i systemet</h2>
               <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
-                {users.length} stk
+                {totalUsers} stk
               </span>
             </div>
 
@@ -416,13 +440,32 @@ export default async function UsersAdmin({
                         </form>
                       )}
 
+                      {isAdmin && (
+                        <form action={changePhone} className="flex items-center gap-2">
+                          <input type="hidden" name="id" value={u.id} />
+                          <input
+                            type="tel"
+                            name="phone"
+                            defaultValue={u.phone ?? ""}
+                            placeholder="Telefon"
+                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900 w-32"
+                          />
+                          <button
+                            type="submit"
+                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                          >
+                            Lagre tlf.
+                          </button>
+                        </form>
+                      )}
+
                       {!isMe && (
                         <form action={generateInvite}>
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={u.id} />
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
+                            className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
                           >
                             🔗 Invitasjonslenke
                           </button>
@@ -561,6 +604,30 @@ export default async function UsersAdmin({
                 );
               })}
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 p-4 border-t border-gray-100">
+                {safePage > 1 && (
+                  <Link
+                    href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage - 1}`}
+                    className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
+                  >
+                    ← Forrige
+                  </Link>
+                )}
+                <span className="text-sm font-bold text-gray-600">
+                  Side {safePage} av {totalPages}
+                </span>
+                {safePage < totalPages && (
+                  <Link
+                    href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage + 1}`}
+                    className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
+                  >
+                    Neste →
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

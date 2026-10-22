@@ -18,12 +18,20 @@ model Department {
   /// Standardavdeling for kundebestillinger og nye oppdrag uten valgt avdeling.
   isDefault   Boolean @default(false)
 
+  // Kontaktinfo for avdelingen/lokasjonen. Vises i kundeportalen.
+  phone   String?
+  email   String?
+  address String?
+  city    String?
+  postalCode String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   users      User[]
   workOrders WorkOrder[]
   contracts  Contract[]
+  customers  Customer[]
 
   @@index([isActive])
 }
@@ -50,6 +58,7 @@ model User {
   id             String    @id @default(cuid())
   name           String?
   email          String?   @unique
+  phone          String?
   emailVerified  DateTime?
   image          String?
   role           String    @default("TECHNICIAN")
@@ -84,6 +93,9 @@ model User {
 
   workOrders WorkOrder[] @relation("WorkOrderTechnicians")
 
+  // Kunder der denne brukeren er ansvarlig montør.
+  responsibleCustomers Customer[] @relation("CustomerResponsibleTechnician")
+
   @@index([departmentId])
   @@index([role])
 }
@@ -103,6 +115,15 @@ model Customer {
   email      String?
   notes      String?
 
+  // Valgfri tilhørighet: hvilken avdeling og eventuelt hvilken montør som er
+  // ansvarlig for kunden. Brukes blant annet i kundeportalen for å vise riktig
+  // lokasjon og direkte kontaktinfo.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  responsibleTechnicianId String?
+  responsibleTechnician   User? @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
+
   products    Product[]
   contracts   Contract[]
   workOrder   WorkOrder[]
@@ -111,6 +132,9 @@ model Customer {
   attachments CustomerAttachment[]
 
   users User[]
+
+  @@index([departmentId])
+  @@index([responsibleTechnicianId])
 
   @@index([email])
   @@index([orgNumber])
@@ -299,8 +323,28 @@ model Document {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  versions DocumentVersion[]
+
   @@index([folderId])
   @@index([title])
+}
+
+// Tidligere filversjoner av et dokument. Når filen byttes ut, beholdes den
+// gamle filen her slik at den kan lastes ned igjen senere.
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  fileName String
+  filePath String
+  fileSize Int      @default(0)
+  mimeType String   @default("application/pdf")
+
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([documentId])
 }
 
 model Report {

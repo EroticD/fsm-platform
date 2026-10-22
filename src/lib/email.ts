@@ -202,3 +202,97 @@ export async function sendInviteEmail(
     return false;
   }
 }
+
+type BookingInfo = {
+  title: string;
+  description?: string | null;
+  customerName: string;
+  bookedBy: string;
+};
+
+/**
+ * Varsler kontoret om en ny kundebestilling, og sender en bekreftelse til
+ * kunden. Returnerer hvor mange e-poster som ble sendt.
+ */
+export async function sendBookingNotification(
+  officeRecipients: string[],
+  customerEmail: string | null | undefined,
+  booking: BookingInfo,
+): Promise<{ officeSent: number; customerSent: boolean }> {
+  if (!isSmtpConfigured()) return { officeSent: 0, customerSent: false };
+
+  const branding = await prisma.branding.findFirst();
+  const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
+  const logoUrl = cleanUrl(branding?.logoUrl);
+  const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
+  const transporter = createTransporter();
+
+  const safeTitle = escapeHtml(booking.title);
+  const safeCustomer = escapeHtml(booking.customerName);
+  const safeBookedBy = escapeHtml(booking.bookedBy);
+  const safeDescription = booking.description ? escapeHtml(booking.description) : "";
+
+  const shell = (heading: string, body: string) => `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+      <div style="border-bottom: 2px solid ${primaryColor}; padding-bottom: 20px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height: 32px; object-fit: contain;" />` : `<div style="width: 32px; height: 32px; background-color: ${primaryColor}; border-radius: 6px; display: inline-block; line-height: 32px; text-align: center; color: white; font-weight: bold; font-size: 14px;">${companyName.charAt(0).toUpperCase()}</div>`}
+          <div>
+            <h1 style="color: #1f2937; margin: 0; font-size: 20px;">${heading}</h1>
+            <p style="color: #6b7280; font-size: 12px; margin: 0;">${companyName}</p>
+          </div>
+        </div>
+      </div>
+      ${body}
+      <div style="margin-top: 32px; text-align: center; font-size: 11px; color: #9ca3af;">
+        <p>Dette er en automatisk generert e-post fra ${companyName}.</p>
+      </div>
+    </div>`;
+
+  const detail = `
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;color:#374151;font-size:14px;line-height:1.6;">
+      <p style="margin:0 0 8px;"><strong>Oppdrag:</strong> ${safeTitle}</p>
+      <p style="margin:0 0 8px;"><strong>Kunde:</strong> ${safeCustomer}</p>
+      <p style="margin:0 0 8px;"><strong>Booket av:</strong> ${safeBookedBy}</p>
+      ${safeDescription ? `<p style="margin:0;"><strong>Beskrivelse:</strong><br/>${safeDescription.replace(/\n/g, "<br/>")}</p>` : ""}
+    </div>`;
+
+  let officeSent = 0;
+  const recipients = Array.from(new Set(officeRecipients.filter(Boolean)));
+  if (recipients.length > 0) {
+    try {
+      await transporter.sendMail({
+        from: `"${companyName}" <${process.env.SMTP_USER}>`,
+        to: recipients.join(", "),
+        subject: `Ny bestilling: ${safeTitle} – ${safeCustomer}`,
+        html: shell(
+          "Ny bestilling fra kundeportal",
+          `<p style="color:#374151;font-size:14px;line-height:1.6;">En kunde har booket et nytt oppdrag. Det ligger klart for planlegging under «Oppdrag».</p>${detail}`,
+        ),
+      });
+      officeSent = recipients.length;
+    } catch (error) {
+      console.error("❌ Feil ved sending av bestillingsvarsel til kontoret:", error);
+    }
+  }
+
+  let customerSent = false;
+  if (customerEmail) {
+    try {
+      await transporter.sendMail({
+        from: `"${companyName}" <${process.env.SMTP_USER}>`,
+        to: customerEmail,
+        subject: `Vi har mottatt bestillingen din: ${safeTitle}`,
+        html: shell(
+          "Bestilling mottatt",
+          `<p style="color:#374151;font-size:14px;line-height:1.6;">Takk for bestillingen. Vi tar kontakt for å avtale dato.</p>${detail}`,
+        ),
+      });
+      customerSent = true;
+    } catch (error) {
+      console.error("❌ Feil ved sending av bestillingsbekreftelse:", error);
+    }
+  }
+
+  return { officeSent, customerSent };
+}

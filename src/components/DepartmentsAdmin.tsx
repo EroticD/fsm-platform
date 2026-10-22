@@ -9,6 +9,11 @@ type DepartmentRow = {
   id: string;
   name: string;
   description: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
   isActive: boolean;
   isDefault: boolean;
   users: number;
@@ -45,6 +50,30 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                 placeholder="F.eks. service på Vestlandet"
                 className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
               />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Telefon</label>
+                <input type="tel" name="phone" placeholder="F.eks. 55 55 55 55" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">E-post</label>
+                <input type="email" name="email" placeholder="post@firma.no" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Adresse</label>
+              <input type="text" name="address" placeholder="Gateadresse" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Postnummer</label>
+                <input type="text" name="postalCode" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Sted</label>
+                <input type="text" name="city" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              </div>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
               Oppdrag, serviceavtaler og ansatte knyttes til en avdeling. Kunder,
@@ -163,6 +192,26 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                     defaultValue={department.description ?? ""}
                     className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Telefon</label>
+                  <input type="tel" name="phone" defaultValue={department.phone ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">E-post</label>
+                  <input type="email" name="email" defaultValue={department.email ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Adresse</label>
+                  <input type="text" name="address" defaultValue={department.address ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Postnummer</label>
+                  <input type="text" name="postalCode" defaultValue={department.postalCode ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Sted</label>
+                  <input type="text" name="city" defaultValue={department.city ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                 </div>
                 <div className="md:col-span-2">
                   <button

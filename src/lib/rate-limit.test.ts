@@ -47,3 +47,25 @@ describe("login rate limit", () => {
     expect(checkLoginRateLimit([email, ip]).allowed).toBe(false);
   });
 });
+
+import { allowRequest, resetApiRateLimit } from "@/lib/rate-limit";
+
+describe("api rate limit", () => {
+  beforeEach(() => resetApiRateLimit());
+
+  it("slipper gjennom opp til grensen og sperrer deretter", () => {
+    const key = "upload:bruker1";
+    for (let i = 0; i < 3; i++) {
+      expect(allowRequest(key, 3, 60_000).allowed).toBe(true);
+    }
+    const blocked = allowRequest(key, 3, 60_000);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it("holder nøkler atskilt", () => {
+    expect(allowRequest("a", 1, 60_000).allowed).toBe(true);
+    expect(allowRequest("a", 1, 60_000).allowed).toBe(false);
+    expect(allowRequest("b", 1, 60_000).allowed).toBe(true);
+  });
+});

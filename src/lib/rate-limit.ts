@@ -81,3 +81,48 @@ export function clearLoginFailures(keys: string[]) {
 export function resetLoginRateLimit() {
   entries.clear();
 }
+
+// ---------------------------------------------------------------------------
+// Generell API-begrensning (opplasting, søk, kommentarer osv.)
+// ---------------------------------------------------------------------------
+
+type ApiEntry = { count: number; resetAt: number };
+const apiEntries = new Map<string, ApiEntry>();
+
+/**
+ * Enkel teller per nøkkel (f.eks. «upload:<brukerId>»). Returnerer false når
+ * grensen er nådd innenfor vinduet. In-memory, som resten av limiteren.
+ */
+export function allowRequest(
+  key: string,
+  limit: number,
+  windowMs: number,
+): { allowed: boolean; retryAfterSeconds: number } {
+  const now = Date.now();
+  const entry = apiEntries.get(key);
+
+  if (!entry || entry.resetAt <= now) {
+    apiEntries.set(key, { count: 1, resetAt: now + windowMs });
+    if (apiEntries.size > MAX_KEYS) {
+      for (const [k, v] of apiEntries) {
+        if (v.resetAt <= now) apiEntries.delete(k);
+      }
+    }
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  if (entry.count >= limit) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000),
+    };
+  }
+
+  entry.count += 1;
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+/** Bare for tester. */
+export function resetApiRateLimit() {
+  apiEntries.clear();
+}

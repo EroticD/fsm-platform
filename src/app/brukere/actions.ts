@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
-import { LIMITS, cleanEmail, cleanText } from "@/lib/sanitize";
+import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 import {
   actorName,
   getCurrentUser,
@@ -105,6 +105,7 @@ export async function createUser(formData: FormData) {
   const back = returnPath(formData);
   const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
   const email = cleanEmail(formData.get("email"));
+  const phone = cleanPhone(formData.get("phone"));
   const role = await findRole(formData.get("role"));
   const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
   let departmentId = await validDepartmentId(formData.get("departmentId"));
@@ -158,6 +159,7 @@ export async function createUser(formData: FormData) {
       data: {
         name,
         email,
+        phone: phone || null,
         role: role.key,
         departmentId,
         customerId,
@@ -372,6 +374,35 @@ export async function changeDepartment(formData: FormData) {
       entityType: "User",
       entityId: id,
       action: `Endret avdeling for ${target.name || target.email || "Ukjent"} til ${departmentName}`,
+      userName: await actorName(),
+    },
+  });
+  revalidateUserAdmin();
+}
+
+export async function changePhone(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
+
+  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+  if (!id) return;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return;
+
+  // Bare administrator eller den ansatte selv kan endre telefonnummer.
+  const isSelf = actor.id === id;
+  if (!isSelf && !hasPermission(actor, "users.manage")) return;
+
+  const phone = cleanPhone(formData.get("phone"));
+
+  await prisma.user.update({ where: { id }, data: { phone: phone || null } });
+
+  await prisma.auditLog.create({
+    data: {
+      entityType: "User",
+      entityId: id,
+      action: `Endret telefonnummer for ${target.name || target.email || "Ukjent"}`,
       userName: await actorName(),
     },
   });

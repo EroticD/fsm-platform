@@ -5,6 +5,15 @@ import TagSelector from "@/components/TagSelector";
 
 type Folder = { id: string; name: string };
 type Tag = { id: string; name: string; color: string };
+type DocVersion = {
+  id: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  createdAt: string | Date;
+  createdBy: string | null;
+};
+
 type Doc = {
   id: string;
   title: string;
@@ -13,6 +22,7 @@ type Doc = {
   fileSize: number;
   folderId: string | null;
   tags: { id: string; name: string }[];
+  versions?: DocVersion[];
 };
 
 export default function EditDocumentForm({
@@ -145,6 +155,34 @@ export default function EditDocumentForm({
               </p>
             )}
           </div>
+          {doc.versions && doc.versions.length > 0 && (
+            <div className="border-t border-gray-200 pt-3">
+              <p className="text-xs font-bold text-gray-700 mb-2">🗂️ Tidligere versjoner ({doc.versions.length})</p>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {doc.versions.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]">
+                    <div className="min-w-0">
+                      <p className="text-gray-800 font-medium truncate">{v.fileName}</p>
+                      <p className="text-gray-500">
+                        {new Date(v.createdAt).toLocaleString("no-NO")}
+                        {v.createdBy ? ` • ${v.createdBy}` : ""}
+                        {` • ${(v.fileSize / 1024).toFixed(0)} KB`}
+                      </p>
+                    </div>
+                    <a
+                      href={v.filePath}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-700 font-bold hover:underline whitespace-nowrap"
+                    >
+                      Åpne
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && <p className="text-xs text-red-600">{error}</p>}
           <button
             type="submit"

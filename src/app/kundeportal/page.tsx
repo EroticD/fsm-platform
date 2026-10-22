@@ -11,6 +11,7 @@ import { contractIntervalLabel } from "@/lib/contracts";
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
+import { sendBookingNotification } from "@/lib/email";
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
 function dateKey(d: Date) {
@@ -43,6 +44,8 @@ export default async function KundeportalPage() {
     include: { 
       customer: { 
         include: { 
+          department: true,
+          responsibleTechnician: true,
           products: true, 
           contracts: true, 
           workOrder: { 
@@ -91,11 +94,8 @@ export default async function KundeportalPage() {
 
     const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
-    const scheduledForInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
-    const scheduledFor = parseDateOnly(scheduledForInput);
-    const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
 
-    if (!title || !scheduledFor) return;
+    if (!title) return;
 
     // Kundebestillinger havner i standardavdelingen. Finnes ingen aktiv
     // avdeling, kan bestillingen ikke opprettes.
@@ -109,15 +109,12 @@ export default async function KundeportalPage() {
           description: description || "",
           departmentId,
           customerId: current.customerId,
-          scheduledFor,
+          contactId: current.contactId || undefined,
           creatorName: current.name || "Kunde",
           status: "OPEN",
           technicians: {
             connect: []
           },
-          templates: templateId ? {
-            connect: { id: templateId }
-          } : undefined,
         }
       });
 
@@ -130,16 +127,38 @@ export default async function KundeportalPage() {
         }
       });
 
+      // Varsle kontoret og send bekreftelse til kunden (best-effort – en
+      // feilkonfigurert SMTP skal ikke hindre bestillingen).
+      try {
+        const officeUsers = await prisma.user.findMany({
+          where: { isActive: true, role: { in: ["ADMIN", "OFFICE"] } },
+          select: { email: true },
+        });
+        const contact = current.contactId
+          ? await prisma.contact.findUnique({
+              where: { id: current.contactId },
+              select: { email: true },
+            })
+          : null;
+        await sendBookingNotification(
+          officeUsers.map((u) => u.email).filter(Boolean) as string[],
+          contact?.email || current.email || null,
+          {
+            title,
+            description,
+            customerName: customer.name,
+            bookedBy: current.name || current.email || "Kunde",
+          },
+        );
+      } catch (emailError) {
+        console.error("Kunne ikke sende bestillingsvarsel:", emailError);
+      }
+
       revalidatePath("/kundeportal");
     } catch (error) {
       console.error("Feil ved booking av oppdrag:", error);
     }
   }
-
-  // Hent tilgjengelige maler for booking
-  const templates = await prisma.template.findMany({
-    orderBy: { title: 'asc' }
-  });
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
   // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
@@ -154,28 +173,60 @@ export default async function KundeportalPage() {
     return d;
   });
 
+  // Kunden ser bare montører i sin egen avdeling (faller tilbake til
+  // standardavdelingen hvis kunden ikke er knyttet til en avdeling).
+  const availabilityDepartmentId = customer.departmentId ?? defaultDepartmentId;
+
   const technicians = await prisma.user.findMany({
-    where: { ...staffForDepartment(defaultDepartmentId), isActive: true },
+    where: { ...staffForDepartment(availabilityDepartmentId), isActive: true },
     orderBy: { name: 'asc' },
     select: { id: true, name: true },
   });
 
+  // Hent oppdrag som overlapper de neste 7 dagene. Flerdagersoppdrag
+  // (scheduledFor → scheduledTo) blokkerer alle dagene de varer.
   const scheduledWorkOrders = await prisma.workOrder.findMany({
     where: {
-      departmentId: defaultDepartmentId ?? "__ingen_avdeling__",
-      scheduledFor: { gte: today, lt: horizon },
+      departmentId: availabilityDepartmentId ?? "__ingen_avdeling__",
       status: { notIn: ["CANCELLED"] },
+      OR: [
+        { scheduledFor: { gte: today, lt: horizon } },
+        { scheduledTo: { gte: today, lt: horizon } },
+        {
+          AND: [
+            { scheduledFor: { lt: today } },
+            { scheduledTo: { gte: horizon } },
+          ],
+        },
+      ],
     },
-    select: { scheduledFor: true, technicians: { select: { id: true } } },
+    select: {
+      scheduledFor: true,
+      scheduledTo: true,
+      technicians: { select: { id: true } },
+    },
   });
 
   const busyByTechnician = new Map<string, Set<string>>();
   for (const wo of scheduledWorkOrders) {
     if (!wo.scheduledFor) continue;
-    const key = dateKey(wo.scheduledFor);
+
+    // Blokker alle dager oppdraget varer (inklusiv scheduledTo).
+    const start = new Date(wo.scheduledFor);
+    start.setHours(0, 0, 0, 0);
+    const end = wo.scheduledTo ? new Date(wo.scheduledTo) : new Date(start);
+    end.setHours(0, 0, 0, 0);
+
+    // Begrens til vinduet vi viser.
+    const firstDay = start < today ? new Date(today) : start;
+    const lastDay = end > horizon ? new Date(horizon.getTime() - 1) : end;
+
     for (const tech of wo.technicians) {
       if (!busyByTechnician.has(tech.id)) busyByTechnician.set(tech.id, new Set());
-      busyByTechnician.get(tech.id)!.add(key);
+      const set = busyByTechnician.get(tech.id)!;
+      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+        set.add(dateKey(d));
+      }
     }
   }
 
@@ -201,26 +252,77 @@ export default async function KundeportalPage() {
           </div>
         </div>
 
-        {/* KUNDEINFO (søkbar / synlig) */}
+        {/* KONTAKTINFO: avdeling og ansvarlig montør */}
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-          <h2 className="font-bold text-gray-900 mb-4 border-b pb-2">🏢 Kundeinformasjon</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="font-bold text-gray-900 mb-4 border-b pb-2">🏢 Din kontakt</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Avdeling / lokasjon */}
             <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Firmanavn</p>
-              <p className="text-sm text-gray-900 font-medium">{customer.name}</p>
-            </div>
-            <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Adresse</p>
-              <p className="text-sm text-gray-900">{customer.address || "Ikke oppgitt"} {customer.postalCode || ""} {customer.city || ""}</p>
-            </div>
-            <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kontakt</p>
-              <p className="text-sm text-gray-900">
-                {customer.phone ? <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a> : "Ikke oppgitt"}
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                {customer.department ? "Avdeling / lokasjon" : "Firma"}
               </p>
-              <p className="text-sm text-gray-900">
-                {customer.email ? <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a> : "Ikke oppgitt"}
+              <p className="text-sm text-gray-900 font-bold">
+                {customer.department?.name || customer.name}
               </p>
+              {customer.department ? (
+                <>
+                  {(customer.department.address || customer.department.city) && (
+                    <p className="text-sm text-gray-700 mt-1">
+                      {customer.department.address || ""}
+                      {customer.department.postalCode ? `, ${customer.department.postalCode}` : ""}
+                      {customer.department.city ? ` ${customer.department.city}` : ""}
+                    </p>
+                  )}
+                  {customer.department.phone && (
+                    <p className="text-sm mt-1">
+                      📞 <a href={`tel:${customer.department.phone}`} className="text-blue-600 font-bold hover:underline">{customer.department.phone}</a>
+                    </p>
+                  )}
+                  {customer.department.email && (
+                    <p className="text-sm">
+                      ✉️ <a href={`mailto:${customer.department.email}`} className="text-blue-600 font-bold hover:underline">{customer.department.email}</a>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {customer.address || "Ikke oppgitt"} {customer.postalCode || ""} {customer.city || ""}
+                  </p>
+                  {customer.phone && (
+                    <p className="text-sm mt-1">
+                      📞 <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a>
+                    </p>
+                  )}
+                  {customer.email && (
+                    <p className="text-sm">
+                      ✉️ <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a>
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Ansvarlig montør */}
+            <div className="bg-gray-50 p-3 rounded border">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Ansvarlig montør</p>
+              {customer.responsibleTechnician ? (
+                <>
+                  <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
+                  {customer.responsibleTechnician.phone && (
+                    <p className="text-sm mt-1">
+                      📞 <a href={`tel:${customer.responsibleTechnician.phone}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.phone}</a>
+                    </p>
+                  )}
+                  {customer.responsibleTechnician.email && (
+                    <p className="text-sm">
+                      ✉️ <a href={`mailto:${customer.responsibleTechnician.email}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.email}</a>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500">Ingen ansvarlig montør er satt ennå.</p>
+              )}
             </div>
           </div>
         </div>
@@ -286,34 +388,19 @@ export default async function KundeportalPage() {
           <div className="lg:col-span-2 space-y-6">
             
             {/* BOOK NYTT OPPDRAG */}
-            <div className="bg-[var(--primary-color)] p-4 sm:p-6 rounded-xl shadow-sm text-white">
-              <h2 className="font-bold text-lg text-white border-b border-white/20 pb-2 mb-4">📅 Book nytt oppdrag</h2>
-              <p className="text-white/80 text-sm mb-4">Bestill service eller vedlikehold for din bedrift.</p>
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+              <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 Book nytt oppdrag</h2>
+              <p className="text-gray-500 text-sm mb-4">Bestill service eller vedlikehold for din bedrift.</p>
               <form action={bookWorkOrder} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">Oppdragstittel *</label>
-                    <input type="text" name="title" required placeholder="F.eks. Årlig service" className="w-full border border-white/30 p-2 rounded-xl text-sm bg-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">Dato *</label>
-                    <input type="date" name="scheduledFor" required className="w-full border border-white/30 p-2 rounded-xl text-sm bg-white/20 text-white focus:ring-2 focus:ring-white" />
-                  </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">Oppdragstittel *</label>
+                  <input type="text" name="title" required placeholder="F.eks. Årlig service" className="w-full border border-gray-300 p-2 rounded-xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">Beskrivelse</label>
+                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">Beskrivelse</label>
                   <MarkdownEditor name="description" rows={2} placeholder="Hva trenger du hjelp med?" />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-white/80 mb-1 uppercase tracking-wider">Sjekklistemal (valgfritt)</label>
-                  <select name="templateId" className="w-full border border-white/30 p-2 rounded-xl text-sm bg-white/20 text-white focus:ring-2 focus:ring-white">
-                    <option value="">-- Ingen mal --</option>
-                    {templates.map(t => (
-                      <option key={t.id} value={t.id}>{t.title}</option>
-                    ))}
-                  </select>
-                </div>
-                <button type="submit" className="w-full bg-white text-[var(--primary-color)] px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition whitespace-nowrap">
+                <button type="submit" className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition whitespace-nowrap">
                   Book oppdrag
                 </button>
               </form>

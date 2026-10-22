@@ -130,6 +130,8 @@ export default async function CustomerDetailPage({
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     include: {
+      department: true,
+      responsibleTechnician: true,
       contacts: true,
       contracts: {
         orderBy: { startDate: "desc" },
@@ -648,6 +650,8 @@ export default async function CustomerDetailPage({
                   </p>
                   <p><strong>Telefon:</strong><br />{customer.phone ? <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a> : "Ikke oppgitt"}</p>
                   <p><strong>E-post:</strong><br />{customer.email ? <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a> : "Ikke oppgitt"}</p>
+                  <p><strong>Avdeling:</strong><br />{customer.department?.name || "Ikke tilknyttet"}</p>
+                  <p><strong>Ansvarlig montør:</strong><br />{customer.responsibleTechnician?.name || "Ikke satt"}</p>
                   {customer.notes && (
                     <div>
                       <strong>Notat:</strong>
