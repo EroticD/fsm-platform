@@ -146,6 +146,27 @@ fsm.example.com {
   i minnet i `src/lib/rate-limit.ts`.
 - Sett opp sikkerhetskopier (se under) og overvåk `/api/health`.
 
+### Utgi et versjon
+
+1. Bump versjonen i `package.json` (og `package-lock.json`) og commit.
+2. Slå sammen `dev` inn i `master` og push.
+3. Tag: `git tag -a v0.2.0 -m "0.2.0 – …" && git push origin v0.2.0`.
+
+Tagnet utløser `.github/workflows/docker-publish.yml`, som bygger imaget og
+publiserer det til `ghcr.io/eroticd/fsm-platform` med taggene `0.2.0`, `0.2` og
+`sha-<kort-hash>`. CI kjører typesjekk, tester, lint og bygg på `master`.
+
+På serveren deployer du det publiserte imaget – ikke bygger der:
+
+```bash
+echo "IMAGE_TAG=0.2.0" >> .env
+docker compose up -d postgres          # publiserer 127.0.0.1:5432
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Containeren kjører `prisma migrate deploy` ved oppstart, så nye migrasjoner
+tas med automatisk.
+
 ### Oppgradere en eksisterende database
 
 Hvis databasen allerede har `Tag`/`Document`-tabellene fra før migrasjonen

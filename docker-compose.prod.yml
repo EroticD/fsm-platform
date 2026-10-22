@@ -1,0 +1,32 @@
+# Produksjon: kjører det publiserte imaget fra GitHub Container Registry.
+#
+# Bygg aldri på en liten maskin (f.eks. 1 GB): Next.js-byggen blir
+# OOM-killet. Imaget publiseres av .github/workflows/docker-publish.yml hver
+# gang du dytter en versjonstag (v0.2.0, v0.3.0 …).
+#
+#   echo "IMAGE_TAG=0.2.0" >> .env
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Databasen startes med den vanlige docker-compose.yml, som publiserer
+# 127.0.0.1:5432. Appen kjører på vertsnettverket, slik at DATABASE_URL i .env
+# kan peke på localhost.
+services:
+  app:
+    image: ghcr.io/eroticd/fsm-platform:${IMAGE_TAG:-latest}
+    container_name: fsm-app
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      UPLOAD_DIR: /app/uploads
+      TESSDATA_DIR: /app/tessdata
+    volumes:
+      - fsm_uploads:/app/uploads
+
+volumes:
+  fsm_uploads:
+    # Sett UPLOADS_VOLUME hvis volumet har et annet navn, for eksempel når
+    # appen tidligere ble startet med docker run.
+    name: ${UPLOADS_VOLUME:-fsm_uploads}
