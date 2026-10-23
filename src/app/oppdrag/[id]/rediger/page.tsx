@@ -10,10 +10,19 @@ import { getCurrentUser, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments } from "@/lib/departments";
 import { staffForDepartment, staffWhere, workOrderScope } from "@/lib/access";
+import { audit } from "@/lib/audit";
+import { workOrderUpdateSchema } from "@/lib/schemas/workOrder";
 
-export default async function EditWorkOrderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditWorkOrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
+  const { error } = await searchParams;
 
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -79,27 +88,10 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
       }
     }
 
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
-    const description = cleanMarkdown(formData.get("description"));
-    const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-    const scheduledFor = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
-    const scheduledToInput = cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line });
-    const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
-    const scheduledToDate = scheduledToInput ? parseDateOnly(scheduledToInput) : null;
     const technicianIds = formData.getAll("technicianIds") as string[];
-    let contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
     const tagNames = formData.getAll("tags")
       .map(t => cleanText(t, { maxLength: LIMITS.short }))
       .filter(Boolean);
-
-    if (!title || !customerId) return;
-    if (scheduledToDate && scheduledForDate && scheduledToDate < scheduledForDate) return;
-
-    // Kontaktpersonen må tilhøre den valgte kunden; ellers tømmes feltet.
-    if (contactId) {
-      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-      if (!contact || contact.customerId !== customerId) contactId = "";
-    }
 
     // Bare ansatte i oppdragets avdeling kan tildeles.
     const allowedTechnicians = technicianIds.length
@@ -110,37 +102,71 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
       : [];
     const validTechnicianIds = allowedTechnicians.map((technician) => technician.id);
 
-    // Oppdater grunnleggende info og bytt ut tildelte montører
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: {
-        title,
-        description,
-        departmentId,
-        customerId,
-        contactId: contactId || null,
-        scheduledFor: scheduledForDate,
-        scheduledTo: scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
-          ? scheduledToDate
-          : null,
-        technicians: { set: validTechnicianIds.map(id => ({ id })) },
-        tags: {
-          set: [],
-          connectOrCreate: tagNames.map(name => ({
-            where: { name },
-            create: { name }
-          }))
-        }
-      }
+    const parsed = workOrderUpdateSchema.safeParse({
+      id: workOrderId,
+      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
+      description: cleanMarkdown(formData.get("description")),
+      departmentId,
+      customerId: cleanText(formData.get("customerId"), { maxLength: LIMITS.line }),
+      contactId: cleanText(formData.get("contactId"), { maxLength: LIMITS.line }),
+      scheduledFor: cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line }),
+      scheduledTo: cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line }),
+      technicianIds: validTechnicianIds,
+      tagNames,
     });
+    if (!parsed.success) {
+      redirect(`/oppdrag/${workOrderId}/rediger?error=ugyldig-data`);
+    }
 
-    await prisma.auditLog.create({
-      data: {
+    const {
+      title,
+      description,
+      customerId,
+      contactId,
+      scheduledFor,
+      scheduledTo,
+    } = parsed.data;
+    const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
+    const scheduledToDate = scheduledTo ? parseDateOnly(scheduledTo) : null;
+
+    // Kontaktpersonen må tilhøre den valgte kunden; ellers tømmes feltet.
+    let validContactId = contactId;
+    if (validContactId) {
+      const contact = await prisma.contact.findUnique({ where: { id: validContactId } });
+      if (!contact || contact.customerId !== customerId) validContactId = undefined;
+    }
+
+    // Oppdater grunnleggende info og bytt ut tildelte montører
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: {
+          title,
+          description,
+          departmentId,
+          customerId,
+          contactId: validContactId || null,
+          scheduledFor: scheduledForDate,
+          scheduledTo: scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
+            ? scheduledToDate
+            : null,
+          technicians: { set: validTechnicianIds.map(id => ({ id })) },
+          tags: {
+            set: [],
+            connectOrCreate: tagNames.map(name => ({
+              where: { name },
+              create: { name }
+            }))
+          }
+        }
+      });
+
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `Oppdaterte oppdraget: ${title}`,
-        userName: actor.name || actor.email || "Ukjent"
-      }
+        actor: { id: actor.id, name: actor.name, email: actor.email },
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -152,6 +178,12 @@ export default async function EditWorkOrderPage({ params }: { params: Promise<{ 
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-2xl mx-auto space-y-6">
         
+        {error && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.
+          </div>
+        )}
+
         <div className="flex justify-between items-center border-b pb-6">
           <div>
             <h1 className="text-3xl font-black text-gray-900">✏️ Rediger Oppdrag</h1>

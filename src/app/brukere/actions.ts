@@ -3,12 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { audit } from "@/lib/audit";
 import { createInviteToken, buildInviteUrl } from "@/lib/invite";
 import { sendInviteEmail } from "@/lib/email";
 import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 import {
-  actorName,
-  bumpSessionVersion,
   getCurrentUser,
   requireAdmin,
   requirePermission,
@@ -20,6 +19,20 @@ import {
   hasPermission,
   isPermission,
 } from "@/lib/permissions";
+import {
+  userActiveSchema,
+  userCreateSchema,
+  userInviteSchema,
+  userPermissionsSchema,
+  userPhoneSchema,
+  userRoleSchema,
+} from "@/lib/schemas/user";
+
+const auditActor = (user: {
+  id: string;
+  name: string | null;
+  email: string | null;
+}) => ({ id: user.id, name: user.name, email: user.email });
 
 type RoleRecord = {
   key: string;
@@ -112,6 +125,16 @@ export async function createUser(formData: FormData) {
   const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
   let departmentId = await validDepartmentId(formData.get("departmentId"));
 
+  const parsed = userCreateSchema.safeParse({
+    name,
+    email,
+    phone,
+    role: cleanText(formData.get("role"), { maxLength: LIMITS.short }),
+    departmentId,
+    contactId,
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+
   const actor = await getCurrentUser();
   if (!actor?.isActive) return;
 
@@ -156,35 +179,41 @@ export async function createUser(formData: FormData) {
   }
 
   let newUser;
+  let token = "";
   try {
-    newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        phone: phone || null,
-        role: role.key,
-        departmentId,
-        customerId,
-        contactId: linkedContactId,
-        isActive: false,
-      },
+    newUser = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name,
+          email,
+          phone: phone || null,
+          role: role.key,
+          departmentId,
+          customerId,
+          contactId: linkedContactId,
+          isActive: false,
+        },
+      });
+
+      // Invitasjonsnøkkelen lages i samme transaksjon som brukeren, slik at en
+      // feil i loggen ruller tilbake både kontoen og nøkkelen.
+      token = await createInviteToken(created.id, tx);
+
+      await audit(tx, {
+        entityType: "User",
+        entityId: created.id,
+        action: `Opprettet bruker: ${name} (${role.label})`,
+        actor: auditActor(actor),
+      });
+
+      return created;
     });
   } catch (err) {
     console.error("Feil ved opprettelse av bruker", err);
     redirect(withParam(back, "error", "epost_finnes"));
   }
 
-  await prisma.auditLog.create({
-    data: {
-      entityType: "User",
-      entityId: newUser.id,
-      action: `Opprettet bruker: ${name} (${role.label})`,
-      userName: await actorName(),
-    },
-  });
-
-  // Lager en invitasjonslenke slik at brukeren kan sette eget passord.
-  const token = await createInviteToken(newUser.id);
+  // Invitasjonslenken sendes først etter at brukeren er lagret.
   const mailSent = await sendInviteEmail(email, name, buildInviteUrl(token));
 
   revalidateUserAdmin();
@@ -208,8 +237,11 @@ export async function deleteUser(formData: FormData) {
   const actor = await getCurrentUser();
   if (!actor?.isActive) return;
 
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  if (!id) return;
+  const parsed = userInviteSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) redirect(withParam(returnPath(formData), "error", "ugyldig-data"));
+  const id = parsed.data.id;
 
   const userToDelete = await prisma.user.findUnique({ where: { id } });
   if (!userToDelete) return;
@@ -222,22 +254,28 @@ export async function deleteUser(formData: FormData) {
     }
   }
 
-  await prisma.user.delete({ where: { id } });
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.delete({ where: { id } });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: `Slettet bruker: ${userToDelete.name || "Ukjent"}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
 
 export async function changeRole(formData: FormData) {
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  const newRole = await findRole(formData.get("role"));
-  if (!id || !newRole) return;
+  const back = returnPath(formData);
+  const parsed = userRoleSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    role: cleanText(formData.get("role"), { maxLength: LIMITS.short }),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const { id } = parsed.data;
+  const newRole = await findRole(parsed.data.role);
+  if (!newRole) return;
 
   const actor = await getCurrentUser();
   if (!actor?.isActive) return;
@@ -276,37 +314,42 @@ export async function changeRole(formData: FormData) {
     return;
   }
 
-  await prisma.user.update({
-    where: { id },
-    data: {
-      role: newRole.key,
-      // En ny rolle skal gjelde fra start; en gammel tilpasset liste skal ikke
-      // henge igjen og overstyre den nye rollen.
-      permissions: [],
-      permissionsCustomized: false,
-      // Kundeportalbrukere skal ikke være knyttet til en intern avdeling.
-      departmentId: newRole.key === "CUSTOMER" ? null : userToUpdate.departmentId,
-    },
-  });
-  await bumpSessionVersion(id);
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: {
+        role: newRole.key,
+        // En ny rolle skal gjelde fra start; en gammel tilpasset liste skal ikke
+        // henge igjen og overstyre den nye rollen.
+        permissions: [],
+        permissionsCustomized: false,
+        // Kundeportalbrukere skal ikke være knyttet til en intern avdeling.
+        departmentId: newRole.key === "CUSTOMER" ? null : userToUpdate.departmentId,
+        // Ugyldiggjør eksisterende økter i samme transaksjon.
+        sessionVersion: { increment: 1 },
+      },
+    });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: `Endret rolle for ${userToUpdate.name || "Ukjent"} til ${newRole.label}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
 
 export async function setActive(formData: FormData) {
+  const back = returnPath(formData);
   const actor = await getCurrentUser();
   if (!actor?.isActive) return;
 
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  const active = formData.get("active") === "true";
-  if (!id) return;
+  const parsed = userActiveSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    active: formData.get("active"),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const { id, active } = parsed.data;
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return;
@@ -331,15 +374,17 @@ export async function setActive(formData: FormData) {
     return;
   }
 
-  await prisma.user.update({ where: { id }, data: { isActive: active } });
-  await bumpSessionVersion(id);
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: { isActive: active, sessionVersion: { increment: 1 } },
+    });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: `${active ? "Aktiverte" : "Deaktiverte"} bruker: ${target.name || target.email}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
@@ -351,9 +396,15 @@ export async function setActive(formData: FormData) {
  */
 export async function changeDepartment(formData: FormData) {
   if (!(await requireAdmin())) return;
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
 
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  if (!id) return;
+  const back = returnPath(formData);
+  const parsed = userInviteSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const id = parsed.data.id;
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return;
@@ -361,9 +412,6 @@ export async function changeDepartment(formData: FormData) {
   const departmentId = target.role === "CUSTOMER"
     ? null
     : await validDepartmentId(formData.get("departmentId"));
-
-  await prisma.user.update({ where: { id }, data: { departmentId } });
-  await bumpSessionVersion(id);
 
   let departmentName = "Ingen avdeling";
   if (departmentId) {
@@ -374,23 +422,32 @@ export async function changeDepartment(formData: FormData) {
     departmentName = department?.name ?? departmentName;
   }
 
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: { departmentId, sessionVersion: { increment: 1 } },
+    });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: `Endret avdeling for ${target.name || target.email || "Ukjent"} til ${departmentName}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
 
 export async function changePhone(formData: FormData) {
+  const back = returnPath(formData);
   const actor = await getCurrentUser();
   if (!actor?.isActive) return;
 
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  if (!id) return;
+  const parsed = userPhoneSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    phone: cleanPhone(formData.get("phone")),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const { id, phone } = parsed.data;
 
   const target = await prisma.user.findUnique({
     where: { id },
@@ -413,17 +470,14 @@ export async function changePhone(formData: FormData) {
     }
   }
 
-  const phone = cleanPhone(formData.get("phone"));
-
-  await prisma.user.update({ where: { id }, data: { phone: phone || null } });
-
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id }, data: { phone: phone || null } });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: `Endret telefonnummer for ${target.name || target.email || "Ukjent"}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
@@ -435,9 +489,16 @@ export async function changePhone(formData: FormData) {
  */
 export async function changePermissions(formData: FormData) {
   if (!(await requireAdmin())) return;
+  const back = returnPath(formData);
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
 
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  if (!id) return;
+  const parsed = userPermissionsSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    permissions: formData.getAll("permissions").map((value) => String(value)),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const { id } = parsed.data;
 
   const target = await prisma.user.findUnique({
     where: { id },
@@ -449,29 +510,27 @@ export async function changePermissions(formData: FormData) {
   // kundetilknytningen. Tilpassede lister ville bare vært misvisende.
   if (target.role === "ADMIN" || target.role === "CUSTOMER") return;
 
-  const permissions = cleanPermissions(
-    formData.getAll("permissions").map((value) => String(value)),
-  );
+  const permissions = cleanPermissions(parsed.data.permissions);
   const rolePermissions = target.roleDefinition?.permissions ?? [];
   const customized = !samePermissions(permissions, rolePermissions);
 
-  await prisma.user.update({
-    where: { id },
-    data: {
-      permissions: customized ? permissions : [],
-      permissionsCustomized: customized,
-    },
-  });
-  await bumpSessionVersion(id);
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: {
+        permissions: customized ? permissions : [],
+        permissionsCustomized: customized,
+        sessionVersion: { increment: 1 },
+      },
+    });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: customized
         ? `Endret tilpassede rettigheter for ${target.name || target.email || "Ukjent"}`
         : `Tilbakestilte rettigheter til rollen for ${target.name || target.email || "Ukjent"}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
@@ -479,33 +538,45 @@ export async function changePermissions(formData: FormData) {
 /** Fjerner en tilpasset rettighetsliste og lar rollen gjelde igjen. */
 export async function resetPermissions(formData: FormData) {
   if (!(await requireAdmin())) return;
+  const back = returnPath(formData);
+  const actor = await getCurrentUser();
+  if (!actor?.isActive) return;
 
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  if (!id) return;
+  const parsed = userInviteSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const id = parsed.data.id;
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return;
 
-  await prisma.user.update({
-    where: { id },
-    data: { permissions: [], permissionsCustomized: false },
-  });
-  await bumpSessionVersion(id);
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: {
+        permissions: [],
+        permissionsCustomized: false,
+        sessionVersion: { increment: 1 },
+      },
+    });
+    await audit(tx, {
       entityType: "User",
       entityId: id,
       action: `Tilbakestilte rettigheter til rollen for ${target.name || target.email || "Ukjent"}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+    });
   });
   revalidateUserAdmin();
 }
 
 export async function generateInvite(formData: FormData) {
   const back = returnPath(formData);
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  if (!id) return;
+  const parsed = userInviteSchema.safeParse({
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) redirect(withParam(back, "error", "ugyldig-data"));
+  const id = parsed.data.id;
 
   const user = await prisma.user.findUnique({
     where: { id },
@@ -539,20 +610,21 @@ export async function generateInvite(formData: FormData) {
     }
   }
 
-  const token = await createInviteToken(id);
+  const token = await prisma.$transaction(async (tx) => {
+    const created = await createInviteToken(id, tx);
+    await audit(tx, {
+      entityType: "User",
+      entityId: id,
+      action: `Genererte ny invitasjonslenke for: ${user.name || user.email}`,
+      actor: auditActor(actor),
+    });
+    return created;
+  });
   const mailSent = await sendInviteEmail(
     user.email || "",
     user.name,
     buildInviteUrl(token)
   );
-  await prisma.auditLog.create({
-    data: {
-      entityType: "User",
-      entityId: id,
-      action: `Genererte ny invitasjonslenke for: ${user.name || user.email}`,
-      userName: await actorName(),
-    },
-  });
   revalidateUserAdmin();
   redirect(
     withParam(

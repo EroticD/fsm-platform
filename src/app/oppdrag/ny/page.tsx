@@ -10,7 +10,8 @@ import { getCurrentUser, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment, staffWhere } from "@/lib/access";
-import { createWorkOrderSchema } from "./schemas";
+import { audit } from "@/lib/audit";
+import { workOrderCreateSchema } from "@/lib/schemas/workOrder";
 
 export default async function AdminCreateWorkOrderPage({
   searchParams,
@@ -68,15 +69,11 @@ export default async function AdminCreateWorkOrderPage({
       redirect("/oppdrag/ny?error=avdeling");
     }
 
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
     const description = cleanMarkdown(formData.get("description"));
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
     const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
     const dateInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
     const endInput = cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line });
-    const scheduledFor = parseDateOnly(dateInput) ?? new Date();
-    const parsedEnd = parseDateOnly(endInput);
-    const scheduledTo = parsedEnd && parsedEnd > scheduledFor ? parsedEnd : null;
 
     // Kontaktpersonen må tilhøre den valgte kunden.
     let validContactId = contactId;
@@ -100,55 +97,63 @@ export default async function AdminCreateWorkOrderPage({
       : [];
     const technicianIds = allowedTechnicians.map((technician) => technician.id);
 
-    const parsed = createWorkOrderSchema.safeParse({
-      title,
+    const parsed = workOrderCreateSchema.safeParse({
+      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
       description,
+      departmentId,
       customerId,
       contactId: validContactId,
       scheduledFor: dateInput,
       scheduledTo: endInput,
       technicianIds,
       templateIds,
+      tagNames,
     });
 
     if (!parsed.success) {
-      throw new Error(parsed.error.issues[0]?.message || "Ugyldig data");
+      redirect("/oppdrag/ny?error=ugyldig-data");
     }
 
-    try {
-      const newWo = await prisma.workOrder.create({
-        data: {
-          title,
-          description: description || "",
-          departmentId,
-          customerId: customerId || undefined,
-          contactId: parsed.data.contactId || undefined,
-          scheduledFor,
-          scheduledTo,
-          creatorName: actor.name || actor.email || "Kontor",
-          status: "PENDING",
-          technicians: {
-            connect: technicianIds.map(id => ({ id }))
-          },
-          templates: {
-            connect: templateIds.map(id => ({ id }))
-          },
-          tags: {
-            connectOrCreate: tagNames.map(name => ({
-              where: { name },
-              create: { name }
-            }))
-          }
-        }
-      });
+    const scheduledFor = parseDateOnly(parsed.data.scheduledFor);
+    if (!scheduledFor) redirect("/oppdrag/ny?error=ugyldig-data");
+    const parsedEnd = parseDateOnly(parsed.data.scheduledTo);
+    const scheduledTo = parsedEnd && parsedEnd > scheduledFor ? parsedEnd : null;
+    const title = parsed.data.title;
 
-      await prisma.auditLog.create({
-        data: {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const newWo = await tx.workOrder.create({
+          data: {
+            title,
+            description: description || "",
+            departmentId,
+            customerId: customerId || undefined,
+            contactId: parsed.data.contactId || undefined,
+            scheduledFor,
+            scheduledTo,
+            creatorName: actor.name || actor.email || "Kontor",
+            status: "PENDING",
+            technicians: {
+              connect: technicianIds.map(id => ({ id }))
+            },
+            templates: {
+              connect: templateIds.map(id => ({ id }))
+            },
+            tags: {
+              connectOrCreate: tagNames.map(name => ({
+                where: { name },
+                create: { name }
+              }))
+            }
+          }
+        });
+
+        await audit(tx, {
           entityType: "WorkOrder",
           entityId: newWo.id,
           action: `Kontoret opprettet nytt oppdrag: ${title}`,
-          userName: actor.name || actor.email || "Admin"
-        }
+          actor: { id: actor.id, name: actor.name, email: actor.email },
+        });
       });
     } catch (dbError) {
       console.error("Databasefeil ved opprettelse av oppdrag:", dbError);
@@ -178,6 +183,12 @@ export default async function AdminCreateWorkOrderPage({
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
             Oppdraget må tilhøre en avdeling. Be en administrator legge deg til i en
             aktiv avdeling, eller opprett en avdeling først.
+          </div>
+        )}
+
+        {error === "ugyldig-data" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.
           </div>
         )}
 

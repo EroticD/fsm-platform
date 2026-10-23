@@ -4,8 +4,9 @@ import fs from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { audit } from "@/lib/audit";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { requireAdmin, requirePermission, actorName } from "@/lib/session";
+import { requireAdmin, requirePermission, getCurrentUser } from "@/lib/session";
 import { requireWorkOrderAccess } from "@/lib/access";
 import { linkUploadOwner } from "@/lib/upload-access";
 import { uploadDir } from "@/lib/uploads";
@@ -59,12 +60,26 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
 
   const displayName = fileName || "Vedlegg";
 
-  await prisma.attachment.create({
-    data: {
-      workOrderId,
-      fileName: displayName,
-      dataUrl: fileUrl
-    }
+  await prisma.$transaction(async (tx) => {
+    const attachment = await tx.attachment.create({
+      data: {
+        workOrderId,
+        fileName: displayName,
+        dataUrl: fileUrl
+      }
+    });
+
+    await audit(tx, {
+      entityType: "WorkOrder",
+      entityId: workOrderId,
+      action: `La ved fil: ${displayName}`,
+      actor: {
+        id: access.user.id,
+        name: access.user.name,
+        email: access.user.email,
+      },
+      metadata: { attachmentId: attachment.id },
+    });
   });
 
   // Filen ble lastet opp privat; nå som den er knyttet til oppdraget skal den
@@ -74,15 +89,6 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
     ownerId: workOrderId,
     departmentId: access.workOrder.departmentId,
     customerId: access.workOrder.customerId,
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      entityType: "WorkOrder",
-      entityId: workOrderId,
-      action: `La ved fil: ${displayName}`,
-      userName: (await actorName()) || "Ukjent"
-    }
   });
 
   revalidateAttachmentViews(workOrderId);
@@ -100,19 +106,22 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
   const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
 
-  await prisma.attachment.delete({ where: { id: attachmentId } });
+  const actor = await getCurrentUser();
+  if (!actor) return { ok: false, error: "Ikke tilgang" };
 
-  // Filen blir liggende på disk. Samme fil kan være referert fra flere steder
-  // (f.eks. en rapport og et dokument), så den kan ikke slettes trygt her.
-  // En egen opprydningsjobb kan fjerne filer uten referanser senere.
+  await prisma.$transaction(async (tx) => {
+    await tx.attachment.delete({ where: { id: attachmentId } });
 
-  await prisma.auditLog.create({
-    data: {
+    // Filen blir liggende på disk. Samme fil kan være referert fra flere
+    // steder (f.eks. en rapport og et dokument), så den kan ikke slettes trygt
+    // her. En egen opprydningsjobb kan fjerne filer uten referanser senere.
+    await audit(tx, {
       entityType: "WorkOrder",
       entityId: attachment.workOrderId,
       action: `Slettet vedlegg: ${attachment.fileName}`,
-      userName: (await actorName()) || "Ukjent"
-    }
+      actor: { id: actor.id, name: actor.name, email: actor.email },
+      metadata: { attachmentId },
+    });
   });
 
   revalidateAttachmentViews(attachment.workOrderId);
@@ -126,6 +135,8 @@ export async function addCustomerAttachment(
   if (!(await requirePermission("customers.manage"))) {
     return { ok: false, error: "Ikke tilgang" };
   }
+  const actor = await getCurrentUser();
+  if (!actor) return { ok: false, error: "Ikke tilgang" };
 
   const customerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
@@ -158,8 +169,18 @@ export async function addCustomerAttachment(
 
   const displayName = fileName || "Vedlegg";
 
-  await prisma.customerAttachment.create({
-    data: { customerId, fileName: displayName, dataUrl: fileUrl },
+  await prisma.$transaction(async (tx) => {
+    const attachment = await tx.customerAttachment.create({
+      data: { customerId, fileName: displayName, dataUrl: fileUrl },
+    });
+
+    await audit(tx, {
+      entityType: "Customer",
+      entityId: customerId,
+      action: `La ved fil: ${displayName}`,
+      actor: { id: actor.id, name: actor.name, email: actor.email },
+      metadata: { attachmentId: attachment.id },
+    });
   });
 
   await linkUploadOwner(fileUrl, {
@@ -167,15 +188,6 @@ export async function addCustomerAttachment(
     ownerId: customerId,
     departmentId: customer.departmentId,
     customerId,
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `La ved fil: ${displayName}`,
-      userName: (await actorName()) || "Ukjent",
-    },
   });
 
   revalidatePath(`/kunder/${customerId}`);
@@ -199,18 +211,21 @@ export async function removeCustomerAttachment(
   });
   if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
 
-  await prisma.customerAttachment.delete({ where: { id: attachmentId } });
+  const actor = await getCurrentUser();
+  if (!actor) return { ok: false, error: "Ikke tilgang" };
 
-  // Filen blir liggende på disk til en opprydningsjobb kan bekrefte at den ikke
-  // er referert fra noe annet sted.
+  await prisma.$transaction(async (tx) => {
+    await tx.customerAttachment.delete({ where: { id: attachmentId } });
 
-  await prisma.auditLog.create({
-    data: {
+    // Filen blir liggende på disk til en opprydningsjobb kan bekrefte at den
+    // ikke er referert fra noe annet sted.
+    await audit(tx, {
       entityType: "Customer",
       entityId: attachment.customerId,
       action: `Slettet vedlegg: ${attachment.fileName}`,
-      userName: (await actorName()) || "Ukjent",
-    },
+      actor: { id: actor.id, name: actor.name, email: actor.email },
+      metadata: { attachmentId },
+    });
   });
 
   revalidatePath(`/kunder/${attachment.customerId}`);

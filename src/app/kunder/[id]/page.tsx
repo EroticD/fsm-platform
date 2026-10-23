@@ -13,6 +13,16 @@ import KpiCard from "@/components/KpiCard";
 import MarkdownView from "@/components/MarkdownView";
 import UnitHistory from "@/components/UnitHistory";
 import { markdownToPlainText } from "@/lib/markdown";
+import { audit } from "@/lib/audit";
+import {
+  contactCreateSchema,
+  contactUpdateSchema,
+} from "@/lib/schemas/customer";
+import {
+  contractCreateSchema,
+  contractDeleteSchema,
+  contractToggleSchema,
+} from "@/lib/schemas/contract";
 import {
   firstOccurrenceOnOrAfter,
   formatDate,
@@ -39,6 +49,16 @@ import {
   resendPortalInvite,
 } from "./portal-actions";
 import { createUnit, updateUnit, deleteUnit } from "./unit-actions";
+
+const auditActor = (user?: {
+  id: string;
+  name: string | null;
+  email: string | null;
+} | null) => ({
+  id: user?.id ?? "",
+  name: user?.name ?? null,
+  email: user?.email ?? null,
+});
 
 // Hjelpekomponent for status-etikett
 function StatusBadge({ status }: { status: string }) {
@@ -261,30 +281,36 @@ export default async function CustomerDetailPage({
     "use server";
     if (!(await requirePermission("customers.manage"))) return;
 
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const email = cleanEmail(formData.get("email"));
-    const phone = cleanPhone(formData.get("phone"));
-    const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
-
-    if (!name) return;
+    const parsed = contactCreateSchema.safeParse({
+      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
+      email: cleanEmail(formData.get("email")),
+      phone: cleanPhone(formData.get("phone")),
+      role: cleanText(formData.get("role"), { maxLength: LIMITS.short }),
+    });
+    if (!parsed.success) {
+      redirect(`/kunder/${customerId}?tab=kontakter&error=ugyldig-data`);
+    }
+    const { name, email, phone, role } = parsed.data;
 
     try {
-      await prisma.contact.create({
-        data: {
-          name,
-          email: email || null,
-          phone: phone || null,
-          role: role || null,
-          customerId,
-        },
-      });
-      await prisma.auditLog.create({
-        data: {
-          entityType: "Contact",
+      await prisma.$transaction(async (tx) => {
+        const contact = await tx.contact.create({
+          data: {
+            name,
+            email: email || null,
+            phone: phone || null,
+            role: role || null,
+            customerId,
+          },
+        });
+        // Kontaktpersonen er en del av kundekortet; kundens id er stabil.
+        await audit(tx, {
+          entityType: "Customer",
           entityId: customerId,
           action: `La til kontaktperson: ${name}`,
-          userName: user?.name || "Ukjent"
-        }
+          actor: auditActor(user),
+          metadata: { contactId: contact.id },
+        });
       });
       revalidatePath(`/kunder/${customerId}`);
     } catch (error) {
@@ -297,13 +323,17 @@ export default async function CustomerDetailPage({
     "use server";
     if (!(await requirePermission("customers.manage"))) return;
 
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const email = cleanEmail(formData.get("email"));
-    const phone = cleanPhone(formData.get("phone"));
-    const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
-
-    if (!id || !name) return;
+    const parsed = contactUpdateSchema.safeParse({
+      id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
+      email: cleanEmail(formData.get("email")),
+      phone: cleanPhone(formData.get("phone")),
+      role: cleanText(formData.get("role"), { maxLength: LIMITS.short }),
+    });
+    if (!parsed.success) {
+      redirect(`/kunder/${customerId}?tab=kontakter&error=ugyldig-data`);
+    }
+    const { id, name, email, phone, role } = parsed.data;
 
     const existing = await prisma.contact.findFirst({
       where: { id, customerId },
@@ -312,22 +342,23 @@ export default async function CustomerDetailPage({
     if (!existing) return;
 
     try {
-      await prisma.contact.update({
-        where: { id },
-        data: {
-          name,
-          email: email || null,
-          phone: phone || null,
-          role: role || null,
-        },
-      });
-      await prisma.auditLog.create({
-        data: {
-          entityType: "Contact",
-          entityId: id,
+      await prisma.$transaction(async (tx) => {
+        await tx.contact.update({
+          where: { id },
+          data: {
+            name,
+            email: email || null,
+            phone: phone || null,
+            role: role || null,
+          },
+        });
+        await audit(tx, {
+          entityType: "Customer",
+          entityId: customerId,
           action: `Endret kontaktperson: ${name}`,
-          userName: user?.name || "Ukjent"
-        }
+          actor: auditActor(user),
+          metadata: { contactId: id },
+        });
       });
       revalidatePath(`/kunder/${customerId}`);
     } catch (error) {
@@ -348,16 +379,17 @@ export default async function CustomerDetailPage({
         where: { id, customerId },
       });
       if (!contactToDelete) return;
-      await prisma.contact.delete({
-        where: { id },
-      });
-      await prisma.auditLog.create({
-        data: {
-          entityType: "Contact",
-          entityId: id,
+      await prisma.$transaction(async (tx) => {
+        await tx.contact.delete({
+          where: { id },
+        });
+        await audit(tx, {
+          entityType: "Customer",
+          entityId: customerId,
           action: `Slettet kontaktperson: ${contactToDelete?.name || "Ukjent"}`,
-          userName: user?.name || "Ukjent"
-        }
+          actor: auditActor(user),
+          metadata: { contactId: id },
+        });
       });
       revalidatePath(`/kunder/${customerId}`);
     } catch (error) {
@@ -388,21 +420,24 @@ export default async function CustomerDetailPage({
     }
     if (!departmentId) return;
 
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
-    const startDate = parseDateOnly(
-      cleanText(formData.get("startDate"), { maxLength: LIMITS.line }),
-    );
-    const intervalMonths = Number(
-      cleanText(formData.get("intervalMonths"), { maxLength: LIMITS.short }),
-    );
-    const contactId = cleanText(formData.get("contactId"), {
-      maxLength: LIMITS.line,
+    const parsed = contractCreateSchema.safeParse({
+      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
+      startDate: cleanText(formData.get("startDate"), { maxLength: LIMITS.line }),
+      intervalMonths: cleanText(formData.get("intervalMonths"), { maxLength: LIMITS.short }),
+      departmentId,
+      contactId: cleanText(formData.get("contactId"), { maxLength: LIMITS.line }),
+      templateId: cleanText(formData.get("templateId"), { maxLength: LIMITS.line }),
     });
-    const templateId = cleanText(formData.get("templateId"), {
-      maxLength: LIMITS.line,
-    });
+    if (!parsed.success) {
+      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
+    }
 
-    if (!title || !startDate || !isContractInterval(intervalMonths)) return;
+    const { title, contactId, templateId } = parsed.data;
+    const startDate = parseDateOnly(parsed.data.startDate);
+    const intervalMonths = parsed.data.intervalMonths;
+    if (!startDate || !isContractInterval(intervalMonths)) {
+      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
+    }
 
     const customerExists = await prisma.customer.findUnique({
       where: { id: customerId },
@@ -432,27 +467,30 @@ export default async function CustomerDetailPage({
       todayUtc(),
     );
 
-    const contract = await prisma.contract.create({
-      data: {
-        title,
-        startDate,
-        intervalMonths,
-        nextServiceDate,
-        isActive: true,
-        customerId,
-        departmentId,
-        contactId: validContactId,
-        templateId: validTemplateId,
-      },
-    });
+    const contract = await prisma.$transaction(async (tx) => {
+      const created = await tx.contract.create({
+        data: {
+          title,
+          startDate,
+          intervalMonths,
+          nextServiceDate,
+          isActive: true,
+          customerId,
+          departmentId,
+          contactId: validContactId,
+          templateId: validTemplateId,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await audit(tx, {
         entityType: "Customer",
         entityId: customerId,
         action: `Opprettet serviceavtale: ${title} (${contractIntervalLabel(intervalMonths)})`,
-        userName: actor.name || actor.email || "Ukjent",
-      },
+        actor: auditActor(actor),
+        metadata: { contractId: created.id },
+      });
+
+      return created;
     });
 
     // Starter avtalen i dag, skal første oppdrag lages med en gang. Ellers tar
@@ -477,9 +515,14 @@ export default async function CustomerDetailPage({
     const actor = await getCurrentUser();
     if (!actor || !hasPermission(actor, "customers.manage")) return;
 
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    const active = formData.get("active") === "true";
-    if (!id) return;
+    const parsed = contractToggleSchema.safeParse({
+      id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+      active: formData.get("active"),
+    });
+    if (!parsed.success) {
+      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
+    }
+    const { id, active } = parsed.data;
 
     const contract = await prisma.contract.findUnique({
       where: { id },
@@ -488,18 +531,19 @@ export default async function CustomerDetailPage({
     if (!contract || contract.customerId !== customerId) return;
     if (actor.role !== "ADMIN" && contract.departmentId !== actor.departmentId) return;
 
-    await prisma.contract.update({
-      where: { id },
-      data: { isActive: active },
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.contract.update({
+        where: { id },
+        data: { isActive: active },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await audit(tx, {
         entityType: "Customer",
         entityId: customerId,
         action: `${active ? "Aktiverte" : "Pauset"} serviceavtale: ${contract.title}`,
-        userName: actor.name || actor.email || "Ukjent",
-      },
+        actor: auditActor(actor),
+        metadata: { contractId: id },
+      });
     });
 
     // Ved gjenaktivering kan neste service allerede ha forfalt. Da lages det
@@ -526,8 +570,13 @@ export default async function CustomerDetailPage({
     const actor = await getCurrentUser();
     if (!actor) return;
 
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
+    const parsed = contractDeleteSchema.safeParse({
+      id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) {
+      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
+    }
+    const id = parsed.data.id;
 
     const contract = await prisma.contract.findUnique({
       where: { id },
@@ -535,15 +584,16 @@ export default async function CustomerDetailPage({
     });
     if (!contract || contract.customerId !== customerId) return;
 
-    await prisma.contract.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.contract.delete({ where: { id } });
 
-    await prisma.auditLog.create({
-      data: {
+      await audit(tx, {
         entityType: "Customer",
         entityId: customerId,
         action: `Slettet serviceavtale: ${contract.title}`,
-        userName: actor.name || actor.email || "Ukjent",
-      },
+        actor: auditActor(actor),
+        metadata: { contractId: id },
+      });
     });
 
     revalidatePath(`/kunder/${customerId}`);
@@ -597,6 +647,12 @@ export default async function CustomerDetailPage({
             </Link>
           ))}
         </nav>
+
+        {error === "ugyldig-data" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
+            ⛔ Endringen kunne ikke lagres. Sjekk feltene og prøv igjen.
+          </div>
+        )}
 
         {/* --- FANE: OVERSIKT --- */}
         {currentTab === "oversikt" && (

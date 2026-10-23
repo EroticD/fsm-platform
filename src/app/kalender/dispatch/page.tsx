@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { audit } from "@/lib/audit";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { markdownToPlainText } from "@/lib/markdown";
 import { formatAddress } from "@/lib/address";
@@ -15,6 +17,18 @@ import {
   staffScope,
   workOrderScope,
 } from "@/lib/access";
+import { workOrderStatusSchema } from "@/lib/schemas/workOrder";
+import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
+
+const auditActor = (user?: {
+  id: string;
+  name: string | null;
+  email: string | null;
+} | null) => ({
+  id: user?.id ?? "",
+  name: user?.name ?? null,
+  email: user?.email ?? null,
+});
 
 // Hjelpekomponent for status-etikett
 function DispatchStatusBadge({ status }: { status: string }) {
@@ -30,7 +44,12 @@ function DispatchStatusBadge({ status }: { status: string }) {
   }
 }
 
-export default async function DispatchPage() {
+export default async function DispatchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.assign")) redirect("/");
@@ -64,17 +83,19 @@ export default async function DispatchPage() {
     "use server";
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-    if (!workOrderId || !technicianId) return;
+    if (!workOrderId || !technicianId) {
+      redirect("/kalender/dispatch?error=ugyldig-data");
+    }
 
     const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
-    if (!access) return;
+    if (!access) redirect("/kalender/dispatch?error=ikke-tilgang");
 
     // Bare ansatte i oppdragets avdeling kan tildeles.
     const target = await prisma.user.findFirst({
       where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
       select: { id: true },
     });
-    if (!target) return;
+    if (!target) redirect("/kalender/dispatch?error=ugyldig-data");
 
     try {
       // Sjekk om montøren allerede er tildelt
@@ -86,28 +107,30 @@ export default async function DispatchPage() {
       const alreadyAssigned = existing?.technicians.some(t => t.id === technicianId);
 
       if (!alreadyAssigned) {
-        await prisma.workOrder.update({
-          where: { id: workOrderId },
-          data: {
-            technicians: {
-              connect: { id: technicianId }
+        await prisma.$transaction(async (tx) => {
+          await tx.workOrder.update({
+            where: { id: workOrderId },
+            data: {
+              technicians: {
+                connect: { id: technicianId }
+              }
             }
-          }
-        });
+          });
 
-        await prisma.auditLog.create({
-          data: {
+          await audit(tx, {
             entityType: "WorkOrder",
             entityId: workOrderId,
             action: `Kontoret tildelte montør til oppdraget`,
-            userName: access.user.name || access.user.email || "Kontor"
-          }
+            actor: auditActor(access.user),
+            metadata: { technicianId },
+          });
         });
       }
 
       revalidatePath("/kalender/dispatch");
     } catch (error) {
       console.error("Feil ved tildeling av montør:", error);
+      redirect("/kalender/dispatch?error=ukjent");
     }
   }
 
@@ -116,33 +139,37 @@ export default async function DispatchPage() {
     "use server";
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-    if (!workOrderId || !technicianId) return;
+    if (!workOrderId || !technicianId) {
+      redirect("/kalender/dispatch?error=ugyldig-data");
+    }
 
     const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
-    if (!access) return;
+    if (!access) redirect("/kalender/dispatch?error=ikke-tilgang");
 
     try {
-      await prisma.workOrder.update({
-        where: { id: workOrderId },
-        data: {
-          technicians: {
-            disconnect: { id: technicianId }
+      await prisma.$transaction(async (tx) => {
+        await tx.workOrder.update({
+          where: { id: workOrderId },
+          data: {
+            technicians: {
+              disconnect: { id: technicianId }
+            }
           }
-        }
-      });
+        });
 
-      await prisma.auditLog.create({
-        data: {
+        await audit(tx, {
           entityType: "WorkOrder",
           entityId: workOrderId,
           action: `Kontoret fjernet montør fra oppdraget`,
-          userName: access.user.name || access.user.email || "Kontor"
-        }
+          actor: auditActor(access.user),
+          metadata: { technicianId },
+        });
       });
 
       revalidatePath("/kalender/dispatch");
     } catch (error) {
       console.error("Feil ved fjerning av montør:", error);
+      redirect("/kalender/dispatch?error=ukjent");
     }
   }
 
@@ -150,31 +177,35 @@ export default async function DispatchPage() {
   async function updateStatus(formData: FormData) {
     "use server";
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
-    const status = cleanStatus(formData.get("status"));
-    if (!workOrderId || !status) return;
+    const parsed = workOrderStatusSchema.safeParse({
+      status: cleanStatus(formData.get("status")),
+    });
+    if (!workOrderId || !parsed.success) {
+      redirect("/kalender/dispatch?error=ugyldig-data");
+    }
 
     const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) return;
+    if (!access) redirect("/kalender/dispatch?error=ikke-tilgang");
 
+    let result;
     try {
-      await prisma.workOrder.update({
-        where: { id: workOrderId },
-        data: { status: status as any }
+      result = await transitionWorkOrderStatus({
+        workOrderId,
+        from: access.workOrder.status as WorkStatus,
+        to: parsed.data.status as WorkStatus,
+        isAdmin: access.user.role === "ADMIN",
+        actor: auditActor(access.user),
+        action: `Kontoret endret status til: ${parsed.data.status}`,
       });
-
-      await prisma.auditLog.create({
-        data: {
-          entityType: "WorkOrder",
-          entityId: workOrderId,
-          action: `Kontoret endret status til: ${status}`,
-          userName: access.user.name || access.user.email || "Kontor"
-        }
-      });
-
-      revalidatePath("/kalender/dispatch");
     } catch (error) {
       console.error("Feil ved oppdatering av status:", error);
+      redirect("/kalender/dispatch?error=ukjent");
     }
+    if (!result.ok) {
+      redirect(`/kalender/dispatch?error=${result.error}`);
+    }
+
+    revalidatePath("/kalender/dispatch");
   }
 
   // Sorter oppdrag: utdelte først, så tildelte
@@ -197,6 +228,19 @@ export default async function DispatchPage() {
             </Link>
           </div>
         </div>
+
+        {error === "ugyldig-status" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl text-sm font-bold">
+            ⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand.
+            Fullførte eller kansellerte oppdrag kan bare gjenåpnes av en administrator.
+          </div>
+        )}
+
+        {error && error !== "ugyldig-status" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl text-sm font-bold">
+            ⛔ Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.
+          </div>
+        )}
 
         {/* FANER (TABS) FOR Å BYTTE VISNING */}
         <div className="overflow-x-auto pb-2">

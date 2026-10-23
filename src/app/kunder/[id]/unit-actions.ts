@@ -1,9 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { audit } from "@/lib/audit";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { actorName, requireAdmin, requirePermission } from "@/lib/session";
+import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
+import { unitCreateSchema, unitUpdateSchema } from "@/lib/schemas/unit";
+
+const auditActor = (user?: {
+  id: string;
+  name: string | null;
+  email: string | null;
+} | null) => ({
+  id: user?.id ?? "",
+  name: user?.name ?? null,
+  email: user?.email ?? null,
+});
 
 /** Kort hjelper: henter enheten og sjekker at den faktisk tilhører kunden. */
 async function findUnitForCustomer(id: string, customerId: string) {
@@ -16,27 +29,46 @@ async function findUnitForCustomer(id: string, customerId: string) {
 /** Registrerer en ny enhet (maskin/utstyr) på kunden. */
 export async function createUnit(formData: FormData) {
   if (!(await requirePermission("equipment.manage"))) return;
-  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-  const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
-  const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
-  const location = cleanText(formData.get("location"), { maxLength: LIMITS.line }) || null;
+  const actor = await getCurrentUser();
+  if (!actor) return;
 
-  if (!customerId || !model) return;
+  const rawCustomerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const parsed = unitCreateSchema.safeParse({
+    customerId: rawCustomerId,
+    model: cleanText(formData.get("model"), { maxLength: LIMITS.title }),
+    serialNumber: cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }),
+    location: cleanText(formData.get("location"), { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) {
+    redirect(
+      rawCustomerId
+        ? `/kunder/${rawCustomerId}?tab=enheter&error=ugyldig-data`
+        : "/kunder?error=ugyldig-data",
+    );
+  }
+  const { customerId, model, serialNumber, location } = parsed.data;
 
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (!customer) return;
 
-  await prisma.product.create({
-    data: { customerId, model, serialNumber, location },
-  });
+  await prisma.$transaction(async (tx) => {
+    const product = await tx.product.create({
+      data: {
+        customerId,
+        model,
+        serialNumber: serialNumber || null,
+        location: location || null,
+      },
+    });
 
-  await prisma.auditLog.create({
-    data: {
+    // Enheten er en del av kundekortet, så hendelsen følger kundens id.
+    await audit(tx, {
       entityType: "Customer",
       entityId: customerId,
       action: `La til enhet: ${model}${serialNumber ? ` (SN: ${serialNumber})` : ""}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+      metadata: { productId: product.id },
+    });
   });
 
   revalidatePath(`/kunder/${customerId}`);
@@ -45,29 +77,46 @@ export async function createUnit(formData: FormData) {
 /** Oppdaterer navn, serienummer og plassering på en enhet. */
 export async function updateUnit(formData: FormData) {
   if (!(await requirePermission("equipment.manage"))) return;
-  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
-  const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
-  const location = cleanText(formData.get("location"), { maxLength: LIMITS.line }) || null;
+  const actor = await getCurrentUser();
+  if (!actor) return;
 
-  if (!model) return;
+  const rawCustomerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+  const parsed = unitUpdateSchema.safeParse({
+    customerId: rawCustomerId,
+    id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    model: cleanText(formData.get("model"), { maxLength: LIMITS.title }),
+    serialNumber: cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }),
+    location: cleanText(formData.get("location"), { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) {
+    redirect(
+      rawCustomerId
+        ? `/kunder/${rawCustomerId}?tab=enheter&error=ugyldig-data`
+        : "/kunder?error=ugyldig-data",
+    );
+  }
+  const { customerId, id, model, serialNumber, location } = parsed.data;
 
   const unit = await findUnitForCustomer(id, customerId);
   if (!unit) return;
 
-  await prisma.product.update({
-    where: { id },
-    data: { model, serialNumber, location },
-  });
+  await prisma.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id },
+      data: {
+        model,
+        serialNumber: serialNumber || null,
+        location: location || null,
+      },
+    });
 
-  await prisma.auditLog.create({
-    data: {
+    await audit(tx, {
       entityType: "Customer",
       entityId: customerId,
       action: `Oppdaterte enhet: ${model}${serialNumber ? ` (SN: ${serialNumber})` : ""}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+      metadata: { productId: id },
+    });
   });
 
   revalidatePath(`/kunder/${customerId}`);
@@ -79,21 +128,24 @@ export async function updateUnit(formData: FormData) {
  */
 export async function deleteUnit(formData: FormData) {
   if (!(await requireAdmin())) return;
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
   const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
 
   const unit = await findUnitForCustomer(id, customerId);
   if (!unit) return;
 
-  await prisma.product.delete({ where: { id } });
-
-  await prisma.auditLog.create({
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.product.delete({ where: { id } });
+    await audit(tx, {
       entityType: "Customer",
       entityId: customerId,
       action: `Slettet enhet: ${unit.model}${unit.serialNumber ? ` (SN: ${unit.serialNumber})` : ""}`,
-      userName: await actorName(),
-    },
+      actor: auditActor(actor),
+      metadata: { productId: id },
+    });
   });
 
   revalidatePath(`/kunder/${customerId}`);

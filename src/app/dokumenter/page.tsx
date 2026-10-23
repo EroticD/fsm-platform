@@ -5,8 +5,16 @@ import { revalidatePath } from "next/cache";
 import path from "path";
 import { enqueuePdfText } from "@/lib/pdf-queue";
 import { linkUploadOwner } from "@/lib/upload-access";
+import { audit } from "@/lib/audit";
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
 import { getCurrentUser, requireAdmin, requireOffice, requirePermission } from "@/lib/session";
+import {
+  documentCreateSchema,
+  documentFolderCreateSchema,
+  documentIdSchema,
+  documentUpdateSchema,
+  documentVersionSchema,
+} from "@/lib/schemas/document";
 import { hasPermission } from "@/lib/permissions";
 import TagSelector from "@/components/TagSelector";
 import MarkdownView from "@/components/MarkdownView";
@@ -15,10 +23,20 @@ import BulkUploadForm from "./BulkUploadForm";
 import EditDocumentForm from "./EditDocumentForm";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
+const auditActor = (user?: {
+  id: string;
+  name: string | null;
+  email: string | null;
+} | null) => ({
+  id: user?.id ?? "",
+  name: user?.name ?? null,
+  email: user?.email ?? null,
+});
+
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ folder?: string; q?: string; tag?: string }>;
+  searchParams: Promise<{ folder?: string; q?: string; tag?: string; error?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -30,6 +48,7 @@ export default async function DocumentsPage({
   const folderId = resolved.folder || null;
   const searchQuery = resolved.q?.trim() || "";
   const tagFilter = resolved.tag || "";
+  const error = resolved.error;
 
   // Hent nåværende mappe + breadcrumb-sti
   let currentFolder: any = null;
@@ -86,18 +105,21 @@ export default async function DocumentsPage({
   async function createFolder(formData: FormData) {
     "use server";
     if (!(await requirePermission("documents.manage"))) return;
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    if (!name) return;
-    await prisma.documentFolder.create({
-      data: { name, parentId: folderId },
+    const parsed = documentFolderCreateSchema.safeParse({
+      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
     });
-    await prisma.auditLog.create({
-      data: {
+    if (!parsed.success) redirect("/dokumenter?error=ugyldig-data");
+    const name = parsed.data.name;
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.documentFolder.create({
+        data: { name, parentId: folderId },
+      });
+      await audit(tx, {
         entityType: "DocumentFolder",
-        entityId: name,
+        entityId: created.id,
         action: `Opprettet mappe: ${name}`,
-        userName: user?.name || "Kontor",
-      },
+        actor: auditActor(user),
+      });
     });
     revalidatePath("/dokumenter");
   }
@@ -105,17 +127,20 @@ export default async function DocumentsPage({
   async function deleteFolder(formData: FormData) {
     "use server";
     if (!(await requireAdmin())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
+    const parsed = documentIdSchema.safeParse({
+      id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) redirect("/dokumenter?error=ugyldig-data");
+    const id = parsed.data.id;
     const f = await prisma.documentFolder.findUnique({ where: { id } });
-    await prisma.documentFolder.delete({ where: { id } });
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.documentFolder.delete({ where: { id } });
+      await audit(tx, {
         entityType: "DocumentFolder",
         entityId: id,
         action: `Slettet mappe: ${f?.name || "Ukjent"}`,
-        userName: user?.name || "Kontor",
-      },
+        actor: auditActor(user),
+      });
     });
     revalidatePath("/dokumenter");
   }
@@ -123,8 +148,11 @@ export default async function DocumentsPage({
   async function restoreVersion(formData: FormData) {
     "use server";
     if (!(await requireOffice())) return;
-    const versionId = cleanText(formData.get("versionId"), { maxLength: LIMITS.line });
-    if (!versionId) return;
+    const parsed = documentVersionSchema.safeParse({
+      versionId: cleanText(formData.get("versionId"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) redirect("/dokumenter?error=ugyldig-data");
+    const versionId = parsed.data.versionId;
 
     const version = await prisma.documentVersion.findUnique({ where: { id: versionId } });
     if (!version) return;
@@ -132,35 +160,35 @@ export default async function DocumentsPage({
     const doc = await prisma.document.findUnique({ where: { id: version.documentId } });
     if (!doc) return;
 
-    // Arkiver nåværende fil før vi ruller tilbake.
-    await prisma.documentVersion.create({
-      data: {
-        documentId: doc.id,
-        fileName: doc.fileName,
-        filePath: doc.filePath,
-        fileSize: doc.fileSize,
-        mimeType: doc.mimeType,
-        createdBy: user?.name || "Kontor",
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      // Arkiver nåværende fil før vi ruller tilbake.
+      await tx.documentVersion.create({
+        data: {
+          documentId: doc.id,
+          fileName: doc.fileName,
+          filePath: doc.filePath,
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
+          createdBy: user?.name || "Kontor",
+        },
+      });
 
-    await prisma.document.update({
-      where: { id: doc.id },
-      data: {
-        fileName: version.fileName,
-        filePath: version.filePath,
-        fileSize: version.fileSize,
-        mimeType: version.mimeType,
-      },
-    });
+      await tx.document.update({
+        where: { id: doc.id },
+        data: {
+          fileName: version.fileName,
+          filePath: version.filePath,
+          fileSize: version.fileSize,
+          mimeType: version.mimeType,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await audit(tx, {
         entityType: "Document",
         entityId: doc.id,
         action: `Gjenopprettet tidligere versjon av dokument: ${doc.title}`,
-        userName: user?.name || "Kontor",
-      },
+        actor: auditActor(user),
+      });
     });
     revalidatePath("/dokumenter");
   }
@@ -168,17 +196,20 @@ export default async function DocumentsPage({
   async function deleteDocument(formData: FormData) {
     "use server";
     if (!(await requireAdmin())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
+    const parsed = documentIdSchema.safeParse({
+      id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) redirect("/dokumenter?error=ugyldig-data");
+    const id = parsed.data.id;
     const doc = await prisma.document.findUnique({ where: { id } });
-    await prisma.document.delete({ where: { id } });
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.document.delete({ where: { id } });
+      await audit(tx, {
         entityType: "Document",
         entityId: id,
         action: `Slettet dokument: ${doc?.title || "Ukjent"}`,
-        userName: user?.name || "Kontor",
-      },
+        actor: auditActor(user),
+      });
     });
     revalidatePath("/dokumenter");
   }
@@ -187,54 +218,73 @@ export default async function DocumentsPage({
   async function updateDocument(formData: FormData) {
     "use server";
     if (!(await requirePermission("documents.manage"))) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
-
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
-    const description = cleanText(formData.get("description"), { maxLength: LIMITS.text });
-    const folderId = cleanText(formData.get("folderId"), { maxLength: LIMITS.line }) || null;
-    const fileUrl = cleanUrl(formData.get("fileUrl"));
-    const fileName = cleanText(formData.get("fileName"), { maxLength: LIMITS.line });
-    const fileSize = parseInt(cleanText(formData.get("fileSize"), { maxLength: LIMITS.line }) || "0", 10) || 0;
-    const tagNames = formData.getAll("tags")
-      .map(t => cleanText(t, { maxLength: LIMITS.short }))
-      .filter(Boolean);
-
-    if (!title) return;
+    const parsed = documentUpdateSchema.safeParse({
+      id: cleanText(formData.get("id"), { maxLength: LIMITS.line }),
+      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
+      description: cleanText(formData.get("description"), { maxLength: LIMITS.text }),
+      folderId: cleanText(formData.get("folderId"), { maxLength: LIMITS.line }),
+      fileUrl: cleanUrl(formData.get("fileUrl")),
+      fileName: cleanText(formData.get("fileName"), { maxLength: LIMITS.line }),
+      fileSize: parseInt(cleanText(formData.get("fileSize"), { maxLength: LIMITS.line }) || "0", 10) || 0,
+      tagNames: formData.getAll("tags")
+        .map(t => cleanText(t, { maxLength: LIMITS.short }))
+        .filter(Boolean),
+    });
+    if (!parsed.success) redirect("/dokumenter?error=ugyldig-data");
+    const {
+      id,
+      title,
+      description,
+      folderId,
+      fileUrl,
+      fileName,
+      fileSize,
+      tagNames,
+    } = parsed.data;
 
     const existing = await prisma.document.findUnique({ where: { id } });
     if (!existing) return;
 
     // Behold den gamle filen som en versjon før den byttes ut.
     const replacingFile = Boolean(fileUrl && fileUrl !== existing.filePath);
-    if (replacingFile) {
-      await prisma.documentVersion.create({
+
+    await prisma.$transaction(async (tx) => {
+      if (replacingFile) {
+        await tx.documentVersion.create({
+          data: {
+            documentId: id,
+            fileName: existing.fileName,
+            filePath: existing.filePath,
+            fileSize: existing.fileSize,
+            mimeType: existing.mimeType,
+            createdBy: user?.name || "Kontor",
+          },
+        });
+      }
+
+      await tx.document.update({
+        where: { id },
         data: {
-          documentId: id,
-          fileName: existing.fileName,
-          filePath: existing.filePath,
-          fileSize: existing.fileSize,
-          mimeType: existing.mimeType,
-          createdBy: user?.name || "Kontor",
+          title,
+          description: description || null,
+          folderId: folderId ?? null,
+          tags: {
+            set: [],
+            connectOrCreate: tagNames.map(name => ({ where: { name }, create: { name } })),
+          },
+          // Filen kan byttes ut – da oppdateres sti/størrelse
+          ...(fileUrl ? { filePath: fileUrl } : {}),
+          ...(fileName ? { fileName } : {}),
+          ...(fileSize ? { fileSize } : {}),
         },
       });
-    }
 
-    await prisma.document.update({
-      where: { id },
-      data: {
-        title,
-        description: description || null,
-        folderId,
-        tags: {
-          set: [],
-          connectOrCreate: tagNames.map(name => ({ where: { name }, create: { name } })),
-        },
-        // Filen kan byttes ut – da oppdateres sti/størrelse
-        ...(fileUrl ? { filePath: fileUrl } : {}),
-        ...(fileName ? { fileName } : {}),
-        ...(fileSize ? { fileSize } : {}),
-      },
+      await audit(tx, {
+        entityType: "Document",
+        entityId: id,
+        action: `Oppdaterte dokument: ${title}`,
+        actor: auditActor(user),
+      });
     });
 
     // Hvis filen ble byttet, trekk ut ny tekst i bakgrunnen
@@ -248,49 +298,62 @@ export default async function DocumentsPage({
       enqueuePdfText(id, fileUrl);
     }
 
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Document",
-        entityId: id,
-        action: `Oppdaterte dokument: ${title}`,
-        userName: user?.name || "Kontor",
-      },
-    });
     revalidatePath("/dokumenter");
   }
 
   async function createDocument(formData: FormData) {
     "use server";
     if (!(await requirePermission("documents.manage"))) return;
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
-    const description = cleanText(formData.get("description"), { maxLength: LIMITS.text });
-    const fileUrl = cleanUrl(formData.get("fileUrl"));
-    const fileName = cleanText(formData.get("fileName"), { maxLength: LIMITS.line });
-    const fileSize = parseInt(cleanText(formData.get("fileSize"), { maxLength: LIMITS.line }) || "0", 10) || 0;
-    const targetFolderId = cleanText(formData.get("folderId"), { maxLength: LIMITS.line }) || null;
-    const tagNames = formData.getAll("tags")
-      .map(t => cleanText(t, { maxLength: LIMITS.short }))
-      .filter(Boolean);
+    const parsed = documentCreateSchema.safeParse({
+      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
+      description: cleanText(formData.get("description"), { maxLength: LIMITS.text }),
+      fileUrl: cleanUrl(formData.get("fileUrl")),
+      fileName: cleanText(formData.get("fileName"), { maxLength: LIMITS.line }),
+      fileSize: parseInt(cleanText(formData.get("fileSize"), { maxLength: LIMITS.line }) || "0", 10) || 0,
+      folderId: cleanText(formData.get("folderId"), { maxLength: LIMITS.line }),
+      tagNames: formData.getAll("tags")
+        .map(t => cleanText(t, { maxLength: LIMITS.short }))
+        .filter(Boolean),
+    });
+    if (!parsed.success) redirect("/dokumenter?error=ugyldig-data");
+    const {
+      title,
+      description,
+      fileUrl,
+      fileName,
+      fileSize,
+      folderId: targetFolderId,
+      tagNames,
+    } = parsed.data;
 
-    if (!title || !fileUrl) return;
-
-    const newDoc = await prisma.document.create({
-      data: {
-        title,
-        description: description || null,
-        fileName: fileName || "dokument.pdf",
-        filePath: fileUrl,
-        fileSize,
-        mimeType: "application/pdf",
-        folderId: targetFolderId,
-        tags: {
-          connectOrCreate: tagNames.map(name => ({
-            where: { name },
-            create: { name },
-          })),
+    const newDoc = await prisma.$transaction(async (tx) => {
+      const created = await tx.document.create({
+        data: {
+          title,
+          description: description || null,
+          fileName: fileName || "dokument.pdf",
+          filePath: fileUrl,
+          fileSize,
+          mimeType: "application/pdf",
+          folderId: targetFolderId ?? null,
+          tags: {
+            connectOrCreate: tagNames.map(name => ({
+              where: { name },
+              create: { name },
+            })),
+          },
+          uploadedBy: user?.name || "Kontor",
         },
-        uploadedBy: user?.name || "Kontor",
-      },
+      });
+
+      await audit(tx, {
+        entityType: "Document",
+        entityId: created.id,
+        action: `Lastet opp dokument: ${title}`,
+        actor: auditActor(user),
+      });
+
+      return created;
     });
 
     await linkUploadOwner(fileUrl, {
@@ -303,14 +366,6 @@ export default async function DocumentsPage({
     // Ekstraher PDF-tekst for fulltekst-søk i bakgrunnen (best-effort)
     enqueuePdfText(newDoc.id, fileUrl);
 
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Document",
-        entityId: title,
-        action: `Lastet opp dokument: ${title}`,
-        userName: user?.name || "Kontor",
-      },
-    });
     revalidatePath("/dokumenter");
   }
 
@@ -392,16 +447,34 @@ export default async function DocumentsPage({
         continue;
       }
 
-      const newDoc = await prisma.document.create({
-        data: {
-          title: item.title || path.basename(item.fileName || "dokument", path.extname(item.fileName || ".pdf")),
-          fileName: item.fileName || "dokument.pdf",
-          filePath: item.fileUrl,
-          fileSize: item.fileSize || 0,
-          mimeType: "application/pdf",
-          folderId: targetFolderId || null,
-          uploadedBy: user?.name || "Kontor",
-        },
+      const documentTitle =
+        item.title ||
+        path.basename(
+          item.fileName || "dokument",
+          path.extname(item.fileName || ".pdf"),
+        );
+
+      const newDoc = await prisma.$transaction(async (tx) => {
+        const created = await tx.document.create({
+          data: {
+            title: documentTitle,
+            fileName: item.fileName || "dokument.pdf",
+            filePath: item.fileUrl,
+            fileSize: item.fileSize || 0,
+            mimeType: "application/pdf",
+            folderId: targetFolderId || null,
+            uploadedBy: user?.name || "Kontor",
+          },
+        });
+
+        await audit(tx, {
+          entityType: "Document",
+          entityId: created.id,
+          action: `Lastet opp dokument: ${documentTitle}`,
+          actor: auditActor(user),
+        });
+
+        return created;
       });
 
       await linkUploadOwner(item.fileUrl, {
@@ -417,14 +490,12 @@ export default async function DocumentsPage({
       count++;
     }
 
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Document",
-        entityId: "bulk-upload",
-        action: `Lastet opp mappestruktur: ${count} filer${skippedServer > 0 ? ` (${skippedServer} hoppet over)` : ""}`,
-        userName: user?.name || "Kontor",
-      },
-    });
+    if (count > 0 || skippedServer > 0) {
+      console.info(
+        `Bulk-opplasting av dokumenter: ${count} nye filer` +
+          (skippedServer > 0 ? `, ${skippedServer} hoppet over` : ""),
+      );
+    }
     revalidatePath("/dokumenter");
   }
 
@@ -439,14 +510,19 @@ export default async function DocumentsPage({
     for (const doc of docs) {
       enqueuePdfText(doc.id, doc.filePath);
     }
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Document",
-        entityId: "reindex",
-        action: `Reindekserte ${docs.length} dokumenter for fulltekst-søk`,
-        userName: user?.name || "Kontor",
-      },
-    });
+    if (docs.length > 0) {
+      // Én logg per dokument, slik at hver rad har sin egen, ekte id.
+      await prisma.$transaction(async (tx) => {
+        for (const doc of docs) {
+          await audit(tx, {
+            entityType: "Document",
+            entityId: doc.id,
+            action: "Reindekserte dokumentet for fulltekst-søk",
+            actor: auditActor(user),
+          });
+        }
+      });
+    }
     revalidatePath("/dokumenter");
   }
 
@@ -484,6 +560,12 @@ export default async function DocumentsPage({
             ← Dashbord
           </Link>
         </div>
+
+        {error === "ugyldig-data" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ Dokumentet kunne ikke lagres. Sjekk tittel, fil og mapper.
+          </div>
+        )}
 
         {/* SØK + TAG-FILTER */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">

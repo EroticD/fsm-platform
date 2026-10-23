@@ -80,7 +80,7 @@ describe("submitReport", () => {
       async (callback: (tx: typeof mocks.prisma) => unknown) => callback(mocks.prisma),
     );
     mocks.prisma.report.update.mockResolvedValue({});
-    mocks.prisma.report.create.mockResolvedValue({});
+    mocks.prisma.report.create.mockResolvedValue({ id: "r1" });
     mocks.prisma.reportDraft.deleteMany.mockResolvedValue({});
     mocks.prisma.auditLog.create.mockResolvedValue({});
   });
@@ -122,6 +122,14 @@ describe("submitReport", () => {
         templateTitle: "Sjekkliste",
         templateSnapshotJson: template.fieldsJson,
         isLocked: true,
+      }),
+      select: { id: true },
+    });
+
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo1",
       }),
     });
   });

@@ -4,14 +4,19 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { audit } from "@/lib/audit";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { LIMITS, cleanEmail, cleanMarkdown, cleanPhone, cleanText } from "@/lib/sanitize";
+import { customerUpdateSchema } from "@/lib/schemas/customer";
 
 export default async function EditCustomerPage({ 
-  params 
+  params,
+  searchParams,
 }: { 
-  params: Promise<{ id: string }> 
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
+  const { error } = await searchParams;
   const session = await getCurrentUser();
   if (!session) redirect("/api/auth/signin");
 
@@ -52,51 +57,69 @@ export default async function EditCustomerPage({
     const actor = await getCurrentUser();
     if (!actor) return;
 
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const customerNumber = cleanText(formData.get("customerNumber"), { maxLength: LIMITS.line });
-    const orgNumber = cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line });
-    const brandColor = cleanText(formData.get("brandColor"), { maxLength: 20 });
-    const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
-    const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
-    const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
-    const phone = cleanPhone(formData.get("phone"));
-    const email = cleanEmail(formData.get("email"));
-    const notes = cleanMarkdown(formData.get("notes"));
-    const departmentId = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
-    const responsibleTechnicianId = cleanText(formData.get("responsibleTechnicianId"), { maxLength: LIMITS.line });
-
-    if (!name) return;
+    const parsed = customerUpdateSchema.safeParse({
+      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
+      customerNumber: cleanText(formData.get("customerNumber"), { maxLength: LIMITS.line }),
+      orgNumber: cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line }),
+      brandColor: cleanText(formData.get("brandColor"), { maxLength: 20 }),
+      address: cleanText(formData.get("address"), { maxLength: LIMITS.line }),
+      postalCode: cleanText(formData.get("postalCode"), { maxLength: 20 }),
+      city: cleanText(formData.get("city"), { maxLength: LIMITS.short }),
+      phone: cleanPhone(formData.get("phone")),
+      email: cleanEmail(formData.get("email")),
+      notes: cleanMarkdown(formData.get("notes")),
+      departmentId: cleanText(formData.get("departmentId"), { maxLength: LIMITS.line }),
+      responsibleTechnicianId: cleanText(formData.get("responsibleTechnicianId"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) {
+      redirect(`/kunder/${customerId}/rediger?error=ugyldig-data`);
+    }
+    const {
+      name,
+      customerNumber,
+      orgNumber,
+      brandColor,
+      address,
+      postalCode,
+      city,
+      phone,
+      email,
+      notes,
+      departmentId,
+      responsibleTechnicianId,
+    } = parsed.data;
 
     try {
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: {
-          name,
-          customerNumber: customerNumber || null,
-          orgNumber: orgNumber || null,
-          brandColor: brandColor || "#2563eb",
-          address: address || null,
-          postalCode: postalCode || null,
-          city: city || null,
-          phone: phone || null,
-          email: email || null,
-          notes: notes || null,
-          departmentId: departmentId || null,
-          responsibleTechnicianId: responsibleTechnicianId || null,
-        },
-      });
-      await prisma.auditLog.create({
-        data: {
+      await prisma.$transaction(async (tx) => {
+        await tx.customer.update({
+          where: { id: customerId },
+          data: {
+            name,
+            customerNumber: customerNumber || null,
+            orgNumber: orgNumber || null,
+            brandColor: brandColor || "#2563eb",
+            address: address || null,
+            postalCode: postalCode || null,
+            city: city || null,
+            phone: phone || null,
+            email: email || null,
+            notes: notes || null,
+            departmentId: departmentId || null,
+            responsibleTechnicianId: responsibleTechnicianId || null,
+          },
+        });
+        await audit(tx, {
           entityType: "Customer",
           entityId: customerId,
           action: `Endret kundeinformasjon: ${name}`,
-          userName: actor.name || actor.email || "Ukjent"
-        }
+          actor: { id: actor.id, name: actor.name, email: actor.email },
+        });
       });
       revalidatePath(`/kunder/${customerId}`);
       revalidatePath("/kunder");
     } catch (error) {
       console.error("Feil ved oppdatering av kunde:", error);
+      redirect(`/kunder/${customerId}/rediger?error=ukjent`);
     }
   }
 
@@ -104,6 +127,12 @@ export default async function EditCustomerPage({
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto space-y-6">
         
+        {error && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ Kunden kunne ikke lagres. Sjekk feltene og prøv igjen.
+          </div>
+        )}
+
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
