@@ -1,7 +1,22 @@
 import nodemailer from "nodemailer";
 import prisma from "@/lib/prisma";
-import { LIMITS, cleanColor, cleanText, cleanUrl, escapeHtml } from "@/lib/sanitize";
+import { LIMITS, cleanColor, cleanText, escapeHtml } from "@/lib/sanitize";
 import { formatDate } from "@/lib/dates";
+import { isSafeLogoUrl } from "@/lib/logo";
+
+/** Gjør en opplastet logo til en absolutt URL som e-postklienten kan hente. */
+function safeEmailLogoUrl(value: string | null | undefined): string {
+  if (!isSafeLogoUrl(value)) return "";
+  const base =
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000";
+  try {
+    return new URL(value as string, base).toString();
+  } catch {
+    return "";
+  }
+}
 
 /** Er SMTP konfigurert i .env? */
 function isSmtpConfigured() {
@@ -35,7 +50,7 @@ export async function sendWorkOrderReport(
   const branding = await prisma.branding.findFirst();
   // Verdiene brukes inne i HTML, så de vaskes og escapes før de settes inn.
   const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
-  const logoUrl = cleanUrl(branding?.logoUrl);
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
 
   // Sjekker om e-post er konfigurert i .env
@@ -140,7 +155,7 @@ export async function sendInviteEmail(
   const branding = await prisma.branding.findFirst();
   // Verdiene brukes inne i HTML, så de vaskes og escapes før de settes inn.
   const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
-  const logoUrl = cleanUrl(branding?.logoUrl);
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
 
   if (!isSmtpConfigured()) {
@@ -223,7 +238,7 @@ export async function sendBookingNotification(
 
   const branding = await prisma.branding.findFirst();
   const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
-  const logoUrl = cleanUrl(branding?.logoUrl);
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
   const transporter = createTransporter();
 

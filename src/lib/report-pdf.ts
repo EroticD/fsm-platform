@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import ReportDocument from "@/components/ReportDocument";
 import { buildPdfImages, collectReportImageUrls } from "@/lib/report-images";
 import { formatDate } from "@/lib/dates";
+import { isSafeLogoUrl } from "@/lib/logo";
 
 export type ReportPdfResult = {
   buffer: Buffer;
@@ -61,7 +62,9 @@ export async function loadReportPdf(
 
   const element = React.createElement(ReportDocument, {
     data: workOrder,
-    globalLogoUrl: branding?.logoUrl ?? null,
+    // Bare logoer som er lastet opp gjennom appen. Eldre eksterne URL-er
+    // ignoreres, slik at PDF-generering ikke kan brukes til SSRF.
+    globalLogoUrl: isSafeLogoUrl(branding?.logoUrl) ? branding?.logoUrl ?? null : null,
     globalPrimaryColor: branding?.primaryColor ?? undefined,
     globalCompanyName: branding?.companyName ?? undefined,
     baseUrl: origin,

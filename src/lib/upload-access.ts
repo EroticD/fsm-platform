@@ -3,7 +3,7 @@ import type { AccessUser } from "@/lib/access";
 import { canAccessWorkOrder } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
 
-export type UploadOwnerType = "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER";
+export type UploadOwnerType = "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING";
 
 export type UploadRecord = {
   ownerType: string;
@@ -44,6 +44,9 @@ export function canReadUpload(
       return hasPermission(user, "documents.view");
     case "USER":
       return Boolean(upload.uploadedById && upload.uploadedById === user.id);
+    case "BRANDING":
+      // Merkevarelogoen vises for alle innloggede, også kundeportalen.
+      return true;
     default:
       return false;
   }
