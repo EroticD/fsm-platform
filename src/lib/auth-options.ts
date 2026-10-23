@@ -43,12 +43,21 @@ export const authOptions: NextAuthOptions = {
           throw new Error("AccountNotActivated");
         }
 
+        // To-trinns verifisering må gå gjennom /logg-inn og
+        // verifyTwoFactorAction. Uten dette ville en klient kunne poste
+        // e-post/passord rett til /api/auth/callback/credentials og hoppe over
+        // engangskoden.
+        if (result.user.isTwoFactorEnabled) {
+          return null;
+        }
+
         // Returner dataene som lagres i brukerens "session"
         return {
           id: result.user.id,
           email: result.user.email,
           name: result.user.name,
           role: result.user.role, // Viktig for å skille Admin fra Montør
+          sessionVersion: result.user.sessionVersion,
         };
       },
     }),
@@ -69,6 +78,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.sessionVersion = user.sessionVersion;
       }
       return token;
     },
@@ -76,6 +86,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
+        session.user.sessionVersion = token.sessionVersion as number;
       }
       return session;
     },

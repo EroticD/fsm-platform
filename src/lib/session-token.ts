@@ -9,6 +9,7 @@ export type SessionUser = {
   email: string;
   name: string | null;
   role: string;
+  sessionVersion: number;
 };
 
 /** Er forespørselen over HTTPS (direkte eller bak en reverse proxy)? */
@@ -36,6 +37,7 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
       email: user.email,
       name: user.name ?? undefined,
       role: user.role,
+      sessionVersion: user.sessionVersion,
     },
     secret,
     maxAge: SESSION_MAX_AGE,

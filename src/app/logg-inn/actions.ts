@@ -119,6 +119,7 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
       email: true,
       name: true,
       role: true,
+      sessionVersion: true,
       isActive: true,
       isTwoFactorEnabled: true,
       twoFactorSecret: true,
@@ -142,6 +143,7 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
     email: user.email ?? "",
     name: user.name,
     role: user.role,
+    sessionVersion: user.sessionVersion,
   });
 
   redirect(callbackUrl);

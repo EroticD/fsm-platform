@@ -11,6 +11,8 @@ export type CredentialUser = {
   email: string;
   name: string | null;
   role: string;
+  isTwoFactorEnabled: boolean;
+  sessionVersion: number;
 };
 
 export type CredentialResult =
@@ -80,6 +82,8 @@ export async function verifyCredentials(
       email: user.email ?? "",
       name: user.name,
       role: user.role,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
+      sessionVersion: user.sessionVersion,
     },
   };
 }

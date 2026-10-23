@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
+import { bumpSessionVersion } from "@/lib/session";
 
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string, error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -56,6 +57,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
         resetTokenExpiry: null
       }
     });
+    await bumpSessionVersion(user.id);
 
     // Sender brukeren til innlogging
     redirect("/api/auth/signin");

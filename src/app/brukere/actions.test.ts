@@ -45,6 +45,7 @@ vi.mock("@/lib/session", () => ({
     name: "Actor",
   })),
   actorName: vi.fn(async () => "Actor"),
+  bumpSessionVersion: vi.fn(async () => {}),
   isOffice: (role: string) => role === "ADMIN" || role === "OFFICE",
   requireOffice: vi.fn(
     async () =>

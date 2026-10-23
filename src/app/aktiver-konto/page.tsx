@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
+import { bumpSessionVersion } from "@/lib/session";
 
 export default async function ActivateAccountPage({
   searchParams,
@@ -48,6 +49,7 @@ export default async function ActivateAccountPage({
         resetTokenExpiry: null,
       },
     });
+    await bumpSessionVersion(user.id);
 
     await prisma.auditLog.create({
       data: {

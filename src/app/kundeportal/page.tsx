@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -36,31 +35,10 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function KundeportalPage() {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: { 
-      customer: { 
-        include: { 
-          department: true,
-          responsibleTechnician: true,
-          products: true, 
-          contracts: true, 
-          workOrder: { 
-            orderBy: { scheduledFor: 'desc' },
-            include: {
-              technicians: true,
-              reports: true
-            }
-          } 
-        } 
-      } 
-    }
-  });
-
-  if (!user?.isActive || user.role !== "CUSTOMER" || !user.customer) {
+  if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-xl shadow border text-center">
@@ -71,7 +49,35 @@ export default async function KundeportalPage() {
     );
   }
 
-  const customer = user.customer;
+  const customer = await prisma.customer.findUnique({
+    where: { id: user.customerId },
+    include: {
+      department: true,
+      responsibleTechnician: true,
+      products: true,
+      contracts: true,
+      workOrder: {
+        orderBy: { scheduledFor: "desc" },
+        include: {
+          technicians: true,
+          reports: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-xl shadow border text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Ingen tilgang</h1>
+          <p className="text-gray-600">Brukeren din er ikke koblet til en kundekonto.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const customerName = customer.name;
   const defaultDepartmentId = await getDefaultDepartmentId();
 
   // Sorter oppdrag i kategorier
@@ -146,7 +152,7 @@ export default async function KundeportalPage() {
           {
             title,
             description,
-            customerName: customer.name,
+            customerName,
             bookedBy: current.name || current.email || "Kunde",
           },
         );

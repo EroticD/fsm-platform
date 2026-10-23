@@ -257,6 +257,32 @@ export function effectivePermissions(user?: PermissionUser | null): Set<Permissi
   return result;
 }
 
+/**
+ * Rettighetene brukeren er tildelt, uavhengig av om kontoen er aktiv.
+ * Brukes når man skal vurdere om en aktør kan administrere en annen bruker:
+ * en inaktiv konto skal ikke kunne brukes til å eskalere rettigheter.
+ */
+export function assignedPermissions(user?: PermissionUser | null): Set<Permission> {
+  if (!user) return new Set<Permission>();
+  if (user.role === "ADMIN") return new Set(ALL_PERMISSIONS);
+
+  const result = new Set<Permission>();
+  if (user.permissionsCustomized === true) {
+    for (const permission of user.permissions ?? []) {
+      if (isPermission(permission)) result.add(permission);
+    }
+    return result;
+  }
+
+  for (const permission of rolePermissions(user)) {
+    result.add(permission);
+  }
+  for (const permission of user.permissions ?? []) {
+    if (isPermission(permission)) result.add(permission);
+  }
+  return result;
+}
+
 /** Sjekker en enkelt rettighet. Administrator har alltid alt. */
 export function hasPermission(
   user: PermissionUser | null | undefined,

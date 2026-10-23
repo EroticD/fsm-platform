@@ -8,11 +8,13 @@ import { sendInviteEmail } from "@/lib/email";
 import { LIMITS, cleanEmail, cleanPhone, cleanText } from "@/lib/sanitize";
 import {
   actorName,
+  bumpSessionVersion,
   getCurrentUser,
   requireAdmin,
   requirePermission,
 } from "@/lib/session";
 import {
+  assignedPermissions,
   cleanPermissions,
   effectivePermissions,
   hasPermission,
@@ -286,6 +288,7 @@ export async function changeRole(formData: FormData) {
       departmentId: newRole.key === "CUSTOMER" ? null : userToUpdate.departmentId,
     },
   });
+  await bumpSessionVersion(id);
   await prisma.auditLog.create({
     data: {
       entityType: "User",
@@ -329,6 +332,7 @@ export async function setActive(formData: FormData) {
   }
 
   await prisma.user.update({ where: { id }, data: { isActive: active } });
+  await bumpSessionVersion(id);
   await prisma.auditLog.create({
     data: {
       entityType: "User",
@@ -359,6 +363,7 @@ export async function changeDepartment(formData: FormData) {
     : await validDepartmentId(formData.get("departmentId"));
 
   await prisma.user.update({ where: { id }, data: { departmentId } });
+  await bumpSessionVersion(id);
 
   let departmentName = "Ingen avdeling";
   if (departmentId) {
@@ -387,12 +392,26 @@ export async function changePhone(formData: FormData) {
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!id) return;
 
-  const target = await prisma.user.findUnique({ where: { id } });
+  const target = await prisma.user.findUnique({
+    where: { id },
+    include: { roleDefinition: true },
+  });
   if (!target) return;
 
   // Bare administrator eller den ansatte selv kan endre telefonnummer.
   const isSelf = actor.id === id;
-  if (!isSelf && !hasPermission(actor, "users.manage")) return;
+  if (!isSelf) {
+    if (!hasPermission(actor, "users.manage")) return;
+    // Samme regler som de øvrige brukerhandlingene: ikke rør administratorer
+    // eller brukere utenfor egen avdeling.
+    if (target.role === "ADMIN" && actor.role !== "ADMIN") return;
+    if (
+      actor.role !== "ADMIN" &&
+      (!actor.departmentId || target.departmentId !== actor.departmentId)
+    ) {
+      return;
+    }
+  }
 
   const phone = cleanPhone(formData.get("phone"));
 
@@ -443,6 +462,7 @@ export async function changePermissions(formData: FormData) {
       permissionsCustomized: customized,
     },
   });
+  await bumpSessionVersion(id);
   await prisma.auditLog.create({
     data: {
       entityType: "User",
@@ -470,6 +490,7 @@ export async function resetPermissions(formData: FormData) {
     where: { id },
     data: { permissions: [], permissionsCustomized: false },
   });
+  await bumpSessionVersion(id);
   await prisma.auditLog.create({
     data: {
       entityType: "User",
@@ -486,19 +507,19 @@ export async function generateInvite(formData: FormData) {
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   if (!id) return;
 
-  const user = await prisma.user.findUnique({ where: { id } });
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: { roleDefinition: true },
+  });
   if (!user) return;
 
   const actor = await getCurrentUser();
   if (!actor?.isActive) return;
+  if (!hasPermission(actor, "users.manage")) return;
 
   // En invitasjonslenke gir mulighet til å sette nytt passord. For en
   // administrator er det derfor en full kontoovertakelse, og krever admin.
-  if (user.role === "ADMIN") {
-    if (actor.role !== "ADMIN") return;
-  } else if (!hasPermission(actor, "users.manage")) {
-    return;
-  }
+  if (user.role === "ADMIN" && actor.role !== "ADMIN") return;
 
   // Avdelingsansvarlige kan bare invitere brukere i egen avdeling.
   if (
@@ -506,6 +527,16 @@ export async function generateInvite(formData: FormData) {
     (!actor.departmentId || user.departmentId !== actor.departmentId)
   ) {
     return;
+  }
+
+  // En aktør kan ikke invitere en bruker som har rettigheter aktøren ikke har
+  // selv – det ville latt aktøren ta over en konto med mer tilgang.
+  if (actor.role !== "ADMIN") {
+    const actorPerms = assignedPermissions(actor);
+    const targetPerms = assignedPermissions(user);
+    for (const permission of targetPerms) {
+      if (!actorPerms.has(permission)) return;
+    }
   }
 
   const token = await createInviteToken(id);

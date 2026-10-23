@@ -1,8 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import bcrypt from "bcryptjs";
 import QRCode from "qrcode";
 import prisma from "@/lib/prisma";
-import { actorName } from "@/lib/session";
+import { actorName, bumpSessionVersion, getCurrentUser } from "@/lib/session";
 import { buildTotpUri, createTotpSecret, verifyTotp } from "@/lib/two-factor";
 import { cleanText } from "@/lib/sanitize";
 
@@ -29,14 +30,28 @@ export default async function SecuritySettings({
 }) {
   const isEnabled = Boolean(user.isTwoFactorEnabled);
 
-  async function startSetup() {
+  /**
+   * Krever at innlogget bruker er den samme som fanen gjelder, og at
+   * nåværende passord oppgis. Det hindrer at en kapret økt kan starte eller
+   * avbryte 2FA-oppsett uten å kjenne passordet.
+   */
+  async function verifyOwnPassword(formData: FormData): Promise<boolean> {
+    const current = await getCurrentUser();
+    if (!current || current.id !== user.id) return false;
+    const password = String(formData.get("password") ?? "");
+    if (!current.password || !password) return false;
+    return bcrypt.compare(password, current.password);
+  }
+
+  async function startSetup(formData: FormData) {
     "use server";
-    const current = await prisma.user.findUnique({ where: { id: user.id } });
-    if (!current) return;
+    if (!(await verifyOwnPassword(formData))) {
+      redirect(`${BASE}&error=passord`);
+    }
 
     const secret = createTotpSecret();
     await prisma.user.update({
-      where: { id: current.id },
+      where: { id: user.id },
       data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
     });
     revalidatePath("/innstillinger");
@@ -45,6 +60,9 @@ export default async function SecuritySettings({
 
   async function confirmSetup(formData: FormData) {
     "use server";
+    const current = await getCurrentUser();
+    if (!current || current.id !== user.id) return;
+
     const code = cleanText(formData.get("code"), { maxLength: 10 });
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -70,8 +88,11 @@ export default async function SecuritySettings({
     redirect(`${BASE}&ok=enabled`);
   }
 
-  async function cancelSetup() {
+  async function cancelSetup(formData: FormData) {
     "use server";
+    if (!(await verifyOwnPassword(formData))) {
+      redirect(`${BASE}&error=passord`);
+    }
     await prisma.user.update({
       where: { id: user.id },
       data: { twoFactorSecret: null, isTwoFactorEnabled: false },
@@ -82,6 +103,9 @@ export default async function SecuritySettings({
 
   async function disableTwoFactor(formData: FormData) {
     "use server";
+    const current = await getCurrentUser();
+    if (!current || current.id !== user.id) return;
+
     const code = cleanText(formData.get("code"), { maxLength: 10 });
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
@@ -99,6 +123,8 @@ export default async function SecuritySettings({
       where: { id: user.id },
       data: { isTwoFactorEnabled: false, twoFactorSecret: null },
     });
+    // Ugyldiggjør eksisterende økter når 2FA slås av.
+    await bumpSessionVersion(user.id);
     await prisma.auditLog.create({
       data: {
         entityType: "User",
@@ -134,6 +160,11 @@ export default async function SecuritySettings({
       {error === "kode" && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
           Feil engangskode. Prøv igjen.
+        </div>
+      )}
+      {error === "passord" && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          Feil passord. 2FA-innstillingene ble ikke endret.
         </div>
       )}
 
@@ -180,7 +211,15 @@ export default async function SecuritySettings({
                 Bekreft og slå på
               </button>
             </form>
-            <form action={cancelSetup}>
+            <form action={cancelSetup} className="space-y-2">
+              <input
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder="Bekreft med passordet ditt for å avbryte"
+                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+              />
               <button type="submit" className="w-full text-sm text-gray-500 hover:text-gray-800 transition">
                 Avbryt oppsett
               </button>
@@ -190,7 +229,20 @@ export default async function SecuritySettings({
 
         {/* Ikke satt opp */}
         {!isEnabled && setup !== "1" && (
-          <form action={startSetup} className="border-t pt-4">
+          <form action={startSetup} className="border-t pt-4 space-y-3">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Bekreft med passordet ditt
+              </label>
+              <input
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder="Passord"
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+              />
+            </div>
             <button type="submit" className="w-full bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
               Slå på to-trinns verifisering
             </button>

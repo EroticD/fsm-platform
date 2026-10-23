@@ -1,23 +1,43 @@
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { hasPermission, type Permission } from "@/lib/permissions";
 
-/** Henter den innloggede brukeren fra databasen, eller null. */
+/**
+ * Henter den innloggede brukeren fra databasen, eller null.
+ *
+ * Slår opp på bruker-id (ikke e-post), og avviser økten hvis brukeren er
+ * deaktivert eller øktversjonen ikke lenger stemmer. Da blir deaktiverte
+ * brukere og gamle JWTs ugyldige umiddelbart.
+ */
 export async function getCurrentUser() {
-  const session = await getServerSession();
-  if (!session?.user?.email) return null;
-  return prisma.user.findUnique({
-    where: { email: session.user.email },
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
     include: { department: true, roleDefinition: true },
   });
+  if (!user?.isActive) return null;
+  if (user.sessionVersion !== session.user.sessionVersion) return null;
+  return user;
 }
 
 /** Navnet på den innloggede brukeren (til aktivitetsloggen). */
 export async function actorName(): Promise<string> {
-  const session = await getServerSession();
-  if (!session?.user?.email) return "Ukjent";
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  return user?.name || session.user.email;
+  const user = await getCurrentUser();
+  return user?.name || user?.email || "Ukjent";
+}
+
+/**
+ * Ugyldiggjør alle eksisterende økter for en bruker. Kalles når passord,
+ * rolle, rettigheter, aktiv status eller 2FA endres.
+ */
+export async function bumpSessionVersion(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { sessionVersion: { increment: 1 } },
+  });
 }
 
 // ---------------------------------------------------------------------------
