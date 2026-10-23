@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
+import { cleanupRateLimits } from "@/lib/rate-limit-db";
 
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -256,6 +257,17 @@ export function startJobWorker(): void {
       runWorkerLoop(index),
     ),
   );
+
+  // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
+  // har resetAt i fremtiden og røres ikke.
+  const pruneRateLimits = () => {
+    void cleanupRateLimits().catch((error) => {
+      console.error("Kunne ikke rydde rate-limit-tabellen:", error);
+    });
+  };
+  pruneRateLimits();
+  const cleanupTimer = setInterval(pruneRateLimits, 15 * 60_000);
+  cleanupTimer.unref?.();
 
   console.log(
     `Tekstuttrekk: jobbworker startet med ${JOB_WORKER_CONCURRENCY} samtidige jobber.`,

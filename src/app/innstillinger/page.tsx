@@ -7,9 +7,11 @@ import UsersAdmin from "@/components/UsersAdmin";
 import DepartmentsAdmin from "@/components/DepartmentsAdmin";
 import RolesAdmin from "@/components/RolesAdmin";
 import SecuritySettings from "@/components/SecuritySettings";
+import BrandingLogoUpload from "@/components/BrandingLogoUpload";
 import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import { workOrderScope, staffScope } from "@/lib/access";
+import { isSafeLogoUrl } from "@/lib/logo";
 import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
 
 export default async function SettingsPage({
@@ -35,6 +37,7 @@ export default async function SettingsPage({
   // slå på to-trinns verifisering.
   const resolvedParams = await searchParams;
   const requestedTab = resolvedParams.tab;
+  const error = resolvedParams.error;
 
   // Brukere uten administrasjons- eller statistikkrettigheter skal ikke inn her
   // – med mindre de ber om sikkerhetsfanen.
@@ -245,6 +248,12 @@ export default async function SettingsPage({
     const companyName = cleanText(formData.get("companyName"), { maxLength: LIMITS.title });
     const primaryColor = cleanColor(formData.get("primaryColor")) || "#2563eb";
     const logoUrl = cleanUrl(formData.get("logoUrl"));
+
+    // Bare logoer som er lastet opp gjennom appen. Eksterne URL-er kan peke på
+    // interne tjenere og er en SSRF-risiko i PDF- og e-postgenerering.
+    if (logoUrl && !isSafeLogoUrl(logoUrl)) {
+      redirect("/innstillinger?tab=merkevare&error=logo");
+    }
 
     const existing = await prisma.branding.findFirst();
     if (existing) {
@@ -539,6 +548,11 @@ export default async function SettingsPage({
         {currentTab === 'branding' && canBranding && (
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-6">White-label Innstillinger</h2>
+            {error === "logo" && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Logoen må lastes opp gjennom appen. Eksterne logo-URL-er er ikke tillatt.
+              </div>
+            )}
             <form action={saveBranding} className="space-y-5 max-w-md">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Firmanavn</label>
@@ -552,15 +566,12 @@ export default async function SettingsPage({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Logo URL (valgfritt)</label>
-                <input
-                  type="url"
-                  name="logoUrl"
-                  defaultValue={branding?.logoUrl || ""}
-                  placeholder="https://..."
-                  className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <p className="text-xs text-gray-500 mt-1">Ekstern URL til firmanlogo. Brukes på rapporter, e-post og dashbord-header.</p>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Firmalogo (valgfritt)</label>
+                <BrandingLogoUpload initialUrl={branding?.logoUrl} />
+                <p className="text-xs text-gray-500 mt-1">
+                  Brukes på rapporter, e-post og dashbord-header. Lastes opp til
+                  appen, ikke fra en ekstern adresse.
+                </p>
               </div>
               <button type="submit" className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
                 Lagre endringer

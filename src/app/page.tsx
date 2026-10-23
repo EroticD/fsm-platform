@@ -5,7 +5,14 @@ import { type Prisma, WorkStatus } from "@prisma/client";
 import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
 import { formatAddress } from "@/lib/address";
-import { formatDate, formatDateRange, formatDateTime } from "@/lib/dates";
+import {
+  addDaysUtc,
+  formatDate,
+  formatDateRange,
+  formatDateTime,
+  parseDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
@@ -14,12 +21,15 @@ import { workOrderScope } from "@/lib/access";
 // Hjelpere (definert utenfor komponenten slik at render forblir ren)
 // ------------------------------------------------------------------
 
-// Dagens dato-grenser til bruk i spørringene.
+// Dagens dato-grenser til bruk i spørringene. Kalenderdatoer er `date` i
+// databasen, så grensene regnes som rene datoer i Oslo – ikke lokal tid på
+// serveren, som kan være en annen tidssone.
 function getDateContext() {
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfToday = parseDateOnly(todayInOslo()) ?? new Date();
+  const endOfToday = addDaysUtc(startOfToday, 1);
+  const startOfMonth = new Date(
+    Date.UTC(startOfToday.getUTCFullYear(), startOfToday.getUTCMonth(), 1),
+  );
   return { startOfToday, endOfToday, startOfMonth };
 }
 

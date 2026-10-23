@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getOrRenderReportPdf } from "@/lib/report-pdf-store";
+import { allowRequestDb } from "@/lib/rate-limit-db";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,16 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  // Maks 10 PDF-visninger per minutt per bruker. Rendering er CPU-tungt, og
+  // cachen gjør at gjentatte visninger normalt er billige.
+  const limit = await allowRequestDb(`pdf:${viewer.id}`, 10, 60_000);
+  if (!limit.allowed) {
+    return new NextResponse(
+      `For mange PDF-forespørsler. Prøv igjen om ${limit.retryAfterSeconds} sekunder.`,
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
 
   if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
     return new NextResponse("Ingen tilgang", { status: 403 });

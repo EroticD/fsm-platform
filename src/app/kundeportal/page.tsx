@@ -6,7 +6,13 @@ import { revalidatePath } from "next/cache";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
-import { formatDate, parseDateOnly, toDateOnly } from "@/lib/dates";
+import {
+  addDaysUtc,
+  formatDate,
+  parseDateOnly,
+  toDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
 import { contractIntervalLabel } from "@/lib/contracts";
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
@@ -32,12 +38,10 @@ const WORK_ORDER_LIST_SELECT = {
   },
 } as const;
 
-// Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
+// Formaterer en dato til YYYY-MM-DD. Kalenderdatoer er UTC-midnatt i
+// databasen, så vi bruker UTC og er uavhengige av serverens tidssone.
 function dateKey(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return toDateOnly(d);
 }
 
 // Hjelpekomponent for status-etikett
@@ -227,16 +231,10 @@ export default async function KundeportalPage({
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
   // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const horizon = new Date(today);
-  horizon.setDate(horizon.getDate() + 7);
+  const today = parseDateOnly(todayInOslo()) ?? new Date();
+  const horizon = addDaysUtc(today, 7);
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const days = Array.from({ length: 7 }, (_, i) => addDaysUtc(today, i));
 
   // Kunden ser bare montører i sin egen avdeling (faller tilbake til
   // standardavdelingen hvis kunden ikke er knyttet til en avdeling).
@@ -280,18 +278,16 @@ export default async function KundeportalPage({
 
     // Blokker alle dager oppdraget varer (inklusiv scheduledTo).
     const start = new Date(wo.scheduledFor);
-    start.setHours(0, 0, 0, 0);
     const end = wo.scheduledTo ? new Date(wo.scheduledTo) : new Date(start);
-    end.setHours(0, 0, 0, 0);
 
     // Begrens til vinduet vi viser.
-    const firstDay = start < today ? new Date(today) : start;
-    const lastDay = end > horizon ? new Date(horizon.getTime() - 1) : end;
+    const firstDay = start < today ? today : start;
+    const lastDay = end > horizon ? addDaysUtc(horizon, -1) : end;
 
     for (const tech of wo.technicians) {
       if (!busyByTechnician.has(tech.id)) busyByTechnician.set(tech.id, new Set());
       const set = busyByTechnician.get(tech.id)!;
-      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+      for (let d = new Date(firstDay); d <= lastDay; d = addDaysUtc(d, 1)) {
         set.add(dateKey(d));
       }
     }

@@ -389,16 +389,23 @@ export async function submitReport(formData: FormData) {
   // Rapporten låses automatisk når den lagres. Nye bilder fra tidligere
   // signaturer beholdes hvis man ikke signerer på nytt ved en gjenopplåst
   // redigering.
-  const technicianSignatureUrl = await resolveSignature(
-    formData.get("technicianSignature"),
-    previousTechnicianSignature,
-    signatureContext,
-  );
-  const customerSignatureUrl = await resolveSignature(
-    formData.get("customerSignature"),
-    previousCustomerSignature,
-    signatureContext,
-  );
+  let technicianSignatureUrl: string | null;
+  let customerSignatureUrl: string | null;
+  try {
+    technicianSignatureUrl = await resolveSignature(
+      formData.get("technicianSignature"),
+      previousTechnicianSignature,
+      signatureContext,
+    );
+    customerSignatureUrl = await resolveSignature(
+      formData.get("customerSignature"),
+      previousCustomerSignature,
+      signatureContext,
+    );
+  } catch (error) {
+    console.error("Kunne ikke lagre signatur:", error);
+    redirect(`${returnPath(formData, workOrderId)}?error=signatur`);
+  }
 
   const data = {
     comments: cleanMarkdown(formData.get("notes")),

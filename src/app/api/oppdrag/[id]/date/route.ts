@@ -7,11 +7,16 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { workOrderDateSchema } from "@/lib/schemas/workOrder";
+import { assertSameOrigin } from "@/lib/origin";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!assertSameOrigin(request)) {
+    return NextResponse.json({ error: "Ugyldig origin" }, { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 });
