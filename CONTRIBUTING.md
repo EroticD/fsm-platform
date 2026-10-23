@@ -39,13 +39,24 @@ migrasjonene gir samme skjema som `prisma/schema.prisma`.
 
 - **Norsk i brukergrensesnittet.** Nye knapper, feilmeldinger og hjelpetekster
   skrives på norsk, og følger tonen i resten av appen.
-- **Følg eksisterende mønstre.** Server actions, autorisasjon og validering
-  ligger nær rutene som bruker dem. Se `src/lib/session.ts` og
-  `src/lib/sanitize.ts`.
+- **Forretningslogikk i tjenestelaget.** Mutasjoner og gjenbrukbare spørringer
+  ligger i `src/server/*` (work-orders, reports, customers, documents, users,
+  settings). Server actions i `src/app/**/actions.ts` er tynne wrappers som
+  leser `FormData`, kaller tjenesten og oversetter resultatet til redirect,
+  revalidering eller en feilkode. Ikke legg domenelogikk i sidekomponentene.
 - **Autoriser på nytt i hver handling.** Skjul ikke bare knappen i UI-en –
-  sjekk rolle, `isActive` og eierskap på serveren.
+  sjekk rolle, `isActive`, avdeling/kunde og eierskap på serveren. Tjenestene
+  tar en eksplisitt aktør, slik at autorisasjonen kan testes uten nettleser.
+- **Valider ved inputgrensen.** Bruk zod-skjemaene i `src/lib/schemas/*` for
+  id-er, datoer, Markdown og andre felt. Returner en feilkode i stedet for å
+  kaste en ukontrollert feil.
+- **Revisjonslogg i samme transaksjon.** En mutasjon og `audit(tx, ...)` skal
+  ligge i samme `prisma.$transaction`, med en ekte rad-id som `entityId` (aldri
+  en tittel). Da kan ikke en endring committed uten logg.
 - **Rens all input på serveren.** Fritekst kan inneholde Markdown, men HTML skal
   aldri tolkes. Bruk hjelperne i `src/lib/sanitize.ts` og `src/lib/markdown.ts`.
+- **Ingen ubegrensede listespørringer i sider.** Bruk `take` eller paginering.
+  `src/lib/query-limits.test.ts` feiler hvis en ny side glemmer det.
 - **Ikke endre eksisterende migrasjoner.** Legg nye endringer i en egen mappe
   under `prisma/migrations/` med `npx prisma migrate dev --name <navn>`.
 - **Aldri `prisma db push` i delt kode.** Produksjon og CI kjører
