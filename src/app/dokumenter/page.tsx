@@ -16,6 +16,7 @@ import {
   documentVersionSchema,
 } from "@/lib/schemas/document";
 import { hasPermission } from "@/lib/permissions";
+import { parsePage } from "@/lib/pagination";
 import TagSelector from "@/components/TagSelector";
 import MarkdownView from "@/components/MarkdownView";
 import UploadDocumentForm from "./UploadDocumentForm";
@@ -33,10 +34,20 @@ const auditActor = (user?: {
   email: user?.email ?? null,
 });
 
+/** Dokumentlisten pagineres; versjoner hentes bare for detaljvisningen. */
+const PAGE_SIZE = 30;
+
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ folder?: string; q?: string; tag?: string; error?: string }>;
+  searchParams: Promise<{
+    folder?: string;
+    q?: string;
+    tag?: string;
+    page?: string;
+    doc?: string;
+    error?: string;
+  }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -49,6 +60,7 @@ export default async function DocumentsPage({
   const searchQuery = resolved.q?.trim() || "";
   const tagFilter = resolved.tag || "";
   const error = resolved.error;
+  const page = parsePage(resolved.page);
 
   // Hent nåværende mappe + breadcrumb-sti
   let currentFolder: any = null;
@@ -70,10 +82,14 @@ export default async function DocumentsPage({
   const subFolders = await prisma.documentFolder.findMany({
     where: { parentId: folderId },
     orderBy: { name: "asc" },
+    take: 200,
   });
 
   // Alle mapper (for redigerings-skjemaet)
-  const allFolders = await prisma.documentFolder.findMany({ orderBy: { name: "asc" } });
+  const allFolders = await prisma.documentFolder.findMany({
+    orderBy: { name: "asc" },
+    take: 200,
+  });
 
   // Dokumenter i nåværende mappe (med søk og tag-filter)
   const docWhere: any = { folderId };
@@ -89,14 +105,83 @@ export default async function DocumentsPage({
     docWhere.tags = { some: { name: tagFilter } };
   }
 
-  const documents = await prisma.document.findMany({
-    where: docWhere,
-    include: {
-      tags: true,
-      versions: { orderBy: { createdAt: "desc" } },
-    },
-    orderBy: { title: "asc" },
-  });
+  const [documents, totalDocuments, detailDocument, existingFiles] = await Promise.all([
+    prisma.document.findMany({
+      where: docWhere,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileName: true,
+        filePath: true,
+        fileSize: true,
+        mimeType: true,
+        folderId: true,
+        uploadedBy: true,
+        tags: { select: { id: true, name: true, color: true } },
+      },
+      orderBy: { title: "asc" },
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
+    }),
+    prisma.document.count({ where: docWhere }),
+    resolved.doc
+      ? prisma.document.findUnique({
+          where: { id: resolved.doc },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            fileName: true,
+            filePath: true,
+            fileSize: true,
+            mimeType: true,
+            folderId: true,
+            uploadedBy: true,
+            tags: { select: { id: true, name: true, color: true } },
+            // Versjoner lastes bare når dokumentet faktisk åpnes i detalj.
+            versions: {
+              orderBy: { createdAt: "desc" },
+              take: 50,
+              select: {
+                id: true,
+                fileName: true,
+                filePath: true,
+                fileSize: true,
+                createdAt: true,
+                createdBy: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve(null),
+    // Duplikatkontroll ved mappeopplasting trenger filnavn og størrelse for
+    // hele mappen – men bare disse lette feltene, ikke dokumentinnholdet.
+    prisma.document.findMany({
+      where: { folderId },
+      select: { fileName: true, fileSize: true },
+      take: 1000,
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalDocuments / PAGE_SIZE));
+
+  // Sørg for at mappen som vises (og detaljens mappe) alltid finnes i
+  // nedtrekkslisten, ellers kan et lagre uten endringer flytte dokumentet.
+  const visibleFolderIds = [folderId, detailDocument?.folderId].filter(
+    (id): id is string => Boolean(id),
+  );
+  const folderOptions = [...allFolders];
+  if (visibleFolderIds.length > 0) {
+    const extraFolders = await prisma.documentFolder.findMany({
+      where: { id: { in: visibleFolderIds } },
+      take: 10,
+    });
+    for (const folder of extraFolders) {
+      if (!folderOptions.some((option) => option.id === folder.id)) {
+        folderOptions.unshift(folder);
+      }
+    }
+  }
 
   // Alle tags for filter
   const allTags = await prisma.documentTag.findMany({ orderBy: { name: "asc" } });
@@ -506,6 +591,7 @@ export default async function DocumentsPage({
     const docs = await prisma.document.findMany({
       where: { OR: [{ contentText: null }, { contentText: "" }] },
       select: { id: true, filePath: true },
+      take: 500,
     });
     for (const doc of docs) {
       enqueuePdfText(doc.id, doc.filePath);
@@ -542,6 +628,25 @@ export default async function DocumentsPage({
     if (tagName) params.set("tag", tagName);
     const qs = params.toString();
     return `/dokumenter${qs ? `?${qs}` : ""}`;
+  };
+
+  const pageLink = (nextPage: number) => {
+    const params = new URLSearchParams();
+    if (folderId) params.set("folder", folderId);
+    if (searchQuery) params.set("q", searchQuery);
+    if (tagFilter) params.set("tag", tagFilter);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const qs = params.toString();
+    return `/dokumenter${qs ? `?${qs}` : ""}`;
+  };
+
+  const docLink = (id: string) => {
+    const params = new URLSearchParams();
+    if (folderId) params.set("folder", folderId);
+    if (searchQuery) params.set("q", searchQuery);
+    if (tagFilter) params.set("tag", tagFilter);
+    params.set("doc", id);
+    return `/dokumenter?${params.toString()}`;
   };
 
   return (
@@ -629,6 +734,48 @@ export default async function DocumentsPage({
           ))}
         </div>
 
+        {/* DOKUMENTDETALJ – versjoner lastes bare her */}
+        {detailDocument && (
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200 space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
+              <div className="min-w-0">
+                <h2 className="font-black text-gray-900 truncate">🗂️ {detailDocument.title}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {detailDocument.fileName} • {(detailDocument.fileSize / 1024).toFixed(0)} KB
+                  {detailDocument.versions.length > 0
+                    ? ` • ${detailDocument.versions.length} tidligere versjon(er)`
+                    : " • Ingen tidligere versjoner"}
+                </p>
+              </div>
+              <Link
+                href={pageLink(page)}
+                className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
+              >
+                ✕ Lukk
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={detailDocument.filePath}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+              >
+                📖 Åpne PDF
+              </a>
+              {office && (
+                <EditDocumentForm
+                  doc={detailDocument}
+                  allFolders={folderOptions}
+                  allTags={allTags}
+                  updateDocument={updateDocument}
+                  restoreVersion={restoreVersion}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* UNDERMAPPER */}
         {subFolders.length > 0 && (
           <div>
@@ -651,7 +798,7 @@ export default async function DocumentsPage({
         {/* DOKUMENTER */}
         <div>
           <h2 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">
-            Dokumenter ({documents.length})
+            Dokumenter ({totalDocuments})
           </h2>
           {documents.length === 0 ? (
             <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
@@ -707,9 +854,17 @@ export default async function DocumentsPage({
                         📖 Åpne PDF
                       </a>
                       {office && (
+                        <Link
+                          href={docLink(doc.id)}
+                          className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
+                        >
+                          🗂️ Versjoner
+                        </Link>
+                      )}
+                      {office && (
                         <EditDocumentForm
                           doc={doc}
-                          allFolders={allFolders}
+                          allFolders={folderOptions}
                           allTags={allTags}
                           updateDocument={updateDocument}
                           restoreVersion={restoreVersion}
@@ -730,6 +885,24 @@ export default async function DocumentsPage({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-3 text-sm font-bold">
+              {page > 1 && (
+                <Link href={pageLink(page - 1)} className="text-blue-700 hover:underline">
+                  &larr; Forrige
+                </Link>
+              )}
+              <span className="text-gray-500 text-xs">
+                Side {page} av {totalPages} • {totalDocuments} dokument(er)
+              </span>
+              {page < totalPages && (
+                <Link href={pageLink(page + 1)} className="text-blue-700 hover:underline">
+                  Neste &rarr;
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -767,7 +940,7 @@ export default async function DocumentsPage({
               <p className="text-sm text-gray-500 mb-4">
                 Velg en mappe på din PC. Alle PDF-filer lastes opp og undermapper opprettes automatisk.
               </p>
-              <BulkUploadForm folderId={folderId} allTags={allTags} existingFiles={documents.map(d => ({ fileName: d.fileName, fileSize: d.fileSize }))} bulkCreateDocuments={bulkCreateDocuments} />
+              <BulkUploadForm folderId={folderId} allTags={allTags} existingFiles={existingFiles} bulkCreateDocuments={bulkCreateDocuments} />
 
               <div className="border-t-2 border-gray-200 pt-4 mt-4">
                 <form action={reindexDocuments}>

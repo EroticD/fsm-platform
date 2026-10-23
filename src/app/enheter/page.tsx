@@ -5,42 +5,26 @@ import prisma from "@/lib/prisma";
 import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
 // ---------------------------------------------------------------------------
 
-type UnitWithHistory = Prisma.ProductGetPayload<{
-  include: {
-    customer: { select: { id: true; name: true; city: true } };
-    reportUnits: { select: { id: true; status: true; createdAt: true } };
-  };
-}>;
-
-/** Datoen for den nyeste servicen på en enhet (eller null hvis den aldri er kontrollert). */
-function lastServiceDate(unit: UnitWithHistory): Date | null {
-  if (unit.reportUnits.length === 0) return null;
-  return unit.reportUnits.reduce<Date | null>((latest, ru) => {
-    const created = new Date(ru.createdAt);
-    return !latest || created > latest ? created : latest;
-  }, null);
-}
-
-function deviationCount(unit: UnitWithHistory) {
-  return unit.reportUnits.filter((ru) => ru.status === "AVVIK").length;
-}
+const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 export default async function UnitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; cursor?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "equipment.view")) redirect("/");
 
-  const { q } = await searchParams;
+  const { q, cursor: rawCursor } = await searchParams;
   const search = q?.trim() || "";
+  const cursor = rawCursor?.trim() || "";
 
   const searchWhere: Prisma.ProductWhereInput = search
     ? {
@@ -53,14 +37,20 @@ export default async function UnitsPage({
       }
     : {};
 
-  const [units, total, serviced, withDeviation, customerCount] = await Promise.all([
+  // Stabil cursor-paginering: kundenavn, modell og id gir en deterministisk
+  // rekkefølge også når flere enheter heter det samme.
+  const [unitRows, total, serviced, withDeviation, customerCount] = await Promise.all([
     prisma.product.findMany({
       where: searchWhere,
-      orderBy: [{ customer: { name: "asc" } }, { model: "asc" }],
-      take: 200,
-      include: {
+      orderBy: [{ customer: { name: "asc" } }, { model: "asc" }, { id: "asc" }],
+      take: PAGE_SIZE + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        model: true,
+        serialNumber: true,
+        location: true,
         customer: { select: { id: true, name: true, city: true } },
-        reportUnits: { select: { id: true, status: true, createdAt: true } },
       },
     }),
     prisma.product.count({ where: searchWhere }),
@@ -72,6 +62,49 @@ export default async function UnitsPage({
     }),
     prisma.customer.count(),
   ]);
+
+  const hasMore = unitRows.length > PAGE_SIZE;
+  const units = hasMore ? unitRows.slice(0, PAGE_SIZE) : unitRows;
+  const nextCursor = hasMore ? units[units.length - 1]?.id : undefined;
+
+  // Servicehistorikken hentes som aggregater for siden, ikke som alle
+  // ReportUnit-radene. Det holder listespørringen liten.
+  const historyByProduct = new Map<
+    string,
+    { services: number; deviations: number; last: Date | null }
+  >();
+  if (units.length > 0) {
+    const historyGroups = await prisma.reportUnit.groupBy({
+      by: ["productId", "status"],
+      where: { productId: { in: units.map((unit) => unit.id) } },
+      orderBy: [{ productId: "asc" }, { status: "asc" }],
+      _count: { _all: true },
+      _max: { createdAt: true },
+      take: 500,
+    });
+    for (const group of historyGroups) {
+      if (!group.productId) continue;
+      const current = historyByProduct.get(group.productId) ?? {
+        services: 0,
+        deviations: 0,
+        last: null,
+      };
+      current.services += group._count._all;
+      if (group.status === "AVVIK") current.deviations += group._count._all;
+      if (group._max.createdAt && (!current.last || group._max.createdAt > current.last)) {
+        current.last = group._max.createdAt;
+      }
+      historyByProduct.set(group.productId, current);
+    }
+  }
+
+  const linkFor = (next: string | null) => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (next) params.set("cursor", next);
+    const qs = params.toString();
+    return `/enheter${qs ? `?${qs}` : ""}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
@@ -181,9 +214,10 @@ export default async function UnitsPage({
         ) : (
           <div className="space-y-2">
             {units.map((unit) => {
-              const services = unit.reportUnits.length;
-              const deviations = deviationCount(unit);
-              const last = lastServiceDate(unit);
+              const history = historyByProduct.get(unit.id);
+              const services = history?.services ?? 0;
+              const deviations = history?.deviations ?? 0;
+              const last = history?.last ?? null;
               return (
                 <Link
                   key={unit.id}
@@ -229,11 +263,27 @@ export default async function UnitsPage({
           </div>
         )}
 
-        {total > units.length && (
-          <p className="text-center text-xs text-gray-500">
-            Viser de første {units.length} av {total} enheter. Bruk søket for å snevre inn.
-          </p>
-        )}
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm font-bold">
+          {cursor && (
+            <Link
+              href={linkFor(null)}
+              className="text-blue-700 bg-white border-2 border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-100 transition"
+            >
+              &larr; Første side
+            </Link>
+          )}
+          {hasMore && nextCursor && (
+            <Link
+              href={linkFor(nextCursor)}
+              className="text-white bg-blue-700 hover:bg-blue-800 transition px-4 py-2 rounded-xl"
+            >
+              Vis flere &rarr;
+            </Link>
+          )}
+        </div>
+        <p className="text-center text-xs text-gray-500">
+          Viser {units.length} av {total} enheter. Bruk søket for å snevre inn.
+        </p>
       </div>
     </div>
   );

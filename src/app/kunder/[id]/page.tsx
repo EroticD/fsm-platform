@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
@@ -43,6 +44,7 @@ import { getCurrentUser, requireAdmin, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
 import { workOrderScope } from "@/lib/access";
+import { parsePage } from "@/lib/pagination";
 import {
   createPortalUser,
   setPortalUserActive,
@@ -92,7 +94,16 @@ function TabPanel({
   );
 }
 
-const ACTIVE_STATUSES = ["PLANNED", "IN_PROGRESS", "PENDING", "OPEN", "WAITING"];
+const ACTIVE_STATUSES: WorkStatus[] = [
+  WorkStatus.PLANNED,
+  WorkStatus.IN_PROGRESS,
+  WorkStatus.PENDING,
+  WorkStatus.OPEN,
+  WorkStatus.WAITING,
+];
+
+/** Kundekortet viser 25 oppdrag om gangen, ikke hele historikken. */
+const ORDER_PAGE_SIZE = 25;
 
 /** Datoen for den nyeste servicen på en enhet (eller null hvis den aldri er kontrollert). */
 function lastServiceDate(
@@ -107,30 +118,24 @@ function lastServiceDate(
   return times.length > 0 ? new Date(Math.max(...times)) : null;
 }
 
-// Finner neste kommende, aktive oppdrag (definert utenfor komponenten for å
-// holde render ren).
-function pickNextOrder<T extends { scheduledFor: Date | null; status: string }>(orders: T[]) {
-  const now = Date.now();
-  return orders
-    .filter(
-      (wo) =>
-        wo.scheduledFor &&
-        new Date(wo.scheduledFor).getTime() >= now &&
-        ACTIVE_STATUSES.includes(wo.status)
-    )
-    .sort((a, b) => new Date(a.scheduledFor!).getTime() - new Date(b.scheduledFor!).getTime())[0];
-}
-
 export default async function CustomerDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string; tab?: string }>;
+  searchParams: Promise<{
+    invite?: string;
+    inviteToken?: string;
+    error?: string;
+    mail?: string;
+    tab?: string;
+    side?: string;
+  }>;
 }) {
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
-  const { invite, inviteToken, error, mail, tab } = await searchParams;
+  const { invite, inviteToken, error, mail, tab, side } = await searchParams;
+  const orderPage = parsePage(side);
 
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -146,15 +151,17 @@ export default async function CustomerDetailPage({
   const canSeeCancelled = user.role !== "TECHNICIAN";
   const ownDepartmentId = user.departmentId;
 
-  // Hent kunden sammen med tilhørende oppdrag (sortert på dato, nyeste først) og kontaktpersoner
+  // Grunndata for kunden. Oppdrag, enheter og servicehistorikk hentes separat
+  // og med et fast tak, slik at kundekortet ikke laster hele historikken.
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     include: {
       department: true,
       responsibleTechnician: true,
-      contacts: true,
+      contacts: { orderBy: { name: "asc" }, take: 100 },
       contracts: {
         orderBy: { startDate: "desc" },
+        take: 50,
         include: {
           department: true,
           template: true,
@@ -166,35 +173,16 @@ export default async function CustomerDetailPage({
           },
         },
       },
-      attachments: { orderBy: { createdAt: "desc" } },
-      products: {
-        orderBy: { model: 'asc' },
-        // Servicehistorikk: alle rapporter der enheten har vært kontrollert.
-        include: {
-          reportUnits: {
-            include: {
-              report: {
-                select: {
-                  id: true,
-                  createdAt: true,
-                  workOrderId: true,
-                  template: { select: { title: true, fieldsJson: true } },
-                  workOrder: { select: { id: true, title: true, scheduledFor: true } },
-                },
-              },
-            },
-          },
+      attachments: { orderBy: { createdAt: "desc" }, take: 100 },
+      _count: {
+        select: {
+          contacts: true,
+          contracts: true,
+          products: true,
+          attachments: true,
         },
       },
-      workOrder: {
-        where: workOrderScope(user),
-        orderBy: { scheduledFor: 'desc' },
-        include: {
-          technicians: true,
-          reports: true
-        }
-      }
-    }
+    },
   });
 
   const customerAuditLogs = await prisma.auditLog.findMany({
@@ -228,6 +216,7 @@ export default async function CustomerDetailPage({
     where: { customerId, role: "CUSTOMER" },
     orderBy: { name: "asc" },
     include: { contact: true },
+    take: 100,
   });
 
   const templates = office
@@ -264,16 +253,94 @@ export default async function CustomerDetailPage({
 
   // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
   // Kontoret ser dem fortsatt i kundekortet.
-  const visibleWorkOrders = canSeeCancelled
-    ? customer.workOrder
-    : customer.workOrder.filter((wo) => wo.status !== "CANCELLED");
+  const statusFilter: Prisma.WorkOrderWhereInput[] = canSeeCancelled
+    ? []
+    : [{ status: { not: "CANCELLED" } }];
+  const orderWhere: Prisma.WorkOrderWhereInput = {
+    customerId,
+    AND: [workOrderScope(user), ...statusFilter],
+  };
 
-  const totalOrders = visibleWorkOrders.length;
-  const activeOrders = visibleWorkOrders.filter((wo) => ACTIVE_STATUSES.includes(wo.status)).length;
-  const completedOrders = visibleWorkOrders.filter((wo) => wo.status === "COMPLETED").length;
-  const reportCount = visibleWorkOrders.reduce((sum, wo) => sum + wo.reports.length, 0);
-  const nextOrder = pickNextOrder(visibleWorkOrders);
-  const recentOrders = visibleWorkOrders.slice(0, 3);
+  // Enhetsfanen lastes først når den åpnes. Servicehistorikken per enhet er
+  // begrenset til de 25 nyeste kontrollene; totalen kommer fra _count.
+  const products =
+    currentTab === "enheter"
+      ? await prisma.product.findMany({
+          where: { customerId },
+          orderBy: { model: "asc" },
+          take: 100,
+          include: {
+            reportUnits: {
+              orderBy: { createdAt: "desc" },
+              take: 25,
+              include: {
+                report: {
+                  select: {
+                    id: true,
+                    createdAt: true,
+                    workOrderId: true,
+                    template: { select: { title: true, fieldsJson: true } },
+                    workOrder: { select: { id: true, title: true, scheduledFor: true } },
+                  },
+                },
+              },
+            },
+            _count: { select: { reportUnits: true } },
+          },
+        })
+      : [];
+
+  const loadOrders = currentTab === "oppdrag" || currentTab === "oversikt";
+
+  const [
+    totalOrders,
+    activeOrders,
+    completedOrders,
+    reportCount,
+    nextOrder,
+    orderRows,
+  ] = await Promise.all([
+    prisma.workOrder.count({ where: orderWhere }),
+    prisma.workOrder.count({
+      where: { AND: [orderWhere, { status: { in: ACTIVE_STATUSES } }] },
+    }),
+    prisma.workOrder.count({
+      where: { AND: [orderWhere, { status: "COMPLETED" }] },
+    }),
+    prisma.report.count({ where: { workOrder: orderWhere } }),
+    prisma.workOrder.findFirst({
+      where: {
+        AND: [
+          orderWhere,
+          { status: { in: ACTIVE_STATUSES } },
+          { scheduledFor: { gte: new Date() } },
+        ],
+      },
+      orderBy: { scheduledFor: "asc" },
+      select: { id: true, title: true, scheduledFor: true, status: true },
+    }),
+    loadOrders
+      ? prisma.workOrder.findMany({
+          where: orderWhere,
+          orderBy: { scheduledFor: "desc" },
+          take: currentTab === "oppdrag" ? ORDER_PAGE_SIZE : 3,
+          skip: currentTab === "oppdrag" ? (orderPage - 1) * ORDER_PAGE_SIZE : 0,
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            scheduledFor: true,
+            description: true,
+            technicians: { select: { name: true }, take: 10 },
+            _count: { select: { reports: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const visibleWorkOrders = orderRows;
+  const orderTotalPages = Math.max(1, Math.ceil(totalOrders / ORDER_PAGE_SIZE));
+  const recentOrders = currentTab === "oppdrag" ? [] : visibleWorkOrders.slice(0, 3);
   const recentLogs = customerAuditLogs.slice(0, 5);
 
   // --- SERVER ACTION: LEGG TIL KONTAKTPERSON ---
@@ -665,10 +732,10 @@ export default async function CustomerDetailPage({
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <KpiCard icon="🔧" label="Enheter" value={customer.products.length} tone="gray" href="?tab=enheter" />
-              <KpiCard icon="👤" label="Kontaktpersoner" value={customer.contacts.length} tone="gray" href="?tab=kontakter" />
-              <KpiCard icon="📄" label="Serviceavtaler" value={customer.contracts.length} tone="blue" href="?tab=avtaler" />
-              <KpiCard icon="📎" label="Vedlegg" value={customer.attachments.length} tone="gray" href="?tab=vedlegg" />
+              <KpiCard icon="🔧" label="Enheter" value={customer._count.products} tone="gray" href="?tab=enheter" />
+              <KpiCard icon="👤" label="Kontaktpersoner" value={customer._count.contacts} tone="gray" href="?tab=kontakter" />
+              <KpiCard icon="📄" label="Serviceavtaler" value={customer._count.contracts} tone="blue" href="?tab=avtaler" />
+              <KpiCard icon="📎" label="Vedlegg" value={customer._count.attachments} tone="gray" href="?tab=vedlegg" />
               {office && (
                 <KpiCard icon="🔐" label="Portalbrukere" value={portalUsers.length} tone="gray" href="?tab=portal" />
               )}
@@ -744,7 +811,7 @@ export default async function CustomerDetailPage({
                         </div>
                         <p className="text-[10px] text-gray-500 mt-1">
                           {formatDate(wo.scheduledFor, "Ingen dato")}
-                          {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r)` : ""}
+                          {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r)` : ""}
                         </p>
                       </Link>
                     ))}
@@ -800,7 +867,7 @@ export default async function CustomerDetailPage({
               )}
             </div>
 
-            {visibleWorkOrders.length === 0 ? (
+            {totalOrders === 0 ? (
               <div className="bg-gray-50 border-2 border-dashed border-gray-200 p-6 rounded-2xl text-center">
                 <p className="text-gray-600 font-bold mb-1">Ingen oppdrag registrert på kunden ennå.</p>
                 <p className="text-xs text-gray-500">Opprett et oppdrag for å komme i gang med historikken.</p>
@@ -818,7 +885,7 @@ export default async function CustomerDetailPage({
                         <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
                         <p className="text-[10px] text-gray-500 font-medium mt-0.5">
                           Planlagt: {formatDate(wo.scheduledFor, "Ingen dato")}
-                          {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r) utfylt` : ""}
+                          {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r) utfylt` : ""}
                         </p>
                       </div>
                       <StatusBadge status={wo.status} />
@@ -840,6 +907,31 @@ export default async function CustomerDetailPage({
                     </div>
                   </Link>
                 ))}
+              </div>
+            )}
+
+            {orderTotalPages > 1 && (
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-gray-100 text-xs font-bold">
+                {orderPage > 1 && (
+                  <Link
+                    href={`?tab=oppdrag&side=${orderPage - 1}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    &larr; Forrige
+                  </Link>
+                )}
+                <span className="text-gray-500">
+                  Viser {(orderPage - 1) * ORDER_PAGE_SIZE + 1}–
+                  {Math.min(orderPage * ORDER_PAGE_SIZE, totalOrders)} av {totalOrders}
+                </span>
+                {orderPage < orderTotalPages && (
+                  <Link
+                    href={`?tab=oppdrag&side=${orderPage + 1}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Neste &rarr;
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -978,7 +1070,7 @@ export default async function CustomerDetailPage({
               </p>
             )}
 
-            {customer.contracts.length === 0 ? (
+            {customer._count.contracts === 0 ? (
               <p className="text-xs text-gray-500 italic">
                 Ingen serviceavtaler registrert på denne kunden.
               </p>
@@ -1121,11 +1213,11 @@ export default async function CustomerDetailPage({
               </form>
             )}
 
-            {customer.products.length === 0 ? (
+            {products.length === 0 ? (
               <p className="text-xs text-gray-500 italic">Ingen registrerte enheter på denne kunden.</p>
             ) : (
               <div className="space-y-2">
-                {customer.products.map((unit) => (
+                {products.map((unit) => (
                   <div key={unit.id} className="bg-gray-50 rounded-xl border border-gray-200 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <details className="flex-1 min-w-0">
@@ -1136,12 +1228,12 @@ export default async function CustomerDetailPage({
                             {unit.location ? ` • ${unit.location}` : ""}
                           </span>
                           <span className="block text-[11px] mt-1">
-                            {unit.reportUnits.length === 0 ? (
+                            {unit._count.reportUnits === 0 ? (
                               <span className="text-gray-400">🕓 Aldri kontrollert</span>
                             ) : (
                               <span className="text-blue-800 font-bold">
-                                🕓 {unit.reportUnits.length}{" "}
-                                {unit.reportUnits.length === 1 ? "service" : "servicer"} • siste{" "}
+                                🕓 {unit._count.reportUnits}{" "}
+                                {unit._count.reportUnits === 1 ? "service" : "servicer"} • siste{" "}
                                 {formatDate(lastServiceDate(unit.reportUnits), "Ingen dato")}
                               </span>
                             )}
@@ -1153,8 +1245,13 @@ export default async function CustomerDetailPage({
 
                         <div className="mt-3 border-t border-gray-200 pt-3">
                           <p className="text-[11px] font-black text-gray-600 uppercase tracking-wider mb-2">
-                            🕓 Servicehistorikk ({unit.reportUnits.length})
+                            🕓 Servicehistorikk ({unit._count.reportUnits})
                           </p>
+                          {unit._count.reportUnits > unit.reportUnits.length && (
+                            <p className="text-[10px] text-gray-500 mb-2">
+                              Viser de {unit.reportUnits.length} nyeste av {unit._count.reportUnits} kontroller.
+                            </p>
+                          )}
                           <UnitHistory entries={unit.reportUnits} />
                         </div>
 
@@ -1241,7 +1338,7 @@ export default async function CustomerDetailPage({
               </form>
             )}
 
-            {customer.contacts.length === 0 ? (
+            {customer._count.contacts === 0 ? (
               <p className="text-xs text-gray-500 italic">Ingen registrerte kontaktpersoner.</p>
             ) : (
               <div className="space-y-4">
@@ -1300,7 +1397,7 @@ export default async function CustomerDetailPage({
               </div>
             )}
 
-            {customer.contacts.length === 0 ? (
+            {customer._count.contacts === 0 ? (
               <p className="text-xs text-gray-500 italic bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3">
                 Legg til en kontaktperson først – kundeportalbrukere må kobles til en kontaktperson.
               </p>

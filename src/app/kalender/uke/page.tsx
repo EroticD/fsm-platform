@@ -42,6 +42,7 @@ export default async function WeekCalendarPage() {
     orderBy: {
       scheduledFor: 'asc',
     },
+    take: 1000,
   });
 
   const events = workOrders.flatMap((wo) => {

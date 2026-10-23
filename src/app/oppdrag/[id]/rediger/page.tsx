@@ -33,7 +33,7 @@ export default async function EditWorkOrderPage({
     include: {
       department: true,
       customer: true,
-      technicians: true,
+      technicians: { include: { department: true } },
       templates: true,
       tags: true
     }
@@ -51,14 +51,57 @@ export default async function EditWorkOrderPage({
   const isAdmin = user.role === "ADMIN";
   const departments = isAdmin ? await getActiveDepartments() : [];
 
-  const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
+  // Avgrensede lister – skjemaet er ikke en katalog over alle kunder.
+  const customers = await prisma.customer.findMany({
+    orderBy: { name: 'asc' },
+    take: 100,
+    select: { id: true, name: true, city: true },
+  });
   const technicians = await prisma.user.findMany({
     where: isAdmin ? staffWhere() : staffForDepartment(workOrder.departmentId),
     include: { department: true },
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    take: 100,
   });
-  const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
+  const contacts = await prisma.contact.findMany({
+    orderBy: { name: 'asc' },
+    take: 200,
+    select: { id: true, name: true, role: true, customerId: true },
+  });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
+
+  // Den valgte kunden, kontakten og montørene må alltid være med i listene,
+  // ellers ville et lagre uten endringer kunne nullstille dem.
+  const customerOptions = [...customers];
+  if (
+    workOrder.customerId &&
+    !customerOptions.some((customer) => customer.id === workOrder.customerId)
+  ) {
+    const currentCustomer = await prisma.customer.findUnique({
+      where: { id: workOrder.customerId },
+      select: { id: true, name: true, city: true },
+    });
+    if (currentCustomer) customerOptions.unshift(currentCustomer);
+  }
+
+  const contactOptions = [...contacts];
+  if (
+    workOrder.contactId &&
+    !contactOptions.some((contact) => contact.id === workOrder.contactId)
+  ) {
+    const currentContact = await prisma.contact.findUnique({
+      where: { id: workOrder.contactId },
+      select: { id: true, name: true, role: true, customerId: true },
+    });
+    if (currentContact) contactOptions.unshift(currentContact);
+  }
+
+  const technicianOptions = [...technicians];
+  for (const assigned of workOrder.technicians) {
+    if (!technicianOptions.some((technician) => technician.id === assigned.id)) {
+      technicianOptions.push(assigned);
+    }
+  }
 
   // --- SERVER ACTION: LAGRE ENDRINGER ---
   async function updateWorkOrder(formData: FormData) {
@@ -98,6 +141,7 @@ export default async function EditWorkOrderPage({
       ? await prisma.user.findMany({
           where: { id: { in: technicianIds }, ...staffForDepartment(departmentId) },
           select: { id: true },
+          take: 100,
         })
       : [];
     const validTechnicianIds = allowedTechnicians.map((technician) => technician.id);
@@ -239,7 +283,7 @@ export default async function EditWorkOrderPage({
               required 
               className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
             >
-              {customers.map(c => (
+              {customerOptions.map(c => (
                 <option key={c.id} value={c.id}>{c.name} {c.city ? `(${c.city})` : ""}</option>
               ))}
             </select>
@@ -253,8 +297,8 @@ export default async function EditWorkOrderPage({
               className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
             >
               <option value="">— Ingen kontaktperson —</option>
-              {customers.map(c => {
-                const customerContacts = contacts.filter((k) => k.customerId === c.id);
+              {customerOptions.map(c => {
+                const customerContacts = contactOptions.filter((k) => k.customerId === c.id);
                 if (customerContacts.length === 0) return null;
                 return (
                   <optgroup key={c.id} label={c.name}>
@@ -298,7 +342,7 @@ export default async function EditWorkOrderPage({
             <label className="block text-sm font-black text-gray-900 mb-2">Tildelte montører</label>
             <p className="text-xs text-gray-500 mb-2">Kryss av alle som skal jobbe med oppdraget.</p>
             <div className="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-xl border-2 border-gray-200 space-y-1">
-              {technicians.map(t => (
+              {technicianOptions.map(t => (
                 <label key={t.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
                   <input
                     type="checkbox"
@@ -313,7 +357,7 @@ export default async function EditWorkOrderPage({
                   </span>
                 </label>
               ))}
-              {technicians.length === 0 && (
+              {technicianOptions.length === 0 && (
                 <p className="text-sm text-gray-500 p-2">Ingen ansatte funnet.</p>
               )}
             </div>

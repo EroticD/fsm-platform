@@ -275,6 +275,7 @@ export default async function AdminDashboard({
     prisma.workOrder.findMany({
       where: todayWhere,
       orderBy: { scheduledFor: "asc" },
+      take: 100,
       include: { customer: true, technicians: true, tags: true },
     }),
     prisma.workOrder.count({ where: overdueWhere }),
@@ -323,7 +324,12 @@ export default async function AdminDashboard({
       orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }],
       take: pageSize,
       skip,
-      include: { customer: true, technicians: true, reports: true, tags: true },
+      include: {
+        customer: true,
+        technicians: true,
+        tags: true,
+        _count: { select: { reports: true } },
+      },
     }),
   ]);
 
@@ -561,7 +567,7 @@ export default async function AdminDashboard({
                     </div>
                     <p className="text-[10px] text-gray-500">
                       🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
-                      {wo.reports.length > 0 ? ` • 📋 ${wo.reports.length} sjekkliste(r)` : ""}
+                      {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r)` : ""}
                     </p>
                     {formatAddress(wo.customer) && (
                       <p className="text-[10px] text-gray-500">📍 {formatAddress(wo.customer)}</p>

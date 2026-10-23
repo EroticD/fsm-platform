@@ -146,16 +146,6 @@ export default async function SettingsPage({
   const customerFilter = resolvedParams.customer || "";
   const technicianFilter = resolvedParams.technician || "";
 
-  // Hent kunder og montører for filtrering
-  const statsCustomers = await prisma.customer.findMany({
-    orderBy: { name: 'asc' },
-    take: 50
-  });
-  const statsTechnicians = await prisma.user.findMany({
-    where: staffScope(user),
-    orderBy: { name: 'asc' }
-  });
-
   // Bygg where-clause for statistikk. Oppdrag er alltid avdelingssperret.
   const statsWhere: any = { ...workOrderScope(user) };
   if (dateFrom) statsWhere.scheduledFor = { gte: new Date(dateFrom) };
@@ -169,39 +159,84 @@ export default async function SettingsPage({
   if (customerFilter) statsWhere.customerId = customerFilter;
   if (technicianFilter) statsWhere.technicians = { some: { id: technicianFilter } };
 
-  const statsWorkOrders = await prisma.workOrder.findMany({
-    where: statsWhere,
-    include: {
-      customer: true,
-      technicians: true
+  // Kunder og montører for filteret. Begge listene er små og avgrensede.
+  const statsCustomers = await prisma.customer.findMany({
+    orderBy: { name: 'asc' },
+    take: 50,
+    select: { id: true, name: true },
+  });
+  const statsTechnicians = await prisma.user.findMany({
+    where: staffScope(user),
+    orderBy: { name: 'asc' },
+    take: 200,
+    select: {
+      id: true,
+      name: true,
+      _count: { select: { workOrders: { where: statsWhere } } },
     },
-    orderBy: { scheduledFor: 'desc' }
   });
 
-  // Beregn statistikk
-  const totalWorkOrders = statsWorkOrders.length;
-  const byStatus = statsWorkOrders.reduce((acc: any, wo) => {
-    acc[wo.status] = (acc[wo.status] || 0) + 1;
-    return acc;
-  }, {} as any);
-  const byTechnician = statsWorkOrders.reduce((acc: any, wo) => {
-    wo.technicians.forEach((t: any) => {
-      acc[t.name || 'Ukjent'] = (acc[t.name || 'Ukjent'] || 0) + 1;
-    });
-    return acc;
-  }, {} as any);
-  const byCustomer = statsWorkOrders.reduce((acc: any, wo) => {
-    acc[wo.customer?.name || "Uten kunde"] = (acc[wo.customer?.name || "Uten kunde"] || 0) + 1;
-    return acc;
-  }, {} as any);
+  // Statistikk regnes ut i databasen med count/groupBy i stedet for å laste
+  // alle oppdragene og telle dem i JavaScript.
+  const [totalWorkOrders, statusGroups, customerCounts] = await Promise.all([
+    prisma.workOrder.count({ where: statsWhere }),
+    prisma.workOrder.groupBy({
+      by: ["status"],
+      where: statsWhere,
+      _count: { _all: true },
+    }),
+    prisma.customer.findMany({
+      where: { workOrder: { some: statsWhere } },
+      orderBy: { name: "asc" },
+      take: 100,
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { workOrder: { where: statsWhere } } },
+      },
+    }),
+  ]);
 
-  // Månedlig trend (siste 6 måneder)
-  const monthlyTrend: Record<string, number> = statsWorkOrders.reduce((acc: Record<string, number>, wo) => {
-    if (!wo.scheduledFor) return acc;
-    const month = new Date(wo.scheduledFor).toISOString().slice(0, 7); // YYYY-MM
-    acc[month] = (acc[month] || 0) + 1;
-    return acc;
-  }, {});
+  const byStatus = Object.fromEntries(
+    statusGroups.map((group) => [group.status, group._count._all]),
+  ) as Record<string, number>;
+
+  const byTechnician: Record<string, number> = {};
+  for (const technician of statsTechnicians) {
+    const count = technician._count.workOrders;
+    if (count > 0) byTechnician[technician.name || "Ukjent"] = count;
+  }
+
+  const byCustomer: Record<string, number> = {};
+  for (const customer of customerCounts) {
+    const count = customer._count.workOrder;
+    if (count > 0) byCustomer[customer.name || "Uten kunde"] = count;
+  }
+
+  // Månedlig trend: seks avgrensede count-spørringer i stedet for å hente alle
+  // oppdragene. Datofilteret fra skjemaet gjelder også for trenden.
+  const trendAnchor = dateTo ? new Date(`${dateTo}T23:59:59`) : new Date();
+  const trendMonths = Array.from({ length: 6 }, (_, index) => {
+    const start = new Date(
+      trendAnchor.getFullYear(),
+      trendAnchor.getMonth() - 5 + index,
+      1,
+    );
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`;
+    return { start, end, key };
+  });
+  const trendCounts = await Promise.all(
+    trendMonths.map(({ start, end }) =>
+      prisma.workOrder.count({
+        where: { AND: [statsWhere, { scheduledFor: { gte: start, lt: end } }] },
+      }),
+    ),
+  );
+  const monthlyTrend: Record<string, number> = {};
+  trendMonths.forEach(({ key }, index) => {
+    monthlyTrend[key] = trendCounts[index];
+  });
 
   // --- SERVER ACTION: LAGRE BRANDING ---
   async function saveBranding(formData: FormData) {

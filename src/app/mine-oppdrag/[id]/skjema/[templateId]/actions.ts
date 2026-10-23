@@ -11,6 +11,47 @@ import { workOrderScope } from "@/lib/access";
 import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { reportSubmitSchema } from "@/lib/schemas/report";
+import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
+
+const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
+const SIGNATURE_DATA_URL = /^data:image\/(png|jpe?g|webp);base64,/i;
+
+/**
+ * Leser en signatur fra skjemaet. Nye signaturer kommer som data-URL fra
+ * tegneflaten, mens en opplåst rapport kan sende tilbake en allerede lagret
+ * `/uploads/...`-adresse. Alt annet ignoreres.
+ */
+function acceptedSignature(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const raw = value.trim();
+  if (!raw) return "";
+  if (UPLOAD_URL.test(raw)) return raw;
+  // Samme formater som storeDataImage kan skrive; GIF og andre typer avvises
+  // her i stedet for å gi en feil lenger ned.
+  if (!SIGNATURE_DATA_URL.test(raw)) return "";
+  return cleanDataImage(raw, 7_000_000);
+}
+
+/**
+ * Lagrer en ny data-URL som fil, eller beholder en eksisterende opplastings-
+ * adresse. Tomt felt betyr «behold signaturen som ligger der».
+ */
+async function resolveSignature(
+  value: unknown,
+  fallback: string | null | undefined,
+  ctx: {
+    ownerType: "WORK_ORDER";
+    ownerId: string;
+    departmentId: string;
+    customerId: string | null;
+    uploadedById: string;
+  },
+): Promise<string | null> {
+  const accepted = acceptedSignature(value);
+  if (!accepted) return fallback ?? null;
+  if (accepted.startsWith("data:")) return storeDataImage(accepted, ctx);
+  return accepted;
+}
 
 type TemplateField = {
   id: string;
@@ -334,9 +375,31 @@ export async function submitReport(formData: FormData) {
 
   const now = new Date();
 
+  const signatureContext = {
+    ownerType: "WORK_ORDER" as const,
+    ownerId: workOrderId,
+    departmentId: workOrder.departmentId,
+    customerId: workOrder.customerId,
+    uploadedById: user.id,
+  };
+
+  const previousTechnicianSignature = existing?.technicianSignatureUrl ?? null;
+  const previousCustomerSignature = existing?.customerSignatureUrl ?? null;
+
   // Rapporten låses automatisk når den lagres. Nye bilder fra tidligere
   // signaturer beholdes hvis man ikke signerer på nytt ved en gjenopplåst
   // redigering.
+  const technicianSignatureUrl = await resolveSignature(
+    formData.get("technicianSignature"),
+    previousTechnicianSignature,
+    signatureContext,
+  );
+  const customerSignatureUrl = await resolveSignature(
+    formData.get("customerSignature"),
+    previousCustomerSignature,
+    signatureContext,
+  );
+
   const data = {
     comments: cleanMarkdown(formData.get("notes")),
     dataJson: JSON.stringify({
@@ -344,11 +407,9 @@ export async function submitReport(formData: FormData) {
       answers: {},
       unitCount: unitRows.length,
     }),
-    technicianSignatureUrl:
-      cleanDataImage(formData.get("technicianSignature")) || existing?.technicianSignatureUrl || null,
+    technicianSignatureUrl,
     technicianName: text("technicianName") ?? existing?.technicianName ?? null,
-    customerSignatureUrl:
-      cleanDataImage(formData.get("customerSignature")) || existing?.customerSignatureUrl || null,
+    customerSignatureUrl,
     customerName: text("customerName") ?? existing?.customerName ?? null,
     // Frys malen slik den var da rapporten ble signert.
     templateTitle: template.title,
@@ -362,6 +423,19 @@ export async function submitReport(formData: FormData) {
     `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template.title}` +
     ` (${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
     " – rapporten låses automatisk";
+
+  const signatureOwner = { ownerType: "WORK_ORDER" as const, ownerId: workOrderId };
+
+  // Signaturbildene skrives før transaksjonen. Blir rapporten avvist (låst
+  // eller duplikat), skal de nye filene ikke bli liggende som søppel.
+  const cleanupNewSignatures = async () => {
+    if (technicianSignatureUrl !== previousTechnicianSignature) {
+      await deleteUploadIfOwned(technicianSignatureUrl, signatureOwner);
+    }
+    if (customerSignatureUrl !== previousCustomerSignature) {
+      await deleteUploadIfOwned(customerSignatureUrl, signatureOwner);
+    }
+  };
 
   // Skrivingen gjøres i én transaksjon med en ny låsesjekk, slik at to
   // samtidige innsendinger ikke kan overskrive en signert rapport.
@@ -417,6 +491,7 @@ export async function submitReport(formData: FormData) {
     });
     locked = result.locked;
   } catch (error) {
+    await cleanupNewSignatures();
     // Samtidig innsending: den unike indeksen avviser duplikatet.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       redirect(`${returnPath(formData, workOrderId)}?error=locked`);
@@ -425,7 +500,17 @@ export async function submitReport(formData: FormData) {
   }
 
   if (locked) {
+    await cleanupNewSignatures();
     redirect(`${returnPath(formData, workOrderId)}?error=locked`);
+  }
+
+  // Nye signaturer erstatter de gamle. Slett den forrige filen bare når den
+  // faktisk eies av dette oppdraget – aldri en annen rapports bilde.
+  if (previousTechnicianSignature && previousTechnicianSignature !== technicianSignatureUrl) {
+    await deleteUploadIfOwned(previousTechnicianSignature, signatureOwner);
+  }
+  if (previousCustomerSignature && previousCustomerSignature !== customerSignatureUrl) {
+    await deleteUploadIfOwned(previousCustomerSignature, signatureOwner);
   }
 
   revalidatePath(`/mine-oppdrag/${workOrderId}`);

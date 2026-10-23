@@ -37,7 +37,21 @@ export default async function EditCustomerPage({
   const technicians = await prisma.user.findMany({
     where: { isActive: true, role: { in: ["ADMIN", "OFFICE", "TECHNICIAN"] } },
     orderBy: { name: "asc" },
+    take: 100,
   });
+
+  // Den ansvarlige montøren må være med i listen selv om vedkommende faller
+  // utenfor det avgrensede utvalget.
+  const technicianOptions = [...technicians];
+  if (
+    customer?.responsibleTechnicianId &&
+    !technicianOptions.some((technician) => technician.id === customer.responsibleTechnicianId)
+  ) {
+    const currentTechnician = await prisma.user.findUnique({
+      where: { id: customer.responsibleTechnicianId },
+    });
+    if (currentTechnician) technicianOptions.unshift(currentTechnician);
+  }
 
   if (!customer) {
     return (
@@ -297,7 +311,7 @@ export default async function EditCustomerPage({
                 className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
               >
                 <option value="">— Ingen ansvarlig —</option>
-                {technicians.map((t) => (
+                {technicianOptions.map((t) => (
                   <option key={t.id} value={t.id}>{t.name || t.email}</option>
                 ))}
               </select>

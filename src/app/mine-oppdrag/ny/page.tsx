@@ -28,7 +28,19 @@ export default async function TechnicianCreateWorkOrderPage() {
   }
 
   // Henter kunder og maler fra databasen
-  const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
+  const customers = await prisma.customer.findMany({
+    orderBy: { name: 'asc' },
+    take: 100,
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      address: true,
+      postalCode: true,
+      phone: true,
+      customerNumber: true,
+    },
+  });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
