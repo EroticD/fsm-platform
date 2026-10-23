@@ -63,9 +63,12 @@ function ReportContent({ report, template }: { report: any; template: any }) {
   }
 
   let fields: ReportField[] = [];
-  if (template?.fieldsJson) {
+  // Bruk øyeblikksbildet fra da rapporten ble signert, med den levende malen
+  // som fallback for eldre rapporter.
+  const fieldsSource = report?.templateSnapshotJson ?? template?.fieldsJson;
+  if (fieldsSource) {
     try {
-      const parsed = JSON.parse(template.fieldsJson);
+      const parsed = JSON.parse(fieldsSource);
       if (Array.isArray(parsed)) fields = parsed;
     } catch {}
   }

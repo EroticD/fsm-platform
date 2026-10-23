@@ -38,6 +38,9 @@ type ReportUnit = {
 type RawReport = {
   id: string;
   templateId?: string | null;
+  /** Frosset mal-navn/-innhold fra da rapporten ble signert. */
+  templateTitle?: string | null;
+  templateSnapshotJson?: string | null;
   dataJson?: string | null;
   comments?: string | null;
   createdAt?: string | Date | null;
@@ -161,15 +164,18 @@ export default function ReportDocument({
   const blocks: ReportBlock[] = reports.map((report) => {
     const parsed = parseJsonObject(report.dataJson);
     const template = templates.find((t) => t.id === report.templateId) || null;
+    // Bruk øyeblikksbildet fra signeringstidspunktet. Den levende malen er bare
+    // en fallback for rapporter som ble laget før snapshots ble innført.
+    const fieldsSource = report.templateSnapshotJson ?? template?.fieldsJson ?? "[]";
     let fields: TemplateFieldDef[] = [];
     try {
-      const p = JSON.parse(template?.fieldsJson || "[]");
+      const p = JSON.parse(fieldsSource);
       if (Array.isArray(p)) fields = p;
     } catch {}
 
     return {
       id: report.id,
-      templateTitle: template?.title ?? null,
+      templateTitle: report.templateTitle ?? template?.title ?? null,
       date: formatDate(report.createdAt) || null,
       status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,

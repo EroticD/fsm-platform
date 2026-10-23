@@ -30,16 +30,23 @@ export default async function TechnicianFillFormPage({
     ? (returnToParam as string)
     : `/mine-oppdrag/${workOrderId}`;
 
+  // Malen må være knyttet til oppdraget, og oppdraget må være innenfor
+  // brukerens avdeling. Da kan ikke en fremmed mal åpnes via URL-en.
   const workOrder = await prisma.workOrder.findFirst({
-    where: { id: workOrderId, ...workOrderScope(user) },
+    where: {
+      id: workOrderId,
+      ...workOrderScope(user),
+      templates: { some: { id: templateId } },
+    },
     include: {
       customer: {
         include: { products: { orderBy: { model: "asc" } } },
       },
+      templates: { where: { id: templateId } },
     },
   });
 
-  const template = await prisma.template.findUnique({ where: { id: templateId } });
+  const template = workOrder?.templates[0] ?? null;
 
   // Kansellerte oppdrag er lukket og skal ikke kunne fylles ut i feltportalen.
   if (workOrder?.status === "CANCELLED" && user.role === "TECHNICIAN") {

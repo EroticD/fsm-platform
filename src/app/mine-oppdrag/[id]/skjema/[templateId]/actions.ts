@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { actorName, getCurrentUser, isOffice } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -158,20 +159,25 @@ export async function saveDraft(
   if (!workOrderId || !templateId) return { ok: false };
 
   const workOrder = await prisma.workOrder.findFirst({
-    where: { id: workOrderId, ...workOrderScope(user) },
+    where: {
+      id: workOrderId,
+      ...workOrderScope(user),
+      templates: { some: { id: templateId } },
+    },
+    include: { templates: { where: { id: templateId } } },
   });
   if (!workOrder) return { ok: false };
   if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false };
   }
 
-  const template = await prisma.template.findUnique({ where: { id: templateId } });
+  const template = workOrder.templates[0];
   if (!template) return { ok: false };
 
   // Ikke lagre kladd over en rapport som allerede er låst.
-  const existingReport = await prisma.report.findFirst({
-    where: { workOrderId, templateId },
-    orderBy: { createdAt: "desc" },
+  const existingReport = await prisma.report.findUnique({
+    where: { workOrderId_templateId: { workOrderId, templateId } },
+    select: { isLocked: true },
   });
   if (existingReport?.isLocked) return { ok: false };
 
@@ -228,37 +234,57 @@ export async function submitReport(formData: FormData) {
   if (!hasPermission(user, "reports.write")) redirect("/");
 
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
-  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line }) || null;
-  if (!workOrderId) return;
+  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
+  if (!workOrderId || !templateId) return;
 
+  // Malen må faktisk være knyttet til oppdraget, og oppdraget må være innenfor
+  // brukerens avdeling. Da kan ikke en fremmed mal brukes på et oppdrag.
   const workOrder = await prisma.workOrder.findFirst({
-    where: { id: workOrderId, ...workOrderScope(user) },
+    where: {
+      id: workOrderId,
+      ...workOrderScope(user),
+      templates: { some: { id: templateId } },
+    },
+    include: { templates: { where: { id: templateId } } },
   });
   if (!workOrder) return;
   if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     redirect("/oppdrag");
   }
 
-  const template = templateId
-    ? await prisma.template.findUnique({ where: { id: templateId } })
-    : null;
-  const fields = parseFields(template?.fieldsJson);
+  const template = workOrder.templates[0];
+  if (!template) return;
+  const fields = parseFields(template.fieldsJson);
 
   // Én rapport per sjekkliste per oppdrag. Er den allerede fylt ut og låst, kan
   // den ikke endres før en administrator har låst den opp.
-  const existing = templateId
-    ? await prisma.report.findFirst({
-        where: { workOrderId, templateId },
-        orderBy: { createdAt: "desc" },
-      })
-    : null;
+  const existing = await prisma.report.findUnique({
+    where: { workOrderId_templateId: { workOrderId, templateId } },
+    select: {
+      id: true,
+      isLocked: true,
+      technicianSignatureUrl: true,
+      technicianName: true,
+      customerSignatureUrl: true,
+      customerName: true,
+    },
+  });
 
   if (existing?.isLocked) {
     redirect(`${returnPath(formData, workOrderId)}?error=locked`);
   }
 
   const unitStatus: string[] = [];
-  const unitRows = [];
+  const unitRows: Array<{
+    productId: string | null;
+    label: string;
+    serialNumber: string | null;
+    location: string | null;
+    status: string;
+    answersJson: string;
+    comment: string | null;
+    sortOrder: number;
+  }> = [];
 
   for (const [index, unit] of parseUnits(formData.get("unitsJson")).entries()) {
     const label = cleanText(unit.label, { maxLength: LIMITS.title });
@@ -310,50 +336,79 @@ export async function submitReport(formData: FormData) {
     customerSignatureUrl:
       cleanDataImage(formData.get("customerSignature")) || existing?.customerSignatureUrl || null,
     customerName: text("customerName") ?? existing?.customerName ?? null,
+    // Frys malen slik den var da rapporten ble signert.
+    templateTitle: template.title,
+    templateSnapshotJson: template.fieldsJson,
     isLocked: true,
     lockedAt: now,
     lockedByName: user.name || user.email,
   };
 
-  if (existing) {
-    await prisma.report.update({
-      where: { id: existing.id },
-      data: {
-        ...data,
-        // Enhetene erstattes helt, slik at rapporten speiler det som ble sendt inn.
-        units: { deleteMany: {}, create: unitRows },
-      },
-    });
-  } else {
-    await prisma.report.create({
-      data: {
-        workOrderId,
-        templateId,
-        ...data,
-        units: { create: unitRows },
-      },
-    });
-  }
-
-  // Kladden er ikke lenger nødvendig når rapporten er lagret.
-  if (templateId) {
-    await prisma.reportDraft.deleteMany({
-      where: { workOrderId, templateId, userId: user.id },
-    });
-  }
-
   const actor = await actorName();
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Report",
-      entityId: workOrderId,
-      action:
-        `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template?.title || "Ukjent skjema"}` +
-        ` (${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
-        " – rapporten låses automatisk",
-      userName: actor,
-    },
-  });
+  const actionText =
+    `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template.title}` +
+    ` (${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
+    " – rapporten låses automatisk";
+
+  // Skrivingen gjøres i én transaksjon med en ny låsesjekk, slik at to
+  // samtidige innsendinger ikke kan overskrive en signert rapport.
+  let locked = false;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const current = await tx.report.findUnique({
+        where: { workOrderId_templateId: { workOrderId, templateId } },
+        select: { id: true, isLocked: true },
+      });
+      if (current?.isLocked) return { locked: true } as const;
+
+      if (current) {
+        await tx.report.update({
+          where: { id: current.id },
+          data: {
+            ...data,
+            // Enhetene erstattes helt, slik at rapporten speiler det som ble sendt inn.
+            units: { deleteMany: {}, create: unitRows },
+          },
+        });
+      } else {
+        await tx.report.create({
+          data: {
+            workOrderId,
+            templateId,
+            ...data,
+            units: { create: unitRows },
+          },
+        });
+      }
+
+      // Kladden er ikke lenger nødvendig når rapporten er lagret.
+      await tx.reportDraft.deleteMany({
+        where: { workOrderId, templateId, userId: user.id },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "Report",
+          entityId: workOrderId,
+          action: actionText,
+          userName: actor,
+        },
+      });
+
+      return { locked: false } as const;
+    });
+    locked = result.locked;
+  } catch (error) {
+    // Samtidig innsending: den unike indeksen avviser duplikatet.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect(`${returnPath(formData, workOrderId)}?error=locked`);
+    }
+    throw error;
+  }
+
+  if (locked) {
+    redirect(`${returnPath(formData, workOrderId)}?error=locked`);
+  }
 
   revalidatePath(`/mine-oppdrag/${workOrderId}`);
   revalidatePath(`/rapporter/${workOrderId}`);
