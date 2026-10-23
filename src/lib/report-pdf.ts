@@ -9,6 +9,11 @@ import { isSafeLogoUrl } from "@/lib/logo";
 export type ReportPdfResult = {
   buffer: Buffer;
   fileName: string;
+  /**
+   * `/uploads/...` når PDF-en er lagret og registrert. Brukes når PDF-en skal
+   * legges ved et annet oppdrag, slik at den ikke må skrives på nytt.
+   */
+  url?: string;
 };
 
 /** Gjør om «Tore Ligaard AS – Servicerapport» til et trygt filnavn. */
@@ -21,6 +26,21 @@ export function safeReportFileName(input: string): string {
     .trim()
     .replace(/\s+/g, "-");
   return cleaned || "servicerapport";
+}
+
+/** Filnavnet (uten `.pdf`) for rapporten til et oppdrag. */
+export function reportFileNameForWorkOrder(workOrder: {
+  customer?: { name?: string | null } | null;
+  scheduledFor?: Date | null;
+}): string {
+  // Bruk oppdragets dato når det finnes, slik at PDF-en fra et intervall får
+  // et stabilt navn også når den legges ved neste oppdrag.
+  const datePart =
+    formatDate(workOrder.scheduledFor) ||
+    formatDate(new Date()) ||
+    new Date().toISOString().slice(0, 10);
+  const customerName = workOrder.customer?.name ?? "kunde";
+  return safeReportFileName(`${customerName}-servicerapport-${datePart}`);
 }
 
 /**
@@ -56,8 +76,8 @@ export async function loadReportPdf(
 
   const origin =
     baseUrl ||
-    process.env.NEXTAUTH_URL ||
     process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
     "http://localhost:3000";
 
   const element = React.createElement(ReportDocument, {
@@ -74,14 +94,5 @@ export async function loadReportPdf(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buffer = await renderToBuffer(element as any);
 
-  // Bruk oppdragets dato når det finnes, slik at PDF-en fra et intervall får
-  // et stabilt navn også når den legges ved neste oppdrag.
-  const datePart =
-    formatDate(workOrder.scheduledFor) ||
-    formatDate(new Date()) ||
-    new Date().toISOString().slice(0, 10);
-  const customerName = workOrder.customer?.name ?? "kunde";
-  const fileName = safeReportFileName(`${customerName}-servicerapport-${datePart}`);
-
-  return { buffer, fileName };
+  return { buffer, fileName: reportFileNameForWorkOrder(workOrder) };
 }

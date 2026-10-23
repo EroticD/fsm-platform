@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { loadReportPdf } from "@/lib/report-pdf";
+import { getOrRenderReportPdf } from "@/lib/report-pdf-store";
 
 export const runtime = "nodejs";
 
@@ -44,12 +43,15 @@ export async function GET(
   }
 
   // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
-  const requestHeaders = await headers();
-  const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const baseUrl = host ? `${proto}://${host}` : new URL(request.url).origin;
+  // Vi bruker den konfigurerte adressen, ikke X-Forwarded-Host, som klienten
+  // selv kan sette. Bare når appen ikke har noen adresse konfigurert, faller
+  // vi tilbake til adressen forespørselen kom inn på.
+  const baseUrl =
+    process.env.APP_URL ??
+    process.env.NEXTAUTH_URL ??
+    new URL(request.url).origin;
 
-  const pdf = await loadReportPdf(id, baseUrl);
+  const pdf = await getOrRenderReportPdf(id, baseUrl);
   if (!pdf) {
     return new NextResponse("Oppdraget har ingen rapport ennå", { status: 404 });
   }
