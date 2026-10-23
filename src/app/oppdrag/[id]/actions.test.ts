@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
       delete: vi.fn(),
     },
     auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -32,12 +33,19 @@ function form(workOrderId: string) {
 }
 
 describe("deleteWorkOrder", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.$transaction).mockImplementation(
+      async (callback: (tx: typeof prisma) => unknown) => callback(prisma),
+    );
+  });
 
-  it("sletter ikke et oppdrag brukeren ikke har tilgang til", async () => {
+  it("avviser et oppdrag brukeren ikke har tilgang til", async () => {
     mockedAccess.mockResolvedValue(null);
 
-    await deleteWorkOrder(form("wo-i-annen-avdeling"));
+    await expect(deleteWorkOrder(form("wo-i-annen-avdeling"))).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
 
     expect(prisma.workOrder.delete).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
@@ -61,6 +69,11 @@ describe("deleteWorkOrder", () => {
     await expect(deleteWorkOrder(form("wo-a"))).rejects.toThrow("NEXT_REDIRECT");
 
     expect(prisma.workOrder.delete).toHaveBeenCalledWith({ where: { id: "wo-a" } });
-    expect(prisma.auditLog.create).toHaveBeenCalled();
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-a",
+      }),
+    });
   });
 });

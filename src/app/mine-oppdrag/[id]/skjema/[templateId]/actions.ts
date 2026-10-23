@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { actorName, getCurrentUser, isOffice } from "@/lib/session";
+import { audit } from "@/lib/audit";
+import { getCurrentUser, isOffice } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { reportSubmitSchema } from "@/lib/schemas/report";
 
 type TemplateField = {
   id: string;
@@ -233,9 +235,21 @@ export async function submitReport(formData: FormData) {
   // Rapportinnsending krever reports.write og tilgang til oppdragets avdeling.
   if (!hasPermission(user, "reports.write")) redirect("/");
 
-  const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
-  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
-  if (!workOrderId || !templateId) return;
+  const parsedInput = reportSubmitSchema.safeParse({
+    workOrderId: cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line }),
+    templateId: cleanText(formData.get("templateId"), { maxLength: LIMITS.line }),
+    unitsJson:
+      typeof formData.get("unitsJson") === "string"
+        ? (formData.get("unitsJson") as string)
+        : undefined,
+    notes: cleanMarkdown(formData.get("notes")),
+    returnTo:
+      typeof formData.get("returnTo") === "string"
+        ? (formData.get("returnTo") as string)
+        : undefined,
+  });
+  if (!parsedInput.success) redirect("/mine-oppdrag?error=ugyldig-data");
+  const { workOrderId, templateId } = parsedInput.data;
 
   // Malen må faktisk være knyttet til oppdraget, og oppdraget må være innenfor
   // brukerens avdeling. Da kan ikke en fremmed mal brukes på et oppdrag.
@@ -344,7 +358,6 @@ export async function submitReport(formData: FormData) {
     lockedByName: user.name || user.email,
   };
 
-  const actor = await actorName();
   const actionText =
     `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template.title}` +
     ` (${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
@@ -361,6 +374,7 @@ export async function submitReport(formData: FormData) {
       });
       if (current?.isLocked) return { locked: true } as const;
 
+      let reportId: string;
       if (current) {
         await tx.report.update({
           where: { id: current.id },
@@ -370,15 +384,18 @@ export async function submitReport(formData: FormData) {
             units: { deleteMany: {}, create: unitRows },
           },
         });
+        reportId = current.id;
       } else {
-        await tx.report.create({
+        const created = await tx.report.create({
           data: {
             workOrderId,
             templateId,
             ...data,
             units: { create: unitRows },
           },
+          select: { id: true },
         });
+        reportId = created.id;
       }
 
       // Kladden er ikke lenger nødvendig når rapporten er lagret.
@@ -386,13 +403,14 @@ export async function submitReport(formData: FormData) {
         where: { workOrderId, templateId, userId: user.id },
       });
 
-      await tx.auditLog.create({
-        data: {
-          entityType: "Report",
-          entityId: workOrderId,
-          action: actionText,
-          userName: actor,
-        },
+      // Rapporten hører til oppdraget, så hendelsen følger oppdragets id.
+      // Selve rapport-id-en ligger i metadata og er alltid en ekte rad-id.
+      await audit(tx, {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: actionText,
+        actor: { id: user.id, name: user.name, email: user.email },
+        metadata: { reportId, templateId },
       });
 
       return { locked: false } as const;

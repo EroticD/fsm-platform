@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { getCurrentUser, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { audit } from "@/lib/audit";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { customerCreateSchema } from "@/lib/schemas/customer";
 import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
@@ -12,7 +14,7 @@ const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 export default async function KunderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ side?: string; q?: string }>;
+  searchParams: Promise<{ side?: string; q?: string; error?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -22,6 +24,7 @@ export default async function KunderPage({
   const office = hasPermission(user, "customers.manage");
 
   const resolved = await searchParams;
+  const error = resolved.error;
   const search = resolved.q?.trim() || "";
   const page = parsePage(resolved.side);
 
@@ -53,17 +56,27 @@ export default async function KunderPage({
     "use server";
     if (!(await requirePermission("customers.manage"))) return;
 
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const orgNumber = cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line });
+    const parsed = customerCreateSchema.safeParse({
+      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
+      orgNumber: cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) redirect("/kunder?error=ugyldig-data");
 
-    if (name) {
-      // Lagrer i databasen
-      await prisma.customer.create({
+    const { name, orgNumber } = parsed.data;
+
+    await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.create({
         data: { name, orgNumber: orgNumber || null },
       });
-      // Oppdaterer siden umiddelbart slik at den nye kunden vises
-      revalidatePath("/kunder");
-    }
+      await audit(tx, {
+        entityType: "Customer",
+        entityId: customer.id,
+        action: `Opprettet kunde: ${name}`,
+        actor: { id: user!.id, name: user!.name, email: user!.email },
+      });
+    });
+    // Oppdaterer siden umiddelbart slik at den nye kunden vises
+    revalidatePath("/kunder");
   }
 
   const linkFor = (p: number) => {
@@ -85,6 +98,12 @@ export default async function KunderPage({
             &larr; Tilbake til Dashbord
           </Link>
         </div>
+
+        {error === "ugyldig-data" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl mb-4 text-sm font-bold">
+            ⛔ Kunden kunne ikke lagres. Navn er påkrevd.
+          </div>
+        )}
 
         {/* Skjema for å legge til ny kunde – kun kontor/admin */}
         {office && (

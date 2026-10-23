@@ -80,6 +80,21 @@ export async function loginAction(formData: FormData): Promise<never> {
     redirect(`/logg-inn/2fa${qs ? `?${qs}` : ""}`);
   }
 
+  // Innlogging logges best effort. En feil her skal aldri hindre innlogging.
+  try {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "User",
+        entityId: result.user.id,
+        action: "Logget inn",
+        userName: result.user.name || result.user.email || "Ukjent",
+        actorId: result.user.id,
+      },
+    });
+  } catch (error) {
+    console.error("Kunne ikke logge innloggingen:", error);
+  }
+
   await createSessionCookie(result.user);
   redirect(callbackUrl);
 }

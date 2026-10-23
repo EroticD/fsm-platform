@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
         findFirst: vi.fn(async () => null),
         findUnique: vi.fn(async () => null),
       },
+      $transaction: vi.fn(),
     },
     sendInviteEmail: vi.fn(async () => false),
     createInviteToken: vi.fn(async () => "raa-token"),
@@ -138,6 +139,9 @@ beforeEach(() => {
     return null;
   });
   mocks.prisma.user.count.mockImplementation(async () => mocks.state.activeAdminCount);
+  mocks.prisma.$transaction.mockImplementation(
+    async (callback: (tx: typeof mocks.prisma) => unknown) => callback(mocks.prisma),
+  );
   mocks.prisma.user.update.mockResolvedValue({});
   mocks.prisma.user.delete.mockResolvedValue({});
   mocks.prisma.user.create.mockResolvedValue({ id: "ny-bruker", email: "ny@firma.no" });
@@ -170,6 +174,7 @@ describe("changeRole", () => {
         departmentId: "dep-a",
         permissions: [],
         permissionsCustomized: false,
+        sessionVersion: { increment: 1 },
       },
     });
   });

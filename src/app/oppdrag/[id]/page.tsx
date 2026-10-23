@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { audit } from "@/lib/audit";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TagSelector from "@/components/TagSelector";
 import AuditLogTable from "@/components/AuditLogTable";
@@ -18,7 +20,23 @@ import {
   staffForDepartment,
   workOrderScope,
 } from "@/lib/access";
+import {
+  reportUnlockSchema,
+  workOrderStatusSchema,
+  workOrderTemplateSchema,
+} from "@/lib/schemas";
+import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 import { deleteWorkOrder } from "./actions";
+
+const auditActor = (user?: {
+  id: string;
+  name: string | null;
+  email: string | null;
+} | null) => ({
+  id: user?.id ?? "",
+  name: user?.name ?? null,
+  email: user?.email ?? null,
+});
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -345,13 +363,27 @@ export default async function AdminWorkOrderPage({
 
   async function setTemplate(formData: FormData) {
     "use server";
-    if (!(await requireWorkOrderAccess("workorders.edit", workOrderId))) return;
-    const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
-    if (!templateId) return;
+    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
+    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
+    const parsed = workOrderTemplateSchema.safeParse({
+      templateId: cleanText(formData.get("templateId"), { maxLength: LIMITS.line }),
+    });
+    if (!parsed.success) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
+    const templateId = parsed.data.templateId;
 
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: { templates: { connect: { id: templateId } } }
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: { templates: { connect: { id: templateId } } }
+      });
+      // Sjekklisten er en del av oppdraget, så hendelsen følger oppdragets id.
+      await audit(tx, {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: "La til en sjekkliste på oppdraget",
+        actor: auditActor(access.user),
+        metadata: { templateId },
+      });
     });
     revalidatePath(`/oppdrag/${workOrderId}`);
   }
@@ -359,7 +391,9 @@ export default async function AdminWorkOrderPage({
   async function setContact(formData: FormData) {
     "use server";
     const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
-    if (!access || !hasPermission(access.user, "customers.manage")) return;
+    if (!access || !hasPermission(access.user, "customers.manage")) {
+      redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
+    }
 
     const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
 
@@ -367,22 +401,24 @@ export default async function AdminWorkOrderPage({
     if (contactId) {
       // Kontaktpersonen må tilhøre kunden oppdraget gjelder.
       const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-      if (!contact || contact.customerId !== customerId) return;
+      if (!contact || contact.customerId !== customerId) {
+        redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
+      }
       contactName = contact.name;
     }
 
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: { contactId: contactId || null }
-    });
-
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: { contactId: contactId || null }
+      });
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: contactName ? `Valgte kontaktperson: ${contactName}` : "Fjernet kontaktpersonen fra oppdraget",
-        userName: user?.name || "Kontor"
-      }
+        actor: auditActor(access.user),
+        metadata: contactId ? { contactId } : undefined,
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -391,39 +427,42 @@ export default async function AdminWorkOrderPage({
   async function addContactToCustomer(formData: FormData) {
     "use server";
     const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
-    if (!access || !hasPermission(access.user, "customers.manage")) return;
-    if (!customerId) return;
+    if (!access || !hasPermission(access.user, "customers.manage")) {
+      redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
+    }
+    if (!customerId) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
 
     const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
     const email = cleanEmail(formData.get("email"));
     const phone = cleanPhone(formData.get("phone"));
     const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
 
-    if (!name) return;
+    if (!name) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
 
-    const contact = await prisma.contact.create({
-      data: {
-        name,
-        email: email || null,
-        phone: phone || null,
-        role: role || null,
-        customerId
-      }
-    });
+    await prisma.$transaction(async (tx) => {
+      const contact = await tx.contact.create({
+        data: {
+          name,
+          email: email || null,
+          phone: phone || null,
+          role: role || null,
+          customerId
+        }
+      });
 
-    // Den nye kontaktpersonen blir valgt på oppdraget med en gang.
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: { contactId: contact.id }
-    });
+      // Den nye kontaktpersonen blir valgt på oppdraget med en gang.
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: { contactId: contact.id }
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `La til kontaktperson: ${name}`,
-        userName: user?.name || "Kontor"
-      }
+        actor: auditActor(access.user),
+        metadata: { contactId: contact.id, customerId },
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -433,29 +472,29 @@ export default async function AdminWorkOrderPage({
   async function assignTechnician(formData: FormData) {
     "use server";
     const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
-    if (!access) return;
+    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
 
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-    if (!technicianId) return;
+    if (!technicianId) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
 
     // Bare ansatte i oppdragets avdeling kan tildeles.
     const target = await prisma.user.findFirst({
       where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
     });
-    if (!target) return;
+    if (!target) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
 
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: { technicians: { connect: { id: technicianId } } }
-    });
-
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: { technicians: { connect: { id: technicianId } } }
+      });
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `La til ${target.name} som montør`,
-        userName: user?.name || "Kontor"
-      }
+        actor: auditActor(access.user),
+        metadata: { technicianId },
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -464,28 +503,28 @@ export default async function AdminWorkOrderPage({
   async function unassignTechnician(formData: FormData) {
     "use server";
     const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
-    if (!access) return;
+    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
 
     const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-    if (!technicianId) return;
+    if (!technicianId) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
 
     const target = await prisma.user.findFirst({
       where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
     });
-    if (!target) return;
+    if (!target) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
 
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: { technicians: { disconnect: { id: technicianId } } }
-    });
-
-    await prisma.auditLog.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: { technicians: { disconnect: { id: technicianId } } }
+      });
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
-        action: `Fjernet ${target?.name || 'montør'} fra oppdraget`,
-        userName: user?.name || "Kontor"
-      }
+        action: `Fjernet ${target.name || 'montør'} fra oppdraget`,
+        actor: auditActor(access.user),
+        metadata: { technicianId },
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -494,59 +533,61 @@ export default async function AdminWorkOrderPage({
   async function updateStatus(formData: FormData) {
     "use server";
     const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) return;
-    const status = cleanStatus(formData.get("status"));
-    if (!status) return;
+    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
+    const parsed = workOrderStatusSchema.safeParse({
+      status: cleanStatus(formData.get("status")),
+    });
+    if (!parsed.success) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
+    const status = parsed.data.status as WorkStatus;
 
     // Kansellering er en kontorhandling og krever workorders.edit. Montører
     // kan oppdatere fremdrift, men ikke lukke oppdraget slik at det forsvinner.
     if (status === "CANCELLED" && !hasPermission(access.user, "workorders.edit")) {
-      return;
+      redirect(`/oppdrag/${workOrderId}?error=ugyldig-status`);
     }
 
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: { status }
+    const result = await transitionWorkOrderStatus({
+      workOrderId,
+      from: access.workOrder.status as WorkStatus,
+      to: status,
+      isAdmin: access.user.role === "ADMIN",
+      actor: auditActor(access.user),
+      action: `${access.user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`,
     });
-
-    await prisma.auditLog.create({
-      data: {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `${access.user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`,
-        userName: access.user.name || access.user.email || "Ukjent"
-      }
-    });
+    if (!result.ok) {
+      redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
+    }
     revalidatePath(`/oppdrag/${workOrderId}`);
   }
 
   async function setTags(formData: FormData) {
     "use server";
-    if (!(await requireWorkOrderAccess("workorders.edit", workOrderId))) return;
+    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
+    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
     const tagNames = formData.getAll("tags")
       .map(t => cleanText(t, { maxLength: LIMITS.short }))
       .filter(Boolean);
 
-    await prisma.workOrder.update({
-      where: { id: workOrderId },
-      data: {
-        tags: {
-          set: [],
-          connectOrCreate: tagNames.map(name => ({
-            where: { name },
-            create: { name }
-          }))
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: {
+          tags: {
+            set: [],
+            connectOrCreate: tagNames.map(name => ({
+              where: { name },
+              create: { name }
+            }))
+          }
         }
-      }
-    });
-
-    await prisma.auditLog.create({
-      data: {
+      });
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: `Oppdaterte tags: ${tagNames.join(", ") || "(ingen)"}`,
-        userName: user?.name || "Kontor"
-      }
+        actor: auditActor(access.user),
+        metadata: { tags: tagNames },
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -555,41 +596,42 @@ export default async function AdminWorkOrderPage({
   async function setReportLock(formData: FormData) {
     "use server";
     // Bare administratorer kan låse opp en signert rapport igjen.
-    if (!(await requireAdmin())) return;
+    if (!(await requireAdmin())) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
 
-    const reportId = cleanText(formData.get("reportId"), { maxLength: LIMITS.line });
-    const shouldLock = formData.get("lock") === "1";
-    if (!reportId) return;
+    const parsed = reportUnlockSchema.safeParse({
+      reportId: cleanText(formData.get("reportId"), { maxLength: LIMITS.line }),
+      lock: formData.get("lock"),
+    });
+    if (!parsed.success) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
+    const { reportId, lock: shouldLock } = parsed.data;
 
     const report = await prisma.report.findFirst({
       where: { id: reportId, workOrderId },
+      select: { id: true },
     });
-    if (!report) return;
+    if (!report) redirect(`/oppdrag/${workOrderId}?error=ikke-funnet`);
 
     const actor = await getCurrentUser();
-    if (!actor) return;
+    if (!actor) redirect("/api/auth/signin");
 
-    if (shouldLock) {
-      await prisma.report.update({
+    const lockedUntil = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.report.update({
         where: { id: reportId },
-        data: { isLocked: true, lockedAt: new Date(), lockedByName: actor.name || actor.email },
+        data: shouldLock
+          ? { isLocked: true, lockedAt: lockedUntil, lockedByName: actor.name || actor.email }
+          : { isLocked: false, lockedAt: null, lockedByName: null },
       });
-    } else {
-      await prisma.report.update({
-        where: { id: reportId },
-        data: { isLocked: false, lockedAt: null, lockedByName: null },
-      });
-    }
-
-    await prisma.auditLog.create({
-      data: {
+      // Rapporten hører til oppdraget, så hendelsen følger oppdragets id.
+      await audit(tx, {
         entityType: "WorkOrder",
         entityId: workOrderId,
         action: shouldLock
           ? "Låste rapporten igjen"
           : "Låste opp rapporten slik at den kan rettes (sporbarhet: endringer logges)",
-        userName: actor.name || actor.email || "Administrator",
-      },
+        actor: auditActor(actor),
+        metadata: { reportId },
+      });
     });
 
     revalidatePath(`/oppdrag/${workOrderId}`);
@@ -670,6 +712,19 @@ export default async function AdminWorkOrderPage({
         {error === "locked" && (
           <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 rounded-2xl px-5 py-4 text-sm font-bold">
             🔒 Rapporten er låst og kan ikke endres. En administrator må låse den opp først.
+          </div>
+        )}
+
+        {error === "ugyldig-status" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand.
+            Fullførte eller kansellerte oppdrag kan bare gjenåpnes av en administrator.
+          </div>
+        )}
+
+        {error && !["locked", "ugyldig-status"].includes(error) && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.
           </div>
         )}
 
