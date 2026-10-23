@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 describe("searchDocuments", () => {
-  it("bruker fulltekstfunksjonene og leser ikke contentText/pageTexts", async () => {
+  it("bruker fulltekstfunksjonene og returnerer bare et utdrag", async () => {
     await searchDocuments("pumpe", 10);
     const sql = lastSql();
 
@@ -35,7 +35,11 @@ describe("searchDocuments", () => {
     expect(sql.text).toContain("ts_rank(");
     expect(sql.text).toContain("ts_headline(");
     expect(sql.text).toContain('"searchTsv"');
-    expect(sql.text).not.toContain("contentText");
+    // contentText kan brukes inne i ts_headline for å lage utdraget, men skal
+    // ikke være en kolonne som returneres til Node.
+    expect(sql.text).toMatch(
+      /SELECT\s+d\."id",\s+d\."title",\s+d\."description",\s+d\."fileName",\s+d\."filePath",\s+ts_headline/,
+    );
     expect(sql.text).not.toContain("pageTexts");
   });
 

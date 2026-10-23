@@ -80,7 +80,11 @@ export async function searchDocuments(
       d."filePath",
       ts_headline(
         'norwegian',
-        coalesce(d."title", '') || ' ' || coalesce(d."description", ''),
+        -- contentText leses av PostgreSQL for å lage utdraget, men sendes
+        -- aldri til Node. Det holder minnebruken borte fra app-prosessen.
+        coalesce(d."title", '') || ' ' ||
+        coalesce(d."description", '') || ' ' ||
+        coalesce(d."contentText", ''),
         q.tsq,
         'MaxFragments=2,MaxWords=18,MinWords=5'
       ) AS "snippet"

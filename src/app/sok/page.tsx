@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { performSearch, type SearchResults } from "@/lib/search";
 import { getCurrentUser } from "@/lib/session";
-import { allowRequest } from "@/lib/rate-limit";
+import { allowRequestDb } from "@/lib/rate-limit-db";
 
 export default async function SearchResultsPage({
   searchParams,
@@ -19,7 +19,7 @@ export default async function SearchResultsPage({
   // Samme nøkkel og grense som /api/search, slik at hurtigsøket og
   // resultatsiden deler kvoten. Tomme søk teller ikke.
   const searchLimit = query.length >= 2
-    ? allowRequest(`search:${user.id}`, 120, 60_000)
+    ? await allowRequestDb(`search:${user.id}`, 60, 60_000)
     : { allowed: true, retryAfterSeconds: 0 };
   const rateLimited = !searchLimit.allowed;
 
