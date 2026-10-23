@@ -11,7 +11,7 @@ import {
   readPendingTwoFactor,
   setPendingTwoFactor,
 } from "@/lib/session-token";
-import { checkLoginRateLimit, clearLoginFailures, recordLoginFailure } from "@/lib/rate-limit";
+import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 
 /**
  * Godtar både relative stier ("/kunder") og absolutte URL-er
@@ -106,8 +106,8 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
     redirect(fail("TwoFactorExpired"));
   }
 
-  const keys = [`2fa:${userId}`];
-  const limit = checkLoginRateLimit(keys);
+  const rateLimitKey = `2fa:${userId}`;
+  const limit = await allowRequestDb(rateLimitKey, 5, 15 * 60_000);
   if (!limit.allowed) {
     redirect(fail("TooManyAttempts"));
   }
@@ -132,11 +132,10 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
   }
 
   if (!verifyTotp(user.twoFactorSecret, code)) {
-    recordLoginFailure(keys[0], 5);
     redirect(fail("InvalidTwoFactor"));
   }
 
-  clearLoginFailures(keys);
+  await resetRateLimitDb(rateLimitKey);
   await clearPendingTwoFactor();
   await createSessionCookie({
     id: user.id,

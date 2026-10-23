@@ -1,10 +1,6 @@
 import bcrypt from "bcrypt";
 import prisma from "@/lib/prisma";
-import {
-  checkLoginRateLimit,
-  clearLoginFailures,
-  recordLoginFailure,
-} from "@/lib/rate-limit";
+import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 
 export type CredentialUser = {
   id: string;
@@ -43,37 +39,34 @@ export async function verifyCredentials(
 ): Promise<CredentialResult> {
   const keys = rateLimitKeys(email, ip);
 
-  // Sperren sjekkes før vi slår opp brukeren, slik at gjetting ikke koster en
-  // bcrypt-sammenligning per forsøk.
-  const limit = checkLoginRateLimit(keys);
-  if (!limit.allowed) {
-    return { status: "locked", retryAfterSeconds: limit.retryAfterSeconds };
+  // Sperren ligger i databasen, slik at den gjelder på tvers av instanser.
+  // Den sjekkes før brukeroppslaget, så gjetting ikke koster en bcrypt-runde.
+  const emailLimit = await allowRequestDb(keys[0], EMAIL_FAILURE_LIMIT, 15 * 60_000);
+  const ipLimit = ip
+    ? await allowRequestDb(keys[1], IP_FAILURE_LIMIT, 15 * 60_000)
+    : { allowed: true, retryAfterSeconds: 0 };
+  if (!emailLimit.allowed || !ipLimit.allowed) {
+    return {
+      status: "locked",
+      retryAfterSeconds: Math.max(
+        emailLimit.retryAfterSeconds,
+        ipLimit.retryAfterSeconds,
+      ),
+    };
   }
 
   if (!email || !password) return { status: "invalid" };
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user?.password) {
-    recordLoginFailure(keys[0], EMAIL_FAILURE_LIMIT);
-    if (ip) recordLoginFailure(keys[1], IP_FAILURE_LIMIT);
-    return { status: "invalid" };
-  }
+  if (!user?.password) return { status: "invalid" };
 
   const passwordMatches = await bcrypt.compare(password, user.password);
-  if (!passwordMatches) {
-    recordLoginFailure(keys[0], EMAIL_FAILURE_LIMIT);
-    if (ip) recordLoginFailure(keys[1], IP_FAILURE_LIMIT);
-    return { status: "invalid" };
-  }
+  if (!passwordMatches) return { status: "invalid" };
 
   // Kontoen må være manuelt aktivert av en administrator.
-  if (!user.isActive) {
-    recordLoginFailure(keys[0], EMAIL_FAILURE_LIMIT);
-    if (ip) recordLoginFailure(keys[1], IP_FAILURE_LIMIT);
-    return { status: "inactive" };
-  }
+  if (!user.isActive) return { status: "inactive" };
 
-  clearLoginFailures(keys);
+  await resetRateLimitDb(...keys);
 
   return {
     status: "ok",

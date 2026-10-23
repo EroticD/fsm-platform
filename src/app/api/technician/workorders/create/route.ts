@@ -4,8 +4,16 @@ import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { parseDateOnly } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { assertSameOrigin } from "@/lib/origin";
 
 export async function POST(request: Request) {
+  if (!assertSameOrigin(request)) {
+    return NextResponse.redirect(
+      new URL("/mine-oppdrag/ny?error=origin", request.url),
+      { status: 303 },
+    );
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.redirect(new URL("/api/auth/signin", request.url));

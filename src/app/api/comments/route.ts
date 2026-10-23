@@ -7,11 +7,16 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { allowRequest } from "@/lib/rate-limit";
+import { assertSameOrigin } from "@/lib/origin";
 
 /** Kommentarer kan festes til disse tre tingene – og ikke noe annet. */
 const ENTITY_TYPES = ["workOrder", "customer", "contact"] as const;
 
 export async function POST(request: Request) {
+  if (!assertSameOrigin(request)) {
+    return NextResponse.json({ error: "Ugyldig origin" }, { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 });

@@ -1,18 +1,35 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
+import { allowRequestDb } from "@/lib/rate-limit-db";
 
-export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string }> }) {
+export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const resolvedParams = await searchParams;
   const isSuccess = resolvedParams.success === "true";
+  const isRateLimited = resolvedParams.error === "rate";
 
   async function requestReset(formData: FormData) {
     "use server";
     const email = formData.get("email") as string;
     if (!email) return;
+
+    const requestHeaders = await headers();
+    const ip =
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      requestHeaders.get("x-real-ip") ||
+      "ukjent";
+    const normalizedEmail = email.trim().toLowerCase();
+    const [emailLimit, ipLimit] = await Promise.all([
+      allowRequestDb(`reset:email:${normalizedEmail}`, 5, 15 * 60_000),
+      allowRequestDb(`reset:ip:${ip}`, 10, 15 * 60_000),
+    ]);
+    if (!emailLimit.allowed || !ipLimit.allowed) {
+      redirect("/glemt-passord?error=rate");
+    }
 
     // Sjekker om brukeren finnes
     const user = await prisma.user.findUnique({ where: { email } });
@@ -69,6 +86,12 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
         
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Glemt passord?</h1>
         
+        {isRateLimited && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl mt-4 text-sm">
+            For mange forsøk. Vent 15 minutter før du prøver igjen.
+          </div>
+        )}
+
         {isSuccess ? (
           <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl mt-4">
             <p className="font-bold mb-1">E-post sendt!</p>

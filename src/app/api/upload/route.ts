@@ -7,9 +7,14 @@ import { LIMITS, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
-import { allowRequest } from "@/lib/rate-limit";
+import { allowRequestDb } from "@/lib/rate-limit-db";
+import { assertSameOrigin } from "@/lib/origin";
 
 export async function POST(request: Request) {
+  if (!assertSameOrigin(request)) {
+    return new Response(JSON.stringify({ error: "Ugyldig origin" }), { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user?.isActive) {
     return new Response(JSON.stringify({ error: "Ikke autentisert" }), { status: 401 });
@@ -22,14 +27,15 @@ export async function POST(request: Request) {
     hasPermission(user, "workorders.update") ||
     hasPermission(user, "reports.write") ||
     hasPermission(user, "documents.manage") ||
-    hasPermission(user, "equipment.manage");
+    hasPermission(user, "equipment.manage") ||
+    hasPermission(user, "settings.manage");
 
   if (!canUpload) {
     return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
   }
 
   // Maks 30 opplastinger per minutt per konto.
-  const limit = allowRequest(`upload:${user.id}`, 30, 60_000);
+  const limit = await allowRequestDb(`upload:minute:${user.id}`, 30, 60_000);
   if (!limit.allowed) {
     return new Response(
       JSON.stringify({
@@ -52,7 +58,7 @@ export async function POST(request: Request) {
     const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
     const purpose = cleanText(formData.get("purpose"), { maxLength: LIMITS.short });
 
-    let ownerType: "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" = "USER";
+    let ownerType: "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING" = "USER";
     let ownerId: string | null = user.id;
     let departmentId: string | null = user.departmentId ?? null;
     let ownerCustomerId: string | null = user.customerId ?? null;
@@ -96,6 +102,15 @@ export async function POST(request: Request) {
       }
       ownerType = "DOCUMENT";
       ownerId = null;
+    } else if (purpose === "branding") {
+      // Logo vises for alle innloggede, også kundeportalen.
+      if (!hasPermission(user, "settings.manage")) {
+        return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+      }
+      ownerType = "BRANDING";
+      ownerId = null;
+      departmentId = null;
+      ownerCustomerId = null;
     }
 
     // Valider filtype (bare bilder og PDF). Endelsen utledes av typen, ikke av
@@ -117,6 +132,21 @@ export async function POST(request: Request) {
     const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
       return new Response(JSON.stringify({ error: "Filen er for stor (maks 100MB)" }), { status: 400 });
+    }
+
+    // Daglig lagringskvote per bruker (2 GiB de siste 24 timene). Hindrer at en
+    // kompromittert konto fyller opplastingsvolumet.
+    const dailyQuota = 2 * 1024 * 1024 * 1024;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const used = await prisma.upload.aggregate({
+      where: { uploadedById: user.id, createdAt: { gte: since } },
+      _sum: { size: true },
+    });
+    if ((used._sum.size ?? 0) + file.size > dailyQuota) {
+      return new Response(
+        JSON.stringify({ error: "Daglig lagringskvote er nådd. Prøv igjen senere." }),
+        { status: 429 },
+      );
     }
 
     // Komprimer bilder før de skrives til disk. Feltbilder kan være store;

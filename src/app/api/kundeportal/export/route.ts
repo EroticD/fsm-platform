@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-
-function csvCell(value: unknown): string {
-  const s = value == null ? "" : String(value);
-  return `"${s.replace(/"/g, '""')}"`;
-}
+import { csvCell } from "@/lib/csv";
 
 /**
  * Eksporterer kundens egne oppdrag som CSV. Bare kundeportalbrukere med en
