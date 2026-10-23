@@ -105,12 +105,16 @@ model User {
 
   @@index([departmentId])
   @@index([role])
+  @@index([resetToken])
+  @@index([customerId])
 }
 
 model Customer {
   id             String  @id @default(cuid())
   name           String
   customerNumber String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
   orgNumber      String?
   brandColor     String?
   logoUrl        String?
@@ -145,6 +149,10 @@ model Customer {
 
   @@index([email])
   @@index([orgNumber])
+  @@index([name])
+  @@index([customerNumber])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_name_trgm")
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_city_trgm")
 }
 
 model Contact {
@@ -161,6 +169,8 @@ model Contact {
   comments  Comment[]
   users     User[]
   contracts Contract[]
+
+  @@index([customerId])
 }
 
 // En enhet er en maskin/utstyr som står hos kunden, f.eks. en port, en pumpe
@@ -177,6 +187,8 @@ model Product {
   reportUnits ReportUnit[]
 
   @@index([customerId])
+  @@index([customerId, serialNumber])
+  @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm")
 }
 
 // En serviceavtale beskriver en gjentagende service for en kunde. Hver gang
@@ -188,9 +200,9 @@ model Contract {
   title           String
   /// Intervall i måneder. Bare 3, 6, 12 og 24 er gyldige.
   intervalMonths  Int
-  startDate       DateTime
+  startDate       DateTime @db.Date
   /// Neste dato det skal opprettes et oppdrag for.
-  nextServiceDate DateTime
+  nextServiceDate DateTime @db.Date
   isActive        Boolean  @default(true)
 
   customerId String
@@ -214,6 +226,7 @@ model Contract {
   @@index([customerId])
   @@index([departmentId])
   @@index([nextServiceDate])
+  @@index([isActive, nextServiceDate])
 }
 
 model CustomerAttachment {
@@ -242,11 +255,13 @@ model WorkOrder {
   id           String     @id @default(cuid())
   title        String
   description  String?
-  scheduledFor DateTime?
+  scheduledFor DateTime? @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
-  scheduledTo  DateTime?
+  scheduledTo  DateTime? @db.Date
   status       WorkStatus @default(PLANNED)
   creatorName  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
 
   technicians User[] @relation("WorkOrderTechnicians")
 
@@ -280,6 +295,12 @@ model WorkOrder {
   @@index([status])
   @@index([scheduledFor])
   @@index([contractId])
+  @@index([scheduledTo])
+
+  // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
+  @@unique([contractId, scheduledFor])
+  @@index([departmentId, status, scheduledFor])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
 }
 
 model Tag {
@@ -321,6 +342,10 @@ model Document {
   contentText String?
   pageTexts   String?
 
+  // PostgreSQL-generert tsvector for fulltekst-søk. Prisma kan ikke uttrykke
+  // GENERATED-kolonnen, så den opprettes i migreringen.
+  searchTsv Unsupported("tsvector")?
+
   folderId String?
   folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
@@ -334,6 +359,7 @@ model Document {
 
   @@index([folderId])
   @@index([title])
+  @@index([searchTsv], type: Gin, map: "Document_searchTsv")
 }
 
 // Tidligere filversjoner av et dokument. Når filen byttes ut, beholdes den
@@ -388,10 +414,18 @@ model Report {
   lockedAt     DateTime?
   lockedByName String?
 
+  // Cache for generert PDF. pdfHash beskriver innholdet PDF-en ble laget fra,
+  // slik at den kan brukes på nytt til rapporten endres.
+  pdfUrl         String?
+  pdfHash        String?
+  pdfGeneratedAt DateTime?
+
   units ReportUnit[]
 
   @@unique([workOrderId, templateId])
   @@index([workOrderId])
+  @@index([completedAt])
+  @@index([workOrderId, createdAt])
 }
 
 // Én enhet som inngår i en rapport. Feltene er øyeblikksbilder av enheten slik
@@ -486,16 +520,54 @@ model Upload {
   @@index([uploadedById])
 }
 
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+// Vedvarende jobbkø for PDF-tekst og OCR. Erstatter den in-memory køen, slik
+// at jobber overlever restart og kan kjøres av flere instanser.
+model DocumentJob {
+  id         String    @id @default(cuid())
+  documentId String?
+  /// PDF_TEXT | PDF_OCR
+  type       String
+  status     JobStatus @default(PENDING)
+  attempts   Int       @default(0)
+  runAt      DateTime  @default(now())
+  lockedAt   DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, runAt])
+}
+
+// Delt teller for rate limiting. Erstatter in-memory-telleren der flere
+// instanser må se samme grense (innlogging, passordnullstilling, PDF, søk).
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   entityType String
   entityId   String
   action     String
   userName   String
+  actorId    String?
+  metadata   Json?
   createdAt  DateTime @default(now())
 
   @@index([entityType])
   @@index([entityId])
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
 }
 
 model Branding {
