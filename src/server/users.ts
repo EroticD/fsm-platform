@@ -283,8 +283,11 @@ export async function changeRole(
   if (!canAssignRole(actor, newRole)) return fail("forbidden");
 
   // Kundeportalbrukere gir tilgang til kundedata og krever customers.manage.
-  if (newRole.key === "CUSTOMER" && !can(actor, "customers.manage")) {
-    return fail("forbidden");
+  if (newRole.key === "CUSTOMER") {
+    if (!can(actor, "customers.manage")) return fail("forbidden");
+    // En kundeportalbruker uten kundetilknytning må aldri oppstå: da ville
+    // PDF-tilgangen kunne matche oppdrag uten kunde (`null === null`).
+    if (!userToUpdate.customerId) return fail("forbidden");
   }
 
   // Avdelingsansvarlige kan bare endre brukere i egen avdeling.

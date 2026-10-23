@@ -60,7 +60,34 @@ async function resolveSignature(
   const accepted = acceptedSignature(value);
   if (!accepted) return fallback ?? null;
   if (accepted.startsWith("data:")) return storeDataImage(accepted, ctx);
-  return accepted;
+
+  // En allerede lagret URL må tilhøre dette oppdraget, eller være en privat
+  // opplasting fra samme bruker. Ellers kunne en klient aliaset inn en fil fra
+  // et annet oppdrag/kunde i en signert rapport.
+  const storedName = accepted.slice("/uploads/".length);
+  const upload = await prisma.upload.findUnique({
+    where: { storedName },
+    select: { ownerType: true, ownerId: true, uploadedById: true },
+  });
+  if (!upload) return fallback ?? null;
+
+  if (upload.ownerType === "WORK_ORDER" && upload.ownerId === ctx.ownerId) {
+    return accepted;
+  }
+  if (upload.ownerType === "USER" && upload.uploadedById === ctx.uploadedById) {
+    await prisma.upload.update({
+      where: { storedName },
+      data: {
+        ownerType: "WORK_ORDER",
+        ownerId: ctx.ownerId,
+        departmentId: ctx.departmentId,
+        customerId: ctx.customerId,
+      },
+    });
+    return accepted;
+  }
+
+  return fallback ?? null;
 }
 
 type TemplateField = {
@@ -141,6 +168,85 @@ function readAnswers(formData: FormData, fields: TemplateField[], key: string) {
   }
 
   return answers;
+}
+
+/**
+ * Fjerner bilde-URL-er som ikke tilhører dette oppdraget (eller er en privat
+ * opplasting fra samme bruker). Uten dette kan en klient legge inn en
+ * `/uploads/...`-adresse fra en annen kunde i et bildefelt, og få filen vist i
+ * rapporten og PDF-en.
+ */
+async function filterOwnedImageAnswers(
+  unitRows: Array<{ answersJson: string }>,
+  ctx: {
+    ownerId: string;
+    departmentId: string;
+    customerId: string | null;
+    uploadedById: string;
+  },
+): Promise<void> {
+  const names = new Set<string>();
+  for (const row of unitRows) {
+    try {
+      const answers = JSON.parse(row.answersJson) as Record<string, unknown>;
+      for (const value of Object.values(answers)) {
+        if (typeof value !== "string") continue;
+        for (const url of parseImageUrls(value)) {
+          if (url.startsWith("/uploads/")) {
+            names.add(url.slice("/uploads/".length));
+          }
+        }
+      }
+    } catch {}
+  }
+  if (names.size === 0) return;
+
+  const uploads = await prisma.upload.findMany({
+    where: { storedName: { in: [...names] } },
+    select: { storedName: true, ownerType: true, ownerId: true, uploadedById: true },
+  });
+  const byName = new Map(uploads.map((upload) => [upload.storedName, upload]));
+
+  const allowed = new Set<string>();
+  for (const name of names) {
+    const upload = byName.get(name);
+    if (!upload) continue;
+
+    if (upload.ownerType === "WORK_ORDER" && upload.ownerId === ctx.ownerId) {
+      allowed.add(`/uploads/${name}`);
+      continue;
+    }
+    if (upload.ownerType === "USER" && upload.uploadedById === ctx.uploadedById) {
+      await prisma.upload.update({
+        where: { storedName: name },
+        data: {
+          ownerType: "WORK_ORDER",
+          ownerId: ctx.ownerId,
+          departmentId: ctx.departmentId,
+          customerId: ctx.customerId,
+        },
+      });
+      allowed.add(`/uploads/${name}`);
+    }
+  }
+
+  for (const row of unitRows) {
+    try {
+      const answers = JSON.parse(row.answersJson) as Record<string, unknown>;
+      let changed = false;
+      for (const [key, value] of Object.entries(answers)) {
+        if (typeof value !== "string") continue;
+        const urls = parseImageUrls(value);
+        if (urls.length === 0) continue;
+        const filtered = urls.filter((url) => allowed.has(url));
+        if (filtered.length !== urls.length) {
+          answers[key] = JSON.stringify(filtered);
+          changed = true;
+        }
+      }
+      if (changed) row.answersJson = JSON.stringify(answers);
+    } catch {}
+  }
 }
 
 /**
@@ -409,6 +515,15 @@ export async function submitReport(
     });
   }
 
+  // Bildefeltene kan inneholde URL-er fra andre oppdrag/kunder. Fjern dem før
+  // rapporten lagres, slik at PDF-en ikke lekker filer brukeren ikke eier.
+  await filterOwnedImageAnswers(unitRows, {
+    ownerId: workOrderId,
+    departmentId: workOrder.departmentId,
+    customerId: workOrder.customerId,
+    uploadedById: user.id,
+  });
+
   const text = (name: string) =>
     cleanText(formData.get(name), { maxLength: LIMITS.title }) || null;
 
@@ -504,6 +619,19 @@ export async function submitReport(
 
       let reportId: string;
       if (current) {
+        // Krev at rapporten fortsatt er ulåst i selve UPDATE-en. To samtidige
+        // innsendinger kan ellers begge lese isLocked=false og overskrive
+        // hverandre; den som taper, får count=0 og behandles som låst.
+        const claimed = await tx.report.updateMany({
+          where: { id: current.id, isLocked: false },
+          data: {
+            isLocked: true,
+            lockedAt: now,
+            lockedByName: user.name || user.email,
+          },
+        });
+        if (claimed.count === 0) return { locked: true } as const;
+
         await tx.report.update({
           where: { id: current.id },
           data: {
@@ -647,7 +775,6 @@ export type ReportPdfResult =
 export async function getReportPdfForViewer(
   viewer: Actor,
   workOrderId: string,
-  requestUrl: string,
 ): Promise<ReportPdfResult> {
   if (!viewer?.isActive) {
     return { ok: false, status: 403, message: "Ingen tilgang" };
@@ -667,8 +794,12 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 404, message: "Fant ikke oppdraget" };
   }
 
-  if (viewer.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
-    return { ok: false, status: 403, message: "Ingen tilgang" };
+  // En kundeportalbruker uten kundetilknytning må aldri få tilgang til et
+  // oppdrag uten kunde: `null !== null` ville ellers gitt treff.
+  if (viewer.role === "CUSTOMER") {
+    if (!viewer.customerId || workOrder.customerId !== viewer.customerId) {
+      return { ok: false, status: 403, message: "Ingen tilgang" };
+    }
   }
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false, status: 403, message: "Ingen tilgang" };
@@ -679,13 +810,9 @@ export async function getReportPdfForViewer(
   }
 
   // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
-  // Vi bruker den konfigurerte adressen, ikke X-Forwarded-Host, som klienten
-  // selv kan sette. Bare når appen ikke har noen adresse konfigurert, faller
-  // vi tilbake til adressen forespørselen kom inn på.
-  const baseUrl =
-    process.env.APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    new URL(requestUrl).origin;
+  // Bare konfigurert adresse brukes – aldri Host/X-Forwarded-Host, som en
+  // klient kan sette for å styre PDF-motoren mot en annen origin.
+  const baseUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL;
 
   const pdf = await (
     await import("@/lib/report-pdf-store")

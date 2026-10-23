@@ -413,4 +413,18 @@ describe("brukertjenesten – kundetilknytning på ansatte", () => {
       }),
     });
   });
+
+  it("lar ikke en intern bruker bli kunde uten kundetilknytning", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "TECHNICIAN", customerId: null }),
+    );
+
+    const result = await changeRole(office(), {
+      id: "target",
+      role: "CUSTOMER",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
 });

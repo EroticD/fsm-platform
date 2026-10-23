@@ -31,8 +31,10 @@ export default async function ReportViewerPage({ params }: { params: Promise<{ i
 
   // Kundeportalbrukere kan kun se rapporter som tilhører deres egen kundekonto.
   // Sjekkes før alt annet, slik at man ikke engang kan se at oppdraget finnes.
-  if (viewer?.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
-    redirect("/kundeportal");
+  if (viewer?.role === "CUSTOMER") {
+    if (!viewer.customerId || workOrder.customerId !== viewer.customerId) {
+      redirect("/kundeportal");
+    }
   }
   if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
     redirect("/");

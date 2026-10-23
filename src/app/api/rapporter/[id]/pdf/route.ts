@@ -30,7 +30,7 @@ export async function GET(
     );
   }
 
-  const result = await getReportPdfForViewer(viewer, id, request.url);
+  const result = await getReportPdfForViewer(viewer, id);
   if (!result.ok) {
     return new NextResponse(result.message, { status: result.status });
   }

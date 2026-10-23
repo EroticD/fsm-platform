@@ -3,10 +3,11 @@ import type { AccessUser } from "@/lib/access";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
-    workOrder: { findFirst: vi.fn() },
+    workOrder: { findFirst: vi.fn(), findUnique: vi.fn() },
     report: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
     reportDraft: { deleteMany: vi.fn(), upsert: vi.fn() },
     product: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+    upload: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -26,7 +27,12 @@ vi.mock("@/lib/upload-store", () => ({
   deleteUploadIfOwned: mocks.deleteUploadIfOwned,
 }));
 
-import { saveDraft, setReportLock, submitReport } from "./reports";
+import {
+  getReportPdfForViewer,
+  saveDraft,
+  setReportLock,
+  submitReport,
+} from "./reports";
 
 const template = {
   id: "tpl1",
@@ -83,6 +89,7 @@ function txClient(overrides: Record<string, unknown> = {}) {
   return {
     report: {
       findUnique: vi.fn(async () => null),
+      updateMany: vi.fn(async () => ({ count: 1 })),
       update: vi.fn(async () => ({})),
       create: vi.fn(async () => ({ id: "r1" })),
     },
@@ -275,5 +282,114 @@ describe("reports-tjenesten", () => {
         },
       }),
     );
+  });
+
+  it("avviser en samtidig innsending som taper låsekravet", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: null,
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () => ({ id: "r1", isLocked: false })),
+          updateMany: vi.fn(async () => ({ count: 0 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toEqual({ ok: false, error: "locked", returnTo: "/oppdrag/wo1" });
+    expect(tx.report.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser en signaturfil som tilhører et annet oppdrag", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: null,
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "WORK_ORDER",
+      ownerId: "annet-oppdrag",
+      uploadedById: "u1",
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () => ({ id: "r1", isLocked: false })),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+    const data = formData();
+    data.set("technicianSignature", "/uploads/fremmed.png");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ technicianSignatureUrl: null }),
+      }),
+    );
+  });
+});
+
+describe("getReportPdfForViewer", () => {
+  it("avviser CUSTOMER uten customerId selv om oppdraget mangler kunde", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      customerId: null,
+      status: "OPEN",
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "CUSTOMER", customerId: null }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it("avviser CUSTOMER som prøver å hente en annen kundes rapport", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      customerId: "kunde-2",
+      status: "OPEN",
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "CUSTOMER", customerId: "kunde-1" }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it("avviser montør på et kansellert oppdrag", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      customerId: "kunde-1",
+      status: "CANCELLED",
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1");
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
   });
 });
