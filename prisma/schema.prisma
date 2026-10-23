@@ -74,6 +74,10 @@ model User {
   // Konto må aktiveres manuelt av en administrator før innlogging er tillatt
   isActive Boolean @default(false)
 
+  // Økes når økten skal ugyldiggjøres (passordbytte, rolleendring, 2FA-endring).
+  // JWTs med eldre versjon avvises av getCurrentUser().
+  sessionVersion Int @default(0)
+
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 
@@ -368,6 +372,12 @@ model Report {
 
   templateId String?
   template   Template? @relation(fields: [templateId], references: [id])
+
+  // Øyeblikksbilde av malen da rapporten ble signert, slik at senere endringer
+  // i malen ikke endrer en allerede signert rapport.
+  templateTitle        String?
+  templateSnapshotJson String?
+
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -380,6 +390,7 @@ model Report {
 
   units ReportUnit[]
 
+  @@unique([workOrderId, templateId])
   @@index([workOrderId])
 }
 
@@ -450,6 +461,29 @@ model Attachment {
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
+}
+
+// Metadata for opplastede filer, slik at /uploads kan kreve tilgang per fil.
+// Selve filen ligger på disk med et tilfeldig navn (storedName).
+model Upload {
+  id           String   @id @default(cuid())
+  storedName   String   @unique
+  originalName String
+  mimeType     String
+  size         Int      @default(0)
+
+  // WORK_ORDER | CUSTOMER | DOCUMENT | USER
+  ownerType    String
+  ownerId      String?
+  departmentId String?
+  customerId   String?
+  uploadedById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([ownerType, ownerId])
+  @@index([departmentId])
+  @@index([uploadedById])
 }
 
 model AuditLog {
