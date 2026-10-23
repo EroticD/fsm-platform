@@ -41,7 +41,14 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Cache-first for statiske ressurser.
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icon-")) {
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icon-") ||
+    url.pathname.startsWith("/favicon") ||
+    url.pathname.startsWith("/android-chrome-") ||
+    url.pathname.startsWith("/apple-touch-icon") ||
+    url.pathname.startsWith("/maskable-")
+  ) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>

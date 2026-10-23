@@ -24,6 +24,15 @@ export const metadata: Metadata = {
   description: "Service- og vedlikeholdssystem for oppdrag, rapporter og utstyr",
   manifest: "/manifest.webmanifest",
   applicationName: "FSM",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -32,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#2563eb",
+  themeColor: "#0F2E4C",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
