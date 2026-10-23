@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { buildCsp, createNonce } from "@/lib/csp";
 
 // Stier som kundeportalbrukere (CUSTOMER) har lov til å bruke.
 // Alt annet sendes tilbake til kundeportalen.
@@ -29,6 +30,14 @@ function isAllowedForCustomer(pathname: string) {
 }
 
 export async function proxy(request: NextRequest) {
+  // Nonce per forespørsel. Next.js leser CSP-headeren og setter nonce på sine
+  // egne script-tagger, slik at inline-script fra appen selv fortsatt virker.
+  const nonce = createNonce();
+  const csp = buildCsp(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
@@ -38,11 +47,15 @@ export async function proxy(request: NextRequest) {
   if (token?.role === "CUSTOMER") {
     const { pathname } = request.nextUrl;
     if (!isAllowedForCustomer(pathname)) {
-      return NextResponse.redirect(new URL("/kundeportal", request.url));
+      const redirect = NextResponse.redirect(new URL("/kundeportal", request.url));
+      redirect.headers.set("Content-Security-Policy", csp);
+      return redirect;
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }
 
 export const config = {

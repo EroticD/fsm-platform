@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
 
+  // Ikke annonser at dette er Next.js.
+  poweredByHeader: false,
+
   // Middleware (proxy.ts) begrenser forespørselens body til 10 MB som standard.
   // Store PDF-filer overstiger dette, og da blir multipart-bodyen avkuttet før
   // den når opplastingsruten. Øker grensen så store dokumenter kommer gjennom.
@@ -57,10 +60,7 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains",
           },
-          {
-            key: "Content-Security-Policy",
-            value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
-          },
+          // CSP settes per forespørsel i proxy.ts (nonce), ikke her.
         ],
       },
     ];
