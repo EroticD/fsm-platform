@@ -1,13 +1,10 @@
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { getCurrentUser, requirePermission } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
 import MarkdownEditor from "@/components/MarkdownEditor";
-import { LIMITS, cleanEmail, cleanMarkdown, cleanPhone, cleanText } from "@/lib/sanitize";
-import { customerUpdateSchema } from "@/lib/schemas/customer";
+import { getCustomerEditOptions } from "@/server/customers";
+import { updateCustomerAction } from "../../actions";
 
 export default async function EditCustomerPage({ 
   params,
@@ -23,37 +20,12 @@ export default async function EditCustomerPage({
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-  });
-
   // Å redigere kundedata krever customers.manage. Montører får lese kundekortet.
   if (!hasPermission(session, "customers.manage")) redirect(`/kunder/${customerId}`);
 
-  const departments = await prisma.department.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-  });
-  const technicians = await prisma.user.findMany({
-    where: { isActive: true, role: { in: ["ADMIN", "OFFICE", "TECHNICIAN"] } },
-    orderBy: { name: "asc" },
-    take: 100,
-  });
-
-  // Den ansvarlige montøren må være med i listen selv om vedkommende faller
-  // utenfor det avgrensede utvalget.
-  const technicianOptions = [...technicians];
-  if (
-    customer?.responsibleTechnicianId &&
-    !technicianOptions.some((technician) => technician.id === customer.responsibleTechnicianId)
-  ) {
-    const currentTechnician = await prisma.user.findUnique({
-      where: { id: customer.responsibleTechnicianId },
-    });
-    if (currentTechnician) technicianOptions.unshift(currentTechnician);
-  }
-
-  if (!customer) {
+  const options = await getCustomerEditOptions(session, customerId);
+  if (!options.ok) {
+    if (options.reason === "forbidden") redirect(`/kunder/${customerId}`);
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Kunden finnes ikke</h1>
@@ -64,78 +36,8 @@ export default async function EditCustomerPage({
     );
   }
 
-  // --- SERVER ACTION: OPPRETT KUNDE ---
-  async function updateCustomer(formData: FormData) {
-    "use server";
-    if (!(await requirePermission("customers.manage"))) return;
-    const actor = await getCurrentUser();
-    if (!actor) return;
-
-    const parsed = customerUpdateSchema.safeParse({
-      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
-      customerNumber: cleanText(formData.get("customerNumber"), { maxLength: LIMITS.line }),
-      orgNumber: cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line }),
-      brandColor: cleanText(formData.get("brandColor"), { maxLength: 20 }),
-      address: cleanText(formData.get("address"), { maxLength: LIMITS.line }),
-      postalCode: cleanText(formData.get("postalCode"), { maxLength: 20 }),
-      city: cleanText(formData.get("city"), { maxLength: LIMITS.short }),
-      phone: cleanPhone(formData.get("phone")),
-      email: cleanEmail(formData.get("email")),
-      notes: cleanMarkdown(formData.get("notes")),
-      departmentId: cleanText(formData.get("departmentId"), { maxLength: LIMITS.line }),
-      responsibleTechnicianId: cleanText(formData.get("responsibleTechnicianId"), { maxLength: LIMITS.line }),
-    });
-    if (!parsed.success) {
-      redirect(`/kunder/${customerId}/rediger?error=ugyldig-data`);
-    }
-    const {
-      name,
-      customerNumber,
-      orgNumber,
-      brandColor,
-      address,
-      postalCode,
-      city,
-      phone,
-      email,
-      notes,
-      departmentId,
-      responsibleTechnicianId,
-    } = parsed.data;
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        await tx.customer.update({
-          where: { id: customerId },
-          data: {
-            name,
-            customerNumber: customerNumber || null,
-            orgNumber: orgNumber || null,
-            brandColor: brandColor || "#2563eb",
-            address: address || null,
-            postalCode: postalCode || null,
-            city: city || null,
-            phone: phone || null,
-            email: email || null,
-            notes: notes || null,
-            departmentId: departmentId || null,
-            responsibleTechnicianId: responsibleTechnicianId || null,
-          },
-        });
-        await audit(tx, {
-          entityType: "Customer",
-          entityId: customerId,
-          action: `Endret kundeinformasjon: ${name}`,
-          actor: { id: actor.id, name: actor.name, email: actor.email },
-        });
-      });
-      revalidatePath(`/kunder/${customerId}`);
-      revalidatePath("/kunder");
-    } catch (error) {
-      console.error("Feil ved oppdatering av kunde:", error);
-      redirect(`/kunder/${customerId}/rediger?error=ukjent`);
-    }
-  }
+  const { customer, departments, technicianOptions } = options.data;
+  const updateCustomer = updateCustomerAction.bind(null, customerId);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">

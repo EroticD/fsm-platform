@@ -11,6 +11,15 @@ const execFile = promisify(execFileCallback);
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 
 /**
+ * Bare filer i opplastingsmappen skal leses. Dokumentrader kan i prinsippet
+ * inneholde en hvilken som helst sti (eldre data eller en kompromittert rad),
+ * så tekstuttrekket validerer på nytt før det åpner filen. Alle interne
+ * kallere henter filer fra opplastingsruten, så den lokale sti-varianten er
+ * ikke nødvendig.
+ */
+const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
+
+/**
  * Ekstraherer tekst fra en PDF-fil. Returnerer full tekst og per-side tekst.
  * Bruker pdftotext (poppler) hvis tilgjengelig, ellers pdf-parse.
  * For skannede PDF-er (lite tekst) forsøkes OCR via pdftoppm + tesseract.
@@ -20,9 +29,14 @@ const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
  * stått stille mens den jobbet.
  */
 export async function extractPdfText(filePath: string): Promise<{ text: string; pages: { page: number; text: string }[] }> {
-  const fullPath = filePath.startsWith("/uploads/")
-    ? path.join(uploadDir(), path.basename(filePath))
-    : filePath;
+  if (!UPLOAD_URL.test(filePath)) {
+    console.error(
+      `Avviste PDF-sti utenfor opplastingsmappen: ${JSON.stringify(filePath)}`,
+    );
+    return { text: "", pages: [] };
+  }
+
+  const fullPath = path.join(uploadDir(), path.basename(filePath));
 
   if (!fs.existsSync(fullPath)) {
     return { text: "", pages: [] };
