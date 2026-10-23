@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { hasPermission } from "@/lib/permissions";
-import { getOrRenderReportPdf } from "@/lib/report-pdf-store";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { getReportPdfForViewer } from "@/server/reports";
 
 export const runtime = "nodejs";
 
+/**
+ * Henter (og eventuelt rendrer) rapport-PDF-en for et oppdrag. Tilgang,
+ * kundeavgrensning og PDF-cache ligger i `getReportPdfForViewer`.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -28,51 +30,17 @@ export async function GET(
     );
   }
 
-  if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
-  }
-
-  // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id },
-    select: { customerId: true, status: true, reports: { select: { id: true } } },
-  });
-
-  if (!workOrder) {
-    return new NextResponse("Fant ikke oppdraget", { status: 404 });
-  }
-
-  if (viewer.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
-  }
-  if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
-    return new NextResponse("Ingen tilgang", { status: 403 });
-  }
-
-  if (workOrder.reports.length === 0) {
-    return new NextResponse("Oppdraget har ingen rapport ennå", { status: 404 });
-  }
-
-  // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
-  // Vi bruker den konfigurerte adressen, ikke X-Forwarded-Host, som klienten
-  // selv kan sette. Bare når appen ikke har noen adresse konfigurert, faller
-  // vi tilbake til adressen forespørselen kom inn på.
-  const baseUrl =
-    process.env.APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    new URL(request.url).origin;
-
-  const pdf = await getOrRenderReportPdf(id, baseUrl);
-  if (!pdf) {
-    return new NextResponse("Oppdraget har ingen rapport ennå", { status: 404 });
+  const result = await getReportPdfForViewer(viewer, id, request.url);
+  if (!result.ok) {
+    return new NextResponse(result.message, { status: result.status });
   }
 
   const asDownload = new URL(request.url).searchParams.get("download") === "1";
 
-  return new NextResponse(new Uint8Array(pdf.buffer), {
+  return new NextResponse(new Uint8Array(result.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${pdf.fileName}.pdf"`,
+      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${result.fileName}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

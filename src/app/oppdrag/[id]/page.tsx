@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
-import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { audit } from "@/lib/audit";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TagSelector from "@/components/TagSelector";
 import AuditLogTable from "@/components/AuditLogTable";
@@ -11,32 +8,21 @@ import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
-import { LIMITS, cleanEmail, cleanPhone, cleanStatus, cleanText } from "@/lib/sanitize";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
-import { getCurrentUser, requireAdmin } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { staffForDepartment, workOrderScope } from "@/lib/access";
 import {
-  requireWorkOrderAccess,
-  staffForDepartment,
-  workOrderScope,
-} from "@/lib/access";
-import {
-  reportUnlockSchema,
-  workOrderStatusSchema,
-  workOrderTemplateSchema,
-} from "@/lib/schemas";
-import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
-import { deleteWorkOrder } from "./actions";
-
-const auditActor = (user?: {
-  id: string;
-  name: string | null;
-  email: string | null;
-} | null) => ({
-  id: user?.id ?? "",
-  name: user?.name ?? null,
-  email: user?.email ?? null,
-});
+  addContactToCustomer,
+  assignTechnician,
+  deleteWorkOrder,
+  setContact,
+  setReportLock,
+  setTags,
+  setTemplate,
+  unassignTechnician,
+  updateStatus,
+} from "./actions";
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -359,286 +345,6 @@ export default async function AdminWorkOrderPage({
   });
   const availableTechnicians = staffUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
 
-  // Fanges opp her slik at handlingene under har en ikke-null kunde.
-  const customerId = workOrder.customerId;
-
-  async function setTemplate(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
-    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const parsed = workOrderTemplateSchema.safeParse({
-      templateId: cleanText(formData.get("templateId"), { maxLength: LIMITS.line }),
-    });
-    if (!parsed.success) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-    const templateId = parsed.data.templateId;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: { templates: { connect: { id: templateId } } }
-      });
-      // Sjekklisten er en del av oppdraget, så hendelsen følger oppdragets id.
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: "La til en sjekkliste på oppdraget",
-        actor: auditActor(access.user),
-        metadata: { templateId },
-      });
-    });
-    revalidatePath(`/oppdrag/${workOrderId}`);
-  }
-
-  async function setContact(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
-    if (!access || !hasPermission(access.user, "customers.manage")) {
-      redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-    }
-
-    const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
-
-    let contactName: string | null = null;
-    if (contactId) {
-      // Kontaktpersonen må tilhøre kunden oppdraget gjelder.
-      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-      if (!contact || contact.customerId !== customerId) {
-        redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-      }
-      contactName = contact.name;
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: { contactId: contactId || null }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: contactName ? `Valgte kontaktperson: ${contactName}` : "Fjernet kontaktpersonen fra oppdraget",
-        actor: auditActor(access.user),
-        metadata: contactId ? { contactId } : undefined,
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-  }
-
-  async function addContactToCustomer(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
-    if (!access || !hasPermission(access.user, "customers.manage")) {
-      redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-    }
-    if (!customerId) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const email = cleanEmail(formData.get("email"));
-    const phone = cleanPhone(formData.get("phone"));
-    const role = cleanText(formData.get("role"), { maxLength: LIMITS.short });
-
-    if (!name) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    await prisma.$transaction(async (tx) => {
-      const contact = await tx.contact.create({
-        data: {
-          name,
-          email: email || null,
-          phone: phone || null,
-          role: role || null,
-          customerId
-        }
-      });
-
-      // Den nye kontaktpersonen blir valgt på oppdraget med en gang.
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: { contactId: contact.id }
-      });
-
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `La til kontaktperson: ${name}`,
-        actor: auditActor(access.user),
-        metadata: { contactId: contact.id, customerId },
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-    revalidatePath(`/kunder/${customerId}`);
-  }
-
-  async function assignTechnician(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
-    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-
-    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-    if (!technicianId) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    // Bare ansatte i oppdragets avdeling kan tildeles.
-    const target = await prisma.user.findFirst({
-      where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
-    });
-    if (!target) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: { technicians: { connect: { id: technicianId } } }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `La til ${target.name} som montør`,
-        actor: auditActor(access.user),
-        metadata: { technicianId },
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-  }
-
-  async function unassignTechnician(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
-    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-
-    const technicianId = cleanText(formData.get("technicianId"), { maxLength: LIMITS.line });
-    if (!technicianId) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    const target = await prisma.user.findFirst({
-      where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
-    });
-    if (!target) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: { technicians: { disconnect: { id: technicianId } } }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `Fjernet ${target.name || 'montør'} fra oppdraget`,
-        actor: auditActor(access.user),
-        metadata: { technicianId },
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-  }
-
-  async function updateStatus(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const parsed = workOrderStatusSchema.safeParse({
-      status: cleanStatus(formData.get("status")),
-    });
-    if (!parsed.success) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-    const status = parsed.data.status as WorkStatus;
-
-    // Kansellering er en kontorhandling og krever workorders.edit. Montører
-    // kan oppdatere fremdrift, men ikke lukke oppdraget slik at det forsvinner.
-    if (status === "CANCELLED" && !hasPermission(access.user, "workorders.edit")) {
-      redirect(`/oppdrag/${workOrderId}?error=ugyldig-status`);
-    }
-
-    const result = await transitionWorkOrderStatus({
-      workOrderId,
-      from: access.workOrder.status as WorkStatus,
-      to: status,
-      isAdmin: access.user.role === "ADMIN",
-      actor: auditActor(access.user),
-      action: `${access.user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`,
-    });
-    if (!result.ok) {
-      redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
-    }
-    revalidatePath(`/oppdrag/${workOrderId}`);
-  }
-
-  async function setTags(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.edit", workOrderId);
-    if (!access) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const tagNames = formData.getAll("tags")
-      .map(t => cleanText(t, { maxLength: LIMITS.short }))
-      .filter(Boolean);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: {
-          tags: {
-            set: [],
-            connectOrCreate: tagNames.map(name => ({
-              where: { name },
-              create: { name }
-            }))
-          }
-        }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `Oppdaterte tags: ${tagNames.join(", ") || "(ingen)"}`,
-        actor: auditActor(access.user),
-        metadata: { tags: tagNames },
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-  }
-
-  async function setReportLock(formData: FormData) {
-    "use server";
-    // Bare administratorer kan låse opp en signert rapport igjen.
-    if (!(await requireAdmin())) redirect(`/oppdrag/${workOrderId}?error=ikke-tilgang`);
-
-    const parsed = reportUnlockSchema.safeParse({
-      reportId: cleanText(formData.get("reportId"), { maxLength: LIMITS.line }),
-      lock: formData.get("lock"),
-    });
-    if (!parsed.success) redirect(`/oppdrag/${workOrderId}?error=ugyldig-data`);
-    const { reportId, lock: shouldLock } = parsed.data;
-
-    const report = await prisma.report.findFirst({
-      where: { id: reportId, workOrderId },
-      select: { id: true },
-    });
-    if (!report) redirect(`/oppdrag/${workOrderId}?error=ikke-funnet`);
-
-    const actor = await getCurrentUser();
-    if (!actor) redirect("/api/auth/signin");
-
-    const lockedUntil = new Date();
-    await prisma.$transaction(async (tx) => {
-      await tx.report.update({
-        where: { id: reportId },
-        data: shouldLock
-          ? { isLocked: true, lockedAt: lockedUntil, lockedByName: actor.name || actor.email }
-          : { isLocked: false, lockedAt: null, lockedByName: null },
-      });
-      // Rapporten hører til oppdraget, så hendelsen følger oppdragets id.
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: shouldLock
-          ? "Låste rapporten igjen"
-          : "Låste opp rapporten slik at den kan rettes (sporbarhet: endringer logges)",
-        actor: auditActor(actor),
-        metadata: { reportId },
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-    revalidatePath(`/rapporter/${workOrderId}`);
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -653,6 +359,7 @@ export default async function AdminWorkOrderPage({
             {/* Tags */}
             {canEdit ? (
               <form action={setTags} className="mb-3 space-y-2">
+                <input type="hidden" name="workOrderId" value={workOrder.id} />
                 <TagSelector
                   allTags={allTags}
                   selectedTagNames={workOrder.tags.map((t: any) => t.name)}
@@ -788,6 +495,7 @@ export default async function AdminWorkOrderPage({
                                   )}
                                   {isAdmin && (
                                     <form action={setReportLock}>
+                                      <input type="hidden" name="workOrderId" value={workOrder.id} />
                                       <input type="hidden" name="reportId" value={report.id} />
                                       <input type="hidden" name="lock" value={report.isLocked ? "0" : "1"} />
                                       <button
@@ -840,6 +548,7 @@ export default async function AdminWorkOrderPage({
                     <div className="border-t-2 border-gray-200 pt-4">
                       <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Krev flere sjekklister på oppdraget</p>
                       <form action={setTemplate} className="flex gap-2 flex-wrap">
+                        <input type="hidden" name="workOrderId" value={workOrder.id} />
                         <select
                           name="templateId"
                           required
@@ -881,6 +590,7 @@ export default async function AdminWorkOrderPage({
                 <h2 className="font-black text-gray-900 mb-3 border-b pb-2">Endre Status</h2>
                 {canUpdate ? (
                   <form action={updateStatus} className="flex flex-col gap-3">
+                    <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select
                       name="status"
                       defaultValue={workOrder.status}
@@ -936,6 +646,7 @@ export default async function AdminWorkOrderPage({
                 {canEdit && canManageCustomers && workOrder.customer && (
                   <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
                     <form action={setContact} className="flex flex-col sm:flex-row gap-2">
+                      <input type="hidden" name="workOrderId" value={workOrder.id} />
                       <select
                         name="contactId"
                         defaultValue={workOrder.contactId || ""}
@@ -958,6 +669,7 @@ export default async function AdminWorkOrderPage({
                         + Ny kontaktperson for kunden
                       </summary>
                       <form action={addContactToCustomer} className="space-y-2 p-3 pt-1">
+                        <input type="hidden" name="workOrderId" value={workOrder.id} />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <input required name="name" placeholder="Navn *" className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
                           <input name="role" placeholder="Rolle (valgfritt)" className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
@@ -983,6 +695,7 @@ export default async function AdminWorkOrderPage({
                         <span className="flex-1 min-w-0 truncate">{tech.name}</span>
                         {canAssign && (
                           <form action={unassignTechnician} className="flex-shrink-0">
+                            <input type="hidden" name="workOrderId" value={workOrder.id} />
                             <input type="hidden" name="technicianId" value={tech.id} />
                             <button type="submit" className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
                               Fjern
@@ -998,6 +711,7 @@ export default async function AdminWorkOrderPage({
 
                 {canAssign && availableTechnicians.length > 0 && (
                   <form action={assignTechnician} className="flex flex-col sm:flex-row gap-2 mt-4 border-t-2 border-gray-100 pt-4">
+                    <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select
                       name="technicianId"
                       required

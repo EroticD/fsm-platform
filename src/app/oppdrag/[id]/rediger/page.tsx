@@ -1,17 +1,13 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
-import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
-import { parseDateOnly } from "@/lib/dates";
-import { getCurrentUser, requirePermission } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments } from "@/lib/departments";
 import { staffForDepartment, staffWhere, workOrderScope } from "@/lib/access";
-import { audit } from "@/lib/audit";
-import { workOrderUpdateSchema } from "@/lib/schemas/workOrder";
+import { updateWorkOrder } from "./actions";
 
 export default async function EditWorkOrderPage({
   params,
@@ -103,121 +99,6 @@ export default async function EditWorkOrderPage({
     }
   }
 
-  // --- SERVER ACTION: LAGRE ENDRINGER ---
-  async function updateWorkOrder(formData: FormData) {
-    "use server";
-    // Autorisasjonen må ligge i handlingen, ikke bare i sidevisningen.
-    if (!(await requirePermission("workorders.edit"))) return;
-    const actor = await getCurrentUser();
-    if (!actor) return;
-
-    const currentWorkOrder = await prisma.workOrder.findFirst({
-      where: { id: workOrderId, ...workOrderScope(actor) },
-      select: { id: true, departmentId: true },
-    });
-    if (!currentWorkOrder) return;
-
-    // Administrator kan flytte oppdraget til en annen aktiv avdeling.
-    let departmentId = currentWorkOrder.departmentId;
-    if (actor.role === "ADMIN") {
-      const requested = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
-      if (requested) {
-        const department = await prisma.department.findFirst({
-          where: { id: requested, isActive: true },
-          select: { id: true },
-        });
-        if (!department) return;
-        departmentId = department.id;
-      }
-    }
-
-    const technicianIds = formData.getAll("technicianIds") as string[];
-    const tagNames = formData.getAll("tags")
-      .map(t => cleanText(t, { maxLength: LIMITS.short }))
-      .filter(Boolean);
-
-    // Bare ansatte i oppdragets avdeling kan tildeles.
-    const allowedTechnicians = technicianIds.length
-      ? await prisma.user.findMany({
-          where: { id: { in: technicianIds }, ...staffForDepartment(departmentId) },
-          select: { id: true },
-          take: 100,
-        })
-      : [];
-    const validTechnicianIds = allowedTechnicians.map((technician) => technician.id);
-
-    const parsed = workOrderUpdateSchema.safeParse({
-      id: workOrderId,
-      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
-      description: cleanMarkdown(formData.get("description")),
-      departmentId,
-      customerId: cleanText(formData.get("customerId"), { maxLength: LIMITS.line }),
-      contactId: cleanText(formData.get("contactId"), { maxLength: LIMITS.line }),
-      scheduledFor: cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line }),
-      scheduledTo: cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line }),
-      technicianIds: validTechnicianIds,
-      tagNames,
-    });
-    if (!parsed.success) {
-      redirect(`/oppdrag/${workOrderId}/rediger?error=ugyldig-data`);
-    }
-
-    const {
-      title,
-      description,
-      customerId,
-      contactId,
-      scheduledFor,
-      scheduledTo,
-    } = parsed.data;
-    const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
-    const scheduledToDate = scheduledTo ? parseDateOnly(scheduledTo) : null;
-
-    // Kontaktpersonen må tilhøre den valgte kunden; ellers tømmes feltet.
-    let validContactId = contactId;
-    if (validContactId) {
-      const contact = await prisma.contact.findUnique({ where: { id: validContactId } });
-      if (!contact || contact.customerId !== customerId) validContactId = undefined;
-    }
-
-    // Oppdater grunnleggende info og bytt ut tildelte montører
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: {
-          title,
-          description,
-          departmentId,
-          customerId,
-          contactId: validContactId || null,
-          scheduledFor: scheduledForDate,
-          scheduledTo: scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
-            ? scheduledToDate
-            : null,
-          technicians: { set: validTechnicianIds.map(id => ({ id })) },
-          tags: {
-            set: [],
-            connectOrCreate: tagNames.map(name => ({
-              where: { name },
-              create: { name }
-            }))
-          }
-        }
-      });
-
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `Oppdaterte oppdraget: ${title}`,
-        actor: { id: actor.id, name: actor.name, email: actor.email },
-      });
-    });
-
-    revalidatePath(`/oppdrag/${workOrderId}`);
-    revalidatePath(`/`);
-    redirect(`/oppdrag/${workOrderId}`);
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -239,6 +120,7 @@ export default async function EditWorkOrderPage({
         </div>
 
         <form action={updateWorkOrder} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-6">
+          <input type="hidden" name="workOrderId" value={workOrderId} />
           
           <div>
             <label className="block text-sm font-black text-gray-900 mb-2">Oppdragstittel / Navn <span className="text-red-500">*</span></label>

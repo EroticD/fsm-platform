@@ -4,14 +4,11 @@ import Link from "next/link";
 import CustomerSelect from "./CustomerSelect";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
-import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
-import { parseDateOnly } from "@/lib/dates";
-import { getCurrentUser, requirePermission } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment, staffWhere } from "@/lib/access";
-import { audit } from "@/lib/audit";
-import { workOrderCreateSchema } from "@/lib/schemas/workOrder";
+import { createWorkOrder } from "./actions";
 
 export default async function AdminCreateWorkOrderPage({
   searchParams,
@@ -51,131 +48,6 @@ export default async function AdminCreateWorkOrderPage({
     take: 100,
   });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
-
-  async function createWorkOrder(formData: FormData): Promise<void> {
-    "use server";
-    // Autorisasjonen må ligge i handlingen, ikke bare i sidevisningen.
-    if (!(await requirePermission("workorders.create"))) return;
-    const actor = await getCurrentUser();
-    if (!actor) return;
-
-    // Administrator kan velge avdeling, alle andre oppretter i egen avdeling.
-    let departmentId: string | null = null;
-    if (actor.role === "ADMIN") {
-      const requested = cleanText(formData.get("departmentId"), { maxLength: LIMITS.line });
-      if (requested) {
-        const department = await prisma.department.findFirst({
-          where: { id: requested, isActive: true },
-          select: { id: true },
-        });
-        departmentId = department?.id ?? null;
-      }
-      departmentId = departmentId ?? (await getDefaultDepartmentId());
-    } else {
-      departmentId = actor.departmentId;
-    }
-
-    if (!departmentId) {
-      redirect("/oppdrag/ny?error=avdeling");
-    }
-
-    const description = cleanMarkdown(formData.get("description"));
-    const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-    const contactId = cleanText(formData.get("contactId"), { maxLength: LIMITS.line });
-    const dateInput = cleanText(formData.get("scheduledFor"), { maxLength: LIMITS.line });
-    const endInput = cleanText(formData.get("scheduledTo"), { maxLength: LIMITS.line });
-
-    // Kontaktpersonen må tilhøre den valgte kunden.
-    let validContactId = contactId;
-    if (contactId) {
-      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-      if (!contact || contact.customerId !== customerId) validContactId = "";
-    }
-
-    const requestedTechnicianIds = formData.getAll("technicianIds") as string[];
-    const templateIds = formData.getAll("templateIds") as string[];
-    const tagNames = formData.getAll("tags")
-      .map(t => cleanText(t, { maxLength: LIMITS.short }))
-      .filter(Boolean);
-
-    // Montører som ikke hører til oppdragets avdeling skal ikke kunne tildeles.
-    const allowedTechnicians = requestedTechnicianIds.length
-      ? await prisma.user.findMany({
-          where: { id: { in: requestedTechnicianIds }, ...staffForDepartment(departmentId) },
-          select: { id: true },
-          take: 100,
-        })
-      : [];
-    const technicianIds = allowedTechnicians.map((technician) => technician.id);
-
-    const parsed = workOrderCreateSchema.safeParse({
-      title: cleanText(formData.get("title"), { maxLength: LIMITS.title }),
-      description,
-      departmentId,
-      customerId,
-      contactId: validContactId,
-      scheduledFor: dateInput,
-      scheduledTo: endInput,
-      technicianIds,
-      templateIds,
-      tagNames,
-    });
-
-    if (!parsed.success) {
-      redirect("/oppdrag/ny?error=ugyldig-data");
-    }
-
-    const scheduledFor = parseDateOnly(parsed.data.scheduledFor);
-    if (!scheduledFor) redirect("/oppdrag/ny?error=ugyldig-data");
-    const parsedEnd = parseDateOnly(parsed.data.scheduledTo);
-    const scheduledTo = parsedEnd && parsedEnd > scheduledFor ? parsedEnd : null;
-    const title = parsed.data.title;
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        const newWo = await tx.workOrder.create({
-          data: {
-            title,
-            description: description || "",
-            departmentId,
-            customerId: customerId || undefined,
-            contactId: parsed.data.contactId || undefined,
-            scheduledFor,
-            scheduledTo,
-            creatorName: actor.name || actor.email || "Kontor",
-            status: "PENDING",
-            technicians: {
-              connect: technicianIds.map(id => ({ id }))
-            },
-            templates: {
-              connect: templateIds.map(id => ({ id }))
-            },
-            tags: {
-              connectOrCreate: tagNames.map(name => ({
-                where: { name },
-                create: { name }
-              }))
-            }
-          }
-        });
-
-        await audit(tx, {
-          entityType: "WorkOrder",
-          entityId: newWo.id,
-          action: `Kontoret opprettet nytt oppdrag: ${title}`,
-          actor: { id: actor.id, name: actor.name, email: actor.email },
-        });
-      });
-    } catch (dbError) {
-      console.error("Databasefeil ved opprettelse av oppdrag:", dbError);
-      throw new Error("Kunne ikke opprette oppdrag");
-    }
-
-    // redirect() virker ved å kaste et spesialunntak (NEXT_REDIRECT), så kallet
-    // må ligge utenfor try/catch – ellers blir omdirigeringen slukt og tolket
-    // som en databasefeil.
-    redirect("/kalender");
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">

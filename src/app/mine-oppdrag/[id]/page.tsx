@@ -1,36 +1,22 @@
 import { redirect } from "next/navigation";
-import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { audit } from "@/lib/audit";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
-import { markdownToPlainText } from "@/lib/markdown";
-import { LIMITS, cleanMarkdown, cleanStatus, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import {
-  requireWorkOrderAccess,
-  staffForDepartment,
-  workOrderScope,
-} from "@/lib/access";
+import { staffForDepartment, workOrderScope } from "@/lib/access";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
-import { commentCreateSchema, workOrderStatusSchema, workOrderTemplateSchema } from "@/lib/schemas";
-import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
-
-const auditActor = (user?: {
-  id: string;
-  name: string | null;
-  email: string | null;
-} | null) => ({
-  id: user?.id ?? "",
-  name: user?.name ?? null,
-  email: user?.email ?? null,
-});
+import {
+  addComment,
+  addTechnician,
+  addTemplate,
+  removeTechnician,
+  updateStatus,
+} from "./actions";
 
 export default async function TechnicianWorkOrderPage({
   params,
@@ -106,163 +92,6 @@ export default async function TechnicianWorkOrderPage({
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
 
-  // --- SERVER ACTION: OPPDATER STATUS ---
-  async function updateStatus(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) redirect(`/mine-oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const parsed = workOrderStatusSchema.safeParse({
-      status: cleanStatus(formData.get("status")),
-    });
-    if (!parsed.success) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-    const newStatus = parsed.data.status as WorkStatus;
-
-    // Kansellering er en kontorhandling. Montører skal ikke kunne lukke et
-    // oppdrag slik at det forsvinner fra feltportalen.
-    if (newStatus === "CANCELLED" && !hasPermission(access.user, "workorders.edit")) {
-      redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-status`);
-    }
-
-    const result = await transitionWorkOrderStatus({
-      workOrderId,
-      from: access.workOrder.status as WorkStatus,
-      to: newStatus,
-      isAdmin: access.user.role === "ADMIN",
-      actor: auditActor(access.user),
-      action: `Montør endret status til: ${newStatus}`,
-    });
-    if (!result.ok) {
-      redirect(`/mine-oppdrag/${workOrderId}?error=${result.error}`);
-    }
-
-    revalidatePath(`/mine-oppdrag/${workOrderId}`);
-  }
-
-  // --- SERVER ACTION: LEGG TIL KOMMENTAR ---
-  async function addComment(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) redirect(`/mine-oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const parsed = commentCreateSchema.safeParse({
-      content: cleanMarkdown(formData.get("content")),
-    });
-    if (!parsed.success) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-    const content = parsed.data.content;
-
-    await prisma.$transaction(async (tx) => {
-      const comment = await tx.comment.create({
-        data: {
-          content,
-          workOrderId: workOrderId,
-          authorName: access.user.name || access.user.email || "Montør"
-        }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `La til kommentar: "${markdownToPlainText(content).slice(0, 30)}..."`,
-        actor: auditActor(access.user),
-        metadata: { commentId: comment.id },
-      });
-    });
-
-    revalidatePath(`/mine-oppdrag/${workOrderId}`);
-  }
-
-  // --- SERVER ACTION: LEGG TIL SJEKKLISTE ---
-  async function addTemplate(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) redirect(`/mine-oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const parsed = workOrderTemplateSchema.safeParse({
-      templateId: cleanText(formData.get("templateId"), { maxLength: LIMITS.line }),
-    });
-    if (!parsed.success) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-    const templateId = parsed.data.templateId;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: {
-          templates: { connect: { id: templateId } }
-        }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: "La til en sjekkliste på oppdraget",
-        actor: auditActor(access.user),
-        metadata: { templateId },
-      });
-    });
-
-    revalidatePath(`/mine-oppdrag/${workOrderId}`);
-  }
-
-  // --- SERVER ACTION: LEGG TIL NY MONTØR / KONTORPERSON ---
-  async function addTechnician(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) redirect(`/mine-oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const userId = cleanText(formData.get("userId"), { maxLength: LIMITS.line });
-    if (!userId) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    const targetUser = await prisma.user.findFirst({
-      where: { id: userId, ...staffForDepartment(access.workOrder.departmentId) },
-    });
-    if (!targetUser) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: {
-          technicians: { connect: { id: userId } }
-        }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `La til ${targetUser.name || 'bruker'} på oppdraget`,
-        actor: auditActor(access.user),
-        metadata: { userId },
-      });
-    });
-
-    revalidatePath(`/mine-oppdrag/${workOrderId}`);
-  }
-
-  // --- SERVER ACTION: FJERN MONTØR / SEG SELV ---
-  async function removeTechnician(formData: FormData) {
-    "use server";
-    const access = await requireWorkOrderAccess("workorders.update", workOrderId);
-    if (!access) redirect(`/mine-oppdrag/${workOrderId}?error=ikke-tilgang`);
-    const userId = cleanText(formData.get("userId"), { maxLength: LIMITS.line });
-    if (!userId) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    const targetUser = await prisma.user.findFirst({
-      where: { id: userId, ...staffForDepartment(access.workOrder.departmentId) },
-    });
-    if (!targetUser) redirect(`/mine-oppdrag/${workOrderId}?error=ugyldig-data`);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: workOrderId },
-        data: {
-          technicians: { disconnect: { id: userId } }
-        }
-      });
-      await audit(tx, {
-        entityType: "WorkOrder",
-        entityId: workOrderId,
-        action: `Fjernet ${targetUser?.name || 'bruker'} fra oppdraget`,
-        actor: auditActor(access.user),
-        metadata: { userId },
-      });
-    });
-
-    revalidatePath(`/mine-oppdrag/${workOrderId}`);
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -319,6 +148,7 @@ export default async function TechnicianWorkOrderPage({
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Oppdragsstatus</p>
               {canUpdate ? (
                 <form action={updateStatus} className="flex items-center gap-2 flex-wrap">
+                  <input type="hidden" name="workOrderId" value={workOrderId} />
                   <select
                     name="status"
                     defaultValue={workOrder.status}
@@ -371,6 +201,7 @@ export default async function TechnicianWorkOrderPage({
           {/* Skriv ny kommentar */}
           {canUpdate && (
             <form action={addComment} className="space-y-3">
+              <input type="hidden" name="workOrderId" value={workOrderId} />
               <MarkdownEditor
                 name="content"
                 rows={3}
@@ -426,6 +257,7 @@ export default async function TechnicianWorkOrderPage({
 
                     {canUpdate && (
                       <form action={removeTechnician} className="flex-shrink-0">
+                        <input type="hidden" name="workOrderId" value={workOrderId} />
                         <input type="hidden" name="userId" value={t.id} />
                         <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
                           {t.id === user.id ? "Fjern meg" : "Fjern"}
@@ -442,6 +274,7 @@ export default async function TechnicianWorkOrderPage({
             <div className="border-t pt-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Legg til kollega eller kontor for oppfølging</p>
               <form action={addTechnician} className="flex gap-2 flex-wrap">
+                <input type="hidden" name="workOrderId" value={workOrderId} />
                 <select
                   name="userId"
                   required
@@ -583,6 +416,7 @@ export default async function TechnicianWorkOrderPage({
             <div className="border-t pt-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Trenger du et ekstra skjema?</p>
               <form action={addTemplate} className="flex gap-2 flex-wrap">
+                <input type="hidden" name="workOrderId" value={workOrderId} />
                 <select
                   name="templateId"
                   required
