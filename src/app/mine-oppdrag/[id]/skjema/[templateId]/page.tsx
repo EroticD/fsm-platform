@@ -107,6 +107,26 @@ export default async function TechnicianFillFormPage({
     );
   }
 
+  // Kladd som brukeren har fått autolagret, hvis noen.
+  const draft = await prisma.reportDraft.findUnique({
+    where: {
+      workOrderId_templateId_userId: {
+        workOrderId,
+        templateId,
+        userId: user.id,
+      },
+    },
+  });
+
+  let initialDraft: InitialReport | undefined;
+  if (draft) {
+    try {
+      initialDraft = JSON.parse(draft.dataJson) as InitialReport;
+    } catch (e) {
+      console.error("Kunne ikke parse kladd", e);
+    }
+  }
+
   let fields: TemplateField[] = [];
   try {
     const parsed = JSON.parse(template.fieldsJson || "[]");
@@ -165,6 +185,8 @@ export default async function TechnicianFillFormPage({
           defaultUnitId={workOrder.productId}
           technicianName={user.name || undefined}
           initialReport={initialReport}
+          initialDraft={initialDraft}
+          draftUpdatedAt={draft?.updatedAt.toISOString()}
           returnTo={returnTo}
         />
       </div>

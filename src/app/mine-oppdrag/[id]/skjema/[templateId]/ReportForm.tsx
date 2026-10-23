@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import FieldInput, { type TemplateField } from "./FieldInput";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import { readLineComment } from "@/lib/report-answers";
-import { submitReport } from "./actions";
+import { saveDraft, submitReport } from "./actions";
 
 export type CustomerUnit = {
   id: string;
@@ -70,6 +70,8 @@ export default function ReportForm({
   defaultUnitId,
   technicianName,
   initialReport,
+  initialDraft,
+  draftUpdatedAt,
   returnTo,
 }: {
   workOrderId: string;
@@ -79,16 +81,20 @@ export default function ReportForm({
   defaultUnitId?: string | null;
   technicianName?: string;
   initialReport?: InitialReport;
+  /** Autolagret kladd – brukes hvis den finnes, ellers den lagrede rapporten. */
+  initialDraft?: InitialReport;
+  draftUpdatedAt?: string;
   /** Siden skjemaet ble åpnet fra, så vi kan sende brukeren tilbake dit. */
   returnTo?: string;
 }) {
   const isEditing = Boolean(initialReport);
+  const seed = initialDraft ?? initialReport;
 
   const [state, setState] = useState(() => {
-    // Redigering av en opplåst rapport: vis de lagrede enhetene og svarene.
+    // Gjenopprett kladd/opplåst rapport: vis de lagrede enhetene og svarene.
     const startUnits =
-      initialReport && initialReport.units.length > 0
-        ? initialReport.units.map((unit, index) => makeUnit(`unit-${index}`, unit))
+      seed && seed.units.length > 0
+        ? seed.units.map((unit, index) => makeUnit(`unit-${index}`, unit))
         : (() => {
             const from = customerUnits.find((u) => u.id === defaultUnitId) ?? null;
             return [
@@ -108,6 +114,65 @@ export default function ReportForm({
 
   const { units } = state;
 
+  // --- Autolagring av kladd -------------------------------------------------
+  // Skjemaet er i stor grad ukontrollert (defaultValue), så vi leser feltene
+  // med `new FormData(form)` når vi lagrer. Endringer i skjemaet utløser en
+  // debounced lagring, slik at kladden oppdateres etter hvert som enhetene
+  // fylles ut.
+  const formRef = useRef<HTMLFormElement>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [draftStatus, setDraftStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    initialDraft ? "saved" : "idle",
+  );
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(
+    draftUpdatedAt ? new Date(draftUpdatedAt) : null,
+  );
+
+  const saveDraftNow = useCallback(async () => {
+    const form = formRef.current;
+    if (!form) return;
+    setDraftStatus("saving");
+    try {
+      const result = await saveDraft(new FormData(form));
+      if (result.ok) {
+        setDraftStatus("saved");
+        setDraftSavedAt(result.savedAt ? new Date(result.savedAt) : new Date());
+      } else {
+        setDraftStatus("error");
+      }
+    } catch {
+      setDraftStatus("error");
+    }
+  }, []);
+
+  const scheduleSave = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void saveDraftNow();
+    }, 1200);
+  }, [saveDraftNow]);
+
+  // Lagre når fanen skjules eller lukkes, så siste endring ikke går tapt.
+  useEffect(() => {
+    const flush = () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        void saveDraftNow();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [saveDraftNow]);
+
   // Sjekkpunkter som krever oppfølging (f.eks. «Utbedres»), gruppert per enhet.
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
   const [followUps, setFollowUps] = useState<Record<string, string[]>>({});
@@ -126,14 +191,20 @@ export default function ReportForm({
       return { ...prev, [unitKey]: next };
     });
 
-  const patchUnit = (key: string, patch: Partial<UnitEntry>) =>
+  const patchUnit = (key: string, patch: Partial<UnitEntry>) => {
     setState((s) => ({ ...s, units: s.units.map((u) => (u.key === key ? { ...u, ...patch } : u)) }));
+    scheduleSave();
+  };
 
-  const addUnit = () =>
+  const addUnit = () => {
     setState((s) => ({ counter: s.counter + 1, units: [...s.units, makeUnit(`unit-${s.counter}`)] }));
+    scheduleSave();
+  };
 
-  const removeUnit = (key: string) =>
+  const removeUnit = (key: string) => {
     setState((s) => ({ ...s, units: s.units.filter((u) => u.key !== key) }));
+    scheduleSave();
+  };
 
   /** Velger en registrert enhet fra kundekortet og fyller inn feltene. */
   const linkRegisteredUnit = (key: string, productId: string) => {
@@ -167,12 +238,50 @@ export default function ReportForm({
   const statusLabel = "block text-xs font-black uppercase tracking-wider text-gray-600 mb-2";
 
   return (
-    <form action={submitReport} className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-8">
+    <form
+      ref={formRef}
+      action={submitReport}
+      onChange={scheduleSave}
+      onInput={scheduleSave}
+      className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-8"
+    >
       <input type="hidden" name="workOrderId" value={workOrderId} />
       <input type="hidden" name="templateId" value={templateId} />
       <input type="hidden" name="unitsJson" value={unitsJson} />
       <input type="hidden" name="status" value={overallStatus} />
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
+
+      {/* Status for autolagret kladd */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+        <span
+          className={
+            draftStatus === "error"
+              ? "text-red-700"
+              : draftStatus === "saving"
+                ? "text-blue-700"
+                : "text-gray-500"
+          }
+        >
+          {draftStatus === "saving" && "💾 Lagrer kladd …"}
+          {draftStatus === "saved" &&
+            `✅ Kladd lagret${draftSavedAt ? ` ${draftSavedAt.toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}` : ""}`}
+          {draftStatus === "error" && "⚠️ Kunne ikke lagre kladd – sjekk nettet"}
+          {draftStatus === "idle" && "Kladd lagres automatisk mens du fyller ut"}
+        </span>
+        <button
+          type="button"
+          onClick={() => void saveDraftNow()}
+          className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
+        >
+          Lagre kladd nå
+        </button>
+      </div>
+
+      {initialDraft && (
+        <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm font-medium">
+          📝 En lagret kladd er gjenopprettet. Fortsett der du slapp – eller lagre rapporten når du er ferdig.
+        </div>
+      )}
 
       {isEditing && (
         <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-xl px-4 py-3 text-sm font-medium">
@@ -391,7 +500,7 @@ export default function ReportForm({
         <MarkdownEditor
           name="notes"
           rows={4}
-          defaultValue={initialReport?.notes ?? ""}
+          defaultValue={seed?.notes ?? ""}
           placeholder="Skriv inn eventuelle generelle merknader ..."
         />
       </div>
@@ -408,18 +517,18 @@ export default function ReportForm({
           <SignaturePad
             name="technicianSignature"
             nameFieldName="technicianName"
-            defaultName={initialReport?.technicianName ?? technicianName}
+            defaultName={seed?.technicianName ?? technicianName}
             label="✍️ Montør / tekniker"
             helperText="Den som utførte jobben."
-            existingUrl={initialReport?.technicianSignatureUrl}
+            existingUrl={seed?.technicianSignatureUrl}
           />
           <SignaturePad
             name="customerSignature"
             nameFieldName="customerName"
-            defaultName={initialReport?.customerName ?? undefined}
+            defaultName={seed?.customerName ?? undefined}
             label="✍️ Kunde"
             helperText="Kundens representant på stedet."
-            existingUrl={initialReport?.customerSignatureUrl}
+            existingUrl={seed?.customerSignatureUrl}
           />
         </div>
       </div>

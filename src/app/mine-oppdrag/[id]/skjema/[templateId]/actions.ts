@@ -141,6 +141,86 @@ function returnPath(formData: FormData, workOrderId: string): string {
     : `/mine-oppdrag/${workOrderId}`;
 }
 
+/**
+ * Lagrer en kladd av sjekklisten. Kalles automatisk fra skjemaet mens det
+ * fylles ut, slik at ingenting går tapt hvis nettet eller appen faller ut.
+ * Kladden er per bruker, oppdrag og mal.
+ */
+export async function saveDraft(
+  formData: FormData,
+): Promise<{ ok: boolean; savedAt?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false };
+  if (!hasPermission(user, "reports.write")) return { ok: false };
+
+  const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
+  if (!workOrderId || !templateId) return { ok: false };
+
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
+  });
+  if (!workOrder) return { ok: false };
+  if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
+    return { ok: false };
+  }
+
+  const template = await prisma.template.findUnique({ where: { id: templateId } });
+  if (!template) return { ok: false };
+
+  // Ikke lagre kladd over en rapport som allerede er låst.
+  const existingReport = await prisma.report.findFirst({
+    where: { workOrderId, templateId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existingReport?.isLocked) return { ok: false };
+
+  const fields = parseFields(template.fieldsJson);
+
+  const units = parseUnits(formData.get("unitsJson")).map((unit) => ({
+    productId: unit.productId || "",
+    label: cleanText(unit.label, { maxLength: LIMITS.title }),
+    serialNumber: cleanText(unit.serialNumber, { maxLength: LIMITS.line }),
+    location: cleanText(unit.location, { maxLength: LIMITS.line }),
+    status: formData.get(`status__${unit.key}`) === "AVVIK" ? "AVVIK" : "GODKJENT",
+    comment: cleanMarkdown(formData.get(`comment__${unit.key}`)),
+    answers: readAnswers(formData, fields, unit.key),
+  }));
+
+  const payload = {
+    notes: cleanMarkdown(formData.get("notes")),
+    technicianSignatureUrl: cleanDataImage(formData.get("technicianSignature")) || null,
+    technicianName: cleanText(formData.get("technicianName"), { maxLength: LIMITS.title }) || null,
+    customerSignatureUrl: cleanDataImage(formData.get("customerSignature")) || null,
+    customerName: cleanText(formData.get("customerName"), { maxLength: LIMITS.title }) || null,
+    units,
+  };
+
+  const now = new Date();
+  await prisma.reportDraft.upsert({
+    where: {
+      workOrderId_templateId_userId: {
+        workOrderId,
+        templateId,
+        userId: user.id,
+      },
+    },
+    create: {
+      workOrderId,
+      templateId,
+      userId: user.id,
+      dataJson: JSON.stringify(payload),
+      updatedByName: user.name || user.email || null,
+    },
+    update: {
+      dataJson: JSON.stringify(payload),
+      updatedByName: user.name || user.email || null,
+    },
+  });
+
+  return { ok: true, savedAt: now.toISOString() };
+}
+
 export async function submitReport(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/logg-inn");
@@ -252,6 +332,13 @@ export async function submitReport(formData: FormData) {
         ...data,
         units: { create: unitRows },
       },
+    });
+  }
+
+  // Kladden er ikke lenger nødvendig når rapporten er lagret.
+  if (templateId) {
+    await prisma.reportDraft.deleteMany({
+      where: { workOrderId, templateId, userId: user.id },
     });
   }
 

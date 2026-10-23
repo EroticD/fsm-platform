@@ -96,6 +96,9 @@ model User {
   // Kunder der denne brukeren er ansvarlig montør.
   responsibleCustomers Customer[] @relation("CustomerResponsibleTechnician")
 
+  // Kladder for sjekklister brukeren har begynt å fylle ut.
+  reportDrafts ReportDraft[]
+
   @@index([departmentId])
   @@index([role])
 }
@@ -266,6 +269,7 @@ model WorkOrder {
   reports      Report[]
   workComments Comment[]  @relation("WorkOrderComments")
   tags         Tag[]      @relation("WorkOrderTags")
+  reportDrafts ReportDraft[]
 
   @@index([departmentId])
   @@index([customerId])
@@ -404,6 +408,28 @@ model ReportUnit {
 
   @@index([reportId])
   @@index([productId])
+}
+
+// Midlertidig lagring (kladd) av en sjekkliste. Én kladd per bruker, oppdrag og
+// mal, slik at flere teknikere kan fylle ut samme sjekkliste uten å overskrive
+// hverandre. Kladden slettes når rapporten lagres.
+model ReportDraft {
+  id         String   @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  templateId  String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dataJson      String
+  updatedByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workOrderId, templateId, userId])
+  @@index([workOrderId])
+  @@index([userId])
 }
 
 model Template {
