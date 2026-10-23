@@ -32,8 +32,11 @@ vi.mock("@/lib/email", () => ({ sendInviteEmail: mocks.sendInviteEmail }));
 import {
   changePermissions,
   changeRole,
+  createPortalUser,
   createUser,
   generateInvite,
+  resendPortalInvite,
+  setPortalUserActive,
 } from "./users";
 
 const roles = {
@@ -264,5 +267,150 @@ describe("brukertjenesten – invitasjon og revisjon", () => {
       "revisjonsloggen feilet",
     );
     expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe("brukertjenesten – kundeportalbrukere", () => {
+  it("oppretter en ekte kundeportalbruker koblet til kunden", async () => {
+    mocks.prisma.contact.findUnique.mockResolvedValue({
+      id: "contact-1",
+      customerId: "kunde-1",
+    });
+
+    const result = await createPortalUser(office(), {
+      customerId: "kunde-1",
+      name: "Kari",
+      email: "kari@example.test",
+      contactId: "contact-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+      }),
+    });
+    expect(mocks.createInviteToken).toHaveBeenCalledWith("new-user", mocks.prisma);
+    expect(mocks.sendInviteEmail).toHaveBeenCalled();
+  });
+
+  it("aktiverer en ekte kundeportalbruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "CUSTOMER", customerId: "kunde-1" }),
+    );
+
+    const result = await setPortalUserActive(office(), {
+      customerId: "kunde-1",
+      id: "target",
+      active: "false",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "target" },
+      data: { isActive: false },
+    });
+  });
+
+  it("sender ny invitasjon til en ekte kundeportalbruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "CUSTOMER", customerId: "kunde-1" }),
+    );
+
+    const result = await resendPortalInvite(office(), {
+      customerId: "kunde-1",
+      id: "target",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.createInviteToken).toHaveBeenCalledWith("target", mocks.prisma);
+    expect(mocks.sendInviteEmail).toHaveBeenCalled();
+  });
+
+  it.each(["ADMIN", "OFFICE", "TECHNICIAN"])(
+    "nekter å aktivere en %s med kundetilknytning via portalen",
+    async (role) => {
+      mocks.prisma.user.findUnique.mockResolvedValue(
+        target({ role, customerId: "kunde-1" }),
+      );
+
+      const result = await setPortalUserActive(office(), {
+        customerId: "kunde-1",
+        id: "target",
+        active: "false",
+      });
+
+      expect(result).toEqual({ ok: false, reason: "not_found" });
+      expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["ADMIN", "OFFICE", "TECHNICIAN"])(
+    "nekter å sende portalinvitasjon til en %s med kundetilknytning",
+    async (role) => {
+      mocks.prisma.user.findUnique.mockResolvedValue(
+        target({ role, customerId: "kunde-1" }),
+      );
+
+      const result = await resendPortalInvite(office(), {
+        customerId: "kunde-1",
+        id: "target",
+      });
+
+      expect(result).toEqual({ ok: false, reason: "not_found" });
+      expect(mocks.createInviteToken).not.toHaveBeenCalled();
+      expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("brukertjenesten – kundetilknytning på ansatte", () => {
+  it("kobler ikke en ansatt til en kunde selv om contactId sendes inn", async () => {
+    mocks.prisma.contact.findUnique.mockResolvedValue({
+      id: "contact-1",
+      customerId: "kunde-1",
+    });
+
+    const result = await createUser(office(), {
+      name: "Ny ansatt",
+      email: "ansatt@example.test",
+      role: "TECHNICIAN",
+      contactId: "contact-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.contact.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        role: "TECHNICIAN",
+        customerId: null,
+        contactId: null,
+      }),
+    });
+  });
+
+  it("kobler kundeportalbrukere til riktig kunde", async () => {
+    mocks.prisma.contact.findUnique.mockResolvedValue({
+      id: "contact-1",
+      customerId: "kunde-1",
+    });
+
+    const result = await createUser(office(), {
+      name: "Kari",
+      email: "kari@example.test",
+      role: "CUSTOMER",
+      contactId: "contact-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+      }),
+    });
   });
 });

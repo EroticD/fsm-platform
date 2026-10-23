@@ -157,7 +157,10 @@ export async function createUser(
     departmentId = actor.departmentId;
   }
 
-  // Kundeportalbrukere må kobles til en kontaktperson på kundekortet.
+  // Kundeportalbrukere må kobles til en kontaktperson på kundekortet. Andre
+  // roller skal aldri knyttes til en kunde: en ansattkonto med customerId ville
+  // gjort kundetilknytningen til en del av identiteten, og en kontaktperson i
+  // skjemaet ignoreres derfor for ikke-kundeportalroller.
   let customerId: string | null = null;
   let linkedContactId: string | null = null;
 
@@ -167,13 +170,6 @@ export async function createUser(
     if (!contact) return fail("missing_contact");
     customerId = contact.customerId;
     linkedContactId = contact.id;
-  } else if (contactId) {
-    // Andre roller kan også kobles til en kontakt, men det er valgfritt.
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-    if (contact) {
-      customerId = contact.customerId;
-      linkedContactId = contact.id;
-    }
   }
 
   let newUser: { id: string };
@@ -723,7 +719,13 @@ export async function setPortalUserActive(
   if (!customerId || !id) return fail("invalid");
 
   const target = await prisma.user.findUnique({ where: { id } });
-  if (!target || target.customerId !== customerId) return fail("not_found");
+  if (
+    !target ||
+    target.role !== "CUSTOMER" ||
+    target.customerId !== customerId
+  ) {
+    return fail("not_found");
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id }, data: { isActive: active } });
@@ -749,7 +751,9 @@ export async function resendPortalInvite(
   if (!customerId || !id) return fail("invalid");
 
   const user = await prisma.user.findUnique({ where: { id } });
-  if (!user || user.customerId !== customerId) return fail("not_found");
+  if (!user || user.role !== "CUSTOMER" || user.customerId !== customerId) {
+    return fail("not_found");
+  }
 
   const token = await prisma.$transaction(async (tx) => {
     const created = await createInviteToken(id, tx);

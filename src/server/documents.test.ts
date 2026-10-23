@@ -39,6 +39,7 @@ vi.mock("@/lib/pdf-queue", () => ({
 }));
 
 import {
+  bulkCreateDocuments,
   createDocument,
   deleteDocument,
   restoreDocumentVersion,
@@ -101,6 +102,7 @@ beforeEach(() => {
   );
   mocks.prisma.auditLog.create.mockResolvedValue({});
   mocks.prisma.document.findUnique.mockResolvedValue(currentDocument);
+  mocks.prisma.document.create.mockResolvedValue({ id: "doc-2" });
   mocks.prisma.documentVersion.findUnique.mockResolvedValue(previousVersion);
   mocks.prisma.documentVersion.create.mockResolvedValue({});
   mocks.prisma.document.update.mockResolvedValue({});
@@ -124,13 +126,97 @@ describe("dokumenttjenesten – autorisasjon", () => {
     expect(mocks.prisma.document.delete).not.toHaveBeenCalled();
   });
 
-  it("nekter å gjenopprette versjon for montør uten kontorrolle", async () => {
-    const result = await restoreDocumentVersion(technician(), {
+  it("nekter å gjenopprette versjon uten documents.manage", async () => {
+    const technicianResult = await restoreDocumentVersion(technician(), {
+      versionId: "version-1",
+    });
+    const officeWithoutManage = actor({
+      roleDefinition: { permissions: ["documents.view"] },
+    });
+    const officeResult = await restoreDocumentVersion(officeWithoutManage, {
       versionId: "version-1",
     });
 
-    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(technicianResult).toEqual({ ok: false, reason: "forbidden" });
+    expect(officeResult).toEqual({ ok: false, reason: "forbidden" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("dokumenttjenesten – filstier", () => {
+  const rejected = [
+    "https://evil.example/ond.pdf",
+    "//evil.example/ond.pdf",
+    "/etc/passwd",
+    "/dev/zero",
+    "/uploads/../etc/passwd",
+  ];
+
+  it.each(rejected)("avviser createDocument med filstien %s", async (fileUrl) => {
+    const result = await createDocument(office(), {
+      title: "Manual",
+      fileUrl,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(rejected)("avviser updateDocument med filstien %s", async (fileUrl) => {
+    const result = await updateDocument(office(), {
+      id: "doc-1",
+      title: "Manual",
+      fileUrl,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(rejected)("avviser bulkCreateDocuments med filstien %s", async (fileUrl) => {
+    const result = await bulkCreateDocuments(office(), {
+      folderId: null,
+      itemsJson: JSON.stringify([
+        { fileName: "ond.pdf", fileUrl, fileSize: 10, relativePath: "ond.pdf" },
+      ]),
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("godtar en vanlig fil i opplastingsmappen", async () => {
+    const result = await createDocument(office(), {
+      title: "Manual",
+      fileUrl: "/uploads/0f7c1a9e-4a2b-4f8e-9f1a-123456789abc.pdf",
+      fileName: "manual.pdf",
+      fileSize: "100",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.document.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        filePath: "/uploads/0f7c1a9e-4a2b-4f8e-9f1a-123456789abc.pdf",
+      }),
+    });
+  });
+
+  it("godtar en vanlig fil ved oppdatering", async () => {
+    const result = await updateDocument(office(), {
+      id: "doc-1",
+      title: "Manual",
+      fileUrl: "/uploads/0f7c1a9e-4a2b-4f8e-9f1a-123456789abc.pdf",
+      fileName: "manual.pdf",
+      fileSize: "100",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.document.update).toHaveBeenCalledWith({
+      where: { id: "doc-1" },
+      data: expect.objectContaining({
+        filePath: "/uploads/0f7c1a9e-4a2b-4f8e-9f1a-123456789abc.pdf",
+      }),
+    });
   });
 });
 

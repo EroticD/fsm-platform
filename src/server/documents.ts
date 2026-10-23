@@ -16,7 +16,6 @@ import {
   can,
   fail,
   isAdminActor,
-  isOfficeActor,
   ok,
   toAuditActor,
   type ServiceActor,
@@ -25,6 +24,17 @@ import {
 
 /** Dokumentlisten pagineres; versjoner hentes bare for detaljvisningen. */
 export const DOCUMENT_PAGE_SIZE = 30;
+
+/**
+ * Bare filer som ligger i opplastingsmappen kan lagres som dokument.
+ * Samme mønster som opplastingsruten bruker; det hindrer at en dokumentrad
+ * peker på en vilkårlig URL eller en lokal fil utenfor uploads.
+ */
+const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
+
+function isUploadUrl(value: string): boolean {
+  return UPLOAD_URL.test(value);
+}
 
 export type DocumentLibraryParams = {
   folderId: string | null;
@@ -264,7 +274,9 @@ export async function restoreDocumentVersion(
   actor: ServiceActor,
   input: { versionId?: unknown },
 ): Promise<ServiceResult> {
-  if (!isOfficeActor(actor) || !actor.isActive) return fail("forbidden");
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
 
   const parsed = documentVersionSchema.safeParse({
     versionId: cleanText(input.versionId, { maxLength: LIMITS.line }),
@@ -390,6 +402,8 @@ export async function updateDocument(
     tagNames,
   } = parsed.data;
 
+  if (fileUrl && !isUploadUrl(fileUrl)) return fail("invalid");
+
   const existing = await prisma.document.findUnique({ where: { id } });
   if (!existing) return fail("not_found");
 
@@ -494,6 +508,8 @@ export async function createDocument(
     tagNames,
   } = parsed.data;
 
+  if (!isUploadUrl(fileUrl)) return fail("invalid");
+
   const newDoc = await prisma.$transaction(async (tx) => {
     const created = await tx.document.create({
       data: {
@@ -592,6 +608,7 @@ export async function bulkCreateDocuments(
   if (!itemsJson) return fail("invalid");
   const items = parseBulkItems(itemsJson);
   if (!items) return fail("invalid");
+  if (items.some((item) => !isUploadUrl(item.fileUrl))) return fail("invalid");
 
   // Mappe: relativ sti -> DocumentFolder id
   const folderMap = new Map<string, string | null>();
