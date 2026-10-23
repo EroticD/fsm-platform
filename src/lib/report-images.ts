@@ -104,6 +104,9 @@ async function shrinkToPdfImage(url: string): Promise<PdfImage | null> {
   }
 }
 
+/** Hvor mange bilder som skaleres samtidig før PDF-en settes sammen. */
+const IMAGE_SCALE_CONCURRENCY = 4;
+
 /**
  * Gjør bildene klare for PDF-en.
  *
@@ -115,14 +118,26 @@ async function shrinkToPdfImage(url: string): Promise<PdfImage | null> {
  * Nøkkelen er den opprinnelige URL-en, slik at PDF-komponenten kan slå opp
  * bildet den vil vise. Bilder vi ikke får skalert (eksterne, eller filer som er
  * borte) mangler i kartet, og da brukes den opprinnelige URL-en.
+ *
+ * Sharp bruker mye minne per bilde. Derfor skaleres bildene i små bolker i
+ * stedet for alle på en gang – en rapport kan ha mange vedlegg.
  */
 export async function buildPdfImages(urls: string[]): Promise<Record<string, PdfImage>> {
-  const scaled = await Promise.all(
-    urls.map(async (url) => {
-      const image = await shrinkToPdfImage(url);
-      return image ? ([url, image] as const) : null;
-    }),
-  );
+  const scaled: (readonly [string, PdfImage])[] = [];
 
-  return Object.fromEntries(scaled.filter((entry): entry is readonly [string, PdfImage] => !!entry));
+  for (let start = 0; start < urls.length; start += IMAGE_SCALE_CONCURRENCY) {
+    const batch = urls.slice(start, start + IMAGE_SCALE_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (url) => {
+        const image = await shrinkToPdfImage(url);
+        return image ? ([url, image] as const) : null;
+      }),
+    );
+
+    for (const entry of results) {
+      if (entry) scaled.push(entry);
+    }
+  }
+
+  return Object.fromEntries(scaled);
 }

@@ -1,6 +1,4 @@
-import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { contractIntervalLabel } from "@/lib/contracts";
 import {
@@ -10,7 +8,6 @@ import {
   latestOccurrenceOnOrBefore,
   toDateOnly,
 } from "@/lib/dates";
-import { uploadDir } from "@/lib/uploads";
 
 export type RecurringGenerationResult = {
   contractId: string;
@@ -21,12 +18,42 @@ export type RecurringGenerationResult = {
 };
 
 /**
+ * Fast nøkkel for Postgres' advisory lock. Samme tall må brukes av alle
+ * prosesser som genererer serviceavtale-oppdrag.
+ */
+export const RECURRING_ADVISORY_LOCK_ID = 918273;
+
+/** Hvor mange avtaler som behandles før vi går videre til neste bolk. */
+const CONTRACT_BATCH_SIZE = 50;
+
+/**
+ * Låsen holdes i en interaktiv transaksjon, slik at `pg_try_advisory_lock` og
+ * `pg_advisory_unlock` garantert går på samme tilkobling. En vanlig
+ * `$queryRaw` kan havne på to ulike tilkoblinger i poolen, og da ville låsen
+ * blitt hengende.
+ *
+ * Transaksjonen er bare en måte å feste tilkoblingen på; selve arbeidet kjøres
+ * med den vanlige Prisma-klienten. En avtale som tar svært lang tid kan derfor
+ * i teorien nå tidsgrensen, men jobben er avgrenset til forfalte avtaler.
+ */
+const LOCK_TRANSACTION_TIMEOUT_MS = 30 * 60 * 1000;
+
+/** Er feilen en unikhetskollisjon (P2002), f.eks. samme avtale og dato? */
+export function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+/**
  * Oppretter neste oppdrag for én serviceavtale.
  *
  * - Oppdraget får kunde, kontaktperson og sjekklistemal fra avtalen.
  * - Rapporten er alltid ny; tidligere svar kopieres aldri.
- * - Er det en tidligere rapport på avtalen, genereres den som PDF og legges
- *   ved det nye oppdraget.
+ * - Er det en tidligere rapport på avtalen, legges den ved som PDF etter at
+ *   oppdraget er lagret. Feiler PDF-en, beholdes oppdraget uten vedlegg.
  * - `nextServiceDate` flyttes til neste framtidige forekomst. Har
  *   bakgrunnsjobben vært nede, brukes den siste forekomsten som faktisk har
  *   forfalt, slik at man ikke får en haug med gamle oppdrag.
@@ -74,38 +101,14 @@ export async function generateRecurringWorkOrderForContract(
     select: { id: true, scheduledFor: true },
   });
 
-  let pdfFile: { storedName: string; displayName: string } | null = null;
-
-  if (previous) {
-    try {
-      // Lastes dynamisk for å holde PDF-motoren ute av vanlige sidebundles.
-      const { loadReportPdf } = await import("@/lib/report-pdf");
-      const pdf = await loadReportPdf(previous.id);
-      if (pdf) {
-        const storedName = `${crypto.randomUUID()}.pdf`;
-        await fs.mkdir(uploadDir(), { recursive: true });
-        await fs.writeFile(path.join(uploadDir(), storedName), pdf.buffer);
-
-        pdfFile = {
-          storedName,
-          displayName: `Servicerapport-${formatDate(previous.scheduledFor) || "forrige"}.pdf`,
-        };
-      }
-    } catch (error) {
-      // PDF-en er en bekvemmelighet. Selve oppdraget skal opprettes selv om
-      // genereringen feiler, så feilen logges og oppdraget lages uten vedlegg.
-      console.error(
-        `Kunne ikke lage PDF av forrige rapport for serviceavtale ${contract.id}:`,
-        error,
-      );
-    }
-  }
-
   const nextServiceDate = firstOccurrenceOnOrAfter(
     contract.startDate,
     contract.intervalMonths,
     addDaysUtc(due, 1),
   );
+
+  const baseDescription =
+    `Gjentagende serviceavtale – intervall ${contractIntervalLabel(contract.intervalMonths)}.`;
 
   let workOrderId: string | null = null;
 
@@ -127,9 +130,7 @@ export async function generateRecurringWorkOrderForContract(
       const workOrder = await tx.workOrder.create({
         data: {
           title: contract.title,
-          description:
-            `Gjentagende serviceavtale – intervall ${contractIntervalLabel(contract.intervalMonths)}.` +
-            (pdfFile ? " Forrige rapport er vedlagt som PDF." : ""),
+          description: baseDescription,
           departmentId: contract.departmentId,
           customerId: contract.customerId,
           contactId: contract.contactId ?? contract.customer.contacts[0]?.id ?? null,
@@ -140,17 +141,6 @@ export async function generateRecurringWorkOrderForContract(
           templates: contract.templateId
             ? { connect: { id: contract.templateId } }
             : undefined,
-          attachments:
-            pdfFile !== null
-              ? {
-                  create: [
-                    {
-                      fileName: pdfFile.displayName,
-                      dataUrl: `/uploads/${pdfFile.storedName}`,
-                    },
-                  ],
-                }
-              : undefined,
         },
         select: { id: true },
       });
@@ -167,19 +157,57 @@ export async function generateRecurringWorkOrderForContract(
       return workOrder.id;
     });
   } catch (error) {
-    // Transaksjonen rullet tilbake, så den genererte PDF-filen skal ikke bli
-    // liggende igjen på volumet.
-    if (pdfFile) {
-      await fs.unlink(path.join(uploadDir(), pdfFile.storedName)).catch(() => {});
+    // `@@unique([contractId, scheduledFor])` er siste skanse mot to samtidige
+    // kjøringer. En slik kollisjon er ikke en feil – oppdraget finnes allerede.
+    if (isUniqueViolation(error)) {
+      return { contractId, skipped: "already-generated" };
     }
     throw error;
   }
 
-  if (!workOrderId) {
-    if (pdfFile) {
-      await fs.unlink(path.join(uploadDir(), pdfFile.storedName)).catch(() => {});
+  if (!workOrderId) return { contractId, skipped: "already-generated" };
+
+  // Vedlegget lages først etter at oppdraget er committet. Da kan ikke en
+  // PDF-feil rulle tilbake selve oppdraget, og PDF-en blir ikke liggende som
+  // en foreldreløs fil dersom transaksjonen feiler. Mellomlagringen i
+  // report-pdf-store registrerer `Upload`-raden og rydder opp selv ved feil.
+  if (previous) {
+    try {
+      const { getOrRenderReportPdf } = await import("@/lib/report-pdf-store");
+      const pdf = await getOrRenderReportPdf(previous.id);
+
+      if (pdf?.url) {
+        const attachmentName =
+          `Servicerapport-${formatDate(previous.scheduledFor) || "forrige"}.pdf`;
+
+        await prisma.$transaction([
+          prisma.attachment.create({
+            data: {
+              workOrderId,
+              fileName: attachmentName,
+              dataUrl: pdf.url,
+            },
+          }),
+          prisma.workOrder.update({
+            where: { id: workOrderId },
+            data: {
+              description: `${baseDescription} Forrige rapport er vedlagt som PDF.`,
+            },
+          }),
+        ]);
+      } else {
+        console.warn(
+          `Serviceavtale ${contract.id}: fant ingen PDF av forrige rapport; oppdraget lages uten vedlegg.`,
+        );
+      }
+    } catch (error) {
+      // PDF-en er en bekvemmelighet. Oppdraget skal bestå selv om vedlegget
+      // ikke kunne lages.
+      console.error(
+        `Kunne ikke legge ved forrige rapport for serviceavtale ${contract.id}:`,
+        error,
+      );
     }
-    return { contractId, skipped: "already-generated" };
   }
 
   return {
@@ -189,9 +217,28 @@ export async function generateRecurringWorkOrderForContract(
   };
 }
 
-/** Finner alle aktive avtaler som har forfalt og genererer ett oppdrag hver. */
-export async function generateDueRecurringWorkOrders(
-  now = new Date(),
+async function tryAcquireRecurringLock(
+  tx: Prisma.TransactionClient,
+): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ locked: boolean }[]>`
+    SELECT pg_try_advisory_lock(${RECURRING_ADVISORY_LOCK_ID}::bigint) AS locked
+  `;
+  return rows[0]?.locked === true;
+}
+
+async function releaseRecurringLock(tx: Prisma.TransactionClient): Promise<void> {
+  try {
+    await tx.$queryRaw`
+      SELECT pg_advisory_unlock(${RECURRING_ADVISORY_LOCK_ID}::bigint)
+    `;
+  } catch (error) {
+    console.error("Kunne ikke frigjøre serviceavtale-låsen:", error);
+  }
+}
+
+/** Selve genereringen. Kalles bare av den som holder advisory-låsen. */
+async function generateDueRecurringWorkOrdersLocked(
+  now: Date,
 ): Promise<RecurringGenerationResult[]> {
   const contracts = await prisma.contract.findMany({
     where: {
@@ -204,21 +251,70 @@ export async function generateDueRecurringWorkOrders(
 
   const results: RecurringGenerationResult[] = [];
 
-  for (const contract of contracts) {
-    try {
-      results.push(await generateRecurringWorkOrderForContract(contract.id, now));
-    } catch (error) {
-      console.error(
-        `Kunne ikke generere serviceavtale-oppdrag for ${contract.id}:`,
-        error,
-      );
-      results.push({
-        contractId: contract.id,
-        skipped: "error",
-        error: error instanceof Error ? error.message : "Ukjent feil",
-      });
+  // Avtalene behandles i bolker, slik at en stor etterslep-kø ikke holder på
+  // alle resultatene eller alle PDF-rendringene samtidig.
+  for (let start = 0; start < contracts.length; start += CONTRACT_BATCH_SIZE) {
+    const batch = contracts.slice(start, start + CONTRACT_BATCH_SIZE);
+
+    for (const contract of batch) {
+      try {
+        results.push(await generateRecurringWorkOrderForContract(contract.id, now));
+      } catch (error) {
+        console.error(
+          `Kunne ikke generere serviceavtale-oppdrag for ${contract.id}:`,
+          error,
+        );
+        results.push({
+          contractId: contract.id,
+          skipped: "error",
+          error: error instanceof Error ? error.message : "Ukjent feil",
+        });
+      }
     }
   }
 
+  if (contracts.length > 0) {
+    const created = results.filter((result) => result.workOrderId).length;
+    const errors = results.filter((result) => result.skipped === "error").length;
+    const skipped = results.filter(
+      (result) => result.skipped && result.skipped !== "error",
+    ).length;
+
+    console.log(
+      `Serviceavtaler: ${created} opprettet, ${skipped} hoppet over, ${errors} feil` +
+        ` (${contracts.length} forfalt).`,
+    );
+  }
+
   return results;
+}
+
+/**
+ * Finner alle aktive avtaler som har forfalt og genererer ett oppdrag hver.
+ *
+ * Kjøringen er beskyttet av en Postgres advisory lock, slik at to
+ * app-instanser (eller den innebygde jobben og en ekstern cron) ikke lager
+ * samme oppdrag samtidig. Er låsen opptatt, returneres en tom liste.
+ */
+export async function generateDueRecurringWorkOrders(
+  now = new Date(),
+): Promise<RecurringGenerationResult[]> {
+  return prisma.$transaction(
+    async (tx) => {
+      const locked = await tryAcquireRecurringLock(tx);
+      if (!locked) {
+        console.log(
+          "Serviceavtaler: en annen prosess genererer allerede; hopper over denne kjøringen.",
+        );
+        return [];
+      }
+
+      try {
+        return await generateDueRecurringWorkOrdersLocked(now);
+      } finally {
+        await releaseRecurringLock(tx);
+      }
+    },
+    { maxWait: 10_000, timeout: LOCK_TRANSACTION_TIMEOUT_MS },
+  );
 }
