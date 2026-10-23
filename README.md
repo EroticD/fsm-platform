@@ -28,6 +28,33 @@ signerte servicerapporten kan lastes ned som PDF.
   verifisering (TOTP) for alle innloggede, og Markdown i fritekst som vises likt
   på nettsiden og i PDF-en.
 
+## Skjermbilder
+
+| Dashbord | Oppdrag |
+| --- | --- |
+| ![Dashbord](screenshots/01-dashbord.png) | ![Oppdrag](screenshots/02-oppdrag.png) |
+
+| Kalender | Kunder |
+| --- | --- |
+| ![Kalender](screenshots/04-kalender.png) | ![Kunder](screenshots/05-kunder.png) |
+
+| Dokumentbibliotek | Kundeportal |
+| --- | --- |
+| ![Dokumenter](screenshots/07-dokumenter.png) | ![Kundeportal](screenshots/14-kundeportal.png) |
+
+<details>
+<summary>Flere skjermbilder (oppdragsdetaljer, kundekort, rapporter, innstillinger og mobil)</summary>
+
+| | |
+| --- | --- |
+| ![Oppdragsdetaljer](screenshots/03-oppdrag-detalj.png) | ![Kundekort](screenshots/06-kunde-detalj.png) |
+| ![Dokumentmappe](screenshots/08-dokumenter-mappe.png) | ![Rapporter](screenshots/09-rapporter.png) |
+| ![Sikkerhet](screenshots/10-innstillinger-sikkerhet.png) | ![Merkevare](screenshots/11-innstillinger-merkevare.png) |
+| ![Mobil dashbord](screenshots/12-mobil-dashbord.png) | ![Mobil oppdrag](screenshots/13-mobil-oppdrag.png) |
+| ![Kundeportal mobil](screenshots/15-kundeportal-mobil.png) | |
+
+</details>
+
 ## Kom i gang lokalt
 
 Forutsetninger: Node.js 22+, Docker og npm.
@@ -82,8 +109,11 @@ docker compose up -d --build
   hastighetsbegrensning.
 - All autorisasjon sjekkes på serveren; oppdrag er avdelingssperret, og
   kundeportalbrukere ser bare egen kundedata.
-- To-trinns verifisering (TOTP) kan slås på per bruker, og rapporter låses
-  automatisk når de er signert.
+- Opplastede filer har tilgangskontroll per fil (oppdrag, kunde, dokument eller
+  privat), og økter ugyldiggjøres når passord, rolle, rettigheter eller 2FA
+  endres.
+- To-trinns verifisering (TOTP) kan slås på per bruker, og signerte rapporter
+  fryses med et øyeblikksbilde av malen slik at de ikke kan endres i ettertid.
 - Skjemafelt renses på serveren, og responsene får sikkerhetsheadere. Se
   [SECURITY.md](SECURITY.md) for rapportering og drift.
 
