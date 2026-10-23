@@ -31,13 +31,23 @@ export default async function AdminCreateWorkOrderPage({
     ? (user.departmentId ?? defaultDepartmentId)
     : user.departmentId;
 
-  const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
-  const contacts = await prisma.contact.findMany({ orderBy: { name: 'asc' } });
+  // Skjemaet trenger bare et avgrenset utvalg; søk i listen dekker resten.
+  const customers = await prisma.customer.findMany({
+    orderBy: { name: 'asc' },
+    take: 100,
+    select: { id: true, name: true, city: true, customerNumber: true },
+  });
+  const contacts = await prisma.contact.findMany({
+    orderBy: { name: 'asc' },
+    take: 200,
+    select: { id: true, name: true, role: true, customerId: true },
+  });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const technicians = await prisma.user.findMany({
     where: isAdmin ? staffWhere() : staffForDepartment(ownDepartmentId),
     include: { department: true },
     orderBy: { name: "asc" },
+    take: 100,
   });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
@@ -96,6 +106,7 @@ export default async function AdminCreateWorkOrderPage({
       ? await prisma.user.findMany({
           where: { id: { in: requestedTechnicianIds }, ...staffForDepartment(departmentId) },
           select: { id: true },
+          take: 100,
         })
       : [];
     const technicianIds = allowedTechnicians.map((technician) => technician.id);

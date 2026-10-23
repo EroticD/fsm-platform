@@ -20,7 +20,8 @@ export default async function CalendarPage() {
   // Hent alle ansatte som kan ta oppdrag, innenfor egen avdeling.
   const technicians = await prisma.user.findMany({
     where: staffScope(user),
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    take: 200,
   });
 
   const thirtyDaysAgo = new Date();
@@ -45,7 +46,8 @@ export default async function CalendarPage() {
     },
     orderBy: {
       scheduledFor: 'asc'
-    }
+    },
+    take: 500,
   });
 
   const unassignedJobs = workOrders.filter(wo => wo.technicians.length === 0 && wo.status !== "COMPLETED");

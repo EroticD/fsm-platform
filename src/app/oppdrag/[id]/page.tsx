@@ -336,7 +336,8 @@ export default async function AdminWorkOrderPage({
 
   const staffUsers = await prisma.user.findMany({
     where: staffForDepartment(workOrder.departmentId),
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    take: 100,
   });
   const availableTechnicians = staffUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
 

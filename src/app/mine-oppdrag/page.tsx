@@ -7,6 +7,21 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 
+/** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
+const LIST_LIMIT = 50;
+
+const LIST_SELECT = {
+  id: true,
+  title: true,
+  status: true,
+  scheduledFor: true,
+  scheduledTo: true,
+  customer: {
+    select: { id: true, name: true, address: true, postalCode: true, city: true },
+  },
+  tags: { select: { id: true, name: true, color: true } },
+} as const;
+
 // Hjelpekomponent for status-etikett
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -52,8 +67,9 @@ export default async function TechnicianDashboard({
           { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
         ]
       },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
+      select: LIST_SELECT,
+      orderBy: { scheduledFor: 'asc' },
+      take: LIST_LIMIT
     });
 
     unassignedWorkOrders = await prisma.workOrder.findMany({
@@ -69,8 +85,9 @@ export default async function TechnicianDashboard({
           { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
         ]
       },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
+      select: LIST_SELECT,
+      orderBy: { scheduledFor: 'asc' },
+      take: LIST_LIMIT
     });
   } else {
     assignedWorkOrders = await prisma.workOrder.findMany({
@@ -79,8 +96,9 @@ export default async function TechnicianDashboard({
         technicians: { some: { id: user.id } },
         status: { not: 'CANCELLED' }
       },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
+      select: LIST_SELECT,
+      orderBy: { scheduledFor: 'asc' },
+      take: LIST_LIMIT
     });
 
     unassignedWorkOrders = await prisma.workOrder.findMany({
@@ -89,8 +107,9 @@ export default async function TechnicianDashboard({
         technicians: { none: {} },
         status: { not: 'CANCELLED' }
       },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
+      select: LIST_SELECT,
+      orderBy: { scheduledFor: 'asc' },
+      take: LIST_LIMIT
     });
   }
 

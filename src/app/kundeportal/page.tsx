@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
@@ -11,6 +12,25 @@ import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
 import { sendBookingNotification } from "@/lib/email";
+import { parsePage } from "@/lib/pagination";
+
+/** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
+const UPCOMING_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 20;
+
+const WORK_ORDER_LIST_SELECT = {
+  id: true,
+  title: true,
+  status: true,
+  scheduledFor: true,
+  description: true,
+  technicians: { select: { name: true }, take: 10 },
+  reports: {
+    select: { id: true, completedAt: true, isLocked: true },
+    orderBy: { completedAt: "desc" as const },
+    take: 1,
+  },
+} as const;
 
 // Formaterer en dato til YYYY-MM-DD i lokal tid (for sammenligning av dager)
 function dateKey(d: Date) {
@@ -34,9 +54,16 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
-export default async function KundeportalPage() {
+export default async function KundeportalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ u?: string; h?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  const listParams = await searchParams;
+  const upcomingPage = parsePage(listParams.u);
+  const historyPage = parsePage(listParams.h);
 
   if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return (
@@ -54,15 +81,8 @@ export default async function KundeportalPage() {
     include: {
       department: true,
       responsibleTechnician: true,
-      products: true,
-      contracts: true,
-      workOrder: {
-        orderBy: { scheduledFor: "desc" },
-        include: {
-          technicians: true,
-          reports: true,
-        },
-      },
+      products: { orderBy: { model: "asc" }, take: 100 },
+      contracts: { orderBy: { startDate: "desc" }, take: 50 },
     },
   });
 
@@ -80,13 +100,51 @@ export default async function KundeportalPage() {
   const customerName = customer.name;
   const defaultDepartmentId = await getDefaultDepartmentId();
 
-  // Sorter oppdrag i kategorier
-  const upcomingWorkOrders = customer.workOrder.filter(wo => 
-    wo.status !== 'COMPLETED' && wo.status !== 'CANCELLED'
-  );
-  const completedWorkOrders = customer.workOrder.filter(wo => 
-    wo.status === 'COMPLETED' || wo.status === 'CANCELLED'
-  );
+  // Kommende og utførte oppdrag hentes hver for seg med et fast tak. Slik
+  // slipper kundeportalen å laste hele oppdragshistorikken (og alle rapportene)
+  // hver gang siden åpnes.
+  const upcomingWhere: Prisma.WorkOrderWhereInput = {
+    customerId: customer.id,
+    status: { notIn: ["COMPLETED", "CANCELLED"] },
+  };
+  const historyWhere: Prisma.WorkOrderWhereInput = {
+    customerId: customer.id,
+    status: { in: ["COMPLETED", "CANCELLED"] },
+  };
+
+  const [upcomingWorkOrders, upcomingTotal, completedWorkOrders, completedTotal] =
+    await Promise.all([
+      prisma.workOrder.findMany({
+        where: upcomingWhere,
+        orderBy: { scheduledFor: "desc" },
+        take: UPCOMING_PAGE_SIZE,
+        skip: (upcomingPage - 1) * UPCOMING_PAGE_SIZE,
+        select: WORK_ORDER_LIST_SELECT,
+      }),
+      prisma.workOrder.count({ where: upcomingWhere }),
+      prisma.workOrder.findMany({
+        where: historyWhere,
+        orderBy: { scheduledFor: "desc" },
+        take: HISTORY_PAGE_SIZE,
+        skip: (historyPage - 1) * HISTORY_PAGE_SIZE,
+        select: WORK_ORDER_LIST_SELECT,
+      }),
+      prisma.workOrder.count({ where: historyWhere }),
+    ]);
+
+  const upcomingTotalPages = Math.max(1, Math.ceil(upcomingTotal / UPCOMING_PAGE_SIZE));
+  const historyTotalPages = Math.max(1, Math.ceil(completedTotal / HISTORY_PAGE_SIZE));
+
+  // Beholder motpartens side når man blar i én av listene.
+  const listLink = (next: { u?: number; h?: number }, hash: string) => {
+    const params = new URLSearchParams();
+    const u = next.u ?? upcomingPage;
+    const h = next.h ?? historyPage;
+    if (u > 1) params.set("u", String(u));
+    if (h > 1) params.set("h", String(h));
+    const qs = params.toString();
+    return `/kundeportal${qs ? `?${qs}` : ""}${hash}`;
+  };
 
   // --- SERVER ACTION: BOOK NYTT OPPDRAG ---
   async function bookWorkOrder(formData: FormData) {
@@ -139,6 +197,7 @@ export default async function KundeportalPage() {
         const officeUsers = await prisma.user.findMany({
           where: { isActive: true, role: { in: ["ADMIN", "OFFICE"] } },
           select: { email: true },
+          take: 50,
         });
         const contact = current.contactId
           ? await prisma.contact.findUnique({
@@ -187,6 +246,7 @@ export default async function KundeportalPage() {
     where: { ...staffForDepartment(availabilityDepartmentId), isActive: true },
     orderBy: { name: 'asc' },
     select: { id: true, name: true },
+    take: 200,
   });
 
   // Hent oppdrag som overlapper de neste 7 dagene. Flerdagersoppdrag
@@ -211,6 +271,7 @@ export default async function KundeportalPage() {
       scheduledTo: true,
       technicians: { select: { id: true } },
     },
+    take: 500,
   });
 
   const busyByTechnician = new Map<string, Set<string>>();
@@ -413,7 +474,7 @@ export default async function KundeportalPage() {
             </div>
 
             {/* KOMMENDE OPPDRAG */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+            <div id="kommende" className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <h2 className="font-bold text-lg text-gray-900">📅 Kommende oppdrag</h2>
@@ -427,7 +488,7 @@ export default async function KundeportalPage() {
                 </a>
               </div>
 
-              {upcomingWorkOrders.length === 0 ? (
+              {upcomingTotal === 0 ? (
                 <div className="bg-gray-50 p-6 rounded-xl border border-dashed border-gray-200 text-center">
                   <p className="text-gray-500 italic text-sm">Ingen kommende oppdrag.</p>
                 </div>
@@ -459,10 +520,29 @@ export default async function KundeportalPage() {
                   ))}
                 </div>
               )}
+
+              {upcomingTotalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
+                  {upcomingPage > 1 && (
+                    <Link href={listLink({ u: upcomingPage - 1 }, "#kommende")} className="text-blue-600 hover:underline">
+                      &larr; Nyeste
+                    </Link>
+                  )}
+                  <span className="text-gray-500">
+                    Viser {(upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1}–
+                    {Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal)} av {upcomingTotal}
+                  </span>
+                  {upcomingPage < upcomingTotalPages && (
+                    <Link href={listLink({ u: upcomingPage + 1 }, "#kommende")} className="text-blue-600 hover:underline">
+                      Vis flere &rarr;
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* SERVICEHISTORIKK */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+            <div id="historikk" className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <h2 className="font-bold text-lg text-gray-900">📋 Servicehistorikk & Rapporter</h2>
@@ -470,7 +550,7 @@ export default async function KundeportalPage() {
                 </div>
               </div>
 
-              {completedWorkOrders.length === 0 ? (
+              {completedTotal === 0 ? (
                 <p className="text-gray-500 italic text-sm">Ingen historikk enda.</p>
               ) : (
                 <div className="space-y-3">
@@ -492,6 +572,25 @@ export default async function KundeportalPage() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {historyTotalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
+                  {historyPage > 1 && (
+                    <Link href={listLink({ h: historyPage - 1 }, "#historikk")} className="text-blue-600 hover:underline">
+                      &larr; Nyeste
+                    </Link>
+                  )}
+                  <span className="text-gray-500">
+                    Viser {(historyPage - 1) * HISTORY_PAGE_SIZE + 1}–
+                    {Math.min(historyPage * HISTORY_PAGE_SIZE, completedTotal)} av {completedTotal}
+                  </span>
+                  {historyPage < historyTotalPages && (
+                    <Link href={listLink({ h: historyPage + 1 }, "#historikk")} className="text-blue-600 hover:underline">
+                      Vis flere &rarr;
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

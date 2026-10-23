@@ -50,13 +50,15 @@ export default async function DispatchPage() {
     },
     orderBy: {
       scheduledFor: 'asc'
-    }
+    },
+    take: 500,
   });
 
   // Hent alle tilgjengelige montører i egen avdeling.
   const availableTechnicians = await prisma.user.findMany({
     where: staffScope(user),
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+    take: 200,
   });
 
   // --- SERVER ACTION: TILDEL MONTØR ---
