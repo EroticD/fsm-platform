@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => {
     targetRole: "OFFICE",
     targetActive: true,
     targetDepartmentId: "dep-a",
+    targetPermissions: null as string[] | null,
+    targetPermissionsCustomized: false,
     activeAdminCount: 1,
   };
   return {
@@ -85,6 +87,8 @@ beforeEach(() => {
   mocks.state.targetRole = "OFFICE";
   mocks.state.targetActive = true;
   mocks.state.targetDepartmentId = "dep-a";
+  mocks.state.targetPermissions = null;
+  mocks.state.targetPermissionsCustomized = false;
   mocks.state.activeAdminCount = 1;
   vi.clearAllMocks();
   const roles = {
@@ -126,6 +130,9 @@ beforeEach(() => {
         isActive: mocks.state.targetActive,
         departmentId: mocks.state.targetDepartmentId,
         name: "Target",
+        permissions: mocks.state.targetPermissions,
+        permissionsCustomized: mocks.state.targetPermissionsCustomized,
+        roleDefinition: null,
       };
     }
     return null;
@@ -231,6 +238,16 @@ describe("generateInvite", () => {
     mocks.state.targetRole = "TECHNICIAN";
     await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
     expect(mocks.createInviteToken).toHaveBeenCalled();
+  });
+
+  it("lar ikke en kontorbruker invitere en bruker med rettigheter aktøren ikke har", async () => {
+    mocks.state.actorRole = "OFFICE";
+    mocks.state.targetRole = "USER";
+    mocks.state.targetPermissions = ["audit.view"];
+    mocks.state.targetPermissionsCustomized = true;
+    await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
+    expect(mocks.createInviteToken).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
   });
 });
 

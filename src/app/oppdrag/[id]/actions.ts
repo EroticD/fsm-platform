@@ -4,28 +4,28 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { getCurrentUser } from "@/lib/session";
-import { hasPermission } from "@/lib/permissions";
+import { requireWorkOrderAccess } from "@/lib/access";
 
 /**
  * Sletter et oppdrag med rapporter, kommentarer og vedlegg.
  *
- * Bare administrator: dette fjerner også signerte rapporter, som er
- * dokumentasjon på utført arbeid. Rapporter, rapportenheter, kommentarer og
- * vedlegg forsvinner sammen med oppdraget (onDelete: Cascade i schema.prisma).
+ * Krever `workorders.delete`, og går gjennom `requireWorkOrderAccess` slik at
+ * avdelingsgrensen og regelen om kansellerte oppdrag gjelder. Uten dette ville
+ * en bruker med slettetilgang i avdeling A kunne slette et oppdrag i avdeling B
+ * ved å gjette id-en.
  *
  * Slettingen logges før den utføres, slik at den som slettet fortsatt står
  * igjen i aktivitetsloggen etter at oppdraget er borte.
  */
 export async function deleteWorkOrder(formData: FormData) {
-  const actor = await getCurrentUser();
-  if (!actor || !actor.isActive || !hasPermission(actor, "workorders.delete")) return;
-
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
   if (!workOrderId) return;
 
+  const access = await requireWorkOrderAccess("workorders.delete", workOrderId);
+  if (!access) return;
+
   const target = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+    where: { id: access.workOrder.id },
     select: { title: true, customer: { select: { name: true } } },
   });
   if (!target) return;
@@ -33,15 +33,15 @@ export async function deleteWorkOrder(formData: FormData) {
   await prisma.auditLog.create({
     data: {
       entityType: "WorkOrder",
-      entityId: workOrderId,
+      entityId: access.workOrder.id,
       action: `Slettet oppdraget «${target.title}»${
         target.customer?.name ? ` (${target.customer.name})` : ""
       } med tilhørende rapporter`,
-      userName: actor.name || actor.email || "Administrator",
+      userName: access.user.name || access.user.email || "Administrator",
     },
   });
 
-  await prisma.workOrder.delete({ where: { id: workOrderId } });
+  await prisma.workOrder.delete({ where: { id: access.workOrder.id } });
 
   revalidatePath("/");
   revalidatePath("/oppdrag");
