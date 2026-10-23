@@ -6,10 +6,14 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { requireAdmin, requirePermission, getCurrentUser } from "@/lib/session";
+import { requireAdmin, getCurrentUser } from "@/lib/session";
 import { requireWorkOrderAccess } from "@/lib/access";
 import { linkUploadOwner } from "@/lib/upload-access";
 import { uploadDir } from "@/lib/uploads";
+import {
+  addCustomerAttachment as addCustomerAttachmentService,
+  removeCustomerAttachment as removeCustomerAttachmentService,
+} from "@/server/customers";
 
 export type AttachmentActionResult = { ok: boolean; error?: string };
 
@@ -132,103 +136,75 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
 export async function addCustomerAttachment(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
-  if (!(await requirePermission("customers.manage"))) {
-    return { ok: false, error: "Ikke tilgang" };
-  }
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, error: "Ikke tilgang" };
 
   const customerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
   });
-  const fileUrl = cleanText(formData.get("fileUrl"), { maxLength: LIMITS.line });
-  const fileName = cleanText(formData.get("fileName"), { maxLength: LIMITS.title });
+  const fileUrl = cleanText(formData.get("fileUrl"), {
+    maxLength: LIMITS.line,
+  });
+  const fileName = cleanText(formData.get("fileName"), {
+    maxLength: LIMITS.title,
+  });
 
   if (!customerId || !fileUrl) return { ok: false, error: "Mangler data" };
 
-  const filePath = attachmentPath(fileUrl);
-  if (!filePath) return { ok: false, error: "Ugyldig fil" };
-
-  try {
-    await fs.access(filePath);
-  } catch {
-    return { ok: false, error: "Filen ble ikke funnet" };
-  }
-
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-    select: { id: true, departmentId: true },
-  });
-  if (!customer) return { ok: false, error: "Kunden finnes ikke" };
-
-  const existing = await prisma.customerAttachment.findFirst({
-    where: { customerId, dataUrl: fileUrl },
-    select: { id: true },
-  });
-  if (existing) return { ok: true };
-
-  const displayName = fileName || "Vedlegg";
-
-  await prisma.$transaction(async (tx) => {
-    const attachment = await tx.customerAttachment.create({
-      data: { customerId, fileName: displayName, dataUrl: fileUrl },
-    });
-
-    await audit(tx, {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `La ved fil: ${displayName}`,
-      actor: { id: actor.id, name: actor.name, email: actor.email },
-      metadata: { attachmentId: attachment.id },
-    });
-  });
-
-  await linkUploadOwner(fileUrl, {
-    ownerType: "CUSTOMER",
-    ownerId: customerId,
-    departmentId: customer.departmentId,
+  const result = await addCustomerAttachmentService(actor, {
     customerId,
+    fileUrl,
+    fileName,
   });
+
+  if (!result.ok) {
+    switch (result.reason) {
+      case "forbidden":
+        return { ok: false, error: "Ikke tilgang" };
+      case "invalid":
+        return { ok: false, error: "Ugyldig fil" };
+      case "file_not_found":
+        return { ok: false, error: "Filen ble ikke funnet" };
+      case "customer_not_found":
+        return { ok: false, error: "Kunden finnes ikke" };
+      default:
+        return { ok: false, error: "Kunne ikke lagre vedlegget" };
+    }
+  }
 
   revalidatePath(`/kunder/${customerId}`);
   return { ok: true };
 }
 
-/** Fjerner et kundeverlegg og sletter filen fra disk. */
+/** Fjerner et kundeverlegg. Sletting er forbeholdt administrator. */
 export async function removeCustomerAttachment(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
-  // Sletting av filer er forbeholdt administrator.
-  if (!(await requireAdmin())) return { ok: false, error: "Ikke tilgang" };
+  const actor = await getCurrentUser();
+  if (!actor) return { ok: false, error: "Ikke tilgang" };
 
   const attachmentId = cleanText(formData.get("attachmentId"), {
     maxLength: LIMITS.line,
   });
   if (!attachmentId) return { ok: false, error: "Mangler data" };
 
-  const attachment = await prisma.customerAttachment.findUnique({
-    where: { id: attachmentId },
-  });
-  if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
-
-  const actor = await getCurrentUser();
-  if (!actor) return { ok: false, error: "Ikke tilgang" };
-
-  await prisma.$transaction(async (tx) => {
-    await tx.customerAttachment.delete({ where: { id: attachmentId } });
-
-    // Filen blir liggende på disk til en opprydningsjobb kan bekrefte at den
-    // ikke er referert fra noe annet sted.
-    await audit(tx, {
-      entityType: "Customer",
-      entityId: attachment.customerId,
-      action: `Slettet vedlegg: ${attachment.fileName}`,
-      actor: { id: actor.id, name: actor.name, email: actor.email },
-      metadata: { attachmentId },
-    });
+  const result = await removeCustomerAttachmentService(actor, {
+    attachmentId,
   });
 
-  revalidatePath(`/kunder/${attachment.customerId}`);
+  if (!result.ok) {
+    switch (result.reason) {
+      case "forbidden":
+        return { ok: false, error: "Ikke tilgang" };
+      case "invalid":
+        return { ok: false, error: "Mangler data" };
+      case "not_found":
+        return { ok: false, error: "Vedlegget finnes ikke" };
+      default:
+        return { ok: false, error: "Kunne ikke slette vedlegget" };
+    }
+  }
+
   return { ok: true };
 }
 

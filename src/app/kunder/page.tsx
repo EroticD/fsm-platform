@@ -1,13 +1,10 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
-import { getCurrentUser, requirePermission } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { audit } from "@/lib/audit";
-import { LIMITS, cleanText } from "@/lib/sanitize";
-import { customerCreateSchema } from "@/lib/schemas/customer";
 import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
+import { addCustomer } from "./actions";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
@@ -50,34 +47,6 @@ export default async function KunderPage({
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  // Dette er en "Server Action" som kjører trygt på serveren når skjemaet sendes inn
-  async function addCustomer(formData: FormData) {
-    "use server";
-    if (!(await requirePermission("customers.manage"))) return;
-
-    const parsed = customerCreateSchema.safeParse({
-      name: cleanText(formData.get("name"), { maxLength: LIMITS.title }),
-      orgNumber: cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line }),
-    });
-    if (!parsed.success) redirect("/kunder?error=ugyldig-data");
-
-    const { name, orgNumber } = parsed.data;
-
-    await prisma.$transaction(async (tx) => {
-      const customer = await tx.customer.create({
-        data: { name, orgNumber: orgNumber || null },
-      });
-      await audit(tx, {
-        entityType: "Customer",
-        entityId: customer.id,
-        action: `Opprettet kunde: ${name}`,
-        actor: { id: user!.id, name: user!.name, email: user!.email },
-      });
-    });
-    // Oppdaterer siden umiddelbart slik at den nye kunden vises
-    revalidatePath("/kunder");
-  }
 
   const linkFor = (p: number) => {
     const params = new URLSearchParams();
