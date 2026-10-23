@@ -7,47 +7,33 @@ signerte servicerapporten kan lastes ned som PDF.
 ## Hva systemet gjør
 
 - **Oppdrag og kalender** – planlegg, fordel og følg opp serviceoppdrag i måneds-,
-  ukes- og dispatcher-visning.
+  ukes- og dispatcher-visning, med avdelingssperre og tildeling av montører.
 - **Servicerapporter** – sjekklister per enhet, kommentarer per sjekkpunkt,
   bilder og signaturer tegnet på skjermen, og ferdig PDF med firmaets logo.
 - **Enheter og servicehistorikk** – hver kunde har oversikt over utstyret sitt,
   og hver enhet viser alle tidligere servicer med resultat, kommentarer og bilder.
 - **Kunder og kundeportal** – kundekort med kontakter, kundeverlegg, avtaler og
-  egne portalbrukere som bare ser sin egen bedrift.
-- **Avdelinger, roller og rettigheter** – hvert oppdrag og hver serviceavtale
-  tilhører en avdeling. Ansatte ser bare oppdrag i egen avdeling, mens
-  administrator ser alt. Administrator kan opprette og fjerne egne roller,
-  endre hvilke rettigheter hver rolle gir, og gi enkelte brukere en tilpasset
-  rettighetsliste. Sletting er fortsatt forbeholdt administrator.
-- **Gjentagende serviceavtaler** – avtaler med startdato og intervall på 3, 6,
-  12 eller 24 måneder. Neste oppdrag opprettes automatisk med kundedata og en ny,
-  tom sjekkliste; forrige rapports PDF legges ved som dokumentasjon.
-- **Dokumentbibliotek** – PDF-filer med mapper, tags og versjonering. Teksten i
-  PDF-ene indekseres (med OCR for skannede dokumenter), og det globale søket
-  finner innhold og lenker direkte til riktig side i PDF-en.
-- **Tags** – egne tags for oppdrag (beredskap/status) og for dokumenter, med
-  fargekoder og redigering under Innstillinger.
-- **To-trinns verifisering (2FA)** – TOTP via autentiseringsapp, slås på under
-  Innstillinger → Sikkerhet for alle innloggede.
-- **PWA / feltapp** – appen kan installeres på mobil og viser en offline-side
-  når nettet forsvinner.
-- **Rapportering** – dashboard med nøkkeltall, globalt fuzzy-søk (⌘K / `/`) og
-  aktivitetslogg for alle endringer.
-- **Markdown i fritekst** – beskrivelser, notater, kommentarer og fritekstsvar i
-  rapporter skrives med en enkel formateringslinje, og vises likt på nettsiden og
-  i PDF-en.
-- **Kundetilknytning** – kunder kan knyttes til en avdeling og en ansvarlig
-  montør, slik at kundeportalen viser riktig lokasjon med direkte telefon og
-  e-post. Nye bestillinger varsler kontoret på e-post og bekreftes til kunden.
+  egne portalbrukere som bare ser sin egen bedrift. Kunder kan knyttes til en
+  avdeling og en ansvarlig montør, og nye bestillinger varsler kontoret.
+- **Avdelinger, roller og rettigheter** – oppdrag og serviceavtaler tilhører en
+  avdeling, ansatte ser bare egen avdeling, og administrator kan opprette roller
+  og tilpasse rettigheter per bruker.
+- **Gjentagende serviceavtaler** – avtaler med intervall på 3, 6, 12 eller 24
+  måneder; neste oppdrag opprettes automatisk med kundedata, ny sjekkliste og
+  forrige rapport som vedlegg.
+- **Dokumentbibliotek, OCR, tags og globalt søk** – PDF-er med mapper, tags og
+  versjonering; innholdet indekseres (OCR for skannede filer), og fuzzy-søket
+  lenker direkte til riktig side i PDF-en.
+- **PWA, 2FA og Markdown** – installerbar feltapp med offline-side, to-trinns
+  verifisering (TOTP) for alle innloggede, og Markdown i fritekst som vises likt
+  på nettsiden og i PDF-en.
 
 ## Kom i gang lokalt
 
 Forutsetninger: Node.js 22+, Docker og npm.
 
-For OCR av skannede PDF-er trenger du `poppler-utils` lokalt
-(`pdftotext`/`pdftoppm`). I Docker-imaget er det allerede installert, sammen med
-norsk og engelsk språkdata. Uten språkdata henter tesseract.js dem fra nettet ved
-første kjøring.
+For OCR av skannede PDF-er trengs `poppler-utils` lokalt (`pdftotext`/`pdftoppm`);
+i Docker-imaget er det allerede installert med norsk og engelsk språkdata.
 
 ```bash
 git clone <repo-url> fsm-platform
@@ -60,300 +46,56 @@ npm run seed              # valgfritt: oppretter en administrator
 npm run dev
 ```
 
-Appen er da tilgjengelig på <http://localhost:3000>.
-
-> **Feilsøking:** Hvis `npm install` stopper i `prisma generate`, slett
-> `node_modules` og kjør `npm install` på nytt. På NixOS må schema-engine
-> hentes fra nixpkgs, se [NixOS](#nixos).
-
-### NixOS
-
-Prisma 7 bruker en Rust-fri klient, men CLI-en trenger fortsatt en native
-schema-engine for migreringer, og Prisma publiserer ikke binaries for NixOS.
-`shell.nix` henter derfor `prisma-engines_7` fra en pinnet nixpkgs
-unstable-revisjon, som setter `PRISMA_SCHEMA_ENGINE_BINARY` automatisk. Node 22
-holdes fra nixpkgs 24.11 for å matche Docker-imaget og CI:
-
-```bash
-nix-shell
-npm install
-npm run db:migrate
-npm run dev
-```
-
-Holder du Prisma oppdatert i `package.json`, bør `prisma-engines_7` i den
-pinnede nixpkgs-revisjonen være samme versjon.
-
-Nyttige kommandoer:
-
-```bash
-npm run seed        # opprett administrator (idempotent)
-npm test            # enhetstester (vitest)
-npm run typecheck   # generer rutetyper og kjør tsc
-npm run build       # produksjonsbygg
-npm run lint        # eslint
-```
+Appen er da tilgjengelig på <http://localhost:3000>. Alle miljøvariabler er
+dokumentert i [`.env.example`](.env.example).
 
 ## Kjøre med Docker
 
-`docker-compose.yml` setter opp både appen og databasen. Appen kjører
-migrasjonene sine selv ved oppstart.
+`docker-compose.yml` setter opp appen og databasen, og appen kjører
+migrasjonene ved oppstart.
 
 ```bash
 cp .env.example .env
-# Sett minst DATABASE_URL, POSTGRES_PASSWORD, NEXTAUTH_SECRET og
-# NEXTAUTH_URL. Vil du at administratoren opprettes automatisk, sett
-# SEED_ADMIN_EMAIL og SEED_ADMIN_PASSWORD også.
 docker compose up -d --build
 ```
 
 - Appen svarer på <http://localhost:3000> og har helsesjekk på `/api/health`.
-- Opplastede bilder ligger på et eget volum og overlever nytt bygg.
+- Opplastede filer ligger på et eget volum og overlever nytt bygg.
 - Databasen eksponeres bare på `127.0.0.1`.
-- OCR fungerer uten nettverkstilgang: imaget har `poppler-utils` og norsk/engelsk
-  språkdata i `/app/tessdata`.
-
-Imaget kan også bygges og kjøres uten Compose. På Linux kan `--network host`
-brukes slik at `DATABASE_URL` i `.env` når databasen på vertsmaskinen:
-
-```bash
-docker build -t fsm-platform .
-docker run --rm --network host --env-file .env \
-  -v "$PWD/uploads:/app/uploads" fsm-platform
-```
-
-> `docker run --env-file` fjerner ikke anførselstegn. `.env.example` bruker
-> derfor verdier uten `"..."`; har du en eldre `.env` med anførselstegn, fjern
-> dem før du bruker `--env-file`. Docker Compose håndterer begge formene.
-
-`docker-compose.yml` merker imaget som `fsm-platform:local`.
-
-Ved oppstart utfører containeren følgende: venter på databasen, kjører
-`prisma migrate deploy`, kjører seed hvis `SEED_DATABASE=true`, og starter
-deretter serveren. Migrasjonene kan hoppes over med `SKIP_MIGRATIONS=true` hvis
-de kjøres som et eget steg i produksjon.
-
-### Produksjon
-
-Appen må stå bak en reverse proxy som terminerer TLS. Sett
-`NEXTAUTH_URL=https://ditt-domene.no` – ellers blir øktcookien ikke markert som
-`Secure`, og innlogging kan oppføre seg feil bak HTTPS.
-
-Eksempel med Caddy:
-
-```caddyfile
-fsm.example.com {
-    encode gzip
-    # Last opp store PDF-er; appen selv tillater 100 MB.
-    request_body {
-        max_size 110MB
-    }
-    reverse_proxy 127.0.0.1:3000
-}
-```
-
-- Begrens body-størrelse i proxyen. Appen tar imot inntil 100 MB per opplasting,
-  og uten en grense kan uautentiserte forespørsler bruke mye minne.
-- Kjør én app-instans, eller flytt innloggingsbegrensningen til Redis: den ligger
-  i minnet i `src/lib/rate-limit.ts`.
-- Sett opp sikkerhetskopier (se under) og overvåk `/api/health`.
-
-### Utgi et versjon
-
-1. Bump versjonen i `package.json` (og `package-lock.json`) og commit.
-2. Slå sammen `dev` inn i `master` og push.
-3. Tag: `git tag -a v0.2.0 -m "0.2.0 – …" && git push origin v0.2.0`.
-
-Tagnet utløser `.github/workflows/docker-publish.yml`, som bygger imaget og
-publiserer det til `ghcr.io/eroticd/fsm-platform` med taggene `0.2.0`, `0.2` og
-`sha-<kort-hash>`. CI kjører typesjekk, tester, lint og bygg på `master`.
-
-På serveren deployer du det publiserte imaget – ikke bygger der:
-
-```bash
-echo "APP_IMAGE=ghcr.io/eroticd/fsm-platform:0.2.2" >> .env
-docker compose up -d postgres          # publiserer 127.0.0.1:5432
-docker compose -f docker-compose.prod.yml up -d
-```
-
-Containeren kjører `prisma migrate deploy` ved oppstart, så nye migrasjoner
-tas med automatisk.
-
-### Oppgradere en eksisterende database
-
-Hvis databasen allerede har `Tag`/`Document`-tabellene fra før migrasjonen
-`20261019182918_tags_og_dokumenter` fantes (for eksempel laget med
-`prisma db push`), vil `prisma migrate deploy` prøve å opprette dem på nytt og
-feile. Kontroller først at skjemaet stemmer, og marker migrasjonen som kjørt:
-
-```bash
-npm run db:status
-npx prisma migrate resolve --applied 20261019182918_tags_og_dokumenter
-```
-
-En helt ny database trenger ikke dette; der kjøres alle migrasjonene i rekkefølge.
-
-## Sikkerhetskopi og gjenoppretting
-
-`scripts/backup.sh` dumper databasen og opplastingsvolumet til `./backups/`, og
-sletter filer eldre enn 30 dager:
-
-```bash
-./scripts/backup.sh
-# eller med egne verdier:
-BACKUP_DIR=/var/backups/fsm UPLOADS_VOLUME=fsm-platform_fsm_uploads ./scripts/backup.sh
-```
-
-Gjenoppretting:
-
-```bash
-gunzip -c backups/db-20261019-120000.sql.gz | \
-  docker compose exec -T postgres psql -U admin -d fsm_db
-
-docker run --rm \
-  -v fsm-platform_fsm_uploads:/data \
-  -v "$PWD/backups:/backup:ro" \
-  postgres:15 \
-  tar xzf /backup/uploads-20261019-120000.tar.gz -C /data
-```
-
-Kjør sikkerhetskopien fra en cron-jobb eller systemd-timer, og legg kopiene et
-annet sted enn maskinen appen kjører på.
-
-## Miljøvariabler
-
-Alle variabler er dokumentert i [`.env.example`](.env.example). De viktigste:
-
-| Variabel | Beskrivelse |
-| --- | --- |
-| `DATABASE_URL` | Tilkobling til PostgreSQL (påkrevd) |
-| `NEXTAUTH_SECRET` | Hemmelighet for økter; lag med `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | Appens offentlige adresse (påkrevd i produksjon, må være https) |
-| `SMTP_*` | E-post for invitasjoner; uten disse vises delbare lenker |
-| `UPLOAD_DIR` | Hvor opplastede filer lagres (standard `./uploads`) |
-| `SEED_*` | Styrer den automatiske administratoren ved første oppstart |
-| `RECURRING_SCHEDULER` | Sett til `false` for å slå av den innebygde serviceavtale-jobben |
-| `CRON_SECRET` | Hemmelighet for ekstern kjøring av `/api/cron/recurring` |
-
-> **Passord med spesialtegn:** `#`, `/`, `?`, `@`, `:` og `%` må URL-kodes i
-> `DATABASE_URL` – for eksempel `Test#123` → `Test%23123`. `POSTGRES_PASSWORD`
-> skal være det rå passordet. Docker Compose bygger `DATABASE_URL` fra
-> `POSTGRES_PASSWORD`, så der må passordet være URL-trygt, eller `DATABASE_URL`
-> overstyres i en `docker-compose.override.yml`.
-
-### Serviceavtaler i drift
-
-Appen starter en liten bakgrunnsjobb sammen med serveren. Den sjekker for
-forfalte serviceavtaler hver 6. time og oppretter ett nytt oppdrag per avtale.
-Jobben kan også kjøres manuelt eller fra en ekstern cron:
-
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" \
-  https://fsm.example.com/api/cron/recurring
-```
-
-Uten `CRON_SECRET` er ruten slått av. Sett `RECURRING_SCHEDULER=false` hvis du
-heller vil styre kjøringen helt fra en ekstern cron.
+- I produksjon bør appen stå bak en reverse proxy med TLS; se
+  [SECURITY.md](SECURITY.md).
 
 ## Teknisk oppbygning
 
-- **Next.js 16** (App Router, React 19) med server components der det passer.
+- **Next.js 16** (App Router, React 19) med server components.
 - **Prisma 7** mot PostgreSQL via `@prisma/adapter-pg`; skjemaet ligger i
-  `prisma/schema.prisma`, migrasjonene i `prisma/migrations/` og
-  tilkoblingen i `prisma.config.mjs` + `src/lib/prisma.ts`.
-- **NextAuth** med kodeord-innlogging. Konti opprettes av en administrator og
-  aktiveres manuelt; brukeren setter passordet sitt via en invitasjonslenke.
-- **@react-pdf/renderer** genererer servicerapporten på serveren, slik at PDF-en
-  også virker uten JavaScript i nettleseren.
-- **Markdown** (Obsidian-syntaks + GFM) i fritekstfeltene, med felles oppsett i
-  `src/lib/markdown.ts`: `MarkdownEditor` i skjemaene, `MarkdownView` på
-  nettsiden og `MarkdownPdf` i rapporten. All tekst blir renset i
-  `src/lib/sanitize.ts` før den lagres, og Markdown-viseren tolker aldri HTML.
-- **Tailwind CSS 4** med et lyst tema.
-- Roller lagres i `Role` med en stabil nøkkel, visningsnavn og en liste med
-  rettigheter. `ADMIN`, `OFFICE`, `TECHNICIAN`, `USER` og `CUSTOMER` er
-  innebygde systemroller; administrator kan opprette flere og redigere
-  rettighetene deres. `User.permissionsCustomized` gjør det mulig å overstyre
-  rollen for en enkelt bruker.
-
-### Datamodell i korte trekk
-
-`Role` definerer standardrettighetene for en rolle, og `User` peker på en rolle
-samt en valgfri tilpasset rettighetsliste. `Department` grupperer ansatte,
-oppdrag og serviceavtaler. `Customer` har
-`Product` (utstyr), `Contact`, `CustomerAttachment` og `WorkOrder`. `Contract`
-beskriver en gjentagende serviceavtale og peker på kunden, en valgfri
-kontaktperson, en valgfri sjekklistemal og avdelingen som eier avtalen. Hvert
-oppdrag har `Report`, som igjen har `ReportUnit` – ett øyeblikksbilde per
-kontrollert enhet med svar, kommentarer og status. Historikken endres derfor
-ikke selv om malen
-eller enheten redigeres senere.
+  `prisma/schema.prisma` og migrasjonene i `prisma/migrations/`.
+- **NextAuth** med kodeord, invitasjonslenker og to-trinns verifisering.
+- **@react-pdf/renderer** for servicerapporter og **Tailwind CSS 4** for
+  grensesnittet.
+- **Markdown** (Obsidian + GFM) med felles visning på nett og i PDF; all input
+  renses i `src/lib/sanitize.ts`.
 
 ## Sikkerhet
 
-- Passord hashes med bcrypt og sendes aldri i URL-er.
-- Innlogging har hastighetsbegrensning per e-postkonto og per IP
-  (`src/lib/rate-limit.ts`). Økten varer i 12 timer, og skrivehandlingene sjekker
-  at brukeren fortsatt er aktiv.
-- Bare administratorer kan opprette, endre og slette roller, endre rettighetene
-  til en rolle, eller gi en bruker en tilpasset rettighetsliste. Roller som
-  berører `ADMIN` krever også administrator. En kontorbruker kan ikke gi seg
-  selv full tilgang: nye roller må ikke gi rettigheter vedkommende ikke har fra
-  før, og brukere kan bare administreres i egen avdeling. Systemroller kan ikke
-  slettes, og en rolle som er i bruk må tømmes før den kan fjernes.
-- Oppdrag er avdelingssperret i alle lister, kalendere, søk og handlinger.
-  Kunder, dokumenter, enheter og rapporter er felles for alle avdelinger.
-  Sletting av oppdrag styres av rettigheten `workorders.delete` (kan gis til
-  roller/brukere, men er som standard bare administrator). Sletting av kunder,
-  brukere, dokumenter, filer og andre registreringer er alltid forbeholdt
-  administrator.
-- To-trinns verifisering (TOTP) kan slås på per bruker og kreves ved innlogging.
-- Opplastings-, søke- og kommentar-API-ene har hastighetsbegrensning per konto,
-  i tillegg til innloggingsbegrensningen.
-- Rapporter låses automatisk når de er fylt ut. Bare en administrator kan låse
-  dem opp igjen, og hver opplåsing logges i aktivitetsloggen.
-- Kundeportalbrukere begrenses til egen kundedata i `src/proxy.ts` og i hver
-  enkelt rute.
-- Opplastede filer under `/uploads` krever en gyldig økt. Merkevarelogoen er en
-  ekstern URL, slik at den kan vises på innloggingssiden og i e-post.
-- `.env` er ignorert av git. Del aldri filen, og roter passordet om det har vært
-  eksponert.
-- Alle skjemafelt renses på serveren før de lagres (`src/lib/sanitize.ts`): HTML,
-  skript og kontrolltegn fjernes, lengdene begrenses, og e-post, telefon, lenker,
-  farger, roller og statuser valideres. Fritekst beholder Markdown, men viseren
-  tolker aldri HTML – og e-postmalene escaper verdiene sine.
-- Responsene får sikkerhetsheadere (`X-Content-Type-Options`, `X-Frame-Options`,
-  CSP for innramming, HSTS) i `next.config.ts`.
+- Passord hashes med bcrypt, og innlogging, opplasting, søk og kommentarer har
+  hastighetsbegrensning.
+- All autorisasjon sjekkes på serveren; oppdrag er avdelingssperret, og
+  kundeportalbrukere ser bare egen kundedata.
+- To-trinns verifisering (TOTP) kan slås på per bruker, og rapporter låses
+  automatisk når de er signert.
+- Skjemafelt renses på serveren, og responsene får sikkerhetsheadere. Se
+  [SECURITY.md](SECURITY.md) for rapportering og drift.
 
-## Kjente gjeldsposter
+## Bidra
 
-- `@typescript-eslint/no-explicit-any` er satt til advarsel i
-  `eslint.config.mjs` fordi noen steder bruker `any` der Prisma- og
-  Next-typene er tungvinte å uttrykke. Lint kjører grønt, men advarslene bør
-  ryddes gradvis.
-- Tekstuttrekk/OCR kjører i en kø i app-prosessen (`src/lib/pdf-queue.ts`). Ved
-  flere app-instanser bør den flyttes til en ekstern jobbkø.
-- Innloggings- og API-hastighetsbegrensningen ligger i minnet
-  (`src/lib/rate-limit.ts`). Ved flere app-instanser bør den flyttes til Redis
-  eller tilsvarende slik at alle instansene deler telleverket.
+Se [CONTRIBUTING.md](CONTRIBUTING.md) for oppsett, retningslinjer og hva som må
+være grønt før en pull request.
 
 ## Lisens
 
 Programmet er tilgjengelig under **Business Source License 1.1 (BSL 1.1)** – en
-kildeåpen lisens, ikke en OSI-godkjent åpen kildekodelisens. Se
-[LICENSE](LICENSE) for den fullstendige teksten.
-
-| Parameter | Verdi |
-| --- | --- |
-| Lisensgiver | Kristoffer Garshol |
-| Lisensiert verk | FSM-plattformen (fsm-platform), versjon 0.1.0 og senere |
-| Ekstra bruksrett | Ingen |
-| Endringsdato | 2030-10-19 |
-| Endringslisens | Apache License 2.0 |
-
-Uten en ekstra bruksrett krever all produksjonsbruk en egen kommersiell avtale
-med lisensgiveren. Fra endringsdatoen gjelder Apache 2.0 for den aktuelle
-versjonen av verket. Lisensgiveren kan selv bruke, endre og videreutvikle
-programmet uten begrensninger.
-
-Kontakt lisensgiveren for kommersiell lisensiering.
+kildeåpen lisens, ikke en OSI-godkjent åpen kildekodelisens. Uten en ekstra
+bruksrett krever all produksjonsbruk en egen kommersiell avtale med
+lisensgiveren. Fra endringsdatoen 2030-10-19 gjelder Apache License 2.0 for den
+aktuelle versjonen. Se [LICENSE](LICENSE) for den fullstendige teksten.
