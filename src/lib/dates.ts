@@ -1,10 +1,78 @@
 /**
  * Hjelpere for rene datoer (uten klokkeslett).
  *
- * Oppdrags datoer lagres som UTC-midnatt i databasen. Det gjør at en dato
- * skrevet som «2026-10-19» alltid blir samme dag, uavhengig av tidssone på
- * serveren.
+ * Kalenderdatoer lagres som PostgreSQL `date` og leses tilbake som UTC-midnatt.
+ * Det gjør at en dato skrevet som «2026-10-19» alltid blir samme dag, uavhengig
+ * av tidssone på serveren. For sammenligninger mot tidsstempler (createdAt)
+ * finnes `osloDayStart`/`osloDayEnd`, som regner om en Oslo-dag til UTC.
  */
+
+export type DateOnly = string;
+
+const OSLO_TZ = "Europe/Oslo";
+
+const osloDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: OSLO_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Dagens dato i Oslo som YYYY-MM-DD. */
+export function todayInOslo(now = new Date()): DateOnly {
+  return osloDateFormatter.format(now);
+}
+
+/** Hvor mange minutter Oslo ligger foran UTC på et gitt tidspunkt. */
+function osloOffsetMinutes(date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: OSLO_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const value = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  const asUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
+  return (asUtc - Math.floor(date.getTime() / 1000) * 1000) / 60_000;
+}
+
+/**
+ * Første UTC-tidspunkt for en Oslo-dag. Brukes når en dato skal sammenlignes
+ * med et tidsstempel (f.eks. `createdAt`), ikke med et `date`-felt.
+ */
+export function osloDayStart(dateOnly: DateOnly): Date {
+  const [year, month, day] = dateOnly.split("-").map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, day);
+
+  let instant = new Date(utcMidnight);
+  // To iterasjoner er nok til å håndtere sommertidsovergangene.
+  for (let i = 0; i < 2; i += 1) {
+    instant = new Date(utcMidnight - osloOffsetMinutes(instant) * 60_000);
+  }
+  return instant;
+}
+
+/** Siste UTC-tidspunkt (inklusiv) for en Oslo-dag. */
+export function osloDayEnd(dateOnly: DateOnly): Date {
+  const date = parseDateOnly(dateOnly);
+  const next = date ? addDaysUtc(date, 1) : null;
+  const nextDateOnly = next ? toDateOnly(next) : dateOnly;
+  return new Date(osloDayStart(nextDateOnly).getTime() - 1);
+}
 
 /** Tolker en dato på formatet YYYY-MM-DD som UTC-midnatt. */
 export function parseDateOnly(value: string | null | undefined): Date | null {

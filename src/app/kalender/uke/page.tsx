@@ -6,6 +6,7 @@ import { toCalendarEvent } from "@/lib/calendar-events";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import { addMonthsUtc, parseDateOnly, todayInOslo } from "@/lib/dates";
 
 export default async function WeekCalendarPage() {
   const user = await getCurrentUser();
@@ -15,10 +16,9 @@ export default async function WeekCalendarPage() {
 
   // Hent oppdrag i en bred datoøk (6 måneder bakover og fremover)
   // slik at FullCalendar kan navigere mellom uker uten å hente nye data
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const sixMonthsAhead = new Date();
-  sixMonthsAhead.setMonth(sixMonthsAhead.getMonth() + 6);
+  const today = parseDateOnly(todayInOslo()) ?? new Date();
+  const sixMonthsAgo = addMonthsUtc(today, -6);
+  const sixMonthsAhead = addMonthsUtc(today, 6);
 
   const workOrders = await prisma.workOrder.findMany({
     where: {

@@ -8,9 +8,43 @@ import {
   formatDateTime,
   inclusiveLastDay,
   latestOccurrenceOnOrBefore,
+  osloDayEnd,
+  osloDayStart,
   parseDateOnly,
   toDateOnly,
+  todayInOslo,
 } from "@/lib/dates";
+
+describe("todayInOslo", () => {
+  it("bruker Oslo-dato rundt midnatt", () => {
+    expect(todayInOslo(new Date("2026-01-15T23:30:00.000Z"))).toBe("2026-01-16");
+    expect(todayInOslo(new Date("2026-07-01T21:30:00.000Z"))).toBe("2026-07-01");
+    expect(todayInOslo(new Date("2026-07-01T22:30:00.000Z"))).toBe("2026-07-02");
+  });
+});
+
+describe("osloDayStart / osloDayEnd", () => {
+  it("regner vintertid (UTC+1)", () => {
+    expect(osloDayStart("2026-01-01").toISOString()).toBe("2025-12-31T23:00:00.000Z");
+  });
+
+  it("regner sommertid (UTC+2)", () => {
+    expect(osloDayStart("2026-07-01").toISOString()).toBe("2026-06-30T22:00:00.000Z");
+  });
+
+  it("håndterer overgangen til sommertid", () => {
+    expect(osloDayStart("2026-03-29").toISOString()).toBe("2026-03-28T23:00:00.000Z");
+    expect(osloDayEnd("2026-03-29").toISOString()).toBe("2026-03-29T21:59:59.999Z");
+  });
+
+  it("håndterer overgangen til vintertid (25-timersdag)", () => {
+    const start = osloDayStart("2026-10-25");
+    const end = osloDayEnd("2026-10-25");
+    expect(start.toISOString()).toBe("2026-10-24T22:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-10-25T22:59:59.999Z");
+    expect(end.getTime() - start.getTime()).toBe(25 * 60 * 60 * 1000 - 1);
+  });
+});
 
 describe("parseDateOnly", () => {
   it("tolker en ren dato som UTC-midnatt", () => {
@@ -122,7 +156,7 @@ describe("formatDate", () => {
 
 describe("formatDateTime", () => {
   it("formaterer dato og klokkeslett som ISO 8601 i lokal tid", () => {
-    const date = new Date(2026, 9, 19, 14, 5);
+    const date = new Date("2026-10-19T14:05:00");
     expect(formatDateTime(date)).toBe("2026-10-19T14:05");
   });
 

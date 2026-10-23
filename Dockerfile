@@ -12,7 +12,7 @@ ARG PRISMA_VERSION=7.10.1
 FROM node:22-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && apt-get install -y --no-install-recommends openssl ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
@@ -68,6 +68,9 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 FROM base AS runner
 ENV NODE_ENV=production
+# Deterministisk tidssone for logger og datoformatering. Kalenderdatoer lagres
+# som date i databasen, så dette påvirker ikke selve datoverdiene.
+ENV TZ=Europe/Oslo
 ENV PORT=3000
 # Next.js sin standalone-server lytter på dette vertsnavnet i containeren.
 ENV HOSTNAME=0.0.0.0
