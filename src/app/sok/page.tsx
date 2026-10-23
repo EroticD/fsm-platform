@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { performSearch } from "@/lib/search";
+import { performSearch, type SearchResults } from "@/lib/search";
 import { getCurrentUser } from "@/lib/session";
+import { allowRequest } from "@/lib/rate-limit";
 
 export default async function SearchResultsPage({
   searchParams,
@@ -15,8 +16,17 @@ export default async function SearchResultsPage({
   const resolvedParams = await searchParams;
   const query = resolvedParams.q?.trim() || "";
 
+  // Samme nøkkel og grense som /api/search, slik at hurtigsøket og
+  // resultatsiden deler kvoten. Tomme søk teller ikke.
+  const searchLimit = query.length >= 2
+    ? allowRequest(`search:${user.id}`, 120, 60_000)
+    : { allowed: true, retryAfterSeconds: 0 };
+  const rateLimited = !searchLimit.allowed;
+
   const includeCancelled = user.role === "ADMIN" || user.role === "OFFICE";
-  const results = await performSearch(query, { user, includeCancelled });
+  const results: SearchResults = rateLimited
+    ? { query, total: 0, groups: [] }
+    : await performSearch(query, { user, includeCancelled });
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
@@ -47,43 +57,54 @@ export default async function SearchResultsPage({
           </div>
         ) : (
           <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">
-              Søkeresultater for «{query}»{" "}
-              <span className="text-gray-400 text-lg">({results.total} treff)</span>
-            </h1>
-
-            {results.total === 0 && (
+            {rateLimited ? (
               <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 text-center">
-                <p className="text-yellow-800 font-bold">Ingen treff!</p>
+                <p className="text-yellow-800 font-bold">For mange søk!</p>
                 <p className="text-yellow-700 text-sm mt-1">
-                  Prøv kortere søkeord, annen rekkefølge, eller fjern mellomrom/store bokstaver.
+                  Prøv igjen om {searchLimit.retryAfterSeconds} sekunder.
                 </p>
               </div>
-            )}
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  Søkeresultater for «{query}»{" "}
+                  <span className="text-gray-400 text-lg">({results.total} treff)</span>
+                </h1>
 
-            <div className="space-y-6">
-              {results.groups.map((group) => (
-                <div key={group.kind} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
-                    {group.icon} {group.label} ({group.items.length})
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {group.items.map((item) => (
-                      <Link
-                        key={`${group.kind}-${item.id}`}
-                        href={item.href}
-                        className="block p-3 rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition"
-                      >
-                        <p className="font-bold text-gray-800">{item.title}</p>
-                        {item.subtitle && (
-                          <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
-                        )}
-                      </Link>
-                    ))}
+                {results.total === 0 && (
+                  <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 text-center">
+                    <p className="text-yellow-800 font-bold">Ingen treff!</p>
+                    <p className="text-yellow-700 text-sm mt-1">
+                      Prøv kortere søkeord, annen rekkefølge, eller fjern mellomrom/store bokstaver.
+                    </p>
                   </div>
+                )}
+
+                <div className="space-y-6">
+                  {results.groups.map((group) => (
+                    <div key={group.kind} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                      <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                        {group.icon} {group.label} ({group.items.length})
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.items.map((item) => (
+                          <Link
+                            key={`${group.kind}-${item.id}`}
+                            href={item.href}
+                            className="block p-3 rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition"
+                          >
+                            <p className="font-bold text-gray-800">{item.title}</p>
+                            {item.subtitle && (
+                              <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         )}
       </div>

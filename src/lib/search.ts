@@ -5,6 +5,11 @@ import { formatDate } from "@/lib/dates";
 import { WorkStatus } from "@prisma/client";
 import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
+import {
+  searchByName,
+  searchDocuments,
+  type NameSearchRow,
+} from "@/lib/search-sql";
 
 export type SearchItem = {
   id: string;
@@ -27,8 +32,9 @@ export type SearchResults = {
 };
 
 const LIMIT = 5;
-// Hent et begrenset antall kandidater fra databasen (filteret med «contains»),
-// og ranger dem deretter fuzzy i JS. Slik blir søket raskt og likevel fleksibelt.
+// Hent et begrenset antall kandidater fra databasen og ranger dem deretter
+// fuzzy i JS. Databasen bruker indeksene (GIN/trigram), så vi laster aldri
+// hele tabeller eller store tekstfelt inn i Node.
 const CANDIDATES = 60;
 
 const STATUS_LABELS: Record<string, string> = {
@@ -59,6 +65,41 @@ function textOr(fields: string[], q: string) {
   };
 }
 
+/** Fjerner ts_headline-markeringene (<b> … </b>) før teksten vises som ren tekst. */
+function snippetText(snippet: string | null | undefined): string | null {
+  if (!snippet) return null;
+  return snippet
+    .replace(/<\/?b>/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+type MergedHits = {
+  ids: string[];
+  /** Posisjon fra databasen, brukt som tie-breaker etter fuzzy-scoren. */
+  rank: Map<string, number>;
+};
+
+/** Slår sammen treff fra flere trigram-kolonner og beholder høyeste score. */
+function mergeNameHits(...lists: NameSearchRow[][]): MergedHits {
+  const best = new Map<string, number>();
+  for (const list of lists) {
+    for (const hit of list) {
+      const score = Number(hit.score) || 0;
+      if (score > (best.get(hit.id) ?? -1)) best.set(hit.id, score);
+    }
+  }
+
+  const sorted = [...best.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, CANDIDATES);
+
+  return {
+    ids: sorted.map(([id]) => id),
+    rank: new Map(sorted.map(([id], index) => [id, index])),
+  };
+}
+
 type SearchOptions = {
   /** Brukeren som søker. Styrer avdelingssynlige oppdrag, kommentarer og ansatte. */
   user: AccessUser;
@@ -68,8 +109,8 @@ type SearchOptions = {
 
 /**
  * Kjernesøkelogikken — brukes av både det globale hurtigsøket (/api/search)
- * og søkeresultatsiden (/sok). Henter først kandidater fra databasen (raskt),
- * og rangerer dem deretter fuzzy.
+ * og søkeresultatsiden (/sok). Henter først kandidater fra databasen (raskt,
+ * via fulltekst- og trigram-indekser), og rangerer dem deretter fuzzy.
  */
 export async function performSearch(
   query: string,
@@ -135,37 +176,94 @@ export async function performSearch(
       }
     : noRows;
 
-  const [customers, contacts, units, workOrders, reports, comments, users, templates, documents, folders] =
+  // Første runde: indekserte kandidatsøk. Ingen av disse leser store
+  // tekstfelt (contentText/pageTexts) eller hele tabeller.
+  const [customerNameHits, customerCityHits, productHits, workOrderHits, documentHits] =
+    await Promise.all([
+      canCustomers
+        ? searchByName("Customer", "name", q, CANDIDATES)
+        : Promise.resolve([] as NameSearchRow[]),
+      canCustomers
+        ? searchByName("Customer", "city", q, CANDIDATES)
+        : Promise.resolve([] as NameSearchRow[]),
+      canEquipment
+        ? searchByName("Product", "model", q, CANDIDATES)
+        : Promise.resolve([] as NameSearchRow[]),
+      canWorkOrders
+        ? searchByName("WorkOrder", "title", q, CANDIDATES)
+        : Promise.resolve([] as NameSearchRow[]),
+      canDocuments
+        ? searchDocuments(q, CANDIDATES)
+        : Promise.resolve([]),
+    ]);
+
+  const customerHits = mergeNameHits(customerNameHits, customerCityHits);
+  const productHitIds = mergeNameHits(productHits);
+  const workOrderHitIds = mergeNameHits(workOrderHits);
+
+  // Andre runde: hent bare feltene vi trenger for visning og rangering.
+  const [customers, contacts, units, workOrders, reports, comments, users, templates, folders] =
     await Promise.all([
       prisma.customer.findMany({
-        where: canCustomers
-          ? textOr(["name", "customerNumber", "orgNumber", "address", "postalCode", "city", "phone", "email", "notes"], q)
-          : noRows,
-        orderBy: { name: "asc" }, take: CANDIDATES,
+        where: canCustomers ? { id: { in: customerHits.ids } } : noRows,
+        select: {
+          id: true,
+          name: true,
+          customerNumber: true,
+          orgNumber: true,
+          city: true,
+          phone: true,
+          email: true,
+        },
+        take: CANDIDATES,
       }),
       prisma.contact.findMany({
         where: canCustomers
           ? textOr(["name", "email", "phone", "role"], q)
           : noRows,
-        include: { customer: { select: { name: true } } }, orderBy: { name: "asc" }, take: CANDIDATES,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          customerId: true,
+          customer: { select: { name: true } },
+        },
+        orderBy: { name: "asc" }, take: CANDIDATES,
       }),
       prisma.product.findMany({
-        where: canEquipment
-          ? textOr(["model", "serialNumber", "location"], q)
-          : noRows,
-        include: { customer: { select: { id: true, name: true } } }, orderBy: { model: "asc" }, take: CANDIDATES,
+        where: canEquipment ? { id: { in: productHitIds.ids } } : noRows,
+        select: {
+          id: true,
+          model: true,
+          serialNumber: true,
+          location: true,
+          customerId: true,
+          customer: { select: { id: true, name: true } },
+        },
+        take: CANDIDATES,
       }),
       prisma.workOrder.findMany({
         where: canWorkOrders
           ? {
               AND: [
                 workOrderScope(user),
-                textOr(["title", "description", "creatorName"], q),
+                { id: { in: workOrderHitIds.ids } },
                 ...(includeCancelled ? [] : [{ status: { not: WorkStatus.CANCELLED } }]),
               ],
             }
           : noRows,
-        include: { customer: { select: { name: true } } }, orderBy: [{ scheduledFor: { sort: "desc", nulls: "last" } }], take: CANDIDATES,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          creatorName: true,
+          status: true,
+          scheduledFor: true,
+          customer: { select: { name: true } },
+        },
+        take: CANDIDATES,
       }),
       prisma.report.findMany({
         where: canReports
@@ -195,22 +293,13 @@ export async function performSearch(
         where: canTemplates ? { title: contains } : noRows,
         orderBy: { title: "asc" }, take: CANDIDATES,
       }),
-      prisma.document.findMany({
-        where: canDocuments
-          ? { OR: [
-              { title: contains }, { description: contains }, { fileName: contains },
-              { contentText: contains },
-              { tags: { some: { name: contains } } },
-            ] }
-          : noRows,
-        include: { tags: { select: { name: true } } }, orderBy: { title: "asc" }, take: CANDIDATES,
-      }),
       prisma.documentFolder.findMany({
         where: canDocuments ? { name: contains } : noRows,
         orderBy: { name: "asc" }, take: CANDIDATES,
       }),
     ]);
 
+  /** Fuzzy-rangering av en liten, allerede avgrenset kandidatliste. */
   function rank<T>(items: T[], getFields: (item: T) => (string | null | undefined)[]) {
     return items
       .map((item) => ({ item, score: fuzzyScore(q, ...getFields(item)) }))
@@ -220,16 +309,71 @@ export async function performSearch(
       .map((s) => s.item);
   }
 
-  const fuzzyCustomers = rank(customers, (c) => [c.name, c.customerNumber, c.orgNumber, c.address, c.postalCode, c.city, c.phone, c.email, c.notes]);
+  /**
+   * Som `rank`, men beholder alle kandidatene databasen fant (trigram/fulltekst
+   * kan gi treff som den rent tekstlige fuzzy-scoren ikke fanger, f.eks. bøyning
+   * eller skrivefeil). Databasens rekkefølge brukes som tie-breaker.
+   */
+  function rankIndexed<T>(
+    items: T[],
+    getId: (item: T) => string,
+    getFields: (item: T) => (string | null | undefined)[],
+    order?: Map<string, number>,
+  ) {
+    return items
+      .map((item) => ({
+        item,
+        score: fuzzyScore(q, ...getFields(item)),
+        rank: order?.get(getId(item)) ?? Number.MAX_SAFE_INTEGER,
+      }))
+      .sort((a, b) => b.score - a.score || a.rank - b.rank)
+      .slice(0, LIMIT)
+      .map((s) => s.item);
+  }
+
+  const fuzzyCustomers = rankIndexed(
+    customers,
+    (c) => c.id,
+    (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email],
+    customerHits.rank,
+  );
   const fuzzyContacts = rank(contacts, (c) => [c.name, c.email, c.phone, c.role, c.customer?.name]);
-  const fuzzyUnits = rank(units, (p) => [p.model, p.serialNumber, p.location, p.customer?.name]);
-  const fuzzyWorkOrders = rank(workOrders, (wo) => [wo.title, wo.description, wo.creatorName, wo.customer?.name]);
+  const fuzzyUnits = rankIndexed(
+    units,
+    (p) => p.id,
+    (p) => [p.model, p.serialNumber, p.location, p.customer?.name],
+    productHitIds.rank,
+  );
+  const fuzzyWorkOrders = rankIndexed(
+    workOrders,
+    (wo) => wo.id,
+    (wo) => [wo.title, wo.description, wo.creatorName, wo.customer?.name],
+    workOrderHitIds.rank,
+  );
   const fuzzyReports = rank(reports, (r) => [r.template?.title, r.workOrder.title, r.workOrder.customer?.name, r.comments]);
   const fuzzyComments = rank(comments, (c) => [c.content, c.authorName, c.workOrder?.title, c.customer?.name, c.contact?.name]);
   const fuzzyUsers = rank(users, (u) => [u.name, u.email]);
   const fuzzyTemplates = rank(templates, (t) => [t.title]);
-  const fuzzyDocuments = rank(documents, (d) => [d.title, d.description, d.fileName, d.contentText, d.tags.map((t) => t.name).join(" ")]);
+  // Fulltekstsøket har allerede rangert dokumentene med ts_rank. fuzzyScore
+  // brukes bare til å løfte eksakte treff i tittel/filnavn øverst.
+  const fuzzyDocuments = rankIndexed(
+    documentHits,
+    (d) => d.id,
+    (d) => [d.title, d.description, d.fileName, d.snippet],
+  );
   const fuzzyFolders = rank(folders, (f) => [f.name]);
+
+  // Tags er bare nødvendig for de få dokumentene som faktisk vises.
+  const documentTags = fuzzyDocuments.length > 0
+    ? await prisma.document.findMany({
+        where: { id: { in: fuzzyDocuments.map((d) => d.id) } },
+        select: { id: true, tags: { select: { name: true } } },
+        take: LIMIT,
+      })
+    : [];
+  const documentTagNames = new Map(
+    documentTags.map((d) => [d.id, d.tags.map((t) => t.name).join(", ")]),
+  );
 
   const groups: SearchGroup[] = [
     {
@@ -348,28 +492,15 @@ export async function performSearch(
       kind: "document",
       label: "Dokumenter",
       icon: "📚",
-      items: fuzzyDocuments.map((d) => {
-        let page: number | null = null;
-        if (d.pageTexts) {
-          try {
-            const pages = JSON.parse(d.pageTexts) as { page: number; text: string }[];
-            const lower = q.toLowerCase();
-            for (const p of pages) {
-              if (p.text.toLowerCase().includes(lower)) {
-                page = p.page;
-                break;
-              }
-            }
-          } catch {}
-        }
-        const href = page ? `${d.filePath}#page=${page}` : d.filePath;
-        return {
-          id: d.id,
-          title: d.title,
-          subtitle: joinInfo([d.tags.map((t) => t.name).join(", "), d.description ? d.description.slice(0, 60) : null, page ? `Side ${page}` : null]),
-          href,
-        };
-      }),
+      items: fuzzyDocuments.map((d) => ({
+        id: d.id,
+        title: d.title,
+        subtitle: joinInfo([
+          documentTagNames.get(d.id),
+          d.description ? d.description.slice(0, 60) : snippetText(d.snippet)?.slice(0, 80),
+        ]),
+        href: d.filePath,
+      })),
     },
   ].filter((g) => g.items.length > 0);
 
