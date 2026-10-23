@@ -448,6 +448,7 @@ export default function ReportForm({
                     defaultValue={unit.answers[field.id]}
                     defaultComment={readLineComment(unit.answers, field.id)}
                     onNeedsComment={(needs) => setFieldNeedsComment(unit.key, field.id, needs)}
+                    workOrderId={workOrderId}
                   />
                 ))}
               </div>

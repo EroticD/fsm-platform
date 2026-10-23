@@ -56,6 +56,7 @@ export default function CustomerAttachments({
       try {
         const body = new FormData();
         body.append("file", file);
+        body.append("customerId", customerId);
 
         const res = await fetch("/api/upload", { method: "POST", body });
         const json = await res.json().catch(() => ({}));

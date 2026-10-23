@@ -74,6 +74,7 @@ export default function BulkUploadForm({
         const cleanFile = new File([buffer], item.file.name, { type: item.file.type || "application/pdf" });
         const formData = new FormData();
         formData.append("file", cleanFile, cleanFile.name);
+        formData.append("purpose", "document");
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (!res.ok) {

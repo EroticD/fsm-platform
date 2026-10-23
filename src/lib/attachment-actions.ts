@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { requireAdmin, requirePermission, actorName } from "@/lib/session";
 import { requireWorkOrderAccess } from "@/lib/access";
+import { linkUploadOwner } from "@/lib/upload-access";
 import { uploadDir } from "@/lib/uploads";
 
 export type AttachmentActionResult = { ok: boolean; error?: string };
@@ -29,7 +30,8 @@ function attachmentPath(fileUrl: string): string | null {
 export async function addAttachment(formData: FormData): Promise<AttachmentActionResult> {
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
   if (!workOrderId) return { ok: false, error: "Mangler data" };
-  if (!(await requireWorkOrderAccess("workorders.update", workOrderId))) {
+  const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+  if (!access) {
     return { ok: false, error: "Ikke tilgang" };
   }
 
@@ -65,6 +67,15 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
     }
   });
 
+  // Filen ble lastet opp privat; nå som den er knyttet til oppdraget skal den
+  // følge oppdragets avdeling/kunde i tilgangskontrollen.
+  await linkUploadOwner(fileUrl, {
+    ownerType: "WORK_ORDER",
+    ownerId: workOrderId,
+    departmentId: access.workOrder.departmentId,
+    customerId: access.workOrder.customerId,
+  });
+
   await prisma.auditLog.create({
     data: {
       entityType: "WorkOrder",
@@ -91,14 +102,9 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
 
   await prisma.attachment.delete({ where: { id: attachmentId } });
 
-  // Slett filen fra disk. Feiler det (f.eks. fordi filen alt er borte), er
-  // databaseraden likevel fjernet – derfor ignoreres feilen.
-  const filePath = attachmentPath(attachment.dataUrl);
-  if (filePath) {
-    try {
-      await fs.unlink(filePath);
-    } catch {}
-  }
+  // Filen blir liggende på disk. Samme fil kan være referert fra flere steder
+  // (f.eks. en rapport og et dokument), så den kan ikke slettes trygt her.
+  // En egen opprydningsjobb kan fjerne filer uten referanser senere.
 
   await prisma.auditLog.create({
     data: {
@@ -140,7 +146,7 @@ export async function addCustomerAttachment(
 
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { id: true },
+    select: { id: true, departmentId: true },
   });
   if (!customer) return { ok: false, error: "Kunden finnes ikke" };
 
@@ -154,6 +160,13 @@ export async function addCustomerAttachment(
 
   await prisma.customerAttachment.create({
     data: { customerId, fileName: displayName, dataUrl: fileUrl },
+  });
+
+  await linkUploadOwner(fileUrl, {
+    ownerType: "CUSTOMER",
+    ownerId: customerId,
+    departmentId: customer.departmentId,
+    customerId,
   });
 
   await prisma.auditLog.create({
@@ -188,12 +201,8 @@ export async function removeCustomerAttachment(
 
   await prisma.customerAttachment.delete({ where: { id: attachmentId } });
 
-  const filePath = attachmentPath(attachment.dataUrl);
-  if (filePath) {
-    try {
-      await fs.unlink(filePath);
-    } catch {}
-  }
+  // Filen blir liggende på disk til en opprydningsjobb kan bekrefte at den ikke
+  // er referert fra noe annet sted.
 
   await prisma.auditLog.create({
     data: {

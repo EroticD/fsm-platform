@@ -4,6 +4,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import path from "path";
 import { enqueuePdfText } from "@/lib/pdf-queue";
+import { linkUploadOwner } from "@/lib/upload-access";
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
 import { getCurrentUser, requireAdmin, requireOffice, requirePermission } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -237,7 +238,13 @@ export default async function DocumentsPage({
     });
 
     // Hvis filen ble byttet, trekk ut ny tekst i bakgrunnen
-    if (fileUrl && fileUrl !== existing.filePath) {
+    if (replacingFile) {
+      await linkUploadOwner(fileUrl, {
+        ownerType: "DOCUMENT",
+        ownerId: id,
+        departmentId: user?.departmentId ?? null,
+        customerId: null,
+      });
       enqueuePdfText(id, fileUrl);
     }
 
@@ -284,6 +291,13 @@ export default async function DocumentsPage({
         },
         uploadedBy: user?.name || "Kontor",
       },
+    });
+
+    await linkUploadOwner(fileUrl, {
+      ownerType: "DOCUMENT",
+      ownerId: newDoc.id,
+      departmentId: user?.departmentId ?? null,
+      customerId: null,
     });
 
     // Ekstraher PDF-tekst for fulltekst-søk i bakgrunnen (best-effort)
@@ -388,6 +402,13 @@ export default async function DocumentsPage({
           folderId: targetFolderId || null,
           uploadedBy: user?.name || "Kontor",
         },
+      });
+
+      await linkUploadOwner(item.fileUrl, {
+        ownerType: "DOCUMENT",
+        ownerId: newDoc.id,
+        departmentId: user?.departmentId ?? null,
+        customerId: null,
       });
 
       // Ekstraher PDF-tekst (best-effort, legges i bakgrunnskø)

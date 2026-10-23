@@ -1,10 +1,12 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import prisma from "@/lib/prisma";
 import { uploadDir } from "@/lib/uploads";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 import { allowRequest } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -43,6 +45,57 @@ export async function POST(request: Request) {
 
     if (!file) {
       return new Response(JSON.stringify({ error: "Ingen fil valgt" }), { status: 400 });
+    }
+
+    // Konteksten avgjør hvem som senere kan lese filen.
+    const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
+    const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
+    const purpose = cleanText(formData.get("purpose"), { maxLength: LIMITS.short });
+
+    let ownerType: "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" = "USER";
+    let ownerId: string | null = user.id;
+    let departmentId: string | null = user.departmentId ?? null;
+    let ownerCustomerId: string | null = user.customerId ?? null;
+
+    if (workOrderId) {
+      if (
+        !hasPermission(user, "workorders.update") &&
+        !hasPermission(user, "reports.write")
+      ) {
+        return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+      }
+      const workOrder = await prisma.workOrder.findFirst({
+        where: { id: workOrderId, ...workOrderScope(user) },
+        select: { departmentId: true, customerId: true },
+      });
+      if (!workOrder) {
+        return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+      }
+      ownerType = "WORK_ORDER";
+      ownerId = workOrderId;
+      departmentId = workOrder.departmentId;
+      ownerCustomerId = workOrder.customerId;
+    } else if (customerId) {
+      if (!hasPermission(user, "customers.manage")) {
+        return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+      }
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true, departmentId: true },
+      });
+      if (!customer) {
+        return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+      }
+      ownerType = "CUSTOMER";
+      ownerId = customer.id;
+      departmentId = customer.departmentId;
+      ownerCustomerId = customer.id;
+    } else if (purpose === "document") {
+      if (!hasPermission(user, "documents.manage")) {
+        return new Response(JSON.stringify({ error: "Ingen tilgang" }), { status: 403 });
+      }
+      ownerType = "DOCUMENT";
+      ownerId = null;
     }
 
     // Valider filtype (bare bilder og PDF). Endelsen utledes av typen, ikke av
@@ -119,6 +172,30 @@ export async function POST(request: Request) {
     // datamappe på containeren, ikke en del av app-bundelen.
     const filePath = path.join(/*turbopackIgnore: true*/ uploadDirPath, fileName);
     fs.writeFileSync(filePath, buffer);
+
+    // Registrer metadata. Feiler det, fjernes filen igjen slik at disken ikke
+    // får filer uten tilgangsmetadata.
+    try {
+      await prisma.upload.create({
+        data: {
+          storedName: fileName,
+          originalName: cleanText(file.name, { maxLength: LIMITS.line }) || "fil",
+          mimeType: finalMime,
+          size: finalBytes,
+          ownerType,
+          ownerId,
+          departmentId,
+          customerId: ownerCustomerId,
+          uploadedById: user.id,
+        },
+      });
+    } catch (error) {
+      console.error("Kunne ikke registrere opplasting:", error);
+      try {
+        fs.unlinkSync(filePath);
+      } catch {}
+      return new Response(JSON.stringify({ error: "Kunne ikke lagre filen" }), { status: 500 });
+    }
 
     // Returner fil-URL
     const fileUrl = `/uploads/${fileName}`;

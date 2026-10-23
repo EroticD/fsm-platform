@@ -129,6 +129,7 @@ export default function FieldInput({
   defaultValue,
   defaultComment,
   onNeedsComment,
+  workOrderId,
 }: {
   field: TemplateField;
   name: string;
@@ -138,6 +139,8 @@ export default function FieldInput({
   defaultComment?: string;
   /** Varsler skjemaet når linjen krever kommentar (bare for tilstandsfelt). */
   onNeedsComment?: (needs: boolean) => void;
+  /** Knytter opplastede bilder til oppdraget, slik at tilgangen kan styres. */
+  workOrderId?: string;
 }) {
   switch (field.type) {
     case "CHECKBOX":
@@ -239,6 +242,7 @@ export default function FieldInput({
           label={field.label}
           required={field.required}
           initialUrls={parseImageUrls(defaultValue)}
+          workOrderId={workOrderId}
         />
       );
 

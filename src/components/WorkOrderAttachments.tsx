@@ -59,6 +59,7 @@ export default function WorkOrderAttachments({
       try {
         const body = new FormData();
         body.append("file", file);
+        body.append("workOrderId", workOrderId);
 
         const res = await fetch("/api/upload", { method: "POST", body });
         const json = await res.json().catch(() => ({}));

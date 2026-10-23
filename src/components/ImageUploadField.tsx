@@ -18,12 +18,15 @@ export default function ImageUploadField({
   label,
   required,
   initialUrls = [],
+  workOrderId,
 }: {
   name: string;
   label: string;
   required?: boolean;
   /** Bilder som allerede ligger på rapporten (ved redigering av en opplåst rapport). */
   initialUrls?: string[];
+  /** Knytter bildene til oppdraget, slik at /uploads kan kreve riktig tilgang. */
+  workOrderId?: string;
 }) {
   const [urls, setUrls] = useState<string[]>(initialUrls);
   const [busy, setBusy] = useState(false);
@@ -33,6 +36,7 @@ export default function ImageUploadField({
   const uploadOne = async (file: File) => {
     const body = new FormData();
     body.append("file", file);
+    if (workOrderId) body.append("workOrderId", workOrderId);
     const res = await fetch("/api/upload", { method: "POST", body });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.fileUrl) {
