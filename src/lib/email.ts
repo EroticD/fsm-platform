@@ -281,11 +281,16 @@ type BookingInfo = {
 };
 
 /**
- * Varsler kontoret om en ny kundebestilling, og sender en bekreftelse til
- * kunden. Returnerer hvor mange e-poster som ble sendt.
+ * Varsler kontoret i destinasjonsavdelingen om en ny kundebestilling, og
+ * sender en bekreftelse til kunden. Returnerer hvor mange e-poster som ble
+ * sendt.
+ *
+ * Kontorlisten slås opp på nytt her, avgrenset til aktive ADMIN/OFFICE i
+ * avdelingen. Mottakerne får hver sin e-post, slik at adressene aldri deles
+ * i en felles To-linje og ingen andre avdelinger kan lekke inn.
  */
 export async function sendBookingNotification(
-  officeRecipients: string[],
+  departmentId: string,
   customerEmail: string | null | undefined,
   booking: BookingInfo,
 ): Promise<{ officeSent: number; customerSent: boolean }> {
@@ -327,20 +332,36 @@ export async function sendBookingNotification(
       ${safeDescription ? `<p style="margin:0;"><strong>Beskrivelse:</strong><br/>${safeDescription.replace(/\n/g, "<br/>")}</p>` : ""}
     </div>`;
 
+  const office = await prisma.user.findMany({
+    where: {
+      departmentId,
+      role: { in: ["ADMIN", "OFFICE"] },
+      isActive: true,
+    },
+    select: { email: true },
+    take: 100,
+  });
+  const recipients = Array.from(
+    new Set(
+      office
+        .map((user) => user.email)
+        .filter((email): email is string => Boolean(email)),
+    ),
+  );
+
   let officeSent = 0;
-  const recipients = Array.from(new Set(officeRecipients.filter(Boolean)));
-  if (recipients.length > 0) {
+  for (const recipient of recipients) {
     try {
       await transporter.sendMail({
         from: `"${companyName}" <${process.env.SMTP_USER}>`,
-        to: recipients.join(", "),
+        to: recipient,
         subject: `Ny bestilling: ${safeTitle} – ${safeCustomer}`,
         html: shell(
           "Ny bestilling fra kundeportal",
           `<p style="color:#374151;font-size:14px;line-height:1.6;">En kunde har booket et nytt oppdrag. Det ligger klart for planlegging under «Oppdrag».</p>${detail}`,
         ),
       });
-      officeSent = recipients.length;
+      officeSent += 1;
     } catch (error) {
       console.error("❌ Feil ved sending av bestillingsvarsel til kontoret:", error);
     }

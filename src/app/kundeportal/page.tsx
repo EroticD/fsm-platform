@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -6,7 +7,6 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { markdownToPlainText } from "@/lib/markdown";
-import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import {
   addDaysUtc,
   formatDate,
@@ -17,7 +17,7 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
-import { sendBookingNotification } from "@/lib/email";
+import { createBooking } from "@/server/portal";
 import { parsePage } from "@/lib/pagination";
 import ReportHistory from "@/components/portal/ReportHistory";
 import StatusBadge from "@/components/StatusBadge";
@@ -92,7 +92,6 @@ export default async function KundeportalPage({
     );
   }
 
-  const customerName = customer.name;
   const defaultDepartmentId = await getDefaultDepartmentId();
 
   // Kommende og utførte oppdrag hentes hver for seg med et fast tak. Slik
@@ -145,79 +144,26 @@ export default async function KundeportalPage({
   async function bookWorkOrder(formData: FormData) {
     "use server";
 
-    // Sjekk økten på nytt i handlingen; ikke stol på sidevisningens closure.
+    // Selve autorisasjonen og alle reglene ligger i tjenestelaget. Her hentes
+    // bare aktøren og klient-IP-en som tjenesten trenger.
     const current = await getCurrentUser();
-    if (!current?.isActive || current.role !== "CUSTOMER" || !current.customerId) {
-      return;
-    }
+    if (!current) return;
 
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
-    const description = cleanMarkdown(formData.get("description"));
+    const requestHeaders = await headers();
+    const ip =
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      requestHeaders.get("x-real-ip") ||
+      undefined;
 
-    if (!title) return;
+    const result = await createBooking(current, {
+      title: String(formData.get("title") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      ip,
+    });
 
-    // Kundebestillinger havner i standardavdelingen. Finnes ingen aktiv
-    // avdeling, kan bestillingen ikke opprettes.
-    const departmentId = await getDefaultDepartmentId();
-    if (!departmentId) return;
-
-    try {
-      const created = await prisma.workOrder.create({
-        data: {
-          title,
-          description: description || "",
-          departmentId,
-          customerId: current.customerId,
-          contactId: current.contactId || undefined,
-          creatorName: current.name || "Kunde",
-          status: "OPEN",
-          technicians: {
-            connect: []
-          },
-        }
-      });
-
-      await prisma.auditLog.create({
-        data: {
-          entityType: "WorkOrder",
-          entityId: created.id,
-          action: `Kunde booket nytt oppdrag: ${title}`,
-          userName: current.name || "Kunde"
-        }
-      });
-
-      // Varsle kontoret og send bekreftelse til kunden (best-effort – en
-      // feilkonfigurert SMTP skal ikke hindre bestillingen).
-      try {
-        const officeUsers = await prisma.user.findMany({
-          where: { isActive: true, role: { in: ["ADMIN", "OFFICE"] } },
-          select: { email: true },
-          take: 50,
-        });
-        const contact = current.contactId
-          ? await prisma.contact.findUnique({
-              where: { id: current.contactId },
-              select: { email: true },
-            })
-          : null;
-        await sendBookingNotification(
-          officeUsers.map((u) => u.email).filter(Boolean) as string[],
-          contact?.email || current.email || null,
-          {
-            title,
-            description,
-            customerName,
-            bookedBy: current.name || current.email || "Kunde",
-          },
-        );
-      } catch (emailError) {
-        console.error("Kunne ikke sende bestillingsvarsel:", emailError);
-      }
-
-      revalidatePath("/kundeportal");
-    } catch (error) {
-      console.error("Feil ved booking av oppdrag:", error);
-    }
+    // Suksess og avvisning håndteres likt i UI-en: vellykkede bestillinger
+    // vises etter revalidering, mens avviste ikke endrer listen.
+    if (result.ok) revalidatePath("/kundeportal");
   }
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
