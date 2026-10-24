@@ -37,7 +37,8 @@ vi.mock("@/lib/rate-limit-db", () => ({
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
-import { loginAction, safeRelativeTarget } from "./actions";
+import { loginAction } from "./actions";
+import { safeRelativeTarget } from "@/lib/safe-redirect";
 
 function formData(values: Record<string, string>): FormData {
   const form = new FormData();

@@ -12,30 +12,7 @@ import {
   setPendingTwoFactor,
 } from "@/lib/session-token";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
-
-/**
- * Godtar både relative stier ("/kunder") og absolutte URL-er
- * ("http://10.0.0.115:3000/kunder"), og returnerer alltid en trygg, relativ
- * sti. Da kan vi aldri sende brukeren til et annet domene etter innlogging.
- */
-export function safeRelativeTarget(value: string | null): string {
-  if (!value) return "/";
-  try {
-    const url = new URL(value, "http://relative.invalid");
-    if (url.protocol !== "http:" && url.protocol !== "https:") return "/";
-    const target = `${url.pathname}${url.search}${url.hash}` || "/";
-
-    // URL-normalisering kan gjøre "/..//evil.com" om til "//evil.com", som
-    // nettleseren tolker som et annet vertsnavn. Avvis også backslash, som
-    // enkelte nettlesere behandler som skråstrek.
-    if (!target.startsWith("/") || target.startsWith("//") || target.includes("\\")) {
-      return "/";
-    }
-    return target;
-  } catch {
-    return "/";
-  }
-}
+import { safeRelativeTarget } from "@/lib/safe-redirect";
 
 /**
  * Logger inn uten JavaScript. Passordet sendes i selve forespørselen via en
