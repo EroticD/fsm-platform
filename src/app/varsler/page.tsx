@@ -49,6 +49,12 @@ export default async function NotificationsPage({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/varsler/innstillinger"
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+          >
+            Innstillinger
+          </Link>
+          <Link
             href={unreadOnly ? "/varsler" : "/varsler?u=1"}
             className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
           >
