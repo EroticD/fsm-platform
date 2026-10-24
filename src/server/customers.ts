@@ -69,54 +69,6 @@ const ACTIVE_STATUSES: WorkStatus[] = [
 /** Kundekortet viser 25 oppdrag om gangen, ikke hele historikken. */
 export const CUSTOMER_ORDER_PAGE_SIZE = 25;
 
-/** Kunder katalogen viser per side. */
-export const CUSTOMER_LIST_PAGE_SIZE = 25;
-
-export type CustomerListParams = {
-  search?: string;
-  page: number;
-};
-
-/**
- * Kundekatalogen. Kunder er felles for alle avdelinger, men krever
- * `customers.view`.
- */
-export async function getCustomerList(
-  actor: ServiceActor,
-  params: CustomerListParams,
-) {
-  if (!can(actor, "customers.view")) return fail("forbidden");
-
-  const search = params.search?.trim() ?? "";
-  const page = Math.max(1, params.page);
-  const where: Prisma.CustomerWhereInput = search
-    ? {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { orgNumber: { contains: search, mode: "insensitive" } },
-          { city: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-        ],
-      }
-    : {};
-
-  const [customers, total] = await Promise.all([
-    prisma.customer.findMany({
-      where,
-      orderBy: { name: "asc" },
-      take: CUSTOMER_LIST_PAGE_SIZE,
-      skip: (page - 1) * CUSTOMER_LIST_PAGE_SIZE,
-    }),
-    prisma.customer.count({ where }),
-  ]);
-
-  return ok({
-    customers,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / CUSTOMER_LIST_PAGE_SIZE)),
-  });
-}
-
 export type CustomerDetailParams = {
   tab: string;
   orderPage: number;

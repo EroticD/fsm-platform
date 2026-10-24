@@ -26,7 +26,6 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@react-pdf/renderer": "^4.9.0",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.9",
     "mdast-util-from-markdown": "^2.1.0",
@@ -59,7 +58,6 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/bcrypt": "^6.0.0",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",

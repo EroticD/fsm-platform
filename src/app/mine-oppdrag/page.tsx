@@ -6,6 +6,7 @@ import { formatDateRange } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import StatusBadge from "@/components/StatusBadge";
 
 /** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
 const LIST_LIMIT = 50;
@@ -21,19 +22,6 @@ const LIST_SELECT = {
   },
   tags: { select: { id: true, name: true, color: true } },
 } as const;
-
-// Hjelpekomponent for status-etikett
-function StatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case 'COMPLETED': return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200">✅ Fullført</span>;
-    case 'IN_PROGRESS': return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200">🔄 Påbegynt</span>;
-    case 'CANCELLED': return <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold border border-red-200">❌ Kansellert</span>;
-    case 'OPEN': return <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200">✨ Åpen</span>;
-    case 'PLANNED': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">📅 Planlagt</span>;
-    case 'WAITING': return <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">⏸️ Venter</span>;
-    default: return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">⏳ Planlagt</span>;
-  }
-}
 
 export default async function TechnicianDashboard({ 
   searchParams 

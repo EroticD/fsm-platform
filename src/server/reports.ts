@@ -785,14 +785,6 @@ export async function setReportLock(
   return { ok: true };
 }
 
-/** Rapportene som hører til et oppdrag, nyeste først. */
-export function listReportsForWorkOrder(workOrderId: string) {
-  return prisma.report.findMany({
-    where: { workOrderId },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
 export type ReportPdfResult =
   | { ok: true; buffer: Buffer; fileName: string }
   | { ok: false; status: 403 | 404; message: string };

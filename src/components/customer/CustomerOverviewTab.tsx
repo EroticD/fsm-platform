@@ -4,7 +4,7 @@ import KpiCard from "@/components/KpiCard";
 import MarkdownView from "@/components/MarkdownView";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import type { CustomerDetailData } from "@/server/customers";
-import CustomerStatusBadge from "./CustomerStatusBadge";
+import StatusBadge from "@/components/StatusBadge";
 
 type OverviewProps = {
   customer: CustomerDetailData["customer"];
@@ -118,7 +118,7 @@ export default function CustomerOverviewTab({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-gray-900 text-sm truncate">{wo.title}</span>
-                    <CustomerStatusBadge status={wo.status} />
+                    <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-[10px] text-gray-500 mt-1">
                     {formatDate(wo.scheduledFor, "Ingen dato")}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { markdownToPlainText } from "@/lib/markdown";
 import type { CustomerDetailData } from "@/server/customers";
-import CustomerStatusBadge from "./CustomerStatusBadge";
+import StatusBadge from "@/components/StatusBadge";
 
 type OrdersTabProps = {
   customerId: string;
@@ -61,7 +61,7 @@ export default function CustomerOrdersTab({
                     {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r) utfylt` : ""}
                   </p>
                 </div>
-                <CustomerStatusBadge status={wo.status} />
+                <StatusBadge status={wo.status} />
               </div>
 
               {wo.description && (
