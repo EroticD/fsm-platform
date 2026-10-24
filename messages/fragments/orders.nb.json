@@ -192,6 +192,10 @@
       "reopenReasonPlaceholder": "Beskriv hvorfor oppdraget gjenåpnes eller statusen overstyres",
       "checklistLockedOnly": "Sjekklisten er låst, men det låser bare sjekklisten. Oppdraget kan fortsatt redigeres og få ny status.",
       "closedLocked": "Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
+      "legalHoldBadge": "Bevaringsplikt",
+      "legalHoldHint": "Bevaringsplikt hindrer automatisk sletting av oppdraget og rapportene. Bare administrator kan slå den av.",
+      "legalHoldEnable": "🔒 Slå på bevaringsplikt",
+      "legalHoldDisable": "🔓 Slå av bevaringsplikt",
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
       "orderNumber": "Ordrenummer tilknyttet oppdrag"
@@ -487,7 +491,8 @@
       "invalidData": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.",
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
       "workOrderLocked": "🔒 Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det.",
-      "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen."
+      "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen.",
+      "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt."
     },
     "reportsPage": {
       "title": "Servicerapporter",
