@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -44,69 +45,54 @@ export default async function TechnicianDashboard({
   // 2. Hent oppdrag som IKKE har noen tildelte montører i det hele tatt
   let unassignedWorkOrders: any[] = [];
 
-  if (searchQuery) {
-    assignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        AND: [accessScope],
-        technicians: { some: { id: user.id } },
-        status: { not: 'CANCELLED' },
+  const searchOr: Prisma.WorkOrderWhereInput = searchQuery
+    ? {
         OR: [
           { title: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
           { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
           { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
-        ]
-      },
-      select: LIST_SELECT,
-      orderBy: { scheduledFor: 'asc' },
-      take: LIST_LIMIT
-    });
+          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } },
+        ],
+      }
+    : {};
 
-    unassignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        AND: [accessScope],
-        technicians: { none: {} },
-        status: { not: 'CANCELLED' },
-        OR: [
-          { title: { contains: searchQuery, mode: 'insensitive' } },
-          { description: { contains: searchQuery, mode: 'insensitive' } },
-          { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
-        ]
-      },
-      select: LIST_SELECT,
-      orderBy: { scheduledFor: 'asc' },
-      take: LIST_LIMIT
-    });
-  } else {
-    assignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        AND: [accessScope],
-        technicians: { some: { id: user.id } },
-        status: { not: 'CANCELLED' }
-      },
-      select: LIST_SELECT,
-      orderBy: { scheduledFor: 'asc' },
-      take: LIST_LIMIT
-    });
+  // Aktive/kommende oppdrag. Fullførte holdes utenfor oversikten og hentes
+  // separat til historikkseksjonen.
+  assignedWorkOrders = await prisma.workOrder.findMany({
+    where: {
+      AND: [accessScope, searchOr],
+      technicians: { some: { id: user.id } },
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
+    },
+    select: LIST_SELECT,
+    orderBy: { scheduledFor: 'asc' },
+    take: LIST_LIMIT,
+  });
 
-    unassignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        AND: [accessScope],
-        technicians: { none: {} },
-        status: { not: 'CANCELLED' }
-      },
-      select: LIST_SELECT,
-      orderBy: { scheduledFor: 'asc' },
-      take: LIST_LIMIT
-    });
-  }
+  unassignedWorkOrders = await prisma.workOrder.findMany({
+    where: {
+      AND: [accessScope, searchOr],
+      technicians: { none: {} },
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
+    },
+    select: LIST_SELECT,
+    orderBy: { scheduledFor: 'asc' },
+    take: LIST_LIMIT,
+  });
 
-  // Del opp de tildelte oppdragene i "Aktive / Kommende" og "Fullførte"
-  const activeAssigned = assignedWorkOrders.filter(wo => wo.status !== 'COMPLETED' && wo.status !== 'CANCELLED');
-  const completedAssigned = assignedWorkOrders.filter(wo => wo.status === 'COMPLETED');
+  const completedAssigned = await prisma.workOrder.findMany({
+    where: {
+      AND: [accessScope, searchOr],
+      technicians: { some: { id: user.id } },
+      status: 'COMPLETED',
+    },
+    select: LIST_SELECT,
+    orderBy: { scheduledFor: 'desc' },
+    take: LIST_LIMIT,
+  });
+
+  const activeAssigned = assignedWorkOrders;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -269,7 +255,7 @@ export default async function TechnicianDashboard({
                     <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-[10px] text-gray-500 font-medium">
-                    {t("orders.fieldList.archived", { customer: wo.customer.name })}
+                    {t("orders.fieldList.archived", { customer: wo.customer?.name || t("orders.reportsPage.noCustomer") })}
                   </p>
                   {formatAddress(wo.customer) && (
                     <p className="text-[10px] text-gray-400 font-medium mt-0.5">

@@ -116,7 +116,9 @@ function whereFor(
     case "fullforte":
       return { status: "COMPLETED" };
     default:
-      return {};
+      // Standardoversikten viser aktive/kommende oppdrag. Fullførte er
+      // historikk og vises bare i «fullforte»-fanen.
+      return { status: { not: "COMPLETED" } };
   }
 }
 
@@ -211,7 +213,9 @@ export default async function WorkOrdersPage({
     statuses.reduce((sum, s) => sum + countByStatus(s), 0);
 
   const viewCounts: Record<ViewKey, number> = {
-    alle: statusGroups.reduce((sum, g) => sum + g._count._all, 0),
+    alle: statusGroups
+      .filter((group) => group.status !== "COMPLETED")
+      .reduce((sum, group) => sum + group._count._all, 0),
     apne: sumStatuses(ACTIVE_STATUSES),
     venter: sumStatuses(AWAITING_STATUSES),
     pagaaende: countByStatus("IN_PROGRESS"),

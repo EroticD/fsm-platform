@@ -238,10 +238,14 @@ export default async function AdminDashboard({
         ],
       }
     : {};
+  // Fullførte oppdrag er historikk og skal ikke fylles inn i den generelle
+  // oversikten. Velger man «Fullført» i statusfilteret, er det en bevisst
+  // historikk-visning og da vises de.
   const listWhere: Prisma.WorkOrderWhereInput = {
     AND: [
       scope,
       visibleStatus,
+      statusFilter !== "COMPLETED" ? { status: { not: "COMPLETED" } } : {},
       statusFilter ? { status: statusFilter } : {},
       listSearchWhere,
     ],
@@ -252,6 +256,7 @@ export default async function AdminDashboard({
     AND: [
       scope,
       visibleStatus,
+      { status: { notIn: ["COMPLETED", "CANCELLED"] } },
       {
         scheduledFor: { lte: endOfToday },
         OR: [
