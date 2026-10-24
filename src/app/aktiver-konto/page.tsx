@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
@@ -11,6 +12,7 @@ export default async function ActivateAccountPage({
   searchParams: Promise<{ token?: string; error?: string; success?: string }>;
 }) {
   const { token, error, success } = await searchParams;
+  const t = await getTranslations("common");
 
   // --- SERVER ACTION: sett eget passord ---
   async function setPassword(formData: FormData) {
@@ -69,10 +71,9 @@ export default async function ActivateAccountPage({
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow border max-w-md w-full text-center">
           <p className="text-4xl mb-4">✅</p>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Passordet er satt</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{t("auth.activate.successTitle")}</h1>
           <p className="text-gray-600 mb-6">
-            Kontoen din må aktiveres av en administrator før du kan logge inn. Du får beskjed
-            når den er klar.
+            {t("auth.activate.successDesc")}
           </p>
           <Link
             href="/logg-inn"
@@ -80,7 +81,7 @@ export default async function ActivateAccountPage({
             suppressHydrationWarning
             style={{ backgroundColor: "var(--primary-color)" }}
           >
-            Til innlogging
+            {t("auth.activate.toLogin")}
           </Link>
         </div>
       </div>
@@ -93,15 +94,15 @@ export default async function ActivateAccountPage({
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow border max-w-md w-full text-center">
           <p className="text-4xl mb-4">⚠️</p>
-          <h1 className="text-xl font-bold text-red-600 mb-2">Manglende invitasjonsnøkkel</h1>
+          <h1 className="text-xl font-bold text-red-600 mb-2">{t("auth.activate.missingTitle")}</h1>
           <p className="text-gray-600 mb-6">
-            Ugyldig eller manglende invitasjonslenke. Be administratoren om en ny lenke.
+            {t("auth.activate.missingDesc")}
           </p>
           <Link
             href="/logg-inn"
             className="inline-block bg-gray-800 text-white px-6 py-2.5 rounded-xl font-bold"
           >
-            Til innlogging
+            {t("auth.activate.toLogin")}
           </Link>
         </div>
       </div>
@@ -121,15 +122,15 @@ export default async function ActivateAccountPage({
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow border max-w-md w-full text-center">
           <p className="text-4xl mb-4">⚠️</p>
-          <h1 className="text-xl font-bold text-red-600 mb-2">Lenken er ugyldig</h1>
+          <h1 className="text-xl font-bold text-red-600 mb-2">{t("auth.activate.invalidTitle")}</h1>
           <p className="text-gray-600 mb-6">
-            Invitasjonslenken er ugyldig eller har utløpt. Be administratoren om en ny lenke.
+            {t("auth.activate.invalidDesc")}
           </p>
           <Link
             href="/logg-inn"
             className="inline-block bg-gray-800 text-white px-6 py-2.5 rounded-xl font-bold"
           >
-            Til innlogging
+            {t("auth.activate.toLogin")}
           </Link>
         </div>
       </div>
@@ -139,24 +140,27 @@ export default async function ActivateAccountPage({
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full border">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Velkommen!</h1>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">{t("auth.activate.welcome")}</h1>
         <p className="text-gray-500 text-sm mb-6">
-          Sett ditt eget passord for kontoen <span className="font-bold">{user.email}</span>.
+          {t.rich("auth.activate.desc", {
+            email: user.email ?? "",
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
 
         {error === "ugyldig" && (
           <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm font-semibold border border-red-200">
-            Linken er ugyldig eller har utløpt.
+            {t("auth.activate.errors.invalid")}
           </div>
         )}
         {error === "for_kort" && (
           <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg mb-4 text-sm font-semibold border border-yellow-200">
-            Passordet må være minst 8 tegn.
+            {t("auth.activate.errors.tooShort")}
           </div>
         )}
         {error === "ulike" && (
           <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg mb-4 text-sm font-semibold border border-yellow-200">
-            Passordene er ikke like. Prøv igjen.
+            {t("auth.activate.errors.mismatch")}
           </div>
         )}
 
@@ -164,21 +168,21 @@ export default async function ActivateAccountPage({
           <input type="hidden" name="token" value={token} />
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Nytt passord</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.activate.newPassword")}</label>
             <input
               type="password"
               name="password"
               required
               minLength={8}
               autoComplete="new-password"
-              placeholder="Minst 8 tegn..."
+              placeholder={t("auth.activate.newPasswordPlaceholder")}
               className="w-full border p-3 rounded-xl text-gray-800"
             />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Gjenta passord
+              {t("auth.activate.confirm")}
             </label>
             <input
               type="password"
@@ -186,7 +190,7 @@ export default async function ActivateAccountPage({
               required
               minLength={8}
               autoComplete="new-password"
-              placeholder="Skriv passordet på nytt..."
+              placeholder={t("auth.activate.confirmPlaceholder")}
               className="w-full border p-3 rounded-xl text-gray-800"
             />
           </div>
@@ -197,7 +201,7 @@ export default async function ActivateAccountPage({
             suppressHydrationWarning
             style={{ backgroundColor: "var(--primary-color)" }}
           >
-            Lagre passord
+            {t("auth.activate.submit")}
           </button>
         </form>
       </div>

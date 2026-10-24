@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { buildInviteUrl } from "@/lib/invite";
 import CopyButton from "@/components/CopyButton";
@@ -55,6 +56,7 @@ export default async function UsersAdmin({
 }) {
   // Administrator ser alle. Avdelingsansvarlige ser bare egen avdeling, slik
   // at brukeradministrasjon ikke blir en vei rundt avdelingssperren.
+  const t = await getTranslations("common");
   const where = isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" };
   const safePage = parsePage(page);
   const [users, totalUsers] = await Promise.all([
@@ -124,12 +126,14 @@ export default async function UsersAdmin({
 
   const errorMessage =
     error === "mangler_kontakt"
-      ? "Kundeportalbrukere må kobles til en kontaktperson på kundekortet."
+      ? t("users.errors.missingContact")
       : error === "epost_finnes"
-        ? "Det finnes allerede en bruker med denne e-postadressen."
+        ? t("users.errors.duplicateEmail")
         : error === "mangler_felt"
-          ? "Fyll ut navn, e-post og velg en kontaktperson."
-          : null;
+          ? t("users.errors.missingField")
+          : error === "ugyldig-data"
+            ? t("users.errors.invalid")
+            : null;
 
   return (
     <div className="space-y-6">
@@ -143,18 +147,17 @@ export default async function UsersAdmin({
         <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-purple-900">
-              Roller og rettigheter
+              {t("users.roles.title")}
             </p>
             <p className="text-xs text-purple-700">
-              Opprett egne roller, endre rettighetene deres, eller fjern roller
-              som ikke er i bruk.
+              {t("users.roles.description")}
             </p>
           </div>
           <Link
             href="/innstillinger?tab=roller"
             className="text-xs font-bold bg-purple-700 text-white px-3 py-2 rounded-lg hover:bg-purple-800 transition whitespace-nowrap"
           >
-            Administrer roller →
+            {t("users.roles.manage")} →
           </Link>
         </div>
       )}
@@ -162,12 +165,12 @@ export default async function UsersAdmin({
       {inviteUser && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
           <h2 className="font-bold text-green-900 mb-1">
-            ✅ Invitasjon klar for {inviteUser.name || inviteUser.email}
+            ✅ {t("users.invite.ready", { name: inviteUser.name || inviteUser.email || inviteUser.id })}
           </h2>
           <p className="text-sm text-green-800 mb-3">
             {mail === "sent"
-              ? "Invitasjons-e-posten er sendt. Brukeren setter sitt eget passord, og kontoen aktiveres av deg etterpå."
-              : "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env), så send denne lenken til brukeren manuelt. De setter sitt eget passord, og kontoen aktiveres av deg etterpå."}
+              ? t("users.invite.sent")
+              : t("users.invite.manual")}
           </p>
           {inviteUrl ? (
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
@@ -176,11 +179,11 @@ export default async function UsersAdmin({
                 value={inviteUrl}
                 className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs text-gray-700 font-mono"
               />
-              <CopyButton value={inviteUrl} label="Kopier lenke" />
+              <CopyButton value={inviteUrl} label={t("users.invite.copy")} />
             </div>
           ) : (
             <p className="text-sm text-red-700 font-semibold">
-              Ingen gyldig lenke funnet. Trykk «Invitasjonslenke» for å lage en ny.
+              {t("users.invite.invalid")}
             </p>
           )}
         </div>
@@ -190,43 +193,43 @@ export default async function UsersAdmin({
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-8">
             <h2 className="font-bold text-lg text-gray-800 border-b pb-2 mb-4">
-              ➕ Legg til ny bruker
+              ➕ {t("users.add.title")}
             </h2>
 
             <form action={createUser} className="space-y-4">
               <input type="hidden" name="returnTo" value={returnTo} />
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Fullt navn</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
                 <input
                   type="text"
                   name="name"
                   required
-                  placeholder="F.eks. Kari Nordmann"
+                  placeholder={t("users.add.namePlaceholder")}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">E-postadresse</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.email")}</label>
                 <input
                   type="email"
                   name="email"
                   required
-                  placeholder="kari@bedriften.no"
+                  placeholder={t("users.add.emailPlaceholder")}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Telefon <span className="font-normal text-gray-400">(valgfritt)</span></label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.phone")} <span className="font-normal text-gray-400">{t("users.add.optional")}</span></label>
                 <input
                   type="tel"
                   name="phone"
-                  placeholder="F.eks. 900 00 000"
+                  placeholder={t("users.add.phonePlaceholder")}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                  Rolle / Tilgangsnivå
+                  {t("users.add.role")}
                 </label>
                 <select
                   name="role"
@@ -236,50 +239,49 @@ export default async function UsersAdmin({
                   {roles.map((role) => (
                     <option key={role.key} value={role.key}>
                       {role.label}
-                      {role.key === "CUSTOMER" ? " (kundedata)" : ""}
+                      {role.key === "CUSTOMER" ? t("users.add.customerSuffix") : ""}
                     </option>
                   ))}
                 </select>
                 {roles.length === 0 && (
                   <p className="text-[11px] text-red-600 mt-1">
-                    Ingen roller er tilgjengelige. Be en administrator opprette
-                    eller tildele en rolle.
+                    {t("users.add.noRoles")}
                   </p>
                 )}
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                  Avdeling
+                  {t("users.add.department")}
                 </label>
                 <select
                   name="departmentId"
                   defaultValue={defaultDepartment?.id ?? ""}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
                 >
-                  <option value="">-- Ingen avdeling --</option>
+                  <option value="">{t("users.add.noDepartment")}</option>
                   {departments.map((department) => (
                     <option key={department.id} value={department.id}>
                       {department.name}
-                      {department.isDefault ? " (standard)" : ""}
+                      {department.isDefault ? t("users.add.defaultSuffix") : ""}
                     </option>
                   ))}
                 </select>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Ansatte må være i en avdeling for å kunne opprette og se oppdrag.
+                  {t("users.add.departmentHelp")}
                 </p>
               </div>
               {canManageCustomers && (
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">
-                    Kontaktperson{" "}
-                    <span className="font-normal text-gray-400">(påkrevd for kundeportal)</span>
+                    {t("users.add.contact")}{" "}
+                    <span className="font-normal text-gray-400">{t("users.add.contactRequired")}</span>
                   </label>
                   <select
                     name="contactId"
                     defaultValue=""
                     className="w-full border border-gray-300 p-2.5 rounded-xl text-xs font-medium bg-white text-gray-900"
                   >
-                    <option value="">-- Ingen kontaktperson --</option>
+                    <option value="">{t("users.add.noContact")}</option>
                     {customers
                       .filter((c) => c.contacts.length > 0)
                       .map((c) => (
@@ -294,21 +296,20 @@ export default async function UsersAdmin({
                       ))}
                   </select>
                   <p className="text-[11px] text-gray-500 mt-1">
-                    Kobler brukeren til kunden og gir tilgang til kundeportalen.
+                    {t("users.add.contactHelp")}
                   </p>
                 </div>
               )}
 
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
-                Nye brukere er inaktive. Etter at du har opprettet dem får du en invitasjonslenke de
-                kan bruke til å sette eget passord. Deretter må du aktivere kontoen her.
+                {t("users.add.info")}
               </div>
 
               <button
                 type="submit"
                 className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition mt-2"
               >
-                Opprett og lag invitasjon
+                {t("users.add.submit")}
               </button>
             </form>
           </div>
@@ -317,9 +318,9 @@ export default async function UsersAdmin({
         <div className="lg:col-span-2">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b bg-gray-50/50 flex justify-between items-center">
-              <h2 className="font-bold text-lg text-gray-800">Alle brukere i systemet</h2>
+              <h2 className="font-bold text-lg text-gray-800">{t("users.list.title")}</h2>
               <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
-                {totalUsers} stk
+                {t("users.list.count", { count: totalUsers })}
               </span>
             </div>
 
@@ -342,17 +343,17 @@ export default async function UsersAdmin({
                         </div>
                         <div>
                           <p className="font-bold text-gray-900 flex items-center gap-2">
-                            {u.name || "Uten navn"}
+                            {u.name || t("users.list.noName")}
                             {isMe && (
                               <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
-                                Det er deg
+                                {t("users.list.thisIsYou")}
                               </span>
                             )}
                           </p>
                           <p className="text-sm text-gray-500">{u.email}</p>
                           <p className="text-[11px] text-gray-500 mt-0.5">
                             🔐 {roleLabel} • 🏷️{" "}
-                            {u.department?.name || "Ingen avdeling"}
+                            {u.department?.name || t("users.list.noDepartment")}
                           </p>
                           {u.customer && (
                             <p className="text-[11px] text-gray-500 mt-0.5">
@@ -369,16 +370,16 @@ export default async function UsersAdmin({
                             u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
                           }`}
                         >
-                          {u.isActive ? "Aktiv" : "Inaktiv"}
+                          {u.isActive ? t("users.list.active") : t("users.list.inactive")}
                         </span>
                         {!u.password && (
                           <span className="text-[10px] font-bold px-2 py-1 rounded-full uppercase bg-gray-100 text-gray-600">
-                            Mangler passord
+                            {t("users.list.missingPassword")}
                           </span>
                         )}
                         {hasPendingInvite && (
                           <span className="text-[10px] font-bold px-2 py-1 rounded-full uppercase bg-blue-100 text-blue-800">
-                            Invitert
+                            {t("users.list.invited")}
                           </span>
                         )}
                       </div>
@@ -411,7 +412,7 @@ export default async function UsersAdmin({
                             type="submit"
                             className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
-                            Lagre rolle
+                            {t("users.list.saveRole")}
                           </button>
                         )}
                       </form>
@@ -425,7 +426,7 @@ export default async function UsersAdmin({
                             disabled={u.role === "CUSTOMER"}
                             className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
                           >
-                            <option value="">Ingen avdeling</option>
+                            <option value="">{t("users.list.noDepartmentOption")}</option>
                             {departments.map((department) => (
                               <option key={department.id} value={department.id}>
                                 {department.name}
@@ -436,7 +437,7 @@ export default async function UsersAdmin({
                             type="submit"
                             className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
-                            Lagre avdeling
+                            {t("users.list.saveDepartment")}
                           </button>
                         </form>
                       )}
@@ -448,14 +449,14 @@ export default async function UsersAdmin({
                             type="tel"
                             name="phone"
                             defaultValue={u.phone ?? ""}
-                            placeholder="Telefon"
+                            placeholder={t("users.list.phonePlaceholder")}
                             className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900 w-32"
                           />
                           <button
                             type="submit"
                             className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
-                            Lagre tlf.
+                            {t("users.list.savePhone")}
                           </button>
                         </form>
                       )}
@@ -468,7 +469,7 @@ export default async function UsersAdmin({
                             type="submit"
                             className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
                           >
-                            🔗 Invitasjonslenke
+                            🔗 {t("users.list.inviteLink")}
                           </button>
                         </form>
                       )}
@@ -490,7 +491,9 @@ export default async function UsersAdmin({
                                 : "bg-green-600 text-white border-green-600 hover:bg-green-700"
                             }`}
                           >
-                            {u.isActive ? "Deaktiver" : "Aktiver"}
+                            {u.isActive
+                              ? t("users.list.deactivate")
+                              : t("users.list.activate")}
                           </button>
                         </form>
                       )}
@@ -502,7 +505,7 @@ export default async function UsersAdmin({
                           <button
                             type="submit"
                             className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
-                            title="Slett bruker"
+                            title={t("users.list.deleteUser")}
                           >
                             🗑️
                           </button>
@@ -516,24 +519,23 @@ export default async function UsersAdmin({
                         {u.role === "ADMIN" || u.role === "CUSTOMER" ? (
                           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
                             {u.role === "ADMIN"
-                              ? "Administrator har alltid alle rettigheter, uavhengig av rollens liste."
-                              : "Kundeportalbrukere styres av kundetilknytningen, ikke av interne rettigheter."}
+                              ? t("users.list.adminHint")
+                              : t("users.list.customerHint")}
                           </div>
                         ) : (
                           <>
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
                                 <p className="text-xs font-bold text-gray-800">
-                                  Rettigheter for denne brukeren
+                                  {t("users.list.permissionsTitle")}
                                 </p>
                                 <p className="text-[11px] text-gray-500">
-                                  Listen overstyrer rollen. La stå lik rollens
-                                  rettigheter for å følge rollen videre.
+                                  {t("users.list.permissionsDesc")}
                                 </p>
                               </div>
                               {u.permissionsCustomized && (
                                 <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
-                                  Tilpasset
+                                  {t("users.list.customized")}
                                 </span>
                               )}
                             </div>
@@ -580,7 +582,7 @@ export default async function UsersAdmin({
                               type="submit"
                               className="text-[10px] font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
                             >
-                              Lagre rettigheter
+                              {t("users.list.savePermissions")}
                             </button>
                           </>
                         )}
@@ -595,7 +597,7 @@ export default async function UsersAdmin({
                             type="submit"
                             className="text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
                           >
-                            Bruk rollens rettigheter
+                            {t("users.list.useRolePermissions")}
                           </button>
                         </form>
                       )}
@@ -613,18 +615,18 @@ export default async function UsersAdmin({
                     href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage - 1}`}
                     className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
                   >
-                    ← Forrige
+                    ← {t("users.list.previous")}
                   </Link>
                 )}
                 <span className="text-sm font-bold text-gray-600">
-                  Side {safePage} av {totalPages}
+                  {t("users.list.page", { page: safePage, totalPages })}
                 </span>
                 {safePage < totalPages && (
                   <Link
                     href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage + 1}`}
                     className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
                   >
-                    Neste →
+                    {t("users.list.next")} →
                   </Link>
                 )}
               </div>

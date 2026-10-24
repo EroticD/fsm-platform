@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import UsersAdmin from "@/components/UsersAdmin";
 import { getCurrentUser } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
@@ -16,6 +17,7 @@ export default async function UsersPage({
   if (currentUser.role === "CUSTOMER") redirect("/kundeportal");
   if (!hasPermission(currentUser, "users.view")) redirect("/");
 
+  const t = await getTranslations("common");
   const { invite, inviteToken, error, mail, side } = await searchParams;
   const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
   const userCount = await prisma.user.count({
@@ -30,18 +32,18 @@ export default async function UsersPage({
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">👷‍♂️ Ansatte & Tilganger</h1>
+            <h1 className="text-3xl font-bold text-gray-900">👷‍♂️ {t("users.pageTitle")}</h1>
             <p className="text-gray-500 mt-1">
               {currentUser.role === "ADMIN"
-                ? `Viser totalt ${userCount} registrerte brukere i databasen.`
-                : `Viser ${userCount} brukere i din avdeling.`}
+                ? t("users.pageSubtitleAdmin", { count: userCount })
+                : t("users.pageSubtitleDepartment", { count: userCount })}
             </p>
           </div>
           <Link
             href="/"
             className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 transition shadow-sm"
           >
-            &larr; Tilbake til Dashbord
+            &larr; {t("users.backToDashboard")}
           </Link>
         </div>
 

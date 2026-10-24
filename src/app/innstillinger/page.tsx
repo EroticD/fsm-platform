@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import UsersAdmin from "@/components/UsersAdmin";
 import DepartmentsAdmin from "@/components/DepartmentsAdmin";
 import RolesAdmin from "@/components/RolesAdmin";
@@ -52,6 +53,8 @@ export default async function SettingsPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
+
+  const t = await getTranslations("common");
 
   const isAdmin = user.role === "ADMIN";
   const canBranding = hasPermission(user, "settings.manage");
@@ -133,11 +136,11 @@ export default async function SettingsPage({
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">⚙️ Innstillinger</h1>
-            <p className="text-gray-500 mt-1 text-sm">Administrer systemet, merkevare og skjemaer.</p>
+            <h1 className="text-3xl font-bold text-gray-900">⚙️ {t("settings.title")}</h1>
+            <p className="text-gray-500 mt-1 text-sm">{t("settings.subtitle")}</p>
           </div>
           <Link href="/" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            &larr; Tilbake til Dashbord
+            &larr; {t("settings.backToDashboard")}
           </Link>
         </div>
 
@@ -233,12 +236,10 @@ export default async function SettingsPage({
           <div>
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">
-                🔐 Roller & rettigheter
+                🔐 {t("settings.roles.title")}
               </h2>
               <p className="text-gray-500 text-sm">
-                Lag egne roller, endre hvilke rettigheter rollene gir, og fjern
-                roller som ikke er i bruk. Enkelte brukere kan i tillegg få en
-                tilpasset rettighetsliste på brukerkortet.
+                {t("settings.roles.description")}
               </p>
             </div>
             <RolesAdmin
@@ -252,10 +253,9 @@ export default async function SettingsPage({
         {currentTab === "avdelinger" && isAdmin && (
           <div>
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">🏷️ Avdelinger</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">🏷️ {t("settings.departments.title")}</h2>
               <p className="text-gray-500 text-sm">
-                Oppdrag og serviceavtaler hører til en avdeling. Ansatte ser bare oppdrag i
-                egen avdeling, mens kunder, dokumenter og rapporter er felles.
+                {t("settings.departments.description")}
               </p>
             </div>
             <DepartmentsAdmin departments={departmentRows} />

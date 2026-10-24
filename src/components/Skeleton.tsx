@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 /** Enkel pulserende plassholder for lasting. */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
@@ -25,9 +27,11 @@ export function SkeletonCard({ lines = 3 }: { lines?: number }) {
   );
 }
 
-export default function SkeletonList({ count = 5 }: { count?: number }) {
+export default async function SkeletonList({ count = 5 }: { count?: number }) {
+  const t = await getTranslations("common");
+
   return (
-    <div className="space-y-3" role="status" aria-label="Laster innhold">
+    <div className="space-y-3" role="status" aria-label={t("components.skeleton.loading")}>
       {Array.from({ length: count }).map((_, index) => (
         <SkeletonCard key={index} lines={2} />
       ))}

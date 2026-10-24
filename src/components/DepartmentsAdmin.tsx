@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import {
   createDepartment,
   setDefaultDepartment,
@@ -21,69 +22,71 @@ type DepartmentRow = {
   contracts: number;
 };
 
-export default function DepartmentsAdmin({ departments }: { departments: DepartmentRow[] }) {
+export default async function DepartmentsAdmin({ departments }: { departments: DepartmentRow[] }) {
+  const t = await getTranslations("common");
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-8">
           <h2 className="font-bold text-lg text-gray-800 border-b pb-2 mb-4">
-            ➕ Ny avdeling
+            ➕ {t("settings.departments.new")}
           </h2>
           <form action={createDepartment} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Navn</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.name")}</label>
               <input
                 type="text"
                 name="name"
                 required
-                placeholder="F.eks. Bergen"
+                placeholder={t("settings.departments.namePlaceholder")}
                 className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
-                Beskrivelse <span className="font-normal text-gray-400">(valgfritt)</span>
+                {t("settings.departments.descriptionLabel")}{" "}
+                <span className="font-normal text-gray-400">{t("settings.departments.optional")}</span>
               </label>
               <input
                 type="text"
                 name="description"
-                placeholder="F.eks. service på Vestlandet"
+                placeholder={t("settings.departments.descriptionPlaceholder")}
                 className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Telefon</label>
-                <input type="tel" name="phone" placeholder="F.eks. 55 55 55 55" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.phone")}</label>
+                <input type="tel" name="phone" placeholder={t("settings.departments.phonePlaceholder")} className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">E-post</label>
-                <input type="email" name="email" placeholder="post@firma.no" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.email")}</label>
+                <input type="email" name="email" placeholder={t("settings.departments.emailPlaceholder")} className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Adresse</label>
-              <input type="text" name="address" placeholder="Gateadresse" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.address")}</label>
+              <input type="text" name="address" placeholder={t("settings.departments.addressPlaceholder")} className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Postnummer</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.postalCode")}</label>
                 <input type="text" name="postalCode" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Sted</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.city")}</label>
                 <input type="text" name="city" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
               </div>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
-              Oppdrag, serviceavtaler og ansatte knyttes til en avdeling. Kunder,
-              dokumenter og rapporter er fortsatt felles for alle.
+              {t("settings.departments.info")}
             </div>
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition"
             >
-              Opprett avdeling
+              {t("settings.departments.create")}
             </button>
           </form>
         </div>
@@ -92,7 +95,7 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
       <div className="lg:col-span-2 space-y-4">
         {departments.length === 0 && (
           <div className="bg-white p-6 rounded-2xl border border-gray-100 text-sm text-gray-500">
-            Det finnes ingen avdelinger ennå.
+            {t("settings.departments.empty")}
           </div>
         )}
 
@@ -109,7 +112,7 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                   🏷️ {department.name}
                   {department.isDefault && (
                     <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
-                      Standard
+                      {t("settings.departments.default")}
                     </span>
                   )}
                   <span
@@ -119,15 +122,20 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                         : "bg-amber-100 text-amber-800"
                     }`}
                   >
-                    {department.isActive ? "Aktiv" : "Inaktiv"}
+                    {department.isActive
+                      ? t("settings.departments.active")
+                      : t("settings.departments.inactive")}
                   </span>
                 </h3>
                 {department.description && (
                   <p className="text-sm text-gray-500 mt-1">{department.description}</p>
                 )}
                 <p className="text-[11px] text-gray-500 mt-2">
-                  👥 {department.users} ansatte • 📋 {department.workOrders} oppdrag • 📄{" "}
-                  {department.contracts} serviceavtaler
+                  👥 {t("settings.departments.stats", {
+                    users: department.users,
+                    workOrders: department.workOrders,
+                    contracts: department.contracts,
+                  })}
                 </p>
               </div>
 
@@ -139,7 +147,7 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                       type="submit"
                       className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
                     >
-                      Sett som standard
+                      {t("settings.departments.setDefault")}
                     </button>
                   </form>
                 )}
@@ -159,7 +167,9 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                           : "bg-green-600 text-white border-green-600 hover:bg-green-700"
                       }`}
                     >
-                      {department.isActive ? "Deaktiver" : "Aktiver"}
+                      {department.isActive
+                        ? t("settings.departments.deactivate")
+                        : t("settings.departments.activate")}
                     </button>
                   </form>
                 )}
@@ -168,12 +178,12 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
 
             <details className="mt-4 group">
               <summary className="text-xs font-bold text-blue-700 cursor-pointer select-none">
-                Rediger avdeling
+                {t("settings.departments.edit")}
               </summary>
               <form action={updateDepartment} className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input type="hidden" name="id" value={department.id} />
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Navn</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.name")}</label>
                   <input
                     type="text"
                     name="name"
@@ -184,7 +194,7 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Beskrivelse
+                    {t("settings.departments.descriptionLabel")}
                   </label>
                   <input
                     type="text"
@@ -194,23 +204,23 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Telefon</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.phone")}</label>
                   <input type="tel" name="phone" defaultValue={department.phone ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">E-post</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.email")}</label>
                   <input type="email" name="email" defaultValue={department.email ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Adresse</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.address")}</label>
                   <input type="text" name="address" defaultValue={department.address ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Postnummer</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.postalCode")}</label>
                   <input type="text" name="postalCode" defaultValue={department.postalCode ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Sted</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.city")}</label>
                   <input type="text" name="city" defaultValue={department.city ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                 </div>
                 <div className="md:col-span-2">
@@ -218,7 +228,7 @@ export default function DepartmentsAdmin({ departments }: { departments: Departm
                     type="submit"
                     className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-700 transition"
                   >
-                    Lagre endringer
+                    {t("settings.departments.saveChanges")}
                   </button>
                 </div>
               </form>

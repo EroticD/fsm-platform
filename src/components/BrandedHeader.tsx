@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import LanguageSwitcher from "./LanguageSwitcher";
-import GlobalSearch from "./GlobalSearch";
+import LanguageSwitcher from "./LanguageSwitcher";import GlobalSearch from "./GlobalSearch";
 
 type NavItem = {
   href: string;
@@ -60,6 +59,7 @@ export default function BrandedHeader({
   showNav?: boolean;
   role?: string;
 }) {
+  const t = useTranslations("common");
   const [branding, setBranding] = useState<{
     companyName: string;
     logoUrl: string | null;
@@ -156,7 +156,7 @@ export default function BrandedHeader({
             type="button"
             onClick={() => setOpenMenuForPath(isMobileMenuOpen ? null : pathname)}
             className="lg:hidden flex items-center justify-center p-2.5 text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl transition"
-            aria-label="Menu"
+            aria-label={t("components.header.openMenu")}
             aria-expanded={isMobileMenuOpen}
           >
             {isMobileMenuOpen ? "✕" : "☰"}
@@ -187,12 +187,12 @@ export default function BrandedHeader({
       {showNav && isMobileMenuOpen && (
         <div className="lg:hidden px-4 pb-4 border-b border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-900 text-sm">Meny</h3>
+            <h3 className="font-bold text-gray-900 text-sm">{t("components.header.menu")}</h3>
             <button
               type="button"
               onClick={closeMobileMenu}
               className="flex items-center justify-center text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl p-2.5"
-              aria-label="Lukk menyen"
+              aria-label={t("components.header.closeMenu")}
             >
               ✕
             </button>
@@ -228,7 +228,7 @@ function GlobalNavDesktop({ primaryColor, role }: { primaryColor: string; role?:
       )}
       <form action="/api/auth/signout" method="POST" className="flex items-center">
         <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition border border-transparent whitespace-nowrap">
-          🚪 Log ut
+          🚪 {t("components.header.logOut")}
         </button>
       </form>
     </nav>
@@ -269,7 +269,7 @@ function GlobalNavMobile({
           onClick={onNavigate}
           className="w-full px-4 py-3 rounded-xl text-left font-bold text-gray-700 hover:bg-red-50 hover:text-red-800 transition border border-transparent"
         >
-          🚪 Log ut
+          🚪 {t("components.header.logOut")}
         </button>
       </form>
     </nav>

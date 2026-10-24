@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
@@ -27,6 +28,7 @@ export default function ContactCard({
   /** Sletting er forbeholdt administrator. */
   canDelete?: boolean;
 }) {
+  const t = useTranslations("common");
   const [isEditing, setIsEditing] = useState(false);
 
   return (
@@ -53,18 +55,18 @@ export default function ContactCard({
             onClick={() => setIsEditing(!isEditing)}
             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition p-1"
           >
-            {isEditing ? "Skjul" : "✏️ Rediger"}
+            {isEditing ? t("components.contact.hide") : `✏️ ${t("components.contact.edit")}`}
           </button>
           <ConfirmSubmitForm
             action={onDelete}
-            confirmMessage="Er du sikker på at du vil slette denne kontaktpersonen?"
+            confirmMessage={t("components.contact.deleteConfirm")}
             className={`inline ${canDelete ? "" : "hidden"}`}
           >
             <input type="hidden" name="id" value={contact.id} />
             <button
               type="submit"
               className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
-              title="Slett kontaktperson"
+              title={t("components.contact.deleteTitle")}
             >
               🗑️
             </button>
@@ -77,7 +79,7 @@ export default function ContactCard({
           <input type="hidden" name="id" value={contact.id} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Navn *</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.name")}</label>
               <input
                 type="text"
                 name="name"
@@ -87,7 +89,7 @@ export default function ContactCard({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Rolle</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.role")}</label>
               <input
                 type="text"
                 name="role"
@@ -98,7 +100,7 @@ export default function ContactCard({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">E-post</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.email")}</label>
               <input
                 type="email"
                 name="email"
@@ -107,7 +109,7 @@ export default function ContactCard({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Telefon</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.phone")}</label>
               <input
                 type="tel"
                 name="phone"
@@ -122,10 +124,10 @@ export default function ContactCard({
               onClick={() => setIsEditing(false)}
               className="text-xs font-bold text-gray-600 hover:text-gray-800 hover:underline px-3 py-1.5 rounded-lg transition"
             >
-              Avbryt
+              {t("components.contact.cancel")}
             </button>
             <button type="submit" className="w-auto bg-green-600 text-white px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-green-700 transition shadow-sm">
-              Lagre
+              {t("components.contact.save")}
             </button>
           </div>
         </form>

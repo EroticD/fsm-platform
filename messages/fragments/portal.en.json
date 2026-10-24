@@ -1,1 +1,70 @@
-{}
+{
+  "portal": {
+    "noAccessTitle": "No access",
+    "noAccessDesc": "Your user is not linked to a customer account.",
+    "headerTitle": "My Company: {customerName}",
+    "headerWelcome": "Welcome to your customer portal, {userName}!",
+    "home": "Home",
+    "refresh": "Refresh",
+    "contact": {
+      "title": "Your contact",
+      "department": "Department / location",
+      "company": "Company",
+      "notProvided": "Not provided",
+      "responsible": "Responsible technician",
+      "noResponsible": "No responsible technician has been set yet."
+    },
+    "equipment": {
+      "title": "Our equipment",
+      "empty": "No equipment registered.",
+      "serial": "SN: {serial}",
+      "unknownBuilding": "Unknown building"
+    },
+    "contracts": {
+      "title": "Service agreements",
+      "empty": "No active agreements.",
+      "paused": "Paused",
+      "start": "Start date: {date}",
+      "interval": "Interval: {interval}",
+      "next": "Next service: {date}"
+    },
+    "booking": {
+      "title": "Book a new work order",
+      "desc": "Order service or maintenance for your company.",
+      "titleLabel": "Work order title *",
+      "titlePlaceholder": "E.g. Annual service",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "What do you need help with?",
+      "submit": "Book work order"
+    },
+    "upcoming": {
+      "title": "Upcoming work orders",
+      "desc": "Work orders that are planned or in progress.",
+      "export": "Export CSV",
+      "empty": "No upcoming work orders.",
+      "noDate": "No date"
+    },
+    "pagination": {
+      "newest": "Newest",
+      "showMore": "Show more",
+      "showing": "Showing {from}–{to} of {total}"
+    },
+    "history": {
+      "title": "Service history & Reports",
+      "desc": "Completed and cancelled jobs, with reports.",
+      "empty": "No history yet.",
+      "download": "Download PDF",
+      "noReport": "No report"
+    },
+    "availability": {
+      "title": "Available technicians",
+      "desc": "Overview of technicians' available and busy days for the next 7 days.",
+      "empty": "No technicians registered.",
+      "technician": "Technician",
+      "busy": "Busy",
+      "free": "Available",
+      "note": "“Busy” means the technician has a scheduled work order that day. Get in touch to agree on a time that suits you.",
+      "unknownName": "No name"
+    }
+  }
+}
