@@ -737,7 +737,13 @@ export async function setPortalUserActive(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id }, data: { isActive: active } });
+    await tx.user.update({
+      where: { id },
+      data: {
+        isActive: active,
+        ...(active ? {} : { sessionVersion: { increment: 1 } }),
+      },
+    });
     if (!active) await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "Customer",

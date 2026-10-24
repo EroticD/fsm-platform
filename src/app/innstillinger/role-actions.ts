@@ -115,14 +115,26 @@ export async function updateRole(formData: FormData) {
       : submittedPermissions(formData);
 
   try {
-    await prisma.role.update({
-      where: { key },
-      data: {
-        label,
-        description: description || null,
-        permissions,
-      },
-    });
+    await prisma.$transaction([
+      prisma.role.update({
+        where: { key },
+        data: {
+          label,
+          description: description || null,
+          permissions,
+        },
+      }),
+      // En rettighetsendring skal også ugyldiggjøre eksisterende
+      // kalenderabonnementer for rollen.
+      prisma.user.updateMany({
+        where: { role: key },
+        data: {
+          calendarTokenHash: null,
+          calendarTokenCreatedAt: null,
+          calendarTokenLastUsedAt: null,
+        },
+      }),
+    ]);
   } catch (error) {
     console.error("Kunne ikke oppdatere rolle", error);
     roleError("rollen_finnes");

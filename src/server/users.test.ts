@@ -310,7 +310,10 @@ describe("brukertjenesten – kundeportalbrukere", () => {
     expect(result.ok).toBe(true);
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "target" },
-      data: { isActive: false },
+      data: {
+        isActive: false,
+        sessionVersion: { increment: 1 },
+      },
     });
   });
 
