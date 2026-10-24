@@ -33,6 +33,10 @@
         "fullforte": {
           "label": "Completed",
           "description": "Work orders that are completed."
+        },
+        "kansellerte": {
+          "label": "Cancelled",
+          "description": "Cancelled work orders – history."
         }
       },
       "total": "{count, plural, one {# work order} other {# work orders}}",

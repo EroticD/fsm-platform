@@ -76,6 +76,12 @@ const VIEWS = [
     icon: "✅",
     descriptionKey: "orders.list.views.fullforte.description",
   },
+  {
+    key: "kansellerte",
+    labelKey: "orders.list.views.kansellerte.label",
+    icon: "🚫",
+    descriptionKey: "orders.list.views.kansellerte.description",
+  },
 ] as const;
 
 type ViewKey = (typeof VIEWS)[number]["key"];
@@ -97,8 +103,9 @@ function whereFor(
     case "pagaaende":
       return { status: "IN_PROGRESS" };
     case "idag":
-      // Tar med flerdagersoppdrag som er i gang i dag.
+      // Tar med flerdagersoppdrag som er i gang i dag, men ikke avsluttede.
       return {
+        status: { notIn: CLOSED_STATUSES },
         scheduledFor: { lte: endOfToday },
         OR: [
           { scheduledTo: { gte: startOfToday } },
@@ -115,10 +122,12 @@ function whereFor(
       return { technicians: { none: {} }, status: { notIn: CLOSED_STATUSES } };
     case "fullforte":
       return { status: "COMPLETED" };
+    case "kansellerte":
+      return { status: "CANCELLED" };
     default:
-      // Standardoversikten viser aktive/kommende oppdrag. Fullførte er
-      // historikk og vises bare i «fullforte»-fanen.
-      return { status: { not: "COMPLETED" } };
+      // Standardoversikten viser aktive/kommende oppdrag. Fullførte og
+      // kansellerte er historikk og vises bare i historikkfanene.
+      return { status: { notIn: CLOSED_STATUSES } };
   }
 }
 
@@ -144,7 +153,10 @@ export default async function WorkOrdersPage({
   const canCreate = hasPermission(user, "workorders.create");
 
   const { vis, q, side } = await searchParams;
-  const view: ViewKey = vis && isViewKey(vis) ? vis : "alle";
+  const requestedView: ViewKey = vis && isViewKey(vis) ? vis : "alle";
+  // Kansellerte oppdrag er historikk for kontoret; montørene skal ikke se dem.
+  const view: ViewKey =
+    !office && requestedView === "kansellerte" ? "alle" : requestedView;
   const search = q?.trim() || "";
   const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
 
@@ -214,7 +226,7 @@ export default async function WorkOrdersPage({
 
   const viewCounts: Record<ViewKey, number> = {
     alle: statusGroups
-      .filter((group) => group.status !== "COMPLETED")
+      .filter((group) => !CLOSED_STATUSES.includes(group.status))
       .reduce((sum, group) => sum + group._count._all, 0),
     apne: sumStatuses(ACTIVE_STATUSES),
     venter: sumStatuses(AWAITING_STATUSES),
@@ -223,9 +235,13 @@ export default async function WorkOrdersPage({
     forfalte: overdueCount,
     "ikke-tildelt": unassignedCount,
     fullforte: countByStatus("COMPLETED"),
+    kansellerte: countByStatus("CANCELLED"),
   };
 
-  const activeView = VIEWS.find((v) => v.key === view)!;
+  const availableViews = office
+    ? VIEWS
+    : VIEWS.filter((v) => v.key !== "kansellerte");
+  const activeView = availableViews.find((v) => v.key === view)!;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const linkFor = (key: ViewKey) => {
@@ -275,7 +291,7 @@ export default async function WorkOrdersPage({
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="-mx-1 px-1 overflow-x-auto">
             <div className="flex gap-2 w-max">
-              {VIEWS.map((v) => {
+              {availableViews.map((v) => {
                 const active = v.key === view;
                 return (
                   <Link

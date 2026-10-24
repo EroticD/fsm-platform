@@ -33,6 +33,10 @@
         "fullforte": {
           "label": "Fullførte",
           "description": "Oppdrag som er fullført."
+        },
+        "kansellerte": {
+          "label": "Kansellerte",
+          "description": "Oppdrag som er kansellert – historikk."
         }
       },
       "total": "{count} oppdrag",
