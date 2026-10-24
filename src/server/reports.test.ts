@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     workOrder: { findFirst: vi.fn(), findUnique: vi.fn() },
     report: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
-    reportDraft: { deleteMany: vi.fn(), upsert: vi.fn() },
+    reportDraft: { deleteMany: vi.fn(), upsert: vi.fn(), findUnique: vi.fn() },
     product: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     upload: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -284,6 +284,104 @@ describe("reports-tjenesten", () => {
     );
   });
 
+  it("lagrer kladdesignaturer som filer og bare /uploads-URL-er i dataJson", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+    mocks.storeDataImage
+      .mockResolvedValueOnce("/uploads/tekniker.png")
+      .mockResolvedValueOnce("/uploads/kunde.png");
+
+    const data = formData();
+    data.set("technicianSignature", "data:image/png;base64,AAAA");
+    data.set("customerSignature", "data:image/png;base64,BBBB");
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.storeDataImage).toHaveBeenCalledWith(
+      "data:image/png;base64,AAAA",
+      expect.objectContaining({
+        ownerType: "USER",
+        ownerId: "u1",
+        uploadedById: "u1",
+      }),
+    );
+
+    const upsert = mocks.prisma.reportDraft.upsert.mock.calls[0][0] as {
+      create: { dataJson: string };
+    };
+    expect(upsert.create.dataJson).toContain("/uploads/tekniker.png");
+    expect(upsert.create.dataJson).toContain("/uploads/kunde.png");
+    expect(upsert.create.dataJson).not.toContain("data:image");
+  });
+
+  it("beholder en eksisterende /uploads-signatur uten å laste den opp på nytt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+
+    const data = formData();
+    data.set("technicianSignature", "/uploads/finnes.png");
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.storeDataImage).not.toHaveBeenCalled();
+    const upsert = mocks.prisma.reportDraft.upsert.mock.calls[0][0] as {
+      create: { dataJson: string };
+    };
+    expect(upsert.create.dataJson).toContain("/uploads/finnes.png");
+  });
+
+  it("avviser en kladd som serialiseres til mer enn 1 MB", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+
+    const data = formData();
+    const units = Array.from({ length: 50 }, (_, index) => ({
+      key: `unit-${index}`,
+      label: "Pumpe",
+      productId: "",
+      serialNumber: "",
+      location: "",
+    }));
+    data.set("unitsJson", JSON.stringify(units));
+    for (const unit of units) {
+      data.set(`status__${unit.key}`, "GODKJENT");
+      data.set(`comment__${unit.key}`, "x".repeat(20_000));
+    }
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result).toEqual({ ok: false });
+    expect(mocks.prisma.reportDraft.upsert).not.toHaveBeenCalled();
+  });
+
+  it("sletter en erstattet kladdesignatur etter vellykket lagring", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue({
+      dataJson: JSON.stringify({ technicianSignatureUrl: "/uploads/gammel.png" }),
+    });
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+    mocks.storeDataImage.mockResolvedValue("/uploads/ny.png");
+
+    const data = formData();
+    data.set("technicianSignature", "data:image/png;base64,AAAA");
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.deleteUploadIfOwned).toHaveBeenCalledWith("/uploads/gammel.png", {
+      ownerType: "USER",
+      ownerId: "u1",
+    });
+  });
+
   it("avviser en rapport uten enheter", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue(null);
@@ -351,6 +449,40 @@ describe("reports-tjenesten", () => {
 
     expect(result).toEqual({ ok: false, error: "locked", returnTo: "/oppdrag/wo1" });
     expect(tx.report.update).not.toHaveBeenCalled();
+  });
+
+  it("tar over en USER-eid kladdesignatur ved innsending", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "USER",
+      ownerId: "u1",
+      uploadedById: "u1",
+    });
+    mocks.prisma.upload.update.mockResolvedValue({});
+    const tx = withTransaction();
+    const data = formData();
+    data.set("technicianSignature", "/uploads/kladdesignatur.png");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.upload.update).toHaveBeenCalledWith({
+      where: { storedName: "kladdesignatur.png" },
+      data: {
+        ownerType: "WORK_ORDER",
+        ownerId: "wo1",
+        departmentId: "dep-a",
+        customerId: null,
+      },
+    });
+    expect(tx.report.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          technicianSignatureUrl: "/uploads/kladdesignatur.png",
+        }),
+      }),
+    );
   });
 
   it("avviser en signaturfil som tilhører et annet oppdrag", async () => {

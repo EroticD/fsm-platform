@@ -7,7 +7,7 @@ import { isOffice } from "@/lib/session";
 import { workOrderScope, type AccessUser } from "@/lib/access";
 import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
-import { reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
+import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
 
 /**
@@ -26,6 +26,9 @@ type Actor = AccessUser | null;
 
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 const SIGNATURE_DATA_URL = /^data:image\/(png|jpe?g|webp);base64,/i;
+
+/** Kladden skal ikke kunne gjøre listespørringer og backups vilkårlig tunge. */
+const MAX_DRAFT_JSON_LENGTH = 1_000_000;
 
 /**
  * Leser en signatur fra skjemaet. Nye signaturer kommer som data-URL fra
@@ -89,6 +92,52 @@ async function resolveSignature(
   }
 
   return fallback ?? null;
+}
+
+/**
+ * Signaturer i en kladd skal ikke ligge som base64 i `dataJson`. De skrives som
+ * vanlige filer eid av brukeren (`USER`), og kladden inneholder bare
+ * `/uploads/...`. Når rapporten signeres tar `resolveSignature` over eierskapet.
+ */
+async function resolveDraftSignature(
+  value: unknown,
+  user: AccessUser,
+  created: string[],
+): Promise<string | null> {
+  const accepted = acceptedSignature(value);
+  if (!accepted) return null;
+  if (!accepted.startsWith("data:")) return accepted;
+
+  const url = await storeDataImage(accepted, {
+    ownerType: "USER",
+    ownerId: user.id,
+    departmentId: user.departmentId ?? null,
+    customerId: null,
+    uploadedById: user.id,
+  });
+  created.push(url);
+  return url;
+}
+
+/** Leser signatur-URL-ene fra en tidligere kladd, uten å stole på formen. */
+function draftSignatureUrls(dataJson: string | null | undefined): {
+  technician: string | null;
+  customer: string | null;
+} {
+  if (!dataJson) return { technician: null, customer: null };
+  try {
+    const parsed = JSON.parse(dataJson) as Record<string, unknown>;
+    const read = (key: string) => {
+      const value = parsed[key];
+      return typeof value === "string" && UPLOAD_URL.test(value) ? value : null;
+    };
+    return {
+      technician: read("technicianSignatureUrl"),
+      customer: read("customerSignatureUrl"),
+    };
+  } catch {
+    return { technician: null, customer: null };
+  }
 }
 
 type TemplateField = {
@@ -320,9 +369,25 @@ export async function saveDraft(
   if (!user) return { ok: false };
   if (!hasPermission(user, "reports.write")) return { ok: false };
 
-  const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
-  const templateId = cleanText(formData.get("templateId"), { maxLength: LIMITS.line });
-  if (!workOrderId || !templateId) return { ok: false };
+  // Valider form og lengder før vi slår opp i databasen. Grensene er de samme
+  // som for innsending, slik at en kladd ikke kan bli større enn en rapport.
+  const parsedInput = reportDraftSchema.safeParse({
+    workOrderId: cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line }),
+    templateId: cleanText(formData.get("templateId"), { maxLength: LIMITS.line }),
+    unitsJson:
+      typeof formData.get("unitsJson") === "string"
+        ? (formData.get("unitsJson") as string)
+        : undefined,
+    notes: cleanMarkdown(formData.get("notes")),
+    technicianName:
+      cleanText(formData.get("technicianName"), { maxLength: LIMITS.title }) || undefined,
+    customerName:
+      cleanText(formData.get("customerName"), { maxLength: LIMITS.title }) || undefined,
+    technicianSignature: acceptedSignature(formData.get("technicianSignature")) || undefined,
+    customerSignature: acceptedSignature(formData.get("customerSignature")) || undefined,
+  });
+  if (!parsedInput.success) return { ok: false };
+  const { workOrderId, templateId } = parsedInput.data;
 
   const workOrder = await prisma.workOrder.findFirst({
     where: {
@@ -340,16 +405,25 @@ export async function saveDraft(
   const template = workOrder.templates[0];
   if (!template) return { ok: false };
 
-  // Ikke lagre kladd over en rapport som allerede er låst.
-  const existingReport = await prisma.report.findUnique({
-    where: { workOrderId_templateId: { workOrderId, templateId } },
-    select: { isLocked: true },
-  });
+  // Ikke lagre kladd over en rapport som allerede er låst. Hent samtidig den
+  // forrige kladden, slik at signaturfiler som erstattes kan ryddes bort.
+  const [existingReport, previousDraft] = await Promise.all([
+    prisma.report.findUnique({
+      where: { workOrderId_templateId: { workOrderId, templateId } },
+      select: { isLocked: true },
+    }),
+    prisma.reportDraft.findUnique({
+      where: {
+        workOrderId_templateId_userId: { workOrderId, templateId, userId: user.id },
+      },
+      select: { dataJson: true },
+    }),
+  ]);
   if (existingReport?.isLocked) return { ok: false };
 
   const fields = parseFields(template.fieldsJson);
 
-  const units = parseUnits(formData.get("unitsJson")).map((unit) => ({
+  const units = parseUnits(parsedInput.data.unitsJson).map((unit) => ({
     productId: unit.productId || "",
     label: cleanText(unit.label, { maxLength: LIMITS.title }),
     serialNumber: cleanText(unit.serialNumber, { maxLength: LIMITS.line }),
@@ -359,37 +433,95 @@ export async function saveDraft(
     answers: readAnswers(formData, fields, unit.key),
   }));
 
+  // Signaturer skrives som filer, ikke base64 i kladden. `created` holder rede
+  // på nye filer slik at de kan slettes hvis kladden likevel blir for stor.
+  const createdSignatures: string[] = [];
+  let technicianSignatureUrl: string | null;
+  let customerSignatureUrl: string | null;
+  try {
+    technicianSignatureUrl = await resolveDraftSignature(
+      parsedInput.data.technicianSignature,
+      user,
+      createdSignatures,
+    );
+    customerSignatureUrl = await resolveDraftSignature(
+      parsedInput.data.customerSignature,
+      user,
+      createdSignatures,
+    );
+  } catch (error) {
+    console.error("Kunne ikke lagre kladdesignatur:", error);
+    await releaseDraftSignatures(createdSignatures, user);
+    return { ok: false };
+  }
+
   const payload = {
-    notes: cleanMarkdown(formData.get("notes")),
-    technicianSignatureUrl: cleanDataImage(formData.get("technicianSignature")) || null,
-    technicianName: cleanText(formData.get("technicianName"), { maxLength: LIMITS.title }) || null,
-    customerSignatureUrl: cleanDataImage(formData.get("customerSignature")) || null,
-    customerName: cleanText(formData.get("customerName"), { maxLength: LIMITS.title }) || null,
+    notes: parsedInput.data.notes ?? "",
+    technicianSignatureUrl,
+    technicianName: parsedInput.data.technicianName ?? null,
+    customerSignatureUrl,
+    customerName: parsedInput.data.customerName ?? null,
     units,
   };
 
-  await prisma.reportDraft.upsert({
-    where: {
-      workOrderId_templateId_userId: {
+  // Kladden lagres som JSON i databasen. Over én million tegn ville gjort
+  // listespørringer og sikkerhetskopier unødvendig tunge.
+  const dataJson = JSON.stringify(payload);
+  if (dataJson.length > MAX_DRAFT_JSON_LENGTH) {
+    await releaseDraftSignatures(createdSignatures, user);
+    return { ok: false };
+  }
+
+  try {
+    await prisma.reportDraft.upsert({
+      where: {
+        workOrderId_templateId_userId: {
+          workOrderId,
+          templateId,
+          userId: user.id,
+        },
+      },
+      create: {
         workOrderId,
         templateId,
         userId: user.id,
+        dataJson,
+        updatedByName: user.name || user.email || null,
       },
-    },
-    create: {
-      workOrderId,
-      templateId,
-      userId: user.id,
-      dataJson: JSON.stringify(payload),
-      updatedByName: user.name || user.email || null,
-    },
-    update: {
-      dataJson: JSON.stringify(payload),
-      updatedByName: user.name || user.email || null,
-    },
-  });
+      update: {
+        dataJson,
+        updatedByName: user.name || user.email || null,
+      },
+    });
+  } catch (error) {
+    // Kladden ble ikke lagret – da skal de nye signaturfilene ikke bli liggende.
+    await releaseDraftSignatures(createdSignatures, user);
+    throw error;
+  }
+
+  // Erstattede signaturfiler ryddes først når den nye kladden er lagret. Er
+  // filen allerede tatt over av en signert rapport, lar hjelperen den være.
+  const previousSignatures = draftSignatureUrls(previousDraft?.dataJson);
+  for (const [previous, current] of [
+    [previousSignatures.technician, technicianSignatureUrl],
+    [previousSignatures.customer, customerSignatureUrl],
+  ] as const) {
+    if (previous && previous !== current) {
+      await releaseDraftSignatures([previous], user);
+    }
+  }
 
   return { ok: true, savedAt: new Date().toISOString() };
+}
+
+/** Sletter signaturfiler som fortsatt bare eies av brukeren (kladdesignaturer). */
+async function releaseDraftSignatures(
+  urls: string[],
+  user: AccessUser,
+): Promise<void> {
+  for (const url of urls) {
+    await deleteUploadIfOwned(url, { ownerType: "USER", ownerId: user.id });
+  }
 }
 
 export type SubmitReportError =

@@ -5,6 +5,66 @@ import { assertSameOrigin } from "@/lib/origin";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 
 /**
+ * Største kladd vi tar imot over nett. Kladden lagres uansett aldri over 1 MB i
+ * databasen; denne grensen hindrer at vi i det hele tatt leser og parser en
+ * vilkårlig stor JSON-kropp.
+ */
+const MAX_BODY_BYTES = 2_000_000;
+
+type BodyReadResult =
+  | { ok: true; text: string }
+  | { ok: false; tooLarge: boolean };
+
+/**
+ * Leser kroppen med en hard grense. `Content-Length` sjekkes først, men den kan
+ * mangle ved chunked overføring – derfor telles bytene mens strømmen leses, og
+ * vi avbryter så snart grensen passeres uten å parse noe.
+ */
+async function readBodyLimited(request: Request): Promise<BodyReadResult> {
+  const declared = request.headers.get("content-length");
+  if (declared !== null) {
+    const length = Number(declared);
+    if (Number.isFinite(length) && length > MAX_BODY_BYTES) {
+      return { ok: false, tooLarge: true };
+    }
+  }
+
+  if (!request.body) return { ok: true, text: "" };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      total += value.byteLength;
+      if (total > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false, tooLarge: true };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, tooLarge: false };
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { ok: true, text: new TextDecoder().decode(body) };
+}
+
+/**
  * Tar imot en kladd fra offline-outboxen. Kladden er allerede lagret i
  * IndexedDB på enheten; dette er bare replay når nettet er tilbake.
  *
@@ -29,7 +89,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const read = await readBodyLimited(request);
+  if (!read.ok) {
+    return read.tooLarge
+      ? NextResponse.json({ error: "Kladden er for stor" }, { status: 413 })
+      : NextResponse.json({ error: "Ugyldig data" }, { status: 400 });
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(read.text);
+  } catch {
+    return NextResponse.json({ error: "Ugyldig data" }, { status: 400 });
+  }
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return NextResponse.json({ error: "Ugyldig data" }, { status: 400 });
   }

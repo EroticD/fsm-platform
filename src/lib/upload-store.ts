@@ -33,9 +33,14 @@ const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 export async function storeDataImage(
   dataUrl: string,
   ctx: {
-    ownerType: "WORK_ORDER";
+    /**
+     * `USER` brukes for signaturer som ennå bare finnes i en kladd. De blir
+     * først knyttet til oppdraget når rapporten signeres (se
+     * `resolveSignature`), og kan da ryddes bort sammen med kladden.
+     */
+    ownerType: "WORK_ORDER" | "USER";
     ownerId: string;
-    departmentId: string;
+    departmentId: string | null;
     customerId: string | null;
     uploadedById: string;
   },
@@ -101,7 +106,7 @@ export async function storeDataImage(
  */
 export async function deleteUploadIfOwned(
   fileUrl: string | null | undefined,
-  owner: { ownerType: "WORK_ORDER"; ownerId: string },
+  owner: { ownerType: "WORK_ORDER" | "USER"; ownerId: string },
 ): Promise<void> {
   if (!fileUrl || !UPLOAD_URL.test(fileUrl)) return;
 
