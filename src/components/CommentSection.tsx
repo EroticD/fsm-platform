@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
 import { formatDateTime } from "@/lib/dates";
@@ -27,6 +28,7 @@ export default function CommentSection({
   currentUserName,
   canWrite = true,
 }: CommentSectionProps) {
+  const t = useTranslations("common");
   const [content, setContent] = useState("");
   const [editorKey, setEditorKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -63,10 +65,14 @@ export default function CommentSection({
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
       <div className="flex justify-between items-center border-b pb-2">
         <h2 className="font-black text-gray-900 text-lg mb-0">
-          {entityType === "workOrder" ? "💬 Kommentarer" : entityType === "customer" ? "💬 Kundeaktivitet" : "💬 Kontaktaktivitet"}
+          {entityType === "workOrder"
+            ? `💬 ${t("components.comment.titleWorkOrder")}`
+            : entityType === "customer"
+              ? `💬 ${t("components.comment.titleCustomer")}`
+              : `💬 ${t("components.comment.titleContact")}`}
         </h2>
         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-          {existingComments.length} innlegg
+          {t("components.comment.count", { count: existingComments.length })}
         </span>
       </div>
 
@@ -79,7 +85,7 @@ export default function CommentSection({
               name="content"
               rows={3}
               disabled={submitting}
-              placeholder="Skriv en kommentar eller hendelse..."
+              placeholder={t("components.comment.placeholder")}
               onChange={setContent}
             />
             {submitting && (
@@ -93,7 +99,9 @@ export default function CommentSection({
             disabled={!content.trim() || submitting}
             className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50 whitespace-nowrap"
           >
-            {submitting ? "Lagrer..." : "Legg til kommentar"}
+            {submitting
+              ? t("components.comment.saving")
+              : t("components.comment.submit")}
           </button>
         </form>
       )}
@@ -102,13 +110,13 @@ export default function CommentSection({
       <div className="space-y-3">
         {existingComments.length === 0 ? (
           <div className="text-center py-6">
-            <p className="text-gray-500 italic">Ingen kommentarer eller hendelser ennå.</p>
+            <p className="text-gray-500 italic">{t("components.comment.empty")}</p>
           </div>
         ) : (
           existingComments.map((comment) => (
             <div key={comment.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
               <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 mb-1">
-                <span>{comment.authorName || "Ukjent"}</span>
+                <span>{comment.authorName || t("components.comment.unknown")}</span>
                 <span>{formatDateTime(comment.createdAt)}</span>
               </div>
               <div className="text-sm text-gray-900 font-medium">

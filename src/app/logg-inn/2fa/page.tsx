@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { readPendingTwoFactor } from "@/lib/session-token";
 import { verifyTwoFactorAction } from "../actions";
 import SubmitButton from "../SubmitButton";
 
-export const metadata: Metadata = {
-  title: "To-trinns verifisering",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("auth.twoFactor.title") };
+}
 
-const ERROR_MESSAGES: Record<string, string> = {
-  InvalidTwoFactor: "Feil engangskode. Prøv igjen.",
-  TwoFactorExpired: "Økten er utløpt. Logg inn på nytt.",
-  TooManyAttempts: "For mange forsøk. Vent noen minutter og prøv igjen.",
-};
+const ERROR_CODES = new Set([
+  "InvalidTwoFactor",
+  "TwoFactorExpired",
+  "TooManyAttempts",
+]);
 
 export default async function TwoFactorPage({
   searchParams,
@@ -26,9 +28,16 @@ export default async function TwoFactorPage({
   if (!userId) redirect("/logg-inn");
 
   const { error: errorParam, callbackUrl = "/" } = await searchParams;
+  const t = await getTranslations("common");
   const branding = await prisma.branding.findFirst().catch(() => null);
   const companyName = branding?.companyName || "FSM System";
-  const error = errorParam ? ERROR_MESSAGES[errorParam] || "Kunne ikke verifisere koden." : null;
+  const error = errorParam
+    ? t(
+        `auth.twoFactor.errors.${
+          ERROR_CODES.has(errorParam) ? errorParam : "default"
+        }`,
+      )
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -41,9 +50,9 @@ export default async function TwoFactorPage({
           >
             🔐
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">To-trinns verifisering</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("auth.twoFactor.title")}</h1>
           <p className="text-sm text-gray-500 mt-1 text-center">
-            Åpne autentiseringsappen din og skriv inn den 6-sifrede koden for {companyName}.
+            {t("auth.twoFactor.desc", { companyName })}
           </p>
         </div>
 
@@ -57,7 +66,7 @@ export default async function TwoFactorPage({
           <input type="hidden" name="callbackUrl" value={callbackUrl} />
           <div>
             <label htmlFor="code" className="block text-sm font-bold text-gray-700 mb-1">
-              Engangskode
+              {t("auth.twoFactor.codeLabel")}
             </label>
             <input
               id="code"
@@ -73,12 +82,15 @@ export default async function TwoFactorPage({
               className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] text-gray-900 bg-white font-bold focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
             />
           </div>
-          <SubmitButton idleLabel="Verifiser" pendingLabel="Verifiserer..." />
+          <SubmitButton
+            idleLabel={t("auth.twoFactor.verify")}
+            pendingLabel={t("auth.twoFactor.verifying")}
+          />
         </form>
 
         <div className="text-center mt-6">
           <Link href="/logg-inn" className="text-sm font-medium text-gray-500 hover:text-gray-800 transition">
-            Tilbake til innlogging
+            {t("auth.twoFactor.backToLogin")}
           </Link>
         </div>
       </div>

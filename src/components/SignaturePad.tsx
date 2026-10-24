@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import SignatureCanvas from "react-signature-canvas";
 
 /**
@@ -29,6 +30,7 @@ export default function SignaturePad({
   /** Signatur som allerede ligger på rapporten (fra en tidligere utfylling). */
   existingUrl?: string | null;
 }) {
+  const t = useTranslations("common");
   const padRef = useRef<SignatureCanvas>(null);
   const [dataUrl, setDataUrl] = useState("");
 
@@ -57,7 +59,7 @@ export default function SignaturePad({
             onClick={clear}
             className="text-[11px] font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-lg transition whitespace-nowrap"
           >
-            🧹 Tøm
+            🧹 {t("components.signature.clear")}
           </button>
         )}
       </div>
@@ -67,12 +69,12 @@ export default function SignaturePad({
       {existingUrl && !dataUrl && (
         <div className="border-2 border-gray-200 rounded-xl bg-white p-3">
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2">
-            Signatur fra tidligere
+            {t("components.signature.previous")}
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={existingUrl} alt={`Tidligere signatur – ${label}`} className="h-16 object-contain" />
+          <img src={existingUrl} alt={t("components.signature.previousAlt", { label })} className="h-16 object-contain" />
           <p className="text-[11px] text-gray-500 mt-2">
-            Beholdes hvis du ikke signerer på nytt.
+            {t("components.signature.keep")}
           </p>
         </div>
       )}
@@ -95,7 +97,7 @@ export default function SignaturePad({
           type="text"
           name={nameFieldName}
           defaultValue={defaultName || ""}
-          placeholder="Fullt navn på den som signerer"
+          placeholder={t("components.signature.namePlaceholder")}
           className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
         />
       )}
@@ -104,11 +106,11 @@ export default function SignaturePad({
       <input type="hidden" name={name} value={dataUrl} />
 
       {dataUrl ? (
-        <p className="text-[11px] font-bold text-green-700">✅ Ny signatur registrert</p>
+        <p className="text-[11px] font-bold text-green-700">{t("components.signature.registered")}</p>
       ) : existingUrl ? (
-        <p className="text-[11px] text-gray-400">Beholder signaturen over hvis du lar feltet stå tomt.</p>
+        <p className="text-[11px] text-gray-400">{t("components.signature.keepHint")}</p>
       ) : (
-        <p className="text-[11px] text-gray-400">Ikke signert – la stå tomt om det ikke er aktuelt.</p>
+        <p className="text-[11px] text-gray-400">{t("components.signature.notSigned")}</p>
       )}
     </div>
   );

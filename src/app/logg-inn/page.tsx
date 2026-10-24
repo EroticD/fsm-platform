@@ -5,9 +5,10 @@ import prisma from "@/lib/prisma";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
 
-export const metadata: Metadata = {
-  title: "Logg inn",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("loginTitle") };
+}
 
 export default async function LoginPage({
   searchParams,

@@ -1,1 +1,67 @@
-{}
+{
+  "auth": {
+    "twoFactor": {
+      "title": "Two-factor authentication",
+      "desc": "Open your authenticator app and enter the 6-digit code for {companyName}.",
+      "codeLabel": "One-time code",
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "backToLogin": "Back to login",
+      "errors": {
+        "InvalidTwoFactor": "Incorrect one-time code. Try again.",
+        "TwoFactorExpired": "The session has expired. Log in again.",
+        "TooManyAttempts": "Too many attempts. Wait a few minutes and try again.",
+        "default": "Could not verify the code."
+      }
+    },
+    "forgot": {
+      "title": "Forgot password?",
+      "rateLimited": "Too many attempts. Wait 15 minutes before trying again.",
+      "sentTitle": "Email sent!",
+      "sentDesc": "If the email address is registered in our system, we have sent a link to reset the password. (Check your console for local testing).",
+      "backToLogin": "Back to login",
+      "desc": "Enter your email address and we will send you a link to create a new password.",
+      "email": "Email address",
+      "emailPlaceholder": "ola@company.no",
+      "submit": "Send reset link",
+      "emailSubject": "Reset your password",
+      "emailBody": "You have requested to reset your password.",
+      "emailLink": "Click here to create a new password",
+      "emailExpiry": "The link is valid for 1 hour."
+    },
+    "reset": {
+      "title": "Create new password",
+      "desc": "Enter your desired new password below.",
+      "invalid": "The link is invalid or has expired.",
+      "tooShort": "The password must be at least 8 characters.",
+      "newPassword": "New password",
+      "placeholder": "At least 8 characters...",
+      "submit": "Save new password",
+      "missingTitle": "Missing security key",
+      "missingDesc": "Invalid or missing link. Try requesting a new reset link.",
+      "missingButton": "Go to forgot password"
+    },
+    "activate": {
+      "successTitle": "Password set",
+      "successDesc": "Your account must be activated by an administrator before you can log in. You will be notified when it is ready.",
+      "toLogin": "Go to login",
+      "missingTitle": "Missing invitation key",
+      "missingDesc": "Invalid or missing invitation link. Ask the administrator for a new link.",
+      "invalidTitle": "The link is invalid",
+      "invalidDesc": "The invitation link is invalid or has expired. Ask the administrator for a new link.",
+      "welcome": "Welcome!",
+      "desc": "Set your own password for the account <strong>{email}</strong>.",
+      "errors": {
+        "invalid": "The link is invalid or has expired.",
+        "tooShort": "The password must be at least 8 characters.",
+        "mismatch": "The passwords do not match. Try again."
+      },
+      "newPassword": "New password",
+      "newPasswordPlaceholder": "At least 8 characters...",
+      "confirm": "Repeat password",
+      "confirmPlaceholder": "Enter the password again...",
+      "submit": "Save password"
+    }
+  },
+  "loginDescCompany": "Sign in to access {companyName}"
+}

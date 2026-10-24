@@ -1,1 +1,130 @@
-{}
+{
+  "components": {
+    "copy": {
+      "label": "Copy",
+      "copied": "✅ Copied"
+    },
+    "confirm": {
+      "title": "Confirm action",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "autoSave": {
+      "saving": "Saving...",
+      "saved": "Saved! ✅"
+    },
+    "brandingLogo": {
+      "alt": "Company logo",
+      "none": "No logo uploaded",
+      "uploading": "Uploading …",
+      "change": "Change logo",
+      "upload": "Upload logo",
+      "remove": "Remove",
+      "help": "PNG, JPG, WebP or GIF. The logo is stored in the app and used in PDFs, email and the header.",
+      "uploadFailed": "Upload failed"
+    },
+    "comment": {
+      "titleWorkOrder": "Comments",
+      "titleCustomer": "Customer activity",
+      "titleContact": "Contact activity",
+      "count": "{count} posts",
+      "placeholder": "Write a comment or event...",
+      "submit": "Add comment",
+      "saving": "Saving...",
+      "empty": "No comments or events yet.",
+      "unknown": "Unknown"
+    },
+    "contact": {
+      "edit": "Edit",
+      "hide": "Hide",
+      "deleteConfirm": "Are you sure you want to delete this contact person?",
+      "deleteTitle": "Delete contact person",
+      "name": "Name *",
+      "role": "Role",
+      "email": "Email",
+      "phone": "Phone",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "search": {
+      "placeholder": "Search customers, work orders, equipment, contacts, reports …",
+      "ariaLabel": "Global search",
+      "clear": "Clear search",
+      "searching": "Searching…",
+      "searchingShort": "searching…",
+      "noResults": "No results for “{query}”.",
+      "seeAll": "See all {count} results in the search →"
+    },
+    "markdown": {
+      "bold": "Bold (Ctrl+B)",
+      "boldPlaceholder": "bold text",
+      "italic": "Italic (Ctrl+I)",
+      "italicPlaceholder": "italic text",
+      "strikethrough": "Strikethrough",
+      "strikethroughPlaceholder": "strikethrough",
+      "highlight": "Highlight",
+      "highlightPlaceholder": "highlighted",
+      "heading": "Heading",
+      "bulletList": "Bullet list",
+      "numberedList": "Numbered list",
+      "taskList": "Task list",
+      "quote": "Quote",
+      "callout": "Callout box",
+      "inlineCode": "Inline code",
+      "inlineCodePlaceholder": "code",
+      "codeBlock": "Code block",
+      "link": "Link (Ctrl+K)",
+      "linkPlaceholder": "link text",
+      "table": "Table",
+      "tableTemplate": "\n| Column | Column |\n| --- | --- |\n|  |  |\n",
+      "footnote": "Footnote",
+      "comment": "Comment (hidden)",
+      "commentPlaceholder": "comment",
+      "horizontalRule": "Horizontal rule",
+      "defaultPlaceholder": "text",
+      "preview": "Preview",
+      "supports": "Markdown is supported:",
+      "allSyntax": "All syntax",
+      "nothingToPreview": "Nothing to preview yet."
+    },
+    "signature": {
+      "clear": "Clear",
+      "previous": "Previous signature",
+      "previousAlt": "Previous signature – {label}",
+      "keep": "Kept if you do not sign again.",
+      "namePlaceholder": "Full name of the signer",
+      "registered": "✅ New signature registered",
+      "keepHint": "The signature above is kept if you leave the field empty.",
+      "notSigned": "Not signed – leave empty if not applicable."
+    },
+    "auditLog": {
+      "empty": "No activity log found.",
+      "time": "Time",
+      "user": "User",
+      "action": "Action",
+      "entity": "Entity",
+      "unknownUser": "Unknown",
+      "page": "Page {page} of {totalPages} ({total} entries)",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "header": {
+      "menu": "Menu",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "logOut": "Log out"
+    },
+    "language": {
+      "change": "Change language"
+    },
+    "skeleton": {
+      "loading": "Loading content"
+    },
+    "loading": "Loading …",
+    "error": {
+      "title": "Something went wrong",
+      "fallback": "An error occurred",
+      "retry": "Try again"
+    }
+  }
+}
