@@ -58,8 +58,10 @@ function minutesLabel(
  */
 export default async function TimeMaterialsPanel({
   workOrderId,
+  readOnly = false,
 }: {
   workOrderId: string;
+  readOnly?: boolean;
 }) {
   const t = await getTranslations("common");
   const user = await getCurrentUser();
@@ -81,9 +83,10 @@ export default async function TimeMaterialsPanel({
 
   const entries = timeResult.data as TimeEntryView[];
   const materials = materialResult.data as MaterialView[];
-  const canEdit = hasPermission(user, "workorders.update");
-  const canDeleteMaterial = hasPermission(user, "workorders.edit");
-  const canSetPrice = user.role === "ADMIN" || user.role === "OFFICE";
+  const canEdit = !readOnly && hasPermission(user, "workorders.update");
+  const canDeleteMaterial = !readOnly && hasPermission(user, "workorders.edit");
+  const canSetPrice =
+    !readOnly && (user.role === "ADMIN" || user.role === "OFFICE");
   const active = entries.find((entry) => entry.userId === user.id && !entry.endedAt);
 
   return (

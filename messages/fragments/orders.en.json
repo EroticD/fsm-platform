@@ -179,7 +179,9 @@
       "deletedOrders": "Deleted work orders",
       "restore": "Restore",
       "noDeletedOrders": "No deleted work orders.",
-      "deletedAt": "Deleted {date}"
+      "deletedAt": "Deleted {date}",
+      "cloneWorkOrder": "📋 Clone work order",
+      "completedLocked": "This work order is completed and locked. You can add comments or clone it into a new work order."
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -467,7 +469,8 @@
       "invalidStatusField": "⛔ The status change is not allowed from the current state of the work order.",
       "department": "The work order must belong to a department. Ask an administrator to add you to an active department, or create a department first.",
       "invalidData": "⛔ The work order could not be saved. Check the title, date and department.",
-      "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date."
+      "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date.",
+      "workOrderLocked": "🔒 This work order is completed and locked. You can add comments or clone it."
     },
     "reportsPage": {
       "title": "Service reports",

@@ -18,6 +18,7 @@ import { staffForDepartment, workOrderScope } from "@/lib/access";
 import {
   addContactToCustomer,
   assignTechnician,
+  cloneWorkOrder,
   deleteWorkOrder,
   setContact,
   setReportLock,
@@ -321,10 +322,15 @@ export default async function AdminWorkOrderPage({
   }
 
   const isAdmin = user.role === "ADMIN";
+  const isCompleted = workOrder.status === "COMPLETED";
   const canUpdate = hasPermission(user, "workorders.update");
-  const canEdit = hasPermission(user, "workorders.edit");
-  const canAssign = hasPermission(user, "workorders.assign");
-  const canDeleteWorkOrder = hasPermission(user, "workorders.delete");
+  // Selve oppdraget låses først når det er fullført. En låst rapport skal
+  // ikke hindre redigering av et oppdrag som fortsatt er under arbeid.
+  const canEdit = hasPermission(user, "workorders.edit") && !isCompleted;
+  const canModify = canUpdate && !isCompleted;
+  const canAssign = hasPermission(user, "workorders.assign") && !isCompleted;
+  const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isCompleted;
+  const canCreate = hasPermission(user, "workorders.create");
   const canWriteReports = hasPermission(user, "reports.write");
   const canManageCustomers = hasPermission(user, "customers.manage");
 
@@ -390,6 +396,17 @@ export default async function AdminWorkOrderPage({
               >
                 {t("orders.detail.editWorkOrder")}
               </Link>
+            )}
+            {canCreate && isCompleted && (
+              <form action={cloneWorkOrder}>
+                <input type="hidden" name="workOrderId" value={workOrder.id} />
+                <button
+                  type="submit"
+                  className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm"
+                >
+                  {t("orders.detail.cloneWorkOrder")}
+                </button>
+              </form>
             )}
             {canDeleteWorkOrder && (
               <ConfirmSubmitForm
@@ -478,7 +495,7 @@ export default async function AdminWorkOrderPage({
                                   >
                                     {t("orders.detail.openPdf")}
                                   </Link>
-                                  {canWriteReports && canUpdate && !report.isLocked && (
+                                  {canWriteReports && canModify && !report.isLocked && (
                                     <Link
                                       href={fillHref}
                                       className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
@@ -519,7 +536,7 @@ export default async function AdminWorkOrderPage({
                               ) : (
                                 <>
                                   <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">{t("orders.detail.waitingFill")}</span>
-                                  {canWriteReports && canUpdate && (
+                                  {canWriteReports && canModify && (
                                     <Link
                                       href={fillHref}
                                       className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
@@ -593,7 +610,12 @@ export default async function AdminWorkOrderPage({
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
                 <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.changeStatus")}</h2>
-                {canUpdate ? (
+                {isCompleted && (
+                  <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+                    {t("orders.detail.completedLocked")}
+                  </p>
+                )}
+                {canUpdate && (!isCompleted || isAdmin) ? (
                   <form action={updateStatus} className="flex flex-col gap-3">
                     <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select
@@ -744,14 +766,14 @@ export default async function AdminWorkOrderPage({
                   fileName: a.fileName,
                   dataUrl: a.dataUrl,
                 }))}
-                canUpload={canUpdate}
-                canDelete={isAdmin}
+                canUpload={canModify}
+                canDelete={isAdmin && !isCompleted}
               />
 
             </div>
           </div>
 
-          <TimeMaterialsPanel workOrderId={workOrderId} />
+          <TimeMaterialsPanel workOrderId={workOrderId} readOnly={isCompleted} />
 
           {/* Audit log - full width bottom */}
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">

@@ -36,7 +36,7 @@ async function requireWorkOrder(
   if (!actor.isActive || !can(actor, permission)) return null;
   return prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScopeFor(actor) },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 }
 
@@ -76,9 +76,13 @@ export async function addMaterial(
   const parsed = materialSchema.safeParse(input);
   if (!parsed.success) return fail("invalid");
 
-  if (!(await requireWorkOrder(actor, parsed.data.workOrderId, "workorders.update"))) {
-    return fail("forbidden");
-  }
+  const workOrder = await requireWorkOrder(
+    actor,
+    parsed.data.workOrderId,
+    "workorders.update",
+  );
+  if (!workOrder) return fail("forbidden");
+  if (workOrder.status === "COMPLETED") return fail("forbidden");
 
   // Feltbrukere prissetter ikke materiale. Kontoret kan gjøre det senere.
   const requestedPrice =
@@ -131,9 +135,13 @@ export async function updateMaterial(
     select: { id: true, workOrderId: true, unitPrice: true },
   });
   if (!material) return fail("not_found");
-  if (!(await requireWorkOrder(actor, material.workOrderId, "workorders.update"))) {
-    return fail("forbidden");
-  }
+  const workOrder = await requireWorkOrder(
+    actor,
+    material.workOrderId,
+    "workorders.update",
+  );
+  if (!workOrder) return fail("forbidden");
+  if (workOrder.status === "COMPLETED") return fail("forbidden");
 
   // Bare kontoret kan sette eller overstyre pris. Feltbrukere ignoreres
   // fullstendig, også når de sender unitPrice i en håndlaget forespørsel.
@@ -186,9 +194,13 @@ export async function deleteMaterial(
     select: { id: true, workOrderId: true },
   });
   if (!material) return fail("not_found");
-  if (!(await requireWorkOrder(actor, material.workOrderId, "workorders.edit"))) {
-    return fail("forbidden");
-  }
+  const workOrder = await requireWorkOrder(
+    actor,
+    material.workOrderId,
+    "workorders.edit",
+  );
+  if (!workOrder) return fail("forbidden");
+  if (workOrder.status === "COMPLETED") return fail("forbidden");
 
   await prisma.$transaction(async (tx) => {
     await tx.material.delete({ where: { id: material.id } });

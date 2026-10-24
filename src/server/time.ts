@@ -37,6 +37,7 @@ type PricedWorkOrder = {
   id: string;
   departmentId: string;
   customerId: string | null;
+  status: string;
   contract: { hourlyRate: unknown } | null;
   customer: { hourlyRate: unknown } | null;
 };
@@ -53,6 +54,7 @@ async function requireWorkOrder(
       id: true,
       departmentId: true,
       customerId: true,
+      status: true,
       contract: { select: { hourlyRate: true } },
       customer: { select: { hourlyRate: true } },
     },
@@ -170,6 +172,7 @@ export async function startTimer(
     "workorders.update",
   );
   if (!workOrder) return fail("forbidden");
+  if (workOrder.status === "COMPLETED") return fail("forbidden");
 
   const active = await prisma.timeEntry.findFirst({
     where: { userId: actor.id, endedAt: null },
@@ -273,6 +276,7 @@ export async function addManualTime(
     "workorders.update",
   );
   if (!workOrder) return fail("forbidden");
+  if (workOrder.status === "COMPLETED") return fail("forbidden");
 
   const endedAt = parsed.data.endedAt ?? null;
   const minutes = endedAt
@@ -436,9 +440,13 @@ export async function deleteTimeEntry(
   if (entry.userId !== actor.id && !isOfficeActor(actor)) {
     return fail("forbidden");
   }
-  if (!(await requireWorkOrder(actor, entry.workOrderId, "workorders.view"))) {
-    return fail("forbidden");
-  }
+  const workOrder = await requireWorkOrder(
+    actor,
+    entry.workOrderId,
+    "workorders.view",
+  );
+  if (!workOrder) return fail("forbidden");
+  if (workOrder.status === "COMPLETED") return fail("forbidden");
 
   await prisma.$transaction(async (tx) => {
     await tx.timeEntry.delete({ where: { id: entry.id } });

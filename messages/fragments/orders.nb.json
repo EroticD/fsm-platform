@@ -179,7 +179,9 @@
       "deletedOrders": "Slettede oppdrag",
       "restore": "Gjenopprett",
       "noDeletedOrders": "Ingen slettede oppdrag.",
-      "deletedAt": "Slettet {date}"
+      "deletedAt": "Slettet {date}",
+      "cloneWorkOrder": "📋 Klon oppdrag",
+      "completedLocked": "Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag."
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -467,7 +469,8 @@
       "invalidStatusField": "⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand.",
       "department": "Oppdraget må tilhøre en avdeling. Be en administrator legge deg til i en aktiv avdeling, eller opprett en avdeling først.",
       "invalidData": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.",
-      "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato."
+      "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
+      "workOrderLocked": "🔒 Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det."
     },
     "reportsPage": {
       "title": "Servicerapporter",

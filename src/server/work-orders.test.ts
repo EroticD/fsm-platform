@@ -35,6 +35,7 @@ vi.mock("@/lib/departments", () => ({
 import {
   assignTechnician,
   changeWorkOrderStatus,
+  cloneWorkOrder,
   createWorkOrder,
   deleteWorkOrder,
   restoreWorkOrder,
@@ -331,5 +332,109 @@ describe("work-orders-tjenesten", () => {
 
     expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser redigering av et fullført oppdrag", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      status: "COMPLETED",
+    });
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar et ikke-fullført oppdrag redigeres selv om rapporten er låst", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      status: "IN_PROGRESS",
+    });
+    withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("avviser statusendring på et fullført oppdrag for ikke-admin", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "COMPLETED",
+    });
+
+    const result = await changeWorkOrderStatus(
+      actor(),
+      "wo-1",
+      "IN_PROGRESS",
+      "office",
+    );
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("kloner et oppdrag uten rapporter, kommentarer eller vedlegg", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      description: "Beskrivelse",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "contact-1",
+      scheduledFor: new Date("2026-10-24"),
+      scheduledTo: null,
+      technicians: [{ id: "tech-1" }],
+      templates: [{ id: "tpl-1" }],
+      tags: [{ name: "service" }],
+    });
+    const tx = withTransaction();
+
+    const result = await cloneWorkOrder(actor(), "wo-1");
+
+    expect(result).toEqual({ ok: true, id: "wo-new" });
+    expect(tx.workOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        title: "Service",
+        description: "Beskrivelse",
+        departmentId: "dep-a",
+        customerId: "cust-1",
+        contactId: "contact-1",
+        status: "PENDING",
+        technicians: { connect: [{ id: "tech-1" }] },
+        templates: { connect: [{ id: "tpl-1" }] },
+        tags: {
+          connectOrCreate: [
+            { where: { name: "service" }, create: { name: "service" } },
+          ],
+        },
+      }),
+      select: { id: true },
+    });
   });
 });

@@ -47,6 +47,7 @@ export type WorkOrderError =
   | "ikke-funnet"
   | "ugyldig-data"
   | "ugyldig-status"
+  | "workorder-locked"
   | "avdeling"
   | "ukjent";
 
@@ -295,9 +296,15 @@ export async function updateWorkOrder(
 
   const currentWorkOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScope(user) },
-    select: { id: true, departmentId: true },
+    select: { id: true, departmentId: true, status: true },
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
+
+  // Et fullført oppdrag er låst. Rapporter kan være låst uten at oppdraget er
+  // fullført; det skal ikke hindre redigering.
+  if (currentWorkOrder.status === "COMPLETED") {
+    return { ok: false, error: "workorder-locked" };
+  }
 
   // Administrator kan flytte oppdraget til en annen aktiv avdeling.
   let departmentId = currentWorkOrder.departmentId;
@@ -405,6 +412,12 @@ export async function changeWorkOrderStatus(
   const access = await requireAccess(user, "workorders.update", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
 
+  // Fullført er en låst tilstand. Administrator kan gjenåpne bevisst, men
+  // vanlige brukere må klone oppdraget for å gjøre mer arbeid.
+  if (access.status === "COMPLETED" && user.role !== "ADMIN") {
+    return { ok: false, error: "workorder-locked" };
+  }
+
   const parsed = workOrderStatusSchema.safeParse({
     status: cleanStatus(rawStatus),
   });
@@ -461,6 +474,15 @@ export async function updateWorkOrderDate(
   if (!user) return { ok: false, error: "ikke-autentisert" };
   if (!user.isActive || !hasPermission(user, "workorders.update")) {
     return { ok: false, error: "ingen-tilgang" };
+  }
+
+  const existing = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
+    select: { status: true },
+  });
+  if (!existing) return { ok: false, error: "ikke-funnet" };
+  if (existing.status === "COMPLETED") {
+    return { ok: false, error: "ikke-funnet" };
   }
 
   const parsed = workOrderDateSchema.safeParse(body);
@@ -554,6 +576,7 @@ export async function addTemplate(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, permission, workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
 
   const parsed = workOrderTemplateSchema.safeParse({
     templateId: rawId(rawTemplateId),
@@ -622,6 +645,7 @@ export async function setTags(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
 
   const tagNames = cleanTagNames(rawTagNames);
 
@@ -658,6 +682,7 @@ export async function setContact(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
   }
@@ -707,6 +732,7 @@ export async function addContactToCustomer(
 ): Promise<AddContactResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
   }
@@ -868,6 +894,72 @@ export function removeTechnician(
     mode: "disconnect",
     action: (name) => `Fjernet ${name || "bruker"} fra oppdraget`,
   });
+}
+
+/**
+ * Kloner et oppdrag til et nytt, redigerbart oppdrag med samme data.
+ * Rapporter, kommentarer, vedlegg og historikk følger ikke med.
+ */
+export async function cloneWorkOrder(
+  user: Actor,
+  workOrderId: string,
+): Promise<CreateWorkOrderResult> {
+  if (!user?.isActive || !hasPermission(user, "workorders.create")) {
+    return { ok: false, error: "ikke-tilgang" };
+  }
+
+  const source = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
+    include: {
+      technicians: { select: { id: true } },
+      templates: { select: { id: true } },
+      tags: { select: { name: true } },
+    },
+  });
+  if (!source) return { ok: false, error: "ikke-funnet" };
+
+  try {
+    const id = await prisma.$transaction(async (tx) => {
+      const created = await tx.workOrder.create({
+        data: {
+          title: source.title,
+          description: source.description,
+          departmentId: source.departmentId,
+          customerId: source.customerId,
+          contactId: source.contactId,
+          productId: source.productId,
+          scheduledFor: source.scheduledFor,
+          scheduledTo: source.scheduledTo,
+          creatorName: user.name || user.email || "Kontor",
+          status: "PENDING",
+          technicians: { connect: source.technicians.map((tech) => ({ id: tech.id })) },
+          templates: { connect: source.templates.map((template) => ({ id: template.id })) },
+          tags: {
+            connectOrCreate: source.tags.map((tag) => ({
+              where: { name: tag.name },
+              create: { name: tag.name },
+            })),
+          },
+        },
+        select: { id: true },
+      });
+
+      await audit(tx, {
+        entityType: "WorkOrder",
+        entityId: created.id,
+        action: `Klonet oppdraget «${source.title}» til nytt oppdrag`,
+        actor: auditActor(user),
+        metadata: { sourceWorkOrderId: source.id },
+      });
+
+      return created.id;
+    });
+
+    return { ok: true, id };
+  } catch (error) {
+    console.error("Databasefeil ved kloning av oppdrag:", error);
+    return { ok: false, error: "ukjent" };
+  }
 }
 
 /** Myksletter oppdraget. Rapporter, kommentarer og vedlegg beholdes. */

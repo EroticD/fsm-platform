@@ -150,6 +150,20 @@ export async function setReportLock(formData: FormData) {
   revalidatePath(`/rapporter/${workOrderId}`);
 }
 
+/** Kloner et oppdrag til et nytt, redigerbart oppdrag. */
+export async function cloneWorkOrder(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+
+  const user = await getCurrentUser();
+  const result = await workOrderService.cloneWorkOrder(user, workOrderId);
+  if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
+
+  revalidatePath("/oppdrag");
+  revalidatePath("/");
+  redirect(`/oppdrag/${result.id}`);
+}
+
 /**
  * Sletter et oppdrag med rapporter, kommentarer og vedlegg.
  *

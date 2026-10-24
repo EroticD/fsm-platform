@@ -34,6 +34,9 @@ export async function updateWorkOrder(formData: FormData) {
     if (result.error === "ugyldig-data") {
       redirect(`/oppdrag/${workOrderId}/rediger?error=ugyldig-data`);
     }
+    if (result.error === "workorder-locked") {
+      redirect(`/oppdrag/${workOrderId}?error=workorder-locked`);
+    }
     return;
   }
 
