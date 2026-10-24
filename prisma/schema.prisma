@@ -484,6 +484,9 @@ model ReportRevision {
   customerSignatureUrl   String?
   technicianName       String?
   customerName         String?
+  customerAcknowledgedAt      DateTime?
+  customerAcknowledgedBy      String?
+  customerAcknowledgedComment String?
   reason               String?
   createdById          String?
   createdAt            DateTime @default(now())
@@ -577,11 +580,15 @@ model Upload {
   customerId   String?
   uploadedById String?
 
+  /// SHA-256 av filinnholdet, brukt til deduplisering av kladdesignaturer.
+  contentHash String?
+
   createdAt DateTime @default(now())
 
   @@index([ownerType, ownerId])
   @@index([departmentId])
   @@index([uploadedById])
+  @@index([contentHash])
 }
 
 enum JobStatus {
@@ -651,6 +658,10 @@ model Notification {
   emailError        String?
   emailAttempts     Int      @default(0)
   emailNextAttemptAt DateTime @default(now())
+  /// Kort lease mens en instans sender e-posten, slik at flere instanser
+  /// ikke sender samme varsel samtidig.
+  emailLockedAt     DateTime?
+  emailLockedBy     String?
   createdAt         DateTime @default(now())
 
   @@index([userId, readAt, createdAt])
