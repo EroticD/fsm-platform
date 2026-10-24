@@ -28,6 +28,7 @@ Kjør alt lokalt og få det grønt:
 ```bash
 npm run typecheck        # next typegen + tsc --noEmit
 npm test                 # vitest (enhetstester)
+npm run test:coverage    # enhetstester + dekningskrav (CI bruker denne)
 npm run test:integration # mot en dedikert Postgres-testdatabase
 npm run test:e2e         # Playwright (krever `npx playwright install chromium`)
 npm run lint             # eslint
