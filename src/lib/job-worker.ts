@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
 import { logger } from "@/lib/logger";
+import { processPendingNotificationEmails } from "@/server/notifications";
 
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -277,6 +278,19 @@ export function startJobWorker(): void {
   pruneRateLimits();
   const cleanupTimer = setInterval(pruneRateLimits, 15 * 60_000);
   cleanupTimer.unref?.();
+
+  // Send varsel-e-poster fra den vedvarende Notification-tabellen. En treg
+  // SMTP-server blokkerer da ikke handlingen som utløste varselet.
+  const processNotifications = () => {
+    void processPendingNotificationEmails().catch((error) => {
+      logger.error("Kunne ikke sende varsel-e-poster", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+  processNotifications();
+  const notificationTimer = setInterval(processNotifications, 60_000);
+  notificationTimer.unref?.();
 
   logger.info("Tekstuttrekk: jobbworker startet", {
     concurrency: JOB_WORKER_CONCURRENCY,

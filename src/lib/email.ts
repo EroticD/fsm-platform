@@ -39,6 +39,61 @@ function createTransporter() {
   });
 }
 
+/**
+ * Sender et generisk varsel på e-post. Brukes av varselkøen i
+ * `src/server/notifications.ts`; selve varselet ligger allerede i databasen.
+ */
+export async function sendNotificationEmail(
+  to: string,
+  subject: string,
+  body: string,
+  href?: string,
+): Promise<boolean> {
+  if (!isSmtpConfigured()) return false;
+
+  const branding = await prisma.branding.findFirst().catch(() => null);
+  const companyName = escapeHtml(
+    cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System",
+  );
+  const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
+  const base =
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000";
+
+  let link = "";
+  if (href) {
+    try {
+      link = new URL(href, base).toString();
+    } catch {
+      link = "";
+    }
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #171717;">
+      <div style="background: ${primaryColor}; padding: 18px 24px; border-radius: 12px 12px 0 0;">
+        ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height: 32px; object-fit: contain;" />` : `<strong style="color: white; font-size: 18px;">${companyName}</strong>`}
+      </div>
+      <div style="border: 1px solid #e5e7eb; border-top: 0; padding: 24px; border-radius: 0 0 12px 12px;">
+        <h1 style="font-size: 20px; margin: 0 0 12px;">${escapeHtml(subject)}</h1>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">${escapeHtml(body).replace(/\n/g, "<br />")}</p>
+        ${link ? `<p style="margin-top: 20px;"><a href="${link}" style="background: ${primaryColor}; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">Åpne i FSM</a></p>` : ""}
+      </div>
+      <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-top: 16px;">${companyName}</p>
+    </div>
+  `;
+
+  await createTransporter().sendMail({
+    from: `"${companyName}" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  });
+  return true;
+}
+
 export async function sendWorkOrderReport(
   customerEmail: string,
   workOrder: any,

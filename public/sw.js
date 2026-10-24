@@ -1,16 +1,18 @@
-/* Enkel service worker for FSM feltapp.
+/* FSM feltapp – statisk service worker.
  *
- * Strategi:
- * - Navigasjoner: network-first, med cachet side som fallback når man er offline.
- * - Statiske filer (_next/static, ikoner): cache-first.
- * - API-kall caches ikke (de kan inneholde brukerdata).
+ * Cacher bare statiske ressurser og en offentlig offline-side. HTML-sider,
+ * API-svar og /uploads caches aldri, slik at CacheStorage ikke kan inneholde
+ * kundedata eller en innlogget side etter utlogging.
  */
-const CACHE = "fsm-shell-v1";
-const OFFLINE_URL = "/mine-oppdrag";
+const CACHE = "fsm-static-v2";
+const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll([OFFLINE_URL]).catch(() => undefined))
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll([OFFLINE_URL]))
+      .catch(() => undefined),
   );
   self.skipWaiting();
 });
@@ -18,11 +20,32 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
+      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+    ),
   );
   self.clients.claim();
 });
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "CLEAR_CACHES") {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
+    );
+  }
+});
+
+function isStaticAsset(pathname) {
+  return (
+    pathname.startsWith("/_next/static/") ||
+    pathname.startsWith("/icon-") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/android-chrome-") ||
+    pathname.startsWith("/apple-touch-icon") ||
+    pathname.startsWith("/maskable-") ||
+    pathname.endsWith(".woff2") ||
+    pathname.endsWith(".woff")
+  );
+}
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
@@ -30,8 +53,6 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-
-  // Ikke cache API, auth eller opplastinger.
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/uploads/") ||
@@ -40,42 +61,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for statiske ressurser.
-  if (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/icon-") ||
-    url.pathname.startsWith("/favicon") ||
-    url.pathname.startsWith("/android-chrome-") ||
-    url.pathname.startsWith("/apple-touch-icon") ||
-    url.pathname.startsWith("/maskable-")
-  ) {
+  // Sider: network-only, med en offentlig offline-side som fallback.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const offline = await caches.match(OFFLINE_URL);
+        return offline || Response.error();
+      }),
+    );
+    return;
+  }
+
+  // Statiske filer: cache-first.
+  if (isStaticAsset(url.pathname)) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE).then((cache) => cache.put(request, copy));
+            }
             return response;
-          })
-      )
-    );
-    return;
-  }
-
-  // Network-first for sider, med offline-fallback.
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          return cached || caches.match(OFFLINE_URL) || Response.error();
-        })
+          }),
+      ),
     );
   }
 });
