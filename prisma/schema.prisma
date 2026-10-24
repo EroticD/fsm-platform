@@ -103,6 +103,13 @@ model User {
   // Kladder for sjekklister brukeren har begynt å fylle ut.
   reportDrafts ReportDraft[]
 
+  // Kalenderabonnement (iCal). Tilfeldig token som kan tilbakekalles.
+  calendarToken String? @unique
+
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  timeEntries             TimeEntry[]
+
   @@index([departmentId])
   @@index([role])
   @@index([resetToken])
@@ -289,6 +296,8 @@ model WorkOrder {
   workComments Comment[]  @relation("WorkOrderComments")
   tags         Tag[]      @relation("WorkOrderTags")
   reportDrafts ReportDraft[]
+  timeEntries  TimeEntry[]
+  materials    Material[]
 
   @@index([departmentId])
   @@index([customerId])
@@ -419,6 +428,11 @@ model Report {
   pdfUrl         String?
   pdfHash        String?
   pdfGeneratedAt DateTime?
+
+  // Kundeportalens kvittering på at rapporten er mottatt.
+  customerAcknowledgedAt      DateTime?
+  customerAcknowledgedBy      String?
+  customerAcknowledgedComment String?
 
   units ReportUnit[]
 
@@ -568,6 +582,72 @@ model AuditLog {
   @@index([entityId])
   @@index([entityType, entityId, createdAt])
   @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// ASSIGNMENT | DATE_CHANGED | CANCELLED | REPORT_READY | BOOKING | CONTRACT_DUE | OVERDUE
+  type      String
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  /// Unik nøkkel per hendelse, slik at samme varsel ikke lages to ganger.
+  dedupeKey String?  @unique
+  /// E-postkvittering: null betyr at varselet fortsatt venter på utsending.
+  emailSentAt DateTime?
+  emailError  String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([createdAt])
+  @@index([emailSentAt])
+}
+
+model NotificationPreference {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   String
+  inApp  Boolean @default(true)
+  email  Boolean @default(true)
+
+  @@unique([userId, type])
+}
+
+model TimeEntry {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  endedAt     DateTime?
+  minutes     Int?
+  description String?
+  billable    Boolean   @default(true)
+  hourlyRate  Decimal?  @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workOrderId])
+  @@index([userId, startedAt])
+}
+
+model Material {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  name        String
+  sku         String?
+  quantity    Decimal   @db.Decimal(10, 2)
+  unit        String    @default("stk")
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  @@index([workOrderId])
 }
 
 model Branding {
