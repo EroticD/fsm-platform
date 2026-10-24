@@ -8,6 +8,7 @@ import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
 import BrandingColors from "@/components/BrandingColors";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import ToastProvider from "@/components/ToastProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,12 +64,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           Hopp til innhold
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <BrandingColors />
-          <BrandedHeader showNav role={session?.user?.role} />
-          <main id="main-content" className="flex-1">
-            {children}
-          </main>
-          <ServiceWorkerRegister />
+          <ToastProvider>
+            <BrandingColors />
+            <BrandedHeader showNav role={session?.user?.role} />
+            <main id="main-content" className="flex-1">
+              {children}
+            </main>
+            <ServiceWorkerRegister />
+          </ToastProvider>
         </NextIntlClientProvider>
       </body>
     </html>

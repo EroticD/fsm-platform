@@ -526,12 +526,14 @@ export default async function AdminDashboard({
             <input
               type="text"
               name="q"
+              aria-label={t("dashboard.searchPlaceholder")}
               defaultValue={searchQuery}
               placeholder={t("dashboard.searchPlaceholder")}
               className="flex-1 min-w-[200px] border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             />
             <select
               name="status"
+              aria-label={t("dashboard.statusFilterLabel")}
               defaultValue={statusFilter}
               className="border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             >

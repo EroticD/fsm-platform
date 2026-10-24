@@ -18,7 +18,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.22",
@@ -72,6 +73,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.4.2",
+    "lighthouse": "^13.5.0",
     "prisma": "^7.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

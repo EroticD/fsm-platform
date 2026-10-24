@@ -30,7 +30,8 @@ npm run typecheck        # next typegen + tsc --noEmit
 npm test                 # vitest (enhetstester)
 npm run test:coverage    # enhetstester + dekningskrav (CI bruker denne)
 npm run test:integration # mot en dedikert Postgres-testdatabase
-npm run test:e2e         # Playwright (krever `npx playwright install chromium`)
+npm run test:e2e         # Playwright + axe (krever `npx playwright install chromium`)
+npm run test:lighthouse  # Lighthouse mobil a11y (krever kjørende app; >=95)
 npm run lint             # eslint
 npm run build            # produksjonsbygg
 ```

@@ -139,6 +139,10 @@
       "title": "Noe gikk galt",
       "fallback": "En feil oppstod",
       "retry": "Prøv igjen"
+    },
+    "toast": {
+      "uploaded": "Fil(er) lastet opp",
+      "deleted": "Vedlegg slettet"
     }
   }
 }

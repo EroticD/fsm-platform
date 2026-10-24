@@ -75,6 +75,7 @@
     "activityTitle": "📋 Siste aktivitet",
     "viewAllActivity": "Se all aktivitet",
     "noActivity": "Ingen aktivitet registrert.",
-    "unknownUser": "Ukjent"
+    "unknownUser": "Ukjent",
+    "statusFilterLabel": "Filtrer på status"
   }
 }

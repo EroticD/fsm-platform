@@ -139,6 +139,10 @@
       "title": "Something went wrong",
       "fallback": "An error occurred",
       "retry": "Try again"
+    },
+    "toast": {
+      "uploaded": "File(s) uploaded",
+      "deleted": "Attachment deleted"
     }
   }
 }

@@ -8,6 +8,7 @@ import {
   removeCustomerAttachment,
 } from "@/lib/attachment-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/ToastProvider";
 
 export type CustomerAttachment = {
   id: string;
@@ -39,6 +40,7 @@ export default function CustomerAttachments({
 }) {
   const router = useRouter();
   const t = useTranslations("common");
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
@@ -97,6 +99,10 @@ export default function CustomerAttachments({
               names: failed.join(", "),
             }),
       );
+    }
+
+    if (failed.length === 0) {
+      toast(t("components.toast.uploaded"), "success");
     }
 
     router.refresh();

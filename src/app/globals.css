@@ -34,3 +34,11 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Tilstrekkelig store trykkflater på berøringsskjermer. */
+@media (pointer: coarse) {
+  button,
+  [role="button"] {
+    min-height: 44px;
+  }
+}

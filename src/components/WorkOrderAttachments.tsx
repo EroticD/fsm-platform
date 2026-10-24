@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { addAttachment, removeAttachment } from "@/lib/attachment-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/ToastProvider";
 
 export type WorkOrderAttachment = {
   id: string;
@@ -39,6 +40,7 @@ export default function WorkOrderAttachments({
 }) {
   const router = useRouter();
   const t = useTranslations("common");
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
@@ -95,6 +97,10 @@ export default function WorkOrderAttachments({
       );
     }
 
+    if (failed.length === 0) {
+      toast(t("components.toast.uploaded"), "success");
+    }
+
     router.refresh();
   };
 
@@ -116,6 +122,8 @@ export default function WorkOrderAttachments({
     const result = await removeAttachment(data);
     if (!result.ok) {
       setError(result.error || t("orders.attachments.deleteError"));
+    } else {
+      toast(t("components.toast.deleted"), "success");
     }
 
     setBusy(false);
