@@ -48,6 +48,7 @@ export type WorkOrderError =
   | "ugyldig-data"
   | "ugyldig-status"
   | "workorder-locked"
+  | "legal-hold"
   | "reason-required"
   | "avdeling"
   | "ukjent";
@@ -302,7 +303,12 @@ export async function updateWorkOrder(
 
   const currentWorkOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScope(user) },
-    select: { id: true, departmentId: true, status: true },
+    select: {
+      id: true,
+      departmentId: true,
+      customerId: true,
+      status: true,
+    },
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
 
@@ -406,6 +412,14 @@ export async function updateWorkOrder(
       entityId: workOrderId,
       action: `Oppdaterte oppdraget: ${title}`,
       actor: auditActor(user),
+    });
+
+    // Filene til oppdraget arver avdeling og kunde fra oppdraget. Flyttes
+    // oppdraget, må ACL-en på opplastingsradene følge med i samme transaksjon;
+    // ellers ville brukere i den gamle avdelingen fortsatt kunne lese filene.
+    await tx.upload.updateMany({
+      where: { ownerType: "WORK_ORDER", ownerId: workOrderId },
+      data: { departmentId, customerId: customerId || null },
     });
   });
 
@@ -990,6 +1004,62 @@ export async function cloneWorkOrder(
   }
 }
 
+/**
+ * Slår bevaringsplikt på eller av for et oppdrag og alle rapportene på det.
+ *
+ * Bare administrator kan gjøre dette. Bevaringsplikten må ligge både på
+ * oppdraget og på hver rapport, fordi retensjonsjobben vurderer dem hver for
+ * seg. Endringene og revisjonsloggen skrives i samme transaksjon.
+ */
+export async function setWorkOrderLegalHold(
+  user: Actor,
+  workOrderId: string,
+  rawHold: unknown,
+): Promise<WorkOrderResult> {
+  if (!user?.isActive || user.role !== "ADMIN") {
+    return { ok: false, error: "ikke-tilgang" };
+  }
+
+  const id = rawId(workOrderId);
+  if (!id) return { ok: false, error: "ugyldig-data" };
+
+  // Skjemaet sender «true»/«false»; tjenesten godtar også boolske verdier.
+  const hold =
+    rawHold === true ||
+    rawHold === "true" ||
+    rawHold === "on" ||
+    rawHold === "1";
+
+  const target = await prisma.workOrder.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      _count: { select: { reports: true } },
+    },
+  });
+  if (!target) return { ok: false, error: "ikke-funnet" };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.workOrder.update({ where: { id }, data: { legalHold: hold } });
+    await tx.report.updateMany({
+      where: { workOrderId: id },
+      data: { legalHold: hold },
+    });
+    await audit(tx, {
+      entityType: "WorkOrder",
+      entityId: id,
+      action: hold
+        ? `Slo på bevaringsplikt for oppdraget «${target.title}»`
+        : `Slo av bevaringsplikt for oppdraget «${target.title}»`,
+      actor: auditActor(user),
+      metadata: { legalHold: hold, reportCount: target._count.reports },
+    });
+  });
+
+  return { ok: true };
+}
+
 /** Myksletter oppdraget. Rapporter, kommentarer og vedlegg beholdes. */
 export async function deleteWorkOrder(
   user: Actor,
@@ -1000,10 +1070,32 @@ export async function deleteWorkOrder(
 
   const target = await prisma.workOrder.findUnique({
     where: { id: access.id },
-    select: { title: true, deletedAt: true, customer: { select: { name: true } } },
+    select: {
+      title: true,
+      deletedAt: true,
+      legalHold: true,
+      status: true,
+      customer: { select: { name: true } },
+      reports: { select: { legalHold: true } },
+    },
   });
   if (!target) return { ok: false, error: "ikke-funnet" };
   if (target.deletedAt) return { ok: false, error: "ikke-funnet" };
+
+  // Bevaringsplikt på oppdraget eller på en av rapportene stopper sletting.
+  if (target.legalHold || target.reports.some((report) => report.legalHold)) {
+    return { ok: false, error: "legal-hold" };
+  }
+
+  // Fullførte og kansellerte oppdrag er avsluttet historikk. Bare
+  // administrator kan slette dem; knappen skjules i UI, men regelen håndheves
+  // her slik at den også gjelder direkte kall.
+  if (
+    (target.status === "COMPLETED" || target.status === "CANCELLED") &&
+    user.role !== "ADMIN"
+  ) {
+    return { ok: false, error: "workorder-locked" };
+  }
 
   const deletedBy = user.name || user.email || user.id;
 
@@ -1019,7 +1111,7 @@ export async function deleteWorkOrder(
         target.customer?.name ? ` (${target.customer.name})` : ""
       } (myk sletting – kan gjenopprettes)`,
       actor: auditActor(user),
-      metadata: { softDeleted: true },
+      metadata: { softDeleted: true, legalHold: target.legalHold },
     });
   });
 

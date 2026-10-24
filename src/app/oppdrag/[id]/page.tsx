@@ -24,6 +24,7 @@ import {
   setReportLock,
   setTags,
   setTemplate,
+  setWorkOrderLegalHold,
   unassignTechnician,
   updateStatus,
 } from "./actions";
@@ -392,6 +393,14 @@ export default async function AdminWorkOrderPage({
             <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-xl md:text-3xl font-black text-gray-900">{workOrder.title}</h1>
               <StatusBadge status={workOrder.status} />
+              {workOrder.legalHold && (
+                <span
+                  className="bg-red-100 border-2 border-red-300 text-red-900 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide"
+                  title={t("orders.detail.legalHoldHint")}
+                >
+                  🔒 {t("orders.detail.legalHoldBadge")}
+                </span>
+              )}
             </div>
             {/* Tags */}
             {canEdit ? (
@@ -450,6 +459,29 @@ export default async function AdminWorkOrderPage({
                 </button>
               </form>
             )}
+            {isAdmin && (
+              <form action={setWorkOrderLegalHold}>
+                <input type="hidden" name="workOrderId" value={workOrder.id} />
+                <input
+                  type="hidden"
+                  name="hold"
+                  value={workOrder.legalHold ? "false" : "true"}
+                />
+                <button
+                  type="submit"
+                  title={t("orders.detail.legalHoldHint")}
+                  className={
+                    workOrder.legalHold
+                      ? "bg-red-100 border-2 border-red-300 text-red-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-200 transition shadow-sm"
+                      : "bg-white border-2 border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm"
+                  }
+                >
+                  {workOrder.legalHold
+                    ? t("orders.detail.legalHoldDisable")
+                    : t("orders.detail.legalHoldEnable")}
+                </button>
+              </form>
+            )}
             {canDeleteWorkOrder && (
               <ConfirmSubmitForm
                 action={deleteWorkOrder}
@@ -482,7 +514,13 @@ export default async function AdminWorkOrderPage({
           </div>
         )}
 
-        {error && !["locked", "ugyldig-status"].includes(error) && (
+        {error === "legal-hold" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            {t("orders.errors.legalHold")}
+          </div>
+        )}
+
+        {error && !["locked", "ugyldig-status", "legal-hold"].includes(error) && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
             {t("orders.errors.generic")}
           </div>

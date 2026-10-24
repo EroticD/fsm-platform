@@ -332,10 +332,17 @@ export function startDraftCleanup(): void {
 /**
  * Hard-sletter mykt slettede oppdrag når bevaringsperioden er utløpt.
  *
- * Et oppdrag med `legalHold` – eller med en rapport som har `legalHold` – skal
- * aldri røres. Rapporter, revisjoner og kommentarer slettes sammen med
- * oppdraget (cascade); opplastingsfilene frigjøres først etter at databasen er
- * oppdatert, slik at vi aldri sitter igjen med filer uten referanse.
+ * Bare oppdrag uten rapporter i det hele tatt hard-slettes automatisk. Har
+ * oppdraget først en rapport – signert, låst eller ikke – beholdes hele
+ * oppdraget sammen med revisjonene og filene. Det er den tryggeste regelen:
+ * en rapport kan være signert eller ha revisjonshistorikk som aldri skal
+ * kunne rekonstrueres borte, og vi kan ikke vite om den er «ferdig» bare fordi
+ * den er ulåst.
+ *
+ * `legalHold` på oppdraget eller på en rapport stopper slettingen. Rapporter,
+ * revisjoner og kommentarer slettes sammen med oppdraget (cascade);
+ * opplastingsfilene frigjøres først etter at databasen er oppdatert, slik at vi
+ * aldri sitter igjen med filer uten referanse.
  */
 export async function cleanupRetainedWorkOrders(
   now = new Date(),
@@ -346,7 +353,9 @@ export async function cleanupRetainedWorkOrders(
     where: {
       deletedAt: { lt: cutoff },
       legalHold: false,
-      reports: { none: { legalHold: true } },
+      // `none: {}` er strengere enn `none: { legalHold: true }`: enhver
+      // rapport – og dermed enhver ReportRevision – blokkerer hard sletting.
+      reports: { none: {} },
     },
     select: { id: true, title: true },
     take: 200,
@@ -364,14 +373,15 @@ export async function cleanupRetainedWorkOrders(
   for (const workOrder of expired) {
     try {
       const removed = await prisma.$transaction(async (tx) => {
-        // Les på nytt i transaksjonen: en samtidig gjenoppretting eller
-        // bevaringsplikt skal alltid vinne over den automatiske slettingen.
+        // Les på nytt i transaksjonen: en samtidig gjenoppretting, ny rapport
+        // eller bevaringsplikt skal alltid vinne over den automatiske
+        // slettingen.
         const stillExpired = await tx.workOrder.findFirst({
           where: {
             id: workOrder.id,
             deletedAt: { lt: cutoff },
             legalHold: false,
-            reports: { none: { legalHold: true } },
+            reports: { none: {} },
           },
           select: { id: true },
         });

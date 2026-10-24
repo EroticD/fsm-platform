@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => ({
     contact: { findUnique: vi.fn(), create: vi.fn() },
     department: { findFirst: vi.fn() },
     comment: { create: vi.fn() },
-    upload: { findMany: vi.fn(async () => []) },
+    report: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    upload: { findMany: vi.fn(async () => []), updateMany: vi.fn(async () => ({ count: 0 })) },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -39,6 +40,7 @@ import {
   createWorkOrder,
   deleteWorkOrder,
   restoreWorkOrder,
+  setWorkOrderLegalHold,
   updateWorkOrder,
 } from "./work-orders";
 
@@ -68,6 +70,8 @@ function txClient() {
     },
     contact: { create: vi.fn(async () => ({ id: "contact-new" })) },
     comment: { create: vi.fn(async () => ({ id: "comment-1" })) },
+    report: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    upload: { updateMany: vi.fn(async () => ({ count: 0 })) },
     auditLog: { create: vi.fn(async () => ({})) },
   };
 }
@@ -233,7 +237,11 @@ describe("work-orders-tjenesten", () => {
     });
     mocks.prisma.workOrder.findUnique.mockResolvedValue({
       title: "Testoppdrag",
+      deletedAt: null,
+      legalHold: false,
+      status: "OPEN",
       customer: { name: "Kunde AS" },
+      reports: [],
     });
     const tx = withTransaction();
 
@@ -276,6 +284,193 @@ describe("work-orders-tjenesten", () => {
 
     expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser sletting når oppdraget har bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+    });
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      title: "Testoppdrag",
+      deletedAt: null,
+      legalHold: true,
+      status: "OPEN",
+      customer: null,
+      reports: [],
+    });
+
+    const result = await deleteWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: false, error: "legal-hold" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser sletting når en rapport har bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+    });
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      title: "Testoppdrag",
+      deletedAt: null,
+      legalHold: false,
+      status: "OPEN",
+      customer: null,
+      reports: [{ legalHold: false }, { legalHold: true }],
+    });
+
+    const result = await deleteWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: false, error: "legal-hold" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser sletting av et lukket oppdrag for ikke-admin", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "COMPLETED",
+    });
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      title: "Testoppdrag",
+      deletedAt: null,
+      legalHold: false,
+      status: "COMPLETED",
+      customer: null,
+      reports: [],
+    });
+
+    const result = await deleteWorkOrder(
+      actor({
+        role: "OFFICE",
+        permissionsCustomized: true,
+        permissions: ["workorders.delete"],
+      }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar administrator slette et lukket oppdrag", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "CANCELLED",
+    });
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      title: "Testoppdrag",
+      deletedAt: null,
+      legalHold: false,
+      status: "CANCELLED",
+      customer: null,
+      reports: [],
+    });
+    const tx = withTransaction();
+
+    const result = await deleteWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { deletedAt: expect.any(Date), deletedBy: "Kari" },
+    });
+    // Myk sletting frigjør aldri filene.
+    expect(mocks.prisma.upload.findMany).not.toHaveBeenCalled();
+  });
+
+  it("avviser bevaringsplikt for andre enn administrator", async () => {
+    const result = await setWorkOrderLegalHold(
+      actor({ role: "OFFICE" }),
+      "wo-1",
+      "true",
+    );
+
+    expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("slår på bevaringsplikt for oppdraget og alle rapportene og logger det", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      id: "wo-1",
+      title: "Testoppdrag",
+      legalHold: false,
+      _count: { reports: 2 },
+    });
+    const tx = withTransaction();
+
+    const result = await setWorkOrderLegalHold(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      "true",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { legalHold: true },
+    });
+    expect(tx.report.updateMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo-1" },
+      data: { legalHold: true },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        action: expect.stringContaining("bevaringsplikt"),
+        actorId: "u1",
+        metadata: { legalHold: true, reportCount: 2 },
+      }),
+    });
+  });
+
+  it("slår av bevaringsplikt og logger metadata", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      id: "wo-1",
+      title: "Testoppdrag",
+      legalHold: true,
+      _count: { reports: 1 },
+    });
+    const tx = withTransaction();
+
+    const result = await setWorkOrderLegalHold(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      false,
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { legalHold: false },
+    });
+    expect(tx.report.updateMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo-1" },
+      data: { legalHold: false },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: { legalHold: false, reportCount: 1 },
+      }),
+    });
   });
 
   it("lar bare administrator gjenopprette et slettet oppdrag", async () => {
@@ -384,6 +579,46 @@ describe("work-orders-tjenesten", () => {
     expect(tx.workOrder.update).toHaveBeenCalledWith({
       where: { id: "wo-1" },
       data: expect.objectContaining({ orderNumber: "K-1002" }),
+    });
+  });
+
+  it("oppdaterer fil-ACL når oppdraget flyttes til ny avdeling og kunde", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "IN_PROGRESS",
+    });
+    mocks.prisma.department.findFirst.mockResolvedValue({ id: "dep-b" });
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      {
+        title: "Ny tittel",
+        description: "",
+        departmentId: "dep-b",
+        customerId: "cust-2",
+        contactId: "",
+        scheduledFor: "2026-10-24",
+        scheduledTo: "",
+        technicianIds: [],
+        tagNames: [],
+      },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: expect.objectContaining({
+        departmentId: "dep-b",
+        customerId: "cust-2",
+      }),
+    });
+    expect(tx.upload.updateMany).toHaveBeenCalledWith({
+      where: { ownerType: "WORK_ORDER", ownerId: "wo-1" },
+      data: { departmentId: "dep-b", customerId: "cust-2" },
     });
   });
 
