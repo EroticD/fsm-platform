@@ -1,6 +1,22 @@
 import nodemailer from "nodemailer";
 import prisma from "@/lib/prisma";
-import { LIMITS, cleanColor, cleanText, cleanUrl, escapeHtml } from "@/lib/sanitize";
+import { LIMITS, cleanColor, cleanText, escapeHtml } from "@/lib/sanitize";
+import { formatDate } from "@/lib/dates";
+import { isSafeLogoUrl } from "@/lib/logo";
+
+/** Gjør en opplastet logo til en absolutt URL som e-postklienten kan hente. */
+function safeEmailLogoUrl(value: string | null | undefined): string {
+  if (!isSafeLogoUrl(value)) return "";
+  const base =
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000";
+  try {
+    return new URL(value as string, base).toString();
+  } catch {
+    return "";
+  }
+}
 
 /** Er SMTP konfigurert i .env? */
 function isSmtpConfigured() {
@@ -23,6 +39,61 @@ function createTransporter() {
   });
 }
 
+/**
+ * Sender et generisk varsel på e-post. Brukes av varselkøen i
+ * `src/server/notifications.ts`; selve varselet ligger allerede i databasen.
+ */
+export async function sendNotificationEmail(
+  to: string,
+  subject: string,
+  body: string,
+  href?: string,
+): Promise<boolean> {
+  if (!isSmtpConfigured()) return false;
+
+  const branding = await prisma.branding.findFirst().catch(() => null);
+  const companyName = escapeHtml(
+    cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System",
+  );
+  const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
+  const base =
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000";
+
+  let link = "";
+  if (href) {
+    try {
+      link = new URL(href, base).toString();
+    } catch {
+      link = "";
+    }
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #171717;">
+      <div style="background: ${primaryColor}; padding: 18px 24px; border-radius: 12px 12px 0 0;">
+        ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height: 32px; object-fit: contain;" />` : `<strong style="color: white; font-size: 18px;">${companyName}</strong>`}
+      </div>
+      <div style="border: 1px solid #e5e7eb; border-top: 0; padding: 24px; border-radius: 0 0 12px 12px;">
+        <h1 style="font-size: 20px; margin: 0 0 12px;">${escapeHtml(subject)}</h1>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">${escapeHtml(body).replace(/\n/g, "<br />")}</p>
+        ${link ? `<p style="margin-top: 20px;"><a href="${link}" style="background: ${primaryColor}; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">Åpne i FSM</a></p>` : ""}
+      </div>
+      <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-top: 16px;">${companyName}</p>
+    </div>
+  `;
+
+  await createTransporter().sendMail({
+    from: `"${companyName}" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  });
+  return true;
+}
+
 export async function sendWorkOrderReport(
   customerEmail: string,
   workOrder: any,
@@ -34,7 +105,7 @@ export async function sendWorkOrderReport(
   const branding = await prisma.branding.findFirst();
   // Verdiene brukes inne i HTML, så de vaskes og escapes før de settes inn.
   const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
-  const logoUrl = cleanUrl(branding?.logoUrl);
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
 
   // Sjekker om e-post er konfigurert i .env
@@ -63,7 +134,7 @@ export async function sendWorkOrderReport(
       <table style="width: 100%; margin-bottom: 30px; font-size: 14px;">
         <tr>
           <td style="padding-bottom: 10px;"><strong>Kunde:</strong><br/>${escapeHtml(workOrder.customer.name)}</td>
-          <td style="padding-bottom: 10px;"><strong>Dato for utførelse:</strong><br/>${new Date().toLocaleDateString("no-NO")}</td>
+          <td style="padding-bottom: 10px;"><strong>Dato for utførelse:</strong><br/>${formatDate(new Date())}</td>
         </tr>
         <tr>
           <td><strong>Oppdragstittel:</strong><br/>${escapeHtml(workOrder.title)}</td>
@@ -139,7 +210,7 @@ export async function sendInviteEmail(
   const branding = await prisma.branding.findFirst();
   // Verdiene brukes inne i HTML, så de vaskes og escapes før de settes inn.
   const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
-  const logoUrl = cleanUrl(branding?.logoUrl);
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
 
   if (!isSmtpConfigured()) {
@@ -200,4 +271,119 @@ export async function sendInviteEmail(
     console.error("❌ Feil ved sending av invitasjons-e-post:", error);
     return false;
   }
+}
+
+type BookingInfo = {
+  title: string;
+  description?: string | null;
+  customerName: string;
+  bookedBy: string;
+};
+
+/**
+ * Varsler kontoret i destinasjonsavdelingen om en ny kundebestilling, og
+ * sender en bekreftelse til kunden. Returnerer hvor mange e-poster som ble
+ * sendt.
+ *
+ * Kontorlisten slås opp på nytt her, avgrenset til aktive ADMIN/OFFICE i
+ * avdelingen. Mottakerne får hver sin e-post, slik at adressene aldri deles
+ * i en felles To-linje og ingen andre avdelinger kan lekke inn.
+ */
+export async function sendBookingNotification(
+  departmentId: string,
+  customerEmail: string | null | undefined,
+  booking: BookingInfo,
+): Promise<{ officeSent: number; customerSent: boolean }> {
+  if (!isSmtpConfigured()) return { officeSent: 0, customerSent: false };
+
+  const branding = await prisma.branding.findFirst();
+  const primaryColor = cleanColor(branding?.primaryColor) || "#2563eb";
+  const logoUrl = safeEmailLogoUrl(branding?.logoUrl);
+  const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
+  const transporter = createTransporter();
+
+  const safeTitle = escapeHtml(booking.title);
+  const safeCustomer = escapeHtml(booking.customerName);
+  const safeBookedBy = escapeHtml(booking.bookedBy);
+  const safeDescription = booking.description ? escapeHtml(booking.description) : "";
+
+  const shell = (heading: string, body: string) => `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+      <div style="border-bottom: 2px solid ${primaryColor}; padding-bottom: 20px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height: 32px; object-fit: contain;" />` : `<div style="width: 32px; height: 32px; background-color: ${primaryColor}; border-radius: 6px; display: inline-block; line-height: 32px; text-align: center; color: white; font-weight: bold; font-size: 14px;">${companyName.charAt(0).toUpperCase()}</div>`}
+          <div>
+            <h1 style="color: #1f2937; margin: 0; font-size: 20px;">${heading}</h1>
+            <p style="color: #6b7280; font-size: 12px; margin: 0;">${companyName}</p>
+          </div>
+        </div>
+      </div>
+      ${body}
+      <div style="margin-top: 32px; text-align: center; font-size: 11px; color: #9ca3af;">
+        <p>Dette er en automatisk generert e-post fra ${companyName}.</p>
+      </div>
+    </div>`;
+
+  const detail = `
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;color:#374151;font-size:14px;line-height:1.6;">
+      <p style="margin:0 0 8px;"><strong>Oppdrag:</strong> ${safeTitle}</p>
+      <p style="margin:0 0 8px;"><strong>Kunde:</strong> ${safeCustomer}</p>
+      <p style="margin:0 0 8px;"><strong>Booket av:</strong> ${safeBookedBy}</p>
+      ${safeDescription ? `<p style="margin:0;"><strong>Beskrivelse:</strong><br/>${safeDescription.replace(/\n/g, "<br/>")}</p>` : ""}
+    </div>`;
+
+  const office = await prisma.user.findMany({
+    where: {
+      departmentId,
+      role: { in: ["ADMIN", "OFFICE"] },
+      isActive: true,
+    },
+    select: { email: true },
+    take: 100,
+  });
+  const recipients = Array.from(
+    new Set(
+      office
+        .map((user) => user.email)
+        .filter((email): email is string => Boolean(email)),
+    ),
+  );
+
+  let officeSent = 0;
+  for (const recipient of recipients) {
+    try {
+      await transporter.sendMail({
+        from: `"${companyName}" <${process.env.SMTP_USER}>`,
+        to: recipient,
+        subject: `Ny bestilling: ${safeTitle} – ${safeCustomer}`,
+        html: shell(
+          "Ny bestilling fra kundeportal",
+          `<p style="color:#374151;font-size:14px;line-height:1.6;">En kunde har booket et nytt oppdrag. Det ligger klart for planlegging under «Oppdrag».</p>${detail}`,
+        ),
+      });
+      officeSent += 1;
+    } catch (error) {
+      console.error("❌ Feil ved sending av bestillingsvarsel til kontoret:", error);
+    }
+  }
+
+  let customerSent = false;
+  if (customerEmail) {
+    try {
+      await transporter.sendMail({
+        from: `"${companyName}" <${process.env.SMTP_USER}>`,
+        to: customerEmail,
+        subject: `Vi har mottatt bestillingen din: ${safeTitle}`,
+        html: shell(
+          "Bestilling mottatt",
+          `<p style="color:#374151;font-size:14px;line-height:1.6;">Takk for bestillingen. Vi tar kontakt for å avtale dato.</p>${detail}`,
+        ),
+      });
+      customerSent = true;
+    } catch (error) {
+      console.error("❌ Feil ved sending av bestillingsbekreftelse:", error);
+    }
+  }
+
+  return { officeSent, customerSent };
 }

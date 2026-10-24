@@ -1,107 +1,68 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { isOffice, requireOffice } from "@/lib/session";
+import { getTranslations } from "next-intl/server";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
-import { LIMITS, cleanEmail, cleanMarkdown, cleanPhone, cleanText } from "@/lib/sanitize";
+import { getCustomerEditOptions } from "@/server/customers";
+import { updateCustomerAction } from "../../actions";
 
 export default async function EditCustomerPage({ 
-  params 
+  params,
+  searchParams,
 }: { 
-  params: Promise<{ id: string }> 
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const { error } = await searchParams;
+  const session = await getCurrentUser();
+  if (!session) redirect("/api/auth/signin");
+  const t = await getTranslations("common");
 
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-  });
+  // Å redigere kundedata krever customers.manage. Montører får lese kundekortet.
+  if (!hasPermission(session, "customers.manage")) redirect(`/kunder/${customerId}`);
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  // Å redigere kundedata er kontorets oppgave – montører får lese kundekortet.
-  if (!isOffice(user?.role)) redirect(`/kunder/${customerId}`);
-
-  if (!customer) {
+  const options = await getCustomerEditOptions(session, customerId);
+  if (!options.ok) {
+    if (options.reason === "forbidden") redirect(`/kunder/${customerId}`);
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Kunden finnes ikke</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("customers.detail.notFound")}</h1>
         <Link href="/kunder" className="text-blue-600 font-bold hover:underline">
-          Gå tilbake til kundearkivet
+          {t("customers.detail.backToArchive")}
         </Link>
       </div>
     );
   }
 
-  // --- SERVER ACTION: OPPRETT KUNDE ---
-  async function updateCustomer(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const customerNumber = cleanText(formData.get("customerNumber"), { maxLength: LIMITS.line });
-    const orgNumber = cleanText(formData.get("orgNumber"), { maxLength: LIMITS.line });
-    const brandColor = cleanText(formData.get("brandColor"), { maxLength: 20 });
-    const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
-    const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
-    const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
-    const phone = cleanPhone(formData.get("phone"));
-    const email = cleanEmail(formData.get("email"));
-    const notes = cleanMarkdown(formData.get("notes"));
-
-    if (!name) return;
-
-    try {
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: {
-          name,
-          customerNumber: customerNumber || null,
-          orgNumber: orgNumber || null,
-          brandColor: brandColor || "#2563eb",
-          address: address || null,
-          postalCode: postalCode || null,
-          city: city || null,
-          phone: phone || null,
-          email: email || null,
-          notes: notes || null,
-        },
-      });
-      await prisma.auditLog.create({
-        data: {
-          entityType: "Customer",
-          entityId: customerId,
-          action: `Endret kundeinformasjon: ${name}`,
-          userName: user?.name || "Ukjent"
-        }
-      });
-      revalidatePath(`/kunder/${customerId}`);
-      revalidatePath("/kunder");
-    } catch (error) {
-      console.error("Feil ved oppdatering av kunde:", error);
-    }
-  }
+  const { customer, departments, technicianOptions } = options.data;
+  const updateCustomer = updateCustomerAction.bind(null, customerId);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto space-y-6">
         
+        {error && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            ⛔ {t("customers.edit.saveError")}
+          </div>
+        )}
+
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">✏️ Rediger kunde</h1>
-            <p className="text-gray-500 mt-1 text-sm">Endre kundeinformasjon for {customer.name}.</p>
+            <h1 className="text-2xl font-bold text-gray-900">✏️ {t("customers.edit.title")}</h1>
+            <p className="text-gray-500 mt-1 text-sm">{t("customers.edit.description", { name: customer.name })}</p>
           </div>
           <div className="flex gap-3">
             <Link href={`/kunder/${customerId}`} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-              &larr; Tilbake til detaljer
+              &larr; {t("customers.edit.backToDetails")}
             </Link>
             <Link href="/kunder" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition shadow-sm">
-              Kundearkiv
+              {t("customers.edit.archive")}
             </Link>
           </div>
         </div>
@@ -112,7 +73,7 @@ export default async function EditCustomerPage({
             
             {/* Firmanavn */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Firmanavn *</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.companyName")} *</label>
               <input 
                 type="text" 
                 name="name" 
@@ -124,7 +85,7 @@ export default async function EditCustomerPage({
 
             {/* Kundenummer */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Kundenummer (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.customerNumber")}</label>
               <input 
                 type="text" 
                 name="customerNumber" 
@@ -135,7 +96,7 @@ export default async function EditCustomerPage({
 
             {/* Org.nr */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Org.nr (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.orgNumber")}</label>
               <input 
                 type="text" 
                 name="orgNumber" 
@@ -146,7 +107,7 @@ export default async function EditCustomerPage({
 
             {/* Merkevarefarge */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Merkevarefarge</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.brandColor")}</label>
               <div className="flex gap-3 items-center">
                 <input 
                   type="color" 
@@ -170,12 +131,12 @@ export default async function EditCustomerPage({
             
             {/* Adresse */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-1">Adresse (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.address")}</label>
               <input 
                 type="text" 
                 name="address" 
                 defaultValue={customer.address || ""} 
-                placeholder="Gateadresse" 
+                placeholder={t("customers.edit.addressPlaceholder")}
                 className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
               />
             </div>
@@ -186,7 +147,7 @@ export default async function EditCustomerPage({
             
             {/* Postnr */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Postnummer (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.postalCode")}</label>
               <input 
                 type="text" 
                 name="postalCode" 
@@ -197,7 +158,7 @@ export default async function EditCustomerPage({
 
             {/* By */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">By (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.city")}</label>
               <input 
                 type="text" 
                 name="city" 
@@ -208,7 +169,7 @@ export default async function EditCustomerPage({
 
             {/* Telefon */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Telefon (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.phone")}</label>
               <input 
                 type="tel" 
                 name="phone" 
@@ -219,7 +180,7 @@ export default async function EditCustomerPage({
 
             {/* E-post */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">E-post (valgfritt)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.email")}</label>
               <input 
                 type="email" 
                 name="email" 
@@ -230,23 +191,55 @@ export default async function EditCustomerPage({
 
           </div>
 
+          {/* Avdeling og ansvarlig montør */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.department")}</label>
+              <select
+                name="departmentId"
+                defaultValue={customer.departmentId || ""}
+                className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
+              >
+                <option value="">{t("customers.edit.noDepartment")}</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">{t("customers.edit.departmentHint")}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.responsibleTechnician")}</label>
+              <select
+                name="responsibleTechnicianId"
+                defaultValue={customer.responsibleTechnicianId || ""}
+                className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
+              >
+                <option value="">{t("customers.edit.noResponsible")}</option>
+                {technicianOptions.map((technician) => (
+                  <option key={technician.id} value={technician.id}>{technician.name || technician.email}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">{t("customers.edit.responsibleHint")}</p>
+            </div>
+          </div>
+
           {/* Noter */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Noter (valgfritt)</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.notes")}</label>
             <MarkdownEditor
               name="notes"
               rows={4}
               defaultValue={customer.notes || ""}
-              placeholder="Noter om kunden..."
+              placeholder={t("customers.edit.notesPlaceholder")}
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <Link href={`/kunder/${customerId}`} className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-bold hover:bg-gray-200 transition shadow-sm">
-              Avbryt
+              {t("customers.edit.cancel")}
             </Link>
             <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm">
-              Lagre endringer
+              {t("customers.edit.save")}
             </button>
           </div>
 

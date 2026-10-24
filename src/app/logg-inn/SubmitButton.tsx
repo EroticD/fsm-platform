@@ -16,6 +16,7 @@ export default function SubmitButton({
       type="submit"
       disabled={pending}
       className="w-full text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-60"
+      suppressHydrationWarning
       style={{ backgroundColor: "var(--primary-color)" }}
     >
       {pending ? pendingLabel : idleLabel}

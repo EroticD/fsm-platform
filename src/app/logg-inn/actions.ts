@@ -1,36 +1,23 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { encode } from "next-auth/jwt";
+import prisma from "@/lib/prisma";
 import { verifyCredentials } from "@/lib/credentials";
-
-// Samme levetid som `session.maxAge` i auth-options.ts.
-const SESSION_MAX_AGE = 12 * 60 * 60;
-
-/**
- * Godtar både relative stier ("/kunder") og absolutte URL-er
- * ("http://10.0.0.115:3000/kunder"), og returnerer alltid en trygg, relativ
- * sti. Da kan vi aldri sende brukeren til et annet domene etter innlogging.
- */
-function safeRelativeTarget(value: string | null): string {
-  if (!value) return "/";
-  try {
-    const url = new URL(value, "http://relative.invalid");
-    if (url.protocol !== "http:" && url.protocol !== "https:") return "/";
-    return `${url.pathname}${url.search}${url.hash}` || "/";
-  } catch {
-    return "/";
-  }
-}
+import { verifyTotp } from "@/lib/two-factor";
+import {
+  clearPendingTwoFactor,
+  createSessionCookie,
+  readPendingTwoFactor,
+  setPendingTwoFactor,
+} from "@/lib/session-token";
+import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
+import { safeRelativeTarget } from "@/lib/safe-redirect";
 
 /**
- * Logger inn uten JavaScript.
- *
- * Skjemaet på /logg-inn sender inn til denne server-actionen, som poster
- * e-post og passord i selve forespørselen. Passordet havner derfor aldri i
- * adressefeltet, og innloggingen virker også før (eller uten at) React har
- * lastet ned og hydrert på enheten.
+ * Logger inn uten JavaScript. Passordet sendes i selve forespørselen via en
+ * server-action, så det havner aldri i adressefeltet. Hvis brukeren har slått
+ * på to-trinns verifisering, sendes man videre til kode-steget.
  */
 export async function loginAction(formData: FormData): Promise<never> {
   const email = String(formData.get("email") ?? "").trim();
@@ -47,8 +34,6 @@ export async function loginAction(formData: FormData): Promise<never> {
     return `/logg-inn?${params.toString()}`;
   };
 
-  // Bak en reverse proxy er x-forwarded-for satt av proxyen. Uten proxy faller
-  // vi tilbake til å bare begrense per e-postkonto.
   const requestHeaders = await headers();
   const ip =
     requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -65,41 +50,105 @@ export async function loginAction(formData: FormData): Promise<never> {
     );
   }
 
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    redirect(fail("SessionRequired"));
-  }
-
-  // Cookienavnet må matche det NextAuth selv ville brukt, ellers ser ikke
-  // proxyen og server-komponentene økten etterpå.
-  const secure =
-    (process.env.NEXTAUTH_URL ?? "").startsWith("https://") ||
-    requestHeaders.get("x-forwarded-proto") === "https";
-
-  const sessionToken = await encode({
-    token: {
-      sub: result.user.id,
-      id: result.user.id,
-      email: result.user.email,
-      name: result.user.name ?? undefined,
-      role: result.user.role,
-    },
-    secret,
-    maxAge: SESSION_MAX_AGE,
+  // Har brukeren to-trinns verifisering? Da må vi be om engangskoden før
+  // sesjonen opprettes.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: result.user.id },
+    select: { isTwoFactorEnabled: true, twoFactorSecret: true },
   });
 
-  const cookieStore = await cookies();
-  cookieStore.set(
-    secure ? "__Secure-next-auth.session-token" : "next-auth.session-token",
-    sessionToken,
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure,
-      maxAge: SESSION_MAX_AGE,
-    }
+  if (dbUser?.isTwoFactorEnabled && !dbUser.twoFactorSecret) {
+    // Feilkonfigurert 2FA skal aldri falle tilbake til innlogging uten kode.
+    redirect(fail("TwoFactorUnavailable"));
+  }
+
+  if (dbUser?.isTwoFactorEnabled) {
+    await setPendingTwoFactor(result.user.id);
+    const params = new URLSearchParams();
+    if (callbackUrl !== "/") params.set("callbackUrl", callbackUrl);
+    const qs = params.toString();
+    redirect(`/logg-inn/2fa${qs ? `?${qs}` : ""}`);
+  }
+
+  // Innlogging logges best effort. En feil her skal aldri hindre innlogging.
+  try {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "User",
+        entityId: result.user.id,
+        action: "Logget inn",
+        userName: result.user.name || result.user.email || "Ukjent",
+        actorId: result.user.id,
+      },
+    });
+  } catch (error) {
+    console.error("Kunne ikke logge innloggingen:", error);
+  }
+
+  await createSessionCookie(result.user);
+  redirect(callbackUrl);
+}
+
+/**
+ * Verifiserer engangskoden i 2FA-steget og oppretter sesjonen.
+ */
+export async function verifyTwoFactorAction(formData: FormData): Promise<never> {
+  const code = String(formData.get("code") ?? "");
+  const callbackUrl = safeRelativeTarget(
+    typeof formData.get("callbackUrl") === "string"
+      ? (formData.get("callbackUrl") as string)
+      : null
   );
+
+  const fail = (error: string): string => {
+    const params = new URLSearchParams({ error });
+    if (callbackUrl !== "/") params.set("callbackUrl", callbackUrl);
+    return `/logg-inn/2fa?${params.toString()}`;
+  };
+
+  const userId = await readPendingTwoFactor();
+  if (!userId) {
+    redirect(fail("TwoFactorExpired"));
+  }
+
+  const rateLimitKey = `2fa:${userId}`;
+  const limit = await allowRequestDb(rateLimitKey, 5, 15 * 60_000);
+  if (!limit.allowed) {
+    redirect(fail("TooManyAttempts"));
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      sessionVersion: true,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: true,
+    },
+  });
+
+  if (!user || !user.isActive || !user.isTwoFactorEnabled || !user.twoFactorSecret) {
+    await clearPendingTwoFactor();
+    redirect(fail("TwoFactorExpired"));
+  }
+
+  if (!verifyTotp(user.twoFactorSecret, code)) {
+    redirect(fail("InvalidTwoFactor"));
+  }
+
+  await resetRateLimitDb(rateLimitKey);
+  await clearPendingTwoFactor();
+  await createSessionCookie({
+    id: user.id,
+    email: user.email ?? "",
+    name: user.name,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
+  });
 
   redirect(callbackUrl);
 }

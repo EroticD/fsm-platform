@@ -1,0 +1,71 @@
+{
+  "portal": {
+    "noAccessTitle": "Ingen tilgang",
+    "noAccessDesc": "Brukeren din er ikke koblet til en kundekonto.",
+    "headerTitle": "Min Bedrift: {customerName}",
+    "headerWelcome": "Velkommen til din kundeportal, {userName}!",
+    "home": "Hjem",
+    "refresh": "Oppdater",
+    "contact": {
+      "title": "Din kontakt",
+      "department": "Avdeling / lokasjon",
+      "company": "Firma",
+      "notProvided": "Ikke oppgitt",
+      "responsible": "Ansvarlig montør",
+      "noResponsible": "Ingen ansvarlig montør er satt ennå."
+    },
+    "equipment": {
+      "title": "Vårt utstyr",
+      "empty": "Ingen utstyr registrert.",
+      "serial": "SN: {serial}",
+      "unknownBuilding": "Ukjent bygg"
+    },
+    "contracts": {
+      "title": "Serviceavtaler",
+      "empty": "Ingen aktive avtaler.",
+      "paused": "Pauset",
+      "start": "Startdato: {date}",
+      "interval": "Intervall: {interval}",
+      "next": "Neste service: {date}",
+      "months": "{count} mnd"
+    },
+    "booking": {
+      "title": "Book nytt oppdrag",
+      "desc": "Bestill service eller vedlikehold for din bedrift.",
+      "titleLabel": "Oppdragstittel *",
+      "titlePlaceholder": "F.eks. Årlig service",
+      "descriptionLabel": "Beskrivelse",
+      "descriptionPlaceholder": "Hva trenger du hjelp med?",
+      "submit": "Book oppdrag"
+    },
+    "upcoming": {
+      "title": "Kommende oppdrag",
+      "desc": "Oppdrag som er planlagt eller pågår.",
+      "export": "Eksporter CSV",
+      "empty": "Ingen kommende oppdrag.",
+      "noDate": "Ingen dato"
+    },
+    "pagination": {
+      "newest": "Nyeste",
+      "showMore": "Vis flere",
+      "showing": "Viser {from}–{to} av {total}"
+    },
+    "history": {
+      "title": "Servicehistorikk & Rapporter",
+      "desc": "Utførte og kansellerte jobber, med rapporter.",
+      "empty": "Ingen historikk enda.",
+      "download": "Last ned PDF",
+      "noReport": "Ingen rapport"
+    },
+    "availability": {
+      "title": "Ledige teknikere",
+      "desc": "Oversikt over teknikernes ledige og opptatte dager de neste 7 dagene.",
+      "empty": "Ingen teknikere registrert.",
+      "technician": "Tekniker",
+      "busy": "Opptatt",
+      "free": "Ledig",
+      "note": "«Opptatt» betyr at teknikeren har et planlagt oppdrag denne dagen. Ta kontakt for å avtale et tidspunkt som passer.",
+      "unknownName": "Uten navn"
+    }
+  }
+}

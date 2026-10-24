@@ -1,0 +1,80 @@
+{
+  "p3": {
+    "notifications": {
+      "title": "Notifications",
+      "unreadOf": "{unread} unread of {total} total",
+      "all": "Show all",
+      "unreadOnly": "Unread only",
+      "markAllRead": "Mark all as read",
+      "emptyTitle": "No notifications",
+      "emptyDescription": "You are all caught up.",
+      "open": "Open",
+      "markRead": "Mark as read",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {pages}",
+      "settings": "Settings"
+    },
+    "notificationSettings": {
+      "title": "Notification settings",
+      "description": "Choose which events should notify you in the app and by email.",
+      "event": "Event",
+      "inApp": "In app",
+      "email": "Email",
+      "save": "Save notification settings",
+      "toNotifications": "Back to notifications",
+      "labels": {
+        "ASSIGNMENT": "You are assigned a work order",
+        "DATE_CHANGED": "Work order rescheduled",
+        "CANCELLED": "Work order cancelled",
+        "REPORT_READY": "Report ready",
+        "BOOKING": "New booking from the customer portal",
+        "CONTRACT_DUE": "Service agreement due",
+        "OVERDUE": "Work order overdue"
+      },
+      "inAppAria": "{label} in app",
+      "emailAria": "{label} by email"
+    },
+    "calendarFeed": {
+      "title": "Calendar subscription",
+      "description": "Subscribe to your work orders in Google Calendar, Outlook or Apple Calendar. The link is personal and can be revoked at any time.",
+      "link": "iCal link",
+      "revoke": "Revoke link",
+      "create": "Create calendar link",
+      "regenerate": "Regenerate link",
+      "once": "This link is shown only once. Copy it now.",
+      "active": "Calendar subscription is active."
+    },
+    "offline": {
+      "pending": "📤 {count} draft(s) waiting to sync",
+      "offline": "📴 You are offline – drafts are stored locally and sent when the network returns"
+    },
+    "portalReports": {
+      "title": "📄 Reports",
+      "count": "{count} reports",
+      "empty": "No reports have been published yet.",
+      "performed": "Completed {date}",
+      "signed": "signed",
+      "download": "Download PDF",
+      "acknowledged": "✓ Acknowledged {date}",
+      "commentPlaceholder": "Comment (optional)",
+      "acknowledge": "Acknowledge receipt",
+      "requestUpdate": "Request a contact information update",
+      "requestUpdatePlaceholder": "What should be updated?",
+      "requestUpdateButton": "Send request"
+    },
+    "bell": {
+      "label": "Notifications",
+      "unread": "Notifications ({count} unread)"
+    },
+    "map": {
+      "title": "Map",
+      "description": "Work orders grouped by location. Open in Google Maps for directions.",
+      "calendar": "Calendar",
+      "empty": "No work orders with an address yet.",
+      "noCustomer": "No customer",
+      "openMaps": "Open in Maps",
+      "unknownCity": "Unknown location"
+    }
+  }
+}

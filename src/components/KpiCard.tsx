@@ -33,8 +33,8 @@ export default function KpiCard({
     <>
       <div className="text-xl sm:text-2xl leading-none">{icon}</div>
       <div className="mt-2 text-xl sm:text-2xl font-black leading-none break-words">{value}</div>
-      <div className="mt-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide opacity-70">{label}</div>
-      {sub ? <div className="mt-0.5 text-[11px] opacity-60 truncate">{sub}</div> : null}
+      <div className="mt-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide">{label}</div>
+      {sub ? <div className="mt-0.5 text-[11px] font-medium truncate">{sub}</div> : null}
     </>
   );
 

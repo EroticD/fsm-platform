@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { buildCsp, createNonce } from "@/lib/csp";
+import { requestIdFrom } from "@/lib/logger";
 
 // Stier som kundeportalbrukere (CUSTOMER) har lov til å bruke.
 // Alt annet sendes tilbake til kundeportalen.
 const CUSTOMER_ALLOWED_PREFIXES = [
   "/kundeportal",
+  "/api/kundeportal", // CSV-eksport av egne oppdrag (tilgang sjekkes i ruten)
+  "/api/branding", // merkevare (firmanavn, logo, farge) i header
   "/api/rapporter", // selve PDF-filen (tilgang sjekkes per oppdrag i ruten)
   "/uploads", // bilder og vedlegg som vises i rapportene
   "/api/auth", // innlogging / utlogging
@@ -27,6 +31,16 @@ function isAllowedForCustomer(pathname: string) {
 }
 
 export async function proxy(request: NextRequest) {
+  // Nonce per forespørsel. Next.js leser CSP-headeren og setter nonce på sine
+  // egne script-tagger, slik at inline-script fra appen selv fortsatt virker.
+  const nonce = createNonce();
+  const csp = buildCsp(nonce);
+  const requestHeaders = new Headers(request.headers);
+  const requestId = requestIdFrom(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-request-id", requestId);
+  requestHeaders.set("Content-Security-Policy", csp);
+
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
@@ -36,16 +50,22 @@ export async function proxy(request: NextRequest) {
   if (token?.role === "CUSTOMER") {
     const { pathname } = request.nextUrl;
     if (!isAllowedForCustomer(pathname)) {
-      return NextResponse.redirect(new URL("/kundeportal", request.url));
+      const redirect = NextResponse.redirect(new URL("/kundeportal", request.url));
+      redirect.headers.set("Content-Security-Policy", csp);
+      redirect.headers.set("x-request-id", requestId);
+      return redirect;
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("x-request-id", requestId);
+  return response;
 }
 
 export const config = {
   matcher: [
     // Kjør på alt utenom Next interne filer og statiske ressurser.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
+    "/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
   ],
 };

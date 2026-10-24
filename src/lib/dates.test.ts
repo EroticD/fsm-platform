@@ -1,11 +1,50 @@
 import { describe, expect, it } from "vitest";
 import {
   addDaysUtc,
+  addMonthsUtc,
+  firstOccurrenceOnOrAfter,
+  formatDate,
   formatDateRange,
+  formatDateTime,
   inclusiveLastDay,
+  latestOccurrenceOnOrBefore,
+  osloDayEnd,
+  osloDayStart,
   parseDateOnly,
   toDateOnly,
+  todayInOslo,
 } from "@/lib/dates";
+
+describe("todayInOslo", () => {
+  it("bruker Oslo-dato rundt midnatt", () => {
+    expect(todayInOslo(new Date("2026-01-15T23:30:00.000Z"))).toBe("2026-01-16");
+    expect(todayInOslo(new Date("2026-07-01T21:30:00.000Z"))).toBe("2026-07-01");
+    expect(todayInOslo(new Date("2026-07-01T22:30:00.000Z"))).toBe("2026-07-02");
+  });
+});
+
+describe("osloDayStart / osloDayEnd", () => {
+  it("regner vintertid (UTC+1)", () => {
+    expect(osloDayStart("2026-01-01").toISOString()).toBe("2025-12-31T23:00:00.000Z");
+  });
+
+  it("regner sommertid (UTC+2)", () => {
+    expect(osloDayStart("2026-07-01").toISOString()).toBe("2026-06-30T22:00:00.000Z");
+  });
+
+  it("håndterer overgangen til sommertid", () => {
+    expect(osloDayStart("2026-03-29").toISOString()).toBe("2026-03-28T23:00:00.000Z");
+    expect(osloDayEnd("2026-03-29").toISOString()).toBe("2026-03-29T21:59:59.999Z");
+  });
+
+  it("håndterer overgangen til vintertid (25-timersdag)", () => {
+    const start = osloDayStart("2026-10-25");
+    const end = osloDayEnd("2026-10-25");
+    expect(start.toISOString()).toBe("2026-10-24T22:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-10-25T22:59:59.999Z");
+    expect(end.getTime() - start.getTime()).toBe(25 * 60 * 60 * 1000 - 1);
+  });
+});
 
 describe("parseDateOnly", () => {
   it("tolker en ren dato som UTC-midnatt", () => {
@@ -44,6 +83,56 @@ describe("addDaysUtc", () => {
   });
 });
 
+describe("addMonthsUtc", () => {
+  it("håndterer måneder med færre dager", () => {
+    expect(toDateOnly(addMonthsUtc(new Date("2026-01-31T00:00:00.000Z"), 1))).toBe(
+      "2026-02-28",
+    );
+  });
+
+  it("regner fra opprinnelig dato, ikke fra forrige forekomst", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    expect(toDateOnly(addMonthsUtc(start, 2))).toBe("2026-03-31");
+  });
+});
+
+describe("firstOccurrenceOnOrAfter", () => {
+  it("finner første intervallforekomst på eller etter datoen", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    const notBefore = new Date("2026-03-01T00:00:00.000Z");
+    expect(toDateOnly(firstOccurrenceOnOrAfter(start, 3, notBefore))).toBe("2026-04-30");
+  });
+
+  it("returnerer startdatoen når den allerede er innenfor", () => {
+    const start = new Date("2026-10-21T00:00:00.000Z");
+    expect(
+      toDateOnly(firstOccurrenceOnOrAfter(start, 3, new Date("2026-10-21T00:00:00.000Z"))),
+    ).toBe("2026-10-21");
+  });
+});
+
+describe("latestOccurrenceOnOrBefore", () => {
+  it("finner siste forfalte forekomst", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    const result = latestOccurrenceOnOrBefore(
+      start,
+      3,
+      new Date("2026-10-21T00:00:00.000Z"),
+    );
+    expect(toDateOnly(result)).toBe("2026-07-31");
+  });
+
+  it("bruker siste dag i måneden når startdagen ikke finnes", () => {
+    const start = new Date("2026-01-31T00:00:00.000Z");
+    const result = latestOccurrenceOnOrBefore(
+      start,
+      1,
+      new Date("2026-04-15T00:00:00.000Z"),
+    );
+    expect(toDateOnly(result)).toBe("2026-03-31");
+  });
+});
+
 describe("inclusiveLastDay", () => {
   it("gjør eksklusiv sluttdato om til siste inkluderte dag", () => {
     expect(inclusiveLastDay("2026-10-22")).toBe("2026-10-21");
@@ -55,15 +144,35 @@ describe("inclusiveLastDay", () => {
   });
 });
 
-describe("formatDateRange", () => {
-  it("viser én dato når start og slutt er samme dag", () => {
-    const text = formatDateRange("2026-10-19", "2026-10-19");
-    expect(text).toContain("19.");
-    expect(text).not.toContain("–");
+describe("formatDate", () => {
+  it("formaterer dato som ISO 8601", () => {
+    expect(formatDate(new Date("2026-10-19T00:00:00.000Z"))).toBe("2026-10-19");
   });
 
-  it("viser et intervall på tvers av dager", () => {
+  it("bruker fallback når datoen mangler", () => {
+    expect(formatDate(null, "Ingen dato")).toBe("Ingen dato");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("formaterer dato og klokkeslett som ISO 8601 i lokal tid", () => {
+    const date = new Date("2026-10-19T14:05:00");
+    expect(formatDateTime(date)).toBe("2026-10-19T14:05");
+  });
+
+  it("returnerer tom streng for manglende dato", () => {
+    expect(formatDateTime(null)).toBe("");
+  });
+});
+
+describe("formatDateRange", () => {
+  it("viser én ISO-dato når start og slutt er samme dag", () => {
+    const text = formatDateRange("2026-10-19", "2026-10-19");
+    expect(text).toBe("2026-10-19");
+  });
+
+  it("viser et ISO-intervall på tvers av dager", () => {
     const text = formatDateRange("2026-10-19", "2026-10-22");
-    expect(text).toContain("–");
+    expect(text).toBe("2026-10-19 – 2026-10-22");
   });
 });

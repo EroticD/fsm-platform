@@ -8,6 +8,7 @@ import {
 } from "@/lib/report-answers";
 import type { PdfImage } from "@/lib/report-images";
 import { MarkdownPdf } from "@/lib/markdown-pdf";
+import { formatDate } from "@/lib/dates";
 
 type TemplateFieldDef = {
   id: string;
@@ -37,6 +38,9 @@ type ReportUnit = {
 type RawReport = {
   id: string;
   templateId?: string | null;
+  /** Frosset mal-navn/-innhold fra da rapporten ble signert. */
+  templateTitle?: string | null;
+  templateSnapshotJson?: string | null;
   dataJson?: string | null;
   comments?: string | null;
   createdAt?: string | Date | null;
@@ -160,16 +164,19 @@ export default function ReportDocument({
   const blocks: ReportBlock[] = reports.map((report) => {
     const parsed = parseJsonObject(report.dataJson);
     const template = templates.find((t) => t.id === report.templateId) || null;
+    // Bruk øyeblikksbildet fra signeringstidspunktet. Den levende malen er bare
+    // en fallback for rapporter som ble laget før snapshots ble innført.
+    const fieldsSource = report.templateSnapshotJson ?? template?.fieldsJson ?? "[]";
     let fields: TemplateFieldDef[] = [];
     try {
-      const p = JSON.parse(template?.fieldsJson || "[]");
+      const p = JSON.parse(fieldsSource);
       if (Array.isArray(p)) fields = p;
     } catch {}
 
     return {
       id: report.id,
-      templateTitle: template?.title ?? null,
-      date: report.createdAt ? new Date(report.createdAt).toLocaleDateString("no-NO") : null,
+      templateTitle: report.templateTitle ?? template?.title ?? null,
+      date: formatDate(report.createdAt) || null,
       status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,
       answers:
@@ -536,7 +543,7 @@ export default function ReportDocument({
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>{companyName} – generert av FSM-plattformen</Text>
       <Text style={styles.footerText}>
-        {new Date().toLocaleDateString("no-NO")}
+        {formatDate(new Date())}
       </Text>
     </View>
   );
@@ -547,7 +554,7 @@ export default function ReportDocument({
       {url ? (
         // react-pdf tegner <Image> inn i PDF-en, ikke i DOM-en (og støtter ikke alt)
         // eslint-disable-next-line jsx-a11y/alt-text
-        <Image src={url} style={styles.signatureImage} />
+        <Image src={pdfImage(url).src} style={styles.signatureImage} />
       ) : (
         <Text style={styles.signatureMissing}>Ikke signert</Text>
       )}
@@ -614,7 +621,7 @@ export default function ReportDocument({
         <View style={styles.headerContainer}>
           {logoUrl ? (
             // eslint-disable-next-line jsx-a11y/alt-text
-            <Image src={logoUrl} style={styles.logo} />
+            <Image src={pdfImage(logoUrl).src} style={styles.logo} />
           ) : (
             <View />
           )}
@@ -637,7 +644,7 @@ export default function ReportDocument({
             <Text style={styles.value}>{workOrder.title || "Ikke angitt"}</Text>
             <Text style={styles.value}>Status: {workOrder.status || 'Ukjent'}</Text>
             <Text style={styles.value}>
-              Dato: {workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toLocaleDateString("no-NO") : "Ingen dato"}
+              Dato: {formatDate(workOrder.scheduledFor, "Ingen dato")}
             </Text>
             <Text style={styles.value}>
               Utførende tekniker: {technicianNames.length > 0 ? technicianNames.join(", ") : "Ikke angitt"}
