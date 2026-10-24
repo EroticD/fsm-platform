@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { Prisma } from "@prisma/client";
 import type { AccessUser } from "@/lib/access";
-import { canReadUpload } from "./upload-access";
+import { canReadUpload, claimUpload } from "./upload-access";
 
 function user(overrides: Partial<AccessUser>): AccessUser {
   return {
@@ -118,5 +119,166 @@ describe("canReadUpload", () => {
     expect(
       canReadUpload(user({ role: "OFFICE" }), { ...workOrderA, ownerType: "UKJENT" }),
     ).toBe(false);
+  });
+});
+
+type UploadRow = {
+  storedName: string;
+  ownerType: string;
+  ownerId: string | null;
+  departmentId: string | null;
+  customerId: string | null;
+  uploadedById: string | null;
+};
+
+/**
+ * Minimal etterligning av Prisma sin updateMany, med samme likhetslogikk som
+ * databasen: alle feltene i en OR-gren må matche (null matcher null).
+ */
+function fakeTx(rows: UploadRow[]) {
+  return {
+    upload: {
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: {
+          storedName: string;
+          OR: Array<Partial<UploadRow>>;
+        };
+        data: Partial<UploadRow>;
+      }) => {
+        let count = 0;
+        for (const row of rows) {
+          if (row.storedName !== where.storedName) continue;
+          const matches = where.OR.some((condition) =>
+            Object.entries(condition).every(
+              ([key, value]) => row[key as keyof UploadRow] === value,
+            ),
+          );
+          if (!matches) continue;
+          Object.assign(row, data);
+          count++;
+        }
+        return { count };
+      },
+    },
+  } as unknown as Prisma.TransactionClient;
+}
+
+function uploadRow(overrides: Partial<UploadRow>): UploadRow {
+  return {
+    storedName: "fil.pdf",
+    ownerType: "USER",
+    ownerId: "u1",
+    departmentId: "dept-a",
+    customerId: null,
+    uploadedById: "u1",
+    ...overrides,
+  };
+}
+
+describe("claimUpload", () => {
+  it("lar en bruker gjøre krav på sin egen private opplasting", async () => {
+    const row = uploadRow({});
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      departmentId: "dept-a",
+      customerId: "cust-1",
+    });
+
+    expect(result).toEqual({ claimed: true });
+    expect(row).toMatchObject({
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      departmentId: "dept-a",
+      customerId: "cust-1",
+    });
+  });
+
+  it("lar ikke en bruker gjøre krav på en annen brukers private opplasting", async () => {
+    const row = uploadRow({ ownerId: "u2", uploadedById: "u2" });
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      departmentId: "dept-a",
+      customerId: "cust-1",
+    });
+
+    expect(result).toEqual({ claimed: false });
+    expect(row).toMatchObject({ ownerType: "USER", ownerId: "u2" });
+  });
+
+  it("lar ikke en oppdragsfil flyttes til et annet oppdrag", async () => {
+    const row = uploadRow({
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      uploadedById: "u1",
+    });
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "WORK_ORDER",
+      ownerId: "wo2",
+      departmentId: "dept-b",
+      customerId: "cust-2",
+    });
+
+    expect(result).toEqual({ claimed: false });
+    expect(row).toMatchObject({
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      departmentId: "dept-a",
+    });
+  });
+
+  it("lar ikke en kundefil flyttes til en annen kunde", async () => {
+    const row = uploadRow({
+      ownerType: "CUSTOMER",
+      ownerId: "cust-1",
+      customerId: "cust-1",
+      uploadedById: "u1",
+    });
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "CUSTOMER",
+      ownerId: "cust-2",
+      departmentId: "dept-a",
+      customerId: "cust-2",
+    });
+
+    expect(result).toEqual({ claimed: false });
+    expect(row).toMatchObject({
+      ownerType: "CUSTOMER",
+      ownerId: "cust-1",
+      customerId: "cust-1",
+    });
+  });
+
+  it("tillater å legge ved en fil som allerede tilhører målet", async () => {
+    const row = uploadRow({
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      uploadedById: "u1",
+    });
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      departmentId: "dept-a",
+      customerId: "cust-1",
+    });
+
+    expect(result).toEqual({ claimed: true });
+  });
+
+  it("avviser filadresser utenfor opplastingsmappen", async () => {
+    const row = uploadRow({});
+    const result = await claimUpload(fakeTx([row]), "/etc/passwd", "u1", {
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      departmentId: "dept-a",
+      customerId: null,
+    });
+
+    expect(result).toEqual({ claimed: false });
+    expect(row.ownerType).toBe("USER");
   });
 });

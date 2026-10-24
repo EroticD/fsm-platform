@@ -37,7 +37,7 @@ import {
   cleanPhone,
   cleanText,
 } from "@/lib/sanitize";
-import { linkUploadOwner } from "@/lib/upload-access";
+import { claimUpload } from "@/lib/upload-access";
 import { uploadDir } from "@/lib/uploads";
 import {
   can,
@@ -982,7 +982,17 @@ export async function addCustomerAttachment(
 
   const displayName = fileName || "Vedlegg";
 
-  await prisma.$transaction(async (tx) => {
+  // Eierskapet til filen, vedlegget og revisjonen avgjøres i én transaksjon.
+  // En fil som allerede tilhører en annen kunde kan ikke flyttes over.
+  const claimed = await prisma.$transaction(async (tx) => {
+    const { claimed } = await claimUpload(tx, fileUrl, actor.id, {
+      ownerType: "CUSTOMER",
+      ownerId: customerId,
+      departmentId: customer.departmentId,
+      customerId,
+    });
+    if (!claimed) return false;
+
     const attachment = await tx.customerAttachment.create({
       data: { customerId, fileName: displayName, dataUrl: fileUrl },
     });
@@ -994,14 +1004,11 @@ export async function addCustomerAttachment(
       actor: toAuditActor(actor),
       metadata: { attachmentId: attachment.id },
     });
+
+    return true;
   });
 
-  await linkUploadOwner(fileUrl, {
-    ownerType: "CUSTOMER",
-    ownerId: customerId,
-    departmentId: customer.departmentId,
-    customerId,
-  });
+  if (!claimed) return fail("invalid");
 
   return ok(undefined);
 }

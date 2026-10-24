@@ -23,16 +23,17 @@ const mocks = vi.hoisted(() => ({
       delete: vi.fn(),
     },
     documentTag: { findMany: vi.fn() },
+    upload: { updateMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
-  linkUploadOwner: vi.fn(async () => {}),
+  claimUpload: vi.fn(async () => ({ claimed: true })),
   enqueuePdfText: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/upload-access", () => ({
-  linkUploadOwner: mocks.linkUploadOwner,
+  claimUpload: mocks.claimUpload,
 }));
 vi.mock("@/lib/pdf-queue", () => ({
   enqueuePdfText: mocks.enqueuePdfText,
@@ -106,6 +107,8 @@ beforeEach(() => {
   mocks.prisma.documentVersion.findUnique.mockResolvedValue(previousVersion);
   mocks.prisma.documentVersion.create.mockResolvedValue({});
   mocks.prisma.document.update.mockResolvedValue({});
+  mocks.prisma.upload.updateMany.mockResolvedValue({ count: 1 });
+  mocks.claimUpload.mockResolvedValue({ claimed: true });
 });
 
 describe("dokumenttjenesten – autorisasjon", () => {
@@ -217,6 +220,38 @@ describe("dokumenttjenesten – filstier", () => {
         filePath: "/uploads/0f7c1a9e-4a2b-4f8e-9f1a-123456789abc.pdf",
       }),
     });
+  });
+
+  it("avviser oppretting når brukeren ikke eier filen", async () => {
+    mocks.claimUpload.mockResolvedValue({ claimed: false });
+
+    const result = await createDocument(office(), {
+      title: "Manual",
+      fileUrl: "/uploads/lånt.pdf",
+      fileName: "lånt.pdf",
+      fileSize: "100",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.document.create).not.toHaveBeenCalled();
+    expect(mocks.enqueuePdfText).not.toHaveBeenCalled();
+  });
+
+  it("avviser filbytte når brukeren ikke eier den nye filen", async () => {
+    mocks.claimUpload.mockResolvedValue({ claimed: false });
+
+    const result = await updateDocument(office(), {
+      id: "doc-1",
+      title: "Manual",
+      fileUrl: "/uploads/lånt.pdf",
+      fileName: "lånt.pdf",
+      fileSize: "100",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.documentVersion.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.document.update).not.toHaveBeenCalled();
+    expect(mocks.enqueuePdfText).not.toHaveBeenCalled();
   });
 });
 
@@ -336,7 +371,7 @@ describe("dokumenttjenesten – filbytte", () => {
       where: { id: "doc-1" },
       data: expect.objectContaining({ filePath: "/uploads/helt-ny.pdf" }),
     });
-    expect(mocks.linkUploadOwner).toHaveBeenCalled();
+    expect(mocks.claimUpload).toHaveBeenCalled();
     expect(mocks.enqueuePdfText).toHaveBeenCalledWith("doc-1", "/uploads/helt-ny.pdf");
   });
 });

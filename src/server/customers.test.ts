@@ -50,6 +50,7 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   recurring: vi.fn(async () => ({ contractId: "contract" })),
+  claimUpload: vi.fn(async () => ({ claimed: true })),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -60,9 +61,13 @@ vi.mock("@/lib/departments", () => ({
   getActiveDepartments: vi.fn(async () => []),
   getDefaultDepartmentId: vi.fn(async () => "dep-a"),
 }));
-vi.mock("@/lib/upload-access", () => ({ linkUploadOwner: vi.fn() }));
+vi.mock("@/lib/upload-access", () => ({ claimUpload: mocks.claimUpload }));
+vi.mock("fs/promises", () => ({
+  default: { access: vi.fn(async () => undefined) },
+}));
 
 import {
+  addCustomerAttachment,
   createCustomer,
   deleteContact,
   toggleContract,
@@ -108,6 +113,7 @@ beforeEach(() => {
   mocks.prisma.auditLog.create.mockResolvedValue({});
   mocks.prisma.contact.findFirst.mockResolvedValue(null);
   mocks.prisma.contract.findUnique.mockResolvedValue(null);
+  mocks.claimUpload.mockResolvedValue({ claimed: true });
 });
 
 describe("kundetjenesten – autorisasjon", () => {
@@ -197,5 +203,26 @@ describe("kundetjenesten – revisjon og transaksjon", () => {
     expect(result).toEqual({ ok: false, reason: "error" });
     expect(auditCreate).toHaveBeenCalledTimes(1);
     expect(committed).toHaveLength(0);
+  });
+});
+
+describe("kundetjenesten – kundeverlegg", () => {
+  it("avviser vedlegget når brukeren ikke eier filen", async () => {
+    mocks.claimUpload.mockResolvedValue({ claimed: false });
+    mocks.prisma.customer.findUnique.mockResolvedValue({
+      id: "kunde-1",
+      departmentId: "dep-a",
+    });
+    mocks.prisma.customerAttachment.findFirst.mockResolvedValue(null);
+
+    const result = await addCustomerAttachment(office(), {
+      customerId: "kunde-1",
+      fileUrl: "/uploads/lant.pdf",
+      fileName: "lant.pdf",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.customerAttachment.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
