@@ -412,9 +412,9 @@ export async function changeWorkOrderStatus(
   const access = await requireAccess(user, "workorders.update", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
 
-  // Fullført er en låst tilstand. Administrator kan gjenåpne bevisst, men
-  // vanlige brukere må klone oppdraget for å gjøre mer arbeid.
-  if (access.status === "COMPLETED" && user.role !== "ADMIN") {
+  // Fullført er en låst tilstand. Skal det gjøres mer arbeid, klones
+  // oppdraget til et nytt; statusen kan ikke gjenåpnes herfra.
+  if (access.status === "COMPLETED") {
     return { ok: false, error: "workorder-locked" };
   }
 

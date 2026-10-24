@@ -615,7 +615,7 @@ export default async function AdminWorkOrderPage({
                     {t("orders.detail.completedLocked")}
                   </p>
                 )}
-                {canUpdate && (!isCompleted || isAdmin) ? (
+                {canUpdate && !isCompleted ? (
                   <form action={updateStatus} className="flex flex-col gap-3">
                     <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select

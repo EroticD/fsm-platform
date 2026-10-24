@@ -399,6 +399,25 @@ describe("work-orders-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("avviser statusendring på et fullført oppdrag også for administrator", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "COMPLETED",
+    });
+
+    const result = await changeWorkOrderStatus(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      "IN_PROGRESS",
+      "office",
+    );
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("kloner et oppdrag uten rapporter, kommentarer eller vedlegg", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
