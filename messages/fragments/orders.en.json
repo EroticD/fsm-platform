@@ -183,7 +183,8 @@
       "cloneWorkOrder": "📋 Clone work order",
       "completedLocked": "This work order is completed and locked. You can add comments or clone it into a new work order.",
       "reopenReason": "Reason for reopening / status change",
-      "reopenReasonPlaceholder": "Describe why the work order is reopened or the status is overridden"
+      "reopenReasonPlaceholder": "Describe why the work order is reopened or the status is overridden",
+      "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status."
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",

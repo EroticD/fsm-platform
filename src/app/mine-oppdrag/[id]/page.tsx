@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
+import { allowedTransitions } from "@/lib/work-order-status";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
 import {
   addComment,
@@ -83,6 +85,19 @@ export default async function TechnicianWorkOrderPage({
   const isAdmin = user.role === "ADMIN";
   const canUpdate = hasPermission(user, "workorders.update");
   const canEdit = hasPermission(user, "workorders.edit");
+
+  const statusLabels: Record<WorkStatus, string> = {
+    OPEN: t("orders.fieldDetail.statusOpen"),
+    PENDING: t("orders.fieldDetail.statusPending"),
+    PLANNED: t("orders.fieldDetail.statusPending"),
+    IN_PROGRESS: t("orders.fieldDetail.statusInProgress"),
+    WAITING: t("orders.fieldDetail.statusPending"),
+    COMPLETED: t("orders.fieldDetail.statusCompleted"),
+    CANCELLED: t("orders.fieldDetail.statusCancelled"),
+  };
+  const statusOptions = allowedTransitions(workOrder.status, false).filter(
+    (status) => status !== "CANCELLED" || canEdit,
+  );
   const canWriteReports = hasPermission(user, "reports.write");
 
   const allUsers = await prisma.user.findMany({
@@ -157,11 +172,14 @@ export default async function TechnicianWorkOrderPage({
                     defaultValue={workOrder.status}
                     className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
                   >
-                    <option value="OPEN">{t("orders.fieldDetail.statusOpen")}</option>
-                    <option value="PENDING">{t("orders.fieldDetail.statusPending")}</option>
-                    <option value="IN_PROGRESS">{t("orders.fieldDetail.statusInProgress")}</option>
-                    <option value="COMPLETED">{t("orders.fieldDetail.statusCompleted")}</option>
-                    {canEdit && <option value="CANCELLED">{t("orders.fieldDetail.statusCancelled")}</option>}
+                    <option value={workOrder.status} disabled>
+                      {statusLabels[workOrder.status]}
+                    </option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {statusLabels[status]}
+                      </option>
+                    ))}
                   </select>
                   <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap">
                     {t("orders.fieldDetail.update")}

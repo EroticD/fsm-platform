@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -28,6 +29,7 @@ import {
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
+import { allowedTransitions } from "@/lib/work-order-status";
 
 type ReportField = {
   id: string;
@@ -334,6 +336,21 @@ export default async function AdminWorkOrderPage({
   const canWriteReports = hasPermission(user, "reports.write");
   const canManageCustomers = hasPermission(user, "customers.manage");
 
+  const statusLabels: Record<WorkStatus, string> = {
+    OPEN: t("orders.detail.statusOpen"),
+    PENDING: t("orders.detail.statusPending"),
+    PLANNED: t("orders.detail.statusPending"),
+    IN_PROGRESS: t("orders.detail.statusInProgress"),
+    WAITING: t("orders.detail.statusPending"),
+    COMPLETED: t("orders.detail.statusCompleted"),
+    CANCELLED: t("orders.detail.statusCancelled"),
+  };
+  const statusOptions = isAdmin
+    ? Object.values(WorkStatus).filter((status) => status !== workOrder.status)
+    : allowedTransitions(workOrder.status, false).filter(
+        (status) => status !== "CANCELLED" || canEdit,
+      );
+
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
   const allTags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
@@ -464,6 +481,12 @@ export default async function AdminWorkOrderPage({
                 <div className="flex justify-between items-center mb-4 border-b pb-2">
                   <h2 className="font-black text-lg text-gray-900">{t("orders.detail.checklistsTitle")}</h2>
                 </div>
+
+                {!isCompleted && workOrder.reports.some((report) => report.isLocked) && (
+                  <p className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-900">
+                    {t("orders.detail.checklistLockedOnly")}
+                  </p>
+                )}
 
                 {workOrder.templates.length === 0 ? (
                   <p className="text-sm text-gray-500 italic mb-4">{t("orders.detail.noChecklists")}</p>
@@ -623,11 +646,14 @@ export default async function AdminWorkOrderPage({
                       defaultValue={workOrder.status}
                       className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
                     >
-                      <option value="OPEN">{t("orders.detail.statusOpen")}</option>
-                      <option value="PENDING">{t("orders.detail.statusPending")}</option>
-                      <option value="IN_PROGRESS">{t("orders.detail.statusInProgress")}</option>
-                      <option value="COMPLETED">{t("orders.detail.statusCompleted")}</option>
-                      {canEdit && <option value="CANCELLED">{t("orders.detail.statusCancelled")}</option>}
+                      <option value={workOrder.status} disabled>
+                        {statusLabels[workOrder.status]}
+                      </option>
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {statusLabels[status]}
+                        </option>
+                      ))}
                     </select>
                     {isAdmin && (
                       <label className="text-xs font-bold text-gray-600">

@@ -380,6 +380,50 @@ describe("work-orders-tjenesten", () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it("låst sjekkliste blokkerer ikke redigering av et ikke-fullført oppdrag", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      status: "IN_PROGRESS",
+      reports: [{ isLocked: true }],
+    });
+    withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("låst sjekkliste blokkerer ikke lovlig statusendring", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "PENDING",
+      reports: [{ isLocked: true }],
+    });
+    withTransaction();
+
+    const result = await changeWorkOrderStatus(
+      actor(),
+      "wo-1",
+      "PLANNED",
+      "office",
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
   it("avviser statusendring på et fullført oppdrag for ikke-admin", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
