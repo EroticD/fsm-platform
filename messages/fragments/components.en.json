@@ -59,6 +59,7 @@
       "groups": {
         "customer": "Customers",
         "workOrder": "Work orders",
+        "tag": "Tags",
         "unit": "Equipment",
         "contact": "Contacts",
         "report": "Reports",

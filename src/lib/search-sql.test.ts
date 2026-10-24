@@ -10,8 +10,11 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   isAllowedNameSearchField,
+  isAllowedSubstringSearchField,
   searchByName,
+  searchBySubstring,
   searchDocuments,
+  searchWorkOrderIds,
 } from "@/lib/search-sql";
 
 type SqlCall = { text: string; values: unknown[] };
@@ -97,5 +100,66 @@ describe("searchByName", () => {
     expect(isAllowedNameSearchField("WorkOrder", "title")).toBe(true);
     expect(isAllowedNameSearchField("Customer", "notes")).toBe(false);
     expect(isAllowedNameSearchField("Document", "contentText")).toBe(false);
+  });
+});
+
+describe("searchBySubstring", () => {
+  it("normaliserer ordrenummer og bruker delstrengsøk", async () => {
+    await searchBySubstring("WorkOrder", "orderNumber", "2026-1042", 10);
+    const sql = lastSql();
+
+    expect(sql.text).toContain('"WorkOrder"."orderNumber"');
+    expect(sql.text).toContain("unaccent");
+    expect(sql.text).toContain("regexp_replace");
+    expect(sql.text).toContain("strpos");
+    expect(sql.text).toContain('"WorkOrder"."deletedAt" IS NULL');
+    // Bindestreken er blitt mellomrom før den sendes til databasen.
+    expect(sql.values).toContain("2026 1042");
+    expect(sql.text).not.toContain("2026-1042");
+  });
+
+  it("søker i tag-navn uten slettemarkør", async () => {
+    await searchBySubstring("Tag", "name", "Årlig-service", 10);
+    const sql = lastSql();
+
+    expect(sql.text).toContain('"Tag"."name"');
+    expect(sql.text).not.toContain("deletedAt");
+    expect(sql.values).toContain("arlig service");
+  });
+
+  it("avviser tabell/kolonne som ikke står i allowlisten", async () => {
+    await expect(
+      searchBySubstring("Document" as never, "contentText" as never, "hemmelig", 10),
+    ).rejects.toThrow("Ugyldig tabell/kolonne");
+
+    expect(mocks.queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("vet hvilke kolonner som kan delstrengsøkes", () => {
+    expect(isAllowedSubstringSearchField("WorkOrder", "orderNumber")).toBe(true);
+    expect(isAllowedSubstringSearchField("WorkOrder", "title")).toBe(true);
+    expect(isAllowedSubstringSearchField("Tag", "name")).toBe(true);
+    expect(isAllowedSubstringSearchField("Customer", "name")).toBe(false);
+    expect(isAllowedSubstringSearchField("Document", "contentText")).toBe(false);
+  });
+});
+
+describe("searchWorkOrderIds", () => {
+  it("søker i ordrenummer, tagger og kundefelt med normalisert term", async () => {
+    mocks.queryRaw.mockResolvedValueOnce([{ id: "wo-1" }]);
+
+    await expect(searchWorkOrderIds("2026-1042")).resolves.toEqual(["wo-1"]);
+    const sql = lastSql();
+
+    expect(sql.text).toContain('w."orderNumber"');
+    expect(sql.text).toContain('"_WorkOrderTags"');
+    expect(sql.text).toContain('"Tag"');
+    expect(sql.text).toContain('w."deletedAt" IS NULL');
+    expect(sql.values).toContain("2026 1042");
+  });
+
+  it("returnerer ingen id-er for tomt søk", async () => {
+    await expect(searchWorkOrderIds(" --- ")).resolves.toEqual([]);
+    expect(mocks.queryRaw).not.toHaveBeenCalled();
   });
 });

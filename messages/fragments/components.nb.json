@@ -59,6 +59,7 @@
       "groups": {
         "customer": "Kunder",
         "workOrder": "Oppdrag",
+        "tag": "Tagger",
         "unit": "Utstyr",
         "contact": "Kontaktpersoner",
         "report": "Rapporter",
