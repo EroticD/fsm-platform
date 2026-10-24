@@ -39,6 +39,19 @@ function fold(line: string): string {
   return parts.join("\r\n");
 }
 
+/** Leser om brukeren har en aktiv kalenderlenke. */
+export async function getCalendarTokenStatus(
+  actor: ServiceActor,
+): Promise<ServiceResult<{ token: string | null }>> {
+  if (!actor.isActive) return fail("forbidden");
+  const user = await prisma.user.findUnique({
+    where: { id: actor.id },
+    select: { calendarToken: true },
+  });
+  if (!user) return fail("not_found");
+  return ok({ token: user.calendarToken });
+}
+
 /** Oppretter eller gjenbruker en personlig iCal-token. */
 export async function getOrCreateCalendarToken(
   actor: ServiceActor,
