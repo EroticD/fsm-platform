@@ -9,7 +9,7 @@ ARG PRISMA_VERSION=7.10.1
 # base – felles utgangspunkt. Debian (glibc) brukes fordi Prismas query-engine
 # er kompilert mot OpenSSL 3.0, som er det som finnes i Debian bookworm.
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates tzdata \
