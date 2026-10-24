@@ -20,11 +20,13 @@ export async function transitionWorkOrderStatus(params: {
   from: WorkStatus;
   to: WorkStatus;
   isAdmin: boolean;
+  /** Administrator kan bevisst overstyre tilstandsmaskinen (med grunn). */
+  force?: boolean;
   actor: AuditActor;
   action: string;
   metadata?: Prisma.InputJsonValue;
 }): Promise<StatusTransitionResult> {
-  if (!canTransition(params.from, params.to, params.isAdmin)) {
+  if (!params.force && !canTransition(params.from, params.to, params.isAdmin)) {
     return { ok: false, error: "ugyldig-status" };
   }
 

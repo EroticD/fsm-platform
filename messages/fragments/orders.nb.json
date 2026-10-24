@@ -181,7 +181,9 @@
       "noDeletedOrders": "Ingen slettede oppdrag.",
       "deletedAt": "Slettet {date}",
       "cloneWorkOrder": "📋 Klon oppdrag",
-      "completedLocked": "Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag."
+      "completedLocked": "Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
+      "reopenReason": "Grunn til gjenåpning / statusendring",
+      "reopenReasonPlaceholder": "Beskriv hvorfor oppdraget gjenåpnes eller statusen overstyres"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -470,7 +472,8 @@
       "department": "Oppdraget må tilhøre en avdeling. Be en administrator legge deg til i en aktiv avdeling, eller opprett en avdeling først.",
       "invalidData": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.",
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
-      "workOrderLocked": "🔒 Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det."
+      "workOrderLocked": "🔒 Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det.",
+      "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen."
     },
     "reportsPage": {
       "title": "Servicerapporter",

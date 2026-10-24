@@ -111,6 +111,7 @@ export async function updateStatus(formData: FormData) {
     workOrderId,
     formData.get("status"),
     "office",
+    formData.get("reason"),
   );
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 

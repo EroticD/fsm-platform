@@ -615,7 +615,7 @@ export default async function AdminWorkOrderPage({
                     {t("orders.detail.completedLocked")}
                   </p>
                 )}
-                {canUpdate && !isCompleted ? (
+                {canUpdate && (!isCompleted || isAdmin) ? (
                   <form action={updateStatus} className="flex flex-col gap-3">
                     <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select
@@ -629,6 +629,19 @@ export default async function AdminWorkOrderPage({
                       <option value="COMPLETED">{t("orders.detail.statusCompleted")}</option>
                       {canEdit && <option value="CANCELLED">{t("orders.detail.statusCancelled")}</option>}
                     </select>
+                    {isAdmin && (
+                      <label className="text-xs font-bold text-gray-600">
+                        {t("orders.detail.reopenReason")}
+                        <textarea
+                          name="reason"
+                          rows={2}
+                          maxLength={1000}
+                          required={isCompleted}
+                          placeholder={t("orders.detail.reopenReasonPlaceholder")}
+                          className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
+                        />
+                      </label>
+                    )}
                     <button type="submit" className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
                       {t("orders.detail.updateStatus")}
                     </button>

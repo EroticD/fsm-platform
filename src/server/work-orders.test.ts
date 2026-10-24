@@ -399,7 +399,7 @@ describe("work-orders-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("avviser statusendring på et fullført oppdrag også for administrator", async () => {
+  it("krever grunn når administrator gjenåpner et fullført oppdrag", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -414,8 +414,71 @@ describe("work-orders-tjenesten", () => {
       "office",
     );
 
-    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(result).toEqual({ ok: false, error: "reason-required" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar administrator gjenåpne et fullført oppdrag med grunn og logger grunnen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "COMPLETED",
+    });
+    const tx = withTransaction();
+
+    const result = await changeWorkOrderStatus(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      "IN_PROGRESS",
+      "office",
+      "Kunden oppdaget mangler ved signeringen",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining(
+          "Grunn: Kunden oppdaget mangler ved signeringen",
+        ),
+        metadata: {
+          from: "COMPLETED",
+          to: "IN_PROGRESS",
+          reason: "Kunden oppdaget mangler ved signeringen",
+          override: true,
+        },
+      }),
+    });
+  });
+
+  it("lar administrator overstyre en ulovlig statusovergang med grunn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "PENDING",
+    });
+    const tx = withTransaction();
+
+    const result = await changeWorkOrderStatus(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      "IN_PROGRESS",
+      "office",
+      "Oppdraget skulle vært påbegynt",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: {
+          from: "PENDING",
+          to: "IN_PROGRESS",
+          reason: "Oppdraget skulle vært påbegynt",
+          override: true,
+        },
+      }),
+    });
   });
 
   it("kloner et oppdrag uten rapporter, kommentarer eller vedlegg", async () => {

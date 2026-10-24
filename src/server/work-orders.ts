@@ -28,6 +28,7 @@ import {
   workOrderUpdateSchema,
 } from "@/lib/schemas";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
+import { canTransition } from "@/lib/work-order-status";
 
 /**
  * Tjenestelaget for oppdrag.
@@ -48,6 +49,7 @@ export type WorkOrderError =
   | "ugyldig-data"
   | "ugyldig-status"
   | "workorder-locked"
+  | "reason-required"
   | "avdeling"
   | "ukjent";
 
@@ -408,21 +410,29 @@ export async function changeWorkOrderStatus(
   workOrderId: string,
   rawStatus: unknown,
   context: StatusContext,
+  rawReason?: unknown,
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.update", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
-
-  // Fullført er en låst tilstand. Skal det gjøres mer arbeid, klones
-  // oppdraget til et nytt; statusen kan ikke gjenåpnes herfra.
-  if (access.status === "COMPLETED") {
-    return { ok: false, error: "workorder-locked" };
-  }
 
   const parsed = workOrderStatusSchema.safeParse({
     status: cleanStatus(rawStatus),
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
   const status = parsed.data.status as WorkStatus;
+  const from = access.status as WorkStatus;
+
+  // Fullført er låst for vanlige brukere. Administrator kan gjenåpne eller
+  // overstyre en ulovlig statusovergang, men bare med en skriftlig grunn som
+  // havner i revisjonsloggen.
+  const adminOverride =
+    user.role === "ADMIN" &&
+    (from === "COMPLETED" || !canTransition(from, status, false));
+  const reason = cleanText(rawReason, { maxLength: 1000 });
+  if (adminOverride && !reason) return { ok: false, error: "reason-required" };
+  if (from === "COMPLETED" && user.role !== "ADMIN") {
+    return { ok: false, error: "workorder-locked" };
+  }
 
   // Montører kan oppdatere fremdrift, men ikke lukke oppdraget slik at det
   // forsvinner fra feltportalen.
@@ -433,15 +443,21 @@ export async function changeWorkOrderStatus(
   const action =
     context === "field"
       ? `Montør endret status til: ${status}`
-      : `${user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`;
+      : adminOverride
+        ? `Administrator overstyrte status ${from} → ${status}. Grunn: ${reason}`
+        : `${user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`;
 
   const result = await transitionWorkOrderStatus({
     workOrderId,
-    from: access.status as WorkStatus,
+    from,
     to: status,
     isAdmin: user.role === "ADMIN",
+    force: adminOverride,
     actor: auditActor(user),
     action,
+    ...(adminOverride
+      ? { metadata: { from, to: status, reason, override: true } }
+      : {}),
   });
 
   if (result.ok && status === "CANCELLED") {
