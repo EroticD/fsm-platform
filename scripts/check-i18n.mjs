@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Sjekker at nb.json og en.json har samme nøkler, og rapporterer hardkodede
- * norske strenger i JSX.
+ * Sjekker at nb og en har samme nøkler, og rapporterer hardkodede norske
+ * strenger i JSX.
  *
  *   node scripts/check-i18n.mjs            # parity er streng, hardkodet er varsel
  *   node scripts/check-i18n.mjs --strict   # også hardkodet norsk feiler
@@ -10,8 +10,42 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const nb = JSON.parse(fs.readFileSync(path.join(root, "messages/nb.json"), "utf8"));
-const en = JSON.parse(fs.readFileSync(path.join(root, "messages/en.json"), "utf8"));
+
+function deepMerge(base, extra) {
+  const result = { ...base };
+  for (const [key, value] of Object.entries(extra)) {
+    const existing = result[key];
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      existing &&
+      typeof existing === "object" &&
+      !Array.isArray(existing)
+    ) {
+      result[key] = deepMerge(existing, value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+function readMessages(lang) {
+  const base = JSON.parse(
+    fs.readFileSync(path.join(root, `messages/${lang}.json`), "utf8"),
+  );
+  const fragmentsDir = path.join(root, "messages/fragments");
+  let merged = base.common ?? {};
+  for (const file of fs.readdirSync(fragmentsDir)) {
+    if (!file.endsWith(`.${lang}.json`)) continue;
+    const fragment = JSON.parse(
+      fs.readFileSync(path.join(fragmentsDir, file), "utf8"),
+    );
+    merged = deepMerge(merged, fragment);
+  }
+  return merged;
+}
 
 function flatten(value, prefix = "", out = []) {
   for (const [key, child] of Object.entries(value)) {
@@ -25,8 +59,8 @@ function flatten(value, prefix = "", out = []) {
   return out;
 }
 
-const nbKeys = new Set(flatten(nb));
-const enKeys = new Set(flatten(en));
+const nbKeys = new Set(flatten(readMessages("nb")));
+const enKeys = new Set(flatten(readMessages("en")));
 const missingInEn = [...nbKeys].filter((key) => !enKeys.has(key));
 const missingInNb = [...enKeys].filter((key) => !nbKeys.has(key));
 
@@ -34,10 +68,10 @@ let failed = false;
 if (missingInEn.length || missingInNb.length) {
   failed = true;
   console.error("✖ i18n: nøklene stemmer ikke");
-  if (missingInEn.length) console.error("  Mangler i en.json:", missingInEn.join(", "));
-  if (missingInNb.length) console.error("  Mangler i nb.json:", missingInNb.join(", "));
+  if (missingInEn.length) console.error("  Mangler i en:", missingInEn.join(", "));
+  if (missingInNb.length) console.error("  Mangler i nb:", missingInNb.join(", "));
 } else {
-  console.log(`✓ i18n: ${nbKeys.size} nøkler i begge filer`);
+  console.log(`✓ i18n: ${nbKeys.size} nøkler i begge språk`);
 }
 
 function walk(directory, out = []) {
@@ -57,6 +91,7 @@ for (const file of walk(path.join(root, "src"))) {
   for (const match of source.matchAll(norwegianText)) {
     const text = match[0].slice(1, -1).trim();
     if (text.length < 2) continue;
+    if (/[;=()]/.test(text)) continue; // hopp over kode som treffer regexen
     hardcoded.push(`${path.relative(root, file)}: ${text.slice(0, 70)}`);
   }
 }
