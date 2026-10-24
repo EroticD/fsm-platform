@@ -76,6 +76,11 @@ describe("kundeportaltjenesten", () => {
           deletedAt: null,
           reports: { some: { deletedAt: null } },
         },
+        select: expect.objectContaining({
+          reports: expect.objectContaining({
+            where: { deletedAt: null },
+          }),
+        }),
       }),
     );
   });
@@ -118,7 +123,15 @@ describe("kundeportaltjenesten", () => {
         customerAcknowledgedComment: "Mottatt",
       }),
     });
-    expect(mocks.audit).toHaveBeenCalled();
+    expect(mocks.audit).toHaveBeenCalledWith(
+      mocks.prisma,
+      expect.objectContaining({
+        entityType: "Report",
+        entityId: "r1",
+        action: "Kunden kvitterte for rapporten",
+        metadata: { workOrderId: "wo1" },
+      }),
+    );
   });
 
   it("er idempotent når rapporten allerede er kvittert", async () => {

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   },
   storeDataImage: vi.fn(),
   deleteUploadIfOwned: vi.fn(),
+  getOrRenderReportPdf: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -37,6 +38,9 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/upload-store", () => ({
   storeDataImage: mocks.storeDataImage,
   deleteUploadIfOwned: mocks.deleteUploadIfOwned,
+}));
+vi.mock("@/lib/report-pdf-store", () => ({
+  getOrRenderReportPdf: mocks.getOrRenderReportPdf,
 }));
 
 import {
@@ -126,6 +130,9 @@ function revisionSource(overrides: Record<string, unknown> = {}) {
     technicianName: "Kari",
     customerSignatureUrl: "/uploads/kunde-gammel.png",
     customerName: "Kunde",
+    customerAcknowledgedAt: null,
+    customerAcknowledgedBy: null,
+    customerAcknowledgedComment: null,
     units: [
       {
         id: "unit-1",
@@ -749,6 +756,69 @@ describe("reports-tjenesten", () => {
     );
   });
 
+  it("nullstiller kundens kvittering ved ny innsending og logger tilbaketrekkingen", async () => {
+    const acknowledgedAt = new Date("2026-02-01T12:00:00.000Z");
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () =>
+            revisionSource({
+              revision: 2,
+              customerAcknowledgedAt: acknowledgedAt,
+              customerAcknowledgedBy: "Kunde",
+              customerAcknowledgedComment: "Mottatt",
+            }),
+          ),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+
+    // Revisjonen bevarer den gamle kvitteringen, slik at den signerte
+    // versjonen kan dokumenteres også etter at den er trukket tilbake.
+    expect(tx.reportRevision.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        revision: 2,
+        customerAcknowledgedAt: acknowledgedAt,
+        customerAcknowledgedBy: "Kunde",
+        customerAcknowledgedComment: "Mottatt",
+      }),
+    });
+
+    // Den nye versjonen må kvitteres på nytt av kunden.
+    expect(tx.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerAcknowledgedAt: null,
+          customerAcknowledgedBy: null,
+          customerAcknowledgedComment: null,
+          revision: { increment: 1 },
+        }),
+      }),
+    );
+
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Report",
+        entityId: "r1",
+        action: expect.stringContaining("kvittering"),
+        metadata: expect.objectContaining({
+          workOrderId: "wo1",
+          acknowledgedAt: acknowledgedAt.toISOString(),
+          acknowledgedBy: "Kunde",
+        }),
+      }),
+    });
+  });
+
   it("sletter ikke forrige signaturfil ved ny innsending", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue({
@@ -790,6 +860,14 @@ describe("reports-tjenesten", () => {
 });
 
 describe("getReportPdfForViewer", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getOrRenderReportPdf.mockResolvedValue({
+      buffer: Buffer.from("%PDF"),
+      fileName: "kunde-servicerapport",
+    });
+  });
+
   it("avviser CUSTOMER uten customerId selv om oppdraget mangler kunde", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: null,
@@ -818,10 +896,11 @@ describe("getReportPdfForViewer", () => {
     );
 
     expect(result).toMatchObject({ ok: false, status: 403 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
   });
 
-  it("avviser montør i en annen avdeling", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+  it("lar ansatt med reports.view hente rapport fra en annen avdeling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
       departmentId: "dep-b",
       status: "OPEN",
@@ -830,7 +909,38 @@ describe("getReportPdfForViewer", () => {
 
     const result = await getReportPdfForViewer(actor(), "wo1");
 
+    expect(result).toMatchObject({ ok: true });
+    expect(mocks.getOrRenderReportPdf).toHaveBeenCalledWith("wo1", undefined);
+  });
+
+  it("slår bare opp ikke-slettede oppdrag og rapporter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      reports: [{ id: "r1" }],
+    });
+
+    await getReportPdfForViewer(actor(), "wo1");
+
+    expect(mocks.prisma.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "wo1", deletedAt: null },
+        select: expect.objectContaining({
+          reports: expect.objectContaining({ where: { deletedAt: null } }),
+        }),
+      }),
+    );
+  });
+
+  it("avviser ansatt uten reports.view", async () => {
+    const result = await getReportPdfForViewer(
+      actor({ permissionsCustomized: true, permissions: [] }),
+      "wo1",
+    );
+
     expect(result).toMatchObject({ ok: false, status: 403 });
+    expect(mocks.prisma.workOrder.findFirst).not.toHaveBeenCalled();
   });
 
   it("avviser montør på et kansellert oppdrag", async () => {
