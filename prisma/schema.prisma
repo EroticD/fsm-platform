@@ -284,6 +284,8 @@ model WorkOrder {
   /// Myk sletting: oppdraget skjules fra lister, men kan gjenopprettes.
   deletedAt    DateTime?
   deletedBy    String?
+  /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
+  legalHold    Boolean  @default(false)
 
   technicians User[] @relation("WorkOrderTechnicians")
 
@@ -458,6 +460,8 @@ model Report {
 
   deletedAt DateTime?
   deletedBy String?
+  /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
+  legalHold Boolean @default(false)
 
   units ReportUnit[]
   revisions ReportRevision[]

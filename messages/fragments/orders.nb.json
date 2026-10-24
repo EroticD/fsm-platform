@@ -172,7 +172,14 @@
         "approvedShort": "✅ Godkjent",
         "answersTitle": "Svar på sjekkpunkter:",
         "generalNotes": "Generelle notater fra montør:"
-      }
+      },
+      "unlockReason": "Årsak til opplåsing",
+      "unlockReasonPlaceholder": "Beskriv hva som skal rettes",
+      "unlockReasonRequired": "Du må oppgi en årsak til opplåsingen.",
+      "deletedOrders": "Slettede oppdrag",
+      "restore": "Gjenopprett",
+      "noDeletedOrders": "Ingen slettede oppdrag.",
+      "deletedAt": "Slettet {date}"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",

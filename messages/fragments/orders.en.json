@@ -172,7 +172,14 @@
         "approvedShort": "✅ Approved",
         "answersTitle": "Answers to checkpoints:",
         "generalNotes": "General notes from the technician:"
-      }
+      },
+      "unlockReason": "Reason for unlocking",
+      "unlockReasonPlaceholder": "Describe what needs to be corrected",
+      "unlockReasonRequired": "You must provide a reason for unlocking.",
+      "deletedOrders": "Deleted work orders",
+      "restore": "Restore",
+      "noDeletedOrders": "No deleted work orders.",
+      "deletedAt": "Deleted {date}"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
