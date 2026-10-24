@@ -103,8 +103,12 @@ model User {
   // Kladder for sjekklister brukeren har begynt å fylle ut.
   reportDrafts ReportDraft[]
 
-  // Kalenderabonnement (iCal). Tilfeldig token som kan tilbakekalles.
-  calendarToken String? @unique
+  // Kalenderabonnement (iCal). Token lagres hashet; plaintext-kolonnen fjernes
+  // i en egen migrering etter at SEC-6-koden er merget.
+  calendarToken          String?   @unique
+  calendarTokenHash      String?   @unique
+  calendarTokenCreatedAt DateTime?
+  calendarTokenLastUsedAt DateTime?
 
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
@@ -133,6 +137,13 @@ model Customer {
   email      String?
   notes      String?
 
+  /// Standard timepris for kunden når avtalen ikke overstyrer den.
+  hourlyRate Decimal? @db.Decimal(12, 2)
+
+  /// Myk sletting: raden beholdes for historikk/revisjon.
+  deletedAt DateTime?
+  deletedBy String?
+
   // Valgfri tilhørighet: hvilken avdeling og eventuelt hvilken montør som er
   // ansvarlig for kunden. Brukes blant annet i kundeportalen for å vise riktig
   // lokasjon og direkte kontaktinfo.
@@ -158,6 +169,7 @@ model Customer {
   @@index([orgNumber])
   @@index([name])
   @@index([customerNumber])
+  @@index([deletedAt])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_name_trgm")
   @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_city_trgm")
 }
@@ -211,6 +223,8 @@ model Contract {
   /// Neste dato det skal opprettes et oppdrag for.
   nextServiceDate DateTime @db.Date
   isActive        Boolean  @default(true)
+  /// Avtalens timepris. Overstyrer kundens standardpris.
+  hourlyRate      Decimal? @db.Decimal(12, 2)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
@@ -269,6 +283,9 @@ model WorkOrder {
   creatorName  String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @default(now()) @updatedAt
+  /// Myk sletting: oppdraget skjules fra lister, men kan gjenopprettes.
+  deletedAt    DateTime?
+  deletedBy    String?
 
   technicians User[] @relation("WorkOrderTechnicians")
 
@@ -305,6 +322,7 @@ model WorkOrder {
   @@index([scheduledFor])
   @@index([contractId])
   @@index([scheduledTo])
+  @@index([deletedAt])
 
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
   @@unique([contractId, scheduledFor])
@@ -363,11 +381,14 @@ model Document {
   uploadedBy String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  deletedBy  String?
 
   versions DocumentVersion[]
 
   @@index([folderId])
   @@index([title])
+  @@index([deletedAt])
   @@index([searchTsv], type: Gin, map: "Document_searchTsv")
 }
 
@@ -434,12 +455,42 @@ model Report {
   customerAcknowledgedBy      String?
   customerAcknowledgedComment String?
 
+  /// Revisjonsnummer. Økes for hver endring som lagres som revisjon.
+  revision Int @default(0)
+
+  deletedAt DateTime?
+  deletedBy String?
+
   units ReportUnit[]
+  revisions ReportRevision[]
 
   @@unique([workOrderId, templateId])
   @@index([workOrderId])
   @@index([completedAt])
   @@index([workOrderId, createdAt])
+  @@index([deletedAt])
+}
+
+/// Uforanderlig øyeblikksbilde av en rapport før en endring. Signerte rapporter
+/// skal alltid kunne rekonstrueres, selv om de låses opp og endres senere.
+model ReportRevision {
+  id                   String   @id @default(cuid())
+  reportId             String
+  report               Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  revision             Int
+  dataJson             String
+  unitsJson            String
+  templateSnapshotJson String?
+  technicianSignatureUrl String?
+  customerSignatureUrl   String?
+  technicianName       String?
+  customerName         String?
+  reason               String?
+  createdById          String?
+  createdAt            DateTime @default(now())
+
+  @@unique([reportId, revision])
+  @@index([reportId, createdAt])
 }
 
 // Én enhet som inngår i en rapport. Feltene er øyeblikksbilder av enheten slik
@@ -597,13 +648,15 @@ model Notification {
   /// Unik nøkkel per hendelse, slik at samme varsel ikke lages to ganger.
   dedupeKey String?  @unique
   /// E-postkvittering: null betyr at varselet fortsatt venter på utsending.
-  emailSentAt DateTime?
-  emailError  String?
-  createdAt   DateTime @default(now())
+  emailSentAt       DateTime?
+  emailError        String?
+  emailAttempts     Int      @default(0)
+  emailNextAttemptAt DateTime @default(now())
+  createdAt         DateTime @default(now())
 
   @@index([userId, readAt, createdAt])
   @@index([createdAt])
-  @@index([emailSentAt])
+  @@index([emailSentAt, emailNextAttemptAt])
 }
 
 model NotificationPreference {
@@ -629,6 +682,9 @@ model TimeEntry {
   description String?
   billable    Boolean   @default(true)
   hourlyRate  Decimal?  @db.Decimal(10, 2)
+  /// Bruker-id mens timeren er aktiv, null når den er avsluttet. Unikheten
+  /// gir samme garanti som en partiell unik indeks på (userId) WHERE endedAt IS NULL.
+  activeKey   String?   @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
