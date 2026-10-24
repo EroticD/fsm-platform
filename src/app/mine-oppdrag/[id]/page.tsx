@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import MarkdownEditor from "@/components/MarkdownEditor";
@@ -30,6 +31,7 @@ export default async function TechnicianWorkOrderPage({
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
 
+  const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
@@ -64,10 +66,10 @@ export default async function TechnicianWorkOrderPage({
   if (!workOrder) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Oppdraget finnes ikke</h1>
-        <p className="text-gray-500 mb-4">Det kan ha blitt slettet, eller så er lenken feil.</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("orders.fieldDetail.notFoundTitle")}</h1>
+        <p className="text-gray-500 mb-4">{t("orders.fieldDetail.notFoundText")}</p>
         <Link href="/mine-oppdrag" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
-          Gå tilbake til oversikten
+          {t("orders.fieldDetail.backToOverview")}
         </Link>
       </div>
     );
@@ -87,10 +89,10 @@ export default async function TechnicianWorkOrderPage({
     orderBy: { name: 'asc' },
     take: 100,
   });
-  const availableUsers = allUsers.filter(u => !workOrder.technicians.some(t => t.id === u.id));
+  const availableUsers = allUsers.filter(u => !workOrder.technicians.some((tech) => tech.id === u.id));
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
-  const availableTemplates = allTemplates.filter(t => !workOrder.templates.some(wt => wt.id === t.id));
+  const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -100,8 +102,8 @@ export default async function TechnicianWorkOrderPage({
         <div className="flex justify-between items-start border-b pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-gray-900">{workOrder.title}</h1>
-            <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || "Uten kunde"}</p>
-            <p className="text-xs text-gray-500 font-bold mt-1">🏷️ Avdeling: {workOrder.department.name}</p>
+            <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || t("orders.fieldDetail.noCustomer")}</p>
+            <p className="text-xs text-gray-500 font-bold mt-1">{t("orders.fieldDetail.department", { name: workOrder.department.name })}</p>
             {workOrder.tags && workOrder.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {workOrder.tags.map((tag: any) => (
@@ -118,25 +120,25 @@ export default async function TechnicianWorkOrderPage({
             )}
           </div>
           <Link href="/mine-oppdrag" className="bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-bold border-2 border-gray-200 shadow-sm hover:bg-gray-100 transition">
-            &larr; Tilbake
+            {t("orders.fieldDetail.back")}
           </Link>
         </div>
 
         {error === "locked" && (
           <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl px-4 py-3 text-sm font-bold">
-            🔒 Rapporten er låst og ble ikke lagret. Kontakt en administrator hvis den må endres.
+            {t("orders.errors.lockedField")}
           </div>
         )}
 
         {error === "ugyldig-status" && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
-            ⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand.
+            {t("orders.errors.invalidStatusField")}
           </div>
         )}
 
         {error && !["locked", "ugyldig-status"].includes(error) && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
-            ⛔ Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.
+            {t("orders.errors.generic")}
           </div>
         )}
 
@@ -145,7 +147,7 @@ export default async function TechnicianWorkOrderPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 border-b pb-4 mb-4">
 
             <div>
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Oppdragsstatus</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.statusTitle")}</p>
               {canUpdate ? (
                 <form action={updateStatus} className="flex items-center gap-2 flex-wrap">
                   <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -154,40 +156,40 @@ export default async function TechnicianWorkOrderPage({
                     defaultValue={workOrder.status}
                     className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
                   >
-                    <option value="OPEN">Åpen / Ny</option>
-                    <option value="PENDING">Venter / Planlagt</option>
-                    <option value="IN_PROGRESS">Påbegynt</option>
-                    <option value="COMPLETED">Fullført</option>
-                    {canEdit && <option value="CANCELLED">Kansellert</option>}
+                    <option value="OPEN">{t("orders.fieldDetail.statusOpen")}</option>
+                    <option value="PENDING">{t("orders.fieldDetail.statusPending")}</option>
+                    <option value="IN_PROGRESS">{t("orders.fieldDetail.statusInProgress")}</option>
+                    <option value="COMPLETED">{t("orders.fieldDetail.statusCompleted")}</option>
+                    {canEdit && <option value="CANCELLED">{t("orders.fieldDetail.statusCancelled")}</option>}
                   </select>
                   <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap">
-                    Oppdater
+                    {t("orders.fieldDetail.update")}
                   </button>
                 </form>
               ) : (
                 <p className="text-sm text-gray-500 italic">
-                  Du har ikke rettighet til å endre status.
+                  {t("orders.fieldDetail.noStatusPermission")}
                 </p>
               )}
             </div>
 
             <div>
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Planlagt Dato</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.scheduledDate")}</p>
               <p className="font-bold text-gray-900 bg-gray-50 p-2.5 border-2 border-gray-200 rounded-xl inline-block w-full">
-                📅 {formatDateRange(workOrder.scheduledFor, workOrder.scheduledTo) || "Ingen dato valgt"}
+                📅 {formatDateRange(workOrder.scheduledFor, workOrder.scheduledTo) || t("orders.fieldDetail.noDate")}
               </p>
             </div>
 
           </div>
 
           <div>
-            <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Arbeidsbeskrivelse / Instrukser</h2>
+            <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.descriptionTitle")}</h2>
             <div className="bg-blue-50/60 border-2 border-blue-200 p-3 sm:p-4 rounded-xl">
               {workOrder.description ? (
                 <MarkdownView value={workOrder.description} className="text-gray-900 font-medium" />
               ) : (
                 <p className="text-sm text-gray-900 font-medium">
-                  Ingen beskrivelse lagt til for dette oppdraget.
+                  {t("orders.fieldDetail.noDescription")}
                 </p>
               )}
             </div>
@@ -196,7 +198,7 @@ export default async function TechnicianWorkOrderPage({
 
         {/* KOMMENTARER / LOGG */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
-          <h2 className="font-black text-lg text-gray-900 border-b pb-2">💬 Kommentarer & Oppdateringer</h2>
+          <h2 className="font-black text-lg text-gray-900 border-b pb-2">{t("orders.fieldDetail.commentsTitle")}</h2>
 
           {/* Skriv ny kommentar */}
           {canUpdate && (
@@ -206,11 +208,11 @@ export default async function TechnicianWorkOrderPage({
                 name="content"
                 rows={3}
                 required
-                placeholder="Skriv en kommentar eller melding til kontoret/kolleger..."
+                placeholder={t("orders.fieldDetail.commentPlaceholder")}
               />
               <div className="flex justify-end">
                 <button type="submit" className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
-                  💬 Legg til kommentar
+                  {t("orders.fieldDetail.addComment")}
                 </button>
               </div>
             </form>
@@ -219,12 +221,12 @@ export default async function TechnicianWorkOrderPage({
           {/* Liste over tidligere kommentarer */}
           <div className="space-y-3 pt-4 border-t border-gray-200">
             {workOrder.workComments.length === 0 ? (
-              <p className="text-sm text-gray-500 italic">Ingen kommentarer registrert på oppdraget ennå.</p>
+              <p className="text-sm text-gray-500 italic">{t("orders.fieldDetail.noComments")}</p>
             ) : (
               workOrder.workComments.map((comment: any) => (
                 <div key={comment.id} className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 space-y-1">
                   <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold">
-                    <span>{comment.authorName || "Ukjent"}</span>
+                    <span>{comment.authorName || t("orders.fieldDetail.unknownAuthor")}</span>
                     <span>{formatDateTime(comment.createdAt)}</span>
                   </div>
                   <div className="text-sm text-gray-900 font-medium">
@@ -238,29 +240,29 @@ export default async function TechnicianWorkOrderPage({
 
         {/* TILDELTE MONTØRER & KONTOR */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
-          <h2 className="font-black text-lg text-gray-900 border-b pb-2">👷 Tildelte personell & Kontor</h2>
+          <h2 className="font-black text-lg text-gray-900 border-b pb-2">{t("orders.fieldDetail.personnelTitle")}</h2>
 
           <div className="space-y-2">
             {workOrder.technicians.length === 0 ? (
-              <p className="text-sm text-red-600 font-bold">Ingen er tildelt dette oppdraget ennå.</p>
+              <p className="text-sm text-red-600 font-bold">{t("orders.fieldDetail.noPersonnel")}</p>
             ) : (
               <div className="space-y-2">
-                {workOrder.technicians.map((t: any) => (
-                  <div key={t.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200 gap-2 min-w-0">
+                {workOrder.technicians.map((tech: any) => (
+                  <div key={tech.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200 gap-2 min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
                       <div className="min-w-0">
-                        <p className="font-black text-gray-900 text-sm truncate">{t.name} {t.id === user.id ? <span className="text-[10px] text-blue-600">(Du)</span> : ""}</p>
-                        <p className="text-[10px] text-gray-500">{t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'}</p>
+                        <p className="font-black text-gray-900 text-sm truncate">{tech.name} {tech.id === user.id ? <span className="text-[10px] text-blue-600">{t("orders.fieldDetail.you")}</span> : ""}</p>
+                        <p className="text-[10px] text-gray-500">{tech.role === 'ADMIN' ? t("orders.fieldDetail.roleAdmin") : tech.role === 'OFFICE' ? t("orders.fieldDetail.roleOffice") : t("orders.fieldDetail.roleTechnician")}</p>
                       </div>
                     </div>
 
                     {canUpdate && (
                       <form action={removeTechnician} className="flex-shrink-0">
                         <input type="hidden" name="workOrderId" value={workOrderId} />
-                        <input type="hidden" name="userId" value={t.id} />
+                        <input type="hidden" name="userId" value={tech.id} />
                         <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
-                          {t.id === user.id ? "Fjern meg" : "Fjern"}
+                          {tech.id === user.id ? t("orders.fieldDetail.removeMe") : t("orders.fieldDetail.remove")}
                         </button>
                       </form>
                     )}
@@ -272,7 +274,7 @@ export default async function TechnicianWorkOrderPage({
 
           {canUpdate && availableUsers.length > 0 && (
             <div className="border-t pt-4">
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Legg til kollega eller kontor for oppfølging</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.addPersonnel")}</p>
               <form action={addTechnician} className="flex gap-2 flex-wrap">
                 <input type="hidden" name="workOrderId" value={workOrderId} />
                 <select
@@ -281,13 +283,13 @@ export default async function TechnicianWorkOrderPage({
                   defaultValue=""
                   className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
                 >
-                  <option value="" disabled>-- Velg person --</option>
+                  <option value="" disabled>{t("orders.fieldDetail.selectPerson")}</option>
                   {availableUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role === 'ADMIN' ? 'Admin / Kontor' : u.role === 'OFFICE' ? 'Kontor' : u.role === 'TECHNICIAN' ? 'Montør' : u.role === 'CUSTOMER' ? 'Kundeportal' : 'Standard'})</option>
+                    <option key={u.id} value={u.id}>{u.name} ({u.role === 'ADMIN' ? t("orders.fieldDetail.roleAdmin") : u.role === 'OFFICE' ? t("orders.fieldDetail.roleOffice") : u.role === 'TECHNICIAN' ? t("orders.fieldDetail.roleTechnician") : u.role === 'CUSTOMER' ? t("orders.fieldDetail.roleCustomer") : t("orders.fieldDetail.roleStandard")})</option>
                   ))}
                 </select>
                 <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
-                  + Legg til
+                  {t("orders.fieldDetail.add")}
                 </button>
               </form>
             </div>
@@ -296,29 +298,29 @@ export default async function TechnicianWorkOrderPage({
 
         {/* LOKASJON & KONTAKTPERSON */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">📍 Lokasjon & Kontakt</h2>
+          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">{t("orders.fieldDetail.locationTitle")}</h2>
           <div className="text-sm text-gray-800 space-y-4">
             <div>
               <p className="text-gray-900">
-                <strong>Adresse:</strong>
+                <strong>{t("orders.fieldDetail.address")}</strong>
                 <GoogleMapsLink
                   address={workOrder.customer?.address}
                   postalCode={workOrder.customer?.postalCode}
                   city={workOrder.customer?.city}
-                  label={workOrder.customer?.address || "Ikke oppgitt"}
+                  label={workOrder.customer?.address || t("orders.fieldDetail.addressUnknown")}
                 />
                 {workOrder.customer?.postalCode || ""} {workOrder.customer?.city || ""}
               </p>
               {workOrder.customer?.phone && (
                 <p className="mt-1">
-                  <strong>Firma-tlf:</strong> <a href={`tel:${workOrder.customer?.phone}`} className="text-blue-600 font-bold hover:underline">{workOrder.customer?.phone}</a>
+                  <strong>{t("orders.fieldDetail.companyPhone")}</strong> <a href={`tel:${workOrder.customer?.phone}`} className="text-blue-600 font-bold hover:underline">{workOrder.customer?.phone}</a>
                 </p>
               )}
             </div>
 
             {workOrder.contact ? (
               <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Oppdragets kontaktperson</p>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">{t("orders.fieldDetail.contactTitle")}</p>
                 <p className="font-black text-gray-900 text-base">{workOrder.contact.name}</p>
                 <div className="mt-2 space-y-1 text-sm">
                   {workOrder.contact.phone && <p>📞 <a href={`tel:${workOrder.contact.phone}`} className="text-blue-600 font-bold hover:underline">{workOrder.contact.phone}</a></p>}
@@ -327,7 +329,7 @@ export default async function TechnicianWorkOrderPage({
               </div>
             ) : workOrder.customer?.contacts && workOrder.customer?.contacts.length > 0 ? (
               <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">Kundens kontaktpersoner</p>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">{t("orders.fieldDetail.customerContacts")}</p>
                 <div className="space-y-3 divide-y divide-gray-200">
                   {workOrder.customer?.contacts.map((c: any) => (
                     <div key={c.id} className="pt-3 first:pt-0">
@@ -342,7 +344,7 @@ export default async function TechnicianWorkOrderPage({
               </div>
             ) : (
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <p className="text-xs text-gray-500 italic">Ingen spesifikk kontaktperson registrert på dette oppdraget eller kunden.</p>
+                <p className="text-xs text-gray-500 italic">{t("orders.fieldDetail.noContact")}</p>
               </div>
             )}
           </div>
@@ -350,10 +352,10 @@ export default async function TechnicianWorkOrderPage({
 
         {/* SJEKKLISTER */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200">
-          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">📋 Sjekklister for oppdraget</h2>
+          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">{t("orders.fieldDetail.checklistsTitle")}</h2>
 
           {workOrder.templates.length === 0 ? (
-            <p className="text-sm text-gray-500 italic mb-4">Ingen sjekklister er knyttet til dette oppdraget ennå.</p>
+            <p className="text-sm text-gray-500 italic mb-4">{t("orders.fieldDetail.noChecklists")}</p>
           ) : (
             <div className="space-y-3 mb-6">
               {workOrder.templates.map(template => {
@@ -365,12 +367,12 @@ export default async function TechnicianWorkOrderPage({
                       {template.title}
                       {report?.isLocked && (
                         <span className="bg-gray-800 text-white text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
-                          🔒 LÅST
+                          {t("orders.fieldDetail.locked")}
                         </span>
                       )}
                       {report && !report.isLocked && (
                         <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
-                          🔓 LÅST OPP
+                          {t("orders.fieldDetail.unlocked")}
                         </span>
                       )}
                     </span>
@@ -383,14 +385,14 @@ export default async function TechnicianWorkOrderPage({
                           rel="noreferrer"
                           className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                         >
-                          📄 Se rapport (PDF)
+                          {t("orders.fieldDetail.openReport")}
                         </Link>
                         {canWriteReports && canUpdate && !report.isLocked && (
                           <Link
                             href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
                             className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
                           >
-                            ✏️ Rediger
+                            {t("orders.fieldDetail.edit")}
                           </Link>
                         )}
                       </div>
@@ -399,11 +401,11 @@ export default async function TechnicianWorkOrderPage({
                         href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
                         className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                       >
-                        Fyll ut skjema &rarr;
+                        {t("orders.fieldDetail.fillForm")}
                       </Link>
                     ) : (
                       <span className="text-[10px] font-bold text-gray-500">
-                        Venter på utfylling
+                        {t("orders.fieldDetail.waitingFill")}
                       </span>
                     )}
                   </div>
@@ -414,7 +416,7 @@ export default async function TechnicianWorkOrderPage({
 
           {canUpdate && availableTemplates.length > 0 && (
             <div className="border-t pt-4">
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Trenger du et ekstra skjema?</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.extraChecklist")}</p>
               <form action={addTemplate} className="flex gap-2 flex-wrap">
                 <input type="hidden" name="workOrderId" value={workOrderId} />
                 <select
@@ -423,13 +425,13 @@ export default async function TechnicianWorkOrderPage({
                   defaultValue=""
                   className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
                 >
-                  <option value="" disabled>-- Velg sjekklistemal --</option>
-                  {availableTemplates.map(t => (
-                    <option key={t.id} value={t.id}>{t.title}</option>
+                  <option value="" disabled>{t("orders.fieldDetail.selectTemplate")}</option>
+                  {availableTemplates.map(template => (
+                    <option key={template.id} value={template.id}>{template.title}</option>
                   ))}
                 </select>
                 <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2.5 rounded-xl text-sm font-black hover:bg-gray-300 transition shadow-sm whitespace-nowrap">
-                  + Legg til
+                  {t("orders.fieldDetail.add")}
                 </button>
               </form>
             </div>
@@ -450,7 +452,7 @@ export default async function TechnicianWorkOrderPage({
 
         {/* Audit log */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
+          <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.fieldDetail.auditLog")}</h2>
           <AuditLogTable logs={auditLogs} />
         </div>
       </div>

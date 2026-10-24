@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import { getCurrentUser } from "@/lib/session";
@@ -19,6 +20,7 @@ export default async function EditWorkOrderPage({
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
   const { error } = await searchParams;
+  const t = await getTranslations("common");
 
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -38,8 +40,8 @@ export default async function EditWorkOrderPage({
   if (!workOrder) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Oppdraget finnes ikke</h1>
-        <Link href="/" className="text-blue-700 font-bold hover:underline">Tilbake til dashbord</Link>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("orders.edit.notFoundTitle")}</h1>
+        <Link href="/" className="text-blue-700 font-bold hover:underline">{t("orders.edit.backToDashboard")}</Link>
       </div>
     );
   }
@@ -105,17 +107,17 @@ export default async function EditWorkOrderPage({
         
         {error && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            ⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.
+            {t("orders.edit.saveFailed")}
           </div>
         )}
 
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-3xl font-black text-gray-900">✏️ Rediger Oppdrag</h1>
-            <p className="text-gray-500 mt-1 text-sm font-medium">Oppdater detaljer, dato eller montør.</p>
+            <h1 className="text-3xl font-black text-gray-900">{t("orders.edit.title")}</h1>
+            <p className="text-gray-500 mt-1 text-sm font-medium">{t("orders.edit.subtitle")}</p>
           </div>
           <Link href={`/oppdrag/${workOrderId}`} className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm">
-            &larr; Avbryt
+            {t("orders.edit.cancel")}
           </Link>
         </div>
 
@@ -123,7 +125,7 @@ export default async function EditWorkOrderPage({
           <input type="hidden" name="workOrderId" value={workOrderId} />
           
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Oppdragstittel / Navn <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.titleLabel")} <span className="text-red-500">*</span></label>
             <input 
               type="text" 
               name="title" 
@@ -134,7 +136,7 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Avdeling</label>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.department")}</label>
             {isAdmin ? (
               <select
                 name="departmentId"
@@ -153,12 +155,12 @@ export default async function EditWorkOrderPage({
               </div>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              Flytter du oppdraget, må montører fra den nye avdelingen velges på nytt.
+              {t("orders.edit.departmentHint")}
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Kunde <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.customer")} <span className="text-red-500">*</span></label>
             <select 
               name="customerId" 
               defaultValue={workOrder.customerId || undefined}
@@ -172,13 +174,13 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Kontaktperson (valgfritt)</label>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.contact")}</label>
             <select
               name="contactId"
               defaultValue={workOrder.contactId || ""}
               className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
             >
-              <option value="">— Ingen kontaktperson —</option>
+              <option value="">{t("orders.edit.noContact")}</option>
               {customerOptions.map(c => {
                 const customerContacts = contactOptions.filter((k) => k.customerId === c.id);
                 if (customerContacts.length === 0) return null;
@@ -194,13 +196,13 @@ export default async function EditWorkOrderPage({
               })}
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              Velger du en ny kunde, må du også velge kontaktperson på nytt.
+              {t("orders.edit.contactHint")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-black text-gray-900 mb-2">Planlagt dato</label>
+              <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.scheduledDate")}</label>
               <input
                 type="date"
                 name="scheduledFor"
@@ -209,61 +211,61 @@ export default async function EditWorkOrderPage({
               />
             </div>
             <div>
-              <label className="block text-sm font-black text-gray-900 mb-2">Til dato (valgfritt)</label>
+              <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.endDate")}</label>
               <input
                 type="date"
                 name="scheduledTo"
                 defaultValue={workOrder.scheduledTo ? new Date(workOrder.scheduledTo).toISOString().split('T')[0] : ""}
                 className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
               />
-              <p className="text-xs text-gray-500 mt-1">Siste dag oppdraget varer. Tom = éndagsoppdrag.</p>
+              <p className="text-xs text-gray-500 mt-1">{t("orders.edit.endDateHint")}</p>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Tildelte montører</label>
-            <p className="text-xs text-gray-500 mb-2">Kryss av alle som skal jobbe med oppdraget.</p>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.technicians")}</label>
+            <p className="text-xs text-gray-500 mb-2">{t("orders.edit.techniciansHint")}</p>
             <div className="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-xl border-2 border-gray-200 space-y-1">
-              {technicianOptions.map(t => (
-                <label key={t.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
+              {technicianOptions.map(tech => (
+                <label key={tech.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
                   <input
                     type="checkbox"
                     name="technicianIds"
-                    value={t.id}
-                    defaultChecked={workOrder.technicians.some(wt => wt.id === t.id)}
+                    value={tech.id}
+                    defaultChecked={workOrder.technicians.some(wt => wt.id === tech.id)}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
                   <span className="font-medium text-gray-800 text-sm">
-                    {t.name} ({t.role === 'ADMIN' ? 'Admin / Kontor' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'})
-                    {isAdmin && t.department ? ` – ${t.department.name}` : ""}
+                    {tech.name} ({tech.role === 'ADMIN' ? t("orders.edit.roleAdmin") : tech.role === 'OFFICE' ? t("orders.edit.roleOffice") : t("orders.edit.roleTechnician")})
+                    {isAdmin && tech.department ? ` – ${tech.department.name}` : ""}
                   </span>
                 </label>
               ))}
               {technicianOptions.length === 0 && (
-                <p className="text-sm text-gray-500 p-2">Ingen ansatte funnet.</p>
+                <p className="text-sm text-gray-500 p-2">{t("orders.edit.noEmployees")}</p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Tags</label>
-            <TagSelector allTags={tags} selectedTagNames={workOrder.tags.map((t: any) => t.name)} />
-            <p className="text-xs text-gray-500 mt-1">Brukes for å spore beredskap for fullføring / arbeid.</p>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.tags")}</label>
+            <TagSelector allTags={tags} selectedTagNames={workOrder.tags.map((tag: any) => tag.name)} />
+            <p className="text-xs text-gray-500 mt-1">{t("orders.edit.tagsHint")}</p>
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">Arbeidsbeskrivelse / Instrukser</label>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.description")}</label>
             <MarkdownEditor
               name="description"
               rows={4}
               defaultValue={workOrder.description || ""}
-              placeholder="Beskriv hva som skal gjøres..."
+              placeholder={t("orders.edit.descriptionPlaceholder")}
             />
           </div>
 
           <div className="border-t-2 border-gray-200 pt-6">
             <button type="submit" className="w-full bg-blue-700 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-800 transition shadow-md">
-              💾 Lagre endringer
+              {t("orders.edit.submit")}
             </button>
           </div>
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
@@ -32,6 +33,7 @@ export default async function TechnicianDashboard({
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
+  const t = await getTranslations("common");
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
   const accessScope = workOrderScope(user);
@@ -112,15 +114,15 @@ export default async function TechnicianDashboard({
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-300 pb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900">Hei, {user.name || "Montør"} 👋</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900">{t("orders.fieldList.greeting", { name: user.name || t("orders.detail.roleTechnician") })}</h1>
             <p className="text-sm text-gray-500 font-medium">
-              Felt-portal for oppdrag og kalender.
-              {user.department ? ` • 🏷️ ${user.department.name}` : " • Ingen avdeling"}
+              {t("orders.fieldList.subtitle")}
+              {user.department ? ` • ${t("orders.fieldList.department", { name: user.department.name })}` : ` • ${t("orders.fieldList.noDepartment")}`}
             </p>
           </div>
           <form action="/api/auth/signout" method="POST">
             <button type="submit" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-              Logg ut
+              {t("orders.fieldList.logOut")}
             </button>
           </form>
         </div>
@@ -132,15 +134,15 @@ export default async function TechnicianDashboard({
               type="text"
               name="q"
               defaultValue={searchQuery}
-              placeholder="🔍 Søk i oppdrag, kunder eller stedsnavn..."
+              placeholder={t("orders.fieldList.searchPlaceholder")}
               className="flex-1 min-w-[200px] border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             />
             <button type="submit" className="bg-blue-700 text-white px-5 py-3 rounded-xl font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap text-sm">
-              Søk
+              {t("orders.fieldList.search")}
             </button>
             {searchQuery && (
               <Link href="/mine-oppdrag" className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center whitespace-nowrap text-sm">
-                Nullstill
+                {t("orders.fieldList.reset")}
               </Link>
             )}
           </form>
@@ -149,12 +151,12 @@ export default async function TechnicianDashboard({
         {/* SEKSJON 1: KALENDER / KOMMENDE OPPRETTEDE OPPRAG (Tildelt deg) */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-gray-900">📅 Dine kommende oppdrag ({activeAssigned.length})</h2>
+            <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.upcomingTitle", { count: activeAssigned.length })}</h2>
           </div>
 
           {activeAssigned.length === 0 ? (
             <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 text-center">
-              <p className="text-sm text-gray-500 italic">Ingen aktive oppdrag i din kalender akkurat nå.</p>
+              <p className="text-sm text-gray-500 italic">{t("orders.fieldList.noActive")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -194,10 +196,10 @@ export default async function TechnicianDashboard({
 
                   <div className="flex justify-between items-center text-[10px] pt-2 border-t border-gray-100 text-gray-500 font-medium">
                     <span className="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
-                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato satt"}
+                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.fieldList.noDate")}
                     </span>
                     <span className="font-black text-blue-600 hover:underline whitespace-nowrap">
-                      Åpne oppdrag &rarr;
+                      {t("orders.fieldList.openWorkOrder")}
                     </span>
                   </div>
                 </Link>
@@ -210,8 +212,8 @@ export default async function TechnicianDashboard({
         {unassignedWorkOrders.length > 0 && (
           <div className="space-y-4 pt-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-gray-900">⚠️ Ledige / Ikke tildelte oppdrag ({unassignedWorkOrders.length})</h2>
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-full">Krever tildeling / utførelse</span>
+              <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.unassignedTitle", { count: unassignedWorkOrders.length })}</h2>
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-full">{t("orders.fieldList.requiresAssignment")}</span>
             </div>
 
             <div className="space-y-3">
@@ -237,10 +239,10 @@ export default async function TechnicianDashboard({
 
                   <div className="flex justify-between items-center text-[10px] pt-2 border-t border-amber-200 text-gray-600 font-medium">
                     <span className="font-bold bg-white px-2 py-1 rounded-lg border border-amber-200">
-                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato satt"}
+                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.fieldList.noDate")}
                     </span>
                     <span className="font-black text-amber-800 hover:underline whitespace-nowrap">
-                      Se og ta oppdrag &rarr;
+                      {t("orders.fieldList.takeWorkOrder")}
                     </span>
                   </div>
                 </Link>
@@ -252,7 +254,7 @@ export default async function TechnicianDashboard({
         {/* SEKSJON 3: HISTORIKK OVER FULLFØRTE OPPRAG */}
         {completedAssigned.length > 0 && (
           <div className="space-y-4 pt-4 border-t border-gray-200">
-            <h2 className="text-lg font-black text-gray-900">📂 Fullførte oppdrag / Historikk ({completedAssigned.length})</h2>
+            <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.historyTitle", { count: completedAssigned.length })}</h2>
 
             <div className="space-y-3">
               {completedAssigned.map(wo => (
@@ -266,7 +268,7 @@ export default async function TechnicianDashboard({
                     <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-[10px] text-gray-500 font-medium">
-                    🏢 {wo.customer.name} • Fullført / Arkivert
+                    {t("orders.fieldList.archived", { customer: wo.customer.name })}
                   </p>
                   {formatAddress(wo.customer) && (
                     <p className="text-[10px] text-gray-400 font-medium mt-0.5">

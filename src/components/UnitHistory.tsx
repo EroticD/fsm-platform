@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import MarkdownView from "@/components/MarkdownView";
 import { formatDate } from "@/lib/dates";
 import {
@@ -38,14 +39,18 @@ function serviceDate(entry: UnitHistoryEntry) {
   return entry.report.workOrder.scheduledFor ?? entry.report.createdAt;
 }
 
-function fieldValue(field: HistoryField | null, value: unknown) {
-  if (field?.type === "CHECKBOX") return value ? "Ja / utført" : "Nei / ikke utført";
+function fieldValue(
+  field: HistoryField | null,
+  value: unknown,
+  translate: (key: string, values?: Record<string, string | number>) => string,
+) {
+  if (field?.type === "CHECKBOX") return value ? translate("orders.unitHistory.yesDone") : translate("orders.unitHistory.noDone");
   if (field?.type === "IMAGE") {
     const urls = parseImageUrls(value);
-    if (urls.length === 0) return "Ingen bilder";
-    return `${urls.length} bilde${urls.length === 1 ? "" : "r"}`;
+    if (urls.length === 0) return translate("orders.unitHistory.noImages");
+    return translate("orders.unitHistory.imageCount", { count: urls.length });
   }
-  if (value === undefined || value === null || value === "") return "Ikke besvart";
+  if (value === undefined || value === null || value === "") return translate("orders.unitHistory.notAnswered");
   return String(value);
 }
 
@@ -56,7 +61,10 @@ function fieldValue(field: HistoryField | null, value: unknown) {
  * Radene er lagret som «øyeblikksbilder» på rapporten, så historikken endres
  * ikke selv om malen eller enheten redigeres senere.
  */
-export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }) {
+export default async function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }) {
+  const t = await getTranslations("common");
+  const translate = (key: string, values?: Record<string, string | number>) =>
+    t(key, values);
   const history = [...entries].sort(
     (a, b) => new Date(serviceDate(b) ?? 0).getTime() - new Date(serviceDate(a) ?? 0).getTime(),
   );
@@ -64,7 +72,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
   if (history.length === 0) {
     return (
       <p className="text-xs text-gray-500 italic">
-        Ingen tidligere servicer registrert på denne enheten.
+        {t("orders.unitHistory.empty")}
       </p>
     );
   }
@@ -104,10 +112,10 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
           <li key={entry.id} className="bg-white border border-gray-200 rounded-lg p-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold text-gray-900">
-                {formatDate(serviceDate(entry), "Ingen dato")}
+                {formatDate(serviceDate(entry), t("orders.unitHistory.noDate"))}
                 <span className="font-normal text-gray-500">
                   {" • "}
-                  {entry.report.template?.title ?? "Servicerapport"}
+                  {entry.report.template?.title ?? t("orders.unitHistory.serviceReport")}
                 </span>
               </p>
               <span
@@ -117,7 +125,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
                     : "bg-red-100 text-red-800 border-red-200"
                 }`}
               >
-                {ok ? "✅ Godkjent" : "❌ Avvik"}
+                {ok ? t("orders.unitHistory.approved") : t("orders.unitHistory.deviation")}
               </span>
             </div>
 
@@ -132,7 +140,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
             {rows.length > 0 ? (
               <details className="mt-2">
                 <summary className="cursor-pointer text-[11px] font-bold text-blue-700">
-                  Vis sjekkpunkter ({rows.length})
+                  {t("orders.unitHistory.showCheckpoints", { count: rows.length })}
                 </summary>
                 <div className="mt-1.5 space-y-1.5 border-l-2 border-gray-200 pl-2">
                   {rows.map((row, index) => {
@@ -146,7 +154,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
                       <div key={`${row.label}-${index}`} className="text-[11px]">
                         <p className={alert ? "text-red-800 font-bold" : "text-gray-700"}>
                           <span className="font-bold text-gray-900">{row.label}: </span>
-                          {richText ? null : fieldValue(row.field, row.value)}
+                          {richText ? null : fieldValue(row.field, row.value, translate)}
                         </p>
                         {richText ? (
                           richValue ? (
@@ -154,7 +162,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
                               <MarkdownView value={richValue} size="xs" />
                             </div>
                           ) : (
-                            <p className="text-gray-400">Ikke besvart</p>
+                            <p className="text-gray-400">{t("orders.unitHistory.notAnswered")}</p>
                           )
                         ) : null}
                         {comment ? (
@@ -176,7 +184,7 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
-                      alt="Bilde fra servicerapporten"
+                      alt={t("orders.unitHistory.imageAlt")}
                       loading="lazy"
                       className="h-14 w-14 object-cover rounded-lg border border-gray-200"
                     />
@@ -190,13 +198,13 @@ export default function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }
                 href={`/rapporter/${entry.report.workOrderId}`}
                 className="text-[11px] font-bold text-blue-700 hover:underline"
               >
-                📄 Se rapport (PDF)
+                {t("orders.unitHistory.openReport")}
               </Link>
               <Link
                 href={`/oppdrag/${entry.report.workOrder.id}`}
                 className="text-[11px] font-bold text-gray-600 hover:underline"
               >
-                📋 Åpne oppdraget
+                {t("orders.unitHistory.openWorkOrder")}
               </Link>
             </div>
           </li>
