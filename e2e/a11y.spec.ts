@@ -32,7 +32,7 @@ test("hovedflatene har ingen kritiske a11y-brudd", async ({ page }) => {
   const loggedIn = await loginAsAdmin(page);
   expect(loggedIn).toBe(true);
 
-  for (const path of ["/", "/kunder", "/dokumenter", "/innstillinger"]) {
+  for (const path of ["/", "/kunder", "/dokumenter", "/innstillinger", "/varsler", "/kart"]) {
     await page.goto(path);
     await expect(page.locator("body")).toBeVisible();
     await expectNoBlockingA11yIssues(page);
