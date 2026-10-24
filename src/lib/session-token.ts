@@ -12,13 +12,36 @@ export type SessionUser = {
   sessionVersion: number;
 };
 
-/** Er forespørselen over HTTPS (direkte eller bak en reverse proxy)? */
+/**
+ * Er forespørselen over HTTPS? Vi stoler på den konfigurerte app-URL-en først.
+ * `x-forwarded-proto` brukes bare når `TRUST_PROXY=true`, slik at en direkte
+ * klient ikke kan lyve på seg HTTPS.
+ */
+export function isSecureUrl(value: string | undefined): boolean | null {
+  if (!value) return null;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return null;
+  }
+}
+
 export async function isSecureRequest(): Promise<boolean> {
-  const requestHeaders = await headers();
-  return (
-    (process.env.NEXTAUTH_URL ?? "").startsWith("https://") ||
-    requestHeaders.get("x-forwarded-proto") === "https"
+  const configured = isSecureUrl(
+    process.env.APP_URL || process.env.NEXTAUTH_URL,
   );
+  if (configured !== null) return configured;
+
+  if (process.env.TRUST_PROXY === "true") {
+    const requestHeaders = await headers();
+    const forwarded = requestHeaders
+      .get("x-forwarded-proto")
+      ?.split(",")[0]
+      ?.trim();
+    if (forwarded) return forwarded === "https";
+  }
+
+  return process.env.NODE_ENV === "production";
 }
 
 /**
