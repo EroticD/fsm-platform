@@ -70,8 +70,9 @@ export default function UploadDocumentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.pdfFile")}</label>
+        <label htmlFor="upload-pdf-input" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.pdfFile")}</label>
         <input
+          id="upload-pdf-input"
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}

@@ -143,8 +143,9 @@ export default function EditDocumentForm({
             <TagSelector allTags={allTags} selectedTagNames={doc.tags.map((tag) => tag.name)} />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.replaceFile")}</label>
+            <label htmlFor="edit-document-pdf-input" className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.replaceFile")}</label>
             <input
+              id="edit-document-pdf-input"
               type="file"
               accept="application/pdf"
               onChange={handleFileChange}

@@ -100,7 +100,7 @@ export default async function NotificationsPage({
                       {notification.body}
                     </p>
                   )}
-                  <p className="mt-2 text-[11px] text-gray-400">
+                  <p className="mt-2 text-[11px] text-gray-600">
                     {formatDateTime(notification.createdAt)}
                   </p>
                 </div>

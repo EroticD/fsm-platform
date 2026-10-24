@@ -131,8 +131,9 @@ export default function BulkUploadForm({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.bulk.chooseFolder")}</label>
+        <label htmlFor="bulk-folder-input" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.bulk.chooseFolder")}</label>
         <input
+          id="bulk-folder-input"
           type="file"
           // @ts-expect-error -- ikke-standardattributt som nettleserne støtter
           webkitdirectory=""
