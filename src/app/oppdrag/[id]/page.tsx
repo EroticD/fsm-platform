@@ -11,7 +11,6 @@ import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
-import TimeMaterialsPanel from "./TimeMaterialsPanel";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -424,6 +423,11 @@ export default async function AdminWorkOrderPage({
             )}
             <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || t("orders.detail.noCustomer")}</Link></p>
             <p className="text-xs text-gray-500 font-bold mt-1">{t("orders.detail.department", { name: workOrder.department.name })}</p>
+            {workOrder.orderNumber && (
+              <p className="text-xs text-gray-600 font-bold mt-1">
+                {t("orders.detail.orderNumber")}: {workOrder.orderNumber}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -833,7 +837,6 @@ export default async function AdminWorkOrderPage({
             </div>
           </div>
 
-          <TimeMaterialsPanel workOrderId={workOrderId} readOnly={isClosed} />
 
           {/* Audit log - full width bottom */}
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">

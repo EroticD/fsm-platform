@@ -110,7 +110,6 @@ model User {
 
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
-  timeEntries             TimeEntry[]
 
   @@index([departmentId])
   @@index([role])
@@ -134,9 +133,6 @@ model Customer {
   phone      String?
   email      String?
   notes      String?
-
-  /// Standard timepris for kunden når avtalen ikke overstyrer den.
-  hourlyRate Decimal? @db.Decimal(12, 2)
 
   /// Myk sletting: raden beholdes for historikk/revisjon.
   deletedAt DateTime?
@@ -221,9 +217,6 @@ model Contract {
   /// Neste dato det skal opprettes et oppdrag for.
   nextServiceDate DateTime @db.Date
   isActive        Boolean  @default(true)
-  /// Avtalens timepris. Overstyrer kundens standardpris.
-  hourlyRate      Decimal? @db.Decimal(12, 2)
-
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
 
@@ -273,6 +266,8 @@ enum WorkStatus {
 model WorkOrder {
   id           String     @id @default(cuid())
   title        String
+  /// Eksternt ordrenummer fra kundens system.
+  orderNumber  String?
   description  String?
   scheduledFor DateTime? @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
@@ -313,14 +308,13 @@ model WorkOrder {
   workComments Comment[]  @relation("WorkOrderComments")
   tags         Tag[]      @relation("WorkOrderTags")
   reportDrafts ReportDraft[]
-  timeEntries  TimeEntry[]
-  materials    Material[]
 
   @@index([departmentId])
   @@index([customerId])
   @@index([status])
   @@index([scheduledFor])
   @@index([contractId])
+  @@index([orderNumber])
   @@index([scheduledTo])
   @@index([deletedAt])
 
@@ -673,43 +667,6 @@ model NotificationPreference {
   email  Boolean @default(true)
 
   @@unique([userId, type])
-}
-
-model TimeEntry {
-  id          String    @id @default(cuid())
-  workOrderId String
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  startedAt   DateTime
-  endedAt     DateTime?
-  minutes     Int?
-  description String?
-  billable    Boolean   @default(true)
-  hourlyRate  Decimal?  @db.Decimal(10, 2)
-  /// Bruker-id mens timeren er aktiv, null når den er avsluttet. Unikheten
-  /// gir samme garanti som en partiell unik indeks på (userId) WHERE endedAt IS NULL.
-  activeKey   String?   @unique
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([workOrderId])
-  @@index([userId, startedAt])
-}
-
-model Material {
-  id          String    @id @default(cuid())
-  workOrderId String
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  name        String
-  sku         String?
-  quantity    Decimal   @db.Decimal(10, 2)
-  unit        String    @default("stk")
-  /// Null betyr at kontoret må prissette materialet før fakturering.
-  unitPrice   Decimal?  @db.Decimal(10, 2)
-  createdAt   DateTime  @default(now())
-
-  @@index([workOrderId])
 }
 
 model Branding {

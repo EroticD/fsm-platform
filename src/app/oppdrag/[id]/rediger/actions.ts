@@ -18,6 +18,7 @@ export async function updateWorkOrder(formData: FormData) {
   const user = await getCurrentUser();
   const result = await updateWorkOrderService(user, workOrderId, {
     title: formData.get("title"),
+    orderNumber: formData.get("orderNumber"),
     description: formData.get("description"),
     departmentId: formData.get("departmentId"),
     customerId: formData.get("customerId"),

@@ -137,6 +137,7 @@ function cleanTagNames(values: unknown[]): string[] {
 
 export type CreateWorkOrderInput = {
   title: unknown;
+  orderNumber?: unknown;
   description: unknown;
   departmentId: unknown;
   customerId: unknown;
@@ -208,6 +209,7 @@ export async function createWorkOrder(
 
   const parsed = workOrderCreateSchema.safeParse({
     title: cleanText(input.title, { maxLength: LIMITS.title }),
+    orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
     description,
     departmentId,
     customerId,
@@ -225,6 +227,7 @@ export async function createWorkOrder(
   const parsedEnd = parseDateOnly(parsed.data.scheduledTo);
   const scheduledTo = parsedEnd && parsedEnd > scheduledFor ? parsedEnd : null;
   const title = parsed.data.title;
+  const orderNumber = parsed.data.orderNumber || null;
 
   let id: string;
   try {
@@ -232,6 +235,7 @@ export async function createWorkOrder(
       const newWorkOrder = await tx.workOrder.create({
         data: {
           title,
+          orderNumber,
           description: description || "",
           departmentId,
           customerId: customerId || undefined,
@@ -275,6 +279,7 @@ export async function createWorkOrder(
 
 export type UpdateWorkOrderInput = {
   title: unknown;
+  orderNumber?: unknown;
   description: unknown;
   departmentId: unknown;
   customerId: unknown;
@@ -337,6 +342,7 @@ export async function updateWorkOrder(
   const parsed = workOrderUpdateSchema.safeParse({
     id: workOrderId,
     title: cleanText(input.title, { maxLength: LIMITS.title }),
+    orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
     description: cleanMarkdown(input.description),
     departmentId,
     customerId: rawId(input.customerId),
@@ -348,8 +354,15 @@ export async function updateWorkOrder(
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
 
-  const { title, description, customerId, contactId, scheduledFor, scheduledTo } =
-    parsed.data;
+  const {
+    title,
+    orderNumber,
+    description,
+    customerId,
+    contactId,
+    scheduledFor,
+    scheduledTo,
+  } = parsed.data;
   const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
   const scheduledToDate = scheduledTo ? parseDateOnly(scheduledTo) : null;
 
@@ -367,6 +380,7 @@ export async function updateWorkOrder(
       where: { id: workOrderId },
       data: {
         title,
+        orderNumber: orderNumber || null,
         description,
         departmentId,
         customerId,

@@ -19,7 +19,6 @@ bevisst er utsatt. Den er ment som grunnlag for neste planleggingsrunde.
     `capture="environment"`, lokal-first autolagring og replay
   - varsler: in-app, e-postko, preferansematrise, tildeling/dato/kansellering/
     rapport/booking/avtale/forfalt
-  - tid og materialer med timer, summer, CSV-eksport
   - kundeportal: rapporthistorikk, kvittering og forespørsel om
     kontaktinfooppdatering
   - iCal-feed med personlig token, tilbakekalling og kartvisning gruppert per by
@@ -92,19 +91,17 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
 - **SEC-7** – origin-sjekken krever gyldig Bearer-hemmelighet eller
   same-origin/none, `/api/ready` skjuler detaljer uten `READY_SECRET`, cron
   sammenligner i konstant tid, og varsel-e-post prøves fem ganger med backoff.
-- **SEC-9** – timepris og materialpris settes på serveren. Feltbrukere kan ikke
-  overstyre pris, og får ikke se andres satser. Én aktiv timer per bruker
-  håndheves med unik `activeKey`; varighet over 24 timer og overlapp avvises.
+- **SEC-9** – time-/materialpris ble først satt på serveren. Funksjonen er
+  senere fjernet helt fordi systemet ikke skal fakturere eller føre timer.
 - **SEC-10** – produksjon krever HTTPS-URL-er, Docker kjører read-only med
   minste privilegier, backup kan krypteres og kopieres eksternt, og CI kjører
   audit, i18n og containerskanning.
 
 ### Bevisste valg
 
-1. **`activeKey` i stedet for partiell unik indeks.** Prisma kan ikke uttrykke
-   `WHERE endedAt IS NULL` i schema, så en unik, nullbar `activeKey` (bruker-id
-   mens timeren er aktiv) gir samme garanti og holder `prisma migrate diff`
-   ren.
+1. **Timebruk, materialer og fakturaeksport er fjernet.** Systemet skal bare
+   dokumentere arbeidet på et oppdrag, ikke fakturere eller opprette ordrer.
+   I stedet har oppdrag fått et valgfritt eksternt `orderNumber`.
 2. **Ingen backfill av iCal-tokens.** Gamle tokens var plaintext og er droppet.
    Sikkerhetsmessig er det bedre å kreve regenerering enn å hash-e dem videre.
 3. **Myk sletting av oppdrag.** Oppdrag, rapporter, revisjoner og vedlegg
@@ -113,8 +110,8 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
 4. **Rapportrevisjoner lagres i databasen, men har foreløpig ingen egen
    leservisning.** En admin kan gjenopprette og inspisere via databasen; en
    read-only revisjonsside/PDF er anbefalt neste steg.
-5. **Materialpris kan være `null`.** Feltbrukere lagrer ingen pris; kontoret
-   prissetter før eksport/fakturering. Eksporten viser `0` for manglende pris.
+5. **Ordrenummer er valgfritt og ikke unikt.** Det er et eksternt nummer fra
+   kundens system, og kan derfor variere mellom avdelinger.
 
 ### Åpne spørsmål / neste steg
 
@@ -125,8 +122,6 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   `ReportRevision`?
 - Skal `legalHold` få en admin-bryter i UI, og hva er riktig oppbevaringsfrist
   per kundetype?
-- Skal eksisterende time-/materialrader med manglende eller urimelig pris
-  audit-es og backfilles?
 - Rate limits og jobbkø er databasebaserte og deles mellom instanser. Ved
   mange instanser bør Redis/BullMQ vurderes (P4-2).
 - `TRUST_PROXY=true` må settes når appen står bak en reverse proxy som

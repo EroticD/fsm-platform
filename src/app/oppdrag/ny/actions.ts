@@ -12,6 +12,7 @@ export async function createWorkOrder(formData: FormData) {
   const user = await getCurrentUser();
   const result = await createWorkOrderService(user, {
     title: formData.get("title"),
+    orderNumber: formData.get("orderNumber"),
     description: formData.get("description"),
     departmentId: formData.get("departmentId"),
     customerId: formData.get("customerId"),

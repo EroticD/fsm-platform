@@ -78,7 +78,9 @@
       "tagsHint": "Brukes for å spore beredskap for fullføring / arbeid.",
       "description": "Beskrivelse / Instrukser",
       "descriptionPlaceholder": "Skriv instruksjoner til montøren...",
-      "submit": "Lagre oppdrag"
+      "submit": "Lagre oppdrag",
+      "orderNumber": "Ordrenummer",
+      "orderNumberPlaceholder": "Kundens ordrenummer (valgfritt)"
     },
     "customerSelect": {
       "label": "Velg kunde",
@@ -187,7 +189,8 @@
       "checklistLockedOnly": "Sjekklisten er låst, men det låser bare sjekklisten. Oppdraget kan fortsatt redigeres og få ny status.",
       "closedLocked": "Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
       "statusPlanned": "Planlagt",
-      "statusWaiting": "Venter"
+      "statusWaiting": "Venter",
+      "orderNumber": "Ordrenummer"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -216,7 +219,8 @@
       "submit": "💾 Lagre endringer",
       "roleAdmin": "Admin / Kontor",
       "roleOffice": "Kontor",
-      "roleTechnician": "Montør"
+      "roleTechnician": "Montør",
+      "orderNumber": "Ordrenummer"
     },
     "fieldList": {
       "greeting": "Hei, {name} 👋",

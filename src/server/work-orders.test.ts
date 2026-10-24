@@ -174,6 +174,7 @@ describe("work-orders-tjenesten", () => {
 
     const result = await createWorkOrder(actor(), {
       title: "Service",
+      orderNumber: "K-1001",
       description: "Sjekk pumpen",
       departmentId: "dep-a",
       customerId: "",
@@ -189,6 +190,7 @@ describe("work-orders-tjenesten", () => {
     expect(tx.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: "Service",
+        orderNumber: "K-1001",
         departmentId: "dep-a",
         status: "PENDING",
       }),
@@ -363,10 +365,11 @@ describe("work-orders-tjenesten", () => {
       departmentId: "dep-a",
       status: "IN_PROGRESS",
     });
-    withTransaction();
+    const tx = withTransaction();
 
     const result = await updateWorkOrder(actor(), "wo-1", {
       title: "Ny tittel",
+      orderNumber: "K-1002",
       description: "",
       departmentId: "dep-a",
       customerId: "cust-1",
@@ -378,6 +381,10 @@ describe("work-orders-tjenesten", () => {
     });
 
     expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: expect.objectContaining({ orderNumber: "K-1002" }),
+    });
   });
 
   it("låst sjekkliste blokkerer ikke redigering av et ikke-fullført oppdrag", async () => {

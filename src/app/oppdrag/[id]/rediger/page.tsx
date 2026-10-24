@@ -137,6 +137,17 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div>
+            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.orderNumber")}</label>
+            <input
+              type="text"
+              name="orderNumber"
+              defaultValue={workOrder.orderNumber ?? ""}
+              maxLength={200}
+              className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.department")}</label>
             {isAdmin ? (
               <select

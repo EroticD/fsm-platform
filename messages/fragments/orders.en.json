@@ -78,7 +78,9 @@
       "tagsHint": "Used to track readiness for completion / work.",
       "description": "Description / Instructions",
       "descriptionPlaceholder": "Write instructions for the technician...",
-      "submit": "Save work order"
+      "submit": "Save work order",
+      "orderNumber": "Order number",
+      "orderNumberPlaceholder": "Customer order number (optional)"
     },
     "customerSelect": {
       "label": "Select customer",
@@ -187,7 +189,8 @@
       "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status.",
       "closedLocked": "This work order is completed or cancelled and locked. You can add comments or clone it into a new work order.",
       "statusPlanned": "Planned",
-      "statusWaiting": "Waiting"
+      "statusWaiting": "Waiting",
+      "orderNumber": "Order number"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -216,7 +219,8 @@
       "submit": "💾 Save changes",
       "roleAdmin": "Admin / Office",
       "roleOffice": "Office",
-      "roleTechnician": "Technician"
+      "roleTechnician": "Technician",
+      "orderNumber": "Order number"
     },
     "fieldList": {
       "greeting": "Hi, {name} 👋",

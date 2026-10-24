@@ -116,6 +116,17 @@ export default async function AdminCreateWorkOrderPage({
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.orderNumber")}</label>
+            <input
+              type="text"
+              name="orderNumber"
+              placeholder={t("orders.new.orderNumberPlaceholder")}
+              maxLength={200}
+              className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
+            />
+          </div>
+
           <CustomerSelect customers={customers} contacts={contacts} optional={true} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -50,7 +50,6 @@ services:
       RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
       CRON_SECRET: ${CRON_SECRET:-}
       READY_SECRET: ${READY_SECRET:-}
-      DEFAULT_HOURLY_RATE: ${DEFAULT_HOURLY_RATE:-0}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

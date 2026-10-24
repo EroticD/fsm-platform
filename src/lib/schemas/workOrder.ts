@@ -21,6 +21,7 @@ const idListSchema = z.array(idSchema).max(200, "For mange valgte rader").defaul
 export const workOrderCreateSchema = z
   .object({
     title: requiredText(LIMITS.title),
+    orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
     departmentId: idSchema,
     customerId: optionalIdSchema,
@@ -41,6 +42,7 @@ export const workOrderUpdateSchema = z
   .object({
     id: idSchema,
     title: requiredText(LIMITS.title),
+    orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
     departmentId: idSchema,
     customerId: idSchema,
