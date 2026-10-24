@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/email";
 import { toDateOnly } from "@/lib/dates";
+import { publishRealtime } from "@/lib/realtime";
 import {
   fail,
   ok,
@@ -228,6 +229,9 @@ export async function notifyUser(
       },
       select: { id: true },
     });
+    // Beste-forsøk: varselet er allerede opprettet, og en feil her skal ikke
+    // gjøre at innsenderen tror varselet ikke ble lagret.
+    await publishRealtime("notifications");
     return notification;
   } catch (error) {
     if (
