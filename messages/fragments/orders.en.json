@@ -190,7 +190,7 @@
       "closedLocked": "This work order is completed or cancelled and locked. You can add comments or clone it into a new work order.",
       "statusPlanned": "Planned",
       "statusWaiting": "Waiting",
-      "orderNumber": "Order number"
+      "orderNumber": "Order number associated with work order"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",

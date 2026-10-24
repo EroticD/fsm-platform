@@ -190,7 +190,7 @@
       "closedLocked": "Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
-      "orderNumber": "Ordrenummer"
+      "orderNumber": "Ordrenummer tilknyttet oppdrag"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
