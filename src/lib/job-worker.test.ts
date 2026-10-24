@@ -4,6 +4,8 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     document: { findUnique: vi.fn(), update: vi.fn() },
     documentJob: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    reportDraft: { findMany: vi.fn(), deleteMany: vi.fn() },
+    upload: { findUnique: vi.fn(), delete: vi.fn() },
     $queryRaw: vi.fn(),
   },
 }));
@@ -12,10 +14,19 @@ vi.mock("@/lib/pdf-text", () => ({
   extractPdfText: vi.fn(),
 }));
 
+vi.mock("node:fs/promises", () => ({
+  default: { unlink: vi.fn() },
+}));
+
+vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/uploads" }));
+
 import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
+import fs from "node:fs/promises";
 import {
   claimNextPdfTextJob,
+  cleanupExpiredDrafts,
+  DRAFT_TTL_MS,
   enqueuePdfText,
   MAX_JOB_ATTEMPTS,
   pdfJobBackoffMs,
@@ -26,8 +37,11 @@ import {
 const mocked = prisma as unknown as {
   document: { findUnique: Mock; update: Mock };
   documentJob: { findFirst: Mock; create: Mock; update: Mock };
+  reportDraft: { findMany: Mock; deleteMany: Mock };
+  upload: { findUnique: Mock; delete: Mock };
   $queryRaw: Mock;
 };
+const mockedUnlink = vi.mocked(fs.unlink);
 const mockedExtract = vi.mocked(extractPdfText);
 
 function job(overrides: Partial<PdfTextJob> = {}): PdfTextJob {
@@ -175,5 +189,82 @@ describe("processPdfTextJob", () => {
 
     expect(outcome).toBe("failed");
     expect(mockedExtract).not.toHaveBeenCalled();
+  });
+});
+
+describe("cleanupExpiredDrafts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocked.reportDraft.deleteMany.mockResolvedValue({ count: 1 });
+    mocked.upload.findUnique.mockResolvedValue(null);
+    mocked.upload.delete.mockResolvedValue({});
+    mockedUnlink.mockResolvedValue(undefined);
+  });
+
+  it("sletter utløpte kladder og frigjør en signatur som fortsatt eies av brukeren", async () => {
+    const now = new Date("2026-10-24T12:00:00.000Z");
+    mocked.reportDraft.findMany.mockResolvedValue([
+      {
+        id: "draft-1",
+        userId: "u1",
+        dataJson: JSON.stringify({
+          technicianSignatureUrl: "/uploads/sig.png",
+          customerSignatureUrl: null,
+        }),
+      },
+    ]);
+    mocked.upload.findUnique.mockResolvedValue({
+      storedName: "sig.png",
+      ownerType: "USER",
+      ownerId: "u1",
+    });
+
+    const deleted = await cleanupExpiredDrafts(now);
+
+    expect(deleted).toBe(1);
+    const cutoff = new Date(now.getTime() - DRAFT_TTL_MS);
+    expect(mocked.reportDraft.findMany).toHaveBeenCalledWith({
+      where: { updatedAt: { lt: cutoff } },
+      select: { id: true, userId: true, dataJson: true },
+    });
+    expect(mocked.reportDraft.deleteMany).toHaveBeenCalledWith({
+      where: { id: "draft-1", updatedAt: { lt: cutoff } },
+    });
+    expect(mocked.upload.delete).toHaveBeenCalledWith({ where: { storedName: "sig.png" } });
+    expect(mockedUnlink).toHaveBeenCalledWith("/tmp/uploads/sig.png");
+  });
+
+  it("sletter ikke en signatur som allerede er tatt over av en rapport", async () => {
+    mocked.reportDraft.findMany.mockResolvedValue([
+      {
+        id: "draft-1",
+        userId: "u1",
+        dataJson: JSON.stringify({ customerSignatureUrl: "/uploads/signert.png" }),
+      },
+    ]);
+    mocked.upload.findUnique.mockResolvedValue({
+      storedName: "signert.png",
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+    });
+
+    const deleted = await cleanupExpiredDrafts();
+
+    expect(deleted).toBe(1);
+    expect(mocked.reportDraft.deleteMany).toHaveBeenCalled();
+    expect(mocked.upload.delete).not.toHaveBeenCalled();
+    expect(mockedUnlink).not.toHaveBeenCalled();
+  });
+
+  it("sletter ikke en kladd som ble oppdatert etter utløpet", async () => {
+    mocked.reportDraft.findMany.mockResolvedValue([
+      { id: "draft-1", userId: "u1", dataJson: JSON.stringify({}) },
+    ]);
+    mocked.reportDraft.deleteMany.mockResolvedValue({ count: 0 });
+
+    const deleted = await cleanupExpiredDrafts();
+
+    expect(deleted).toBe(0);
+    expect(mocked.upload.findUnique).not.toHaveBeenCalled();
   });
 });

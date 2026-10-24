@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
 import { logger } from "@/lib/logger";
+import { deleteUploadIfOwned } from "@/lib/upload-store";
 import {
   notifyOverdueWorkOrders,
   processPendingNotificationEmails,
@@ -43,8 +44,15 @@ export const JOB_WORKER_CONCURRENCY = 2;
 
 const POLL_INTERVAL_MS = 5_000;
 
+/** Kladder er en midlertidig sikkerhetskopi; etter en uke er de foreldet. */
+export const DRAFT_TTL_MS = 7 * 24 * 60 * 60_000;
+
+/** Hvor ofte foreldede kladder ryddes. */
+export const DRAFT_CLEANUP_INTERVAL_MS = 6 * 60 * 60_000;
+
 type WorkerGlobal = typeof globalThis & {
   __fsmPdfJobWorkerStarted?: boolean;
+  __fsmDraftCleanupStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -232,6 +240,81 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Plukker signatur-URL-ene ut av en kladds `dataJson`, uten å stole på formen. */
+function draftSignatureUrls(dataJson: string): string[] {
+  try {
+    const parsed = JSON.parse(dataJson) as Record<string, unknown>;
+    return ["technicianSignatureUrl", "customerSignatureUrl"]
+      .map((key) => parsed[key])
+      .filter(
+        (value): value is string =>
+          typeof value === "string" && /^\/uploads\/[A-Za-z0-9._-]+$/.test(value),
+      );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Sletter kladder som ikke er oppdatert på en uke, og frigjør signaturfilene
+ * deres. Filer som allerede er tatt over av en signert rapport har
+ * `ownerType = WORK_ORDER` og røres ikke.
+ */
+export async function cleanupExpiredDrafts(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - DRAFT_TTL_MS);
+
+  const drafts = await prisma.reportDraft.findMany({
+    where: { updatedAt: { lt: cutoff } },
+    select: { id: true, userId: true, dataJson: true },
+  });
+
+  let deleted = 0;
+  for (const draft of drafts) {
+    // Slett raden først, og bare hvis den fortsatt er utløpt. Da kan en
+    // samtidig lagring ikke bli slettet, og vi rører ikke filer som en fersk
+    // kladd fortsatt refererer.
+    const result = await prisma.reportDraft.deleteMany({
+      where: { id: draft.id, updatedAt: { lt: cutoff } },
+    });
+    if (result.count === 0) continue;
+    deleted += result.count;
+
+    for (const url of draftSignatureUrls(draft.dataJson)) {
+      await deleteUploadIfOwned(url, {
+        ownerType: "USER",
+        ownerId: draft.userId,
+      });
+    }
+  }
+
+  if (deleted > 0) {
+    logger.info("Ryddet utløpte rapportkladder", { count: deleted });
+  }
+  return deleted;
+}
+
+/**
+ * Starter opprydding av utløpte kladder. Egen global markør gjør at HMR og
+ * gjentatte kall fra `instrumentation.ts` ikke lager flere intervaller.
+ */
+export function startDraftCleanup(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmDraftCleanupStarted) return;
+  scope.__fsmDraftCleanupStarted = true;
+
+  const run = () => {
+    void cleanupExpiredDrafts().catch((error) => {
+      logger.error("Kunne ikke rydde utløpte rapportkladder", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
+  run();
+  const timer = setInterval(run, DRAFT_CLEANUP_INTERVAL_MS);
+  timer.unref?.();
+}
+
 async function runWorkerLoop(workerIndex: number): Promise<void> {
   // Litt spredning, så ikke alle workerne spør databasen i samme øyeblikk.
   await sleep(1_000 + workerIndex * 250);
@@ -268,6 +351,9 @@ export function startJobWorker(): void {
       runWorkerLoop(index),
     ),
   );
+
+  // Rydd utløpte kladder ved oppstart og deretter hvert sjette døgn.
+  startDraftCleanup();
 
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.
@@ -312,7 +398,9 @@ export function startJobWorker(): void {
   });
 }
 
-/** Bare for tester: nullstiller «startet»-flagget. */
+/** Bare for tester: nullstiller «startet»-flaggene. */
 export function resetJobWorkerForTests(): void {
-  (globalThis as WorkerGlobal).__fsmPdfJobWorkerStarted = false;
+  const scope = globalThis as WorkerGlobal;
+  scope.__fsmPdfJobWorkerStarted = false;
+  scope.__fsmDraftCleanupStarted = false;
 }
