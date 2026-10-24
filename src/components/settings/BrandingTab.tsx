@@ -29,10 +29,10 @@ export default async function BrandingTab({
           <input type="text" name="companyName" defaultValue={branding?.companyName || ""} placeholder={t("settings.branding.companyNamePlaceholder")} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium" />
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.primaryColor")}</label>
+          <label htmlFor="primaryColor" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.primaryColor")}</label>
           <div className="flex gap-3 items-center">
-            <input type="color" name="primaryColor" defaultValue={branding?.primaryColor || "#2563eb"} className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300" />
-            <input type="text" defaultValue={branding?.primaryColor || "#2563eb"} className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium bg-gray-50" readOnly />
+            <input id="primaryColor" type="color" name="primaryColor" defaultValue={branding?.primaryColor || "#2563eb"} className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300" />
+            <input id="primaryColorHex" type="text" aria-label={t("settings.branding.primaryColor")} defaultValue={branding?.primaryColor || "#2563eb"} className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium bg-gray-50" readOnly />
           </div>
         </div>
         <div>
