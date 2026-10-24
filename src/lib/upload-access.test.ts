@@ -210,6 +210,39 @@ describe("claimUpload", () => {
     expect(row).toMatchObject({ ownerType: "USER", ownerId: "u2" });
   });
 
+  it("lar ikke en bruker ta over en annen brukers ueide dokumentopplasting", async () => {
+    const row = uploadRow({
+      ownerType: "DOCUMENT",
+      ownerId: null,
+      uploadedById: "u2",
+    });
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "DOCUMENT",
+      ownerId: null,
+      departmentId: null,
+      customerId: null,
+    });
+
+    expect(result).toEqual({ claimed: false });
+    expect(row).toMatchObject({ ownerType: "DOCUMENT", ownerId: null });
+  });
+
+  it("lar opplasteren gjøre krav på sin egen ueide dokumentopplasting", async () => {
+    const row = uploadRow({
+      ownerType: "DOCUMENT",
+      ownerId: null,
+      uploadedById: "u1",
+    });
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "DOCUMENT",
+      ownerId: null,
+      departmentId: null,
+      customerId: null,
+    });
+
+    expect(result).toEqual({ claimed: true });
+  });
+
   it("lar ikke en oppdragsfil flyttes til et annet oppdrag", async () => {
     const row = uploadRow({
       ownerType: "WORK_ORDER",

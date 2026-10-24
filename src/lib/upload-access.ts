@@ -79,11 +79,23 @@ export async function claimUpload(
   const storedName = fileUrl.slice(fileUrl.lastIndexOf("/") + 1);
   if (!storedName) return { claimed: false };
 
+  // En ueid DOCUMENT-opplasting (ownerId: null) eller en privat USER-opplasting
+  // kan bare claimеs av den som lastet den opp. Uten dette ville hvem som helst
+  // med dokumenttilgang kunne ta over en annens ennå ikke tilknyttede fil.
+  const sameTarget =
+    owner.ownerId === null || owner.ownerType === "USER"
+      ? {
+          ownerType: owner.ownerType,
+          ownerId: owner.ownerId,
+          uploadedById: actorId,
+        }
+      : { ownerType: owner.ownerType, ownerId: owner.ownerId };
+
   const result = await tx.upload.updateMany({
     where: {
       storedName,
       OR: [
-        { ownerType: owner.ownerType, ownerId: owner.ownerId },
+        sameTarget,
         { uploadedById: actorId, ownerType: "USER", ownerId: actorId },
         { uploadedById: actorId, ownerType: "DOCUMENT", ownerId: null },
       ],
