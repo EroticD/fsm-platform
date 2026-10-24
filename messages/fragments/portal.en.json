@@ -26,7 +26,8 @@
       "paused": "Paused",
       "start": "Start date: {date}",
       "interval": "Interval: {interval}",
-      "next": "Next service: {date}"
+      "next": "Next service: {date}",
+      "months": "{count} months"
     },
     "booking": {
       "title": "Book a new work order",

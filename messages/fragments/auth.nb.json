@@ -61,7 +61,7 @@
       "confirm": "Gjenta passord",
       "confirmPlaceholder": "Skriv passordet på nytt...",
       "submit": "Lagre passord"
-    },
-    "loginDescCompany": "Logg inn for å få tilgang til {companyName}"
-  }
+    }
+  },
+  "loginDescCompany": "Logg inn for å få tilgang til {companyName}"
 }

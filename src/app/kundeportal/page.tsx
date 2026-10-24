@@ -14,7 +14,6 @@ import {
   toDateOnly,
   todayInOslo,
 } from "@/lib/dates";
-import { contractIntervalLabel } from "@/lib/contracts";
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
@@ -424,7 +423,7 @@ export default async function KundeportalPage({
                       </div>
                       <p className="text-[10px] text-blue-700">
                         {t("portal.contracts.start", { date: formatDate(contract.startDate, "–") })} •{" "}
-                        {t("portal.contracts.interval", { interval: contractIntervalLabel(contract.intervalMonths) })}
+                        {t("portal.contracts.interval", { interval: t("portal.contracts.months", { count: contract.intervalMonths }) })}
                       </p>
                       <p className="text-[10px] text-blue-700">
                         {t("portal.contracts.next", { date: formatDate(contract.nextServiceDate, "–") })}

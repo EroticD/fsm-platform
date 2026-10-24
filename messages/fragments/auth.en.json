@@ -61,7 +61,7 @@
       "confirm": "Repeat password",
       "confirmPlaceholder": "Enter the password again...",
       "submit": "Save password"
-    },
-    "loginDescCompany": "Sign in to access {companyName}"
-  }
+    }
+  },
+  "loginDescCompany": "Sign in to access {companyName}"
 }
