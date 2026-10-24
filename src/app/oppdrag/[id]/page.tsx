@@ -29,7 +29,6 @@ import {
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
-import { allowedTransitions } from "@/lib/work-order-status";
 
 type ReportField = {
   id: string;
@@ -324,14 +323,15 @@ export default async function AdminWorkOrderPage({
   }
 
   const isAdmin = user.role === "ADMIN";
-  const isCompleted = workOrder.status === "COMPLETED";
+  const isClosed =
+    workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED";
   const canUpdate = hasPermission(user, "workorders.update");
   // Selve oppdraget låses først når det er fullført. En låst rapport skal
   // ikke hindre redigering av et oppdrag som fortsatt er under arbeid.
-  const canEdit = hasPermission(user, "workorders.edit") && !isCompleted;
-  const canModify = canUpdate && !isCompleted;
-  const canAssign = hasPermission(user, "workorders.assign") && !isCompleted;
-  const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isCompleted;
+  const canEdit = hasPermission(user, "workorders.edit") && !isClosed;
+  const canModify = canUpdate && !isClosed;
+  const canAssign = hasPermission(user, "workorders.assign") && !isClosed;
+  const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isClosed;
   const canCreate = hasPermission(user, "workorders.create");
   const canWriteReports = hasPermission(user, "reports.write");
   const canManageCustomers = hasPermission(user, "customers.manage");
@@ -345,10 +345,14 @@ export default async function AdminWorkOrderPage({
     COMPLETED: t("orders.detail.statusCompleted"),
     CANCELLED: t("orders.detail.statusCancelled"),
   };
-  const statusOptions = isAdmin
-    ? Object.values(WorkStatus).filter((status) => status !== workOrder.status)
-    : allowedTransitions(workOrder.status, false).filter(
-        (status) => status !== "CANCELLED" || canEdit,
+  const statusOptions = isClosed
+    ? isAdmin
+      ? Object.values(WorkStatus).filter((status) => status !== workOrder.status)
+      : []
+    : Object.values(WorkStatus).filter(
+        (status) =>
+          status !== workOrder.status &&
+          (status !== "CANCELLED" || canEdit),
       );
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
@@ -414,7 +418,7 @@ export default async function AdminWorkOrderPage({
                 {t("orders.detail.editWorkOrder")}
               </Link>
             )}
-            {canCreate && isCompleted && (
+            {canCreate && isClosed && (
               <form action={cloneWorkOrder}>
                 <input type="hidden" name="workOrderId" value={workOrder.id} />
                 <button
@@ -482,7 +486,7 @@ export default async function AdminWorkOrderPage({
                   <h2 className="font-black text-lg text-gray-900">{t("orders.detail.checklistsTitle")}</h2>
                 </div>
 
-                {!isCompleted && workOrder.reports.some((report) => report.isLocked) && (
+                {!isClosed && workOrder.reports.some((report) => report.isLocked) && (
                   <p className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-900">
                     {t("orders.detail.checklistLockedOnly")}
                   </p>
@@ -633,12 +637,12 @@ export default async function AdminWorkOrderPage({
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
                 <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.changeStatus")}</h2>
-                {isCompleted && (
+                {isClosed && (
                   <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
-                    {t("orders.detail.completedLocked")}
+                    {t("orders.detail.closedLocked")}
                   </p>
                 )}
-                {canUpdate && (!isCompleted || isAdmin) ? (
+                {canUpdate && (!isClosed || isAdmin) ? (
                   <form action={updateStatus} className="flex flex-col gap-3">
                     <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select
@@ -655,14 +659,14 @@ export default async function AdminWorkOrderPage({
                         </option>
                       ))}
                     </select>
-                    {isAdmin && (
+                    {isAdmin && isClosed && (
                       <label className="text-xs font-bold text-gray-600">
                         {t("orders.detail.reopenReason")}
                         <textarea
                           name="reason"
                           rows={2}
                           maxLength={1000}
-                          required={isCompleted}
+                          required={isClosed}
                           placeholder={t("orders.detail.reopenReasonPlaceholder")}
                           className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
                         />
@@ -806,13 +810,13 @@ export default async function AdminWorkOrderPage({
                   dataUrl: a.dataUrl,
                 }))}
                 canUpload={canModify}
-                canDelete={isAdmin && !isCompleted}
+                canDelete={isAdmin && !isClosed}
               />
 
             </div>
           </div>
 
-          <TimeMaterialsPanel workOrderId={workOrderId} readOnly={isCompleted} />
+          <TimeMaterialsPanel workOrderId={workOrderId} readOnly={isClosed} />
 
           {/* Audit log - full width bottom */}
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">

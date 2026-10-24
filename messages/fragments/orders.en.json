@@ -184,7 +184,8 @@
       "completedLocked": "This work order is completed and locked. You can add comments or clone it into a new work order.",
       "reopenReason": "Reason for reopening / status change",
       "reopenReasonPlaceholder": "Describe why the work order is reopened or the status is overridden",
-      "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status."
+      "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status.",
+      "closedLocked": "This work order is completed or cancelled and locked. You can add comments or clone it into a new work order."
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -473,7 +474,7 @@
       "department": "The work order must belong to a department. Ask an administrator to add you to an active department, or create a department first.",
       "invalidData": "⛔ The work order could not be saved. Check the title, date and department.",
       "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date.",
-      "workOrderLocked": "🔒 This work order is completed and locked. You can add comments or clone it.",
+      "workOrderLocked": "🔒 This work order is completed or cancelled and locked. You can add comments or clone it.",
       "reasonRequired": "You must provide a reason for reopening or changing the status."
     },
     "reportsPage": {

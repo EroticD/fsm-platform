@@ -172,7 +172,7 @@ export async function startTimer(
     "workorders.update",
   );
   if (!workOrder) return fail("forbidden");
-  if (workOrder.status === "COMPLETED") return fail("forbidden");
+  if (["COMPLETED", "CANCELLED"].includes(workOrder.status)) return fail("forbidden");
 
   const active = await prisma.timeEntry.findFirst({
     where: { userId: actor.id, endedAt: null },
@@ -276,7 +276,7 @@ export async function addManualTime(
     "workorders.update",
   );
   if (!workOrder) return fail("forbidden");
-  if (workOrder.status === "COMPLETED") return fail("forbidden");
+  if (["COMPLETED", "CANCELLED"].includes(workOrder.status)) return fail("forbidden");
 
   const endedAt = parsed.data.endedAt ?? null;
   const minutes = endedAt
@@ -446,7 +446,7 @@ export async function deleteTimeEntry(
     "workorders.view",
   );
   if (!workOrder) return fail("forbidden");
-  if (workOrder.status === "COMPLETED") return fail("forbidden");
+  if (["COMPLETED", "CANCELLED"].includes(workOrder.status)) return fail("forbidden");
 
   await prisma.$transaction(async (tx) => {
     await tx.timeEntry.delete({ where: { id: entry.id } });

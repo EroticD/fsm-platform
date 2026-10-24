@@ -12,7 +12,6 @@ import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
-import { allowedTransitions } from "@/lib/work-order-status";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
 import {
   addComment,
@@ -95,9 +94,16 @@ export default async function TechnicianWorkOrderPage({
     COMPLETED: t("orders.fieldDetail.statusCompleted"),
     CANCELLED: t("orders.fieldDetail.statusCancelled"),
   };
-  const statusOptions = allowedTransitions(workOrder.status, false).filter(
-    (status) => status !== "CANCELLED" || canEdit,
-  );
+  // Kansellerte oppdrag er allerede avvist for montører lenger opp.
+  const isClosed = workOrder.status === "COMPLETED";
+  const allStatuses = Object.values(WorkStatus) as WorkStatus[];
+  const statusOptions = isClosed
+    ? []
+    : allStatuses.filter(
+        (status) =>
+          status !== workOrder.status &&
+          (status !== "CANCELLED" || canEdit),
+      );
   const canWriteReports = hasPermission(user, "reports.write");
 
   const allUsers = await prisma.user.findMany({

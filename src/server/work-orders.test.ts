@@ -98,23 +98,23 @@ describe("work-orders-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("avviser en ulovlig statustransisjon uten å skrive til databasen", async () => {
+  it("lar alle åpne statuser velges fritt uten grunn", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
       customerId: null,
       status: "OPEN",
     });
+    withTransaction();
 
     const result = await changeWorkOrderStatus(
       actor({ role: "TECHNICIAN" }),
       "wo-1",
-      "COMPLETED",
+      "IN_PROGRESS",
       "field",
     );
 
-    expect(result).toEqual({ ok: false, error: "ugyldig-status" });
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
   });
 
   it("avviser kansellering fra en montør som mangler workorders.edit", async () => {
@@ -489,13 +489,32 @@ describe("work-orders-tjenesten", () => {
           from: "COMPLETED",
           to: "IN_PROGRESS",
           reason: "Kunden oppdaget mangler ved signeringen",
-          override: true,
+          reopened: true,
         },
       }),
     });
   });
 
-  it("lar administrator overstyre en ulovlig statusovergang med grunn", async () => {
+  it("krever grunn når administrator gjenåpner et kansellert oppdrag", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "CANCELLED",
+    });
+
+    const result = await changeWorkOrderStatus(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      "IN_PROGRESS",
+      "office",
+    );
+
+    expect(result).toEqual({ ok: false, error: "reason-required" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("krever ikke grunn når en åpen status endres", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -509,19 +528,11 @@ describe("work-orders-tjenesten", () => {
       "wo-1",
       "IN_PROGRESS",
       "office",
-      "Oppdraget skulle vært påbegynt",
     );
 
     expect(result).toEqual({ ok: true });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        metadata: {
-          from: "PENDING",
-          to: "IN_PROGRESS",
-          reason: "Oppdraget skulle vært påbegynt",
-          override: true,
-        },
-      }),
+      data: expect.not.objectContaining({ metadata: expect.anything() }),
     });
   });
 

@@ -82,7 +82,7 @@ export async function addMaterial(
     "workorders.update",
   );
   if (!workOrder) return fail("forbidden");
-  if (workOrder.status === "COMPLETED") return fail("forbidden");
+  if (["COMPLETED", "CANCELLED"].includes(workOrder.status)) return fail("forbidden");
 
   // Feltbrukere prissetter ikke materiale. Kontoret kan gjøre det senere.
   const requestedPrice =
@@ -141,7 +141,7 @@ export async function updateMaterial(
     "workorders.update",
   );
   if (!workOrder) return fail("forbidden");
-  if (workOrder.status === "COMPLETED") return fail("forbidden");
+  if (["COMPLETED", "CANCELLED"].includes(workOrder.status)) return fail("forbidden");
 
   // Bare kontoret kan sette eller overstyre pris. Feltbrukere ignoreres
   // fullstendig, også når de sender unitPrice i en håndlaget forespørsel.
@@ -200,7 +200,7 @@ export async function deleteMaterial(
     "workorders.edit",
   );
   if (!workOrder) return fail("forbidden");
-  if (workOrder.status === "COMPLETED") return fail("forbidden");
+  if (["COMPLETED", "CANCELLED"].includes(workOrder.status)) return fail("forbidden");
 
   await prisma.$transaction(async (tx) => {
     await tx.material.delete({ where: { id: material.id } });

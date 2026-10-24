@@ -28,7 +28,6 @@ import {
   workOrderUpdateSchema,
 } from "@/lib/schemas";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
-import { canTransition } from "@/lib/work-order-status";
 
 /**
  * Tjenestelaget for oppdrag.
@@ -304,7 +303,7 @@ export async function updateWorkOrder(
 
   // Et fullført oppdrag er låst. Rapporter kan være låst uten at oppdraget er
   // fullført; det skal ikke hindre redigering.
-  if (currentWorkOrder.status === "COMPLETED") {
+  if (["COMPLETED", "CANCELLED"].includes(currentWorkOrder.status)) {
     return { ok: false, error: "workorder-locked" };
   }
 
@@ -402,8 +401,10 @@ export async function updateWorkOrder(
 export type StatusContext = "office" | "field";
 
 /**
- * Bytter status med tilstandsmaskinen som vakt. Kansellering er en
- * kontorhandling og krever `workorders.edit`.
+ * Bytter status. Alle åpne statuser kan velges fritt av brukere med
+ * `workorders.update`. Bare når oppdraget er fullført eller kansellert kreves
+ * en grunn, og bare administrator kan gjenåpne det. Kansellering krever
+ * fortsatt `workorders.edit`.
  */
 export async function changeWorkOrderStatus(
   user: Actor,
@@ -422,20 +423,16 @@ export async function changeWorkOrderStatus(
   const status = parsed.data.status as WorkStatus;
   const from = access.status as WorkStatus;
 
-  // Fullført er låst for vanlige brukere. Administrator kan gjenåpne eller
-  // overstyre en ulovlig statusovergang, men bare med en skriftlig grunn som
-  // havner i revisjonsloggen.
-  const adminOverride =
-    user.role === "ADMIN" &&
-    (from === "COMPLETED" || !canTransition(from, status, false));
+  const fromClosed = from === "COMPLETED" || from === "CANCELLED";
   const reason = cleanText(rawReason, { maxLength: 1000 });
-  if (adminOverride && !reason) return { ok: false, error: "reason-required" };
-  if (from === "COMPLETED" && user.role !== "ADMIN") {
-    return { ok: false, error: "workorder-locked" };
+
+  // Bare lukkede oppdrag krever grunn. Åpne statuser kan velges fritt.
+  if (fromClosed) {
+    if (user.role !== "ADMIN") return { ok: false, error: "workorder-locked" };
+    if (!reason) return { ok: false, error: "reason-required" };
   }
 
-  // Montører kan oppdatere fremdrift, men ikke lukke oppdraget slik at det
-  // forsvinner fra feltportalen.
+  // Kansellering er en kontorhandling.
   if (status === "CANCELLED" && !hasPermission(user, "workorders.edit")) {
     return { ok: false, error: "ugyldig-status" };
   }
@@ -443,8 +440,8 @@ export async function changeWorkOrderStatus(
   const action =
     context === "field"
       ? `Montør endret status til: ${status}`
-      : adminOverride
-        ? `Administrator overstyrte status ${from} → ${status}. Grunn: ${reason}`
+      : fromClosed
+        ? `Administrator gjenåpnet oppdraget: ${from} → ${status}. Grunn: ${reason}`
         : `${user.role === "TECHNICIAN" ? "Montør" : "Kontoret"} endret status til: ${status}`;
 
   const result = await transitionWorkOrderStatus({
@@ -452,11 +449,12 @@ export async function changeWorkOrderStatus(
     from,
     to: status,
     isAdmin: user.role === "ADMIN",
-    force: adminOverride,
+    // Åpne statuser er frie; lukkede gjenåpnes bevisst av administrator.
+    force: true,
     actor: auditActor(user),
     action,
-    ...(adminOverride
-      ? { metadata: { from, to: status, reason, override: true } }
+    ...(fromClosed
+      ? { metadata: { from, to: status, reason, reopened: true } }
       : {}),
   });
 
@@ -497,7 +495,7 @@ export async function updateWorkOrderDate(
     select: { status: true },
   });
   if (!existing) return { ok: false, error: "ikke-funnet" };
-  if (existing.status === "COMPLETED") {
+  if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
     return { ok: false, error: "ikke-funnet" };
   }
 
@@ -592,7 +590,7 @@ export async function addTemplate(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, permission, workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
-  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
+  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
 
   const parsed = workOrderTemplateSchema.safeParse({
     templateId: rawId(rawTemplateId),
@@ -661,7 +659,7 @@ export async function setTags(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
-  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
+  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
 
   const tagNames = cleanTagNames(rawTagNames);
 
@@ -698,7 +696,7 @@ export async function setContact(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
-  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
+  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
   }
@@ -748,7 +746,7 @@ export async function addContactToCustomer(
 ): Promise<AddContactResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
-  if (access.status === "COMPLETED") return { ok: false, error: "workorder-locked" };
+  if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
   }
