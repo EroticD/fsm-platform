@@ -24,6 +24,8 @@ export type PdfImage = {
 
 type ReportLike = {
   dataJson?: string | null;
+  technicianSignatureUrl?: string | null;
+  customerSignatureUrl?: string | null;
   units?: Array<{ answersJson?: string | null }> | null;
 };
 
@@ -55,6 +57,20 @@ export function collectReportImageUrls(reports: ReportLike[] | null | undefined)
   };
 
   for (const report of reports ?? []) {
+    // Signaturbilder ligger ikke i svarfeltene, men må også gjøres om til
+    // data-URL før PDF-renderingen. /uploads krever innlogging, og PDF-motoren
+    // henter bilder uten nettleserens sesjonscookie.
+    for (const url of [
+      report.technicianSignatureUrl,
+      report.customerSignatureUrl,
+    ]) {
+      if (typeof url !== "string") continue;
+      const trimmed = url.trim();
+      if (!looksLikeImage(trimmed) || seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      urls.push(trimmed);
+    }
+
     const legacy = parseJsonObject(report.dataJson).answers;
     if (legacy && typeof legacy === "object" && !Array.isArray(legacy)) {
       addAnswers(legacy as Record<string, unknown>);

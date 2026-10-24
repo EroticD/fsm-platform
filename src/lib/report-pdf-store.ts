@@ -50,6 +50,9 @@ function canonicalReport(report: ReportPdfHashInput) {
       : new Date(report.updatedAt).toISOString();
 
   return {
+    // Økes når PDF-renderingen endres, slik at gamle, ufullstendige
+    // PDF-er (for eksempel uten signaturbilder) ikke gjenbrukes fra cachen.
+    rendererVersion: 2,
     id: report.id,
     updatedAt,
     comments: report.comments ?? null,

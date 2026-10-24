@@ -554,7 +554,7 @@ export default function ReportDocument({
       {url ? (
         // react-pdf tegner <Image> inn i PDF-en, ikke i DOM-en (og støtter ikke alt)
         // eslint-disable-next-line jsx-a11y/alt-text
-        <Image src={url} style={styles.signatureImage} />
+        <Image src={pdfImage(url).src} style={styles.signatureImage} />
       ) : (
         <Text style={styles.signatureMissing}>Ikke signert</Text>
       )}
@@ -621,7 +621,7 @@ export default function ReportDocument({
         <View style={styles.headerContainer}>
           {logoUrl ? (
             // eslint-disable-next-line jsx-a11y/alt-text
-            <Image src={logoUrl} style={styles.logo} />
+            <Image src={pdfImage(logoUrl).src} style={styles.logo} />
           ) : (
             <View />
           )}

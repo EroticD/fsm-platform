@@ -72,7 +72,13 @@ export async function loadReportPdf(
   const branding = await prisma.branding.findFirst().catch(() => null);
 
   // Bildene skaleres ned på forhånd, slik at PDF-en blir til å sende på e-post.
-  const pdfImages = await buildPdfImages(collectReportImageUrls(workOrder.reports));
+  // Signaturer og opplastet logo tas med, slik at PDF-motoren slipper å hente
+  // dem fra det innloggingsbeskyttede /uploads over HTTP.
+  const imageUrls = collectReportImageUrls(workOrder.reports);
+  if (branding?.logoUrl && isSafeLogoUrl(branding.logoUrl)) {
+    imageUrls.push(branding.logoUrl);
+  }
+  const pdfImages = await buildPdfImages(imageUrls);
 
   const origin =
     baseUrl ||

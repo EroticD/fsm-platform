@@ -18,7 +18,9 @@ export async function register() {
   if (configErrors.length > 0) {
     console.error("✖ Ugyldig produksjonskonfigurasjon:");
     for (const error of configErrors) console.error(`  - ${error}`);
-    process.exit(1);
+    // Kastes i stedet for process.exit, slik at Next også kan laste denne
+    // modulen i Edge-kontekst uten å advare om Node-API-er.
+    throw new Error("Ugyldig produksjonskonfigurasjon");
   }
 
   if (process.env.RECURRING_SCHEDULER !== "false") {

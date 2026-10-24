@@ -66,6 +66,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Kjør på alt utenom Next interne filer og statiske ressurser.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
+    "/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
   ],
 };

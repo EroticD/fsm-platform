@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
   // React hydrerer aldri – da ser ikke siden interaktiv ut på mobilen.
   // Vi tillater derfor LAN-adressen og .local-navn. Hvert LAN-IP må legges
   // til her (kun vertsnavn, uten port).
-  allowedDevOrigins: ["10.0.0.115", "**.local"],
+  allowedDevOrigins: ["10.0.0.115", "**.local", "localhost", "127.0.0.1"],
 
   // Bygger en selvstendig server i .next/standalone med bare nødvendige filer.
   // Dockerfile bruker denne i stedet for `next start`.
