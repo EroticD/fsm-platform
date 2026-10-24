@@ -224,7 +224,7 @@ describe("2FA-innstillinger – verifisering", () => {
 
     expect(result).toEqual({ ok: true, data: { sessionVersion: 7 } });
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
+      where: { id: "user-1", isTwoFactorEnabled: false },
       data: {
         twoFactorSecret: null,
         isTwoFactorEnabled: false,
@@ -253,6 +253,17 @@ describe("2FA-innstillinger – verifisering", () => {
     ).resolves.toEqual({ ok: false, reason: "forbidden" });
 
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser start og avbryt hvis 2FA aktiveres samtidig", async () => {
+    mocks.prisma.user.update.mockRejectedValue({ code: "P2025" });
+
+    await expect(
+      startTwoFactorSetup(actor, { password: CORRECT_PASSWORD }),
+    ).resolves.toEqual({ ok: false, reason: "forbidden" });
+    await expect(
+      cancelTwoFactorSetup(actor, { password: CORRECT_PASSWORD }),
+    ).resolves.toEqual({ ok: false, reason: "forbidden" });
   });
 });
 

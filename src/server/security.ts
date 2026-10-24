@@ -123,6 +123,16 @@ export async function verifyOwnPassword(
   return securityOk(undefined);
 }
 
+/** Prisma-feilkode for «raden finnes ikke / matcher ikke lenger». */
+function isRecordNotFound(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2025",
+  );
+}
+
 /** Starter oppsett av 2FA med en ny, ennå ikke aktivert hemmelighet. */
 export async function startTwoFactorSetup(
   actor: ServiceActor,
@@ -142,18 +152,26 @@ export async function startTwoFactorSetup(
 
   const secret = createTotpSecret();
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: actor.id },
-      data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Betingelsen ligger i selve skrivingen, ikke bare i forhåndssjekken:
+      // aktiveres 2FA mellom lesingen og skrivingen, matcher ikke raden og
+      // hele transaksjonen rulles tilbake.
+      await tx.user.update({
+        where: { id: actor.id, isTwoFactorEnabled: false },
+        data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
+      });
+      await audit(tx, {
+        entityType: "User",
+        entityId: actor.id,
+        action: "Startet oppsett av to-trinns verifisering",
+        actor: toAuditActor(actor),
+      });
     });
-    await audit(tx, {
-      entityType: "User",
-      entityId: actor.id,
-      action: "Startet oppsett av to-trinns verifisering",
-      actor: toAuditActor(actor),
-    });
-  });
+  } catch (error) {
+    if (isRecordNotFound(error)) return securityFail("forbidden");
+    throw error;
+  }
 
   await resetRateLimit(actor.id, ip);
   return securityOk(undefined);
@@ -226,25 +244,33 @@ export async function cancelTwoFactorSetup(
   });
   if (state?.isTwoFactorEnabled) return securityFail("forbidden");
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.update({
-      where: { id: actor.id },
-      data: {
-        twoFactorSecret: null,
-        isTwoFactorEnabled: false,
-        sessionVersion: { increment: 1 },
-      },
-      select: { sessionVersion: true },
+  let updated: { sessionVersion: number };
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        // Samme atomiske vern som i start: en samtidig aktivering skal ikke
+        // kunne avbrytes med bare passord.
+        where: { id: actor.id, isTwoFactorEnabled: false },
+        data: {
+          twoFactorSecret: null,
+          isTwoFactorEnabled: false,
+          sessionVersion: { increment: 1 },
+        },
+        select: { sessionVersion: true },
+      });
+      await clearCalendarToken(actor.id, tx);
+      await audit(tx, {
+        entityType: "User",
+        entityId: actor.id,
+        action: "Avbrøt oppsett av to-trinns verifisering",
+        actor: toAuditActor(actor),
+      });
+      return user;
     });
-    await clearCalendarToken(actor.id, tx);
-    await audit(tx, {
-      entityType: "User",
-      entityId: actor.id,
-      action: "Avbrøt oppsett av to-trinns verifisering",
-      actor: toAuditActor(actor),
-    });
-    return user;
-  });
+  } catch (error) {
+    if (isRecordNotFound(error)) return securityFail("forbidden");
+    throw error;
+  }
 
   await resetRateLimit(actor.id, ip);
   return securityOk({ sessionVersion: updated.sessionVersion });

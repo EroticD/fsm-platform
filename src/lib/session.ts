@@ -50,7 +50,10 @@ export async function bumpSessionVersion(userId: string): Promise<number> {
  * ugyldige, men den som nettopp gjorde endringen skal slippe å logge inn på
  * nytt. Henter bare feltene cookien trenger – aldri passord eller hemmeligheter.
  */
-export async function refreshSessionCookie(userId: string): Promise<void> {
+export async function refreshSessionCookie(
+  userId: string,
+  expectedVersion?: number,
+): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -58,10 +61,16 @@ export async function refreshSessionCookie(userId: string): Promise<void> {
       email: true,
       name: true,
       role: true,
+      isActive: true,
       sessionVersion: true,
     },
   });
-  if (!user) return;
+  if (!user?.isActive) return;
+
+  // En samtidig invalidering skal ikke overstyres av en gammel fornyelse.
+  if (expectedVersion !== undefined && user.sessionVersion !== expectedVersion) {
+    return;
+  }
 
   // Dynamisk import holder Next-avhengighetene ute av moduler som bare trenger
   // bumpSessionVersion (for eksempel enhetstester).

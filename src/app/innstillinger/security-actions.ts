@@ -15,6 +15,9 @@ const BASE = "/innstillinger?tab=sikkerhet";
 
 /** Klient-IP bak reverse proxy, brukt som ekstra rate-limit-nøkkel. */
 async function requestIp(): Promise<string | undefined> {
+  // Uten en betrodd proxy kan en klient sette X-Forwarded-For fritt. Da er
+  // IP-nøkkelen meningsløs; brukergrensen gjelder fortsatt.
+  if (process.env.TRUST_PROXY !== "true") return undefined;
   const requestHeaders = await headers();
   return (
     requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -58,7 +61,7 @@ export async function confirmSetupAction(formData: FormData): Promise<never> {
   }
 
   // Andre økter er nå ugyldige; den som aktiverte 2FA skal fortsatt være innlogget.
-  await refreshSessionCookie(actor.id);
+  await refreshSessionCookie(actor.id, result.data.sessionVersion);
   revalidatePath("/innstillinger");
   redirect(`${BASE}&ok=enabled`);
 }
@@ -75,7 +78,7 @@ export async function cancelSetupAction(formData: FormData): Promise<never> {
     redirect(`${BASE}&error=passord`);
   }
 
-  await refreshSessionCookie(actor.id);
+  await refreshSessionCookie(actor.id, result.data.sessionVersion);
   revalidatePath("/innstillinger");
   redirect(BASE);
 }
@@ -96,7 +99,7 @@ export async function disableTwoFactorAction(formData: FormData): Promise<never>
     redirect(`${BASE}&error=${error}`);
   }
 
-  await refreshSessionCookie(actor.id);
+  await refreshSessionCookie(actor.id, result.data.sessionVersion);
   revalidatePath("/innstillinger");
   redirect(`${BASE}&ok=disabled`);
 }

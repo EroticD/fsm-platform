@@ -17,9 +17,18 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+const mocks = vi.hoisted(() => ({ createSessionCookie: vi.fn() }));
+vi.mock("@/lib/session-token", () => ({
+  createSessionCookie: mocks.createSessionCookie,
+}));
+
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
-import { bumpSessionVersion, getCurrentUser } from "./session";
+import {
+  bumpSessionVersion,
+  getCurrentUser,
+  refreshSessionCookie,
+} from "./session";
 
 const mockedSession = vi.mocked(getServerSession);
 const mockedFindUnique = vi.mocked(prisma.user.findUnique);
@@ -88,5 +97,58 @@ describe("bumpSessionVersion", () => {
       data: { sessionVersion: { increment: 1 } },
       select: { sessionVersion: true },
     });
+  });
+});
+
+describe("refreshSessionCookie", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("fornyer cookien med den forventede versjonen", async () => {
+    mockedFindUnique.mockResolvedValue({
+      id: "u1",
+      email: "kari@example.test",
+      name: "Kari",
+      role: "OFFICE",
+      isActive: true,
+      sessionVersion: 4,
+    } as never);
+
+    await refreshSessionCookie("u1", 4);
+
+    expect(mocks.createSessionCookie).toHaveBeenCalledWith({
+      id: "u1",
+      email: "kari@example.test",
+      name: "Kari",
+      role: "OFFICE",
+      sessionVersion: 4,
+    });
+  });
+
+  it("fornyer ikke når en samtidig endring har økt versjonen", async () => {
+    mockedFindUnique.mockResolvedValue({
+      id: "u1",
+      email: "kari@example.test",
+      name: "Kari",
+      role: "OFFICE",
+      isActive: true,
+      sessionVersion: 5,
+    } as never);
+
+    await refreshSessionCookie("u1", 4);
+    expect(mocks.createSessionCookie).not.toHaveBeenCalled();
+  });
+
+  it("fornyer ikke for inaktive brukere", async () => {
+    mockedFindUnique.mockResolvedValue({
+      id: "u1",
+      email: "kari@example.test",
+      name: "Kari",
+      role: "OFFICE",
+      isActive: false,
+      sessionVersion: 4,
+    } as never);
+
+    await refreshSessionCookie("u1", 4);
+    expect(mocks.createSessionCookie).not.toHaveBeenCalled();
   });
 });
