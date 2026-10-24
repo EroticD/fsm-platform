@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * Tilgjengelig bekreftelsesdialog.
@@ -13,8 +14,8 @@ export default function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "Slett",
-  cancelLabel = "Avbryt",
+  confirmLabel,
+  cancelLabel,
   danger = true,
   busy = false,
   onConfirm,
@@ -30,6 +31,9 @@ export default function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("common");
+  const resolvedConfirmLabel = confirmLabel ?? t("components.confirm.confirm");
+  const resolvedCancelLabel = cancelLabel ?? t("components.confirm.cancel");
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -107,7 +111,7 @@ export default function ConfirmDialog({
             disabled={busy}
             className="min-h-11 rounded-xl border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             type="button"
@@ -119,7 +123,7 @@ export default function ConfirmDialog({
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {busy ? "…" : confirmLabel}
+            {busy ? "…" : resolvedConfirmLabel}
           </button>
         </div>
       </div>

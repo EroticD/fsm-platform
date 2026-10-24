@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import ConfirmDialog from "./ConfirmDialog";
 
 /**
@@ -19,6 +20,7 @@ export default function ConfirmSubmitForm({
   className?: string;
   children: ReactNode;
 }) {
+  const t = useTranslations("common");
   const [open, setOpen] = useState(false);
   const confirmed = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -42,7 +44,7 @@ export default function ConfirmSubmitForm({
       </form>
       <ConfirmDialog
         open={open}
-        title="Bekreft handling"
+        title={t("components.confirm.title")}
         description={confirmMessage}
         onCancel={() => setOpen(false)}
         onConfirm={() => {

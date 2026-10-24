@@ -1,8 +1,10 @@
 "use client";
 
 import { useI18n } from "@/i18n-hooks";
+import { useTranslations } from "next-intl";
 
 export default function LanguageSwitcher() {
+  const t = useTranslations("common");
   const { locale, localeNames, changeLocale } = useI18n();
   const nextLocale = locale === "nb" ? "en" : "nb";
 
@@ -12,7 +14,7 @@ export default function LanguageSwitcher() {
         type="button"
         onClick={() => changeLocale(nextLocale)}
         className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-        aria-label="Change language"
+        aria-label={t("components.language.change")}
       >
         {locale === "nb" ? "🇳🇴" : "🇬🇧"}
         <span>{localeNames[locale]}</span>

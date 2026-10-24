@@ -1,1 +1,67 @@
-{}
+{
+  "auth": {
+    "twoFactor": {
+      "title": "To-trinns verifisering",
+      "desc": "Åpne autentiseringsappen din og skriv inn den 6-sifrede koden for {companyName}.",
+      "codeLabel": "Engangskode",
+      "verify": "Verifiser",
+      "verifying": "Verifiserer...",
+      "backToLogin": "Tilbake til innlogging",
+      "errors": {
+        "InvalidTwoFactor": "Feil engangskode. Prøv igjen.",
+        "TwoFactorExpired": "Økten er utløpt. Logg inn på nytt.",
+        "TooManyAttempts": "For mange forsøk. Vent noen minutter og prøv igjen.",
+        "default": "Kunne ikke verifisere koden."
+      }
+    },
+    "forgot": {
+      "title": "Glemt passord?",
+      "rateLimited": "For mange forsøk. Vent 15 minutter før du prøver igjen.",
+      "sentTitle": "E-post sendt!",
+      "sentDesc": "Hvis e-postadressen er registrert i vårt system, har vi sendt en link for å tilbakestille passordet. (Sjekk konsollen din for lokal test).",
+      "backToLogin": "Tilbake til innlogging",
+      "desc": "Skriv inn e-postadressen din, så sender vi deg en link for å lage nytt passord.",
+      "email": "E-postadresse",
+      "emailPlaceholder": "ola@bedrift.no",
+      "submit": "Send tilbakestillingslink",
+      "emailSubject": "Tilbakestill ditt passord",
+      "emailBody": "Du har bedt om å tilbakestille passordet ditt.",
+      "emailLink": "Klikk her for å lage nytt passord",
+      "emailExpiry": "Linken er gyldig i 1 time."
+    },
+    "reset": {
+      "title": "Lage nytt passord",
+      "desc": "Skriv inn ditt nye ønskede passord nedenfor.",
+      "invalid": "Linken er ugyldig eller har utløpt.",
+      "tooShort": "Passordet må være minst 8 tegn.",
+      "newPassword": "Nytt passord",
+      "placeholder": "Minst 8 tegn...",
+      "submit": "Lagre nytt passord",
+      "missingTitle": "Manglende sikkerhetsnøkkel",
+      "missingDesc": "Ugyldig eller manglende link. Prøv å be om en ny tilbakestillingslink.",
+      "missingButton": "Gå til glemt passord"
+    },
+    "activate": {
+      "successTitle": "Passordet er satt",
+      "successDesc": "Kontoen din må aktiveres av en administrator før du kan logge inn. Du får beskjed når den er klar.",
+      "toLogin": "Til innlogging",
+      "missingTitle": "Manglende invitasjonsnøkkel",
+      "missingDesc": "Ugyldig eller manglende invitasjonslenke. Be administratoren om en ny lenke.",
+      "invalidTitle": "Lenken er ugyldig",
+      "invalidDesc": "Invitasjonslenken er ugyldig eller har utløpt. Be administratoren om en ny lenke.",
+      "welcome": "Velkommen!",
+      "desc": "Sett ditt eget passord for kontoen <strong>{email}</strong>.",
+      "errors": {
+        "invalid": "Linken er ugyldig eller har utløpt.",
+        "tooShort": "Passordet må være minst 8 tegn.",
+        "mismatch": "Passordene er ikke like. Prøv igjen."
+      },
+      "newPassword": "Nytt passord",
+      "newPasswordPlaceholder": "Minst 8 tegn...",
+      "confirm": "Gjenta passord",
+      "confirmPlaceholder": "Skriv passordet på nytt...",
+      "submit": "Lagre passord"
+    },
+    "loginDescCompany": "Logg inn for å få tilgang til {companyName}"
+  }
+}

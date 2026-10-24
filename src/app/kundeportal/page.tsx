@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -52,6 +53,8 @@ export default async function KundeportalPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  const t = await getTranslations("common");
+  const locale = await getLocale();
   const listParams = await searchParams;
   const upcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
@@ -60,8 +63,8 @@ export default async function KundeportalPage({
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-xl shadow border text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Ingen tilgang</h1>
-          <p className="text-gray-600">Brukeren din er ikke koblet til en kundekonto.</p>
+          <h1 className="text-2xl font-bold text-red-600 mb-2">{t("portal.noAccessTitle")}</h1>
+          <p className="text-gray-600">{t("portal.noAccessDesc")}</p>
         </div>
       </div>
     );
@@ -81,8 +84,8 @@ export default async function KundeportalPage({
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-xl shadow border text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Ingen tilgang</h1>
-          <p className="text-gray-600">Brukeren din er ikke koblet til en kundekonto.</p>
+          <h1 className="text-2xl font-bold text-red-600 mb-2">{t("portal.noAccessTitle")}</h1>
+          <p className="text-gray-600">{t("portal.noAccessDesc")}</p>
         </div>
       </div>
     );
@@ -288,28 +291,28 @@ export default async function KundeportalPage({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4" style={{ borderBottomColor: customer.brandColor || "#2563eb" }}>
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Min Bedrift: {customer.name}</h1>
-              <p className="text-gray-500">Velkommen til din kundeportal, {user.name}!</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t("portal.headerTitle", { customerName: customer.name })}</h1>
+              <p className="text-gray-500">{t("portal.headerWelcome", { userName: user.name ?? user.email ?? "" })}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Link href="/" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm whitespace-nowrap">
-              &larr; Hjem
+              &larr; {t("portal.home")}
             </Link>
             <Link href="/kundeportal" className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg font-bold hover:opacity-90 transition whitespace-nowrap text-sm">
-              Oppdater
+              {t("portal.refresh")}
             </Link>
           </div>
         </div>
 
         {/* KONTAKTINFO: avdeling og ansvarlig montør */}
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-          <h2 className="font-bold text-gray-900 mb-4 border-b pb-2">🏢 Din kontakt</h2>
+          <h2 className="font-bold text-gray-900 mb-4 border-b pb-2">🏢 {t("portal.contact.title")}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Avdeling / lokasjon */}
             <div className="bg-gray-50 p-3 rounded border">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                {customer.department ? "Avdeling / lokasjon" : "Firma"}
+                {customer.department ? t("portal.contact.department") : t("portal.contact.company")}
               </p>
               <p className="text-sm text-gray-900 font-bold">
                 {customer.department?.name || customer.name}
@@ -337,7 +340,7 @@ export default async function KundeportalPage({
               ) : (
                 <>
                   <p className="text-sm text-gray-700 mt-1">
-                    {customer.address || "Ikke oppgitt"} {customer.postalCode || ""} {customer.city || ""}
+                    {customer.address || t("portal.contact.notProvided")} {customer.postalCode || ""} {customer.city || ""}
                   </p>
                   {customer.phone && (
                     <p className="text-sm mt-1">
@@ -355,7 +358,7 @@ export default async function KundeportalPage({
 
             {/* Ansvarlig montør */}
             <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Ansvarlig montør</p>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
               {customer.responsibleTechnician ? (
                 <>
                   <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
@@ -371,7 +374,7 @@ export default async function KundeportalPage({
                   )}
                 </>
               ) : (
-                <p className="text-sm text-gray-500">Ingen ansvarlig montør er satt ennå.</p>
+                <p className="text-sm text-gray-500">{t("portal.contact.noResponsible")}</p>
               )}
             </div>
           </div>
@@ -384,18 +387,18 @@ export default async function KundeportalPage({
             
             {/* Registrert utstyr */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
-              <h2 className="font-bold text-lg text-gray-900 border-b pb-2">🔧 Vårt utstyr</h2>
+              <h2 className="font-bold text-lg text-gray-900 border-b pb-2">🔧 {t("portal.equipment.title")}</h2>
               <div className="space-y-3">
                 {customer.products.length === 0 ? (
-                  <p className="text-gray-500 italic text-sm">Ingen utstyr registrert.</p>
+                  <p className="text-gray-500 italic text-sm">{t("portal.equipment.empty")}</p>
                 ) : (
                   customer.products.map(product => (
                     <div key={product.id} className="bg-gray-50 p-3 rounded border flex justify-between items-center">
                       <div>
                         <p className="font-bold text-gray-800 text-sm">{product.model}</p>
-                        <p className="text-xs text-gray-500">SN: {product.serialNumber || "–"}</p>
+                        <p className="text-xs text-gray-500">{t("portal.equipment.serial", { serial: product.serialNumber || "–" })}</p>
                       </div>
-                      <span className="text-[10px] bg-white px-2 py-1 rounded text-gray-600 border">{product.location || "Ukjent bygg"}</span>
+                      <span className="text-[10px] bg-white px-2 py-1 rounded text-gray-600 border">{product.location || t("portal.equipment.unknownBuilding")}</span>
                     </div>
                   ))
                 )}
@@ -404,10 +407,10 @@ export default async function KundeportalPage({
 
             {/* Serviceavtaler */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="font-bold text-lg text-gray-900 border-b pb-2">📄 Serviceavtaler</h2>
+              <h2 className="font-bold text-lg text-gray-900 border-b pb-2">📄 {t("portal.contracts.title")}</h2>
               <div className="space-y-3">
                 {customer.contracts.length === 0 ? (
-                  <p className="text-gray-500 italic text-sm">Ingen aktive avtaler.</p>
+                  <p className="text-gray-500 italic text-sm">{t("portal.contracts.empty")}</p>
                 ) : (
                   customer.contracts.map(contract => (
                     <div key={contract.id} className="bg-blue-50 p-3 rounded-xl border border-blue-100">
@@ -415,16 +418,16 @@ export default async function KundeportalPage({
                         <p className="font-bold text-blue-900 text-sm">{contract.title}</p>
                         {!contract.isActive && (
                           <span className="text-[9px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                            Pauset
+                            {t("portal.contracts.paused")}
                           </span>
                         )}
                       </div>
                       <p className="text-[10px] text-blue-700">
-                        Startdato: {formatDate(contract.startDate, "–")} • Intervall:{" "}
-                        {contractIntervalLabel(contract.intervalMonths)}
+                        {t("portal.contracts.start", { date: formatDate(contract.startDate, "–") })} •{" "}
+                        {t("portal.contracts.interval", { interval: contractIntervalLabel(contract.intervalMonths) })}
                       </p>
                       <p className="text-[10px] text-blue-700">
-                        Neste service: {formatDate(contract.nextServiceDate, "–")}
+                        {t("portal.contracts.next", { date: formatDate(contract.nextServiceDate, "–") })}
                       </p>
                     </div>
                   ))
@@ -439,19 +442,19 @@ export default async function KundeportalPage({
             
             {/* BOOK NYTT OPPDRAG */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 Book nytt oppdrag</h2>
-              <p className="text-gray-500 text-sm mb-4">Bestill service eller vedlikehold for din bedrift.</p>
+              <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
+              <p className="text-gray-500 text-sm mb-4">{t("portal.booking.desc")}</p>
               <form action={bookWorkOrder} className="space-y-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">Oppdragstittel *</label>
-                  <input type="text" name="title" required placeholder="F.eks. Årlig service" className="w-full border border-gray-300 p-2 rounded-xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">{t("portal.booking.titleLabel")}</label>
+                  <input type="text" name="title" required placeholder={t("portal.booking.titlePlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">Beskrivelse</label>
-                  <MarkdownEditor name="description" rows={2} placeholder="Hva trenger du hjelp med?" />
+                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">{t("portal.booking.descriptionLabel")}</label>
+                  <MarkdownEditor name="description" rows={2} placeholder={t("portal.booking.descriptionPlaceholder")} />
                 </div>
                 <button type="submit" className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition whitespace-nowrap">
-                  Book oppdrag
+                  {t("portal.booking.submit")}
                 </button>
               </form>
             </div>
@@ -460,20 +463,20 @@ export default async function KundeportalPage({
             <div id="kommende" className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
-                  <h2 className="font-bold text-lg text-gray-900">📅 Kommende oppdrag</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Oppdrag som er planlagt eller pågår.</p>
+                  <h2 className="font-bold text-lg text-gray-900">📅 {t("portal.upcoming.title")}</h2>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{t("portal.upcoming.desc")}</p>
                 </div>
                 <a
                   href="/api/kundeportal/export"
                   className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
                 >
-                  ⬇️ Eksporter CSV
+                  ⬇️ {t("portal.upcoming.export")}
                 </a>
               </div>
 
               {upcomingTotal === 0 ? (
                 <div className="bg-gray-50 p-6 rounded-xl border border-dashed border-gray-200 text-center">
-                  <p className="text-gray-500 italic text-sm">Ingen kommende oppdrag.</p>
+                  <p className="text-gray-500 italic text-sm">{t("portal.upcoming.empty")}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -483,7 +486,7 @@ export default async function KundeportalPage({
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
                           <p className="text-[10px] text-gray-500">
-                            📅 {formatDate(wo.scheduledFor, "Ingen dato")}
+                            📅 {formatDate(wo.scheduledFor, t("portal.upcoming.noDate"))}
                           </p>
                         </div>
                         <StatusBadge status={wo.status} />
@@ -508,16 +511,19 @@ export default async function KundeportalPage({
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
                   {upcomingPage > 1 && (
                     <Link href={listLink({ u: upcomingPage - 1 }, "#kommende")} className="text-blue-600 hover:underline">
-                      &larr; Nyeste
+                      &larr; {t("portal.pagination.newest")}
                     </Link>
                   )}
                   <span className="text-gray-500">
-                    Viser {(upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1}–
-                    {Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal)} av {upcomingTotal}
+                    {t("portal.pagination.showing", {
+                      from: (upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1,
+                      to: Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal),
+                      total: upcomingTotal,
+                    })}
                   </span>
                   {upcomingPage < upcomingTotalPages && (
                     <Link href={listLink({ u: upcomingPage + 1 }, "#kommende")} className="text-blue-600 hover:underline">
-                      Vis flere &rarr;
+                      {t("portal.pagination.showMore")} &rarr;
                     </Link>
                   )}
                 </div>
@@ -528,13 +534,13 @@ export default async function KundeportalPage({
             <div id="historikk" className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
-                  <h2 className="font-bold text-lg text-gray-900">📋 Servicehistorikk & Rapporter</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Utførte og kansellerte jobber, med rapporter.</p>
+                  <h2 className="font-bold text-lg text-gray-900">📋 {t("portal.history.title")}</h2>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{t("portal.history.desc")}</p>
                 </div>
               </div>
 
               {completedTotal === 0 ? (
-                <p className="text-gray-500 italic text-sm">Ingen historikk enda.</p>
+                <p className="text-gray-500 italic text-sm">{t("portal.history.empty")}</p>
               ) : (
                 <div className="space-y-3">
                   {completedWorkOrders.map(wo => (
@@ -542,16 +548,16 @@ export default async function KundeportalPage({
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
-                          <p className="text-[10px] text-gray-500">{formatDate(wo.scheduledFor, "Ingen dato")}</p>
+                          <p className="text-[10px] text-gray-500">{formatDate(wo.scheduledFor, t("portal.upcoming.noDate"))}</p>
                         </div>
                         <StatusBadge status={wo.status} />
                       </div>
                       {wo.reports.length > 0 ? (
                         <Link href={`/rapporter/${wo.id}`} className="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm whitespace-nowrap">
-                          Last ned PDF
+                          {t("portal.history.download")}
                         </Link>
                       ) : (
-                        <span className="text-[10px] text-gray-400 italic bg-gray-200 px-1.5 py-0.5 rounded">Ingen rapport</span>
+                        <span className="text-[10px] text-gray-400 italic bg-gray-200 px-1.5 py-0.5 rounded">{t("portal.history.noReport")}</span>
                       )}
                     </div>
                   ))}
@@ -562,16 +568,19 @@ export default async function KundeportalPage({
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
                   {historyPage > 1 && (
                     <Link href={listLink({ h: historyPage - 1 }, "#historikk")} className="text-blue-600 hover:underline">
-                      &larr; Nyeste
+                      &larr; {t("portal.pagination.newest")}
                     </Link>
                   )}
                   <span className="text-gray-500">
-                    Viser {(historyPage - 1) * HISTORY_PAGE_SIZE + 1}–
-                    {Math.min(historyPage * HISTORY_PAGE_SIZE, completedTotal)} av {completedTotal}
+                    {t("portal.pagination.showing", {
+                      from: (historyPage - 1) * HISTORY_PAGE_SIZE + 1,
+                      to: Math.min(historyPage * HISTORY_PAGE_SIZE, completedTotal),
+                      total: completedTotal,
+                    })}
                   </span>
                   {historyPage < historyTotalPages && (
                     <Link href={listLink({ h: historyPage + 1 }, "#historikk")} className="text-blue-600 hover:underline">
-                      Vis flere &rarr;
+                      {t("portal.pagination.showMore")} &rarr;
                     </Link>
                   )}
                 </div>
@@ -584,21 +593,21 @@ export default async function KundeportalPage({
         {/* TEKNIKERTILGJENGELIGHET – neste 7 dager */}
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mt-6">
           <div className="mb-4 border-b pb-2">
-            <h2 className="font-bold text-lg text-gray-900">🗓️ Ledige teknikere</h2>
+            <h2 className="font-bold text-lg text-gray-900">🗓️ {t("portal.availability.title")}</h2>
             <p className="text-[10px] text-gray-500 mt-0.5">
-              Oversikt over teknikernes ledige og opptatte dager de neste 7 dagene.
+              {t("portal.availability.desc")}
             </p>
           </div>
 
           {technicians.length === 0 ? (
-            <p className="text-gray-500 italic text-sm">Ingen teknikere registrert.</p>
+            <p className="text-gray-500 italic text-sm">{t("portal.availability.empty")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse min-w-[560px]">
                 <thead>
                   <tr>
                     <th className="text-left font-bold text-gray-500 uppercase tracking-wider p-2 border-b">
-                      Tekniker
+                      {t("portal.availability.technician")}
                     </th>
                     {days.map((d) => (
                       <th
@@ -606,7 +615,7 @@ export default async function KundeportalPage({
                         className="text-center font-bold text-gray-500 uppercase tracking-wider p-2 border-b"
                       >
                         <span className="block">
-                          {d.toLocaleDateString("no-NO", { weekday: "short" })}
+                          {d.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", { weekday: "short" })}
                         </span>
                         <span className="block text-[10px] font-medium text-gray-400">
                           {toDateOnly(d)}
@@ -619,7 +628,7 @@ export default async function KundeportalPage({
                   {technicians.map((tech) => (
                     <tr key={tech.id} className="border-b last:border-0">
                       <td className="p-2 font-bold text-gray-800 whitespace-nowrap">
-                        {tech.name || "Uten navn"}
+                        {tech.name || t("portal.availability.unknownName")}
                       </td>
                       {days.map((d) => {
                         const isBusy = busyByTechnician.get(tech.id)?.has(dateKey(d));
@@ -627,11 +636,11 @@ export default async function KundeportalPage({
                           <td key={dateKey(d)} className="p-2 text-center">
                             {isBusy ? (
                               <span className="inline-block bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-[10px] font-bold">
-                                Opptatt
+                                {t("portal.availability.busy")}
                               </span>
                             ) : (
                               <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-[10px] font-bold">
-                                Ledig
+                                {t("portal.availability.free")}
                               </span>
                             )}
                           </td>
@@ -644,8 +653,7 @@ export default async function KundeportalPage({
             </div>
           )}
           <p className="text-[10px] text-gray-400 mt-3">
-            «Opptatt» betyr at teknikeren har et planlagt oppdrag denne dagen. Ta kontakt for å
-            avtale et tidspunkt som passer.
+            {t("portal.availability.note")}
           </p>
         </div>
 

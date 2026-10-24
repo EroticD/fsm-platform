@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 type SearchItem = {
   id: string;
@@ -33,10 +34,12 @@ const DEBOUNCE_MS = 180;
  * og viser dem gruppert i et nedtrekk. Piltaster + Enter kan brukes fra tastaturet.
  */
 export default function GlobalSearch({
-  placeholder = "Søk i kunder, oppdrag, enheter, kontakter, rapporter …",
+  placeholder,
 }: {
   placeholder?: string;
 }) {
+  const t = useTranslations("common");
+  const resolvedPlaceholder = placeholder ?? t("components.search.placeholder");
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
@@ -190,20 +193,20 @@ export default function GlobalSearch({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           role="combobox"
           aria-expanded={showPanel}
           aria-controls="global-search-results"
           aria-autocomplete="list"
-          aria-label="Globalt søk"
+          aria-label={t("components.search.ariaLabel")}
           className="flex-1 min-w-0 bg-transparent outline-none text-sm text-gray-900 font-medium placeholder:text-gray-400"
         />
-        {loading && <span className="text-[11px] text-gray-400 animate-pulse">søker…</span>}
+        {loading && <span className="text-[11px] text-gray-400 animate-pulse">{t("components.search.searchingShort")}</span>}
         {!loading && query.length > 0 && (
           <button
             type="button"
             onClick={reset}
-            aria-label="Tøm søk"
+            aria-label={t("components.search.clear")}
             className="text-gray-400 hover:text-gray-700 text-lg leading-none px-1"
           >
             ×
@@ -227,7 +230,9 @@ export default function GlobalSearch({
         >
           {flat.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
-              {loading ? "Søker…" : `Ingen treff på «${trimmed}».`}
+              {loading
+                ? t("components.search.searching")
+                : t("components.search.noResults", { query: trimmed })}
             </div>
           ) : (
             <div className="py-1">
@@ -266,7 +271,7 @@ export default function GlobalSearch({
                 onClick={() => navigate(`/sok?q=${encodeURIComponent(trimmed)}`)}
                 className="w-full text-left px-4 py-3 mt-1 border-t border-gray-100 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors"
               >
-                Se alle {total} treff i søket →
+                {t("components.search.seeAll", { count: total })}
               </button>
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import MarkdownView from "@/components/MarkdownView";
 
 /**
@@ -35,59 +36,6 @@ type EditorApi = {
   read: () => { value: string; start: number; end: number };
 };
 
-const BUTTONS: ToolbarButton[] = [
-  { label: "B", title: "Fet (Ctrl+B)", run: (e) => e.wrap("**", "**", "fet tekst") },
-  { label: "I", title: "Kursiv (Ctrl+I)", run: (e) => e.wrap("*", "*", "kursiv tekst") },
-  { label: "S", title: "Gjennomstreket", run: (e) => e.wrap("~~", "~~", "gjennomstreket") },
-  { label: "==", title: "Utheving", run: (e) => e.wrap("==", "==", "uthevet") },
-  { label: "H2", title: "Overskrift", run: (e) => e.lines("## ") },
-  { label: "•", title: "Punktliste", run: (e) => e.lines("- ") },
-  { label: "1.", title: "Nummerert liste", run: (e) => e.lines("", { ordered: true }) },
-  { label: "☐", title: "Oppgaveliste", run: (e) => e.lines("- [ ] ") },
-  { label: "❝", title: "Sitat", run: (e) => e.lines("> ") },
-  { label: "💡", title: "Varselboks (callout)", run: (e) => e.lines("> [!tips] ") },
-  { label: "`", title: "Kodelinje", run: (e) => e.wrap("`", "`", "kode") },
-  {
-    label: "</>",
-    title: "Kodeblokk",
-    run: (e) => {
-      const { start } = e.read();
-      e.insert("\n```\n\n```\n");
-      e.select(start + 5, 0);
-    },
-  },
-  {
-    label: "🔗",
-    title: "Lenke (Ctrl+K)",
-    run: (e) => {
-      const { value, start, end } = e.read();
-      const text = value.slice(start, end) || "lenketekst";
-      e.insert(`[${text}](https://)`);
-      e.select(start + text.length + 3, 8);
-    },
-  },
-  {
-    label: "▦",
-    title: "Tabell",
-    run: (e) =>
-      e.insert("\n| Kolonne | Kolonne |\n| --- | --- |\n|  |  |\n"),
-  },
-  {
-    label: "[^]",
-    title: "Fotnote",
-    run: (e) => {
-      const { value, start } = e.read();
-      const used = [...value.matchAll(/\[\^(\d+)\]/g)].map((match) => Number(match[1]));
-      const n = used.length > 0 ? Math.max(...used) + 1 : 1;
-      const inserted = `[^${n}]\n\n[^${n}]: `;
-      e.insert(inserted);
-      e.select(start + inserted.length, 0);
-    },
-  },
-  { label: "%%", title: "Kommentar (vises ikke)", run: (e) => e.wrap("%%", "%%", "kommentar") },
-  { label: "—", title: "Horisontal linje", run: (e) => e.insert("\n\n---\n\n") },
-];
-
 export default function MarkdownEditor({
   name,
   defaultValue = "",
@@ -112,10 +60,100 @@ export default function MarkdownEditor({
   /** Varsler skjemaet om teksten, for skjemaer som vil følge med underveis. */
   onChange?: (value: string) => void;
 }) {
+  const t = useTranslations("common");
   const [value, setValue] = useState(defaultValue ?? "");
   const [preview, setPreview] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const wantedSelection = useRef<{ start: number; length: number } | null>(null);
+
+  const buttons: ToolbarButton[] = [
+    {
+      label: "B",
+      title: t("components.markdown.bold"),
+      run: (e) => e.wrap("**", "**", t("components.markdown.boldPlaceholder")),
+    },
+    {
+      label: "I",
+      title: t("components.markdown.italic"),
+      run: (e) => e.wrap("*", "*", t("components.markdown.italicPlaceholder")),
+    },
+    {
+      label: "S",
+      title: t("components.markdown.strikethrough"),
+      run: (e) => e.wrap("~~", "~~", t("components.markdown.strikethroughPlaceholder")),
+    },
+    {
+      label: "==",
+      title: t("components.markdown.highlight"),
+      run: (e) => e.wrap("==", "==", t("components.markdown.highlightPlaceholder")),
+    },
+    { label: "H2", title: t("components.markdown.heading"), run: (e) => e.lines("## ") },
+    { label: "•", title: t("components.markdown.bulletList"), run: (e) => e.lines("- ") },
+    {
+      label: "1.",
+      title: t("components.markdown.numberedList"),
+      run: (e) => e.lines("", { ordered: true }),
+    },
+    { label: "☐", title: t("components.markdown.taskList"), run: (e) => e.lines("- [ ] ") },
+    { label: "❝", title: t("components.markdown.quote"), run: (e) => e.lines("> ") },
+    {
+      label: "💡",
+      title: t("components.markdown.callout"),
+      run: (e) => e.lines("> [!tips] "),
+    },
+    {
+      label: "`",
+      title: t("components.markdown.inlineCode"),
+      run: (e) => e.wrap("`", "`", t("components.markdown.inlineCodePlaceholder")),
+    },
+    {
+      label: "</>",
+      title: t("components.markdown.codeBlock"),
+      run: (e) => {
+        const { start } = e.read();
+        e.insert("\n```\n\n```\n");
+        e.select(start + 5, 0);
+      },
+    },
+    {
+      label: "🔗",
+      title: t("components.markdown.link"),
+      run: (e) => {
+        const { value: current, start, end } = e.read();
+        const text =
+          current.slice(start, end) || t("components.markdown.linkPlaceholder");
+        e.insert(`[${text}](https://)`);
+        e.select(start + text.length + 3, 8);
+      },
+    },
+    {
+      label: "▦",
+      title: t("components.markdown.table"),
+      run: (e) => e.insert(t("components.markdown.tableTemplate")),
+    },
+    {
+      label: "[^]",
+      title: t("components.markdown.footnote"),
+      run: (e) => {
+        const { value: current, start } = e.read();
+        const used = [...current.matchAll(/\[\^(\d+)\]/g)].map((match) => Number(match[1]));
+        const n = used.length > 0 ? Math.max(...used) + 1 : 1;
+        const inserted = `[^${n}]\n\n[^${n}]: `;
+        e.insert(inserted);
+        e.select(start + inserted.length, 0);
+      },
+    },
+    {
+      label: "%%",
+      title: t("components.markdown.comment"),
+      run: (e) => e.wrap("%%", "%%", t("components.markdown.commentPlaceholder")),
+    },
+    {
+      label: "—",
+      title: t("components.markdown.horizontalRule"),
+      run: (e) => e.insert("\n\n---\n\n"),
+    },
+  ];
 
   /** Oppdaterer teksten og varsler skjemaet rundt. */
   const update = (next: string) => {
@@ -170,7 +208,7 @@ export default function MarkdownEditor({
         wantedSelection.current = { start: start + text.length, length: 0 };
       }
     },
-    wrap: (before, after, placeholderText = "tekst") => {
+    wrap: (before, after, placeholderText = t("components.markdown.defaultPlaceholder")) => {
       const { value: current, start, end } = api.read();
       const selected = current.slice(start, end) || placeholderText;
       api.insert(`${before}${selected}${after}`);
@@ -204,9 +242,9 @@ export default function MarkdownEditor({
     if (!(event.ctrlKey || event.metaKey)) return;
     const key = event.key.toLowerCase();
     const button = {
-      b: BUTTONS[0],
-      i: BUTTONS[1],
-      k: BUTTONS[12],
+      b: buttons[0],
+      i: buttons[1],
+      k: buttons[12],
     }[key];
     if (!button) return;
     event.preventDefault();
@@ -219,7 +257,7 @@ export default function MarkdownEditor({
     <div className={className}>
       <div className="rounded-xl border border-gray-300 bg-white focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-300">
         <div className="flex flex-wrap items-center gap-0.5 border-b border-gray-200 px-1.5 py-1">
-          {BUTTONS.map((button) => (
+          {buttons.map((button) => (
             <button
               key={button.title}
               type="button"
@@ -241,7 +279,7 @@ export default function MarkdownEditor({
               preview ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            👁 Forhåndsvisning
+            👁 {t("components.markdown.preview")}
           </button>
         </div>
 
@@ -263,7 +301,8 @@ export default function MarkdownEditor({
 
       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span>
-          Markdown støttes: <code className="rounded bg-gray-100 px-1">**fet**</code>,{" "}
+          {t("components.markdown.supports")}{" "}
+          <code className="rounded bg-gray-100 px-1">**fet**</code>,{" "}
           <code className="rounded bg-gray-100 px-1">==utheving==</code>,{" "}
           <code className="rounded bg-gray-100 px-1">- liste</code>,{" "}
           <code className="rounded bg-gray-100 px-1">&gt; [!tips]</code>
@@ -274,7 +313,7 @@ export default function MarkdownEditor({
           rel="noopener noreferrer"
           className="ml-auto underline hover:text-gray-700"
         >
-          All syntaks
+          {t("components.markdown.allSyntax")}
         </a>
       </div>
 
@@ -283,7 +322,7 @@ export default function MarkdownEditor({
           {value.trim() ? (
             <MarkdownView value={value} />
           ) : (
-            <p className="text-sm text-gray-400">Ingenting å forhåndsvise ennå.</p>
+            <p className="text-sm text-gray-400">{t("components.markdown.nothingToPreview")}</p>
           )}
         </div>
       )}

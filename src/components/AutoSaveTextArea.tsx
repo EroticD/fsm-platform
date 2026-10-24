@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 export default function AutoSaveTextArea({
   name,
@@ -13,6 +14,7 @@ export default function AutoSaveTextArea({
   placeholder?: string;
   action: (formData: FormData) => void;
 }) {
+  const t = useTranslations("common");
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<"idle" | "saved">("idle");
@@ -47,12 +49,12 @@ export default function AutoSaveTextArea({
       {/* Visuell feedback for autolagring */}
       {isPending && (
         <span className="absolute bottom-4 right-4 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 shadow-sm">
-          Lagrer...
+          {t("components.autoSave.saving")}
         </span>
       )}
       {!isPending && status === "saved" && (
         <span className="absolute bottom-4 right-4 text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded border border-green-200 shadow-sm">
-          Lagret! ✅
+          {t("components.autoSave.saved")}
         </span>
       )}
     </form>
