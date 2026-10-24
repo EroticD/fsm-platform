@@ -1,23 +1,17 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
+import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { formatDate } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { workOrderScope } from "@/lib/access";
+import { hasPermission } from "@/lib/permissions";
+import { canAccessWorkOrder } from "@/lib/access";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
 // ---------------------------------------------------------------------------
-
-function formatDate(value: Date | string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleDateString("no-NO", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "Ingen dato";
-}
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -28,9 +22,9 @@ function startOfMonth(date: Date) {
  * nøyaktig det samme som «Rapporter i mnd.» på dashbordet.
  */
 const RANGES = [
-  { key: "denne-maneden", label: "Denne måneden", icon: "📆" },
-  { key: "forrige-maned", label: "Forrige måned", icon: "🗓️" },
-  { key: "alle", label: "Alle", icon: "📂" },
+  { key: "denne-maneden", labelKey: "orders.reportsPage.thisMonth", icon: "📆" },
+  { key: "forrige-maned", labelKey: "orders.reportsPage.lastMonth", icon: "🗓️" },
+  { key: "alle", labelKey: "orders.reportsPage.all", icon: "📂" },
 ] as const;
 
 type RangeKey = (typeof RANGES)[number]["key"];
@@ -39,28 +33,38 @@ function isRangeKey(value: string): value is RangeKey {
   return RANGES.some((r) => r.key === value);
 }
 
-function rangeLabel(key: RangeKey) {
+function whereFor(
+  range: RangeKey,
+  excludeCancelled = false,
+  workOrderFilter: Prisma.WorkOrderWhereInput = {},
+): Prisma.ReportWhereInput {
   const now = new Date();
-  if (key === "denne-maneden") return now.toLocaleDateString("no-NO", { month: "long", year: "numeric" });
-  if (key === "forrige-maned") {
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return prev.toLocaleDateString("no-NO", { month: "long", year: "numeric" });
-  }
-  return "hele historikken";
-}
-
-function whereFor(range: RangeKey): Prisma.ReportWhereInput {
-  const now = new Date();
-  if (range === "denne-maneden") return { completedAt: { gte: startOfMonth(now) } };
-  if (range === "forrige-maned") {
-    return {
+  let base: Prisma.ReportWhereInput = { deletedAt: null };
+  if (range === "denne-maneden") {
+    base = { completedAt: { gte: startOfMonth(now) } };
+  } else if (range === "forrige-maned") {
+    base = {
       completedAt: {
         gte: startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
         lt: startOfMonth(now),
       },
     };
   }
-  return {};
+
+  return {
+    AND: [
+      base,
+      {
+        workOrder: {
+          deletedAt: null,
+          ...workOrderFilter,
+          ...(excludeCancelled
+            ? { status: { not: WorkStatus.CANCELLED } }
+            : {}),
+        },
+      },
+    ],
+  };
 }
 
 export default async function ReportsPage({
@@ -68,33 +72,52 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ vis?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const t = await getTranslations("common");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  // Proxyen slipper kundeportalbrukere inn på /rapporter for å se egne PDF-er.
-  // Selve listen er en intern oversikt, så de sendes tilbake til portalen.
-  if (user?.role === "CUSTOMER") redirect("/kundeportal");
+  // Kundeportalbrukere slipper inn for å se egne PDF-er via kundeportalen,
+  // men selve rapportlisten er en intern oversikt.
+  if (user.role === "CUSTOMER") redirect("/kundeportal");
+  if (!hasPermission(user, "reports.view")) redirect("/");
 
   const { vis } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
+  const excludeCancelled = user.role === "TECHNICIAN";
+  const orderScope = workOrderScope(user);
 
   const [reports, total, thisMonth, lastMonth, allReports] = await Promise.all([
     prisma.report.findMany({
-      where: whereFor(range),
+      where: whereFor(range, excludeCancelled, orderScope),
       orderBy: { completedAt: "desc" },
       take: 100,
       include: {
         template: { select: { title: true } },
-        workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } },
+        workOrder: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            departmentId: true,
+            customerId: true,
+            customer: { select: { name: true } },
+          },
+        },
         units: { select: { id: true, status: true } },
       },
     }),
-    prisma.report.count({ where: whereFor(range) }),
-    prisma.report.count({ where: whereFor("denne-maneden") }),
-    prisma.report.count({ where: whereFor("forrige-maned") }),
-    prisma.report.count(),
+    prisma.report.count({ where: whereFor(range, excludeCancelled, orderScope) }),
+    prisma.report.count({ where: whereFor("denne-maneden", excludeCancelled, orderScope) }),
+    prisma.report.count({ where: whereFor("forrige-maned", excludeCancelled, orderScope) }),
+    prisma.report.count({ where: whereFor("alle", excludeCancelled, orderScope) }),
   ]);
+
+  const rangeLabel = (key: RangeKey) =>
+    key === "denne-maneden"
+      ? t("orders.reportsPage.thisMonth")
+      : key === "forrige-maned"
+        ? t("orders.reportsPage.lastMonth")
+        : t("orders.reportsPage.allHistory");
 
   const rangeCounts: Record<RangeKey, number> = {
     "denne-maneden": thisMonth,
@@ -108,11 +131,11 @@ export default async function ReportsPage({
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900">📋 Servicerapporter</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900">📋 {t("orders.reportsPage.title")}</h1>
             <p className="text-gray-500 mt-1 text-sm font-medium">
-              Utfylte sjekklister med signaturer og bilder •{" "}
+              {t("orders.reportsPage.subtitle")} •{" "}
               <span className="font-bold text-gray-700">
-                {total} rapport{total === 1 ? "" : "er"} ({rangeLabel(range)})
+                {t("orders.reportsPage.count", { count: total })} ({rangeLabel(range)})
               </span>
             </p>
           </div>
@@ -121,13 +144,13 @@ export default async function ReportsPage({
               href="/"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
-              ← Dashbord
+              ← {t("orders.reportsPage.dashboard")}
             </Link>
             <Link
               href="/oppdrag"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
-              📂 Oppdrag
+              📂 {t("orders.reportsPage.orders")}
             </Link>
           </div>
         </div>
@@ -148,7 +171,7 @@ export default async function ReportsPage({
                   }`}
                 >
                   <span className="leading-none">{r.icon}</span>
-                  <span>{r.label}</span>
+                  <span>{t(r.labelKey)}</span>
                   <span
                     className={`text-[11px] px-1.5 py-0.5 rounded-full ${
                       active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
@@ -166,16 +189,20 @@ export default async function ReportsPage({
         {reports.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
             <p className="text-gray-600 font-bold">
-              Ingen rapporter {rangeLabel(range)}.
+              {t("orders.reportsPage.emptyTitle", { range: rangeLabel(range) })}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Rapporter vises her så snart montørene har fylt ut og lagret et skjema.
+              {t("orders.reportsPage.emptyDescription")}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             {reports.map((report) => {
               const deviations = report.units.filter((u) => u.status === "AVVIK").length;
+              const canOpenWorkOrder =
+                Boolean(report.workOrder) &&
+                canAccessWorkOrder(user, report.workOrder!) &&
+                (user.role !== "TECHNICIAN" || report.workOrder!.status !== "CANCELLED");
               return (
                 <div
                   key={report.id}
@@ -184,14 +211,14 @@ export default async function ReportsPage({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-black text-gray-900 truncate">
-                        {report.template?.title || "Servicerapport"}
+                        {report.template?.title || t("orders.reportsPage.defaultTitle")}
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
-                        📅 {formatDate(report.completedAt)}
+                        📅 {formatDate(report.completedAt, t("orders.reportsPage.noDate"))}
                         {" • 🏢 "}
-                        {report.workOrder?.customer?.name || "Uten kunde"}
+                        {report.workOrder?.customer?.name || t("orders.reportsPage.noCustomer")}
                         {" • 📂 "}
-                        {report.workOrder?.title || "Ukjent oppdrag"}
+                        {report.workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -204,8 +231,8 @@ export default async function ReportsPage({
                           }`}
                         >
                           {deviations > 0
-                            ? `❌ ${deviations} avvik`
-                            : `✅ ${report.units.length} enhet${report.units.length === 1 ? "" : "er"}`}
+                            ? t("orders.reportsPage.deviations", { count: deviations })
+                            : `✅ ${t("orders.reportsPage.units", { count: report.units.length })}`}
                         </span>
                       ) : null}
                       <span
@@ -215,27 +242,29 @@ export default async function ReportsPage({
                             : "bg-amber-50 text-amber-800 border-amber-200"
                         }`}
                       >
-                        {report.isLocked ? "🔒 Låst" : "🔓 Åpen for retting"}
+                        {report.isLocked ? t("orders.reportsPage.locked") : t("orders.reportsPage.openForEdit")}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px]">
                     <span className="font-bold text-gray-600">
-                      ✍️ {report.technicianName || report.lockedByName || "Ikke signert"}
+                      ✍️ {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
                     </span>
                     <Link
                       href={`/rapporter/${report.workOrderId}`}
                       className="font-bold text-blue-700 hover:underline"
                     >
-                      📄 Se rapport (PDF)
+                      📄 {t("orders.reportsPage.viewPdf")}
                     </Link>
-                    <Link
-                      href={`/oppdrag/${report.workOrderId}`}
-                      className="font-bold text-gray-600 hover:underline"
-                    >
-                      📂 Åpne oppdraget
-                    </Link>
+                    {canOpenWorkOrder && (
+                      <Link
+                        href={`/oppdrag/${report.workOrderId}`}
+                        className="font-bold text-gray-600 hover:underline"
+                      >
+                        📂 {t("orders.reportsPage.openWorkOrder")}
+                      </Link>
+                    )}
                   </div>
                 </div>
               );
@@ -245,7 +274,7 @@ export default async function ReportsPage({
 
         {total > reports.length && (
           <p className="text-center text-xs text-gray-500">
-            Viser de {reports.length} nyeste av {total} rapporter.
+            {t("orders.reportsPage.showing", { shown: reports.length, total })}
           </p>
         )}
       </div>

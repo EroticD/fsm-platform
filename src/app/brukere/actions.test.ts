@@ -5,8 +5,12 @@ const mocks = vi.hoisted(() => {
     actorRole: "OFFICE",
     actorActive: true,
     actorId: "actor",
+    actorDepartmentId: "dep-a",
     targetRole: "OFFICE",
     targetActive: true,
+    targetDepartmentId: "dep-a",
+    targetPermissions: null as string[] | null,
+    targetPermissionsCustomized: false,
     activeAdminCount: 1,
   };
   return {
@@ -19,7 +23,15 @@ const mocks = vi.hoisted(() => {
         delete: vi.fn(),
         create: vi.fn(),
       },
+      role: {
+        findUnique: vi.fn(),
+      },
       auditLog: { create: vi.fn() },
+      department: {
+        findFirst: vi.fn(async () => null),
+        findUnique: vi.fn(async () => null),
+      },
+      $transaction: vi.fn(),
     },
     sendInviteEmail: vi.fn(async () => false),
     createInviteToken: vi.fn(async () => "raa-token"),
@@ -32,9 +44,11 @@ vi.mock("@/lib/session", () => ({
     id: mocks.state.actorId,
     role: mocks.state.actorRole,
     isActive: mocks.state.actorActive,
+    departmentId: mocks.state.actorDepartmentId,
     name: "Actor",
   })),
   actorName: vi.fn(async () => "Actor"),
+  bumpSessionVersion: vi.fn(async () => {}),
   isOffice: (role: string) => role === "ADMIN" || role === "OFFICE",
   requireOffice: vi.fn(
     async () =>
@@ -43,6 +57,11 @@ vi.mock("@/lib/session", () => ({
   ),
   requireAdmin: vi.fn(
     async () => mocks.state.actorActive && mocks.state.actorRole === "ADMIN",
+  ),
+  requirePermission: vi.fn(
+    async () =>
+      mocks.state.actorActive &&
+      (mocks.state.actorRole === "ADMIN" || mocks.state.actorRole === "OFFICE"),
   ),
 }));
 vi.mock("@/lib/invite", () => ({
@@ -65,20 +84,64 @@ beforeEach(() => {
   mocks.state.actorRole = "OFFICE";
   mocks.state.actorActive = true;
   mocks.state.actorId = "actor";
+  mocks.state.actorDepartmentId = "dep-a";
   mocks.state.targetRole = "OFFICE";
   mocks.state.targetActive = true;
+  mocks.state.targetDepartmentId = "dep-a";
+  mocks.state.targetPermissions = null;
+  mocks.state.targetPermissionsCustomized = false;
   mocks.state.activeAdminCount = 1;
   vi.clearAllMocks();
+  const roles = {
+    ADMIN: {
+      key: "ADMIN",
+      label: "Administrator",
+      permissions: ["workorders.view", "settings.manage", "audit.view"],
+    },
+    OFFICE: {
+      key: "OFFICE",
+      label: "Kontor",
+      permissions: ["workorders.view", "customers.manage", "users.manage"],
+    },
+    TECHNICIAN: {
+      key: "TECHNICIAN",
+      label: "Montør",
+      permissions: ["workorders.view", "reports.write"],
+    },
+    USER: { key: "USER", label: "Standard", permissions: [] },
+    CUSTOMER: { key: "CUSTOMER", label: "Kundeportal", permissions: [] },
+  };
+  mocks.prisma.role.findUnique.mockImplementation(
+    async ({ where }: { where: { key: string } }) => roles[where.key as keyof typeof roles] ?? null,
+  );
   mocks.prisma.user.findUnique.mockImplementation(async ({ where }: { where: { id?: string } }) => {
     if (where.id === "actor") {
-      return { id: "actor", role: mocks.state.actorRole, isActive: mocks.state.actorActive, name: "Actor" };
+      return {
+        id: "actor",
+        role: mocks.state.actorRole,
+        isActive: mocks.state.actorActive,
+        departmentId: mocks.state.actorDepartmentId,
+        name: "Actor",
+      };
     }
     if (where.id === "target") {
-      return { id: "target", role: mocks.state.targetRole, isActive: mocks.state.targetActive, name: "Target" };
+      return {
+        id: "target",
+        role: mocks.state.targetRole,
+        isActive: mocks.state.targetActive,
+        departmentId: mocks.state.targetDepartmentId,
+        name: "Target",
+        permissions: mocks.state.targetPermissions,
+        permissionsCustomized: mocks.state.targetPermissionsCustomized,
+        roleDefinition: null,
+      };
     }
     return null;
   });
   mocks.prisma.user.count.mockImplementation(async () => mocks.state.activeAdminCount);
+  mocks.prisma.$transaction.mockImplementation(
+    async (callback: (tx: typeof mocks.prisma) => unknown) => callback(mocks.prisma),
+  );
   mocks.prisma.user.update.mockResolvedValue({});
   mocks.prisma.user.delete.mockResolvedValue({});
   mocks.prisma.user.create.mockResolvedValue({ id: "ny-bruker", email: "ny@firma.no" });
@@ -106,8 +169,21 @@ describe("changeRole", () => {
     await changeRole(formData({ id: "target", role: "TECHNICIAN" }));
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "target" },
-      data: { role: "TECHNICIAN" },
+      data: {
+        role: "TECHNICIAN",
+        departmentId: "dep-a",
+        permissions: [],
+        permissionsCustomized: false,
+        sessionVersion: { increment: 1 },
+      },
     });
+  });
+
+  it("hindrer en kontorbruker i å endre brukere i en annen avdeling", async () => {
+    mocks.state.actorRole = "OFFICE";
+    mocks.state.targetDepartmentId = "dep-b";
+    await changeRole(formData({ id: "target", role: "TECHNICIAN" }));
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
 
   it("nekter å fjerne den siste aktive administratoren", async () => {
@@ -136,12 +212,20 @@ describe("createUser", () => {
     expect(mocks.prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it("lar en kontorbruker opprette en montør", async () => {
+  it("lar en kontorbruker opprette en montør i egen avdeling", async () => {
     mocks.state.actorRole = "OFFICE";
     await createUser(
-      formData({ name: "Ny", email: "ny@firma.no", role: "TECHNICIAN", returnTo: "/brukere" }),
+      formData({
+        name: "Ny",
+        email: "ny@firma.no",
+        role: "TECHNICIAN",
+        departmentId: "dep-b",
+        returnTo: "/brukere",
+      }),
     );
-    expect(mocks.prisma.user.create).toHaveBeenCalled();
+    expect(mocks.prisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ departmentId: "dep-a" }),
+    });
   });
 });
 
@@ -159,6 +243,16 @@ describe("generateInvite", () => {
     mocks.state.targetRole = "TECHNICIAN";
     await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
     expect(mocks.createInviteToken).toHaveBeenCalled();
+  });
+
+  it("lar ikke en kontorbruker invitere en bruker med rettigheter aktøren ikke har", async () => {
+    mocks.state.actorRole = "OFFICE";
+    mocks.state.targetRole = "USER";
+    mocks.state.targetPermissions = ["audit.view"];
+    mocks.state.targetPermissionsCustomized = true;
+    await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
+    expect(mocks.createInviteToken).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
   });
 });
 

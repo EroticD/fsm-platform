@@ -40,9 +40,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public
       # NEXTAUTH_URL må være den offentlige adressen i produksjon.
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # Valgfri offentlig adresse for PDF-er og origin-sjekk.
+      APP_URL: ${APP_URL:-}
+      TZ: Europe/Oslo
       # AUTH_TRUST_HOST gjør at appen kan kjøre bak en proxy/container uten at
       # NextAuth avviser vertsnavnet.
       AUTH_TRUST_HOST: "true"
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
       # E-post (valgfritt). Uten SMTP-innstillinger viser appen invitasjonslenker
       # som må deles manuelt.
@@ -52,10 +56,15 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       # Opprett en administrator første gang appen starter.
-      SEED_DATABASE: ${SEED_DATABASE:-true}
+      SEED_DATABASE: ${SEED_DATABASE:-false}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
+      # Innebygd jobb for serviceavtaler. Kan slås av hvis en ekstern cron
+      # bruker /api/cron/recurring i stedet.
+      RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
+      CRON_SECRET: ${CRON_SECRET:-}
+      READY_SECRET: ${READY_SECRET:-}
     ports:
       # I produksjon bør dette være "127.0.0.1:3000:3000" når appen står bak en
       # reverse proxy på samme maskin. Da kan ikke appen nås direkte utenom TLS.

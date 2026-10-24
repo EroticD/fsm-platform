@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 type FileItem = {
   file: File;
@@ -26,6 +27,7 @@ export default function BulkUploadForm({
   existingFiles?: { fileName: string; fileSize: number }[];
   bulkCreateDocuments: (formData: FormData) => Promise<void>;
 }) {
+  const t = useTranslations("common");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [skipped, setSkipped] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -57,7 +59,7 @@ export default function BulkUploadForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (files.length === 0) {
-      setError("Velg en mappe med PDF-filer først.");
+      setError(t("documents.bulk.chooseFirst"));
       return;
     }
     setUploading(true);
@@ -67,19 +69,29 @@ export default function BulkUploadForm({
       let i = 0;
       for (const item of files) {
         i++;
-        setProgress(`Laster opp ${i}/${files.length}: ${item.file.name}`);
+        setProgress(
+          t("documents.bulk.progressUploading", {
+            current: i,
+            total: files.length,
+            name: item.file.name,
+          }),
+        );
         // Les filen som ArrayBuffer og lag ny File for å unngå problemer
         // med webkitdirectory-filer (boundary-feil).
         const buffer = await item.file.arrayBuffer();
         const cleanFile = new File([buffer], item.file.name, { type: item.file.type || "application/pdf" });
         const formData = new FormData();
         formData.append("file", cleanFile, cleanFile.name);
+        formData.append("purpose", "document");
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (!res.ok) {
           console.error("Upload failed:", res.status, data);
         }
-        if (!res.ok) throw new Error(data.error || `Feil ved opplasting av ${item.file.name}`);
+        if (!res.ok) throw new Error(
+          data.error ||
+            t("documents.bulk.fileUploadFailed", { name: item.file.name }),
+        );
         const ext = item.file.name.substring(item.file.name.lastIndexOf("."));
         uploaded.push({
           title: item.file.name.replace(/\.[^.]+$/, ""),
@@ -90,16 +102,18 @@ export default function BulkUploadForm({
         });
       }
 
-      setProgress("Oppretter dokumenter i database...");
+      setProgress(t("documents.bulk.progressCreating"));
       const fd = new FormData();
       fd.append("items", JSON.stringify(uploaded));
       if (folderId) fd.append("folderId", folderId);
       await bulkCreateDocuments(fd);
 
-      setProgress(`✓ Ferdig! ${uploaded.length} dokumenter lastet opp.`);
+      setProgress(
+        t("documents.bulk.progressDone", { count: uploaded.length }),
+      );
       setFiles([]);
     } catch (err: any) {
-      setError(err.message || "Opplasting feilet");
+      setError(err.message || t("documents.bulk.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -117,7 +131,7 @@ export default function BulkUploadForm({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Velg mappe</label>
+        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.bulk.chooseFolder")}</label>
         <input
           type="file"
           // @ts-expect-error -- ikke-standardattributt som nettleserne støtter
@@ -128,19 +142,22 @@ export default function BulkUploadForm({
           className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
         />
         <p className="text-xs text-gray-500 mt-1">
-          Velg en mappe. Alle PDF-filer i mappen og undermapper importeres.
+          {t("documents.bulk.chooseFolderHint")}
         </p>
       </div>
 
       {skipped > 0 && (
         <p className="text-xs text-amber-600">
-          ⚠️ {skipped} fil(er) hoppet over fordi de allerede eksisterer med samme størrelse.
+          {t("documents.bulk.skipped", { count: skipped })}
         </p>
       )}
       {files.length > 0 && (
         <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm">
           <p className="font-bold text-gray-700 mb-2">
-            {files.length} PDF-filer å laste opp, {folders.size} undermapper
+            {t("documents.bulk.summary", {
+              files: files.length,
+              folders: folders.size,
+            })}
           </p>
           <div className="max-h-40 overflow-y-auto text-xs text-gray-600 space-y-0.5">
             {Array.from(folders).sort().map((f) => (
@@ -162,7 +179,9 @@ export default function BulkUploadForm({
         disabled={files.length === 0 || uploading}
         className="w-full bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50"
       >
-        {uploading ? "Laster opp..." : `📥 Last opp ${files.length} filer`}
+        {uploading
+          ? t("documents.bulk.uploading")
+          : t("documents.bulk.uploadButton", { count: files.length })}
       </button>
     </div>
   );

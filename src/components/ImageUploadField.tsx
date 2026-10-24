@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * Bildefelt for rapport-skjemaet.
@@ -18,13 +19,17 @@ export default function ImageUploadField({
   label,
   required,
   initialUrls = [],
+  workOrderId,
 }: {
   name: string;
   label: string;
   required?: boolean;
   /** Bilder som allerede ligger på rapporten (ved redigering av en opplåst rapport). */
   initialUrls?: string[];
+  /** Knytter bildene til oppdraget, slik at /uploads kan kreve riktig tilgang. */
+  workOrderId?: string;
 }) {
+  const t = useTranslations("common");
   const [urls, setUrls] = useState<string[]>(initialUrls);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -33,10 +38,11 @@ export default function ImageUploadField({
   const uploadOne = async (file: File) => {
     const body = new FormData();
     body.append("file", file);
+    if (workOrderId) body.append("workOrderId", workOrderId);
     const res = await fetch("/api/upload", { method: "POST", body });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json.fileUrl) {
-      throw new Error(json.error || `Kunne ikke laste opp ${file.name}`);
+      throw new Error(json.error || t("orders.imageUpload.uploadFailedOne", { name: file.name }));
     }
     return json.fileUrl as string;
   };
@@ -72,8 +78,8 @@ export default function ImageUploadField({
     if (failed.length > 0) {
       setError(
         failed.length === 1
-          ? `Kunne ikke laste opp ${failed[0]}`
-          : `Kunne ikke laste opp ${failed.length} bilder: ${failed.join(", ")}`,
+          ? t("orders.imageUpload.uploadFailedOne", { name: failed[0] })
+          : t("orders.imageUpload.uploadFailedMany", { count: failed.length, names: failed.join(", ") }),
       );
     }
 
@@ -94,6 +100,7 @@ export default function ImageUploadField({
 
       <input
         type="file"
+        capture="environment"
         accept="image/*"
         multiple
         onChange={handleChange}
@@ -104,35 +111,37 @@ export default function ImageUploadField({
       />
 
       <p className="text-[11px] text-gray-500">
-        Du kan velge flere bilder samtidig (hold inne Ctrl/Cmd, eller velg flere i kamerarullen).
+        {t("orders.imageUpload.hint")}
       </p>
 
       {busy && (
         <p className="text-[11px] font-bold text-blue-700 animate-pulse">
-          Laster opp {progress ? `${progress.done + 1} av ${progress.total}` : ""} …
+          {progress
+            ? t("orders.imageUpload.uploading", { done: progress.done + 1, total: progress.total })
+            : t("orders.imageUpload.uploadingShort")}
         </p>
       )}
 
       {urls.length > 0 && (
         <div className="space-y-2">
           <p className="text-[11px] font-bold text-green-700">
-            ✅ {urls.length} {urls.length === 1 ? "bilde" : "bilder"} lastet opp
+            {t("orders.imageUpload.uploaded", { count: urls.length })}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {urls.map((url, index) => (
               <div key={`${url}-${index}`} className="relative group border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Vedlegg ${index + 1}`} className="w-full h-24 object-cover" />
+                <img src={url} alt={t("orders.imageUpload.attachmentAlt", { number: index + 1 })} className="w-full h-24 object-cover" />
                 <div className="flex items-center justify-between gap-1 px-2 py-1">
                   <a href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-700 underline">
-                    Se bilde
+                    {t("orders.imageUpload.viewImage")}
                   </a>
                   <button
                     type="button"
                     onClick={() => removeUrl(url)}
                     className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 transition"
                   >
-                    ✕ Fjern
+                    {t("orders.imageUpload.remove")}
                   </button>
                 </div>
               </div>

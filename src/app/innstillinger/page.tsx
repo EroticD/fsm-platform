@@ -1,859 +1,285 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import AuditLogTable from "@/components/AuditLogTable";
+import { getTranslations } from "next-intl/server";
 import UsersAdmin from "@/components/UsersAdmin";
-import { isOffice, requireOffice } from "@/lib/session";
-import { LIMITS, cleanColor, cleanText, cleanUrl } from "@/lib/sanitize";
+import DepartmentsAdmin from "@/components/DepartmentsAdmin";
+import RolesAdmin from "@/components/RolesAdmin";
+import SecuritySettings from "@/components/SecuritySettings";
+import SettingsTabs from "@/components/settings/SettingsTabs";
+import BrandingTab from "@/components/settings/BrandingTab";
+import CalendarFeedSettings from "@/components/CalendarFeedSettings";
+import TemplatesTab from "@/components/settings/TemplatesTab";
+import TagsTab from "@/components/settings/TagsTab";
+import AuditLogTab from "@/components/settings/AuditLogTab";
+import StatisticsTab from "@/components/settings/StatisticsTab";
+import { getCurrentUser } from "@/lib/session";
+import { effectivePermissions, hasPermission } from "@/lib/permissions";
+import {
+  getAuditLogPage,
+  getSettingsOverview,
+  getStatistics,
+} from "@/server/settings";
+import {
+  createDocumentTagAction,
+  createTagAction,
+  createTemplateAction,
+  deleteDocumentTagAction,
+  deleteTagAction,
+  deleteTemplateAction,
+  saveBrandingAction,
+  updateDocumentTagAction,
+  updateTagAction,
+} from "./actions";
 
-export default async function SettingsPage({ 
-  searchParams 
-}: { 
-  searchParams: Promise<{ tab?: string; search?: string; dateFrom?: string; dateTo?: string; status?: string; customer?: string; technician?: string; page?: string; invite?: string; inviteToken?: string; error?: string; mail?: string }>
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    tab?: string;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    status?: string;
+    customer?: string;
+    technician?: string;
+    page?: string;
+    invite?: string;
+    inviteToken?: string;
+    error?: string;
+    mail?: string;
+    role?: string;
+    setup?: string;
+    ok?: string;
+  }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/");
-  // Innstillinger er kontorets verktøy (merkevare, maler, ansatte, statistikk
-  // og aktivitetslogg). Montører bruker feltportalen i stedet.
-  if (!isOffice(user.role)) redirect("/");
 
-  // Vent på searchParams (kreves i nyere Next.js) og sett standardfane
+  const t = await getTranslations("common");
+
+  const isAdmin = user.role === "ADMIN";
+  const canBranding = hasPermission(user, "settings.manage");
+  const canUsers = hasPermission(user, "users.view");
+  const canTemplates = hasPermission(user, "templates.manage");
+  const canDocuments = hasPermission(user, "documents.manage");
+  const canAudit = hasPermission(user, "audit.view");
+  const canStats = hasPermission(user, "reports.view");
+  const canUseSettings =
+    canBranding || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
+
+  // Vent på searchParams (kreves i nyere Next.js) og sett standardfane.
+  // Sikkerhetsfanen er åpen for alle innloggede, slik at også montører kan
+  // slå på to-trinns verifisering.
   const resolvedParams = await searchParams;
-  const currentTab = resolvedParams.tab || "branding";
+  const requestedTab = resolvedParams.tab;
+  const error = resolvedParams.error;
+
+  // Brukere uten administrasjons- eller statistikkrettigheter skal ikke inn her
+  // – med mindre de ber om sikkerhetsfanen.
+  if (!canUseSettings && requestedTab !== "sikkerhet") redirect("/");
+
+  const currentTab =
+    requestedTab ||
+    (canUseSettings
+      ? canBranding
+        ? "branding"
+        : canUsers
+          ? "ansatte"
+          : canTemplates
+            ? "maler"
+            : canAudit
+              ? "auditlog"
+              : canStats
+                ? "statistikk"
+                : "avdelinger"
+      : "sikkerhet");
   const searchQuery = resolvedParams.search || "";
-
-  // Hent data for alle fanene
-  const branding = await prisma.branding.findFirst();
-  const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
-  const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
-  const documentTags = await prisma.documentTag.findMany({ orderBy: { name: 'asc' } });
-
-  // --- AUDIT LOG DATA ---
-  const auditDateFrom = resolvedParams.dateFrom || "";
-  const auditDateTo = resolvedParams.dateTo || "";
-  const page = parseInt(resolvedParams.page?.toString() || "1", 10);
-  const pageSize = 50;
-  const skip = (page - 1) * pageSize;
-
-  // Build where clause conditionally to avoid TypeScript issues
-  const whereClause: any = {};
-
-  if (searchQuery) {
-    whereClause.OR = [
-      { action: { contains: searchQuery, mode: 'insensitive' } },
-      { userName: { contains: searchQuery, mode: 'insensitive' } },
-      { entityType: { contains: searchQuery, mode: 'insensitive' } },
-    ];
-  }
-
-  if (auditDateFrom) {
-    whereClause.createdAt = { ...(whereClause.createdAt || {}), gte: new Date(auditDateFrom) };
-  }
-
-  if (auditDateTo) {
-    whereClause.createdAt = { ...(whereClause.createdAt || {}), lte: new Date(auditDateTo + 'T23:59:59') };
-  }
-
-  const auditLogs = await prisma.auditLog.findMany({
-    where: whereClause,
-    orderBy: { createdAt: "desc" },
-    take: pageSize,
-    skip: skip,
-  });
-
-  const totalAuditLogs = await prisma.auditLog.count({
-    where: whereClause,
-  });
-
-  // --- STATISTIKK DATA ---
   const dateFrom = resolvedParams.dateFrom || "";
   const dateTo = resolvedParams.dateTo || "";
   const statusFilter = resolvedParams.status || "";
   const customerFilter = resolvedParams.customer || "";
   const technicianFilter = resolvedParams.technician || "";
+  const page = Math.max(1, parseInt(resolvedParams.page?.toString() || "1", 10) || 1);
 
-  // Hent kunder og montører for filtrering
-  const statsCustomers = await prisma.customer.findMany({
-    orderBy: { name: 'asc' },
-    take: 50
-  });
-  const statsTechnicians = await prisma.user.findMany({
-    where: { role: { in: ['TECHNICIAN', 'ADMIN', 'OFFICE'] } },
-    orderBy: { name: 'asc' }
-  });
+  const overview = canUseSettings ? await getSettingsOverview(user) : null;
+  if (overview && !overview.ok) redirect("/");
+  const branding = overview?.ok ? overview.data.branding : null;
+  const templates = overview?.ok ? overview.data.templates : [];
+  const tags = overview?.ok ? overview.data.tags : [];
+  const documentTags = overview?.ok ? overview.data.documentTags : [];
+  const departmentRows = overview?.ok ? overview.data.departmentRows : [];
+  const roleRows = overview?.ok ? overview.data.roleRows : [];
 
-  // Bygg where-clause for statistikk
-  const statsWhere: any = {};
-  if (dateFrom) statsWhere.scheduledFor = { gte: new Date(dateFrom) };
-  if (dateTo) {
-    statsWhere.scheduledFor = {
-      ...statsWhere.scheduledFor,
-      lte: new Date(dateTo + 'T23:59:59')
-    };
-  }
-  if (statusFilter) statsWhere.status = statusFilter;
-  if (customerFilter) statsWhere.customerId = customerFilter;
-  if (technicianFilter) statsWhere.technicians = { some: { id: technicianFilter } };
+  const auditPage =
+    currentTab === "auditlog" && canAudit
+      ? await getAuditLogPage(user, {
+          search: searchQuery,
+          dateFrom,
+          dateTo,
+          page,
+        })
+      : null;
 
-  const statsWorkOrders = await prisma.workOrder.findMany({
-    where: statsWhere,
-    include: {
-      customer: true,
-      technicians: true
-    },
-    orderBy: { scheduledFor: 'desc' }
-  });
-
-  // Beregn statistikk
-  const totalWorkOrders = statsWorkOrders.length;
-  const byStatus = statsWorkOrders.reduce((acc: any, wo) => {
-    acc[wo.status] = (acc[wo.status] || 0) + 1;
-    return acc;
-  }, {} as any);
-  const byTechnician = statsWorkOrders.reduce((acc: any, wo) => {
-    wo.technicians.forEach((t: any) => {
-      acc[t.name || 'Ukjent'] = (acc[t.name || 'Ukjent'] || 0) + 1;
-    });
-    return acc;
-  }, {} as any);
-  const byCustomer = statsWorkOrders.reduce((acc: any, wo) => {
-    acc[wo.customer?.name || "Uten kunde"] = (acc[wo.customer?.name || "Uten kunde"] || 0) + 1;
-    return acc;
-  }, {} as any);
-
-  // Månedlig trend (siste 6 måneder)
-  const monthlyTrend: Record<string, number> = statsWorkOrders.reduce((acc: Record<string, number>, wo) => {
-    if (!wo.scheduledFor) return acc;
-    const month = new Date(wo.scheduledFor).toISOString().slice(0, 7); // YYYY-MM
-    acc[month] = (acc[month] || 0) + 1;
-    return acc;
-  }, {});
-
-  // --- SERVER ACTION: LAGRE BRANDING ---
-  async function saveBranding(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const companyName = cleanText(formData.get("companyName"), { maxLength: LIMITS.title });
-    const primaryColor = cleanColor(formData.get("primaryColor")) || "#2563eb";
-    const logoUrl = cleanUrl(formData.get("logoUrl"));
-    
-    const existing = await prisma.branding.findFirst();
-    if (existing) {
-      await prisma.branding.update({ where: { id: existing.id }, data: { companyName, primaryColor, logoUrl: logoUrl || null } });
-    } else {
-      await prisma.branding.create({ data: { companyName, primaryColor, logoUrl: logoUrl || null } });
-    }
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Branding",
-        entityId: "branding",
-        action: `Oppdaterte merkevareinnstillinger: ${companyName}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: OPPRETT SJEKKLISTE ---
-  async function createTemplate(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });
-    if (!title) return;
-
-    await prisma.template.create({
-      data: { 
-        title,
-        fieldsJson: "[]"
-      }
-    });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Template",
-        entityId: title,
-        action: `Opprettet sjekkliste: ${title}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: SLETT SJEKKLISTE ---
-  async function deleteTemplate(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
-
-    const templateToDelete = await prisma.template.findUnique({
-      where: { id },
-    });
-    await prisma.template.delete({
-      where: { id }
-    });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Template",
-        entityId: id,
-        action: `Slettet sjekkliste: ${templateToDelete?.title || "Ukjent"}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: OPPRETT TAG ---
-  async function createTag(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const color = cleanColor(formData.get("color")) || "#3b82f6";
-    if (!name) return;
-
-    await prisma.tag.create({
-      data: { name, color }
-    });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Tag",
-        entityId: name,
-        action: `Opprettet tag: ${name}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: OPPDATER TAG ---
-  async function updateTag(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const color = cleanColor(formData.get("color")) || "#3b82f6";
-    if (!id || !name) return;
-
-    const existing = await prisma.tag.findUnique({ where: { id } });
-    if (!existing) return;
-
-    await prisma.tag.update({
-      where: { id },
-      data: { name, color }
-    });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Tag",
-        entityId: id,
-        action: `Oppdaterte tag: ${existing.name} -> ${name}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: SLETT TAG ---
-  async function deleteTag(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
-
-    const tagToDelete = await prisma.tag.findUnique({ where: { id } });
-    await prisma.tag.delete({ where: { id } });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "Tag",
-        entityId: id,
-        action: `Slettet tag: ${tagToDelete?.name || "Ukjent"}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: OPPRETT DOKUMENT-TAG ---
-  async function createDocumentTag(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const color = cleanColor(formData.get("color")) || "#3b82f6";
-    if (!name) return;
-
-    await prisma.documentTag.create({ data: { name, color } });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "DocumentTag",
-        entityId: name,
-        action: `Opprettet dokument-tag: ${name}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: OPPDATER DOKUMENT-TAG ---
-  async function updateDocumentTag(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    const name = cleanText(formData.get("name"), { maxLength: LIMITS.title });
-    const color = cleanColor(formData.get("color")) || "#3b82f6";
-    if (!id || !name) return;
-
-    const existing = await prisma.documentTag.findUnique({ where: { id } });
-    if (!existing) return;
-
-    await prisma.documentTag.update({ where: { id }, data: { name, color } });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "DocumentTag",
-        entityId: id,
-        action: `Oppdaterte dokument-tag: ${existing.name} -> ${name}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
-
-  // --- SERVER ACTION: SLETT DOKUMENT-TAG ---
-  async function deleteDocumentTag(formData: FormData) {
-    "use server";
-    if (!(await requireOffice())) return;
-    const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-    if (!id) return;
-
-    const tagToDelete = await prisma.documentTag.findUnique({ where: { id } });
-    await prisma.documentTag.delete({ where: { id } });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "DocumentTag",
-        entityId: id,
-        action: `Slettet dokument-tag: ${tagToDelete?.name || "Ukjent"}`,
-        userName: user?.name || "Ukjent"
-      }
-    });
-    revalidatePath("/innstillinger");
-  }
+  const statistics =
+    currentTab === "statistikk" && canStats
+      ? await getStatistics(user, {
+          dateFrom,
+          dateTo,
+          status: statusFilter,
+          customer: customerFilter,
+          technician: technicianFilter,
+        })
+      : null;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-6">
-        
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">⚙️ Innstillinger</h1>
-            <p className="text-gray-500 mt-1 text-sm">Administrer systemet, merkevare og skjemaer.</p>
+            <h1 className="text-3xl font-bold text-gray-900">⚙️ {t("settings.title")}</h1>
+            <p className="text-gray-500 mt-1 text-sm">{t("settings.subtitle")}</p>
           </div>
           <Link href="/" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            &larr; Tilbake til Dashbord
+            &larr; {t("settings.backToDashboard")}
           </Link>
         </div>
 
-        {/* FANER (TABS) */}
-        <div className="flex space-x-2 border-b border-gray-200">
-          <Link 
-            href="?tab=branding" 
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'branding' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            🎨 Merkevare
-          </Link>
-          <Link 
-            href="?tab=ansatte" 
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'ansatte' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            👥 Ansatte & Roller
-          </Link>
-          <Link 
-            href="?tab=maler" 
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'maler' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            📋 Sjekklister / Maler
-          </Link>
-          <Link
-            href="?tab=tags"
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'tags' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            🏷️ Tags
-          </Link>
-          {user?.role === "ADMIN" && (
-            <Link 
-              href="?tab=auditlog" 
-              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'auditlog' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              📋 Aktivitetslogg
-            </Link>
-          )}
-          {(user?.role === "ADMIN" || user?.role === "OFFICE") && (
-            <Link 
-              href="?tab=statistikk" 
-              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${currentTab === 'statistikk' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              📊 Statistikk
-            </Link>
-          )}
-        </div>
+        <SettingsTabs
+          currentTab={currentTab}
+          canBranding={canBranding}
+          canUsers={canUsers}
+          canTemplates={canTemplates}
+          canDocuments={canDocuments}
+          canAudit={canAudit}
+          canStats={canStats}
+          isAdmin={isAdmin}
+        />
 
-        {/* INNHOLD BASERT PÅ VALGT FANE */}
-        
         {/* FANE 1: BRANDING */}
-        {currentTab === 'branding' && (
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">White-label Innstillinger</h2>
-            <form action={saveBranding} className="space-y-5 max-w-md">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Firmanavn</label>
-                <input type="text" name="companyName" defaultValue={branding?.companyName || ""} placeholder="F.eks. Elektro Experten AS" required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Hovedfarge (Hex-kode)</label>
-                <div className="flex gap-3 items-center">
-                  <input type="color" name="primaryColor" defaultValue={branding?.primaryColor || "#2563eb"} className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300" />
-                  <input type="text" defaultValue={branding?.primaryColor || "#2563eb"} className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium bg-gray-50" readOnly />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Logo URL (valgfritt)</label>
-                <input 
-                  type="url" 
-                  name="logoUrl" 
-                  defaultValue={branding?.logoUrl || ""} 
-                  placeholder="https://..." 
-                  className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <p className="text-xs text-gray-500 mt-1">Ekstern URL til firmanlogo. Brukes på rapporter, e-post og dashbord-header.</p>
-              </div>
-              <button type="submit" className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
-                Lagre endringer
-              </button>
-            </form>
+        {currentTab === "branding" && canBranding && (
+          <div className="space-y-6">
+            <BrandingTab
+              branding={branding}
+              error={error}
+              saveBranding={saveBrandingAction}
+            />
+            <CalendarFeedSettings />
           </div>
         )}
 
         {/* FANE 2: ANSATTE */}
-        {currentTab === 'ansatte' && (
+        {currentTab === "ansatte" && canUsers && (
           <UsersAdmin
             returnTo="/innstillinger?tab=ansatte"
             currentUserEmail={user.email}
             isAdmin={user.role === "ADMIN"}
+            departmentId={user.departmentId}
+            canManageCustomers={hasPermission(user, "customers.manage")}
+            actorPermissions={Array.from(effectivePermissions(user))}
             invite={resolvedParams.invite}
             inviteToken={resolvedParams.inviteToken}
             error={resolvedParams.error}
             mail={resolvedParams.mail}
+            page={page}
+            baseUrl="/innstillinger?tab=ansatte"
           />
         )}
 
         {/* FANE 3: MALER & SJEKKLISTER */}
-        {currentTab === 'maler' && (
-          <div className="space-y-6">
-            
-            {/* Opprett ny mal */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Opprett ny sjekkliste</h2>
-              <p className="text-sm text-gray-500 mb-5">Lag en ny mal som kan knyttes til fremtidige oppdrag.</p>
-              
-              <form action={createTemplate} className="flex gap-3 max-w-lg">
-                <input 
-                  type="text" 
-                  name="title" 
-                  placeholder="Navn på sjekkliste (f.eks. Årlig Service Varmepumpe)" 
-                  required 
-                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500" 
-                />
-                <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
-                  + Opprett
-                </button>
-              </form>
-            </div>
-
-            {/* Eksisterende maler */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Tilgjengelige Maler ({templates.length})</h2>
-              
-              {templates.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">Du har ikke opprettet noen sjekklistemaler ennå.</p>
-              ) : (
-                <div className="space-y-3">
-                   {templates.map(template => (
-                    <div key={template.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl">
-                      <span className="font-bold text-gray-800">{template.title}</span>
-                      
-                      <div className="flex gap-2">
-                        {/* NY KNAPP: Rediger */}
-                        <Link 
-                          href={`/innstillinger/maler/${template.id}`} 
-                          className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition"
-                        >
-                          Rediger
-                        </Link>
-                        
-                        {/* Eksisterende Slett-knapp */}
-                        <form action={deleteTemplate}>
-                          <input type="hidden" name="id" value={template.id} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
-                            Slett
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-          </div>
+        {currentTab === "maler" && canTemplates && (
+          <TemplatesTab
+            templates={templates}
+            isAdmin={isAdmin}
+            createTemplate={createTemplateAction}
+            deleteTemplate={deleteTemplateAction}
+          />
         )}
 
         {/* FANE: TAGS */}
-        {currentTab === 'tags' && (
-          <div className="space-y-6">
-
-            {/* OPPDRAG-TAGS */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Tags for oppdrag</h2>
-              <p className="text-sm text-gray-500 mb-5">Brukes for å spore beredskap på oppdrag (f.eks. klar, mangler-deler, trenger-gjennomgang).</p>
-
-              <form action={createTag} className="flex gap-3 max-w-lg flex-wrap mb-6">
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Navn på tag"
-                  required
-                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 min-w-[150px]"
-                />
-                <input
-                  type="color"
-                  name="color"
-                  defaultValue="#3b82f6"
-                  className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
-                />
-                <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
-                  + Opprett
-                </button>
-              </form>
-
-              {tags.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">Ingen oppdrag-tags opprettet ennå.</p>
-              ) : (
-                <div className="space-y-3">
-                  {tags.map(tag => (
-                    <div key={tag.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl flex-wrap gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} />
-                        <span className="font-bold text-gray-800">{tag.name}</span>
-                        <span className="text-xs text-gray-500">{tag.color}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <details className="relative">
-                          <summary className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition cursor-pointer">
-                            Rediger
-                          </summary>
-                          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-10 w-72">
-                            <form action={updateTag} className="space-y-3">
-                              <input type="hidden" name="id" value={tag.id} />
-                              <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Navn</label>
-                                <input type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Farge</label>
-                                <input type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
-                              </div>
-                              <button type="submit" className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition">Lagre</button>
-                            </form>
-                          </div>
-                        </details>
-                        <form action={deleteTag}>
-                          <input type="hidden" name="id" value={tag.id} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
-                        </form>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* DOKUMENT-TAGS */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Tags for dokumenter</h2>
-              <p className="text-sm text-gray-500 mb-5">Brukes for å kategorisere og søke i dokumentbiblioteket.</p>
-
-              <form action={createDocumentTag} className="flex gap-3 max-w-lg flex-wrap mb-6">
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Navn på tag"
-                  required
-                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 min-w-[150px]"
-                />
-                <input
-                  type="color"
-                  name="color"
-                  defaultValue="#10b981"
-                  className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
-                />
-                <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
-                  + Opprett
-                </button>
-              </form>
-
-              {documentTags.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">Ingen dokument-tags opprettet ennå.</p>
-              ) : (
-                <div className="space-y-3">
-                  {documentTags.map(tag => (
-                    <div key={tag.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl flex-wrap gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-block w-6 h-6 rounded-full border-2 border-gray-300" style={{ backgroundColor: tag.color }} />
-                        <span className="font-bold text-gray-800">{tag.name}</span>
-                        <span className="text-xs text-gray-500">{tag.color}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <details className="relative">
-                          <summary className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition cursor-pointer">
-                            Rediger
-                          </summary>
-                          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-10 w-72">
-                            <form action={updateDocumentTag} className="space-y-3">
-                              <input type="hidden" name="id" value={tag.id} />
-                              <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Navn</label>
-                                <input type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Farge</label>
-                                <input type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
-                              </div>
-                              <button type="submit" className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition">Lagre</button>
-                            </form>
-                          </div>
-                        </details>
-                        <form action={deleteDocumentTag}>
-                          <input type="hidden" name="id" value={tag.id} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">Slett</button>
-                        </form>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-          </div>
+        {currentTab === "tags" && (canTemplates || canDocuments) && (
+          <TagsTab
+            tags={tags}
+            documentTags={documentTags}
+            isAdmin={isAdmin}
+            createTag={createTagAction}
+            updateTag={updateTagAction}
+            deleteTag={deleteTagAction}
+            createDocumentTag={createDocumentTagAction}
+            updateDocumentTag={updateDocumentTagAction}
+            deleteDocumentTag={deleteDocumentTagAction}
+          />
         )}
 
-        {/* FANE 4: AKTIVITETSLOGG (ADMIN ONLY) */}
-        {currentTab === 'auditlog' && (
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">📋 Systemaktivitetslogg</h2>
-            <p className="text-gray-500 text-sm mb-6">Alle systemhendelser og brukeraktiviteter.</p>
-            
-            {/* FILTER OG SØK */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
-              <form method="GET" className="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <input
-                  type="text"
-                  name="search"
-                  placeholder="Søk i aktivitetslogg..."
-                  defaultValue={resolvedParams.search || ""}
-                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <input
-                  type="date"
-                  name="dateFrom"
-                  placeholder="Fra dato"
-                  defaultValue={resolvedParams.dateFrom || ""}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <input
-                  type="date"
-                  name="dateTo"
-                  placeholder="Til dato"
-                  defaultValue={resolvedParams.dateTo || ""}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <button type="submit" className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
-                  Søk
-                </button>
-                {(resolvedParams.search || resolvedParams.dateFrom || resolvedParams.dateTo) && (
-                  <Link href="?tab=auditlog" className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition whitespace-nowrap">
-                    Nullstill
-                  </Link>
-                )}
-              </form>
-            </div>
+        {/* FANE 4: AKTIVITETSLOGG */}
+        {currentTab === "auditlog" && canAudit && auditPage?.ok && (
+          <AuditLogTab
+            logs={auditPage.data.logs}
+            total={auditPage.data.total}
+            page={auditPage.data.page}
+            pageSize={auditPage.data.pageSize}
+            search={searchQuery}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+          />
+        )}
 
-            <AuditLogTable 
-              logs={auditLogs} 
-              showEntityFilter 
-              page={page}
-              pageSize={pageSize}
-              totalCount={totalAuditLogs}
-              baseUrl={`/innstillinger?tab=auditlog${resolvedParams.search ? `&search=${resolvedParams.search}` : ''}${auditDateFrom ? `&dateFrom=${auditDateFrom}` : ''}${auditDateTo ? `&dateTo=${auditDateTo}` : ''}`}
+        {/* FANE 5: STATISTIKK (AVDELINGSBEGRENSET) */}
+        {currentTab === "statistikk" && canStats && statistics?.ok && (
+          <StatisticsTab
+            data={statistics.data}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            statusFilter={statusFilter}
+            customerFilter={customerFilter}
+            technicianFilter={technicianFilter}
+          />
+        )}
+
+        {currentTab === "roller" && isAdmin && (
+          <div>
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                🔐 {t("settings.roles.title")}
+              </h2>
+              <p className="text-gray-500 text-sm">
+                {t("settings.roles.description")}
+              </p>
+            </div>
+            <RolesAdmin
+              roles={roleRows}
+              error={resolvedParams.error}
+              message={resolvedParams.role}
             />
           </div>
         )}
 
-        {/* FANE 5: STATISTIKK (ADMIN ONLY) */}
-        {currentTab === 'statistikk' && (
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">📊 Statistikk</h2>
-            <p className="text-gray-500 text-sm mb-6">Oppdragsstatistikk og filtrering.</p>
-
-            {/* FILTER */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
-              <form method="GET" className="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <input
-                  type="date"
-                  name="dateFrom"
-                  placeholder="Fra dato"
-                  defaultValue={dateFrom}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <input
-                  type="date"
-                  name="dateTo"
-                  placeholder="Til dato"
-                  defaultValue={dateTo}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                />
-                <select
-                  name="status"
-                  defaultValue={statusFilter || ""}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                >
-                  <option value="">Alle statuser</option>
-                  <option value="PLANNED">Planlagt</option>
-                  <option value="IN_PROGRESS">Påbegynt</option>
-                  <option value="WAITING">Venter</option>
-                  <option value="COMPLETED">Fullført</option>
-                  <option value="CANCELLED">Kansellert</option>
-                  <option value="OPEN">Åpen</option>
-                  <option value="PENDING">Planlagt (PENDING)</option>
-                </select>
-                <select
-                  name="customer"
-                  defaultValue={customerFilter || ""}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                >
-                  <option value="">Alle kunder</option>
-                  {statsCustomers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                <select
-                  name="technician"
-                  defaultValue={technicianFilter || ""}
-                  className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
-                >
-                  <option value="">Alle montører</option>
-                  {statsTechnicians.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-                <button type="submit" className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
-                  Filtrer
-                </button>
-                {(dateFrom || dateTo || statusFilter || customerFilter || technicianFilter) && (
-                  <Link href="?tab=statistikk" className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition whitespace-nowrap">
-                    Nullstill
-                  </Link>
-                )}
-              </form>
-            </div>
-
-            {/* STATISTIKK KORT */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Totalt oppdrag</p>
-                <p className="text-3xl font-black text-gray-900">{totalWorkOrders}</p>
-              </div>
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Planlagt</p>
-                <p className="text-3xl font-black text-yellow-600">{byStatus.PLANNED || 0}</p>
-              </div>
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Påbegynt</p>
-                <p className="text-3xl font-black text-blue-600">{byStatus.IN_PROGRESS || 0}</p>
-              </div>
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Fullført</p>
-                <p className="text-3xl font-black text-green-600">{byStatus.COMPLETED || 0}</p>
-              </div>
-            </div>
-
-            {/* MÅNEDLIG TREND */}
-            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 mb-6">
-              <h3 className="font-bold text-gray-900 mb-4">Månedlig trend</h3>
-              <div className="flex items-end gap-2 h-40">
-                {Object.entries(monthlyTrend as Record<string, number>)
-                  .sort()
-                  .slice(-6)
-                  .map(([month, count]: [string, number]) => {
-                    const maxCount = Math.max(...Object.values(monthlyTrend));
-                    const height = maxCount > 0 ? Math.max(10, (count / maxCount) * 100) : 10;
-                    return (
-                      <div key={month} className="flex flex-col items-center gap-1">
-                        <div
-                          className="w-full bg-blue-600 rounded-t-sm"
-                          style={{ height: `${height}%` }}
-                        />
-                        <span className="text-[10px] text-gray-500">{month.slice(5)}</span>
-                        <span className="text-[10px] font-bold text-gray-900">{count}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-              <p className="text-[10px] text-gray-500 mt-2 text-right">
-                Siste 6 måneder med data
+        {currentTab === "avdelinger" && isAdmin && (
+          <div>
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">🏷️ {t("settings.departments.title")}</h2>
+              <p className="text-gray-500 text-sm">
+                {t("settings.departments.description")}
               </p>
             </div>
-
-            {/* PER MONTØR */}
-            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 mb-6">
-              <h3 className="font-bold text-gray-900 mb-4">Per montør</h3>
-              <div className="space-y-2">
-                {Object.entries(byTechnician as Record<string, number>)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([name, count]) => (
-                    <div key={name} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg border border-gray-100">
-                      <span className="text-sm font-medium text-gray-900">{name}</span>
-                      <span className="text-sm font-bold text-gray-700">{count} oppdrag</span>
-                    </div>
-                  ))}
-                {Object.keys(byTechnician).length === 0 && (
-                  <p className="text-sm text-gray-500 italic text-center py-4">Ingen data</p>
-                )}
-              </div>
-            </div>
-
-            {/* PER KUNDE */}
-            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h3 className="font-bold text-gray-900 mb-4">Per kunde</h3>
-              <div className="space-y-2">
-                {Object.entries(byCustomer as Record<string, number>)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 10)
-                  .map(([name, count]) => (
-                    <div key={name} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg border border-gray-100">
-                      <span className="text-sm font-medium text-gray-900 truncate max-w-xs">{name}</span>
-                      <span className="text-sm font-bold text-gray-700">{count} oppdrag</span>
-                    </div>
-                  ))}
-                {Object.keys(byCustomer).length === 0 && (
-                  <p className="text-sm text-gray-500 italic text-center py-4">Ingen data</p>
-                )}
-              </div>
-            </div>
+            <DepartmentsAdmin departments={departmentRows} />
           </div>
         )}
 
+        {currentTab === "sikkerhet" && (
+          <SecuritySettings
+            user={{
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              isTwoFactorEnabled: user.isTwoFactorEnabled,
+              twoFactorSecret: user.twoFactorSecret,
+            }}
+            setup={resolvedParams.setup}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+          />
+        )}
       </div>
     </div>
   );

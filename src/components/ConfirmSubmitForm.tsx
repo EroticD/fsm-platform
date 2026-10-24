@@ -1,11 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import ConfirmDialog from "./ConfirmDialog";
 
 /**
- * A thin Client Component wrapper that runs a `confirm()` check before a
- * Server Action is submitted. Event handlers can't be attached to a `<form>`
- * from a Server Component, so the form itself lives here.
+ * Skjemawrapper som viser en tilgjengelig bekreftelsesdialog før en
+ * Server Action sendes. Erstatter `window.confirm`, som blokkerer nettleseren
+ * og ikke kan styles eller brukes med tastatur på en god måte.
  */
 export default function ConfirmSubmitForm({
   action,
@@ -18,15 +20,39 @@ export default function ConfirmSubmitForm({
   className?: string;
   children: ReactNode;
 }) {
+  const t = useTranslations("common");
+  const [open, setOpen] = useState(false);
+  const confirmed = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
   return (
-    <form
-      action={action}
-      className={className}
-      onSubmit={(event) => {
-        if (!confirm(confirmMessage)) event.preventDefault();
-      }}
-    >
-      {children}
-    </form>
+    <>
+      <form
+        ref={formRef}
+        action={action}
+        className={className}
+        onSubmit={(event) => {
+          if (confirmed.current) {
+            confirmed.current = false;
+            return;
+          }
+          event.preventDefault();
+          setOpen(true);
+        }}
+      >
+        {children}
+      </form>
+      <ConfirmDialog
+        open={open}
+        title={t("components.confirm.title")}
+        description={confirmMessage}
+        onCancel={() => setOpen(false)}
+        onConfirm={() => {
+          confirmed.current = true;
+          setOpen(false);
+          formRef.current?.requestSubmit();
+        }}
+      />
+    </>
   );
 }

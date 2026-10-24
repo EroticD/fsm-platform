@@ -1,13 +1,17 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
+import { bumpSessionVersion } from "@/lib/session";
+import { clearCalendarToken } from "@/server/calendar-feed";
 
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string, error?: string }> }) {
   const resolvedParams = await searchParams;
   const token = resolvedParams.token;
   const error = resolvedParams.error;
+  const t = await getTranslations("common");
 
   // Sikkerhetssjekk: Kom de hit uten token?
   if (!token) {
@@ -15,9 +19,9 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow border max-w-md w-full text-center">
           <p className="text-4xl mb-4">⚠️</p>
-          <h1 className="text-xl font-bold text-red-600 mb-2">Manglende sikkerhetsnøkkel</h1>
-          <p className="text-gray-600 mb-6">Ugyldig eller manglende link. Prøv å be om en ny tilbakestillingslink.</p>
-          <Link href="/glemt-passord" className="bg-gray-800 text-white px-6 py-2 rounded-lg font-bold">Gå til glemt passord</Link>
+          <h1 className="text-xl font-bold text-red-600 mb-2">{t("auth.reset.missingTitle")}</h1>
+          <p className="text-gray-600 mb-6">{t("auth.reset.missingDesc")}</p>
+          <Link href="/glemt-passord" className="bg-gray-800 text-white px-6 py-2 rounded-lg font-bold">{t("auth.reset.missingButton")}</Link>
         </div>
       </div>
     );
@@ -56,6 +60,8 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
         resetTokenExpiry: null
       }
     });
+    await bumpSessionVersion(user.id);
+    await clearCalendarToken(user.id);
 
     // Sender brukeren til innlogging
     redirect("/api/auth/signin");
@@ -65,17 +71,17 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full border">
         
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Lage nytt passord</h1>
-        <p className="text-gray-500 text-sm mb-6">Skriv inn ditt nye ønskede passord nedenfor.</p>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">{t("auth.reset.title")}</h1>
+        <p className="text-gray-500 text-sm mb-6">{t("auth.reset.desc")}</p>
         
         {error === "ugyldig" && (
           <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm font-semibold border border-red-200">
-            Linken er ugyldig eller har utløpt.
+            {t("auth.reset.invalid")}
           </div>
         )}
         {error === "for_kort" && (
           <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg border border-yellow-200 text-sm font-semibold mb-4">
-            Passordet må være minst 8 tegn.
+            {t("auth.reset.tooShort")}
           </div>
         )}
 
@@ -83,12 +89,12 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
           <input type="hidden" name="token" value={token} />
           
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Nytt passord</label>
-            <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder="Minst 8 tegn..." className="w-full border p-3 rounded-xl text-gray-800" />
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.reset.newPassword")}</label>
+            <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder={t("auth.reset.placeholder")} className="w-full border p-3 rounded-xl text-gray-800" />
           </div>
           
           <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition">
-            Lagre nytt passord
+            {t("auth.reset.submit")}
           </button>
         </form>
       </div>
