@@ -1,6 +1,7 @@
 import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { releaseUpload } from "@/lib/upload-cleanup";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import {
@@ -841,6 +842,12 @@ export async function deleteWorkOrder(
   });
   if (!target) return { ok: false, error: "ikke-funnet" };
 
+  const uploads = await prisma.upload.findMany({
+    where: { ownerType: "WORK_ORDER", ownerId: access.id },
+    select: { storedName: true },
+    take: 2000,
+  });
+
   await prisma.$transaction(async (tx) => {
     await audit(tx, {
       entityType: "WorkOrder",
@@ -852,6 +859,12 @@ export async function deleteWorkOrder(
     });
     await tx.workOrder.delete({ where: { id: access.id } });
   });
+
+  // Rapporter, vedlegg og signaturer er slettet sammen med oppdraget. Da kan
+  // filene frigjøres uten å etterlate lesbare URL-er.
+  for (const upload of uploads) {
+    await releaseUpload(`/uploads/${upload.storedName}`);
+  }
 
   return { ok: true };
 }

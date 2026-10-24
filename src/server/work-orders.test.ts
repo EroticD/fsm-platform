@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     contact: { findUnique: vi.fn(), create: vi.fn() },
     department: { findFirst: vi.fn() },
     comment: { create: vi.fn() },
+    upload: { findMany: vi.fn(async () => []) },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },

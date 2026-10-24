@@ -2,6 +2,7 @@ import path from "path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { releaseUpload } from "@/lib/upload-cleanup";
 import {
   documentCreateSchema,
   documentFolderCreateSchema,
@@ -340,8 +341,13 @@ export async function deleteDocument(
   if (!parsed.success) return fail("invalid");
   const id = parsed.data.id;
 
-  const doc = await prisma.document.findUnique({ where: { id } });
+  const doc = await prisma.document.findUnique({
+    where: { id },
+    include: { versions: { select: { filePath: true } } },
+  });
   if (!doc) return fail("not_found");
+
+  const fileUrls = [doc.filePath, ...doc.versions.map((version) => version.filePath)];
 
   await prisma.$transaction(async (tx) => {
     await tx.document.delete({ where: { id } });
@@ -352,6 +358,12 @@ export async function deleteDocument(
       actor: toAuditActor(actor),
     });
   });
+
+  // Frigjør filene etter at dokumentet og versjonene er borte. Filer som
+  // fortsatt er referert fra en annen rad blir liggende.
+  for (const fileUrl of new Set(fileUrls)) {
+    await releaseUpload(fileUrl);
+  }
 
   return ok(undefined);
 }

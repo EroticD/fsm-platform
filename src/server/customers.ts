@@ -3,6 +3,7 @@ import path from "path";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { releaseUpload } from "@/lib/upload-cleanup";
 import {
   contactCreateSchema,
   contactUpdateSchema,
@@ -1073,8 +1074,6 @@ export async function removeCustomerAttachment(
   await prisma.$transaction(async (tx) => {
     await tx.customerAttachment.delete({ where: { id: attachmentId } });
 
-    // Filen blir liggende på disk til en opprydningsjobb kan bekrefte at den
-    // ikke er referert fra noe annet sted.
     await audit(tx, {
       entityType: "Customer",
       entityId: attachment.customerId,
@@ -1083,6 +1082,8 @@ export async function removeCustomerAttachment(
       metadata: { attachmentId },
     });
   });
+
+  await releaseUpload(attachment.dataUrl);
 
   return ok(undefined);
 }

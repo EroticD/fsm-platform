@@ -9,6 +9,7 @@ import { LIMITS, cleanText } from "@/lib/sanitize";
 import { requireAdmin, getCurrentUser } from "@/lib/session";
 import { requireWorkOrderAccess } from "@/lib/access";
 import { linkUploadOwner } from "@/lib/upload-access";
+import { releaseUpload } from "@/lib/upload-cleanup";
 import { uploadDir } from "@/lib/uploads";
 import {
   addCustomerAttachment as addCustomerAttachmentService,
@@ -127,6 +128,8 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
       metadata: { attachmentId },
     });
   });
+
+  await releaseUpload(attachment.dataUrl);
 
   revalidateAttachmentViews(attachment.workOrderId);
   return { ok: true };
