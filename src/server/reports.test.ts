@@ -18,6 +18,18 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/access", () => ({
   workOrderScope: vi.fn(() => ({})),
+  canAccessWorkOrder: (
+    user: { role?: string; customerId?: string | null; departmentId?: string | null },
+    workOrder: { customerId?: string | null; departmentId?: string | null },
+  ) => {
+    if (user.role === "ADMIN") return true;
+    if (user.role === "CUSTOMER") {
+      return Boolean(user.customerId && workOrder.customerId === user.customerId);
+    }
+    return Boolean(
+      user.departmentId && workOrder.departmentId === user.departmentId,
+    );
+  },
 }));
 vi.mock("@/lib/session", () => ({
   isOffice: (role: string) => role === "ADMIN" || role === "OFFICE",
@@ -322,6 +334,11 @@ describe("reports-tjenesten", () => {
     mocks.prisma.report.findUnique.mockResolvedValue(null);
     mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
     mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "USER",
+      ownerId: "u1",
+      uploadedById: "u1",
+    });
 
     const data = formData();
     data.set("technicianSignature", "/uploads/finnes.png");
@@ -551,6 +568,19 @@ describe("getReportPdfForViewer", () => {
       actor({ role: "CUSTOMER", customerId: "kunde-1" }),
       "wo1",
     );
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it("avviser montør i en annen avdeling", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1");
 
     expect(result).toMatchObject({ ok: false, status: 403 });
   });

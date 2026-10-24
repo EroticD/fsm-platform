@@ -5,7 +5,7 @@ vi.mock("@/lib/prisma", () => ({
     document: { findUnique: vi.fn(), update: vi.fn() },
     documentJob: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     reportDraft: { findMany: vi.fn(), deleteMany: vi.fn() },
-    upload: { findUnique: vi.fn(), delete: vi.fn() },
+    upload: { findUnique: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
 }));
@@ -38,7 +38,7 @@ const mocked = prisma as unknown as {
   document: { findUnique: Mock; update: Mock };
   documentJob: { findFirst: Mock; create: Mock; update: Mock };
   reportDraft: { findMany: Mock; deleteMany: Mock };
-  upload: { findUnique: Mock; delete: Mock };
+  upload: { findUnique: Mock; delete: Mock; deleteMany: Mock };
   $queryRaw: Mock;
 };
 const mockedUnlink = vi.mocked(fs.unlink);
@@ -198,6 +198,7 @@ describe("cleanupExpiredDrafts", () => {
     mocked.reportDraft.deleteMany.mockResolvedValue({ count: 1 });
     mocked.upload.findUnique.mockResolvedValue(null);
     mocked.upload.delete.mockResolvedValue({});
+    mocked.upload.deleteMany.mockResolvedValue({ count: 1 });
     mockedUnlink.mockResolvedValue(undefined);
   });
 
@@ -230,7 +231,9 @@ describe("cleanupExpiredDrafts", () => {
     expect(mocked.reportDraft.deleteMany).toHaveBeenCalledWith({
       where: { id: "draft-1", updatedAt: { lt: cutoff } },
     });
-    expect(mocked.upload.delete).toHaveBeenCalledWith({ where: { storedName: "sig.png" } });
+    expect(mocked.upload.deleteMany).toHaveBeenCalledWith({
+      where: { storedName: "sig.png", ownerType: "USER", ownerId: "u1" },
+    });
     expect(mockedUnlink).toHaveBeenCalledWith("/tmp/uploads/sig.png");
   });
 
@@ -247,11 +250,13 @@ describe("cleanupExpiredDrafts", () => {
       ownerType: "WORK_ORDER",
       ownerId: "wo1",
     });
+    mocked.upload.deleteMany.mockResolvedValue({ count: 0 });
 
     const deleted = await cleanupExpiredDrafts();
 
     expect(deleted).toBe(1);
     expect(mocked.reportDraft.deleteMany).toHaveBeenCalled();
+    mocked.upload.deleteMany.mockResolvedValue({ count: 0 });
     expect(mocked.upload.delete).not.toHaveBeenCalled();
     expect(mockedUnlink).not.toHaveBeenCalled();
   });

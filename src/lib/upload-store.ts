@@ -114,18 +114,19 @@ export async function deleteUploadIfOwned(
   if (!storedName) return;
 
   try {
-    const upload = await prisma.upload.findUnique({ where: { storedName } });
-    if (
-      !upload ||
-      upload.ownerType !== owner.ownerType ||
-      upload.ownerId !== owner.ownerId
-    ) {
-      return;
-    }
+    // Slettingen er betinget i selve SQL-setningen, slik at en samtidig
+    // eierskapsoverføring ikke kan føre til at feil fil slettes.
+    const result = await prisma.upload.deleteMany({
+      where: {
+        storedName,
+        ownerType: owner.ownerType,
+        ownerId: owner.ownerId,
+      },
+    });
+    if (result.count === 0) return;
 
     // Slett raden først. Da kan ikke filen lenger nås gjennom /uploads, selv om
     // unlink skulle feile.
-    await prisma.upload.delete({ where: { storedName } });
     await fs.unlink(path.join(uploadDir(), storedName)).catch(() => undefined);
   } catch (error) {
     console.error("Kunne ikke slette gammel signatur:", error);

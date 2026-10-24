@@ -4,7 +4,7 @@ import { audit } from "@/lib/audit";
 import { notifyWorkOrderEvent } from "./notifications";
 import { hasPermission } from "@/lib/permissions";
 import { isOffice } from "@/lib/session";
-import { workOrderScope, type AccessUser } from "@/lib/access";
+import { canAccessWorkOrder, workOrderScope, type AccessUser } from "@/lib/access";
 import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
@@ -106,7 +106,23 @@ async function resolveDraftSignature(
 ): Promise<string | null> {
   const accepted = acceptedSignature(value);
   if (!accepted) return null;
-  if (!accepted.startsWith("data:")) return accepted;
+  if (!accepted.startsWith("data:")) {
+    const storedName = accepted.slice(accepted.lastIndexOf("/") + 1);
+    const upload = await prisma.upload.findUnique({
+      where: { storedName },
+      select: { ownerType: true, ownerId: true, uploadedById: true },
+    });
+    // En kladd kan bare referere til brukerens egen, ennå ikke tilknyttede fil.
+    if (
+      !upload ||
+      upload.ownerType !== "USER" ||
+      upload.ownerId !== user.id ||
+      upload.uploadedById !== user.id
+    ) {
+      return null;
+    }
+    return accepted;
+  }
 
   const url = await storeDataImage(accepted, {
     ownerType: "USER",
@@ -467,7 +483,7 @@ export async function saveDraft(
   // Kladden lagres som JSON i databasen. Over én million tegn ville gjort
   // listespørringer og sikkerhetskopier unødvendig tunge.
   const dataJson = JSON.stringify(payload);
-  if (dataJson.length > MAX_DRAFT_JSON_LENGTH) {
+  if (Buffer.byteLength(dataJson, "utf8") > MAX_DRAFT_JSON_LENGTH) {
     await releaseDraftSignatures(createdSignatures, user);
     return { ok: false };
   }
@@ -497,6 +513,13 @@ export async function saveDraft(
     // Kladden ble ikke lagret – da skal de nye signaturfilene ikke bli liggende.
     await releaseDraftSignatures(createdSignatures, user);
     throw error;
+  }
+
+  // Nye filer som ikke endte i den lagrede kladden (for eksempel ved en
+  // samtidig lagring) skal ikke bli liggende som søppel.
+  const referenced = new Set([technicianSignatureUrl, customerSignatureUrl]);
+  for (const url of createdSignatures) {
+    if (!referenced.has(url)) await releaseDraftSignatures([url], user);
   }
 
   // Erstattede signaturfiler ryddes først når den nye kladden er lagret. Er
@@ -954,22 +977,24 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 403, message: "Ingen tilgang" };
   }
 
-  // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
   const workOrder = await prisma.workOrder.findUnique({
     where: { id: workOrderId },
-    select: { customerId: true, status: true, reports: { select: { id: true } } },
+    select: {
+      customerId: true,
+      departmentId: true,
+      status: true,
+      reports: { select: { id: true } },
+    },
   });
 
   if (!workOrder) {
     return { ok: false, status: 404, message: "Fant ikke oppdraget" };
   }
 
-  // En kundeportalbruker uten kundetilknytning må aldri få tilgang til et
-  // oppdrag uten kunde: `null !== null` ville ellers gitt treff.
-  if (viewer.role === "CUSTOMER") {
-    if (!viewer.customerId || workOrder.customerId !== viewer.customerId) {
-      return { ok: false, status: 403, message: "Ingen tilgang" };
-    }
+  // Kundeportalbrukere ser bare egen kunde, og ansatte bare egen avdeling.
+  // En kunde uten kundetilknytning må aldri matche et oppdrag uten kunde.
+  if (!canAccessWorkOrder(viewer, workOrder)) {
+    return { ok: false, status: 403, message: "Ingen tilgang" };
   }
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false, status: 403, message: "Ingen tilgang" };
