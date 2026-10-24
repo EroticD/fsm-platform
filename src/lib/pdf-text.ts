@@ -1,18 +1,42 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { execFileSync } from "child_process";
+import { execFile as execFileCallback } from "child_process";
+import { promisify } from "util";
 import { uploadDir } from "@/lib/uploads";
+
+const execFile = promisify(execFileCallback);
+
+/** Store PDF-er kan gi mye tekst; standardgrensen på 1 MB er for lav. */
+const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Bare filer i opplastingsmappen skal leses. Dokumentrader kan i prinsippet
+ * inneholde en hvilken som helst sti (eldre data eller en kompromittert rad),
+ * så tekstuttrekket validerer på nytt før det åpner filen. Alle interne
+ * kallere henter filer fra opplastingsruten, så den lokale sti-varianten er
+ * ikke nødvendig.
+ */
+const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
 /**
  * Ekstraherer tekst fra en PDF-fil. Returnerer full tekst og per-side tekst.
  * Bruker pdftotext (poppler) hvis tilgjengelig, ellers pdf-parse.
  * For skannede PDF-er (lite tekst) forsøkes OCR via pdftoppm + tesseract.
+ *
+ * Eksterne programmer kjøres asynkront. En stor PDF kan ta flere minutter, og
+ * med `execFileSync` ville hele Node-prosessen – og dermed alle brukere –
+ * stått stille mens den jobbet.
  */
 export async function extractPdfText(filePath: string): Promise<{ text: string; pages: { page: number; text: string }[] }> {
-  const fullPath = filePath.startsWith("/uploads/")
-    ? path.join(uploadDir(), path.basename(filePath))
-    : filePath;
+  if (!UPLOAD_URL.test(filePath)) {
+    console.error(
+      `Avviste PDF-sti utenfor opplastingsmappen: ${JSON.stringify(filePath)}`,
+    );
+    return { text: "", pages: [] };
+  }
+
+  const fullPath = path.join(uploadDir(), path.basename(filePath));
 
   if (!fs.existsSync(fullPath)) {
     return { text: "", pages: [] };
@@ -22,7 +46,12 @@ export async function extractPdfText(filePath: string): Promise<{ text: string; 
   let text = "";
   let pages: { page: number; text: string }[] = [];
   try {
-    const raw = execFileSync("pdftotext", ["-layout", fullPath, "-"], { encoding: "utf8", timeout: 30000 });
+    const { stdout: raw } = await execFile("pdftotext", ["-layout", fullPath, "-"], {
+      encoding: "utf8",
+      timeout: 30000,
+      killSignal: "SIGKILL",
+      maxBuffer: MAX_OUTPUT_BYTES,
+    });
     // pdftotext bruker form feed mellom sider
     const split = raw.split(/\f/);
     pages = split
@@ -73,10 +102,13 @@ async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "fsm-ocr-"));
 
   try {
-    // Render sider til PNG
-    execFileSync("pdftoppm", ["-png", "-r", "200", fullPath, path.join(tmpDir, "page")], {
-      timeout: 120000,
-    });
+    // Render sider til PNG. Dette er asynkront, slik at resten av appen kan
+    // svare på forespørsler mens OCR-jobben står på.
+    await execFile(
+      "pdftoppm",
+      ["-png", "-r", "200", fullPath, path.join(tmpDir, "page")],
+      { timeout: 120000, killSignal: "SIGKILL" },
+    );
 
     const files = fs.readdirSync(tmpDir).filter((f) => f.endsWith(".png")).sort();
     const { createWorker } = await import("tesseract.js");

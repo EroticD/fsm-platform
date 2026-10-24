@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 export default function CopyButton({
   value,
-  label = "Kopier",
+  label,
 }: {
   value: string;
   label?: string;
 }) {
+  const t = useTranslations("common");
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -27,7 +29,9 @@ export default function CopyButton({
       onClick={handleCopy}
       className="text-xs font-bold bg-gray-800 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition whitespace-nowrap"
     >
-      {copied ? "✅ Kopiert" : `📋 ${label}`}
+      {copied
+        ? t("components.copy.copied")
+        : `📋 ${label ?? t("components.copy.label")}`}
     </button>
   );
 }

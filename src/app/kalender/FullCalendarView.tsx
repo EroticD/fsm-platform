@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Calendar, type EventDropArg } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { type EventResizeDoneArg } from '@fullcalendar/interaction';
@@ -26,6 +27,8 @@ export default function FullCalendarView({
   weekNumbers?: boolean;
 }) {
   const calendarEl = useRef<HTMLDivElement>(null);
+  const t = useTranslations("common");
+  const locale = useLocale();
 
   useEffect(() => {
     if (!calendarEl.current) return;
@@ -48,11 +51,11 @@ export default function FullCalendarView({
         });
         if (!response.ok) {
           info.revert();
-          alert("Kunne ikke lagre den nye datoen.");
+          alert(t("calendar.client.saveError"));
         }
       } catch {
         info.revert();
-        alert("Kunne ikke lagre den nye datoen.");
+        alert(t("calendar.client.saveError"));
       } finally {
         document.body.style.cursor = 'default';
       }
@@ -70,14 +73,14 @@ export default function FullCalendarView({
         biweekly: {
           type: 'dayGrid',
           duration: { weeks: 2 },
-          buttonText: '2 uker',
+          buttonText: t("calendar.common.biweekly"),
           weekNumbers: true,
           weekNumberCalculation: 'ISO',
         },
       },
       events: events,
       height: '80vh',
-      locale: 'nb',
+      locale: locale,
       weekNumbers: weekNumbers,
       weekNumberCalculation: 'ISO',
       // Vis tittel og adresse på hver hendelse. Bygges som DOM-noder (ikke
@@ -104,9 +107,9 @@ export default function FullCalendarView({
         return { domNodes: [content] };
       },
       buttonText: {
-        today: 'I dag',
-        week: 'Uke',
-        month: 'Måned',
+        today: t("calendar.client.today"),
+        week: t("calendar.client.week"),
+        month: t("calendar.client.month"),
       },
       editable: true,
       droppable: true,
@@ -123,7 +126,7 @@ export default function FullCalendarView({
     return () => {
       calendar.destroy();
     };
-  }, [events, view, weekNumbers]);
+  }, [events, view, weekNumbers, t, locale]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border text-gray-800">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 /** Stabil tom liste, så standardverdien ikke gir ny referanse ved hver render. */
 const EMPTY_TAGS: string[] = [];
@@ -20,6 +21,7 @@ export default function TagSelector({
   selectedTagNames?: string[];
   name?: string;
 }) {
+  const t = useTranslations("common");
   // Utvalget initialiseres fra prop-en. Komponenten remountes når man bytter
   // dokument/oppdrag, så det er ikke behov for å synkronisere i en effect.
   const [selected, setSelected] = useState<Set<string>>(() => new Set(selectedTagNames));
@@ -91,7 +93,7 @@ export default function TagSelector({
               addNew();
             }
           }}
-          placeholder="Ny tag (Enter for å legge til)"
+          placeholder={t("documents.tagSelector.newTagPlaceholder")}
           className="flex-1 border border-gray-300 p-2 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
         />
         <button
@@ -99,14 +101,14 @@ export default function TagSelector({
           onClick={addNew}
           className="bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
         >
-          + Legg til
+          {t("documents.tagSelector.add")}
         </button>
       </div>
 
       {/* Selected tags preview */}
       {selectedArray.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-100 w-full">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider w-full">Valgte tags:</span>
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider w-full">{t("documents.tagSelector.selected")}</span>
           {selectedArray.map((tagName) => {
             const tag = allTags.find((t) => t.name === tagName);
             const color = tag?.color || "#6b7280";
@@ -114,6 +116,7 @@ export default function TagSelector({
               <span
                 key={tagName}
                 className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                suppressHydrationWarning
                 style={{ backgroundColor: color }}
               >
                 🏷️ {tagName}

@@ -1,18 +1,23 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
+import { readableTextColor } from "@/lib/colors";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { formatAddress } from "@/lib/address";
+import { formatDateRange } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
 // ---------------------------------------------------------------------------
 
 // Samme definisjoner som dashbordet bruker, slik at tallene stemmer.
-const ACTIVE_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "WAITING", "IN_PROGRESS"];
-const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "WAITING"];
+const ACTIVE_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"];
+const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING"];
 const CLOSED_STATUSES: WorkStatus[] = ["COMPLETED", "CANCELLED"];
 const PAGE_SIZE = 20;
 
@@ -23,64 +28,59 @@ function getDateContext() {
   return { startOfToday, endOfToday };
 }
 
-function formatDay(value: Date | string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleDateString("no-NO", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "Ingen dato";
-}
-
 /**
  * De filtrerte visningene av oppdragslisten. Dashbordets tallkort lenker hit,
  * slik at man ser nøyaktig de oppdragene tallet gjelder.
  */
 const VIEWS = [
-  { key: "alle", label: "Alle", icon: "📂", description: "Alle oppdrag i systemet." },
+  { key: "alle", labelKey: "orders.list.views.alle.label", icon: "📂", descriptionKey: "orders.list.views.alle.description" },
   {
     key: "apne",
-    label: "Åpne",
+    labelKey: "orders.list.views.apne.label",
     icon: "🔄",
-    description: "Oppdrag som ikke er fullført eller kansellert.",
+    descriptionKey: "orders.list.views.apne.description",
   },
   {
     key: "venter",
-    label: "Venter på oppstart",
+    labelKey: "orders.list.views.venter.label",
     icon: "⏳",
-    description: "Åpne oppdrag som ennå ikke er satt i gang.",
+    descriptionKey: "orders.list.views.venter.description",
   },
   {
     key: "pagaaende",
-    label: "Påbegynt",
+    labelKey: "orders.list.views.pagaaende.label",
     icon: "🛠️",
-    description: "Oppdrag det jobbes med nå.",
+    descriptionKey: "orders.list.views.pagaaende.description",
   },
   {
     key: "idag",
-    label: "I dag",
+    labelKey: "orders.list.views.idag.label",
     icon: "📅",
-    description: "Oppdrag som er planlagt til i dag.",
+    descriptionKey: "orders.list.views.idag.description",
   },
   {
     key: "forfalte",
-    label: "Forfalte",
+    labelKey: "orders.list.views.forfalte.label",
     icon: "⚠️",
-    description: "Planlagt før i dag, men ikke fullført.",
+    descriptionKey: "orders.list.views.forfalte.description",
   },
   {
     key: "ikke-tildelt",
-    label: "Ikke tildelt",
+    labelKey: "orders.list.views.ikke-tildelt.label",
     icon: "🙋",
-    description: "Åpne oppdrag som mangler montør.",
+    descriptionKey: "orders.list.views.ikke-tildelt.description",
   },
   {
     key: "fullforte",
-    label: "Fullførte",
+    labelKey: "orders.list.views.fullforte.label",
     icon: "✅",
-    description: "Oppdrag som er fullført.",
+    descriptionKey: "orders.list.views.fullforte.description",
+  },
+  {
+    key: "kansellerte",
+    labelKey: "orders.list.views.kansellerte.label",
+    icon: "🚫",
+    descriptionKey: "orders.list.views.kansellerte.description",
   },
 ] as const;
 
@@ -103,8 +103,9 @@ function whereFor(
     case "pagaaende":
       return { status: "IN_PROGRESS" };
     case "idag":
-      // Tar med flerdagersoppdrag som er i gang i dag.
+      // Tar med flerdagersoppdrag som er i gang i dag, men ikke avsluttede.
       return {
+        status: { notIn: CLOSED_STATUSES },
         scheduledFor: { lte: endOfToday },
         OR: [
           { scheduledTo: { gte: startOfToday } },
@@ -121,8 +122,12 @@ function whereFor(
       return { technicians: { none: {} }, status: { notIn: CLOSED_STATUSES } };
     case "fullforte":
       return { status: "COMPLETED" };
+    case "kansellerte":
+      return { status: "CANCELLED" };
     default:
-      return {};
+      // Standardoversikten viser aktive/kommende oppdrag. Fullførte og
+      // kansellerte er historikk og vises bare i historikkfanene.
+      return { status: { notIn: CLOSED_STATUSES } };
   }
 }
 
@@ -137,17 +142,21 @@ export default async function WorkOrdersPage({
 }: {
   searchParams: Promise<{ vis?: string; q?: string; side?: string }>;
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
+
+  const t = await getTranslations("common");
 
   // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
+  const canCreate = hasPermission(user, "workorders.create");
 
   const { vis, q, side } = await searchParams;
-  const view: ViewKey = vis && isViewKey(vis) ? vis : "alle";
+  const requestedView: ViewKey = vis && isViewKey(vis) ? vis : "alle";
+  // Kansellerte oppdrag er historikk for kontoret; montørene skal ikke se dem.
+  const view: ViewKey =
+    !office && requestedView === "kansellerte" ? "alle" : requestedView;
   const search = q?.trim() || "";
   const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
 
@@ -165,18 +174,36 @@ export default async function WorkOrdersPage({
       }
     : {};
 
+  // Kansellerte oppdrag er avsluttet og vises ikke til montørene. Kontoret
+  // trenger dem fortsatt for oppfølging og historikk. Avdelingsfilteret gjelder
+  // uansett rolle; bare administrator ser oppdrag fra alle avdelinger.
+  const visibleStatus: Prisma.WorkOrderWhereInput = {
+    AND: [
+      workOrderScope(user),
+      office ? {} : { status: { not: "CANCELLED" } },
+    ],
+  };
+
   const activeWhere: Prisma.WorkOrderWhereInput = {
-    AND: [whereFor(view, dates), searchWhere],
+    AND: [visibleStatus, whereFor(view, dates), searchWhere],
   };
 
   const [statusGroups, todayCount, overdueCount, unassignedCount, total, orders] =
     await Promise.all([
-      prisma.workOrder.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.workOrder.count({
-        where: { AND: [whereFor("idag", dates), searchWhere] },
+      prisma.workOrder.groupBy({
+        by: ["status"],
+        where: visibleStatus,
+        _count: { _all: true },
       }),
-      prisma.workOrder.count({ where: { AND: [whereFor("forfalte", dates), searchWhere] } }),
-      prisma.workOrder.count({ where: { AND: [whereFor("ikke-tildelt", dates), searchWhere] } }),
+      prisma.workOrder.count({
+        where: { AND: [visibleStatus, whereFor("idag", dates), searchWhere] },
+      }),
+      prisma.workOrder.count({
+        where: { AND: [visibleStatus, whereFor("forfalte", dates), searchWhere] },
+      }),
+      prisma.workOrder.count({
+        where: { AND: [visibleStatus, whereFor("ikke-tildelt", dates), searchWhere] },
+      }),
       prisma.workOrder.count({ where: activeWhere }),
       prisma.workOrder.findMany({
         where: activeWhere,
@@ -198,7 +225,9 @@ export default async function WorkOrdersPage({
     statuses.reduce((sum, s) => sum + countByStatus(s), 0);
 
   const viewCounts: Record<ViewKey, number> = {
-    alle: statusGroups.reduce((sum, g) => sum + g._count._all, 0),
+    alle: statusGroups
+      .filter((group) => !CLOSED_STATUSES.includes(group.status))
+      .reduce((sum, group) => sum + group._count._all, 0),
     apne: sumStatuses(ACTIVE_STATUSES),
     venter: sumStatuses(AWAITING_STATUSES),
     pagaaende: countByStatus("IN_PROGRESS"),
@@ -206,9 +235,13 @@ export default async function WorkOrdersPage({
     forfalte: overdueCount,
     "ikke-tildelt": unassignedCount,
     fullforte: countByStatus("COMPLETED"),
+    kansellerte: countByStatus("CANCELLED"),
   };
 
-  const activeView = VIEWS.find((v) => v.key === view)!;
+  const availableViews = office
+    ? VIEWS
+    : VIEWS.filter((v) => v.key !== "kansellerte");
+  const activeView = availableViews.find((v) => v.key === view)!;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const linkFor = (key: ViewKey) => {
@@ -226,27 +259,39 @@ export default async function WorkOrdersPage({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-gray-900">
-              {activeView.icon} {activeView.label}
+              {activeView.icon} {t(activeView.labelKey)}
             </h1>
             <p className="text-gray-500 mt-1 text-sm font-medium">
-              {activeView.description}
+              {t(activeView.descriptionKey)}
               {" • "}
-              <span className="font-bold text-gray-700">{total} oppdrag</span>
+              <span className="font-bold text-gray-700">
+                {t("orders.list.total", { count: total })}
+              </span>
             </p>
           </div>
           <div className="flex gap-2">
+            {user.role === "ADMIN" && (
+              <Link
+                href="/oppdrag/slettede"
+                className="bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
+              >
+                🗑️ {t("orders.detail.deletedOrders")}
+              </Link>
+            )}
             <Link
               href="/"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
-              ← Dashbord
+              {t("orders.list.backToDashboard")}
             </Link>
-            <Link
-              href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-            >
-              ➕ Nytt oppdrag
-            </Link>
+            {canCreate && (
+              <Link
+                href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
+                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+              >
+                {t("orders.list.newWorkOrder")}
+              </Link>
+            )}
           </div>
         </div>
 
@@ -254,7 +299,7 @@ export default async function WorkOrdersPage({
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="-mx-1 px-1 overflow-x-auto">
             <div className="flex gap-2 w-max">
-              {VIEWS.map((v) => {
+              {availableViews.map((v) => {
                 const active = v.key === view;
                 return (
                   <Link
@@ -267,7 +312,7 @@ export default async function WorkOrdersPage({
                     }`}
                   >
                     <span className="leading-none">{v.icon}</span>
-                    <span>{v.label}</span>
+                    <span>{t(v.labelKey)}</span>
                     <span
                       className={`text-[11px] px-1.5 py-0.5 rounded-full ${
                         active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
@@ -287,21 +332,21 @@ export default async function WorkOrdersPage({
               type="search"
               name="q"
               defaultValue={search}
-              placeholder="Søk i tittel, beskrivelse, kunde eller sted ..."
+              placeholder={t("orders.list.searchPlaceholder")}
               className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
             />
             <button
               type="submit"
               className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition"
             >
-              Søk
+              {t("orders.list.search")}
             </button>
             {search ? (
               <Link
                 href={linkFor(view)}
                 className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
               >
-                Nullstill
+                {t("orders.list.reset")}
               </Link>
             ) : null}
           </form>
@@ -310,11 +355,13 @@ export default async function WorkOrdersPage({
         {/* LISTE */}
         {orders.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">Ingen oppdrag i denne visningen.</p>
+            <p className="text-gray-600 font-bold">
+              {t("orders.list.emptyTitle")}
+            </p>
             <p className="text-xs text-gray-500 mt-1">
               {search
-                ? `Ingen treff på «${search}». Prøv et annet søkeord, eller nullstill søket.`
-                : "Velg en annen visning over, eller opprett et nytt oppdrag."}
+                ? t("orders.list.emptySearch", { query: search })
+                : t("orders.list.emptyHint")}
             </p>
           </div>
         ) : (
@@ -331,13 +378,10 @@ export default async function WorkOrdersPage({
                   <div className="min-w-0">
                     <p className="font-black text-gray-900 truncate">{wo.title}</p>
                     <p className="text-[11px] text-gray-500 mt-1">
-                      🏢 {wo.customer?.name || "Uten kunde"}
+                      🏢 {wo.customer?.name || t("orders.list.noCustomer")}
                       {address ? ` • 📍 ${address}` : ""}
                       {" • 📅 "}
-                      {formatDay(wo.scheduledFor)}
-                      {wo.scheduledTo && wo.scheduledFor && new Date(wo.scheduledTo) > new Date(wo.scheduledFor)
-                        ? ` – ${formatDay(wo.scheduledTo)}`
-                        : ""}
+                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.list.noDate")}
                     </p>
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -345,7 +389,8 @@ export default async function WorkOrdersPage({
                           <span
                             key={tag.id}
                             className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm"
-                            style={{ backgroundColor: tag.color || "#3b82f6" }}
+                            suppressHydrationWarning
+                            style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >
                             🏷️ {tag.name}
                           </span>
@@ -359,15 +404,18 @@ export default async function WorkOrdersPage({
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] font-bold">
                   <span className={wo.technicians.length === 0 ? "text-amber-700" : "text-gray-600"}>
                     {wo.technicians.length === 0
-                      ? "⚠️ Ikke tildelt montør"
-                      : `👷 ${wo.technicians.map((t) => t.name).filter(Boolean).join(", ")}`}
+                      ? t("orders.list.unassigned")
+                      : `👷 ${wo.technicians.map((tech) => tech.name).filter(Boolean).join(", ")}`}
                   </span>
                   <span className="text-gray-600">
-                    📋 {wo.reports.length}/{wo.templates.length} sjekklister utfylt
+                    {t("orders.list.checklists", {
+                      done: wo.reports.length,
+                      total: wo.templates.length,
+                    })}
                   </span>
                   {wo.scheduledFor && new Date(wo.scheduledTo || wo.scheduledFor) < dates.startOfToday &&
                     !CLOSED_STATUSES.includes(wo.status) && (
-                      <span className="text-red-700">⚠️ Forfalt</span>
+                      <span className="text-red-700">{t("orders.list.overdue")}</span>
                     )}
                 </div>
               </Link>
@@ -384,18 +432,18 @@ export default async function WorkOrdersPage({
                 href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page - 1}`}
                 className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
               >
-                ← Forrige
+                {t("orders.list.previous")}
               </Link>
             )}
             <span className="text-sm font-bold text-gray-600">
-              Side {page} av {totalPages}
+              {t("orders.list.page", { page, pages: totalPages })}
             </span>
             {page < totalPages && (
               <Link
                 href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page + 1}`}
                 className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
               >
-                Neste →
+                {t("orders.list.next")}
               </Link>
             )}
           </div>

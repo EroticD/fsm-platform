@@ -1,17 +1,15 @@
 "use server";
 
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { isOffice } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { cleanTemplateFieldsJson } from "@/lib/template-fields";
 
 export async function saveTemplate(formData: FormData) {
-  const session = await getServerSession();
-  const email = (session as any)?.user?.email as string | undefined;
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!isOffice(user?.role)) return;
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user, "templates.manage")) return;
   
   const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
   const title = cleanText(formData.get("title"), { maxLength: LIMITS.title });

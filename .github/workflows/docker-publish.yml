@@ -48,6 +48,8 @@ jobs:
             type=sha
           flavor: |
             latest=auto
+          labels: |
+            org.opencontainers.image.licenses=BUSL-1.1
 
       - name: Bygg og push
         uses: docker/build-push-action@v6

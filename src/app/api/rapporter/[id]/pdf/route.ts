@@ -1,100 +1,46 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { getServerSession } from "next-auth/next";
-import { renderToBuffer } from "@react-pdf/renderer";
-import React from "react";
-import prisma from "@/lib/prisma";
-import ReportDocument from "@/components/ReportDocument";
-import { buildPdfImages, collectReportImageUrls } from "@/lib/report-images";
+import { getCurrentUser } from "@/lib/session";
+import { allowRequestDb } from "@/lib/rate-limit-db";
+import { getReportPdfForViewer } from "@/server/reports";
 
 export const runtime = "nodejs";
 
-/** Gjør om "Tore Ligaard AS – Servicerapport" til et trygt filnavn. */
-function safeFileName(input: string) {
-  const cleaned = input
-    .replace(/[æÆ]/g, "ae")
-    .replace(/[øØ]/g, "o")
-    .replace(/[åÅ]/g, "a")
-    .replace(/[^\w\s.-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-  return cleaned || "servicerapport";
-}
-
+/**
+ * Henter (og eventuelt rendrer) rapport-PDF-en for et oppdrag. Tilgang,
+ * kundeavgrensning og PDF-cache ligger i `getReportPdfForViewer`.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession();
-  if (!session?.user?.email) {
-    return new NextResponse("Ikke autentisert", { status: 401 });
-  }
-
-  const { id } = await params;
-
-  const viewer = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const viewer = await getCurrentUser();
   if (!viewer?.isActive) {
     return new NextResponse("Ingen tilgang", { status: 403 });
   }
 
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      templates: true,
-      technicians: true,
-      reports: {
-        include: { units: { orderBy: { sortOrder: "asc" } } },
-        orderBy: { createdAt: "asc" },
-      },
-    },
-  });
+  const { id } = await params;
 
-  if (!workOrder) {
-    return new NextResponse("Fant ikke oppdraget", { status: 404 });
+  // Maks 10 PDF-visninger per minutt per bruker. Rendering er CPU-tungt, og
+  // cachen gjør at gjentatte visninger normalt er billige.
+  const limit = await allowRequestDb(`pdf:${viewer.id}`, 10, 60_000);
+  if (!limit.allowed) {
+    return new NextResponse(
+      `For mange PDF-forespørsler. Prøv igjen om ${limit.retryAfterSeconds} sekunder.`,
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
-  // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
-  if (viewer?.role === "CUSTOMER" && workOrder.customerId !== viewer.customerId) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
+  const result = await getReportPdfForViewer(viewer, id);
+  if (!result.ok) {
+    return new NextResponse(result.message, { status: result.status });
   }
-
-  if (workOrder.reports.length === 0) {
-    return new NextResponse("Oppdraget har ingen rapport ennå", { status: 404 });
-  }
-
-  // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
-  const requestHeaders = await headers();
-  const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const baseUrl = host ? `${proto}://${host}` : new URL(request.url).origin;
-
-  const branding = await prisma.branding.findFirst().catch(() => null);
-
-  // Bildene skaleres ned på forhånd, slik at PDF-en blir til å sende på e-post.
-  const pdfImages = await buildPdfImages(collectReportImageUrls(workOrder.reports));
-
-  const element = React.createElement(ReportDocument, {
-    data: workOrder,
-    globalLogoUrl: branding?.logoUrl ?? null,
-    globalPrimaryColor: branding?.primaryColor ?? undefined,
-    globalCompanyName: branding?.companyName ?? undefined,
-    baseUrl,
-    pdfImages,
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const buffer = await renderToBuffer(element as any);
 
   const asDownload = new URL(request.url).searchParams.get("download") === "1";
-  const customerName = workOrder.customer?.name ?? "kunde";
-  const datePart = new Date().toISOString().slice(0, 10);
-  const fileName = safeFileName(`${customerName}-servicerapport-${datePart}`);
 
-  return new NextResponse(new Uint8Array(buffer), {
+  return new NextResponse(new Uint8Array(result.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${fileName}.pdf"`,
+      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${result.fileName}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

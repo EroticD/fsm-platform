@@ -7,6 +7,9 @@ import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
 import BrandingColors from "@/components/BrandingColors";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import ToastProvider from "@/components/ToastProvider";
+import OfflineBanner from "@/components/OfflineBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,6 +24,26 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FSM-plattformen",
   description: "Service- og vedlikeholdssystem for oppdrag, rapporter og utstyr",
+  manifest: "/manifest.webmanifest",
+  applicationName: "FSM",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FSM",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0F2E4C",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -32,12 +55,25 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-gray-900 focus:shadow-lg"
+        >
+          Hopp til innhold
+        </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <BrandingColors />
-          <BrandedHeader showNav role={session?.user?.role} />
-          {children}
+          <ToastProvider>
+            <BrandingColors />
+            <OfflineBanner />
+            <BrandedHeader showNav role={session?.user?.role} />
+            <main id="main-content" className="flex-1">
+              {children}
+            </main>
+            <ServiceWorkerRegister />
+          </ToastProvider>
         </NextIntlClientProvider>
       </body>
     </html>

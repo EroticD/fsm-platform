@@ -33,6 +33,9 @@ jobs:
     env:
       # Testverdier – brukes bare mot tjenestecontaineren over.
       DATABASE_URL: postgresql://admin:admin@localhost:5432/fsm_test?schema=public
+      TEST_DATABASE_URL: postgresql://admin:admin@localhost:5432/fsm_test?schema=public
+      E2E_ADMIN_EMAIL: e2e@example.test
+      E2E_ADMIN_PASSWORD: e2e-password-123
       NEXTAUTH_SECRET: ci-secret-brukes-bare-i-test
       AUTH_TRUST_HOST: "true"
 
@@ -47,11 +50,14 @@ jobs:
       - name: Installer avhengigheter
         run: npm ci
 
+      - name: Sikkerhetsrevisjon av avhengigheter
+        run: npm audit --omit=dev
+
       - name: Bruk migrasjonene på en tom database
         run: npx prisma migrate deploy
 
       - name: Sjekk at migrasjonene gir samme skjema som schema.prisma
-        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
       - name: Generer rutetyper
         run: npx next typegen
@@ -59,11 +65,31 @@ jobs:
       - name: Typesjekk
         run: npx tsc --noEmit
 
-      - name: Test
-        run: npm test
+      - name: Test med dekningskrav
+        run: npm run test:coverage
+
+      - name: Integrasjonstester
+        run: npm run test:integration
+
+      - name: Seed E2E-bruker
+        run: node scripts/seed.mjs
+        env:
+          SEED_DATABASE: "true"
+          SEED_ADMIN_EMAIL: e2e@example.test
+          SEED_ADMIN_PASSWORD: e2e-password-123
+          SEED_ADMIN_NAME: E2E Admin
+
+      - name: Installer Playwright-nettleser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E
+        run: npm run test:e2e
 
       - name: Lint
         run: npm run lint
+
+      - name: i18n-sjekk
+        run: npm run check:i18n
 
       - name: Bygg
         run: npm run build
@@ -81,5 +107,17 @@ jobs:
         with:
           context: .
           push: false
+          load: true
+          tags: fsm-platform:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Skann imaget for sårbarheter
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: fsm-platform:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"

@@ -1,76 +1,72 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import prisma from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import { LIMITS, cleanText } from "@/lib/sanitize";
-import { actorName, requireOffice } from "@/lib/session";
-
-/** Kort hjelper: henter enheten og sjekker at den faktisk tilhører kunden. */
-async function findUnitForCustomer(id: string, customerId: string) {
-  if (!id || !customerId) return null;
-  const unit = await prisma.product.findUnique({ where: { id } });
-  if (!unit || unit.customerId !== customerId) return null;
-  return unit;
-}
+import { getCurrentUser } from "@/lib/session";
+import {
+  createUnit as createUnitService,
+  deleteUnit as deleteUnitService,
+  updateUnit as updateUnitService,
+} from "@/server/customers";
 
 /** Registrerer en ny enhet (maskin/utstyr) på kunden. */
 export async function createUnit(formData: FormData) {
-  if (!(await requireOffice())) return;
-  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-  const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
-  const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
-  const location = cleanText(formData.get("location"), { maxLength: LIMITS.line }) || null;
+  const actor = await getCurrentUser();
+  if (!actor) return;
 
-  if (!customerId || !model) return;
-
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
-  if (!customer) return;
-
-  await prisma.product.create({
-    data: { customerId, model, serialNumber, location },
+  const rawCustomerId = cleanText(formData.get("customerId"), {
+    maxLength: LIMITS.line,
+  });
+  const result = await createUnitService(actor, {
+    customerId: rawCustomerId,
+    model: formData.get("model"),
+    serialNumber: formData.get("serialNumber"),
+    location: formData.get("location"),
   });
 
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `La til enhet: ${model}${serialNumber ? ` (SN: ${serialNumber})` : ""}`,
-      userName: await actorName(),
-    },
-  });
+  if (!result.ok) {
+    if (result.reason === "invalid") {
+      redirect(
+        rawCustomerId
+          ? `/kunder/${rawCustomerId}?tab=enheter&error=ugyldig-data`
+          : "/kunder?error=ugyldig-data",
+      );
+    }
+    return;
+  }
 
-  revalidatePath(`/kunder/${customerId}`);
+  revalidatePath(`/kunder/${rawCustomerId}`);
 }
 
 /** Oppdaterer navn, serienummer og plassering på en enhet. */
 export async function updateUnit(formData: FormData) {
-  if (!(await requireOffice())) return;
-  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
-  const model = cleanText(formData.get("model"), { maxLength: LIMITS.title });
-  const serialNumber = cleanText(formData.get("serialNumber"), { maxLength: LIMITS.line }) || null;
-  const location = cleanText(formData.get("location"), { maxLength: LIMITS.line }) || null;
+  const actor = await getCurrentUser();
+  if (!actor) return;
 
-  if (!model) return;
-
-  const unit = await findUnitForCustomer(id, customerId);
-  if (!unit) return;
-
-  await prisma.product.update({
-    where: { id },
-    data: { model, serialNumber, location },
+  const rawCustomerId = cleanText(formData.get("customerId"), {
+    maxLength: LIMITS.line,
+  });
+  const result = await updateUnitService(actor, {
+    customerId: rawCustomerId,
+    id: formData.get("id"),
+    model: formData.get("model"),
+    serialNumber: formData.get("serialNumber"),
+    location: formData.get("location"),
   });
 
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `Oppdaterte enhet: ${model}${serialNumber ? ` (SN: ${serialNumber})` : ""}`,
-      userName: await actorName(),
-    },
-  });
+  if (!result.ok) {
+    if (result.reason === "invalid") {
+      redirect(
+        rawCustomerId
+          ? `/kunder/${rawCustomerId}?tab=enheter&error=ugyldig-data`
+          : "/kunder?error=ugyldig-data",
+      );
+    }
+    return;
+  }
 
-  revalidatePath(`/kunder/${customerId}`);
+  revalidatePath(`/kunder/${rawCustomerId}`);
 }
 
 /**
@@ -78,23 +74,18 @@ export async function updateUnit(formData: FormData) {
  * øyeblikksbilde av enheten, så servicehistorikken blir stående.
  */
 export async function deleteUnit(formData: FormData) {
-  if (!(await requireOffice())) return;
-  const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-  const id = cleanText(formData.get("id"), { maxLength: LIMITS.line });
+  const actor = await getCurrentUser();
+  if (!actor) return;
 
-  const unit = await findUnitForCustomer(id, customerId);
-  if (!unit) return;
-
-  await prisma.product.delete({ where: { id } });
-
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `Slettet enhet: ${unit.model}${unit.serialNumber ? ` (SN: ${unit.serialNumber})` : ""}`,
-      userName: await actorName(),
-    },
+  const customerId = cleanText(formData.get("customerId"), {
+    maxLength: LIMITS.line,
   });
+  const result = await deleteUnitService(actor, {
+    customerId,
+    id: formData.get("id"),
+  });
+
+  if (!result.ok) return;
 
   revalidatePath(`/kunder/${customerId}`);
 }

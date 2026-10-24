@@ -32,6 +32,14 @@ if [ -n "${DATABASE_URL:-}" ] && [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
   prisma_cli migrate deploy
 fi
 
+# Registrerer metadata for filer som ble lastet opp før tilgangskontrollen per
+# fil ble innført. Skriptet er idempotent og hopper over filer som allerede er
+# registrert.
+if [ "${BACKFILL_UPLOADS:-true}" = "true" ]; then
+  echo "→ Registrerer eksisterende opplastinger ..."
+  node scripts/backfill-uploads.mjs || echo "⚠ Backfill av opplastinger feilet – fortsetter likevel."
+fi
+
 if [ "${SEED_DATABASE:-false}" = "true" ]; then
   echo "→ Oppretter startdata ..."
   node scripts/seed.mjs || echo "⚠ Seed feilet – fortsetter likevel."

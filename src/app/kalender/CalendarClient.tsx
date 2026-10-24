@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -21,6 +22,8 @@ export default function CalendarClient({
   updateEventDate: (id: string, newDate: string) => Promise<void>;
 }) {
   const calendarEl = useRef<HTMLDivElement>(null);
+  const t = useTranslations("common");
+  const locale = useLocale();
 
   useEffect(() => {
     if (!calendarEl.current) return;
@@ -35,11 +38,11 @@ export default function CalendarClient({
       },
       events: events,
       height: '80vh', // Gjør kalenderen litt høyere for bedre oversikt
-      locale: 'nb',
+      locale: locale,
       buttonText: {
-        today: 'I dag',
-        month: 'Måned',
-        week: 'Uke',
+        today: t("calendar.client.today"),
+        month: t("calendar.client.month"),
+        week: t("calendar.client.week"),
       },
       
       // MAGIEN FOR DRA-OG-SLIPP LIGGER HER:
@@ -66,7 +69,7 @@ export default function CalendarClient({
           } catch (error) {
             // Hvis noe går galt på serveren, spretter oppdraget tilbake til der det var
             info.revert();
-            alert("Kunne ikke lagre den nye datoen.");
+            alert(t("calendar.client.saveError"));
           } finally {
             document.body.style.cursor = 'default';
           }
@@ -79,7 +82,7 @@ export default function CalendarClient({
     return () => {
       calendar.destroy();
     };
-  }, [events, updateEventDate]);
+  }, [events, updateEventDate, t, locale]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border text-gray-800">
