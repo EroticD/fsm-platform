@@ -5,6 +5,7 @@ import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
+import { workOrderScope } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder } from "@/lib/access";
 
@@ -35,9 +36,10 @@ function isRangeKey(value: string): value is RangeKey {
 function whereFor(
   range: RangeKey,
   excludeCancelled = false,
+  workOrderFilter: Prisma.WorkOrderWhereInput = {},
 ): Prisma.ReportWhereInput {
   const now = new Date();
-  let base: Prisma.ReportWhereInput = {};
+  let base: Prisma.ReportWhereInput = { deletedAt: null };
   if (range === "denne-maneden") {
     base = { completedAt: { gte: startOfMonth(now) } };
   } else if (range === "forrige-maned") {
@@ -49,11 +51,18 @@ function whereFor(
     };
   }
 
-  if (!excludeCancelled) return base;
   return {
     AND: [
       base,
-      { workOrder: { status: { not: WorkStatus.CANCELLED } } },
+      {
+        workOrder: {
+          deletedAt: null,
+          ...workOrderFilter,
+          ...(excludeCancelled
+            ? { status: { not: WorkStatus.CANCELLED } }
+            : {}),
+        },
+      },
     ],
   };
 }
@@ -75,10 +84,11 @@ export default async function ReportsPage({
   const { vis } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
   const excludeCancelled = user.role === "TECHNICIAN";
+  const orderScope = workOrderScope(user);
 
   const [reports, total, thisMonth, lastMonth, allReports] = await Promise.all([
     prisma.report.findMany({
-      where: whereFor(range, excludeCancelled),
+      where: whereFor(range, excludeCancelled, orderScope),
       orderBy: { completedAt: "desc" },
       take: 100,
       include: {
@@ -96,10 +106,10 @@ export default async function ReportsPage({
         units: { select: { id: true, status: true } },
       },
     }),
-    prisma.report.count({ where: whereFor(range, excludeCancelled) }),
-    prisma.report.count({ where: whereFor("denne-maneden", excludeCancelled) }),
-    prisma.report.count({ where: whereFor("forrige-maned", excludeCancelled) }),
-    prisma.report.count({ where: whereFor("alle", excludeCancelled) }),
+    prisma.report.count({ where: whereFor(range, excludeCancelled, orderScope) }),
+    prisma.report.count({ where: whereFor("denne-maneden", excludeCancelled, orderScope) }),
+    prisma.report.count({ where: whereFor("forrige-maned", excludeCancelled, orderScope) }),
+    prisma.report.count({ where: whereFor("alle", excludeCancelled, orderScope) }),
   ]);
 
   const rangeLabel = (key: RangeKey) =>

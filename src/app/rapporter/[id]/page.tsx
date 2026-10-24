@@ -13,11 +13,11 @@ export default async function ReportViewerPage({ params }: { params: Promise<{ i
 
   const resolvedParams = await params;
 
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: resolvedParams.id },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: resolvedParams.id, deletedAt: null },
     include: {
       customer: true,
-      reports: { select: { id: true } },
+      reports: { where: { deletedAt: null }, select: { id: true } },
     },
   });
 

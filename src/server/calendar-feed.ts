@@ -182,7 +182,7 @@ function fold(line: string): string {
 function feedScopeFor(user: FeedUser): Prisma.WorkOrderWhereInput {
   if (user.role === "CUSTOMER") {
     return user.customerId
-      ? { customerId: user.customerId }
+      ? { customerId: user.customerId, deletedAt: null }
       : { id: { in: [] } };
   }
   if (user.role === "TECHNICIAN") {

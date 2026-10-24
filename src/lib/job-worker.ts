@@ -363,7 +363,20 @@ export async function cleanupRetainedWorkOrders(
   let deleted = 0;
   for (const workOrder of expired) {
     try {
-      await prisma.$transaction(async (tx) => {
+      const removed = await prisma.$transaction(async (tx) => {
+        // Les på nytt i transaksjonen: en samtidig gjenoppretting eller
+        // bevaringsplikt skal alltid vinne over den automatiske slettingen.
+        const stillExpired = await tx.workOrder.findFirst({
+          where: {
+            id: workOrder.id,
+            deletedAt: { lt: cutoff },
+            legalHold: false,
+            reports: { none: { legalHold: true } },
+          },
+          select: { id: true },
+        });
+        if (!stillExpired) return false;
+
         await audit(tx, {
           entityType: "WorkOrder",
           entityId: workOrder.id,
@@ -374,7 +387,9 @@ export async function cleanupRetainedWorkOrders(
           metadata: { retentionDays: RETENTION_DAYS, automatic: true },
         });
         await tx.workOrder.delete({ where: { id: workOrder.id } });
+        return true;
       });
+      if (!removed) continue;
       deleted += 1;
 
       for (const upload of uploads) {

@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(),
       findMany: vi.fn(),
     },
-    workOrder: { findMany: vi.fn(), delete: vi.fn() },
+    workOrder: { findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
@@ -60,7 +60,7 @@ const mocked = prisma as unknown as {
     deleteMany: Mock;
     findMany: Mock;
   };
-  workOrder: { findMany: Mock; delete: Mock };
+  workOrder: { findMany: Mock; findFirst: Mock; delete: Mock };
   auditLog: { create: Mock };
   $transaction: Mock;
   $queryRaw: Mock;
@@ -305,13 +305,17 @@ describe("cleanupRetainedWorkOrders", () => {
     uploadCleanup.releaseUpload.mockResolvedValue(undefined);
     mocked.auditLog.create.mockResolvedValue({});
     mocked.workOrder.delete.mockResolvedValue({});
+    mocked.workOrder.findFirst.mockResolvedValue({ id: "wo-1" });
     mocked.workOrder.findMany.mockResolvedValue([]);
     mocked.upload.findMany.mockResolvedValue([]);
     mocked.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) =>
         callback({
           auditLog: { create: mocked.auditLog.create },
-          workOrder: { delete: mocked.workOrder.delete },
+          workOrder: {
+            findFirst: mocked.workOrder.findFirst,
+            delete: mocked.workOrder.delete,
+          },
         }),
     );
   });

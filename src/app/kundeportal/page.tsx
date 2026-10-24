@@ -99,10 +99,12 @@ export default async function KundeportalPage({
   // hver gang siden åpnes.
   const upcomingWhere: Prisma.WorkOrderWhereInput = {
     customerId: customer.id,
+    deletedAt: null,
     status: { notIn: ["COMPLETED", "CANCELLED"] },
   };
   const historyWhere: Prisma.WorkOrderWhereInput = {
     customerId: customer.id,
+    deletedAt: null,
     status: { in: ["COMPLETED", "CANCELLED"] },
   };
 
@@ -189,6 +191,7 @@ export default async function KundeportalPage({
   const scheduledWorkOrders = await prisma.workOrder.findMany({
     where: {
       departmentId: availabilityDepartmentId ?? "__ingen_avdeling__",
+      deletedAt: null,
       status: { notIn: ["CANCELLED"] },
       OR: [
         { scheduledFor: { gte: today, lt: horizon } },

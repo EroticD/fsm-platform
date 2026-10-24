@@ -482,6 +482,9 @@ model ReportRevision {
   revision             Int
   dataJson             String
   unitsJson            String
+  comments             String?
+  templateTitle        String?
+  completedAt          DateTime?
   templateSnapshotJson String?
   technicianSignatureUrl String?
   customerSignatureUrl   String?

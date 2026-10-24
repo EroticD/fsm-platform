@@ -3,7 +3,12 @@ import type { ServiceActor } from "./actor";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
-    workOrder: { findMany: vi.fn(), count: vi.fn(), findUnique: vi.fn() },
+    workOrder: {
+      findMany: vi.fn(),
+      count: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
     report: { update: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -63,12 +68,20 @@ describe("kundeportaltjenesten", () => {
       },
     });
     expect(mocks.prisma.workOrder.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 20, skip: 0 }),
+      expect.objectContaining({
+        take: 20,
+        skip: 0,
+        where: {
+          customerId: "cust-1",
+          deletedAt: null,
+          reports: { some: { deletedAt: null } },
+        },
+      }),
     );
   });
 
   it("avviser kvittering for en annen kundes oppdrag", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo1",
       customerId: "cust-2",
       reports: [{ id: "r1", customerAcknowledgedAt: null }],
@@ -80,7 +93,7 @@ describe("kundeportaltjenesten", () => {
   });
 
   it("kvitterer for egen rapport og logger det", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo1",
       customerId: "cust-1",
       reports: [{ id: "r1", customerAcknowledgedAt: null }],
@@ -90,6 +103,12 @@ describe("kundeportaltjenesten", () => {
       workOrderId: "wo1",
       comment: "Mottatt",
     });
+
+    expect(mocks.prisma.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "wo1", customerId: "cust-1", deletedAt: null },
+      }),
+    );
 
     expect(result).toEqual({ ok: true, data: undefined });
     expect(mocks.prisma.report.update).toHaveBeenCalledWith({
@@ -103,7 +122,7 @@ describe("kundeportaltjenesten", () => {
   });
 
   it("er idempotent når rapporten allerede er kvittert", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo1",
       customerId: "cust-1",
       reports: [{ id: "r1", customerAcknowledgedAt: new Date() }],

@@ -157,7 +157,8 @@ export async function getPortalReportHistory(
   const page = Math.max(1, options.page ?? 1);
   const where = {
     customerId: actor.customerId,
-    reports: { some: {} },
+    deletedAt: null,
+    reports: { some: { deletedAt: null } },
   };
 
   const [items, total] = await Promise.all([
@@ -268,12 +269,13 @@ export async function acknowledgeReport(
   const workOrderId = idFrom(input.workOrderId);
   if (!workOrderId) return fail("invalid");
 
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, customerId: actor.customerId, deletedAt: null },
     select: {
       id: true,
       customerId: true,
       reports: {
+        where: { deletedAt: null },
         orderBy: { completedAt: "desc" },
         take: 1,
         select: {

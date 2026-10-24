@@ -309,7 +309,7 @@ describe("getCalendarFeed", () => {
     await getCalendarFeed(RAW_TOKEN);
 
     const where = mocks.prisma.workOrder.findMany.mock.calls[0][0].where;
-    expect(where.AND[0]).toEqual({ customerId: "kunde-1" });
+    expect(where.AND[0]).toEqual({ customerId: "kunde-1", deletedAt: null });
   });
 
   it("oppdaterer lastUsedAt etter vellykket oppslag og bygger ICS", async () => {

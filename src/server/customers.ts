@@ -166,6 +166,9 @@ export async function getCustomerDetail(
           take: 100,
           include: {
             reportUnits: {
+              where: {
+                report: { deletedAt: null, workOrder: { deletedAt: null } },
+              },
               orderBy: { createdAt: "desc" },
               take: 25,
               include: {
@@ -182,7 +185,15 @@ export async function getCustomerDetail(
                 },
               },
             },
-            _count: { select: { reportUnits: true } },
+            _count: {
+              select: {
+                reportUnits: {
+                  where: {
+                    report: { deletedAt: null, workOrder: { deletedAt: null } },
+                  },
+                },
+              },
+            },
           },
         })
       : [];

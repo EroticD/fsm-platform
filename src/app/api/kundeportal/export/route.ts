@@ -14,7 +14,7 @@ export async function GET() {
   }
 
   const workOrders = await prisma.workOrder.findMany({
-    where: { customerId: user.customerId },
+    where: { customerId: user.customerId, deletedAt: null },
     orderBy: { scheduledFor: "desc" },
     select: {
       title: true,
