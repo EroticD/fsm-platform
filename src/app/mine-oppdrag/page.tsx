@@ -1,94 +1,98 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
+import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import GoogleMapsLink from "@/components/GoogleMapsLink";
+import { getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
+import { workOrderScope } from "@/lib/access";
+import StatusBadge from "@/components/StatusBadge";
 
-// Hjelpekomponent for status-etikett
-function StatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case 'COMPLETED': return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200">✅ Fullført</span>;
-    case 'IN_PROGRESS': return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200">🔄 Påbegynt</span>;
-    case 'CANCELLED': return <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold border border-red-200">❌ Kansellert</span>;
-    case 'OPEN': return <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200">✨ Åpen</span>;
-    case 'PLANNED': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">📅 Planlagt</span>;
-    case 'WAITING': return <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">⏸️ Venter</span>;
-    default: return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">⏳ Planlagt</span>;
-  }
-}
+/** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
+const LIST_LIMIT = 50;
+
+const LIST_SELECT = {
+  id: true,
+  title: true,
+  status: true,
+  scheduledFor: true,
+  scheduledTo: true,
+  customer: {
+    select: { id: true, name: true, address: true, postalCode: true, city: true },
+  },
+  tags: { select: { id: true, name: true, color: true } },
+} as const;
 
 export default async function TechnicianDashboard({ 
   searchParams 
 }: { 
   searchParams: Promise<{ q?: string }> 
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "workorders.view")) redirect("/");
 
+  const t = await getTranslations("common");
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
+  const accessScope = workOrderScope(user);
 
   // 1. Hent oppdrag som er tildelt denne montøren
   let assignedWorkOrders: any[] = [];
   // 2. Hent oppdrag som IKKE har noen tildelte montører i det hele tatt
   let unassignedWorkOrders: any[] = [];
 
-  if (searchQuery) {
-    assignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        technicians: { some: { id: user.id } },
+  const searchOr: Prisma.WorkOrderWhereInput = searchQuery
+    ? {
         OR: [
           { title: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
           { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
           { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
-        ]
-      },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
-    });
+          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } },
+        ],
+      }
+    : {};
 
-    unassignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        technicians: { none: {} },
-        OR: [
-          { title: { contains: searchQuery, mode: 'insensitive' } },
-          { description: { contains: searchQuery, mode: 'insensitive' } },
-          { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
-          { customer: { address: { contains: searchQuery, mode: 'insensitive' } } }
-        ]
-      },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
-    });
-  } else {
-    assignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        technicians: { some: { id: user.id } }
-      },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
-    });
+  // Aktive/kommende oppdrag. Fullførte holdes utenfor oversikten og hentes
+  // separat til historikkseksjonen.
+  assignedWorkOrders = await prisma.workOrder.findMany({
+    where: {
+      AND: [accessScope, searchOr],
+      technicians: { some: { id: user.id } },
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
+    },
+    select: LIST_SELECT,
+    orderBy: { scheduledFor: 'asc' },
+    take: LIST_LIMIT,
+  });
 
-    unassignedWorkOrders = await prisma.workOrder.findMany({
-      where: {
-        technicians: { none: {} }
-      },
-      include: { customer: true, reports: true, technicians: true, tags: true },
-      orderBy: { scheduledFor: 'asc' }
-    });
-  }
+  unassignedWorkOrders = await prisma.workOrder.findMany({
+    where: {
+      AND: [accessScope, searchOr],
+      technicians: { none: {} },
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
+    },
+    select: LIST_SELECT,
+    orderBy: { scheduledFor: 'asc' },
+    take: LIST_LIMIT,
+  });
 
-  // Del opp de tildelte oppdragene i "Aktive / Kommende" og "Fullførte"
-  const activeAssigned = assignedWorkOrders.filter(wo => wo.status !== 'COMPLETED' && wo.status !== 'CANCELLED');
-  const completedAssigned = assignedWorkOrders.filter(wo => wo.status === 'COMPLETED' || wo.status === 'CANCELLED');
+  const completedAssigned = await prisma.workOrder.findMany({
+    where: {
+      AND: [accessScope, searchOr],
+      technicians: { some: { id: user.id } },
+      status: 'COMPLETED',
+    },
+    select: LIST_SELECT,
+    orderBy: { scheduledFor: 'desc' },
+    take: LIST_LIMIT,
+  });
+
+  const activeAssigned = assignedWorkOrders;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -97,12 +101,15 @@ export default async function TechnicianDashboard({
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-300 pb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900">Hei, {user.name || "Montør"} 👋</h1>
-            <p className="text-sm text-gray-500 font-medium">Felt-portal for oppdrag og kalender.</p>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900">{t("orders.fieldList.greeting", { name: user.name || t("orders.detail.roleTechnician") })}</h1>
+            <p className="text-sm text-gray-500 font-medium">
+              {t("orders.fieldList.subtitle")}
+              {user.department ? ` • ${t("orders.fieldList.department", { name: user.department.name })}` : ` • ${t("orders.fieldList.noDepartment")}`}
+            </p>
           </div>
           <form action="/api/auth/signout" method="POST">
             <button type="submit" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-              Logg ut
+              {t("orders.fieldList.logOut")}
             </button>
           </form>
         </div>
@@ -114,15 +121,15 @@ export default async function TechnicianDashboard({
               type="text"
               name="q"
               defaultValue={searchQuery}
-              placeholder="🔍 Søk i oppdrag, kunder eller stedsnavn..."
+              placeholder={t("orders.fieldList.searchPlaceholder")}
               className="flex-1 min-w-[200px] border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             />
             <button type="submit" className="bg-blue-700 text-white px-5 py-3 rounded-xl font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap text-sm">
-              Søk
+              {t("orders.fieldList.search")}
             </button>
             {searchQuery && (
               <Link href="/mine-oppdrag" className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center whitespace-nowrap text-sm">
-                Nullstill
+                {t("orders.fieldList.reset")}
               </Link>
             )}
           </form>
@@ -131,12 +138,12 @@ export default async function TechnicianDashboard({
         {/* SEKSJON 1: KALENDER / KOMMENDE OPPRETTEDE OPPRAG (Tildelt deg) */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-gray-900">📅 Dine kommende oppdrag ({activeAssigned.length})</h2>
+            <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.upcomingTitle", { count: activeAssigned.length })}</h2>
           </div>
 
           {activeAssigned.length === 0 ? (
             <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200 text-center">
-              <p className="text-sm text-gray-500 italic">Ingen aktive oppdrag i din kalender akkurat nå.</p>
+              <p className="text-sm text-gray-500 italic">{t("orders.fieldList.noActive")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -164,8 +171,9 @@ export default async function TechnicianDashboard({
                       {wo.tags.map((tag: any) => (
                         <span
                           key={tag.id}
-                          className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
-                          style={{ backgroundColor: tag.color || "#3b82f6" }}
+                          className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                          suppressHydrationWarning
+                          style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                         >
                           🏷️ {tag.name}
                         </span>
@@ -175,10 +183,10 @@ export default async function TechnicianDashboard({
 
                   <div className="flex justify-between items-center text-[10px] pt-2 border-t border-gray-100 text-gray-500 font-medium">
                     <span className="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
-                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato satt"}
+                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.fieldList.noDate")}
                     </span>
                     <span className="font-black text-blue-600 hover:underline whitespace-nowrap">
-                      Åpne oppdrag &rarr;
+                      {t("orders.fieldList.openWorkOrder")}
                     </span>
                   </div>
                 </Link>
@@ -191,8 +199,8 @@ export default async function TechnicianDashboard({
         {unassignedWorkOrders.length > 0 && (
           <div className="space-y-4 pt-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-gray-900">⚠️ Ledige / Ikke tildelte oppdrag ({unassignedWorkOrders.length})</h2>
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-full">Krever tildeling / utførelse</span>
+              <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.unassignedTitle", { count: unassignedWorkOrders.length })}</h2>
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-full">{t("orders.fieldList.requiresAssignment")}</span>
             </div>
 
             <div className="space-y-3">
@@ -218,10 +226,10 @@ export default async function TechnicianDashboard({
 
                   <div className="flex justify-between items-center text-[10px] pt-2 border-t border-amber-200 text-gray-600 font-medium">
                     <span className="font-bold bg-white px-2 py-1 rounded-lg border border-amber-200">
-                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato satt"}
+                      📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.fieldList.noDate")}
                     </span>
                     <span className="font-black text-amber-800 hover:underline whitespace-nowrap">
-                      Se og ta oppdrag &rarr;
+                      {t("orders.fieldList.takeWorkOrder")}
                     </span>
                   </div>
                 </Link>
@@ -233,7 +241,7 @@ export default async function TechnicianDashboard({
         {/* SEKSJON 3: HISTORIKK OVER FULLFØRTE OPPRAG */}
         {completedAssigned.length > 0 && (
           <div className="space-y-4 pt-4 border-t border-gray-200">
-            <h2 className="text-lg font-black text-gray-900">📂 Fullførte oppdrag / Historikk ({completedAssigned.length})</h2>
+            <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.historyTitle", { count: completedAssigned.length })}</h2>
 
             <div className="space-y-3">
               {completedAssigned.map(wo => (
@@ -247,7 +255,7 @@ export default async function TechnicianDashboard({
                     <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-[10px] text-gray-500 font-medium">
-                    🏢 {wo.customer.name} • Fullført / Arkivert
+                    {t("orders.fieldList.archived", { customer: wo.customer?.name || t("orders.reportsPage.noCustomer") })}
                   </p>
                   {formatAddress(wo.customer) && (
                     <p className="text-[10px] text-gray-400 font-medium mt-0.5">

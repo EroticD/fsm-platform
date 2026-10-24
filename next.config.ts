@@ -5,11 +5,14 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
 
+  // Ikke annonser at dette er Next.js.
+  poweredByHeader: false,
+
   // Middleware (proxy.ts) begrenser forespørselens body til 10 MB som standard.
   // Store PDF-filer overstiger dette, og da blir multipart-bodyen avkuttet før
   // den når opplastingsruten. Øker grensen så store dokumenter kommer gjennom.
   experimental: {
-    middlewareClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
+    proxyClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
   },
 
   // I utviklingsmodus blokkerer Next.js forespørsler fra andre "origins" enn
@@ -18,11 +21,15 @@ const nextConfig: NextConfig = {
   // React hydrerer aldri – da ser ikke siden interaktiv ut på mobilen.
   // Vi tillater derfor LAN-adressen og .local-navn. Hvert LAN-IP må legges
   // til her (kun vertsnavn, uten port).
-  allowedDevOrigins: ["10.0.0.115", "**.local"],
+  allowedDevOrigins: ["10.0.0.115", "**.local", "localhost", "127.0.0.1"],
 
   // Bygger en selvstendig server i .next/standalone med bare nødvendige filer.
   // Dockerfile bruker denne i stedet for `next start`.
   output: "standalone",
+
+  // Prisma 7 og driver-adapteren lastes fra node_modules i standalone-bygget,
+  // slik at Next ikke prøver å bundle WASM-motoren og node-postgres.
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
 
   // Opplastede filer skrives og leses med en sti som først er kjent når
   // programmet kjører (se src/lib/uploads.ts). Da kan ikke Next.js avgjøre
@@ -53,10 +60,7 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains",
           },
-          {
-            key: "Content-Security-Policy",
-            value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
-          },
+          // CSP settes per forespørsel i proxy.ts (nonce), ikke her.
         ],
       },
     ];

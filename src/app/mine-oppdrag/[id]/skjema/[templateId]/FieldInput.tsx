@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import ImageUploadField from "@/components/ImageUploadField";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import {
@@ -52,6 +53,7 @@ function StatusInput({
 }) {
   const options = fieldOptions(field);
   const triggers = commentTriggerOptions(field);
+  const t = useTranslations("common");
   const [value, setValue] = useState(asText(defaultValue));
   const mustComment = triggers.includes(value);
 
@@ -100,14 +102,14 @@ function StatusInput({
       {mustComment ? (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
           <label className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
-            💬 Kommentar til «{value}» – påkrevd
+            {t("orders.fieldInput.commentRequired", { value })}
           </label>
           <MarkdownEditor
             name={commentName}
             required
             rows={3}
             defaultValue={defaultComment}
-            placeholder="Beskriv avviket eller hva som må utbedres på denne linjen ..."
+            placeholder={t("orders.fieldInput.commentPlaceholder")}
           />
         </div>
       ) : (
@@ -129,6 +131,7 @@ export default function FieldInput({
   defaultValue,
   defaultComment,
   onNeedsComment,
+  workOrderId,
 }: {
   field: TemplateField;
   name: string;
@@ -138,7 +141,10 @@ export default function FieldInput({
   defaultComment?: string;
   /** Varsler skjemaet når linjen krever kommentar (bare for tilstandsfelt). */
   onNeedsComment?: (needs: boolean) => void;
+  /** Knytter opplastede bilder til oppdraget, slik at tilgangen kan styres. */
+  workOrderId?: string;
 }) {
+  const t = useTranslations("common");
   switch (field.type) {
     case "CHECKBOX":
       return (
@@ -180,7 +186,7 @@ export default function FieldInput({
             rows={3}
             required={field.required}
             defaultValue={asText(defaultValue)}
-            placeholder="Utdypende svar..."
+            placeholder={t("orders.fieldInput.textareaPlaceholder")}
           />
         </div>
       );
@@ -197,7 +203,7 @@ export default function FieldInput({
             name={name}
             required={field.required}
             defaultValue={asText(defaultValue)}
-            placeholder="Skriv inn tallverdi..."
+            placeholder={t("orders.fieldInput.numberPlaceholder")}
             className={inputClass}
           />
         </div>
@@ -221,7 +227,7 @@ export default function FieldInput({
           </label>
           <select name={name} required={field.required} defaultValue={asText(defaultValue)} className={inputClass}>
             <option value="" disabled>
-              -- Velg alternativ --
+              {t("orders.fieldInput.selectPlaceholder")}
             </option>
             {field.options?.map((opt, i) => (
               <option key={i} value={opt}>
@@ -239,6 +245,7 @@ export default function FieldInput({
           label={field.label}
           required={field.required}
           initialUrls={parseImageUrls(defaultValue)}
+          workOrderId={workOrderId}
         />
       );
 
@@ -253,7 +260,7 @@ export default function FieldInput({
             name={name}
             required={field.required}
             defaultValue={asText(defaultValue)}
-            placeholder="Skriv fullt navn som digital signatur"
+            placeholder={t("orders.fieldInput.signaturePlaceholder")}
             className="w-full border-2 border-dashed border-blue-400 p-4 rounded-xl text-sm font-bold text-gray-900 bg-blue-50/50 outline-none focus:border-blue-700"
           />
         </div>
@@ -270,7 +277,7 @@ export default function FieldInput({
             name={name}
             required={field.required}
             defaultValue={asText(defaultValue)}
-            placeholder="Skriv her..."
+            placeholder={t("orders.fieldInput.textPlaceholder")}
             className={inputClass}
           />
         </div>

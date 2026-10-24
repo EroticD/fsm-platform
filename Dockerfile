@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# Må holdes i sync med `prisma` i package.json. CLI-en installeres i et eget
+# steg fordi den har toppnivåavhengigheter (effect, c12, ...) som ikke følger
+# med @prisma-mappen.
+ARG PRISMA_VERSION=7.10.1
+
 # ---------------------------------------------------------------------------
 # base – felles utgangspunkt. Debian (glibc) brukes fordi Prismas query-engine
 # er kompilert mot OpenSSL 3.0, som er det som finnes i Debian bookworm.
@@ -7,7 +12,7 @@
 FROM node:22-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && apt-get install -y --no-install-recommends openssl ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
@@ -16,10 +21,22 @@ WORKDIR /app
 # Prisma-CLI-en trengs ved oppstart for å kjøre migrasjoner).
 # ---------------------------------------------------------------------------
 FROM base AS deps
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.mjs ./
 COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
+
+# ---------------------------------------------------------------------------
+# prisma-cli – et minimalt node_modules med Prisma-CLI-en og alle dens
+# toppnivåavhengigheter. Appens egne avhengigheter kommer fra standalone-treet.
+# ---------------------------------------------------------------------------
+FROM base AS prisma-cli
+ARG PRISMA_VERSION
+RUN --mount=type=cache,target=/root/.npm \
+    mkdir -p /cli \
+ && cd /cli \
+ && npm init -y >/dev/null \
+ && npm install --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}"
 
 # ---------------------------------------------------------------------------
 # tessdata – henter OCR-språkdata i et eget steg. Da slipper det ferdige
@@ -42,7 +59,8 @@ FROM base AS builder
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
+# Kalles via sin virkelige sti, ikke .bin-symbolet, se kommentaren i runner-steget.
+RUN node ./node_modules/prisma/build/index.js generate
 RUN npm run build
 
 # ---------------------------------------------------------------------------
@@ -50,6 +68,9 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 FROM base AS runner
 ENV NODE_ENV=production
+# Deterministisk tidssone for logger og datoformatering. Kalenderdatoer lagres
+# som date i databasen, så dette påvirker ikke selve datoverdiene.
+ENV TZ=Europe/Oslo
 ENV PORT=3000
 # Next.js sin standalone-server lytter på dette vertsnavnet i containeren.
 ENV HOSTNAME=0.0.0.0
@@ -84,15 +105,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Prisma-skjema, seed-skript og CLI – trengs for `prisma migrate deploy` og
-# `node scripts/seed.mjs` ved oppstart.
+# Prisma-skjema, konfigurasjon, seed-skript og CLI – trengs for
+# `prisma migrate deploy` og `node scripts/seed.mjs` ved oppstart.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.mjs ./prisma.config.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 # CLI-en kalles via sin egen fil (node_modules/prisma/build/index.js) fordi den
 # finner hjelpefilene sine relativt til sin egen mappe. Symbolet i .bin blir en
 # vanlig fil når den kopieres mellom byggesteg, og da feiler oppslaget.
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=prisma-cli --chown=nextjs:nodejs /cli/node_modules ./node_modules
 
 # BSL 1.1 krever at lisensen vises sammen med hver kopi av programvaren.
 COPY --chown=nextjs:nodejs LICENSE ./LICENSE
@@ -108,7 +129,7 @@ EXPOSE 3000
 # Containeren regnes som frisk når appen svarer på helsesjekken (som også
 # verifiserer at databasen er tilgjengelig).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]

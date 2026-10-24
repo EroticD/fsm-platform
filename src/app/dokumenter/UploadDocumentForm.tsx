@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import TagSelector from "@/components/TagSelector";
 
 export default function UploadDocumentForm({
@@ -12,6 +13,7 @@ export default function UploadDocumentForm({
   allTags: { id: string; name: string; color: string }[];
   createDocument: (formData: FormData) => Promise<void>;
 }) {
+  const t = useTranslations("common");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function UploadDocumentForm({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf") {
-      setError("Bare PDF-filer er tillatt.");
+      setError(t("documents.upload.pdfOnly"));
       return;
     }
     setUploading(true);
@@ -30,14 +32,15 @@ export default function UploadDocumentForm({
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("purpose", "document");
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Opplasting feilet");
+      if (!res.ok) throw new Error(data.error || t("documents.upload.uploadFailed"));
       setFileUrl(data.fileUrl);
       setFileName(data.fileName);
       setFileSize(data.fileSize);
     } catch (err: any) {
-      setError(err.message || "Opplasting feilet");
+      setError(err.message || t("documents.upload.uploadFailed"));
       setFileUrl(null);
     } finally {
       setUploading(false);
@@ -47,7 +50,7 @@ export default function UploadDocumentForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!fileUrl) {
-      setError("Last opp en PDF først.");
+      setError(t("documents.upload.uploadFirst"));
       return;
     }
     const form = e.currentTarget;
@@ -67,38 +70,38 @@ export default function UploadDocumentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">PDF-fil</label>
+        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.pdfFile")}</label>
         <input
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}
           className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
         />
-        {uploading && <p className="text-xs text-blue-600 mt-1">Laster opp...</p>}
-        {fileUrl && <p className="text-xs text-green-600 mt-1">✓ Opplastet: {fileName}</p>}
+        {uploading && <p className="text-xs text-blue-600 mt-1">{t("documents.upload.uploading")}</p>}
+        {fileUrl && <p className="text-xs text-green-600 mt-1">✓ {t("documents.upload.uploaded", { name: fileName })}</p>}
         {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Tittel</label>
+        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.title")}</label>
         <input
           type="text"
           name="title"
           required
-          placeholder="F.eks. Brukermanual varmepumpe"
+          placeholder={t("documents.upload.titlePlaceholder")}
           className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
         />
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Beskrivelse (valgfritt)</label>
+        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.description")}</label>
         <textarea
           name="description"
           rows={2}
-          placeholder="Kort beskrivelse av innholdet..."
+          placeholder={t("documents.upload.descriptionPlaceholder")}
           className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
         />
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Tags</label>
+        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.tags")}</label>
         <TagSelector allTags={allTags} />
       </div>
       <button
@@ -106,7 +109,7 @@ export default function UploadDocumentForm({
         disabled={!fileUrl || uploading}
         className="w-full bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50"
       >
-        💾 Lagre dokument
+        {t("documents.upload.save")}
       </button>
     </form>
   );

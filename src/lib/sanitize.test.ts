@@ -3,7 +3,6 @@ import {
   cleanDataImage,
   cleanEmail,
   cleanMarkdown,
-  cleanRole,
   cleanStatus,
   cleanText,
   cleanUrl,
@@ -74,14 +73,12 @@ describe("cleanUrl", () => {
   });
 });
 
-describe("cleanRole og cleanStatus", () => {
-  it("godtar kjente roller og statuser", () => {
-    expect(cleanRole("admin")).toBe("ADMIN");
+describe("cleanStatus", () => {
+  it("godtar kjente statuser", () => {
     expect(cleanStatus("in_progress")).toBe("IN_PROGRESS");
   });
 
-  it("avviser ukjente verdier", () => {
-    expect(cleanRole("SUPERADMIN")).toBe("");
+  it("avviser ukjente statuser", () => {
     expect(cleanStatus("UKJENT")).toBe("");
   });
 });

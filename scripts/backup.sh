@@ -42,6 +42,31 @@ docker run --rm \
   postgres:15 \
   tar czf "/backup/uploads-$STAMP.tar.gz" -C /data .
 
+# Valgfri kryptering med age. Anbefalt i produksjon:
+#   BACKUP_AGE_RECIPIENT=age1...
+if [ -n "${BACKUP_AGE_RECIPIENT:-}" ]; then
+  if ! command -v age >/dev/null 2>&1; then
+    echo "age er ikke installert, men BACKUP_AGE_RECIPIENT er satt." >&2
+    exit 1
+  fi
+  for file in "$BACKUP_DIR/db-$STAMP.sql.gz" "$BACKUP_DIR/uploads-$STAMP.tar.gz"; do
+    age -r "$BACKUP_AGE_RECIPIENT" -o "$file.age" "$file"
+    rm -f "$file"
+  done
+  echo "→ Krypterte backupene med age."
+fi
+
+# Valgfri kopi til ekstern lagring (rclone). Eksempel:
+#   BACKUP_REMOTE=remote:fsm-backups
+if [ -n "${BACKUP_REMOTE:-}" ]; then
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "rclone er ikke installert, men BACKUP_REMOTE er satt." >&2
+    exit 1
+  fi
+  rclone copy "$BACKUP_DIR" "$BACKUP_REMOTE" --include "*-$STAMP.*"
+  echo "→ Kopierte backupene til $BACKUP_REMOTE."
+fi
+
 # Behold 30 dager. Juster med RETENTION_DAYS om nødvendig.
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 find "$BACKUP_DIR" -type f -mtime "+$RETENTION_DAYS" -delete

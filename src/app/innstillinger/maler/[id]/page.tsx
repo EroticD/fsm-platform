@@ -1,21 +1,22 @@
-import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import TemplateBuilder from "./TemplateBuilder";
 import { saveTemplate } from "./actions";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function EditTemplatePage({ 
   params 
 }: { 
   params: Promise<{ id: string }> 
 }) {
-  const session = await getServerSession();
-  if (!session || !session.user?.email) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  if (!hasPermission(user, "templates.manage")) redirect("/");
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (user?.role !== "ADMIN" && user?.role !== "OFFICE") redirect("/");
-
+  const t = await getTranslations("common");
   const resolvedParams = await params;
   
   const template = await prisma.template.findUnique({
@@ -31,11 +32,11 @@ export default async function EditTemplatePage({
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">📝 Rediger Mal</h1>
-            <p className="text-gray-500 mt-1 text-sm">Bygg opp skjemaet visuelt.</p>
+            <h1 className="text-3xl font-bold text-gray-900">📝 {t("settings.templateEditor.title")}</h1>
+            <p className="text-gray-500 mt-1 text-sm">{t("settings.templateEditor.subtitle")}</p>
           </div>
           <Link href="/innstillinger?tab=maler" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            &larr; Avbryt
+            &larr; {t("settings.templateEditor.cancel")}
           </Link>
         </div>
 

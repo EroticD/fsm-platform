@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 import fs from "fs/promises";
 import path from "path";
+import prisma from "@/lib/prisma";
 import { contentTypeFor, uploadDir } from "@/lib/uploads";
+import { getCurrentUser } from "@/lib/session";
+import { canReadUpload } from "@/lib/upload-access";
 
 // Bilder og vedlegg leses fra disk for hver forespørsel, slik at filer som
 // lastes opp mens appen kjører blir synlige umiddelbart.
@@ -12,11 +14,10 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
-  // Bilder og vedlegg kan inneholde kundedata. UUID-navnet er ikke en
-  // tilgangskontroll i seg selv, så alle filer krever en gyldig økt.
-  // Merkevarelogoen er en ekstern URL (se Branding.logoUrl) og rammes ikke.
-  const session = await getServerSession();
-  if (!session?.user?.email) {
+  // Bilder og vedlegg kan inneholde kundedata. Alle filer krever en gyldig
+  // økt, og tilgangen avgjøres per fil ut fra Upload-raden.
+  const user = await getCurrentUser();
+  if (!user?.isActive) {
     return new NextResponse("Ikke autentisert", { status: 401 });
   }
 
@@ -27,6 +28,19 @@ export async function GET(
   // Aldri les filer utenfor opplastingsmappen.
   if (filePath !== root && !filePath.startsWith(root + path.sep)) {
     return new NextResponse("Ugyldig sti", { status: 400 });
+  }
+
+  const storedName = path.basename(filePath);
+  const upload = await prisma.upload.findUnique({ where: { storedName } });
+
+  if (!upload) {
+    // Eldre filer uten metadata: bare administrator kan lese dem. Backfill-
+    // skriptet (scripts/backfill-uploads.mjs) registrerer dem.
+    if (user.role !== "ADMIN") {
+      return new NextResponse("Fant ikke filen", { status: 404 });
+    }
+  } else if (!canReadUpload(user, upload)) {
+    return new NextResponse("Ingen tilgang", { status: 403 });
   }
 
   try {

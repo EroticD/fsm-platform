@@ -10,13 +10,27 @@
  *   SEED_ADMIN_PASSWORD  (standard: admin123 – nektes i produksjon)
  *   SEED_ADMIN_NAME      (standard: Administrator)
  */
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcrypt";
+import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("✖ DATABASE_URL må være satt for å kjøre seed.");
+  process.exit(1);
+}
 
-const email = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
-const name = process.env.SEED_ADMIN_NAME ?? "Administrator";
+const url = new URL(connectionString);
+const schema = url.searchParams.get("schema") ?? undefined;
+url.searchParams.delete("schema");
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: url.toString() }, { schema }),
+});
+
+const email = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
+const name = process.env.SEED_ADMIN_NAME || "Administrator";
 // Standardpassordet brukes bare når SEED_ADMIN_PASSWORD ikke er satt. Da nekter
 // vi å opprette brukeren i produksjon, slik at et svakt passord ikke sniker seg inn.
 const configuredPassword = process.env.SEED_ADMIN_PASSWORD;
@@ -27,10 +41,39 @@ if (process.env.NODE_ENV === "production" && !configuredPassword) {
 const password = configuredPassword ?? "admin123";
 
 try {
+  // Sørg for at det finnes en standardavdeling også i en database som er
+  // seedet uten at migreringen har opprettet den.
+  let department = await prisma.department.findFirst({
+    // Navnet fanges opp i tillegg til isDefault, slik at en database der
+    // migreringen alt har opprettet «Hovedavdeling» ikke får en unik-konflikt.
+    where: {
+      OR: [{ isDefault: true }, { name: "Hovedavdeling" }],
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
+  if (!department) {
+    department = await prisma.department.create({
+      data: {
+        name: "Hovedavdeling",
+        description: "Standardavdeling opprettet av seed-skriptet.",
+        isDefault: true,
+      },
+    });
+    console.log("✔ Opprettet standardavdeling Hovedavdeling");
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (existing) {
-    console.log(`→ Brukeren ${email} finnes allerede, hopper over.`);
+    if (!existing.departmentId) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { departmentId: department.id },
+      });
+      console.log(`→ Koblet ${email} til avdelingen ${department.name}.`);
+    } else {
+      console.log(`→ Brukeren ${email} finnes allerede, hopper over.`);
+    }
   } else {
     const admin = await prisma.user.create({
       data: {
@@ -38,6 +81,7 @@ try {
         name,
         password: await bcrypt.hash(password, 10),
         role: "ADMIN",
+        departmentId: department.id,
         // Kontoer må aktiveres manuelt før innlogging er tillatt.
         isActive: true,
       },

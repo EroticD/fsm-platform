@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import LanguageSwitcher from "./LanguageSwitcher";
 import GlobalSearch from "./GlobalSearch";
+import NotificationBell from "./NotificationBell";
+import { clearOfflineCaches } from "@/lib/offline/cache";
 
 type NavItem = {
   href: string;
@@ -51,6 +53,16 @@ function navItemsFor(role?: string): NavItem[] {
   return NAV_ITEMS;
 }
 
+function handleLogoutSubmit(event: FormEvent<HTMLFormElement>) {
+  const form = event.currentTarget;
+  if (form.dataset.cleared === "1") return;
+  event.preventDefault();
+  void clearOfflineCaches().finally(() => {
+    form.dataset.cleared = "1";
+    form.requestSubmit();
+  });
+}
+
 export default function BrandedHeader({
   title,
   showNav = true,
@@ -60,6 +72,7 @@ export default function BrandedHeader({
   showNav?: boolean;
   role?: string;
 }) {
+  const t = useTranslations("common");
   const [branding, setBranding] = useState<{
     companyName: string;
     logoUrl: string | null;
@@ -120,6 +133,7 @@ export default function BrandedHeader({
         <Link
           href="/"
           className="flex items-center gap-3"
+          suppressHydrationWarning
           style={{ color: pc }}
         >
           {logoUrl ? (
@@ -131,6 +145,7 @@ export default function BrandedHeader({
           ) : (
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0"
+              suppressHydrationWarning
               style={{ backgroundColor: pc }}
             >
               {companyName.charAt(0).toUpperCase()}
@@ -151,9 +166,10 @@ export default function BrandedHeader({
         {/* Mobile hamburger menu button */}
         {showNav && (
           <button
+            type="button"
             onClick={() => setOpenMenuForPath(isMobileMenuOpen ? null : pathname)}
             className="lg:hidden flex items-center justify-center p-2.5 text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl transition"
-            aria-label="Menu"
+            aria-label={t("components.header.openMenu")}
             aria-expanded={isMobileMenuOpen}
           >
             {isMobileMenuOpen ? "✕" : "☰"}
@@ -167,8 +183,9 @@ export default function BrandedHeader({
           </div>
         )}
 
-        {/* Language switcher */}
-        <div className="hidden lg:flex items-center">
+        {/* Varsler og språk */}
+        <div className="hidden lg:flex items-center gap-2">
+          {role !== "CUSTOMER" && <NotificationBell />}
           <LanguageSwitcher />
         </div>
       </div>
@@ -184,11 +201,12 @@ export default function BrandedHeader({
       {showNav && isMobileMenuOpen && (
         <div className="lg:hidden px-4 pb-4 border-b border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-900 text-sm">Meny</h3>
+            <h3 className="font-bold text-gray-900 text-sm">{t("components.header.menu")}</h3>
             <button
+              type="button"
               onClick={closeMobileMenu}
               className="flex items-center justify-center text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl p-2.5"
-              aria-label="Lukk menyen"
+              aria-label={t("components.header.closeMenu")}
             >
               ✕
             </button>
@@ -218,13 +236,13 @@ function GlobalNavDesktop({ primaryColor, role }: { primaryColor: string; role?:
             className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap border border-transparent ${isActive ? `bg-[${primaryColor}] text-gray-900 font-bold shadow-sm` : "text-gray-900 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             {item.icon && `${item.icon} `}
-            {item.labelKey ? t(item.labelKey) : item.label}
+            {item.labelKey ? t(`nav.${item.labelKey}`) : item.label}
           </Link>
         )}
       )}
-      <form action="/api/auth/signout" method="POST" className="flex items-center">
+      <form action="/api/auth/signout" method="POST" onSubmit={handleLogoutSubmit} className="flex items-center">
         <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition border border-transparent whitespace-nowrap">
-          🚪 Log ut
+          🚪 {t("components.header.logOut")}
         </button>
       </form>
     </nav>
@@ -255,17 +273,17 @@ function GlobalNavMobile({
             className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition-all text-left border border-transparent ${isActive ? `bg-[${primaryColor}] text-gray-900 font-bold shadow-sm` : "text-gray-900 hover:bg-gray-100 hover:text-gray-900"}`}
           >
             {item.icon && `${item.icon} `}
-            {item.labelKey ? t(item.labelKey) : item.label}
+            {item.labelKey ? t(`nav.${item.labelKey}`) : item.label}
           </Link>
         )}
       )}
-      <form action="/api/auth/signout" method="POST" className="w-full flex items-center">
+      <form action="/api/auth/signout" method="POST" onSubmit={handleLogoutSubmit} className="w-full flex items-center">
         <button
           type="submit"
           onClick={onNavigate}
           className="w-full px-4 py-3 rounded-xl text-left font-bold text-gray-700 hover:bg-red-50 hover:text-red-800 transition border border-transparent"
         >
-          🚪 Log ut
+          🚪 {t("components.header.logOut")}
         </button>
       </form>
     </nav>
