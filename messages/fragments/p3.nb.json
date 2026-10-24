@@ -69,7 +69,10 @@
       "description": "Abonner på dine oppdrag i Google Calendar, Outlook eller Apple Kalender. Lenken er personlig og kan tilbakekalles når som helst.",
       "link": "iCal-lenke",
       "revoke": "Tilbakekall lenken",
-      "create": "Lag kalenderlenke"
+      "create": "Lag kalenderlenke",
+      "regenerate": "Lag ny lenke",
+      "once": "Lenken vises bare én gang. Kopier den nå.",
+      "active": "Kalenderabonnement er aktivt."
     },
     "offline": {
       "pending": "📤 {count} kladd(er) venter på sending",

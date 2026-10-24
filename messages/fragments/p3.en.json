@@ -69,7 +69,10 @@
       "description": "Subscribe to your work orders in Google Calendar, Outlook or Apple Calendar. The link is personal and can be revoked at any time.",
       "link": "iCal link",
       "revoke": "Revoke link",
-      "create": "Create calendar link"
+      "create": "Create calendar link",
+      "regenerate": "Regenerate link",
+      "once": "This link is shown only once. Copy it now.",
+      "active": "Calendar subscription is active."
     },
     "offline": {
       "pending": "📤 {count} draft(s) waiting to sync",
