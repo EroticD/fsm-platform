@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
+import { logger } from "@/lib/logger";
 
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -128,13 +129,15 @@ export async function requeueStalePdfTextJobs(): Promise<number> {
     `;
 
     if (rows.length > 0) {
-      console.warn(
-        `Tekstuttrekk: la ${rows.length} fastlåst(e) jobb(er) tilbake i køen.`,
-      );
+      logger.warn("Tekstuttrekk: la fastlåste jobber tilbake i køen", {
+        count: rows.length,
+      });
     }
     return rows.length;
   } catch (error) {
-    console.error("Kunne ikke rydde fastlåste tekstuttrekksjobber:", error);
+    logger.error("Kunne ikke rydde fastlåste tekstuttrekksjobber", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return 0;
   }
 }
@@ -151,10 +154,11 @@ async function failOrRetryPdfTextJob(
       where: { id: job.id },
       data: { status: "FAILED", lockedAt: null, lastError },
     });
-    console.error(
-      `Tekstuttrekk for dokument ${job.documentId ?? "?"} feilet etter ${job.attempts} forsøk:`,
-      message,
-    );
+    logger.error("Tekstuttrekk feilet etter maks antall forsøk", {
+      documentId: job.documentId,
+      attempts: job.attempts,
+      error: message,
+    });
     return "failed";
   }
 
@@ -165,10 +169,11 @@ async function failOrRetryPdfTextJob(
     data: { status: "PENDING", lockedAt: null, runAt, lastError },
   });
 
-  console.warn(
-    `Tekstuttrekk for dokument ${job.documentId ?? "?"} feilet (forsøk ${job.attempts});` +
-      ` prøver igjen ${runAt.toISOString()}.`,
-  );
+  logger.warn("Tekstuttrekk feilet; prøver igjen", {
+    documentId: job.documentId,
+    attempts: job.attempts,
+    runAt: runAt.toISOString(),
+  });
   return "retry";
 }
 
@@ -210,10 +215,10 @@ export async function processPdfTextJob(
     } catch (updateError) {
       // Klarte vi ikke å oppdatere jobben, blir den stående i RUNNING og tas
       // tilbake av requeueStalePdfTextJobs senere.
-      console.error(
-        `Kunne ikke oppdatere tekstuttrekksjobb ${job.id}:`,
-        updateError,
-      );
+      logger.error("Kunne ikke oppdatere tekstuttrekksjobb", {
+        jobId: job.id,
+        error: updateError instanceof Error ? updateError.message : String(updateError),
+      });
       return "failed";
     }
   }
@@ -236,7 +241,9 @@ async function runWorkerLoop(workerIndex: number): Promise<void> {
       }
       await processPdfTextJob(job);
     } catch (error) {
-      console.error("PDF-jobbworker: uventet feil:", error);
+      logger.error("PDF-jobbworker: uventet feil", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await sleep(POLL_INTERVAL_MS);
     }
   }
@@ -262,16 +269,18 @@ export function startJobWorker(): void {
   // har resetAt i fremtiden og røres ikke.
   const pruneRateLimits = () => {
     void cleanupRateLimits().catch((error) => {
-      console.error("Kunne ikke rydde rate-limit-tabellen:", error);
+      logger.error("Kunne ikke rydde rate-limit-tabellen", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
   };
   pruneRateLimits();
   const cleanupTimer = setInterval(pruneRateLimits, 15 * 60_000);
   cleanupTimer.unref?.();
 
-  console.log(
-    `Tekstuttrekk: jobbworker startet med ${JOB_WORKER_CONCURRENCY} samtidige jobber.`,
-  );
+  logger.info("Tekstuttrekk: jobbworker startet", {
+    concurrency: JOB_WORKER_CONCURRENCY,
+  });
 }
 
 /** Bare for tester: nullstiller «startet»-flagget. */

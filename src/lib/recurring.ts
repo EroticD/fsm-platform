@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { contractIntervalLabel } from "@/lib/contracts";
 import {
   addDaysUtc,
@@ -196,17 +197,17 @@ export async function generateRecurringWorkOrderForContract(
           }),
         ]);
       } else {
-        console.warn(
-          `Serviceavtale ${contract.id}: fant ingen PDF av forrige rapport; oppdraget lages uten vedlegg.`,
-        );
+        logger.warn("Serviceavtale: fant ingen PDF av forrige rapport", {
+          contractId: contract.id,
+        });
       }
     } catch (error) {
       // PDF-en er en bekvemmelighet. Oppdraget skal bestå selv om vedlegget
       // ikke kunne lages.
-      console.error(
-        `Kunne ikke legge ved forrige rapport for serviceavtale ${contract.id}:`,
-        error,
-      );
+      logger.error("Kunne ikke legge ved forrige rapport", {
+        contractId: contract.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -232,7 +233,9 @@ async function releaseRecurringLock(tx: Prisma.TransactionClient): Promise<void>
       SELECT pg_advisory_unlock(${RECURRING_ADVISORY_LOCK_ID}::bigint)
     `;
   } catch (error) {
-    console.error("Kunne ikke frigjøre serviceavtale-låsen:", error);
+    logger.error("Kunne ikke frigjøre serviceavtale-låsen", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -260,10 +263,10 @@ async function generateDueRecurringWorkOrdersLocked(
       try {
         results.push(await generateRecurringWorkOrderForContract(contract.id, now));
       } catch (error) {
-        console.error(
-          `Kunne ikke generere serviceavtale-oppdrag for ${contract.id}:`,
-          error,
-        );
+        logger.error("Kunne ikke generere serviceavtale-oppdrag", {
+          contractId: contract.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
         results.push({
           contractId: contract.id,
           skipped: "error",
@@ -280,10 +283,12 @@ async function generateDueRecurringWorkOrdersLocked(
       (result) => result.skipped && result.skipped !== "error",
     ).length;
 
-    console.log(
-      `Serviceavtaler: ${created} opprettet, ${skipped} hoppet over, ${errors} feil` +
-        ` (${contracts.length} forfalt).`,
-    );
+    logger.info("Serviceavtaler: generering fullført", {
+      created,
+      skipped,
+      errors,
+      due: contracts.length,
+    });
   }
 
   return results;
@@ -303,9 +308,7 @@ export async function generateDueRecurringWorkOrders(
     async (tx) => {
       const locked = await tryAcquireRecurringLock(tx);
       if (!locked) {
-        console.log(
-          "Serviceavtaler: en annen prosess genererer allerede; hopper over denne kjøringen.",
-        );
+        logger.info("Serviceavtaler: en annen prosess genererer allerede", {});
         return [];
       }
 

@@ -115,7 +115,16 @@ docker compose up -d --build
 - To-trinns verifisering (TOTP) kan slås på per bruker, og signerte rapporter
   fryses med et øyeblikksbilde av malen slik at de ikke kan endres i ettertid.
 - Skjemafelt renses på serveren, og responsene får sikkerhetsheadere. Se
-  [SECURITY.md](SECURITY.md) for rapportering og drift.
+  [SECURITY.md](SECURITY.md) for rapportering.
+
+## Drift
+
+- `/api/health` er liveness, og `/api/ready` sjekker database, opplastingsvolum
+  og jobbkø.
+- Migrasjoner kjøres ved oppstart med `prisma migrate deploy`.
+- `SEED_DATABASE` er av som standard; seed bare en tom database eksplisitt.
+- Backup, restore-test, logging og skalering er dokumentert i
+  [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Bidra
 

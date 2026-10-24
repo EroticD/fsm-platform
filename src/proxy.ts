@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { buildCsp, createNonce } from "@/lib/csp";
+import { requestIdFrom } from "@/lib/logger";
 
 // Stier som kundeportalbrukere (CUSTOMER) har lov til å bruke.
 // Alt annet sendes tilbake til kundeportalen.
@@ -35,7 +36,9 @@ export async function proxy(request: NextRequest) {
   const nonce = createNonce();
   const csp = buildCsp(nonce);
   const requestHeaders = new Headers(request.headers);
+  const requestId = requestIdFrom(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-request-id", requestId);
   requestHeaders.set("Content-Security-Policy", csp);
 
   const token = await getToken({
@@ -49,12 +52,14 @@ export async function proxy(request: NextRequest) {
     if (!isAllowedForCustomer(pathname)) {
       const redirect = NextResponse.redirect(new URL("/kundeportal", request.url));
       redirect.headers.set("Content-Security-Policy", csp);
+      redirect.headers.set("x-request-id", requestId);
       return redirect;
     }
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("x-request-id", requestId);
   return response;
 }
 

@@ -1,4 +1,5 @@
 import { generateDueRecurringWorkOrders } from "@/lib/recurring";
+import { logger } from "@/lib/logger";
 
 /** Hvor ofte jobben sjekker for forfalte serviceavtaler. */
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -29,11 +30,13 @@ export function startRecurringScheduler() {
       .then((results) => {
         const created = results.filter((result) => result.workOrderId).length;
         if (created > 0) {
-          console.log(`Serviceavtaler: opprettet ${created} ny(e) oppdrag.`);
+          logger.info("Serviceavtaler: opprettet nye oppdrag", { created });
         }
       })
       .catch((error) => {
-        console.error("Serviceavtaler: generering feilet:", error);
+        logger.error("Serviceavtaler: generering feilet", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
   };
 
