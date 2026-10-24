@@ -14,6 +14,16 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
+# Node 22-imaget leveres med en eldre npm som har kjente HIGH-sårbarheter.
+# Oppdater npm eksplisitt, slik at container-skanningen ikke feiler på den.
+RUN npm install -g npm@12.2.1 \
+ && cd /tmp \
+ && npm pack undici@6.29.1 >/dev/null \
+ && tar -xzf undici-6.29.1.tgz \
+ && rm -rf /usr/local/lib/node_modules/npm/node_modules/undici \
+ && mv package /usr/local/lib/node_modules/npm/node_modules/undici \
+ && rm -f undici-6.29.1.tgz \
+ && npm cache clean --force
 WORKDIR /app
 
 # ---------------------------------------------------------------------------
