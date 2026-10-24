@@ -10,6 +10,7 @@ import BrandingColors from "@/components/BrandingColors";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import ToastProvider from "@/components/ToastProvider";
 import OfflineBanner from "@/components/OfflineBanner";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,6 +70,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <BrandingColors />
             <OfflineBanner />
             <BrandedHeader showNav role={session?.user?.role} />
+            <RealtimeRefresh />
             <main id="main-content" className="flex-1">
               {children}
             </main>
