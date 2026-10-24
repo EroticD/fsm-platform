@@ -96,14 +96,29 @@ export default async function TechnicianWorkOrderPage({
   };
   // Kansellerte oppdrag er allerede avvist for montører lenger opp.
   const isClosed = workOrder.status === "COMPLETED";
-  const allStatuses = Object.values(WorkStatus) as WorkStatus[];
-  const statusOptions = isClosed
+  const statusOrder: WorkStatus[] = [
+    "OPEN",
+    "PENDING",
+    "PLANNED",
+    "WAITING",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "CANCELLED",
+  ];
+  const rawStatusOptions = isClosed
     ? []
-    : allStatuses.filter(
+    : statusOrder.filter(
         (status) =>
           status !== workOrder.status &&
           (status !== "CANCELLED" || canEdit),
       );
+  const seenStatusLabels = new Set<string>();
+  const statusOptions = rawStatusOptions.filter((status) => {
+    const label = statusLabels[status];
+    if (seenStatusLabels.has(label)) return false;
+    seenStatusLabels.add(label);
+    return true;
+  });
   const canWriteReports = hasPermission(user, "reports.write");
 
   const allUsers = await prisma.user.findMany({

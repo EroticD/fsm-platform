@@ -345,15 +345,32 @@ export default async function AdminWorkOrderPage({
     COMPLETED: t("orders.detail.statusCompleted"),
     CANCELLED: t("orders.detail.statusCancelled"),
   };
-  const statusOptions = isClosed
+  const statusOrder: WorkStatus[] = [
+    "OPEN",
+    "PENDING",
+    "PLANNED",
+    "WAITING",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "CANCELLED",
+  ];
+  const rawStatusOptions = isClosed
     ? isAdmin
-      ? Object.values(WorkStatus).filter((status) => status !== workOrder.status)
+      ? statusOrder.filter((status) => status !== workOrder.status)
       : []
-    : Object.values(WorkStatus).filter(
+    : statusOrder.filter(
         (status) =>
           status !== workOrder.status &&
           (status !== "CANCELLED" || canEdit),
       );
+  // PENDING og WAITING er begge «Venter»; vis bare én valgmulighet.
+  const seenStatusLabels = new Set<string>();
+  const statusOptions = rawStatusOptions.filter((status) => {
+    const label = statusLabels[status];
+    if (seenStatusLabels.has(label)) return false;
+    seenStatusLabels.add(label);
+    return true;
+  });
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
