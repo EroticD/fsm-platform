@@ -174,6 +174,7 @@ export async function generateRecurringWorkOrderForContract(
             entityId: workOrder.id,
             action: `Opprettet gjentagende oppdrag fra serviceavtalen «${contract.title}»`,
             userName: "Serviceavtale",
+            metadata: { customerId: contract.customerId, contractId: contract.id },
           },
         });
 

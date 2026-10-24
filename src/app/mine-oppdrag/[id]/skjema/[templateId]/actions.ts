@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { allowRequestDb } from "@/lib/rate-limit-db";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import {
   saveDraft as saveDraftService,
@@ -22,6 +23,13 @@ export async function saveDraft(
   formData: FormData,
 ): Promise<{ ok: boolean; savedAt?: string }> {
   const user = await getCurrentUser();
+  if (!user) return { ok: false };
+
+  // Generøs grense: autolagring og mange bilder i felt skal aldri treffe den i
+  // normal bruk. Den stopper bare maskinell hamring på lagringsruten.
+  const limit = await allowRequestDb(`draft-save:${user.id}`, 300, 60_000);
+  if (!limit.allowed) return { ok: false };
+
   const result = await saveDraftService(user, formData);
   return result.ok ? { ok: true, savedAt: result.savedAt } : { ok: false };
 }

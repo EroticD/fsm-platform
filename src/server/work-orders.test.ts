@@ -205,6 +205,7 @@ describe("work-orders-tjenesten", () => {
         entityType: "WorkOrder",
         entityId: "wo-new",
         action: "Kontoret opprettet nytt oppdrag: Service",
+        metadata: { customerId: null },
       }),
     });
   });

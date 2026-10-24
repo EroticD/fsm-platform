@@ -124,7 +124,15 @@ export async function getCustomerDetail(
 
   const [customerAuditLogs, customerComments, portalUsers] = await Promise.all([
     prisma.auditLog.findMany({
-      where: { entityType: "Customer", entityId: customerId },
+      where: {
+        OR: [
+          { entityType: "Customer", entityId: customerId },
+          {
+            entityType: "WorkOrder",
+            metadata: { path: ["customerId"], equals: customerId },
+          },
+        ],
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),

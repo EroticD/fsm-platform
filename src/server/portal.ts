@@ -113,6 +113,7 @@ export async function createBooking(
         entityId: created.id,
         action: `Kunde booket nytt oppdrag: ${title}`,
         actor: toAuditActor(actor),
+        metadata: { customerId },
       });
 
       return created.id;

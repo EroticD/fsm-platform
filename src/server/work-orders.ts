@@ -266,6 +266,7 @@ export async function createWorkOrder(
         entityId: newWorkOrder.id,
         action: `Kontoret opprettet nytt oppdrag: ${title}`,
         actor: auditActor(user),
+        metadata: { customerId: customerId || null },
       });
 
       return newWorkOrder.id;
@@ -991,7 +992,7 @@ export async function cloneWorkOrder(
         entityId: created.id,
         action: `Klonet oppdraget «${source.title}» til nytt oppdrag`,
         actor: auditActor(user),
-        metadata: { sourceWorkOrderId: source.id },
+        metadata: { sourceWorkOrderId: source.id, customerId: source.customerId },
       });
 
       return created.id;
