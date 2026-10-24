@@ -698,7 +698,8 @@ model Material {
   sku         String?
   quantity    Decimal   @db.Decimal(10, 2)
   unit        String    @default("stk")
-  unitPrice   Decimal   @db.Decimal(10, 2)
+  /// Null betyr at kontoret må prissette materialet før fakturering.
+  unitPrice   Decimal?  @db.Decimal(10, 2)
   createdAt   DateTime  @default(now())
 
   @@index([workOrderId])
