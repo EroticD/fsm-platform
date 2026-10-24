@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/email";
@@ -23,6 +25,24 @@ export const NOTIFICATION_TYPES = [
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 const PAGE_SIZE = 25;
+
+/** Hvor lenge en instans eier et varsel mens e-posten sendes. */
+const EMAIL_LOCK_LEASE_MS = 5 * 60_000;
+/** Etter så mange forsøk gir vi opp e-posten. */
+const EMAIL_MAX_ATTEMPTS = 5;
+
+/**
+ * Stabil identitet per prosess. Brukes som `emailLockedBy` slik at en annen
+ * instans kan se hvem som eier låsen. Selve sendingen bruker en lease, så en
+ * krasjet prosess blokkerer ikke varselet for alltid.
+ */
+const EMAIL_WORKER_ID = `${hostname()}:${process.pid}:${randomUUID()}`;
+
+/**
+ * Prosesslokal overlappsvakt. To samtidige kall i samme prosess skal ikke
+ * plukke samme kø, selv om databaselåsen allerede hindrer dobbeltsending.
+ */
+let emailRunInProgress = false;
 
 function isNotificationType(value: string): value is NotificationType {
   return (NOTIFICATION_TYPES as readonly string[]).includes(value);
@@ -320,71 +340,118 @@ export async function notifyOverdueWorkOrders(
 /**
  * Sender ventende varsel-e-poster. Kalles periodisk av jobbworkeren.
  * Returnerer hvor mange som ble forsøkt sendt.
+ *
+ * Flere appinstanser kan kjøre denne samtidig. Hvert varsel hentes først med
+ * en betinget `updateMany` som setter en kort lease. Bare instansen som får
+ * `count === 1` sender e-posten, så samme varsel aldri går ut to ganger.
  */
 export async function processPendingNotificationEmails(
   limit = 20,
 ): Promise<{ processed: number; sent: number }> {
-  const pending = await prisma.notification.findMany({
-    where: {
-      emailSentAt: null,
-      emailAttempts: { lt: 5 },
-      emailNextAttemptAt: { lte: new Date() },
-    },
-    orderBy: { createdAt: "asc" },
-    take: limit,
-    include: { user: { select: { email: true } } },
-  });
+  if (emailRunInProgress) return { processed: 0, sent: 0 };
+  emailRunInProgress = true;
 
-  let sent = 0;
-  for (const notification of pending) {
-    const email = notification.user.email;
-    if (!email) {
-      await prisma.notification.update({
-        where: { id: notification.id },
-        data: { emailSentAt: new Date(), emailError: "Brukeren mangler e-post" },
-      });
-      continue;
-    }
+  try {
+    const now = new Date();
+    const leaseCutoff = new Date(now.getTime() - EMAIL_LOCK_LEASE_MS);
 
-    const attempts = notification.emailAttempts + 1;
+    const pending = await prisma.notification.findMany({
+      where: {
+        emailSentAt: null,
+        emailAttempts: { lt: EMAIL_MAX_ATTEMPTS },
+        emailNextAttemptAt: { lte: now },
+        OR: [
+          { emailLockedAt: null },
+          { emailLockedAt: { lt: leaseCutoff } },
+        ],
+      },
+      orderBy: { createdAt: "asc" },
+      take: limit,
+      include: { user: { select: { email: true } } },
+    });
 
-    try {
-      const okSent = await sendNotificationEmail(
-        email,
-        notification.title,
-        notification.body ?? "",
-        notification.href ?? undefined,
-      );
-      if (!okSent) throw new Error("SMTP er ikke konfigurert");
-
-      await prisma.notification.update({
-        where: { id: notification.id },
+    let sent = 0;
+    for (const notification of pending) {
+      // Atomisk claim: bare én instans kan gå fra «ulåst/utløpt» til «låst».
+      const claimed = await prisma.notification.updateMany({
+        where: {
+          id: notification.id,
+          emailSentAt: null,
+          OR: [
+            { emailLockedAt: null },
+            { emailLockedAt: { lt: leaseCutoff } },
+          ],
+        },
         data: {
-          emailSentAt: new Date(),
-          emailAttempts: attempts,
-          emailError: null,
+          emailLockedAt: new Date(),
+          emailLockedBy: EMAIL_WORKER_ID,
         },
       });
-      sent += 1;
-    } catch (error) {
-      // Eksponentiell backoff, maks én time. Etter fem forsøk gir vi opp, slik
-      // at en ødelagt SMTP-server ikke prøves for alltid.
-      const delayMs = Math.min(60 * 60_000, 5 * 60_000 * 2 ** attempts);
-      await prisma.notification.update({
-        where: { id: notification.id },
-        data: {
-          emailAttempts: attempts,
-          emailNextAttemptAt: new Date(Date.now() + delayMs),
-          emailError:
-            attempts >= 5
-              ? "Gave up"
-              : error instanceof Error
-                ? error.message.slice(0, 2000)
-                : "Ukjent feil",
-        },
-      });
+      if (claimed.count !== 1) continue;
+
+      const email = notification.user.email;
+      if (!email) {
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            emailSentAt: new Date(),
+            emailError: "Brukeren mangler e-post",
+            emailLockedAt: null,
+            emailLockedBy: null,
+          },
+        });
+        continue;
+      }
+
+      const attempts = notification.emailAttempts + 1;
+
+      try {
+        const okSent = await sendNotificationEmail(
+          email,
+          notification.title,
+          notification.body ?? "",
+          notification.href ?? undefined,
+        );
+        if (!okSent) throw new Error("SMTP er ikke konfigurert");
+
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            emailSentAt: new Date(),
+            emailAttempts: attempts,
+            emailError: null,
+            emailLockedAt: null,
+            emailLockedBy: null,
+          },
+        });
+        sent += 1;
+      } catch (error) {
+        // Eksponentiell backoff, maks én time. Etter fem forsøk gir vi opp, slik
+        // at en ødelagt SMTP-server ikke prøves for alltid.
+        const delayMs = Math.min(
+          60 * 60_000,
+          5 * 60_000 * 2 ** attempts,
+        );
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            emailAttempts: attempts,
+            emailNextAttemptAt: new Date(Date.now() + delayMs),
+            emailError:
+              attempts >= EMAIL_MAX_ATTEMPTS
+                ? "Gave up"
+                : error instanceof Error
+                  ? error.message.slice(0, 2000)
+                  : "Ukjent feil",
+            emailLockedAt: null,
+            emailLockedBy: null,
+          },
+        });
+      }
     }
+
+    return { processed: pending.length, sent };
+  } finally {
+    emailRunInProgress = false;
   }
-
-  return { processed: pending.length, sent };
 }
