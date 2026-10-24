@@ -279,6 +279,25 @@ describe("getCalendarFeed", () => {
     expect(where.AND).toContainEqual({ scheduledFor: { not: null } });
   });
 
+  it("gir tom feed for montør uten oppdragsrettighet", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      ...actor,
+      permissionsCustomized: true,
+      permissions: [],
+      roleDefinition: { permissions: [] },
+    });
+
+    await getCalendarFeed(RAW_TOKEN);
+
+    const where = mocks.prisma.workOrder.findMany.mock.calls[0][0].where;
+    expect(where.AND[0]).toEqual({
+      AND: [
+        { technicians: { some: { id: "u1" } } },
+        { id: { in: [] } },
+      ],
+    });
+  });
+
   it("avgrenser kunder til egen kunde", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({
       ...actor,
