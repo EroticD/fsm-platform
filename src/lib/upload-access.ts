@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type { AccessUser } from "@/lib/access";
 import { canAccessWorkOrder } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
@@ -55,26 +55,39 @@ export function canReadUpload(
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 
 /**
- * Flytter en opplastet fil fra privat eierskap til oppdraget, kunden eller
- * dokumentet den ble lagt ved. Kalles etter at vedlegget er lagret.
+ * Knytter en opplastet fil til oppdraget, kunden eller dokumentet den legges
+ * ved. Kalles fra samme transaksjon som vedlegget/dokumentet og revisjonen, slik
+ * at en fil aldri kan knyttes til noe annet enn det som faktisk ble lagret.
  *
- * Ukjente URL-er ignoreres stille: bare filer i opplastingsmappen kan knyttes.
+ * Predikatet er bevisst strengt: en fil som allerede tilhører et annet oppdrag,
+ * en annen kunde eller et annet dokument kan ikke flyttes. En bruker kan bare
+ * gjøre krav på sin egen private opplasting (USER) eller en dokumentfil som
+ * ennå ikke er knyttet til et dokument. `claimed` er false når ingen rad matcher.
  */
-export async function linkUploadOwner(
+export async function claimUpload(
+  tx: Prisma.TransactionClient,
   fileUrl: string,
+  actorId: string,
   owner: {
     ownerType: UploadOwnerType;
     ownerId: string | null;
     departmentId: string | null;
     customerId: string | null;
   },
-): Promise<void> {
-  if (!UPLOAD_URL.test(fileUrl)) return;
+): Promise<{ claimed: boolean }> {
+  if (!UPLOAD_URL.test(fileUrl)) return { claimed: false };
   const storedName = fileUrl.slice(fileUrl.lastIndexOf("/") + 1);
-  if (!storedName) return;
+  if (!storedName) return { claimed: false };
 
-  await prisma.upload.updateMany({
-    where: { storedName },
+  const result = await tx.upload.updateMany({
+    where: {
+      storedName,
+      OR: [
+        { ownerType: owner.ownerType, ownerId: owner.ownerId },
+        { uploadedById: actorId, ownerType: "USER", ownerId: actorId },
+        { uploadedById: actorId, ownerType: "DOCUMENT", ownerId: null },
+      ],
+    },
     data: {
       ownerType: owner.ownerType,
       ownerId: owner.ownerId,
@@ -82,4 +95,6 @@ export async function linkUploadOwner(
       customerId: owner.customerId,
     },
   });
+
+  return { claimed: result.count > 0 };
 }

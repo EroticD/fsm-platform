@@ -11,7 +11,7 @@ import {
   documentVersionSchema,
 } from "@/lib/schemas/document";
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
-import { linkUploadOwner } from "@/lib/upload-access";
+import { claimUpload } from "@/lib/upload-access";
 import { enqueuePdfText } from "@/lib/pdf-queue";
 import {
   can,
@@ -422,8 +422,18 @@ export async function updateDocument(
   // Behold den gamle filen som en versjon før den byttes ut.
   const replacingFile = Boolean(fileUrl && fileUrl !== existing.filePath);
 
-  await prisma.$transaction(async (tx) => {
-    if (replacingFile) {
+  // Filbyttet krever at brukeren faktisk eier den nye filen. Kravet, versjonen,
+  // dokumentraden og revisjonen skjer i samme transaksjon.
+  const claimed = await prisma.$transaction(async (tx) => {
+    if (replacingFile && fileUrl) {
+      const { claimed } = await claimUpload(tx, fileUrl, actor.id, {
+        ownerType: "DOCUMENT",
+        ownerId: id,
+        departmentId: actor.departmentId,
+        customerId: null,
+      });
+      if (!claimed) return false;
+
       await tx.documentVersion.create({
         data: {
           documentId: id,
@@ -462,16 +472,14 @@ export async function updateDocument(
       action: `Oppdaterte dokument: ${title}`,
       actor: toAuditActor(actor),
     });
+
+    return true;
   });
 
+  if (!claimed) return fail("invalid");
+
   // Hvis filen ble byttet, trekk ut ny tekst i bakgrunnen.
-  if (replacingFile) {
-    await linkUploadOwner(fileUrl, {
-      ownerType: "DOCUMENT",
-      ownerId: id,
-      departmentId: actor.departmentId,
-      customerId: null,
-    });
+  if (replacingFile && fileUrl) {
     enqueuePdfText(id, fileUrl);
   }
 
@@ -523,6 +531,16 @@ export async function createDocument(
   if (!isUploadUrl(fileUrl)) return fail("invalid");
 
   const newDoc = await prisma.$transaction(async (tx) => {
+    // Dokumentfiler lastes opp med ownerId null. Kravet skjer før raden
+    // opprettes, og ownerId settes til dokumentets id i samme transaksjon.
+    const { claimed } = await claimUpload(tx, fileUrl, actor.id, {
+      ownerType: "DOCUMENT",
+      ownerId: null,
+      departmentId: actor.departmentId,
+      customerId: null,
+    });
+    if (!claimed) return null;
+
     const created = await tx.document.create({
       data: {
         title,
@@ -542,6 +560,15 @@ export async function createDocument(
       },
     });
 
+    await tx.upload.updateMany({
+      where: {
+        storedName: fileUrl.slice("/uploads/".length),
+        ownerType: "DOCUMENT",
+        ownerId: null,
+      },
+      data: { ownerId: created.id },
+    });
+
     await audit(tx, {
       entityType: "Document",
       entityId: created.id,
@@ -552,12 +579,7 @@ export async function createDocument(
     return created;
   });
 
-  await linkUploadOwner(fileUrl, {
-    ownerType: "DOCUMENT",
-    ownerId: newDoc.id,
-    departmentId: actor.departmentId,
-    customerId: null,
-  });
+  if (!newDoc) return fail("invalid");
 
   // Ekstraher PDF-tekst for fulltekst-søk i bakgrunnen (best-effort)
   enqueuePdfText(newDoc.id, fileUrl);
@@ -694,6 +716,14 @@ export async function bulkCreateDocuments(
       );
 
     const newDoc = await prisma.$transaction(async (tx) => {
+      const { claimed } = await claimUpload(tx, item.fileUrl, actor.id, {
+        ownerType: "DOCUMENT",
+        ownerId: null,
+        departmentId: actor.departmentId,
+        customerId: null,
+      });
+      if (!claimed) return null;
+
       const created = await tx.document.create({
         data: {
           title: documentTitle,
@@ -706,6 +736,15 @@ export async function bulkCreateDocuments(
         },
       });
 
+      await tx.upload.updateMany({
+        where: {
+          storedName: item.fileUrl.slice("/uploads/".length),
+          ownerType: "DOCUMENT",
+          ownerId: null,
+        },
+        data: { ownerId: created.id },
+      });
+
       await audit(tx, {
         entityType: "Document",
         entityId: created.id,
@@ -716,12 +755,10 @@ export async function bulkCreateDocuments(
       return created;
     });
 
-    await linkUploadOwner(item.fileUrl, {
-      ownerType: "DOCUMENT",
-      ownerId: newDoc.id,
-      departmentId: actor.departmentId,
-      customerId: null,
-    });
+    if (!newDoc) {
+      skippedServer++;
+      continue;
+    }
 
     // Ekstraher PDF-tekst (best-effort, legges i bakgrunnskø)
     enqueuePdfText(newDoc.id, item.fileUrl);

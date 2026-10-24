@@ -8,7 +8,7 @@ import { audit } from "@/lib/audit";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { requireAdmin, getCurrentUser } from "@/lib/session";
 import { requireWorkOrderAccess } from "@/lib/access";
-import { linkUploadOwner } from "@/lib/upload-access";
+import { claimUpload } from "@/lib/upload-access";
 import { releaseUpload } from "@/lib/upload-cleanup";
 import { uploadDir } from "@/lib/uploads";
 import {
@@ -65,7 +65,19 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
 
   const displayName = fileName || "Vedlegg";
 
-  await prisma.$transaction(async (tx) => {
+  // Kravet på filen, vedlegget og revisjonen skjer i samme transaksjon. Hvis
+  // filen allerede tilhører et annet oppdrag/en annen bruker, opprettes det
+  // ingen attachment-rad, og svaret er generisk slik at det ikke røper om
+  // filen finnes.
+  const claimed = await prisma.$transaction(async (tx) => {
+    const { claimed } = await claimUpload(tx, fileUrl, access.user.id, {
+      ownerType: "WORK_ORDER",
+      ownerId: workOrderId,
+      departmentId: access.workOrder.departmentId,
+      customerId: access.workOrder.customerId,
+    });
+    if (!claimed) return false;
+
     const attachment = await tx.attachment.create({
       data: {
         workOrderId,
@@ -85,16 +97,11 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
       },
       metadata: { attachmentId: attachment.id },
     });
+
+    return true;
   });
 
-  // Filen ble lastet opp privat; nå som den er knyttet til oppdraget skal den
-  // følge oppdragets avdeling/kunde i tilgangskontrollen.
-  await linkUploadOwner(fileUrl, {
-    ownerType: "WORK_ORDER",
-    ownerId: workOrderId,
-    departmentId: access.workOrder.departmentId,
-    customerId: access.workOrder.customerId,
-  });
+  if (!claimed) return { ok: false, error: "Ugyldig fil" };
 
   revalidateAttachmentViews(workOrderId);
   return { ok: true };
