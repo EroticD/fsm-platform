@@ -16,6 +16,8 @@ CREATE TABLE "Notification" (
     "href" TEXT,
     "readAt" TIMESTAMP(3),
     "dedupeKey" TEXT,
+    "emailSentAt" TIMESTAMP(3),
+    "emailError" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
@@ -71,6 +73,9 @@ CREATE INDEX "Notification_userId_readAt_createdAt_idx" ON "Notification"("userI
 
 -- CreateIndex
 CREATE INDEX "Notification_createdAt_idx" ON "Notification"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "Notification_emailSentAt_idx" ON "Notification"("emailSentAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "NotificationPreference_userId_type_key" ON "NotificationPreference"("userId", "type");
