@@ -423,7 +423,20 @@
     "loginErrorSessionRequired": "Du må logge inn for å se denne siden.",
     "loginErrorTooMany": "For mange innloggingsforsøk. Vent noen minutter og prøv igjen.",
     "loginErrorDefault": "Kunne ikke logge inn. Prøv igjen.",
-    "loginDescCompany": "Logg inn for å få tilgang til {{companyName}}",
-    "loginPending": "Logger inn …"
+    "loginDescCompany": "Logg inn for å få tilgang til {companyName}",
+    "loginPending": "Logger inn …",
+    "nav": {
+      "dashboard": "Dashbord",
+      "myWorkOrders": "Mine oppdrag",
+      "workOrders": "Oppdrag",
+      "calendar": "Kalender",
+      "customers": "Kunder",
+      "documents": "Dokumenter",
+      "equipment": "Utstyr",
+      "reports": "Rapporter",
+      "newWorkOrder": "Nytt oppdrag",
+      "settings": "Innstillinger",
+      "customerPortal": "Kundeportal"
+    }
   }
 }

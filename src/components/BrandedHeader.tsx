@@ -222,7 +222,7 @@ function GlobalNavDesktop({ primaryColor, role }: { primaryColor: string; role?:
             className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap border border-transparent ${isActive ? `bg-[${primaryColor}] text-gray-900 font-bold shadow-sm` : "text-gray-900 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             {item.icon && `${item.icon} `}
-            {item.labelKey ? t(item.labelKey) : item.label}
+            {item.labelKey ? t(`nav.${item.labelKey}`) : item.label}
           </Link>
         )}
       )}
@@ -259,7 +259,7 @@ function GlobalNavMobile({
             className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition-all text-left border border-transparent ${isActive ? `bg-[${primaryColor}] text-gray-900 font-bold shadow-sm` : "text-gray-900 hover:bg-gray-100 hover:text-gray-900"}`}
           >
             {item.icon && `${item.icon} `}
-            {item.labelKey ? t(item.labelKey) : item.label}
+            {item.labelKey ? t(`nav.${item.labelKey}`) : item.label}
           </Link>
         )}
       )}

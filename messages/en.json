@@ -423,7 +423,20 @@
     "loginErrorSessionRequired": "You must sign in to view this page.",
     "loginErrorTooMany": "Too many sign-in attempts. Wait a few minutes and try again.",
     "loginErrorDefault": "Could not sign in. Try again.",
-    "loginDescCompany": "Sign in to access {{companyName}}",
-    "loginPending": "Signing in …"
+    "loginDescCompany": "Sign in to access {companyName}",
+    "loginPending": "Signing in …",
+    "nav": {
+      "dashboard": "Dashboard",
+      "myWorkOrders": "My work orders",
+      "workOrders": "Work orders",
+      "calendar": "Calendar",
+      "customers": "Customers",
+      "documents": "Documents",
+      "equipment": "Equipment",
+      "reports": "Reports",
+      "newWorkOrder": "New work order",
+      "settings": "Settings",
+      "customerPortal": "Customer portal"
+    }
   }
 }
