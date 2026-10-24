@@ -113,7 +113,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Skann imaget for sårbarheter
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: fsm-platform:ci
           format: table
