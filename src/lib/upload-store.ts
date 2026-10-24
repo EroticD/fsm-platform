@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import prisma from "@/lib/prisma";
@@ -18,6 +18,12 @@ const EXT_BY_SUBTYPE: Record<string, string> = {
 };
 
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
+
+/** Kladdesignaturer per bruker og døgn. Feltbrukere kan laste opp mange bilder;
+ * grensene skal ikke treffes i normal bruk (50 bilder x 4 økter), men stopper
+ * en kompromittert konto fra å fylle volumet. */
+export const MAX_USER_SIGNATURE_UPLOADS = 400;
+export const MAX_USER_DAILY_SIGNATURE_BYTES = 2 * 1024 * 1024 * 1024;
 
 /**
  * Lagrer en signatur som er tegnet i nettleseren (data-URL) som en vanlig
@@ -69,6 +75,52 @@ export async function storeDataImage(
   }
 
   const mimeType = subtype === "jpg" || subtype === "jpeg" ? "image/jpeg" : `image/${subtype}`;
+  const contentHash = createHash("sha256").update(buffer).digest("hex");
+
+  // En identisk kladdesignatur kan gjenbrukes. Da slipper vi både ny fil og ny
+  // Upload-rad, og en tekniker som lagrer samme signatur mange ganger fyller
+  // ikke lagringsvolumet.
+  if (ctx.ownerType === "USER") {
+    const existing = await prisma.upload.findFirst({
+      where: {
+        contentHash,
+        ownerType: "USER",
+        ownerId: ctx.uploadedById,
+        uploadedById: ctx.uploadedById,
+      },
+      select: { storedName: true },
+    });
+    if (existing) {
+      try {
+        await fs.access(path.join(uploadDir(), existing.storedName));
+        return `/uploads/${existing.storedName}`;
+      } catch {
+        // Filen er borte; rydd metadata og lag en ny kopi under.
+        await prisma.upload.deleteMany({ where: { storedName: existing.storedName } });
+      }
+    }
+
+    const count = await prisma.upload.count({
+      where: { ownerType: "USER", ownerId: ctx.uploadedById },
+    });
+    if (count >= MAX_USER_SIGNATURE_UPLOADS) {
+      throw new Error("For mange lagrede kladdesignaturer");
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const used = await prisma.upload.aggregate({
+      where: {
+        uploadedById: ctx.uploadedById,
+        ownerType: "USER",
+        createdAt: { gte: since },
+      },
+      _sum: { size: true },
+    });
+    if ((used._sum.size ?? 0) + buffer.length > MAX_USER_DAILY_SIGNATURE_BYTES) {
+      throw new Error("Daglig lagringskvote for kladdesignaturer er nådd");
+    }
+  }
+
   const storedName = `${randomUUID()}${extension}`;
   const directory = uploadDir();
   const filePath = path.join(directory, storedName);
@@ -88,6 +140,7 @@ export async function storeDataImage(
         departmentId: ctx.departmentId,
         customerId: ctx.customerId,
         uploadedById: ctx.uploadedById,
+        contentHash,
       },
     });
   } catch (error) {
