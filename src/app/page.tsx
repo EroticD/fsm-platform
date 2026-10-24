@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { type Prisma, WorkStatus } from "@prisma/client";
 import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
@@ -45,7 +46,8 @@ type OrderWith = {
 };
 
 // Kompakt oppdragsliste brukt i flere av dashbord-panelene.
-function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
+async function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
+  const t = await getTranslations("common");
   if (orders.length === 0) {
     return <p className="text-xs text-gray-500 italic">{empty}</p>;
   }
@@ -64,10 +66,10 @@ function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
             <StatusBadge status={wo.status} />
           </div>
           <p className="text-[10px] text-gray-500 mt-1">
-            🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
+            🏢 {wo.customer?.name || t("dashboard.orderList.noCustomer")} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("dashboard.orderList.noDate")}
             {wo.technicians.length === 0
-              ? " • ⚠️ Ikke tildelt"
-              : ` • 👷 ${wo.technicians.map((t) => t.name?.split(" ")[0]).filter(Boolean).join(", ")}`}
+              ? ` • ${t("dashboard.orderList.unassigned")}`
+              : ` • 👷 ${wo.technicians.map((tech) => tech.name?.split(" ")[0]).filter(Boolean).join(", ")}`}
           </p>
           {address && (
             <p className="text-[10px] text-gray-500 mt-0.5">📍 {address}</p>
@@ -94,37 +96,37 @@ function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
 }
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Alle statuser" },
-  { value: "OPEN", label: "Åpen" },
-  { value: "PENDING", label: "Venter / Planlagt" },
-  { value: "WAITING", label: "Venter" },
-  { value: "IN_PROGRESS", label: "Påbegynt" },
-  { value: "PLANNED", label: "Planlagt" },
-  { value: "COMPLETED", label: "Fullført" },
-  { value: "CANCELLED", label: "Kansellert" },
+  { value: "", labelKey: "dashboard.statusOptions.all" },
+  { value: "OPEN", labelKey: "dashboard.statusOptions.open" },
+  { value: "PENDING", labelKey: "dashboard.statusOptions.pending" },
+  { value: "WAITING", labelKey: "dashboard.statusOptions.waiting" },
+  { value: "IN_PROGRESS", labelKey: "dashboard.statusOptions.inProgress" },
+  { value: "PLANNED", labelKey: "dashboard.statusOptions.planned" },
+  { value: "COMPLETED", labelKey: "dashboard.statusOptions.completed" },
+  { value: "CANCELLED", labelKey: "dashboard.statusOptions.cancelled" },
 ];
 
 // Hurtighandlinger for kontoret.
 const OFFICE_ACTIONS = [
-  { href: "/oppdrag/ny", icon: "➕", label: "Nytt oppdrag" },
-  { href: "/kalender", icon: "📅", label: "Kalender" },
-  { href: "/kalender/dispatch", icon: "🎛️", label: "Dispatch" },
-  { href: "/kunder", icon: "🏢", label: "Kunder" },
-  { href: "/dokumenter", icon: "📚", label: "Dokumenter" },
-  { href: "/innstillinger?tab=maler", icon: "📋", label: "Sjekklister" },
-  { href: "/innstillinger?tab=ansatte", icon: "👥", label: "Ansatte" },
-  { href: "/innstillinger?tab=statistikk", icon: "📊", label: "Statistikk" },
+  { href: "/oppdrag/ny", icon: "➕", labelKey: "dashboard.quickActions.newWorkOrder" },
+  { href: "/kalender", icon: "📅", labelKey: "dashboard.quickActions.calendar" },
+  { href: "/kalender/dispatch", icon: "🎛️", labelKey: "dashboard.quickActions.dispatch" },
+  { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
+  { href: "/dokumenter", icon: "📚", labelKey: "dashboard.quickActions.documents" },
+  { href: "/innstillinger?tab=maler", icon: "📋", labelKey: "dashboard.quickActions.checklists" },
+  { href: "/innstillinger?tab=ansatte", icon: "👥", labelKey: "dashboard.quickActions.employees" },
+  { href: "/innstillinger?tab=statistikk", icon: "📊", labelKey: "dashboard.quickActions.statistics" },
 ];
 
 // Hurtighandlinger for montører: feltrelevante sider, ingen kontorverktøy.
 const FIELD_ACTIONS = [
-  { href: "/mine-oppdrag/ny", icon: "➕", label: "Nytt oppdrag" },
-  { href: "/mine-oppdrag", icon: "📋", label: "Mine oppdrag" },
-  { href: "/oppdrag", icon: "📂", label: "Alle oppdrag" },
-  { href: "/kalender", icon: "📅", label: "Kalender" },
-  { href: "/kunder", icon: "🏢", label: "Kunder" },
-  { href: "/enheter", icon: "🔧", label: "Enheter" },
-  { href: "/rapporter", icon: "📄", label: "Rapporter" },
+  { href: "/mine-oppdrag/ny", icon: "➕", labelKey: "dashboard.quickActions.newWorkOrder" },
+  { href: "/mine-oppdrag", icon: "📋", labelKey: "dashboard.quickActions.myWorkOrders" },
+  { href: "/oppdrag", icon: "📂", labelKey: "dashboard.quickActions.allWorkOrders" },
+  { href: "/kalender", icon: "📅", labelKey: "dashboard.quickActions.calendar" },
+  { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
+  { href: "/enheter", icon: "🔧", labelKey: "dashboard.quickActions.equipment" },
+  { href: "/rapporter", icon: "📄", labelKey: "dashboard.quickActions.reports" },
 ];
 
 const ACTIVE_STATUSES = ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"];
@@ -136,6 +138,8 @@ export default async function AdminDashboard({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+
+  const t = await getTranslations("common");
 
   // Dashbordet bygger på oppdrag. En bruker med utvidede rettigheter, men uten
   // oppdragstilgang, sendes til den første siden vedkommende faktisk kan bruke.
@@ -356,12 +360,12 @@ export default async function AdminDashboard({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-gray-900">
-              Velkommen, {user?.name?.split(" ")[0] || "Admin"} 👋
+              {t("dashboard.greeting", { name: user?.name?.split(" ")[0] || t("admin") })}
             </h1>
             <p className="text-gray-500 mt-1 font-medium text-sm">
-              Du administrerer <span className="font-bold text-gray-700">{companyName}</span>
+              {t("dashboard.adminOf", { companyName })}
               {" • "}
-              {formatDate(startOfToday, "Ingen dato")}
+              {formatDate(startOfToday, t("dashboard.orderList.noDate"))}
             </p>
           </div>
           <div className="flex gap-2">
@@ -370,21 +374,21 @@ export default async function AdminDashboard({
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
                 className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
               >
-                ➕ Nytt oppdrag
+                {t("dashboard.newWorkOrder")}
               </Link>
             )}
             <Link
               href="/kalender"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
-              📅 Kalender
+              {t("dashboard.calendar")}
             </Link>
           </div>
         </div>
 
         {/* HURTIGHANDLINGER */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-2">Hurtighandlinger</h2>
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-2">{t("dashboard.quickActionsTitle")}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {quickActions.map((a) => (
               <Link
@@ -393,7 +397,7 @@ export default async function AdminDashboard({
                 className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-800 transition"
               >
                 <span className="text-base leading-none">{a.icon}</span>
-                <span className="truncate">{a.label}</span>
+                <span className="truncate">{t(a.labelKey)}</span>
               </Link>
             ))}
           </div>
@@ -403,33 +407,33 @@ export default async function AdminDashboard({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             icon="📂"
-            label="Åpne oppdrag"
+            label={t("dashboard.kpi.open")}
             value={openCount}
-            sub={`${awaitingCount} venter på oppstart`}
+            sub={t("dashboard.kpi.awaiting", { count: awaitingCount })}
             tone="blue"
             href="/oppdrag?vis=apne"
           />
           <KpiCard
             icon="🔄"
-            label="Påbegynt"
+            label={t("dashboard.kpi.inProgress")}
             value={inProgressCount}
-            sub="Jobbes med nå"
+            sub={t("dashboard.kpi.inProgressSub")}
             tone="purple"
             href="/oppdrag?vis=pagaaende"
           />
           <KpiCard
             icon="📅"
-            label="Dagens oppdrag"
+            label={t("dashboard.kpi.today")}
             value={todayOrders.length}
-            sub={formatDate(startOfToday, "Ingen dato")}
+            sub={formatDate(startOfToday, t("dashboard.orderList.noDate"))}
             tone="gray"
             href="/oppdrag?vis=idag"
           />
           <KpiCard
             icon="⚠️"
-            label="Forfalte"
+            label={t("dashboard.kpi.overdue")}
             value={overdueCount}
-            sub="Ikke fullført i tide"
+            sub={t("dashboard.kpi.overdueSub")}
             tone={overdueCount > 0 ? "red" : "gray"}
             href="/oppdrag?vis=forfalte"
           />
@@ -438,33 +442,33 @@ export default async function AdminDashboard({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             icon="🙋"
-            label="Ikke tildelt"
+            label={t("dashboard.kpi.unassigned")}
             value={unassignedCount}
-            sub="Mangler montør"
+            sub={t("dashboard.kpi.unassignedSub")}
             tone={unassignedCount > 0 ? "amber" : "gray"}
             href="/oppdrag?vis=ikke-tildelt"
           />
           <KpiCard
             icon="📋"
-            label="Rapporter i mnd."
+            label={t("dashboard.kpi.reports")}
             value={reportsThisMonth}
-            sub="Utfylte sjekklister"
+            sub={t("dashboard.kpi.reportsSub")}
             tone="green"
             href="/rapporter"
           />
           <KpiCard
             icon="🏢"
-            label="Kunder"
+            label={t("dashboard.kpi.customers")}
             value={customerCount}
-            sub="Totalt i registeret"
+            sub={t("dashboard.kpi.customersSub")}
             tone="gray"
             href="/kunder"
           />
           <KpiCard
             icon="🔧"
-            label="Enheter"
+            label={t("dashboard.kpi.equipment")}
             value={productCount}
-            sub={`${completedCount} fullførte oppdrag`}
+            sub={t("dashboard.kpi.equipmentSub", { count: completedCount })}
             tone="gray"
             href="/enheter"
           />
@@ -474,48 +478,48 @@ export default async function AdminDashboard({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
-              <h2 className="font-black text-gray-900 text-base">📅 Dagens oppdrag</h2>
+              <h2 className="font-black text-gray-900 text-base">{t("dashboard.todayTitle")}</h2>
               <Link href="/kalender" className="text-[11px] font-bold text-blue-600 hover:underline">
-                Kalender
+                {t("dashboard.calendarLink")}
               </Link>
             </div>
-            <OrderList orders={todayOrders} empty="Ingen oppdrag planlagt i dag." />
+            <OrderList orders={todayOrders} empty={t("dashboard.todayEmpty")} />
           </div>
 
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
-              <h2 className="font-black text-gray-900 text-base">⚠️ Forfalte oppdrag</h2>
+              <h2 className="font-black text-gray-900 text-base">{t("dashboard.overdueTitle")}</h2>
               {overdueCount > 0 && (
                 <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
                   {overdueCount}
                 </span>
               )}
             </div>
-            <OrderList orders={overdueOrders} empty="Ingen forfalte oppdrag. Bra jobbet! 🎉" />
+            <OrderList orders={overdueOrders} empty={t("dashboard.overdueEmpty")} />
           </div>
         </div>
 
         {/* IKKE TILDELTE */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="font-black text-gray-900 text-base">🙋 Oppdrag uten montør</h2>
+            <h2 className="font-black text-gray-900 text-base">{t("dashboard.unassignedTitle")}</h2>
             {canAssign && (
               <Link href="/kalender/dispatch" className="text-[11px] font-bold text-blue-600 hover:underline">
-                Åpne dispatch
+                {t("dashboard.openDispatch")}
               </Link>
             )}
           </div>
           <OrderList
             orders={unassignedOrders}
-            empty="Alle aktive oppdrag har en montør. 👏"
+            empty={t("dashboard.unassignedEmpty")}
           />
         </div>
 
         {/* OPPDRAGSLISTE MED SØK OG FILTER */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="font-black text-gray-900 text-base">📂 Oppdrag</h2>
-            <span className="text-[11px] text-gray-500">{listTotal} treff</span>
+            <h2 className="font-black text-gray-900 text-base">{t("dashboard.ordersTitle")}</h2>
+            <span className="text-[11px] text-gray-500">{t("dashboard.hits", { count: listTotal })}</span>
           </div>
 
           <form method="GET" action="/" className="flex flex-col sm:flex-row gap-2 sm:gap-3">
@@ -523,7 +527,7 @@ export default async function AdminDashboard({
               type="text"
               name="q"
               defaultValue={searchQuery}
-              placeholder="Filtrer oppdragslisten på tittel, beskrivelse, kunde eller sted..."
+              placeholder={t("dashboard.searchPlaceholder")}
               className="flex-1 min-w-[200px] border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             />
             <select
@@ -533,7 +537,7 @@ export default async function AdminDashboard({
             >
               {statusOptions.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {t(o.labelKey)}
                 </option>
               ))}
             </select>
@@ -541,24 +545,24 @@ export default async function AdminDashboard({
               type="submit"
               className="bg-gray-900 text-white px-5 py-3 rounded-xl font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap text-sm"
             >
-              Søk
+              {t("dashboard.search")}
             </button>
             {(searchQuery || statusFilter) && (
               <Link
                 href="/"
                 className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center whitespace-nowrap text-sm"
               >
-                Nullstill
+                {t("dashboard.reset")}
               </Link>
             )}
           </form>
 
           {listOrders.length === 0 ? (
             <div className="p-6 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <p className="text-gray-500 font-medium">Ingen oppdrag matcher søket.</p>
+              <p className="text-gray-500 font-medium">{t("dashboard.noMatches")}</p>
               {canCreate && (
                 <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className="text-blue-600 font-bold hover:underline mt-2 inline-block">
-                  Opprett et nytt oppdrag
+                  {t("dashboard.createNew")}
                 </Link>
               )}
             </div>
@@ -576,8 +580,8 @@ export default async function AdminDashboard({
                       <StatusBadge status={wo.status} />
                     </div>
                     <p className="text-[10px] text-gray-500">
-                      🏢 {wo.customer?.name || "Uten kunde"} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
-                      {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r)` : ""}
+                      🏢 {wo.customer?.name || t("dashboard.orderList.noCustomer")} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("dashboard.orderList.noDate")}
+                      {wo._count.reports > 0 ? ` • ${t("dashboard.checklists", { count: wo._count.reports })}` : ""}
                     </p>
                     {formatAddress(wo.customer) && (
                       <p className="text-[10px] text-gray-500">📍 {formatAddress(wo.customer)}</p>
@@ -599,12 +603,12 @@ export default async function AdminDashboard({
                   </div>
                   <div className="flex items-center gap-3 text-[10px]">
                     <div className="text-gray-600">
-                      <p className="font-bold text-gray-700 text-[10px] uppercase tracking-wider">Montører</p>
+                      <p className="font-bold text-gray-700 text-[10px] uppercase tracking-wider">{t("dashboard.technicians")}</p>
                       <p className="truncate">
                         {wo.technicians.length > 0 ? (
-                          wo.technicians.map((t) => t.name?.split(" ")[0]).filter(Boolean).join(", ")
+                          wo.technicians.map((tech) => tech.name?.split(" ")[0]).filter(Boolean).join(", ")
                         ) : (
-                          <span className="text-red-500 font-medium">Ikke tildelt</span>
+                          <span className="text-red-500 font-medium">{t("dashboard.notAssigned")}</span>
                         )}
                       </p>
                     </div>
@@ -622,18 +626,18 @@ export default async function AdminDashboard({
                   href={`/?page=${page - 1}${listQuery}`}
                   className="text-blue-600 text-sm font-bold hover:underline whitespace-nowrap"
                 >
-                  &larr; Forrige
+                  {t("dashboard.previous")}
                 </Link>
               )}
               <span className="text-sm text-gray-600">
-                Side {page} av {totalPages}
+                {t("dashboard.page", { page, pages: totalPages })}
               </span>
               {page < totalPages && (
                 <Link
                   href={`/?page=${page + 1}${listQuery}`}
                   className="text-blue-600 font-bold hover:underline text-sm whitespace-nowrap"
                 >
-                  Neste &rarr;
+                  {t("dashboard.next")}
                 </Link>
               )}
             </div>
@@ -644,13 +648,13 @@ export default async function AdminDashboard({
         {canViewAudit && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
             <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <h2 className="font-black text-gray-900 text-base">📋 Siste aktivitet</h2>
+              <h2 className="font-black text-gray-900 text-base">{t("dashboard.activityTitle")}</h2>
               <Link href="/innstillinger?tab=auditlog" className="text-[11px] font-bold text-blue-600 hover:underline">
-                Se all aktivitet
+                {t("dashboard.viewAllActivity")}
               </Link>
             </div>
             {recentLogs.length === 0 ? (
-              <p className="text-xs text-gray-500 italic">Ingen aktivitet registrert.</p>
+              <p className="text-xs text-gray-500 italic">{t("dashboard.noActivity")}</p>
             ) : (
               <ol className="space-y-2">
                 {recentLogs.map((log) => (
@@ -659,7 +663,7 @@ export default async function AdminDashboard({
                     <div className="min-w-0">
                       <p className="text-gray-800 font-medium">{log.action}</p>
                       <p className="text-[10px] text-gray-500">
-                        {log.userName || "Ukjent"} • {formatDateTime(log.createdAt)}
+                        {log.userName || t("dashboard.unknownUser")} • {formatDateTime(log.createdAt)}
                       </p>
                     </div>
                   </li>

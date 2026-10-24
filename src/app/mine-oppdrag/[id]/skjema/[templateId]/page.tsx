@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import ReportForm, { type CustomerUnit, type InitialReport } from "./ReportForm";
 import { type TemplateField } from "./FieldInput";
 import { parseJsonObject } from "@/lib/report-answers";
@@ -21,6 +22,7 @@ export default async function TechnicianFillFormPage({
 
   const { id: workOrderId, templateId } = await params;
   const { returnTo: returnToParam } = await searchParams;
+  const t = await getTranslations("common");
 
   // Skjemaet kan åpnes både fra feltportalen og fra kontorets oppdragsside.
   // Bare de to oppdragssidene godtas som returmål.
@@ -56,10 +58,10 @@ export default async function TechnicianFillFormPage({
   if (!workOrder || !template) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">Kunne ikke laste skjema</h1>
-        <p className="text-gray-500 mb-6">Oppdraget eller skjema-malen finnes ikke lenger.</p>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">{t("orders.fieldFormPage.loadErrorTitle")}</h1>
+        <p className="text-gray-500 mb-6">{t("orders.fieldFormPage.loadErrorText")}</p>
         <Link href={`/mine-oppdrag/${workOrderId}`} className="bg-blue-700 text-white px-6 py-3 rounded-xl font-bold">
-          Tilbake til oppdrag
+          {t("orders.fieldFormPage.backToWorkOrder")}
         </Link>
       </div>
     );
@@ -79,33 +81,34 @@ export default async function TechnicianFillFormPage({
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
             <Link href={returnTo} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
-              &larr; Tilbake til oppdraget
+              {t("orders.fieldFormPage.backToWorkOrderShort")}
             </Link>
             <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
             <p className="text-sm text-gray-600 mt-1">
-              Oppdrag: <span className="font-bold text-gray-800">{workOrder.title}</span> hos{" "}
-              {workOrder.customer?.name || "Uten kunde"}
+              {t("orders.fieldFormPage.workOrderFor", {
+                title: workOrder.title,
+                customer: workOrder.customer?.name || t("orders.fieldFormPage.noCustomer"),
+              })}
             </p>
           </div>
 
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 space-y-4">
-            <h2 className="text-lg font-black text-amber-900">🔒 Rapporten er låst</h2>
+            <h2 className="text-lg font-black text-amber-900">{t("orders.fieldFormPage.lockedTitle")}</h2>
             <p className="text-sm text-amber-900">
-              Denne sjekklisten er allerede fylt ut og låst, og kan ikke endres herfra. Er det
-              behov for rettinger må en administrator låse den opp først.
+              {t("orders.fieldFormPage.lockedText")}
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
               <Link
                 href={`/rapporter/${workOrderId}`}
                 className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm"
               >
-                📄 Se rapporten (PDF)
+                {t("orders.fieldFormPage.openPdf")}
               </Link>
               <Link
                 href={returnTo}
                 className="bg-white border-2 border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm"
               >
-                Tilbake til oppdraget
+                {t("orders.fieldFormPage.backToWorkOrder")}
               </Link>
             </div>
           </div>
@@ -175,12 +178,14 @@ export default async function TechnicianFillFormPage({
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
           <Link href={returnTo} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
-            &larr; Tilbake til oppdraget
+            {t("orders.fieldFormPage.backToWorkOrderShort")}
           </Link>
           <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Oppdrag: <span className="font-bold text-gray-800">{workOrder.title}</span> hos{" "}
-            {workOrder.customer?.name || "Uten kunde"}
+            {t("orders.fieldFormPage.workOrderFor", {
+              title: workOrder.title,
+              customer: workOrder.customer?.name || t("orders.fieldFormPage.noCustomer"),
+            })}
           </p>
         </div>
 

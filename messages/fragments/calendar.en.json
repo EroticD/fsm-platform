@@ -1,1 +1,86 @@
-{}
+{
+  "calendar": {
+    "common": {
+      "home": "← Home",
+      "newWorkOrder": "➕ New work order",
+      "resources": "🎛️ Resource overview",
+      "month": "📅 Month",
+      "week": "📅 Week",
+      "biweekly": "📅 2 weeks",
+      "dispatch": "🎛️ Dispatch",
+      "noDate": "No date",
+      "noCustomer": "No customer",
+      "loading": "Loading calendar...",
+      "loadingInteractive": "Loading interactive calendar..."
+    },
+    "page": {
+      "title": "📅 Planning & Control",
+      "subtitle": "Manage resources, technicians and schedules.",
+      "unassignedTitle": "⚠️ Unassigned work orders ({count})",
+      "unassignedWarning": "The following work orders have no technician and must be assigned!",
+      "assignTechnician": "Assign technician →",
+      "technicianOverview": "Technician overview",
+      "activeCount": "{count} active",
+      "noActive": "No active work orders.",
+      "statusPlanned": "Planned",
+      "statusInProgress": "In progress",
+      "statusWaiting": "Waiting",
+      "recentlyCompleted": "Recently completed ({count})",
+      "completed": "✅ Completed"
+    },
+    "month": {
+      "title": "📅 Month calendar",
+      "subtitle": "Month view with week numbers. Drag work orders to change the date."
+    },
+    "week": {
+      "title": "📅 Week calendar",
+      "subtitle": "Week view with week numbers. Drag work orders to change the date."
+    },
+    "biweekly": {
+      "title": "📅 Week calendar (2 weeks)",
+      "subtitle": "Two-week view with week numbers. Drag work orders to change the date."
+    },
+    "dispatch": {
+      "title": "🎛️ Dispatch & Resource Management",
+      "subtitle": "Assign technicians to open work orders.",
+      "backToCalendar": "← Back to calendar",
+      "invalidStatus": "⛔ The status change is not allowed from the current state of the work order. Completed or cancelled work orders can only be reopened by an administrator.",
+      "genericError": "⛔ The action could not be completed. Check the fields and try again.",
+      "unassignedCount": "⚠️ Without technician ({count})",
+      "unassignedWarning": "These work orders have no technician and must be assigned.",
+      "refresh": "Refresh",
+      "unassignedTitle": "No technician assigned",
+      "assignConfirm": "Assign a technician to this work order?",
+      "selectTechnician": "-- Select technician --",
+      "assign": "Assign",
+      "assignedTitle": "Assigned work orders",
+      "removeConfirm": "Remove the technician from this work order?",
+      "remove": "Remove",
+      "update": "Update",
+      "viewDetails": "View details →",
+      "empty": "No open work orders to assign.",
+      "roleAdmin": "Admin",
+      "roleOffice": "Office",
+      "roleTechnician": "Technician",
+      "statusOpen": "Open",
+      "statusInProgress": "In progress",
+      "statusWaiting": "Waiting",
+      "statusCompleted": "Completed",
+      "statusCancelled": "Cancelled",
+      "statusPlanned": "Planned",
+      "badgeCompleted": "✅ Completed",
+      "badgeInProgress": "🔄 In progress",
+      "badgeCancelled": "❌ Cancelled",
+      "badgeOpen": "✨ Open",
+      "badgePending": "⏳ Planned",
+      "badgePlanned": "📅 Planned",
+      "badgeWaiting": "⏸️ Waiting"
+    },
+    "client": {
+      "today": "Today",
+      "month": "Month",
+      "week": "Week",
+      "saveError": "Could not save the new date."
+    }
+  }
+}

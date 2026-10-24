@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { WorkStatus } from "@prisma/client";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
@@ -31,15 +32,16 @@ const auditActor = (user?: {
 });
 
 // Hjelpekomponent for status-etikett
-function DispatchStatusBadge({ status }: { status: string }) {
+async function DispatchStatusBadge({ status }: { status: string }) {
+  const t = await getTranslations("common");
   switch (status) {
-    case 'COMPLETED': return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200 shadow-sm">✅ Fullført</span>;
-    case 'IN_PROGRESS': return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm">🔄 Påbegynt</span>;
-    case 'CANCELLED': return <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold border border-red-200 shadow-sm">❌ Kansellert</span>;
-    case 'OPEN': return <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm">✨ Åpen</span>;
-    case 'PENDING': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">⏳ Planlagt</span>;
-    case 'PLANNED': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">📅 Planlagt</span>;
-    case 'WAITING': return <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold border border-orange-200 shadow-sm">⏸️ Venter</span>;
+    case 'COMPLETED': return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200 shadow-sm">{t("calendar.dispatch.badgeCompleted")}</span>;
+    case 'IN_PROGRESS': return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm">{t("calendar.dispatch.badgeInProgress")}</span>;
+    case 'CANCELLED': return <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold border border-red-200 shadow-sm">{t("calendar.dispatch.badgeCancelled")}</span>;
+    case 'OPEN': return <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm">{t("calendar.dispatch.badgeOpen")}</span>;
+    case 'PENDING': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">{t("calendar.dispatch.badgePending")}</span>;
+    case 'PLANNED': return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">{t("calendar.dispatch.badgePlanned")}</span>;
+    case 'WAITING': return <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold border border-orange-200 shadow-sm">{t("calendar.dispatch.badgeWaiting")}</span>;
     default: return <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-bold border border-gray-200 shadow-sm">{status}</span>;
   }
 }
@@ -53,6 +55,8 @@ export default async function DispatchPage({
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.assign")) redirect("/");
+
+  const t = await getTranslations("common");
 
   // Hent alle åpne oppdrag som ikke er fullført eller kansellert, i egen avdeling.
   const workOrders = await prisma.workOrder.findMany({
@@ -214,6 +218,26 @@ export default async function DispatchPage({
   const unassigned = workOrders.filter(wo => wo.technicians.length === 0);
   const assigned = workOrders.filter(wo => wo.technicians.length > 0);
 
+  const statusLabelFor = (status: string) => {
+    switch (status) {
+      case "OPEN":
+        return t("calendar.dispatch.statusOpen");
+      case "IN_PROGRESS":
+        return t("calendar.dispatch.statusInProgress");
+      case "WAITING":
+        return t("calendar.dispatch.statusWaiting");
+      case "COMPLETED":
+        return t("calendar.dispatch.statusCompleted");
+      case "CANCELLED":
+        return t("calendar.dispatch.statusCancelled");
+      case "PENDING":
+      case "PLANNED":
+        return t("calendar.dispatch.statusPlanned");
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -221,26 +245,25 @@ export default async function DispatchPage({
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">🎛️ Dispatch & Ressursstyring</h1>
-            <p className="text-gray-600 text-sm">Fordel montører på åpne oppdrag.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t("calendar.dispatch.title")}</h1>
+            <p className="text-gray-600 text-sm">{t("calendar.dispatch.subtitle")}</p>
           </div>
           <div className="flex gap-2">
             <Link href="/kalender" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm whitespace-nowrap">
-              &larr; Tilbake til kalender
+              {t("calendar.dispatch.backToCalendar")}
             </Link>
           </div>
         </div>
 
         {error === "ugyldig-status" && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl text-sm font-bold">
-            ⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand.
-            Fullførte eller kansellerte oppdrag kan bare gjenåpnes av en administrator.
+            {t("calendar.dispatch.invalidStatus")}
           </div>
         )}
 
         {error && error !== "ugyldig-status" && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl text-sm font-bold">
-            ⛔ Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.
+            {t("calendar.dispatch.genericError")}
           </div>
         )}
 
@@ -248,19 +271,19 @@ export default async function DispatchPage({
         <div className="overflow-x-auto pb-2">
           <div className="flex gap-1 bg-gray-200 p-1 rounded-xl min-w-max">
             <Link href="/kalender" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              🎛️ Ressursoversikt
+              {t("calendar.common.resources")}
             </Link>
             <Link href="/kalender/maned" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              📅 Måned
+              {t("calendar.common.month")}
             </Link>
             <Link href="/kalender/uke" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              📅 Uke
+              {t("calendar.common.week")}
             </Link>
             <Link href="/kalender/uke-2" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              📅 2 uker
+              {t("calendar.common.biweekly")}
             </Link>
             <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-gray-900 pointer-events-none whitespace-nowrap">
-              🎛️ Dispatch
+              {t("calendar.common.dispatch")}
             </Link>
           </div>
         </div>
@@ -271,12 +294,12 @@ export default async function DispatchPage({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <h2 className="font-bold text-amber-800 text-lg flex items-center gap-2">
-                  ⚠️ Uten montør ({unassigned.length})
+                  {t("calendar.dispatch.unassignedCount", { count: unassigned.length })}
                 </h2>
-                <p className="text-amber-700 text-sm mt-1">Disse oppdragene mangler montør og må fordeles.</p>
+                <p className="text-amber-700 text-sm mt-1">{t("calendar.dispatch.unassignedWarning")}</p>
               </div>
               <Link href="/kalender/dispatch" className="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-700 transition whitespace-nowrap text-sm">
-                Oppdater
+                {t("calendar.dispatch.refresh")}
               </Link>
             </div>
           </div>
@@ -286,7 +309,7 @@ export default async function DispatchPage({
         {unassigned.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="bg-gray-50 p-4 border-b border-gray-200">
-              <h2 className="font-bold text-lg text-gray-900">Ikke tildelt montør</h2>
+              <h2 className="font-bold text-lg text-gray-900">{t("calendar.dispatch.unassignedTitle")}</h2>
             </div>
             <div className="divide-y divide-gray-100">
               {unassigned.map(wo => (
@@ -305,7 +328,7 @@ export default async function DispatchPage({
                         <DispatchStatusBadge status={wo.status} />
                       </div>
                       <p className="text-[10px] text-gray-600">
-                        🏢 {wo.customer?.name || "Uten kunde"}
+                        🏢 {wo.customer?.name || t("calendar.common.noCustomer")}
                         {wo.product && <span className="text-gray-400 ml-1">• {wo.product.model}</span>}
                         {wo.scheduledFor && (
                           <span className="text-gray-400 ml-2">📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo)}</span>
@@ -323,7 +346,7 @@ export default async function DispatchPage({
                     <div className="flex items-center gap-2">
                       <ConfirmSubmitForm
                         action={assignTechnician}
-                        confirmMessage="Tildel montør til dette oppdraget?"
+                        confirmMessage={t("calendar.dispatch.assignConfirm")}
                         className="flex items-center gap-2"
                       >
                         <input type="hidden" name="workOrderId" value={wo.id} />
@@ -332,13 +355,13 @@ export default async function DispatchPage({
                           required
                           className="border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-600"
                         >
-                          <option value="">-- Velg montør --</option>
-                          {availableTechnicians.map(t => (
-                            <option key={t.id} value={t.id}>{t.name} ({t.role === 'ADMIN' ? 'Admin' : t.role === 'OFFICE' ? 'Kontor' : 'Montør'})</option>
+                          <option value="">{t("calendar.dispatch.selectTechnician")}</option>
+                          {availableTechnicians.map(tech => (
+                            <option key={tech.id} value={tech.id}>{tech.name} ({tech.role === 'ADMIN' ? t("calendar.dispatch.roleAdmin") : tech.role === 'OFFICE' ? t("calendar.dispatch.roleOffice") : t("calendar.dispatch.roleTechnician")})</option>
                           ))}
                         </select>
                         <button type="submit" className="bg-[var(--primary-color)] text-white px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition whitespace-nowrap">
-                          Tildel
+                          {t("calendar.dispatch.assign")}
                         </button>
                       </ConfirmSubmitForm>
                     </div>
@@ -353,7 +376,7 @@ export default async function DispatchPage({
         {assigned.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
             <div className="bg-gray-50 p-4 border-b border-gray-200">
-              <h2 className="font-bold text-lg text-gray-900">Tildelte oppdrag</h2>
+              <h2 className="font-bold text-lg text-gray-900">{t("calendar.dispatch.assignedTitle")}</h2>
             </div>
             <div className="divide-y divide-gray-100">
               {assigned.map(wo => (
@@ -372,7 +395,7 @@ export default async function DispatchPage({
                         <DispatchStatusBadge status={wo.status} />
                       </div>
                       <p className="text-[10px] text-gray-600">
-                        🏢 {wo.customer?.name || "Uten kunde"}
+                        🏢 {wo.customer?.name || t("calendar.common.noCustomer")}
                         {wo.technicians.length > 0
                           ? ` • 👷 ${wo.technicians.map(t => t.name).join(", ")}`
                           : ""}
@@ -389,7 +412,7 @@ export default async function DispatchPage({
                     <div className="flex items-center gap-2">
                       <ConfirmSubmitForm
                         action={removeTechnician}
-                        confirmMessage="Fjern montør fra dette oppdraget?"
+                        confirmMessage={t("calendar.dispatch.removeConfirm")}
                         className="flex items-center gap-2"
                       >
                         <input type="hidden" name="workOrderId" value={wo.id} />
@@ -403,7 +426,7 @@ export default async function DispatchPage({
                           ))}
                         </select>
                         <button type="submit" className="bg-red-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition whitespace-nowrap">
-                          Fjern
+                          {t("calendar.dispatch.remove")}
                         </button>
                       </ConfirmSubmitForm>
                       <form action={updateStatus} className="flex items-center gap-2">
@@ -413,21 +436,21 @@ export default async function DispatchPage({
                           required
                           className="border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-600"
                         >
-                          <option value={wo.status}>{wo.status === 'OPEN' ? 'Åpen' : wo.status === 'IN_PROGRESS' ? 'Påbegynt' : wo.status === 'COMPLETED' ? 'Fullført' : wo.status === 'CANCELLED' ? 'Kansellert' : wo.status === 'PENDING' ? 'Planlagt' : wo.status === 'PLANNED' ? 'Planlagt' : wo.status === 'WAITING' ? 'Venter' : wo.status}</option>
-                          <option value="OPEN">Åpen</option>
-                          <option value="IN_PROGRESS">Påbegynt</option>
-                          <option value="WAITING">Venter</option>
-                          <option value="COMPLETED">Fullført</option>
-                          <option value="CANCELLED">Kansellert</option>
-                          <option value="PENDING">Planlagt</option>
-                          <option value="PLANNED">Planlagt</option>
+                          <option value={wo.status}>{statusLabelFor(wo.status)}</option>
+                          <option value="OPEN">{t("calendar.dispatch.statusOpen")}</option>
+                          <option value="IN_PROGRESS">{t("calendar.dispatch.statusInProgress")}</option>
+                          <option value="WAITING">{t("calendar.dispatch.statusWaiting")}</option>
+                          <option value="COMPLETED">{t("calendar.dispatch.statusCompleted")}</option>
+                          <option value="CANCELLED">{t("calendar.dispatch.statusCancelled")}</option>
+                          <option value="PENDING">{t("calendar.dispatch.statusPlanned")}</option>
+                          <option value="PLANNED">{t("calendar.dispatch.statusPlanned")}</option>
                         </select>
                         <button type="submit" className="bg-gray-900 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition whitespace-nowrap">
-                          Oppdater
+                          {t("calendar.dispatch.update")}
                         </button>
                       </form>
                       <Link href={`/oppdrag/${wo.id}`} className="text-blue-600 text-xs font-bold hover:underline whitespace-nowrap">
-                        Se detaljer &rarr;
+                        {t("calendar.dispatch.viewDetails")}
                       </Link>
                     </div>
                   </div>
@@ -439,7 +462,7 @@ export default async function DispatchPage({
 
         {workOrders.length === 0 && (
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
-            <p className="text-gray-500 italic">Ingen åpne oppdrag å fordele.</p>
+            <p className="text-gray-500 italic">{t("calendar.dispatch.empty")}</p>
           </div>
         )}
 

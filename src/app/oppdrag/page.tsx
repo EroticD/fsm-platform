@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
@@ -31,48 +32,48 @@ function getDateContext() {
  * slik at man ser nøyaktig de oppdragene tallet gjelder.
  */
 const VIEWS = [
-  { key: "alle", label: "Alle", icon: "📂", description: "Alle oppdrag i systemet." },
+  { key: "alle", labelKey: "orders.list.views.alle.label", icon: "📂", descriptionKey: "orders.list.views.alle.description" },
   {
     key: "apne",
-    label: "Åpne",
+    labelKey: "orders.list.views.apne.label",
     icon: "🔄",
-    description: "Oppdrag som ikke er fullført eller kansellert.",
+    descriptionKey: "orders.list.views.apne.description",
   },
   {
     key: "venter",
-    label: "Venter på oppstart",
+    labelKey: "orders.list.views.venter.label",
     icon: "⏳",
-    description: "Åpne oppdrag som ennå ikke er satt i gang.",
+    descriptionKey: "orders.list.views.venter.description",
   },
   {
     key: "pagaaende",
-    label: "Påbegynt",
+    labelKey: "orders.list.views.pagaaende.label",
     icon: "🛠️",
-    description: "Oppdrag det jobbes med nå.",
+    descriptionKey: "orders.list.views.pagaaende.description",
   },
   {
     key: "idag",
-    label: "I dag",
+    labelKey: "orders.list.views.idag.label",
     icon: "📅",
-    description: "Oppdrag som er planlagt til i dag.",
+    descriptionKey: "orders.list.views.idag.description",
   },
   {
     key: "forfalte",
-    label: "Forfalte",
+    labelKey: "orders.list.views.forfalte.label",
     icon: "⚠️",
-    description: "Planlagt før i dag, men ikke fullført.",
+    descriptionKey: "orders.list.views.forfalte.description",
   },
   {
     key: "ikke-tildelt",
-    label: "Ikke tildelt",
+    labelKey: "orders.list.views.ikke-tildelt.label",
     icon: "🙋",
-    description: "Åpne oppdrag som mangler montør.",
+    descriptionKey: "orders.list.views.ikke-tildelt.description",
   },
   {
     key: "fullforte",
-    label: "Fullførte",
+    labelKey: "orders.list.views.fullforte.label",
     icon: "✅",
-    description: "Oppdrag som er fullført.",
+    descriptionKey: "orders.list.views.fullforte.description",
   },
 ] as const;
 
@@ -132,6 +133,8 @@ export default async function WorkOrdersPage({
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
+
+  const t = await getTranslations("common");
 
   // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
@@ -235,12 +238,14 @@ export default async function WorkOrdersPage({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-gray-900">
-              {activeView.icon} {activeView.label}
+              {activeView.icon} {t(activeView.labelKey)}
             </h1>
             <p className="text-gray-500 mt-1 text-sm font-medium">
-              {activeView.description}
+              {t(activeView.descriptionKey)}
               {" • "}
-              <span className="font-bold text-gray-700">{total} oppdrag</span>
+              <span className="font-bold text-gray-700">
+                {t("orders.list.total", { count: total })}
+              </span>
             </p>
           </div>
           <div className="flex gap-2">
@@ -248,14 +253,14 @@ export default async function WorkOrdersPage({
               href="/"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
-              ← Dashbord
+              {t("orders.list.backToDashboard")}
             </Link>
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
                 className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
               >
-                ➕ Nytt oppdrag
+                {t("orders.list.newWorkOrder")}
               </Link>
             )}
           </div>
@@ -278,7 +283,7 @@ export default async function WorkOrdersPage({
                     }`}
                   >
                     <span className="leading-none">{v.icon}</span>
-                    <span>{v.label}</span>
+                    <span>{t(v.labelKey)}</span>
                     <span
                       className={`text-[11px] px-1.5 py-0.5 rounded-full ${
                         active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
@@ -298,21 +303,21 @@ export default async function WorkOrdersPage({
               type="search"
               name="q"
               defaultValue={search}
-              placeholder="Søk i tittel, beskrivelse, kunde eller sted ..."
+              placeholder={t("orders.list.searchPlaceholder")}
               className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
             />
             <button
               type="submit"
               className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition"
             >
-              Søk
+              {t("orders.list.search")}
             </button>
             {search ? (
               <Link
                 href={linkFor(view)}
                 className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
               >
-                Nullstill
+                {t("orders.list.reset")}
               </Link>
             ) : null}
           </form>
@@ -321,11 +326,13 @@ export default async function WorkOrdersPage({
         {/* LISTE */}
         {orders.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">Ingen oppdrag i denne visningen.</p>
+            <p className="text-gray-600 font-bold">
+              {t("orders.list.emptyTitle")}
+            </p>
             <p className="text-xs text-gray-500 mt-1">
               {search
-                ? `Ingen treff på «${search}». Prøv et annet søkeord, eller nullstill søket.`
-                : "Velg en annen visning over, eller opprett et nytt oppdrag."}
+                ? t("orders.list.emptySearch", { query: search })
+                : t("orders.list.emptyHint")}
             </p>
           </div>
         ) : (
@@ -342,10 +349,10 @@ export default async function WorkOrdersPage({
                   <div className="min-w-0">
                     <p className="font-black text-gray-900 truncate">{wo.title}</p>
                     <p className="text-[11px] text-gray-500 mt-1">
-                      🏢 {wo.customer?.name || "Uten kunde"}
+                      🏢 {wo.customer?.name || t("orders.list.noCustomer")}
                       {address ? ` • 📍 ${address}` : ""}
                       {" • 📅 "}
-                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || "Ingen dato"}
+                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.list.noDate")}
                     </p>
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -368,15 +375,18 @@ export default async function WorkOrdersPage({
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] font-bold">
                   <span className={wo.technicians.length === 0 ? "text-amber-700" : "text-gray-600"}>
                     {wo.technicians.length === 0
-                      ? "⚠️ Ikke tildelt montør"
-                      : `👷 ${wo.technicians.map((t) => t.name).filter(Boolean).join(", ")}`}
+                      ? t("orders.list.unassigned")
+                      : `👷 ${wo.technicians.map((tech) => tech.name).filter(Boolean).join(", ")}`}
                   </span>
                   <span className="text-gray-600">
-                    📋 {wo.reports.length}/{wo.templates.length} sjekklister utfylt
+                    {t("orders.list.checklists", {
+                      done: wo.reports.length,
+                      total: wo.templates.length,
+                    })}
                   </span>
                   {wo.scheduledFor && new Date(wo.scheduledTo || wo.scheduledFor) < dates.startOfToday &&
                     !CLOSED_STATUSES.includes(wo.status) && (
-                      <span className="text-red-700">⚠️ Forfalt</span>
+                      <span className="text-red-700">{t("orders.list.overdue")}</span>
                     )}
                 </div>
               </Link>
@@ -393,18 +403,18 @@ export default async function WorkOrdersPage({
                 href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page - 1}`}
                 className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
               >
-                ← Forrige
+                {t("orders.list.previous")}
               </Link>
             )}
             <span className="text-sm font-bold text-gray-600">
-              Side {page} av {totalPages}
+              {t("orders.list.page", { page, pages: totalPages })}
             </span>
             {page < totalPages && (
               <Link
                 href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page + 1}`}
                 className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
               >
-                Neste →
+                {t("orders.list.next")}
               </Link>
             )}
           </div>
