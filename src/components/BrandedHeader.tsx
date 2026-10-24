@@ -153,6 +153,7 @@ export default function BrandedHeader({
         {/* Mobile hamburger menu button */}
         {showNav && (
           <button
+            type="button"
             onClick={() => setOpenMenuForPath(isMobileMenuOpen ? null : pathname)}
             className="lg:hidden flex items-center justify-center p-2.5 text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl transition"
             aria-label="Menu"
@@ -188,6 +189,7 @@ export default function BrandedHeader({
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-gray-900 text-sm">Meny</h3>
             <button
+              type="button"
               onClick={closeMobileMenu}
               className="flex items-center justify-center text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl p-2.5"
               aria-label="Lukk menyen"

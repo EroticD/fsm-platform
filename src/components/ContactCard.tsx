@@ -48,6 +48,7 @@ export default function ContactCard({
         </div>
         <div className={`flex gap-2 flex-shrink-0 ${readOnly ? "hidden" : ""}`}>
           <button
+            type="button"
             onClick={() => setIsEditing(!isEditing)}
             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition p-1"
           >
