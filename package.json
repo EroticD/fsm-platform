@@ -14,7 +14,9 @@
     "seed": "node scripts/seed.mjs",
     "db:migrate": "node ./node_modules/prisma/build/index.js migrate deploy",
     "db:status": "node ./node_modules/prisma/build/index.js migrate status",
-    "postinstall": "node ./node_modules/prisma/build/index.js generate"
+    "postinstall": "node ./node_modules/prisma/build/index.js generate",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.22",
@@ -55,6 +57,7 @@
     "source-map-js": "^1.2.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcrypt": "^6.0.0",
     "@types/mdast": "^4.0.4",
