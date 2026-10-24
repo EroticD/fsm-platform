@@ -133,7 +133,8 @@ describe("getOrCreateCalendarToken", () => {
 
 describe("regenerateCalendarToken", () => {
   it("lagrer en helt ny hash og returnerer det nye tokenet én gang", async () => {
-    const oldHash = sha256("gammelt-token");
+    const oldToken = "b".repeat(64);
+    const oldHash = sha256(oldToken);
     mocks.prisma.user.findUnique
       .mockResolvedValueOnce({ id: "u1" })
       // Etter rotasjon finnes ikke det gamle tokenet lenger.
@@ -146,11 +147,11 @@ describe("regenerateCalendarToken", () => {
     expect(update.data.calendarTokenHash).toBe(sha256(result.data.token));
     expect(update.data.calendarTokenHash).not.toBe(oldHash);
 
-    const feed = await getCalendarFeed("gammelt-token");
+    const feed = await getCalendarFeed(oldToken);
     expect(feed).toEqual({ ok: false, reason: "invalid" });
     expect(mocks.prisma.user.findUnique).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { calendarTokenHash: sha256("gammelt-token") },
+        where: { calendarTokenHash: oldHash },
       }),
     );
   });
@@ -192,21 +193,22 @@ describe("getCalendarFeed", () => {
   it("autentiserer bare mot hashen – gammelt klarteksttoken virker ikke", async () => {
     // Databasen har hashen til det nye tokenet, men klartekstkolonnen fra
     // før migreringen ville fortsatt ha inneholdt det gamle tokenet.
+    const oldPlaintext = "c".repeat(64);
     mocks.prisma.user.findUnique.mockImplementation(
       async ({ where }: { where: Record<string, unknown> }) => {
-        if (where.calendarToken === "gammelt-klartekst-token") {
+        if (where.calendarToken === oldPlaintext) {
           return { ...actor, roleDefinition: null };
         }
         return null;
       },
     );
 
-    const result = await getCalendarFeed("gammelt-klartekst-token");
+    const result = await getCalendarFeed(oldPlaintext);
 
     expect(result).toEqual({ ok: false, reason: "invalid" });
     expect(mocks.prisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { calendarTokenHash: sha256("gammelt-klartekst-token") },
+        where: { calendarTokenHash: sha256(oldPlaintext) },
       }),
     );
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
@@ -222,6 +224,10 @@ describe("getCalendarFeed", () => {
   });
 
   it("returnerer 429-resultat når rate limit er brukt opp", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      ...actor,
+      roleDefinition: null,
+    });
     mocks.allowRequestDb.mockResolvedValue({
       allowed: false,
       retryAfterSeconds: 37,
@@ -239,9 +245,18 @@ describe("getCalendarFeed", () => {
       120,
       60_000,
     );
-    // Rate limit skal stoppe før både oppslag og skriving.
-    expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
+    // Rate limit skal stoppe før skriving og oppdragslesing.
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.findMany).not.toHaveBeenCalled();
+  });
+
+  it("avviser feilformat token uten database- eller rate-limit-arbeid", async () => {
+    await expect(getCalendarFeed("ikke-et-token")).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mocks.allowRequestDb).not.toHaveBeenCalled();
   });
 
   it("avgrenser montører til oppdrag de er tildelt", async () => {
@@ -254,7 +269,12 @@ describe("getCalendarFeed", () => {
 
     expect(result.ok).toBe(true);
     const where = mocks.prisma.workOrder.findMany.mock.calls[0][0].where;
-    expect(where.AND[0]).toEqual({ technicians: { some: { id: "u1" } } });
+    expect(where.AND[0]).toEqual({
+      AND: [
+        { technicians: { some: { id: "u1" } } },
+        { departmentId: "dep-a" },
+      ],
+    });
     expect(where.AND).toContainEqual({ status: { not: "CANCELLED" } });
     expect(where.AND).toContainEqual({ scheduledFor: { not: null } });
   });

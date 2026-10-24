@@ -17,6 +17,20 @@ type FeedUser = ServiceActor & {
   isActive: boolean;
 };
 
+/** Kalendertokens er 32 tilfeldige bytes, hex-kodet. */
+const TOKEN_PATTERN = /^[a-f0-9]{64}$/;
+
+/** Global, prosesslokal sikring mot flom av tilfeldige (men velformede) tokens. */
+const globalFeedWindow = { startedAt: 0, count: 0 };
+function allowGlobalFeed(now = Date.now()): boolean {
+  if (now - globalFeedWindow.startedAt >= 60_000) {
+    globalFeedWindow.startedAt = now;
+    globalFeedWindow.count = 0;
+  }
+  globalFeedWindow.count += 1;
+  return globalFeedWindow.count <= 1200;
+}
+
 export type CalendarTokenStatus = {
   active: boolean;
   createdAt: Date | null;
@@ -172,7 +186,15 @@ function feedScopeFor(user: FeedUser): Prisma.WorkOrderWhereInput {
       : { id: { in: [] } };
   }
   if (user.role === "TECHNICIAN") {
-    return { technicians: { some: { id: user.id } } };
+    // Tildeling alene er ikke nok: brukeren må fortsatt ha oppdragsrettighet
+    // og tilhøre oppdragets avdeling. Ellers ville en fjernet rettighet eller
+    // en avdelingsendring fortsatt lekke gamle oppdrag gjennom kalenderen.
+    return {
+      AND: [
+        { technicians: { some: { id: user.id } } },
+        workOrderScopeFor(user),
+      ],
+    };
   }
   return workOrderScopeFor(user);
 }
@@ -190,21 +212,17 @@ export async function getCalendarFeed(
   token: string,
   options: { from?: Date; to?: Date } = {},
 ): Promise<CalendarFeedResult> {
-  if (!token) return { ok: false, reason: "invalid" };
+  if (!TOKEN_PATTERN.test(token)) return { ok: false, reason: "invalid" };
+
+  // Billig, prosesslokal flomvern før noe databasearbeid. Tilfeldige tokens
+  // skal ikke kunne fylle RateLimit-tabellen eller hamre på databasen.
+  if (!allowGlobalFeed()) {
+    return { ok: false, reason: "rate_limited", retryAfterSeconds: 60 };
+  }
 
   const tokenHash = sha256(token);
 
-  // Grensen ligger per token, ikke per IP: en delt abonnementslenke skal ikke
-  // kunne brukes til å hamre ned databasen fra mange adresser.
-  const limit = await allowRequestDb(`ical:${tokenHash}`, 120, 60_000);
-  if (!limit.allowed) {
-    return {
-      ok: false,
-      reason: "rate_limited",
-      retryAfterSeconds: limit.retryAfterSeconds,
-    };
-  }
-
+  // Slå opp først: et ukjent token skal ikke skrive en RateLimit-rad.
   const user = await prisma.user.findUnique({
     where: { calendarTokenHash: tokenHash },
     select: {
@@ -221,6 +239,17 @@ export async function getCalendarFeed(
     },
   });
   if (!user?.isActive) return { ok: false, reason: "invalid" };
+
+  // Grensen ligger per gyldig token, slik at en delt abonnementslenke ikke
+  // kan brukes til å hamre ned databasen fra mange adresser.
+  const limit = await allowRequestDb(`ical:${tokenHash}`, 120, 60_000);
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      reason: "rate_limited",
+      retryAfterSeconds: limit.retryAfterSeconds,
+    };
+  }
 
   const actor = user as FeedUser;
 
