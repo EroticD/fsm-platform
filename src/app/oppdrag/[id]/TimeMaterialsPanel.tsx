@@ -83,6 +83,7 @@ export default async function TimeMaterialsPanel({
   const materials = materialResult.data as MaterialView[];
   const canEdit = hasPermission(user, "workorders.update");
   const canDeleteMaterial = hasPermission(user, "workorders.edit");
+  const canSetPrice = user.role === "ADMIN" || user.role === "OFFICE";
   const active = entries.find((entry) => entry.userId === user.id && !entry.endedAt);
 
   return (
@@ -171,16 +172,18 @@ export default async function TimeMaterialsPanel({
                 className="mt-1 min-h-11 w-full rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
               />
             </label>
-            <label className="text-xs font-bold text-gray-600">
-              {t("p3.timeMaterials.hourlyRate")}
-              <input
-                type="number"
-                name="hourlyRate"
-                min="0"
-                step="0.01"
-                className="mt-1 min-h-11 w-full rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
-              />
-            </label>
+            {canSetPrice && (
+              <label className="text-xs font-bold text-gray-600">
+                {t("p3.timeMaterials.hourlyRate")}
+                <input
+                  type="number"
+                  name="hourlyRate"
+                  min="0"
+                  step="0.01"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
+                />
+              </label>
+            )}
             <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
               <input type="checkbox" name="billable" defaultChecked className="h-4 w-4" />
               {t("p3.timeMaterials.billable")}
@@ -260,15 +263,16 @@ export default async function TimeMaterialsPanel({
               defaultValue="1"
               className="min-h-11 rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
             />
-            <input
-              type="number"
-              name="unitPrice"
-              required
-              min="0"
-              step="0.01"
-              placeholder={t("p3.timeMaterials.price")}
-              className="min-h-11 rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
-            />
+            {canSetPrice && (
+              <input
+                type="number"
+                name="unitPrice"
+                min="0"
+                step="0.01"
+                placeholder={t("p3.timeMaterials.price")}
+                className="min-h-11 rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
+              />
+            )}
             <button
               type="submit"
               className="min-h-11 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
@@ -291,8 +295,15 @@ export default async function TimeMaterialsPanel({
                   </p>
                   <p className="text-xs text-gray-600">
                     {Number(material.quantity)} {material.unit} ×{" "}
-                    {currency.format(Number(material.unitPrice))} ={" "}
-                    {currency.format(Number(material.quantity) * Number(material.unitPrice))}
+                    {material.unitPrice == null
+                      ? "–"
+                      : currency.format(Number(material.unitPrice))}{" "}
+                    ={" "}
+                    {material.unitPrice == null
+                      ? "–"
+                      : currency.format(
+                          Number(material.quantity) * Number(material.unitPrice),
+                        )}
                   </p>
                 </div>
                 {canDeleteMaterial && (

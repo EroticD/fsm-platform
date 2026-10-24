@@ -9,6 +9,7 @@ import {
 import {
   can,
   fail,
+  isOfficeActor,
   ok,
   toAuditActor,
   workOrderScopeFor,
@@ -43,6 +44,12 @@ function idFrom(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, 64) : "";
 }
 
+function numericPrice(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const price = Number(value);
+  return Number.isFinite(price) ? price : null;
+}
+
 export async function listMaterials(
   actor: ServiceActor,
   workOrderId: unknown,
@@ -73,6 +80,12 @@ export async function addMaterial(
     return fail("forbidden");
   }
 
+  // Feltbrukere prissetter ikke materiale. Kontoret kan gjøre det senere.
+  const requestedPrice =
+    isOfficeActor(actor) && parsed.data.unitPrice !== undefined
+      ? (parsed.data.unitPrice ?? null)
+      : null;
+
   const created = await prisma.$transaction(async (tx) => {
     const material = await tx.material.create({
       data: {
@@ -81,7 +94,7 @@ export async function addMaterial(
         sku: parsed.data.sku ?? null,
         quantity: parsed.data.quantity,
         unit: parsed.data.unit,
-        unitPrice: parsed.data.unitPrice,
+        unitPrice: requestedPrice,
       },
       select: { id: true },
     });
@@ -95,6 +108,9 @@ export async function addMaterial(
         workOrderId: parsed.data.workOrderId,
         name: parsed.data.name,
         quantity: parsed.data.quantity,
+        ...(requestedPrice !== null
+          ? { unitPrice: { before: null, after: requestedPrice } }
+          : {}),
       },
     });
     return material;
@@ -112,12 +128,23 @@ export async function updateMaterial(
 
   const material = await prisma.material.findUnique({
     where: { id: parsed.data.id },
-    select: { id: true, workOrderId: true },
+    select: { id: true, workOrderId: true, unitPrice: true },
   });
   if (!material) return fail("not_found");
   if (!(await requireWorkOrder(actor, material.workOrderId, "workorders.update"))) {
     return fail("forbidden");
   }
+
+  // Bare kontoret kan sette eller overstyre pris. Feltbrukere ignoreres
+  // fullstendig, også når de sender unitPrice i en håndlaget forespørsel.
+  const priceOverride =
+    isOfficeActor(actor) && parsed.data.unitPrice !== undefined
+      ? (parsed.data.unitPrice ?? null)
+      : undefined;
+  const priceAudit =
+    priceOverride !== undefined
+      ? { before: numericPrice(material.unitPrice), after: priceOverride }
+      : null;
 
   await prisma.$transaction(async (tx) => {
     await tx.material.update({
@@ -129,9 +156,7 @@ export async function updateMaterial(
           ? { quantity: parsed.data.quantity }
           : {}),
         ...(parsed.data.unit !== undefined ? { unit: parsed.data.unit } : {}),
-        ...(parsed.data.unitPrice !== undefined
-          ? { unitPrice: parsed.data.unitPrice }
-          : {}),
+        ...(priceOverride !== undefined ? { unitPrice: priceOverride } : {}),
       },
     });
     await audit(tx, {
@@ -139,7 +164,10 @@ export async function updateMaterial(
       entityId: material.id,
       action: "Oppdaterte materiale",
       actor: toAuditActor(actor),
-      metadata: { workOrderId: material.workOrderId },
+      metadata: {
+        workOrderId: material.workOrderId,
+        ...(priceAudit ? { unitPrice: priceAudit } : {}),
+      },
     });
   });
 
@@ -197,7 +225,7 @@ export async function getMaterialTotals(
   for (const material of materials) {
     const qty = Number(material.quantity);
     quantity += qty;
-    amount += qty * Number(material.unitPrice);
+    amount += qty * Number(material.unitPrice ?? 0);
   }
 
   return ok({
