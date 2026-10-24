@@ -68,3 +68,66 @@ som ikke kan ferdigstilles og verifiseres i denne kjøringen:
 
 Disse bør planlegges som egne faser med egne akseptansekriterier og
 infrastrukturforutsetninger. Inntil da er P3 den siste fullførte fasen.
+
+## Sikkerhetsgjennomgang 24. oktober 2026 (SEC-1–SEC-10)
+
+Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
+
+- **SEC-1** – opplastede filer kan bare knyttes til en entitet av opplasteren
+  eller av den eksisterende eieren. Ueide dokumentopplastinger kan bare claimеs
+  av den som lastet dem opp.
+- **SEC-2/3** – 2FA-endringer øker `sessionVersion`, fornyer bare den aktive
+  økten, feiler lukket når hemmeligheten mangler, og krever passord + TOTP.
+  2FA-innstillinger er rate-limitet per bruker og IP, og alle feilede forsøk
+  audit-logs uten kode eller passord.
+- **SEC-4** – kundebestilling er rate-limitet per kunde og IP, har tak på fem
+  åpne bestillinger, dedupliserer like bestillinger og varsler bare kontoret i
+  destinasjonsavdelingen.
+- **SEC-5** – offline-kladder har 2 MB HTTP-grense, 1 MB serialisert grense,
+  signaturer lagres som `USER`-eide filer, og kladder ryddes etter sju dager.
+- **SEC-6** – iCal-tokens lagres bare som SHA-256-hash, vises én gang, kan
+  roteres/tilbakekalles og avgrenses til kundens egne eller montørens tildelte
+  oppdrag i riktig avdeling. Plaintext-kolonnen er droppet; eksisterende
+  abonnementer må regenereres.
+- **SEC-7** – origin-sjekken krever gyldig Bearer-hemmelighet eller
+  same-origin/none, `/api/ready` skjuler detaljer uten `READY_SECRET`, cron
+  sammenligner i konstant tid, og varsel-e-post prøves fem ganger med backoff.
+- **SEC-9** – timepris og materialpris settes på serveren. Feltbrukere kan ikke
+  overstyre pris, og får ikke se andres satser. Én aktiv timer per bruker
+  håndheves med unik `activeKey`; varighet over 24 timer og overlapp avvises.
+- **SEC-10** – produksjon krever HTTPS-URL-er, Docker kjører read-only med
+  minste privilegier, backup kan krypteres og kopieres eksternt, og CI kjører
+  audit, i18n og containerskanning.
+
+### Bevisste valg
+
+1. **`activeKey` i stedet for partiell unik indeks.** Prisma kan ikke uttrykke
+   `WHERE endedAt IS NULL` i schema, så en unik, nullbar `activeKey` (bruker-id
+   mens timeren er aktiv) gir samme garanti og holder `prisma migrate diff`
+   ren.
+2. **Ingen backfill av iCal-tokens.** Gamle tokens var plaintext og er droppet.
+   Sikkerhetsmessig er det bedre å kreve regenerering enn å hash-e dem videre.
+3. **Myk sletting av oppdrag.** Oppdrag, rapporter, revisjoner og vedlegg
+   beholdes til `RETENTION_DAYS` (standard 365) er utløpt. `legalHold` på
+   oppdrag eller rapport blokkerer automatisk hard sletting.
+4. **Rapportrevisjoner lagres i databasen, men har foreløpig ingen egen
+   leservisning.** En admin kan gjenopprette og inspisere via databasen; en
+   read-only revisjonsside/PDF er anbefalt neste steg.
+5. **Materialpris kan være `null`.** Feltbrukere lagrer ingen pris; kontoret
+   prissetter før eksport/fakturering. Eksporten viser `0` for manglende pris.
+
+### Åpne spørsmål / neste steg
+
+- Skal kunden fortsatt få en egen bekreftelses-e-post ved booking? I dag går
+  bookingvarsel til kontoret via varselkøen, og `sendBookingNotification` er
+  bare brukt av tester.
+- Skal revisjonshistorikken få egen admin-side og PDF-rendering fra en
+  `ReportRevision`?
+- Skal `legalHold` få en admin-bryter i UI, og hva er riktig oppbevaringsfrist
+  per kundetype?
+- Skal eksisterende time-/materialrader med manglende eller urimelig pris
+  audit-es og backfilles?
+- Rate limits og jobbkø er databasebaserte og deles mellom instanser. Ved
+  mange instanser bør Redis/BullMQ vurderes (P4-2).
+- `TRUST_PROXY=true` må settes når appen står bak en reverse proxy som
+  overskriver `X-Forwarded-*`; ellers brukes ikke IP-nøkler.

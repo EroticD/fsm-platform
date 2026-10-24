@@ -57,7 +57,13 @@ Aktuelle områder:
   en kunde eller et dokument av brukeren som lastet den opp, eller av den
   eksisterende eieren.
 - iCal-tokens lagres hashet, kan tilbakekalles og roteres, og avgrenses til
-  brukerens egne/avdelingens oppdrag.
+  brukerens egne/avdelingens oppdrag. Plaintext-tokens er fjernet; alle
+  eksisterende abonnementer må regenereres.
+- Signerte rapporter får uforanderlige revisjoner ved opplåsing og ny
+  innsending. Gamle signaturfiler beholdes for revisjonshistorikken.
+- Oppdrag myk-slettes og skjules fra alle lister, søk, portal, kalender og PDF.
+  Automatisk hard sletting skjer først etter `RETENTION_DAYS` og aldri når
+  oppdraget eller en rapport har `legalHold`.
 - Reverse proxyen må overskrive `Host`, `X-Forwarded-Host`,
   `X-Forwarded-Proto` og `X-Forwarded-For`. Appen stoler bare på
   `x-forwarded-proto` når `TRUST_PROXY=true`.
