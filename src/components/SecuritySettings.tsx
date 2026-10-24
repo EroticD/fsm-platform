@@ -1,12 +1,12 @@
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import bcrypt from "bcryptjs";
 import QRCode from "qrcode";
-import prisma from "@/lib/prisma";
-import { actorName, bumpSessionVersion, getCurrentUser } from "@/lib/session";
-import { buildTotpUri, createTotpSecret, verifyTotp } from "@/lib/two-factor";
-import { cleanText } from "@/lib/sanitize";
+import { buildTotpUri } from "@/lib/two-factor";
+import {
+  cancelSetupAction,
+  confirmSetupAction,
+  disableTwoFactorAction,
+  startSetupAction,
+} from "@/app/innstillinger/security-actions";
 
 type SecurityUser = {
   id: string;
@@ -15,8 +15,6 @@ type SecurityUser = {
   isTwoFactorEnabled: boolean;
   twoFactorSecret: string | null;
 };
-
-const BASE = "/innstillinger?tab=sikkerhet";
 
 export default async function SecuritySettings({
   user,
@@ -31,113 +29,6 @@ export default async function SecuritySettings({
 }) {
   const isEnabled = Boolean(user.isTwoFactorEnabled);
   const t = await getTranslations("common");
-
-  /**
-   * Krever at innlogget bruker er den samme som fanen gjelder, og at
-   * nåværende passord oppgis. Det hindrer at en kapret økt kan starte eller
-   * avbryte 2FA-oppsett uten å kjenne passordet.
-   */
-  async function verifyOwnPassword(formData: FormData): Promise<boolean> {
-    const current = await getCurrentUser();
-    if (!current || current.id !== user.id) return false;
-    const password = String(formData.get("password") ?? "");
-    if (!current.password || !password) return false;
-    return bcrypt.compare(password, current.password);
-  }
-
-  async function startSetup(formData: FormData) {
-    "use server";
-    if (!(await verifyOwnPassword(formData))) {
-      redirect(`${BASE}&error=passord`);
-    }
-
-    const secret = createTotpSecret();
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
-    });
-    revalidatePath("/innstillinger");
-    redirect(`${BASE}&setup=1`);
-  }
-
-  async function confirmSetup(formData: FormData) {
-    "use server";
-    const current = await getCurrentUser();
-    if (!current || current.id !== user.id) return;
-
-    const code = cleanText(formData.get("code"), { maxLength: 10 });
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { twoFactorSecret: true },
-    });
-    if (!dbUser?.twoFactorSecret || !verifyTotp(dbUser.twoFactorSecret, code)) {
-      redirect(`${BASE}&setup=1&error=kode`);
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isTwoFactorEnabled: true },
-    });
-    await prisma.auditLog.create({
-      data: {
-        entityType: "User",
-        entityId: user.id,
-        action: "Slå på to-trinns verifisering",
-        userName: await actorName(),
-      },
-    });
-    revalidatePath("/innstillinger");
-    redirect(`${BASE}&ok=enabled`);
-  }
-
-  async function cancelSetup(formData: FormData) {
-    "use server";
-    if (!(await verifyOwnPassword(formData))) {
-      redirect(`${BASE}&error=passord`);
-    }
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { twoFactorSecret: null, isTwoFactorEnabled: false },
-    });
-    revalidatePath("/innstillinger");
-    redirect(BASE);
-  }
-
-  async function disableTwoFactor(formData: FormData) {
-    "use server";
-    const current = await getCurrentUser();
-    if (!current || current.id !== user.id) return;
-
-    const code = cleanText(formData.get("code"), { maxLength: 10 });
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { twoFactorSecret: true, isTwoFactorEnabled: true },
-    });
-    if (
-      !dbUser?.isTwoFactorEnabled ||
-      !dbUser.twoFactorSecret ||
-      !verifyTotp(dbUser.twoFactorSecret, code)
-    ) {
-      redirect(`${BASE}&error=kode`);
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isTwoFactorEnabled: false, twoFactorSecret: null },
-    });
-    // Ugyldiggjør eksisterende økter når 2FA slås av.
-    await bumpSessionVersion(user.id);
-    await prisma.auditLog.create({
-      data: {
-        entityType: "User",
-        entityId: user.id,
-        action: "Slå av to-trinns verifisering",
-        userName: await actorName(),
-      },
-    });
-    revalidatePath("/innstillinger");
-    redirect(`${BASE}&ok=disabled`);
-  }
 
   let qrDataUrl: string | null = null;
   let manualKey: string | null = null;
@@ -197,7 +88,7 @@ export default async function SecuritySettings({
               {t("settings.security.manual")}
               <code className="block mt-1 bg-gray-100 rounded-lg p-2 font-mono text-gray-900 break-all">{manualKey}</code>
             </div>
-            <form action={confirmSetup} className="space-y-3 border-t pt-4">
+            <form action={confirmSetupAction} className="space-y-3 border-t pt-4">
               <label className="block text-sm font-bold text-gray-700">{t("settings.security.step2")}</label>
               <input
                 type="text"
@@ -213,7 +104,7 @@ export default async function SecuritySettings({
                 {t("settings.security.confirm")}
               </button>
             </form>
-            <form action={cancelSetup} className="space-y-2">
+            <form action={cancelSetupAction} className="space-y-2">
               <input
                 type="password"
                 name="password"
@@ -231,7 +122,7 @@ export default async function SecuritySettings({
 
         {/* Ikke satt opp */}
         {!isEnabled && setup !== "1" && (
-          <form action={startSetup} className="border-t pt-4 space-y-3">
+          <form action={startSetupAction} className="border-t pt-4 space-y-3">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
                 {t("settings.security.passwordConfirm")}
@@ -253,8 +144,16 @@ export default async function SecuritySettings({
 
         {/* Slå av */}
         {isEnabled && (
-          <form action={disableTwoFactor} className="border-t pt-4 space-y-3">
+          <form action={disableTwoFactorAction} className="border-t pt-4 space-y-3">
             <p className="text-sm text-gray-700">{t("settings.security.disableDesc")}</p>
+            <input
+              type="password"
+              name="password"
+              required
+              autoComplete="current-password"
+              placeholder={t("settings.security.passwordPlaceholder")}
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+            />
             <input
               type="text"
               name="code"

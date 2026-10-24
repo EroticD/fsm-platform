@@ -78,12 +78,15 @@ describe("getCurrentUser", () => {
 describe("bumpSessionVersion", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("øker versjonen med én", async () => {
-    mockedUpdate.mockResolvedValue({} as never);
-    await bumpSessionVersion("u1");
+  it("øker versjonen med én og returnerer den nye verdien", async () => {
+    mockedUpdate.mockResolvedValue({ sessionVersion: 4 } as never);
+    const version = await bumpSessionVersion("u1");
+
+    expect(version).toBe(4);
     expect(mockedUpdate).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: { sessionVersion: { increment: 1 } },
+      select: { sessionVersion: true },
     });
   });
 });
