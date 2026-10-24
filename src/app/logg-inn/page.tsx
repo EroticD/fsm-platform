@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
@@ -8,31 +9,39 @@ export const metadata: Metadata = {
   title: "Logg inn",
 };
 
-const ERROR_MESSAGES: Record<string, string> = {
-  CredentialsSignin: "Feil e-post eller passord.",
-  AccountNotActivated:
-    "Kontoen din er ikke aktivert ennå. En administrator må aktivere den før du kan logge inn.",
-  AccessDenied: "Du har ikke tilgang til denne kontoen.",
-  SessionRequired: "Du må logge inn for å se denne siden.",
-  TooManyAttempts:
-    "For mange innloggingsforsøk. Vent noen minutter og prøv igjen.",
-};
-
-const DEFAULT_ERROR = "Kunne ikke logge inn. Prøv igjen.";
-
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
   const { error: errorParam, callbackUrl = "/" } = await searchParams;
+  const t = await getTranslations("common");
 
   const branding = await prisma.branding.findFirst().catch(() => null);
   const companyName = branding?.companyName || "FSM System";
 
-  const error = errorParam
-    ? ERROR_MESSAGES[errorParam] || DEFAULT_ERROR
-    : null;
+  let error: string | null = null;
+  if (errorParam) {
+    switch (errorParam) {
+      case "CredentialsSignin":
+        error = t("loginErrorCredentials");
+        break;
+      case "AccountNotActivated":
+        error = t("loginErrorInactive");
+        break;
+      case "AccessDenied":
+        error = t("loginErrorAccessDenied");
+        break;
+      case "SessionRequired":
+        error = t("loginErrorSessionRequired");
+        break;
+      case "TooManyAttempts":
+        error = t("loginErrorTooMany");
+        break;
+      default:
+        error = t("loginErrorDefault");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -45,9 +54,9 @@ export default async function LoginPage({
           >
             {companyName.charAt(0).toUpperCase()}
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Logg inn</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("loginTitle")}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Logg inn for å få tilgang til {companyName}
+            {t("loginDescCompany", { companyName })}
           </p>
         </div>
 
@@ -71,7 +80,7 @@ export default async function LoginPage({
               htmlFor="email"
               className="block text-sm font-bold text-gray-700 mb-1"
             >
-              E-postadresse
+              {t("emailLabel")}
             </label>
             <input
               id="email"
@@ -79,7 +88,7 @@ export default async function LoginPage({
               name="email"
               required
               autoComplete="username"
-              placeholder="din@epost.no"
+              placeholder={t("emailPlaceholder")}
               className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
             />
           </div>
@@ -89,7 +98,7 @@ export default async function LoginPage({
               htmlFor="password"
               className="block text-sm font-bold text-gray-700 mb-1"
             >
-              Passord
+              {t("passwordLabel")}
             </label>
             <input
               id="password"
@@ -102,7 +111,7 @@ export default async function LoginPage({
             />
           </div>
 
-          <SubmitButton idleLabel="Logg inn" pendingLabel="Logger inn..." />
+          <SubmitButton idleLabel={t("loginButton")} pendingLabel={t("loginPending")} />
         </form>
 
         <div className="text-center mt-6">
@@ -110,7 +119,7 @@ export default async function LoginPage({
             href="/glemt-passord"
             className="text-sm font-medium text-gray-500 hover:text-gray-800 transition"
           >
-            Glemt passordet?
+            {t("forgotPassword")}
           </Link>
         </div>
       </div>

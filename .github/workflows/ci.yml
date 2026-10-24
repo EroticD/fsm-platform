@@ -75,6 +75,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: i18n-sjekk
+        run: npm run check:i18n
+
       - name: Bygg
         run: npm run build
 

@@ -11,7 +11,7 @@ test("readiness og innloggingsside", async ({ page, request }) => {
 
   await page.goto("/logg-inn");
   await expect(page.getByRole("heading", { name: "Logg inn" })).toBeVisible();
-  await expect(page.getByLabel("E-postadresse")).toBeVisible();
+  await expect(page.getByLabel("E-post", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Passord")).toBeVisible();
   await expect(page.getByRole("button", { name: "Logg inn" })).toBeVisible();
 });

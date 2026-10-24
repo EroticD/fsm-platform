@@ -416,6 +416,14 @@
     "noSearchResults": "No results!",
     "checkSpelling": "Check the spelling or try a different word.",
     "employeesTabDesc": "Manage the system, branding and forms.",
-    "goToDispatchPage": "Go to the Dispatch page"
+    "goToDispatchPage": "Go to the Dispatch page",
+    "loginErrorCredentials": "Wrong email or password.",
+    "loginErrorInactive": "Your account has not been activated yet. An administrator must activate it before you can sign in.",
+    "loginErrorAccessDenied": "You do not have access to this account.",
+    "loginErrorSessionRequired": "You must sign in to view this page.",
+    "loginErrorTooMany": "Too many sign-in attempts. Wait a few minutes and try again.",
+    "loginErrorDefault": "Could not sign in. Try again.",
+    "loginDescCompany": "Sign in to access {{companyName}}",
+    "loginPending": "Signing in …"
   }
 }

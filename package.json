@@ -16,7 +16,8 @@
     "db:status": "node ./node_modules/prisma/build/index.js migrate status",
     "postinstall": "node ./node_modules/prisma/build/index.js generate",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:i18n": "node scripts/check-i18n.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.22",

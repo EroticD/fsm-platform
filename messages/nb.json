@@ -416,6 +416,14 @@
     "resetPasswordBtn": "Tilbakestill passord",
     "backToLoginLink": "Tilbake til innlogging",
     "commentsShort": "Kommentarer",
-    "locationEquipment": "Lokasjon / Bygg"
+    "locationEquipment": "Lokasjon / Bygg",
+    "loginErrorCredentials": "Feil e-post eller passord.",
+    "loginErrorInactive": "Kontoen din er ikke aktivert ennå. En administrator må aktivere den før du kan logge inn.",
+    "loginErrorAccessDenied": "Du har ikke tilgang til denne kontoen.",
+    "loginErrorSessionRequired": "Du må logge inn for å se denne siden.",
+    "loginErrorTooMany": "For mange innloggingsforsøk. Vent noen minutter og prøv igjen.",
+    "loginErrorDefault": "Kunne ikke logge inn. Prøv igjen.",
+    "loginDescCompany": "Logg inn for å få tilgang til {{companyName}}",
+    "loginPending": "Logger inn …"
   }
 }
