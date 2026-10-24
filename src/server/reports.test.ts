@@ -94,7 +94,37 @@ function txClient(overrides: Record<string, unknown> = {}) {
       create: vi.fn(async () => ({ id: "r1" })),
     },
     reportDraft: { deleteMany: vi.fn(async () => ({})) },
+    reportRevision: { create: vi.fn(async () => ({})) },
     auditLog: { create: vi.fn(async () => ({})) },
+    ...overrides,
+  };
+}
+
+function revisionSource(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "r1",
+    revision: 0,
+    isLocked: false,
+    dataJson: JSON.stringify({ status: "GODKJENT", unitCount: 1 }),
+    templateSnapshotJson: template.fieldsJson,
+    technicianSignatureUrl: "/uploads/tekniker-gammel.png",
+    technicianName: "Kari",
+    customerSignatureUrl: "/uploads/kunde-gammel.png",
+    customerName: "Kunde",
+    units: [
+      {
+        id: "unit-1",
+        label: "Pumpe",
+        serialNumber: "SN-1",
+        location: "Kjeller",
+        status: "GODKJENT",
+        answersJson: "{}",
+        comment: null,
+        productId: null,
+        sortOrder: 0,
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    ],
     ...overrides,
   };
 }
@@ -228,29 +258,70 @@ describe("reports-tjenesten", () => {
     expect(mocks.prisma.report.findFirst).not.toHaveBeenCalled();
   });
 
-  it("låser opp rapporten og logger det i samme transaksjon", async () => {
-    mocks.prisma.report.findFirst.mockResolvedValue({ id: "r1" });
-    const tx = withTransaction();
+  it("låser opp rapporten, lagrer revisjon og logger årsaken", async () => {
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () => null),
+          findFirst: vi.fn(async () => revisionSource({ revision: 3 })),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
 
     const result = await setReportLock(
       actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
       "wo1",
       "r1",
       "0",
+      "Kunden oppdaget feil i sjekkpunkt 2",
     );
 
     expect(result).toEqual({ ok: true });
+    expect(tx.reportRevision.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reportId: "r1",
+        revision: 3,
+        reason: "Kunden oppdaget feil i sjekkpunkt 2",
+        createdById: "u1",
+        unitsJson: expect.stringContaining("SN-1"),
+        technicianSignatureUrl: "/uploads/tekniker-gammel.png",
+      }),
+    });
     expect(tx.report.update).toHaveBeenCalledWith({
       where: { id: "r1" },
-      data: { isLocked: false, lockedAt: null, lockedByName: null },
+      data: {
+        isLocked: false,
+        lockedAt: null,
+        lockedByName: null,
+        revision: { increment: 1 },
+      },
     });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         entityType: "WorkOrder",
         entityId: "wo1",
-        metadata: { reportId: "r1" },
+        metadata: {
+          reportId: "r1",
+          reason: "Kunden oppdaget feil i sjekkpunkt 2",
+        },
       }),
     });
+  });
+
+  it("avviser opplåsing uten årsak", async () => {
+    const result = await setReportLock(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo1",
+      "r1",
+      "0",
+      "   ",
+    );
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("avviser kladd når kladden ikke får skrives", async () => {
@@ -503,7 +574,7 @@ describe("reports-tjenesten", () => {
     const tx = withTransaction(
       txClient({
         report: {
-          findUnique: vi.fn(async () => ({ id: "r1", isLocked: false })),
+          findUnique: vi.fn(async () => revisionSource()),
           updateMany: vi.fn(async () => ({ count: 1 })),
           update: vi.fn(async () => ({})),
           create: vi.fn(async () => ({ id: "r1" })),
@@ -522,11 +593,182 @@ describe("reports-tjenesten", () => {
       }),
     );
   });
+  it("lager revisjon ved ny innsending og øker revisjonsnummeret", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: "/uploads/tekn-gammel.png",
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () =>
+            revisionSource({
+              revision: 4,
+              dataJson: JSON.stringify({ status: "AVVIK", unitCount: 1 }),
+            }),
+          ),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.reportRevision.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reportId: "r1",
+        revision: 4,
+        reason: "Ny innsending",
+        createdById: "u1",
+        dataJson: JSON.stringify({ status: "AVVIK", unitCount: 1 }),
+        unitsJson: expect.stringContaining("SN-1"),
+      }),
+    });
+    expect(tx.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ revision: { increment: 1 } }),
+      }),
+    );
+  });
+
+  it("opplåsing, retting og ny innsending gir to revisjoner med intakt første payload", async () => {
+    const originalDataJson = JSON.stringify({ status: "GODKJENT", unitCount: 1 });
+    const revisions: Array<{ data: Record<string, unknown> }> = [];
+
+    const unlockTx = txClient({
+      report: {
+        findUnique: vi.fn(async () => null),
+        findFirst: vi.fn(async () =>
+          revisionSource({ revision: 0, dataJson: originalDataJson }),
+        ),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        update: vi.fn(async () => ({})),
+        create: vi.fn(async () => ({ id: "r1" })),
+      },
+      reportRevision: {
+        create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+          revisions.push(args);
+          return {};
+        }),
+      },
+    });
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (client: typeof unlockTx) => unknown) => callback(unlockTx),
+    );
+
+    const unlock = await setReportLock(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo1",
+      "r1",
+      "0",
+      "Rett feil i sjekkpunkt",
+    );
+    expect(unlock).toEqual({ ok: true });
+
+    // Etter opplåsingen er rapporten redigert og sendes inn på nytt.
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: "/uploads/tekniker-gammel.png",
+      technicianName: "Kari",
+      customerSignatureUrl: "/uploads/kunde-gammel.png",
+      customerName: "Kunde",
+    });
+    const resubmitTx = txClient({
+      report: {
+        findUnique: vi.fn(async () =>
+          revisionSource({ revision: 1, dataJson: originalDataJson }),
+        ),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        update: vi.fn(async () => ({})),
+        create: vi.fn(async () => ({ id: "r1" })),
+      },
+      reportRevision: {
+        create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+          revisions.push(args);
+          return {};
+        }),
+      },
+    });
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (client: typeof resubmitTx) => unknown) => callback(resubmitTx),
+    );
+
+    const resubmit = await submitReport(actor(), formData());
+    expect(resubmit).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+
+    expect(revisions).toHaveLength(2);
+    expect(revisions[0].data).toEqual(
+      expect.objectContaining({
+        revision: 0,
+        reason: "Rett feil i sjekkpunkt",
+        dataJson: originalDataJson,
+      }),
+    );
+    expect(JSON.parse(String(revisions[0].data.unitsJson))).toEqual([
+      expect.objectContaining({ label: "Pumpe", serialNumber: "SN-1" }),
+    ]);
+    expect(revisions[1].data).toEqual(
+      expect.objectContaining({
+        revision: 1,
+        reason: "Ny innsending",
+        dataJson: originalDataJson,
+      }),
+    );
+  });
+
+  it("sletter ikke forrige signaturfil ved ny innsending", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: "/uploads/gammel-signatur.png",
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    mocks.storeDataImage.mockResolvedValue("/uploads/ny-signatur.png");
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () =>
+            revisionSource({
+              revision: 2,
+              technicianSignatureUrl: "/uploads/gammel-signatur.png",
+            }),
+          ),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+    const data = formData();
+    data.set("technicianSignature", "data:image/png;base64,AAAA");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.update).toHaveBeenCalled();
+    expect(mocks.deleteUploadIfOwned).not.toHaveBeenCalledWith(
+      "/uploads/gammel-signatur.png",
+      expect.anything(),
+    );
+  });
 });
 
 describe("getReportPdfForViewer", () => {
   it("avviser CUSTOMER uten customerId selv om oppdraget mangler kunde", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: null,
       status: "OPEN",
       reports: [{ id: "r1" }],
@@ -541,7 +783,7 @@ describe("getReportPdfForViewer", () => {
   });
 
   it("avviser CUSTOMER som prøver å hente en annen kundes rapport", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-2",
       status: "OPEN",
       reports: [{ id: "r1" }],
@@ -556,7 +798,7 @@ describe("getReportPdfForViewer", () => {
   });
 
   it("avviser montør på et kansellert oppdrag", async () => {
-    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
       status: "CANCELLED",
       reports: [{ id: "r1" }],

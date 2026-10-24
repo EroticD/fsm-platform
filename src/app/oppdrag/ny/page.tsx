@@ -33,6 +33,7 @@ export default async function AdminCreateWorkOrderPage({
 
   // Skjemaet trenger bare et avgrenset utvalg; søk i listen dekker resten.
   const customers = await prisma.customer.findMany({
+    where: { deletedAt: null },
     orderBy: { name: 'asc' },
     take: 100,
     select: { id: true, name: true, city: true, customerNumber: true },

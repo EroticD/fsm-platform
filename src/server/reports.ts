@@ -140,6 +140,67 @@ function draftSignatureUrls(dataJson: string | null | undefined): {
   }
 }
 
+/**
+ * Feltene som trengs for å fryse en rapport til revisjonshistorikken.
+ * Enhetene tas med i sin helhet, slik at en tidligere revisjon kan leses selv
+ * om rapporten senere endres.
+ */
+const REVISION_SOURCE_SELECT = {
+  id: true,
+  revision: true,
+  isLocked: true,
+  dataJson: true,
+  templateSnapshotJson: true,
+  technicianSignatureUrl: true,
+  technicianName: true,
+  customerSignatureUrl: true,
+  customerName: true,
+  units: {
+    orderBy: { sortOrder: "asc" as const },
+    select: {
+      id: true,
+      label: true,
+      serialNumber: true,
+      location: true,
+      status: true,
+      answersJson: true,
+      comment: true,
+      productId: true,
+      sortOrder: true,
+      createdAt: true,
+    },
+  },
+} satisfies Prisma.ReportSelect;
+
+type RevisionSource = Prisma.ReportGetPayload<{ select: typeof REVISION_SOURCE_SELECT }>;
+
+/**
+ * Bygger en revisjonsrad av rapportens nåværende tilstand.
+ *
+ * Revisjonsnummeret er rapportens nummer *før* endringen. Selve
+ * `Report.revision` økes i samme transaksjon, så en revisjon alltid kan knyttes
+ * til den tilstanden den ble laget fra.
+ */
+function revisionSnapshot(
+  current: RevisionSource,
+  reason: string,
+  createdById: string,
+) {
+  return {
+    reportId: current.id,
+    revision: current.revision,
+    dataJson: current.dataJson,
+    unitsJson: JSON.stringify(current.units ?? []),
+    templateSnapshotJson: current.templateSnapshotJson,
+    technicianSignatureUrl: current.technicianSignatureUrl,
+    technicianName: current.technicianName,
+    customerSignatureUrl: current.customerSignatureUrl,
+    customerName: current.customerName,
+    reason,
+    createdById,
+  };
+}
+
 type TemplateField = {
   id: string;
   type: string;
@@ -778,7 +839,7 @@ export async function submitReport(
     const result = await prisma.$transaction(async (tx) => {
       const current = await tx.report.findUnique({
         where: { workOrderId_templateId: { workOrderId, templateId } },
-        select: { id: true, isLocked: true },
+        select: REVISION_SOURCE_SELECT,
       });
       if (current?.isLocked) return { locked: true } as const;
 
@@ -797,10 +858,18 @@ export async function submitReport(
         });
         if (claimed.count === 0) return { locked: true } as const;
 
+        // Før vi overskriver rapporten, fryses den forrige tilstanden som en
+        // revisjon. Revisjonsnummeret er nummeret rapporten hadde før denne
+        // innsendingen; `Report.revision` økes i samme update under.
+        await tx.reportRevision.create({
+          data: revisionSnapshot(current, "Ny innsending", user.id),
+        });
+
         await tx.report.update({
           where: { id: current.id },
           data: {
             ...data,
+            revision: { increment: 1 },
             // Enhetene erstattes helt, slik at rapporten speiler det som ble sendt inn.
             units: { deleteMany: {}, create: unitRows },
           },
@@ -851,14 +920,9 @@ export async function submitReport(
     return { ok: false, error: "locked", returnTo };
   }
 
-  // Nye signaturer erstatter de gamle. Slett den forrige filen bare når den
-  // faktisk eies av dette oppdraget – aldri en annen rapports bilde.
-  if (previousTechnicianSignature && previousTechnicianSignature !== technicianSignatureUrl) {
-    await deleteUploadIfOwned(previousTechnicianSignature, signatureOwner);
-  }
-  if (previousCustomerSignature && previousCustomerSignature !== customerSignatureUrl) {
-    await deleteUploadIfOwned(previousCustomerSignature, signatureOwner);
-  }
+  // Nye signaturer erstatter de gamle i rapporten, men de forrige filene
+  // slettes bevisst ikke. Revisjonshistorikken peker fortsatt på dem, og en
+  // opplåst rapport skal kunne vises slik den ble signert den gangen.
 
   try {
     await notifyWorkOrderEvent(
@@ -882,40 +946,67 @@ export type ReportLockResult =
 
 /**
  * Låser eller låser opp en signert rapport. Bare administrator kan låse opp
- * igjen; opplåsingen logges slik at rettinger er sporbare.
+ * igjen; opplåsingen krever en årsak og logges med en revisjon, slik at
+ * rettinger er sporbare.
  */
 export async function setReportLock(
   user: Actor,
   workOrderId: string,
   rawReportId: unknown,
   rawLock: unknown,
+  rawReason?: unknown,
 ): Promise<ReportLockResult> {
   // Bare administratorer kan låse opp en signert rapport igjen.
   if (!user?.isActive || user.role !== "ADMIN") {
     return { ok: false, error: "ikke-tilgang" };
   }
 
+  const reason = cleanText(rawReason, { maxLength: 1000 });
+
   const parsed = reportUnlockSchema.safeParse({
     reportId: cleanText(rawReportId, { maxLength: LIMITS.line }),
     lock: rawLock,
+    reason: reason || undefined,
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
   const { reportId, lock: shouldLock } = parsed.data;
 
-  const report = await prisma.report.findFirst({
-    where: { id: reportId, workOrderId },
-    select: { id: true },
-  });
-  if (!report) return { ok: false, error: "ikke-funnet" };
+  // Opplåsing er en bevisst handling som skal kunne forklares i ettertid.
+  if (!shouldLock && !reason) return { ok: false, error: "ugyldig-data" };
 
   const lockedUntil = new Date();
+  let found = false;
+
   await prisma.$transaction(async (tx) => {
-    await tx.report.update({
-      where: { id: reportId },
-      data: shouldLock
-        ? { isLocked: true, lockedAt: lockedUntil, lockedByName: user.name || user.email }
-        : { isLocked: false, lockedAt: null, lockedByName: null },
+    const current = await tx.report.findFirst({
+      where: { id: reportId, workOrderId, deletedAt: null },
+      select: REVISION_SOURCE_SELECT,
     });
+    if (!current) return;
+    found = true;
+
+    if (shouldLock) {
+      await tx.report.update({
+        where: { id: reportId },
+        data: { isLocked: true, lockedAt: lockedUntil, lockedByName: user.name || user.email },
+      });
+    } else {
+      // Fryse tilstanden før den låses opp, slik at den signerte versjonen
+      // fortsatt kan dokumenteres etter rettingen.
+      await tx.reportRevision.create({
+        data: revisionSnapshot(current, reason, user.id),
+      });
+      await tx.report.update({
+        where: { id: reportId },
+        data: {
+          isLocked: false,
+          lockedAt: null,
+          lockedByName: null,
+          revision: { increment: 1 },
+        },
+      });
+    }
+
     // Rapporten hører til oppdraget, så hendelsen følger oppdragets id.
     await audit(tx, {
       entityType: "WorkOrder",
@@ -924,11 +1015,11 @@ export async function setReportLock(
         ? "Låste rapporten igjen"
         : "Låste opp rapporten slik at den kan rettes (sporbarhet: endringer logges)",
       actor: { id: user.id, name: user.name, email: user.email },
-      metadata: { reportId },
+      metadata: shouldLock ? { reportId } : { reportId, reason },
     });
   });
 
-  return { ok: true };
+  return found ? { ok: true } : { ok: false, error: "ikke-funnet" };
 }
 
 export type ReportPdfResult =
@@ -955,9 +1046,14 @@ export async function getReportPdfForViewer(
   }
 
   // Kundeportalbrukere kan bare hente rapporter for sin egen kundekonto.
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
-    select: { customerId: true, status: true, reports: { select: { id: true } } },
+  // Mykt slettede oppdrag og rapporter er ikke lenger lesbare.
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, deletedAt: null },
+    select: {
+      customerId: true,
+      status: true,
+      reports: { where: { deletedAt: null }, select: { id: true } },
+    },
   });
 
   if (!workOrder) {

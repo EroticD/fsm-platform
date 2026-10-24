@@ -89,15 +89,17 @@ export function workOrderScopeFor(
   actor: ServiceActor,
 ): Prisma.WorkOrderWhereInput {
   if (!actor.isActive) return { id: { in: [] } };
-  if (actor.role === "ADMIN") return {};
+  if (actor.role === "ADMIN") return { deletedAt: null };
   if (actor.role === "CUSTOMER") {
-    return actor.customerId ? { customerId: actor.customerId } : { id: { in: [] } };
+    return actor.customerId
+      ? { customerId: actor.customerId, deletedAt: null }
+      : { id: { in: [] } };
   }
   const canUseWorkOrders = WORK_ORDER_PERMISSIONS.some((permission) =>
     hasPermission(actor, permission),
   );
   if (!canUseWorkOrders || !actor.departmentId) return { id: { in: [] } };
-  return { departmentId: actor.departmentId };
+  return { departmentId: actor.departmentId, deletedAt: null };
 }
 
 /** Samme avdelingssperre som `staffScope` i src/lib/access.ts. */

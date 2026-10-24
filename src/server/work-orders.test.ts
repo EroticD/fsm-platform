@@ -37,6 +37,7 @@ import {
   changeWorkOrderStatus,
   createWorkOrder,
   deleteWorkOrder,
+  restoreWorkOrder,
   updateWorkOrder,
 } from "./work-orders";
 
@@ -243,10 +244,72 @@ describe("work-orders-tjenesten", () => {
       data: expect.objectContaining({
         entityType: "WorkOrder",
         entityId: "wo-1",
-        action: "Slettet oppdraget «Testoppdrag» (Kunde AS) med tilhørende rapporter",
+        action: "Slettet oppdraget «Testoppdrag» (Kunde AS) (myk sletting – kan gjenopprettes)",
       }),
     });
-    expect(tx.workOrder.delete).toHaveBeenCalledWith({ where: { id: "wo-1" } });
+    // Myk sletting: raden og rapportene beholdes, filene frigjøres ikke.
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { deletedAt: expect.any(Date), deletedBy: "Kari" },
+    });
+    expect(tx.workOrder.delete).not.toHaveBeenCalled();
+    expect(mocks.prisma.upload.findMany).not.toHaveBeenCalled();
+  });
+
+  it("avviser sletting av et allerede mykt slettet oppdrag", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      title: "Testoppdrag",
+      deletedAt: new Date(),
+      customer: null,
+    });
+    withTransaction();
+    // requireAccess får ingen treff fordi scope utelukker slettede rader.
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+
+    const result = await deleteWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar bare administrator gjenopprette et slettet oppdrag", async () => {
+    const result = await restoreWorkOrder(
+      actor({ role: "OFFICE", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
+    expect(mocks.prisma.workOrder.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("gjenoppretter et mykt slettet oppdrag og logger det", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      id: "wo-1",
+      title: "Testoppdrag",
+      deletedAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    const tx = withTransaction();
+
+    const result = await restoreWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { deletedAt: null, deletedBy: null },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        action: "Gjenopprettet oppdraget «Testoppdrag»",
+      }),
+    });
   });
 
   it("avviser redigering uten workorders.edit", async () => {

@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
+const uploadCleanup = vi.hoisted(() => ({ releaseUpload: vi.fn() }));
+
+vi.mock("@/lib/upload-cleanup", () => ({
+  releaseUpload: uploadCleanup.releaseUpload,
+}));
+
 vi.mock("@/lib/prisma", () => ({
   default: {
     document: { findUnique: vi.fn(), update: vi.fn() },
     documentJob: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     reportDraft: { findMany: vi.fn(), deleteMany: vi.fn() },
-    upload: { findUnique: vi.fn(), delete: vi.fn() },
+    upload: { findUnique: vi.fn(), delete: vi.fn(), findMany: vi.fn() },
+    workOrder: { findMany: vi.fn(), delete: vi.fn() },
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
     $queryRaw: vi.fn(),
   },
 }));
@@ -26,11 +35,13 @@ import fs from "node:fs/promises";
 import {
   claimNextPdfTextJob,
   cleanupExpiredDrafts,
+  cleanupRetainedWorkOrders,
   DRAFT_TTL_MS,
   enqueuePdfText,
   MAX_JOB_ATTEMPTS,
   pdfJobBackoffMs,
   processPdfTextJob,
+  RETENTION_DAYS,
   type PdfTextJob,
 } from "./job-worker";
 
@@ -38,7 +49,10 @@ const mocked = prisma as unknown as {
   document: { findUnique: Mock; update: Mock };
   documentJob: { findFirst: Mock; create: Mock; update: Mock };
   reportDraft: { findMany: Mock; deleteMany: Mock };
-  upload: { findUnique: Mock; delete: Mock };
+  upload: { findUnique: Mock; delete: Mock; findMany: Mock };
+  workOrder: { findMany: Mock; delete: Mock };
+  auditLog: { create: Mock };
+  $transaction: Mock;
   $queryRaw: Mock;
 };
 const mockedUnlink = vi.mocked(fs.unlink);
@@ -266,5 +280,74 @@ describe("cleanupExpiredDrafts", () => {
 
     expect(deleted).toBe(0);
     expect(mocked.upload.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("cleanupRetainedWorkOrders", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    uploadCleanup.releaseUpload.mockResolvedValue(undefined);
+    mocked.auditLog.create.mockResolvedValue({});
+    mocked.workOrder.delete.mockResolvedValue({});
+    mocked.workOrder.findMany.mockResolvedValue([]);
+    mocked.upload.findMany.mockResolvedValue([]);
+    mocked.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          auditLog: { create: mocked.auditLog.create },
+          workOrder: { delete: mocked.workOrder.delete },
+        }),
+    );
+  });
+
+  it("hard-sletter bare oppdrag som er utløpt og uten bevaringsplikt", async () => {
+    const now = new Date("2026-10-24T12:00:00.000Z");
+    mocked.workOrder.findMany.mockResolvedValue([
+      { id: "wo-1", title: "Gammelt oppdrag" },
+    ]);
+    mocked.upload.findMany.mockResolvedValue([
+      { ownerId: "wo-1", storedName: "bilde.png" },
+      { ownerId: "wo-2", storedName: "annet.png" },
+    ]);
+
+    const deleted = await cleanupRetainedWorkOrders(now);
+
+    expect(deleted).toBe(1);
+    const cutoff = new Date(now.getTime() - RETENTION_DAYS * 24 * 60 * 60_000);
+    expect(mocked.workOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deletedAt: { lt: cutoff },
+          legalHold: false,
+          reports: { none: { legalHold: true } },
+        },
+      }),
+    );
+    expect(mocked.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        action: expect.stringContaining("Automatisk slettet"),
+        actorId: "system",
+      }),
+    });
+    expect(mocked.workOrder.delete).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+    });
+    // Bare filer som hører til det slettede oppdraget frigjøres.
+    expect(uploadCleanup.releaseUpload).toHaveBeenCalledTimes(1);
+    expect(uploadCleanup.releaseUpload).toHaveBeenCalledWith("/uploads/bilde.png");
+  });
+
+  it("rører ikke oppdrag som fortsatt er innenfor bevaringsperioden", async () => {
+    mocked.workOrder.findMany.mockResolvedValue([]);
+
+    const deleted = await cleanupRetainedWorkOrders();
+
+    expect(deleted).toBe(0);
+    expect(mocked.$transaction).not.toHaveBeenCalled();
+    expect(mocked.workOrder.delete).not.toHaveBeenCalled();
+    expect(uploadCleanup.releaseUpload).not.toHaveBeenCalled();
   });
 });

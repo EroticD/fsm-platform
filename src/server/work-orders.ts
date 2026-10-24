@@ -2,7 +2,6 @@ import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
-import { releaseUpload } from "@/lib/upload-cleanup";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import {
@@ -871,7 +870,7 @@ export function removeTechnician(
   });
 }
 
-/** Sletter oppdraget med rapporter, kommentarer og vedlegg. */
+/** Myksletter oppdraget. Rapporter, kommentarer og vedlegg beholdes. */
 export async function deleteWorkOrder(
   user: Actor,
   workOrderId: string,
@@ -881,33 +880,65 @@ export async function deleteWorkOrder(
 
   const target = await prisma.workOrder.findUnique({
     where: { id: access.id },
-    select: { title: true, customer: { select: { name: true } } },
+    select: { title: true, deletedAt: true, customer: { select: { name: true } } },
   });
   if (!target) return { ok: false, error: "ikke-funnet" };
+  if (target.deletedAt) return { ok: false, error: "ikke-funnet" };
 
-  const uploads = await prisma.upload.findMany({
-    where: { ownerType: "WORK_ORDER", ownerId: access.id },
-    select: { storedName: true },
-    take: 2000,
-  });
+  const deletedBy = user.name || user.email || user.id;
 
   await prisma.$transaction(async (tx) => {
+    await tx.workOrder.update({
+      where: { id: access.id },
+      data: { deletedAt: new Date(), deletedBy },
+    });
     await audit(tx, {
       entityType: "WorkOrder",
       entityId: access.id,
       action: `Slettet oppdraget «${target.title}»${
         target.customer?.name ? ` (${target.customer.name})` : ""
-      } med tilhørende rapporter`,
+      } (myk sletting – kan gjenopprettes)`,
       actor: auditActor(user),
+      metadata: { softDeleted: true },
     });
-    await tx.workOrder.delete({ where: { id: access.id } });
   });
 
-  // Rapporter, vedlegg og signaturer er slettet sammen med oppdraget. Da kan
-  // filene frigjøres uten å etterlate lesbare URL-er.
-  for (const upload of uploads) {
-    await releaseUpload(`/uploads/${upload.storedName}`);
+  // Rapporter, revisjoner, kommentarer og vedlegg blir liggende. Filer
+  // frigjøres først når bevaringsperioden er utløpt og oppdraget hard-slettes.
+  return { ok: true };
+}
+
+/** Gjenoppretter et mykt slettet oppdrag. Bare administrator kan gjøre dette. */
+export async function restoreWorkOrder(
+  user: Actor,
+  workOrderId: string,
+): Promise<WorkOrderResult> {
+  if (!user?.isActive || user.role !== "ADMIN") {
+    return { ok: false, error: "ikke-tilgang" };
   }
+
+  const id = rawId(workOrderId);
+  if (!id) return { ok: false, error: "ugyldig-data" };
+
+  const target = await prisma.workOrder.findUnique({
+    where: { id },
+    select: { id: true, title: true, deletedAt: true },
+  });
+  if (!target) return { ok: false, error: "ikke-funnet" };
+  if (!target.deletedAt) return { ok: false, error: "ugyldig-data" };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.workOrder.update({
+      where: { id: target.id },
+      data: { deletedAt: null, deletedBy: null },
+    });
+    await audit(tx, {
+      entityType: "WorkOrder",
+      entityId: target.id,
+      action: `Gjenopprettet oppdraget «${target.title}»`,
+      actor: auditActor(user),
+    });
+  });
 
   return { ok: true };
 }

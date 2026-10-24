@@ -205,7 +205,7 @@ export async function performSearch(
   const [customers, contacts, units, workOrders, reports, comments, users, templates, folders] =
     await Promise.all([
       prisma.customer.findMany({
-        where: canCustomers ? { id: { in: customerHits.ids } } : noRows,
+        where: canCustomers ? { id: { in: customerHits.ids }, deletedAt: null } : noRows,
         select: {
           id: true,
           name: true,
@@ -219,7 +219,12 @@ export async function performSearch(
       }),
       prisma.contact.findMany({
         where: canCustomers
-          ? textOr(["name", "email", "phone", "role"], q)
+          ? {
+              AND: [
+                textOr(["name", "email", "phone", "role"], q),
+                { customer: { deletedAt: null } },
+              ],
+            }
           : noRows,
         select: {
           id: true,
@@ -233,7 +238,12 @@ export async function performSearch(
         orderBy: { name: "asc" }, take: CANDIDATES,
       }),
       prisma.product.findMany({
-        where: canEquipment ? { id: { in: productHitIds.ids } } : noRows,
+        where: canEquipment
+          ? {
+              id: { in: productHitIds.ids },
+              customer: { deletedAt: null },
+            }
+          : noRows,
         select: {
           id: true,
           model: true,
@@ -269,9 +279,11 @@ export async function performSearch(
         where: canReports
           ? {
               comments: contains,
-              ...(includeCancelled
-                ? {}
-                : { workOrder: { status: { not: "CANCELLED" } } }),
+              deletedAt: null,
+              workOrder: {
+                deletedAt: null,
+                ...(includeCancelled ? {} : { status: { not: "CANCELLED" } }),
+              },
             }
           : noRows,
         include: { template: { select: { title: true } }, workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } } }, orderBy: { completedAt: "desc" }, take: CANDIDATES,
@@ -366,7 +378,10 @@ export async function performSearch(
   // Tags er bare nødvendig for de få dokumentene som faktisk vises.
   const documentTags = fuzzyDocuments.length > 0
     ? await prisma.document.findMany({
-        where: { id: { in: fuzzyDocuments.map((d) => d.id) } },
+        where: {
+          id: { in: fuzzyDocuments.map((d) => d.id) },
+          deletedAt: null,
+        },
         select: { id: true, tags: { select: { name: true } } },
         take: LIMIT,
       })

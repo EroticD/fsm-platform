@@ -60,15 +60,20 @@ export function staffWhere(departmentId?: string | null): Prisma.UserWhereInput 
  * - Kundeportalbrukere ser bare oppdrag for sin egen kunde.
  * - Kontor og montører ser bare oppdrag i sin egen avdeling.
  * - Brukere uten avdeling ser ingen oppdrag.
+ *
+ * Mykt slettede oppdrag er usynlige for alle, også administrator. De hentes
+ * bare gjennom den egne gjenopprettingsvisningen som slår opp direkte på id.
  */
 export function workOrderScope(user?: AccessUser | null): Prisma.WorkOrderWhereInput {
   if (!user?.isActive) return { id: { in: [] } };
-  if (user.role === "ADMIN") return {};
+  if (user.role === "ADMIN") return { deletedAt: null };
   if (user.role === "CUSTOMER") {
-    return user.customerId ? { customerId: user.customerId } : { id: { in: [] } };
+    return user.customerId
+      ? { customerId: user.customerId, deletedAt: null }
+      : { id: { in: [] } };
   }
   if (!canUseWorkOrders(user) || !user.departmentId) return { id: { in: [] } };
-  return { departmentId: user.departmentId };
+  return { departmentId: user.departmentId, deletedAt: null };
 }
 
 /** Sjekker et oppdragsobjekt mot brukerens avdeling/kundetilhørighet. */

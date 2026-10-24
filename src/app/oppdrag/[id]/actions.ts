@@ -142,6 +142,7 @@ export async function setReportLock(formData: FormData) {
     workOrderId,
     formData.get("reportId"),
     formData.get("lock"),
+    formData.get("reason"),
   );
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 

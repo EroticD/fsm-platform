@@ -270,6 +270,14 @@ export default async function WorkOrdersPage({
             </p>
           </div>
           <div className="flex gap-2">
+            {user.role === "ADMIN" && (
+              <Link
+                href="/oppdrag/slettede"
+                className="bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
+              >
+                🗑️ {t("orders.detail.deletedOrders")}
+              </Link>
+            )}
             <Link
               href="/"
               className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"

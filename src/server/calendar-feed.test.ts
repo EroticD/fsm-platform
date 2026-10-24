@@ -272,7 +272,7 @@ describe("getCalendarFeed", () => {
     expect(where.AND[0]).toEqual({
       AND: [
         { technicians: { some: { id: "u1" } } },
-        { departmentId: "dep-a" },
+        { departmentId: "dep-a", deletedAt: null },
       ],
     });
     expect(where.AND).toContainEqual({ status: { not: "CANCELLED" } });

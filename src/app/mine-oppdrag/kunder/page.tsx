@@ -20,6 +20,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
   if (searchQuery.length > 0) {
     customers = await prisma.customer.findMany({
       where: {
+        deletedAt: null,
         OR: [
           { name: { contains: searchQuery, mode: 'insensitive' } },
           { customerNumber: { contains: searchQuery, mode: 'insensitive' } },
@@ -36,6 +37,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
     });
   } else {
     customers = await prisma.customer.findMany({
+      where: { deletedAt: null },
       orderBy: { name: 'asc' },
       include: {
         contacts: true,
