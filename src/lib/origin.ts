@@ -1,15 +1,24 @@
+import { hasValidBearer } from "@/lib/secrets";
+
 /**
- * Enkel same-origin-sjekk for tilstandsendrende rutehandlere.
+ * Same-origin-sjekk for tilstandsendrende rutehandlere.
  *
  * Nettleseren sender `Origin` på POST/PATCH/DELETE. Vi godtar bare appens egne
- * originer (request-URL, APP_URL eller NEXTAUTH_URL). Klienter uten Origin
- * (cron, server-til-server) må autentisere med Bearer-token.
+ * originer (request-URL, APP_URL eller NEXTAUTH_URL). Uten Origin godtas bare
+ * same-origin/none fra nettleseren, eller et gyldig Bearer-token for
+ * server-til-server (cron). En vilkårlig Authorization-header er ikke nok.
  */
 export function assertSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
 
   if (!origin) {
-    return Boolean(request.headers.get("authorization"));
+    const site = request.headers.get("sec-fetch-site");
+    if (site === "same-origin" || site === "none") return true;
+
+    return hasValidBearer(request, [
+      process.env.CRON_SECRET,
+      process.env.READY_SECRET,
+    ]);
   }
 
   const allowed = new Set<string>();

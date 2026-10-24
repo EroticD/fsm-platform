@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import prisma from "@/lib/prisma";
 import { uploadDir } from "@/lib/uploads";
 import { logger, requestIdFrom } from "@/lib/logger";
+import { hasValidBearer } from "@/lib/secrets";
 
 /**
  * Readiness-sjekk for container/orchestrator.
@@ -58,9 +59,20 @@ export async function GET(request: Request) {
     });
   }
 
+  const status = ready ? "ready" : "not_ready";
+  const authorized = hasValidBearer(request, [
+    process.env.READY_SECRET,
+    process.env.CRON_SECRET,
+  ]);
+
+  // Uten hemmelighet får kalleren bare status – ikke database, disk eller kø.
+  if (!authorized) {
+    return NextResponse.json({ status }, { status: ready ? 200 : 503 });
+  }
+
   return NextResponse.json(
     {
-      status: ready ? "ready" : "not_ready",
+      status,
       database,
       disk,
       queue,

@@ -13,6 +13,14 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
+  const { validateProductionConfig } = await import("@/lib/config");
+  const configErrors = validateProductionConfig(process.env);
+  if (configErrors.length > 0) {
+    console.error("✖ Ugyldig produksjonskonfigurasjon:");
+    for (const error of configErrors) console.error(`  - ${error}`);
+    process.exit(1);
+  }
+
   if (process.env.RECURRING_SCHEDULER !== "false") {
     try {
       const { startRecurringScheduler } = await import("@/lib/recurring-scheduler");

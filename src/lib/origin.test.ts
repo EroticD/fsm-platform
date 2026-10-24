@@ -3,17 +3,29 @@ import { assertSameOrigin } from "./origin";
 
 const originalAppUrl = process.env.APP_URL;
 const originalNextAuthUrl = process.env.NEXTAUTH_URL;
+const originalCronSecret = process.env.CRON_SECRET;
+const originalReadySecret = process.env.READY_SECRET;
 
 afterEach(() => {
   process.env.APP_URL = originalAppUrl;
   process.env.NEXTAUTH_URL = originalNextAuthUrl;
+  process.env.CRON_SECRET = originalCronSecret;
+  process.env.READY_SECRET = originalReadySecret;
 });
 
-function request(origin?: string, authorization?: string) {
+function request(
+  origin?: string,
+  authorization?: string,
+  secFetchSite?: string,
+) {
   const headers = new Headers();
   if (origin) headers.set("origin", origin);
   if (authorization) headers.set("authorization", authorization);
-  return new Request("http://localhost:3000/api/test", { method: "POST", headers });
+  if (secFetchSite) headers.set("sec-fetch-site", secFetchSite);
+  return new Request("http://localhost:3000/api/test", {
+    method: "POST",
+    headers,
+  });
 }
 
 describe("assertSameOrigin", () => {
@@ -30,11 +42,23 @@ describe("assertSameOrigin", () => {
     expect(assertSameOrigin(request("https://evil.example"))).toBe(false);
   });
 
-  it("avviser manglende origin uten bearer-token", () => {
-    expect(assertSameOrigin(request())).toBe(false);
+  it("godtar manglende origin fra same-origin nettleser", () => {
+    expect(assertSameOrigin(request(undefined, undefined, "same-origin"))).toBe(true);
+    expect(assertSameOrigin(request(undefined, undefined, "none"))).toBe(true);
   });
 
-  it("godtar manglende origin med bearer-token (cron)", () => {
-    expect(assertSameOrigin(request(undefined, "Bearer hemmelig"))).toBe(true);
+  it("avviser manglende origin uten gyldig bearer", () => {
+    expect(assertSameOrigin(request())).toBe(false);
+    expect(assertSameOrigin(request(undefined, "Bearer vilkårlig"))).toBe(false);
+  });
+
+  it("godtar manglende origin med gyldig CRON_SECRET", () => {
+    process.env.CRON_SECRET = "riktig-hemmelighet";
+    expect(
+      assertSameOrigin(request(undefined, "Bearer riktig-hemmelighet")),
+    ).toBe(true);
+    expect(
+      assertSameOrigin(request(undefined, "Bearer feil-hemmelighet")),
+    ).toBe(false);
   });
 });

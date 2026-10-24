@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateDueRecurringWorkOrders } from "@/lib/recurring";
+import { safeEqual } from "@/lib/secrets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,8 @@ export async function GET(request: Request) {
     );
   }
 
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token || !safeEqual(token, secret)) {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 401 });
   }
 

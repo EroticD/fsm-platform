@@ -10,5 +10,8 @@ export async function GET() {
     return NextResponse.json({ count: 0 }, { status: 401 });
   }
   const count = await countUnreadNotifications(user);
-  return NextResponse.json({ count });
+  return NextResponse.json(
+    { count },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

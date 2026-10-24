@@ -37,15 +37,30 @@ Aktuelle områder:
 
 - To-trinns verifisering (TOTP) er tilgjengelig for alle innloggede under
   Innstillinger → Sikkerhet. Oppfordre administratorer til å slå det på.
-- Opplasting, søk og kommentarer har hastighetsbegrensning per konto, i tillegg
-  til innloggingsbegrensningen.
+- Innlogging, passordnullstilling, 2FA-innstillinger, opplasting, søk,
+  kommentarer, PDF-visning, kundeportal-booking og iCal har
+  hastighetsbegrensning. Tellerne ligger i databasen og deles mellom
+  app-instanser.
 - `.env` skal aldri committes eller deles. Roter `NEXTAUTH_SECRET` og
   databasepassordet hvis de kan ha vært eksponert.
 - Kjør bak en reverse proxy med TLS, og sett `NEXTAUTH_URL` til den offentlige
   `https://`-adressen.
 - Begrens størrelsen på forespørsler i proxyen. Appen godtar inntil 100 MB per
   opplasting.
-- Kjør én app-instans, eller flytt innloggingsbegrensningen og PDF-køen til
-  delte tjenester. Begge ligger i minnet i app-prosessen.
-- Ta sikkerhetskopier med `scripts/backup.sh`, og oppbevar dem et annet sted enn
-  maskinen appen kjører på.
+- Jobbkøen for PDF-tekst/OCR og rate limits ligger i databasen og fungerer med
+  flere app-instanser. PDF-renderingen har en prosesslokal semaphore (maks 2
+  samtidige per instans).
+- 2FA-innstillinger krever passord og TOTP på nytt. Endring av 2FA, passord,
+  rolle eller rettigheter øker `sessionVersion`, slik at andre økter blir
+  ugyldige.
+- Opplastede filer har eierskap per fil. En fil kan bare knyttes til et oppdrag,
+  en kunde eller et dokument av brukeren som lastet den opp, eller av den
+  eksisterende eieren.
+- iCal-tokens lagres hashet, kan tilbakekalles og roteres, og avgrenses til
+  brukerens egne/avdelingens oppdrag.
+- Reverse proxyen må overskrive `Host`, `X-Forwarded-Host`,
+  `X-Forwarded-Proto` og `X-Forwarded-For`. Appen stoler bare på
+  `x-forwarded-proto` når `TRUST_PROXY=true`.
+- Ta sikkerhetskopier med `scripts/backup.sh`. Bruk `BACKUP_AGE_RECIPIENT` for
+  kryptering og `BACKUP_REMOTE` for kopi til ekstern lagring. Kjør
+  `scripts/restore-test.sh` månedlig.

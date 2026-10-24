@@ -127,6 +127,7 @@ describe("varseltjenesten", () => {
         title: "Nytt oppdrag",
         body: "Se oppdraget",
         href: "/oppdrag/wo1",
+        emailAttempts: 0,
         user: { email: "kari@example.test" },
       },
     ]);
@@ -142,7 +143,62 @@ describe("varseltjenesten", () => {
     );
     expect(mocks.prisma.notification.update).toHaveBeenCalledWith({
       where: { id: "n1" },
-      data: { emailSentAt: expect.any(Date), emailError: null },
+      data: {
+        emailSentAt: expect.any(Date),
+        emailAttempts: 1,
+        emailError: null,
+      },
+    });
+  });
+
+  it("prøver på nytt med backoff når e-post feiler", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    mocks.sendNotificationEmail.mockRejectedValue(new Error("SMTP nede"));
+
+    const result = await processPendingNotificationEmails();
+
+    expect(result).toEqual({ processed: 1, sent: 0 });
+    expect(mocks.prisma.notification.update).toHaveBeenCalledWith({
+      where: { id: "n1" },
+      data: {
+        emailAttempts: 1,
+        emailNextAttemptAt: expect.any(Date),
+        emailError: "SMTP nede",
+      },
+    });
+  });
+
+  it("gir opp etter fem forsøk", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 4,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    mocks.sendNotificationEmail.mockRejectedValue(new Error("SMTP nede"));
+
+    await processPendingNotificationEmails();
+
+    expect(mocks.prisma.notification.update).toHaveBeenCalledWith({
+      where: { id: "n1" },
+      data: {
+        emailAttempts: 5,
+        emailNextAttemptAt: expect.any(Date),
+        emailError: "Gave up",
+      },
     });
   });
 

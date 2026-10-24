@@ -50,6 +50,9 @@ jobs:
       - name: Installer avhengigheter
         run: npm ci
 
+      - name: Sikkerhetsrevisjon av avhengigheter
+        run: npm audit --omit=dev
+
       - name: Bruk migrasjonene på en tom database
         run: npx prisma migrate deploy
 
@@ -104,5 +107,17 @@ jobs:
         with:
           context: .
           push: false
+          load: true
+          tags: fsm-platform:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Skann imaget for sårbarheter
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: fsm-platform:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"

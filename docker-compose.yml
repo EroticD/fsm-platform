@@ -46,6 +46,7 @@ services:
       # AUTH_TRUST_HOST gjør at appen kan kjøre bak en proxy/container uten at
       # NextAuth avviser vertsnavnet.
       AUTH_TRUST_HOST: "true"
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
       # E-post (valgfritt). Uten SMTP-innstillinger viser appen invitasjonslenker
       # som må deles manuelt.
@@ -63,6 +64,7 @@ services:
       # bruker /api/cron/recurring i stedet.
       RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
       CRON_SECRET: ${CRON_SECRET:-}
+      READY_SECRET: ${READY_SECRET:-}
     ports:
       # I produksjon bør dette være "127.0.0.1:3000:3000" når appen står bak en
       # reverse proxy på samme maskin. Da kan ikke appen nås direkte utenom TLS.

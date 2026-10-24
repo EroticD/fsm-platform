@@ -32,10 +32,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      APP_URL: ${APP_URL:-}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?Sett NEXTAUTH_URL til https://...}
+      APP_URL: ${APP_URL:?Sett APP_URL til https://...}
       TZ: Europe/Oslo
       AUTH_TRUST_HOST: "true"
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
@@ -48,10 +49,22 @@ services:
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-}
       RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
       CRON_SECRET: ${CRON_SECRET:-}
+      READY_SECRET: ${READY_SECRET:-}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
       - fsm_uploads:/app/uploads
+    # Produksjonsherding. Opplastingsvolumet er skrivbart, mens resten av
+    # filsystemet er read-only. /tmp er tmpfs for OCR og Node.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 2g
 
 volumes:
   fsm_postgres_data:

@@ -324,7 +324,11 @@ export async function processPendingNotificationEmails(
   limit = 20,
 ): Promise<{ processed: number; sent: number }> {
   const pending = await prisma.notification.findMany({
-    where: { emailSentAt: null },
+    where: {
+      emailSentAt: null,
+      emailAttempts: { lt: 5 },
+      emailNextAttemptAt: { lte: new Date() },
+    },
     orderBy: { createdAt: "asc" },
     take: limit,
     include: { user: { select: { email: true } } },
@@ -341,6 +345,8 @@ export async function processPendingNotificationEmails(
       continue;
     }
 
+    const attempts = notification.emailAttempts + 1;
+
     try {
       const okSent = await sendNotificationEmail(
         email,
@@ -348,20 +354,32 @@ export async function processPendingNotificationEmails(
         notification.body ?? "",
         notification.href ?? undefined,
       );
+      if (!okSent) throw new Error("SMTP er ikke konfigurert");
+
       await prisma.notification.update({
         where: { id: notification.id },
         data: {
           emailSentAt: new Date(),
-          emailError: okSent ? null : "SMTP er ikke konfigurert",
+          emailAttempts: attempts,
+          emailError: null,
         },
       });
-      if (okSent) sent += 1;
+      sent += 1;
     } catch (error) {
+      // Eksponentiell backoff, maks én time. Etter fem forsøk gir vi opp, slik
+      // at en ødelagt SMTP-server ikke prøves for alltid.
+      const delayMs = Math.min(60 * 60_000, 5 * 60_000 * 2 ** attempts);
       await prisma.notification.update({
         where: { id: notification.id },
         data: {
+          emailAttempts: attempts,
+          emailNextAttemptAt: new Date(Date.now() + delayMs),
           emailError:
-            error instanceof Error ? error.message.slice(0, 2000) : "Ukjent feil",
+            attempts >= 5
+              ? "Gave up"
+              : error instanceof Error
+                ? error.message.slice(0, 2000)
+                : "Ukjent feil",
         },
       });
     }
