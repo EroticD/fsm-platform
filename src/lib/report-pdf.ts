@@ -5,6 +5,11 @@ import ReportDocument from "@/components/ReportDocument";
 import { buildPdfImages, collectReportImageUrls } from "@/lib/report-images";
 import { formatDate } from "@/lib/dates";
 import { isSafeLogoUrl } from "@/lib/logo";
+import {
+  BRANDING_LOGO_OWNER_TYPES,
+  REPORT_IMAGE_OWNER_TYPES,
+  isUploadOwnedBy,
+} from "@/lib/upload-ownership";
 
 export type ReportPdfResult = {
   buffer: Buffer;
@@ -74,11 +79,28 @@ export async function loadReportPdf(
   // Bildene skaleres ned på forhånd, slik at PDF-en blir til å sende på e-post.
   // Signaturer og opplastet logo tas med, slik at PDF-motoren slipper å hente
   // dem fra det innloggingsbeskyttede /uploads over HTTP.
-  const imageUrls = collectReportImageUrls(workOrder.reports);
-  if (branding?.logoUrl && isSafeLogoUrl(branding.logoUrl)) {
-    imageUrls.push(branding.logoUrl);
-  }
-  const pdfImages = await buildPdfImages(imageUrls);
+  const reportImageUrls = collectReportImageUrls(workOrder.reports);
+
+  // Logoen må være lastet opp som merkevare. En fil uten `Upload`-rad – eller
+  // en fil som tilhører et oppdrag, en kunde eller en bruker – skal verken
+  // leses fra disk eller sendes videre til PDF-motoren.
+  const logoUrl =
+    branding?.logoUrl && isSafeLogoUrl(branding.logoUrl) ? branding.logoUrl : null;
+  const logoIsOwned = logoUrl
+    ? await isUploadOwnedBy(logoUrl, BRANDING_LOGO_OWNER_TYPES)
+    : false;
+  const safeLogoUrl = logoIsOwned ? logoUrl : null;
+
+  const imageRequests = [
+    ...reportImageUrls.map((url) => ({
+      url,
+      ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+    })),
+    ...(safeLogoUrl
+      ? [{ url: safeLogoUrl, ownerTypes: BRANDING_LOGO_OWNER_TYPES }]
+      : []),
+  ];
+  const pdfImages = await buildPdfImages(imageRequests);
 
   const origin =
     baseUrl ||
@@ -88,9 +110,11 @@ export async function loadReportPdf(
 
   const element = React.createElement(ReportDocument, {
     data: workOrder,
-    // Bare logoer som er lastet opp gjennom appen. Eldre eksterne URL-er
-    // ignoreres, slik at PDF-generering ikke kan brukes til SSRF.
-    globalLogoUrl: isSafeLogoUrl(branding?.logoUrl) ? branding?.logoUrl ?? null : null,
+    // Bare logoer som er lastet opp gjennom appen og har gyldig
+    // merkevare-eierskap. Eldre eksterne URL-er og filer uten metadata
+    // ignoreres, slik at PDF-generering ikke kan brukes til SSRF eller til å
+    // vise andres filer.
+    globalLogoUrl: safeLogoUrl,
     globalPrimaryColor: branding?.primaryColor ?? undefined,
     globalCompanyName: branding?.companyName ?? undefined,
     baseUrl: origin,

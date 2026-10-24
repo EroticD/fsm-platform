@@ -2,6 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { parseImageUrls, parseJsonObject } from "@/lib/report-answers";
+import type { UploadOwnerType } from "@/lib/upload-access";
+import {
+  hasAllowedOwner,
+  loadUploadOwnerships,
+  uploadStoredName,
+} from "@/lib/upload-ownership";
 import { uploadDir } from "@/lib/uploads";
 
 /** Lastes opp hit, og kan skaleres ned lokalt. Eksterne bilder brukes som de er. */
@@ -20,6 +26,16 @@ export type PdfImage = {
   /** Utregnet bredde/høyde i punkter, slik at bildet får plass på siden. */
   width?: number;
   height?: number;
+};
+
+/**
+ * Et bilde som skal gjøres klart for PDF-en, med hvilke opplastingseiere som
+ * er lov for akkurat dette bildet. Rapporter bruker `WORK_ORDER`, logoen
+ * bruker `BRANDING` – en fil uten metadata eller med feil eier leses ikke.
+ */
+export type PdfImageRequest = {
+  url: string;
+  ownerTypes: readonly UploadOwnerType[];
 };
 
 type ReportLike = {
@@ -132,13 +148,32 @@ const IMAGE_SCALE_CONCURRENCY = 4;
  * rapporten og på vedleggssiden – uten at bildet lagres to ganger i PDF-en.
  *
  * Nøkkelen er den opprinnelige URL-en, slik at PDF-komponenten kan slå opp
- * bildet den vil vise. Bilder vi ikke får skalert (eksterne, eller filer som er
- * borte) mangler i kartet, og da brukes den opprinnelige URL-en.
+ * bildet den vil vise. Bilder vi ikke får skalert (eksterne, filer som er
+ * borte, eller filer uten gyldig eier) mangler i kartet, og da brukes den
+ * opprinnelige URL-en.
  *
  * Sharp bruker mye minne per bilde. Derfor skaleres bildene i små bolker i
  * stedet for alle på en gang – en rapport kan ha mange vedlegg.
  */
-export async function buildPdfImages(urls: string[]): Promise<Record<string, PdfImage>> {
+export async function buildPdfImages(
+  requests: readonly PdfImageRequest[],
+): Promise<Record<string, PdfImage>> {
+  // Slå opp eierskapet til alle filene før noe leses fra disk. En fil uten
+  // `Upload`-rad, eller med en eiertype som ikke er lov for bruken, hoppes
+  // over – eldre filer uten metadata feiler dermed lukket.
+  const unique = new Map<string, PdfImageRequest>();
+  for (const request of requests) {
+    if (!unique.has(request.url)) unique.set(request.url, request);
+  }
+
+  const ownerships = await loadUploadOwnerships([...unique.keys()]);
+  const urls: string[] = [];
+  for (const [url, request] of unique) {
+    const storedName = uploadStoredName(url);
+    const upload = storedName ? ownerships.get(storedName) : undefined;
+    if (hasAllowedOwner(upload, request.ownerTypes)) urls.push(url);
+  }
+
   const scaled: (readonly [string, PdfImage])[] = [];
 
   for (let start = 0; start < urls.length; start += IMAGE_SCALE_CONCURRENCY) {

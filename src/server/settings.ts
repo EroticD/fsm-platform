@@ -2,6 +2,7 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { isSafeLogoUrl } from "@/lib/logo";
+import { isBrandingLogoForActor } from "@/lib/upload-ownership";
 import { LIMITS, cleanColor, cleanStatus, cleanText, cleanUrl } from "@/lib/sanitize";
 import {
   can,
@@ -305,6 +306,14 @@ export async function saveBranding(
   // Bare logoer som er lastet opp gjennom appen. Eksterne URL-er kan peke på
   // interne tjenere og er en SSRF-risiko i PDF- og e-postgenerering.
   if (logoUrl && !isSafeLogoUrl(logoUrl)) return fail("invalid_logo");
+
+  // Stien alene sier ingenting om hvem som eier filen. Logoen må være lastet
+  // opp som merkevare av den som nå lagrer den – ellers kunne en hvilken som
+  // helst `/uploads`-fil fra et oppdrag, en kunde eller en annen bruker bli
+  // vist til alle innloggede og bakt inn i PDF-er.
+  if (logoUrl && !(await isBrandingLogoForActor(logoUrl, actor.id))) {
+    return fail("invalid_logo");
+  }
 
   const existing = await prisma.branding.findFirst();
 
