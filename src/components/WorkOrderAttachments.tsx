@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addAttachment, removeAttachment } from "@/lib/attachment-actions";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export type WorkOrderAttachment = {
   id: string;
@@ -39,6 +40,7 @@ export default function WorkOrderAttachments({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<WorkOrderAttachment | null>(null);
 
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -94,8 +96,14 @@ export default function WorkOrderAttachments({
     router.refresh();
   };
 
-  const handleRemove = async (attachment: WorkOrderAttachment) => {
-    if (!window.confirm(`Slette vedlegget «${attachment.fileName}»?`)) return;
+  const handleRemove = (attachment: WorkOrderAttachment) => {
+    setPendingDelete(attachment);
+  };
+
+  const confirmRemove = async () => {
+    const attachment = pendingDelete;
+    if (!attachment) return;
+    setPendingDelete(null);
 
     setError("");
     setBusy(true);
@@ -201,6 +209,15 @@ export default function WorkOrderAttachments({
       )}
 
       {error && <p className="text-[11px] font-bold text-red-600 mt-2">❌ {error}</p>}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Slett vedlegg"
+        description={pendingDelete ? `Slette vedlegget «${pendingDelete.fileName}»?` : undefined}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmRemove}
+        busy={busy}
+      />
     </div>
   );
 }

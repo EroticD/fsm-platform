@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
 export default function ContactCard({
   contact,
@@ -54,19 +55,20 @@ export default function ContactCard({
           >
             {isEditing ? "Skjul" : "✏️ Rediger"}
           </button>
-          <form action={onDelete} className={`inline ${canDelete ? "" : "hidden"}`}>
+          <ConfirmSubmitForm
+            action={onDelete}
+            confirmMessage="Er du sikker på at du vil slette denne kontaktpersonen?"
+            className={`inline ${canDelete ? "" : "hidden"}`}
+          >
             <input type="hidden" name="id" value={contact.id} />
             <button
               type="submit"
-              onClick={(e) => {
-                if (!confirm("Er du sikker på at du vil slette denne kontaktpersonen?")) e.preventDefault();
-              }}
               className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
               title="Slett kontaktperson"
             >
               🗑️
             </button>
-          </form>
+          </ConfirmSubmitForm>
         </div>
       </div>
 

@@ -534,7 +534,10 @@ export default function ReportForm({
         </div>
       </div>
 
-      <SubmitButton isEditing={isEditing} />
+      {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd. */}
+      <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <SubmitButton isEditing={isEditing} />
+      </div>
     </form>
   );
 }

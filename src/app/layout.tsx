@@ -56,10 +56,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-gray-900 focus:shadow-lg"
+        >
+          Hopp til innhold
+        </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <BrandingColors />
           <BrandedHeader showNav role={session?.user?.role} />
-          {children}
+          <main id="main-content" className="flex-1">
+            {children}
+          </main>
           <ServiceWorkerRegister />
         </NextIntlClientProvider>
       </body>
