@@ -147,6 +147,8 @@ describe("varseltjenesten", () => {
         emailSentAt: expect.any(Date),
         emailAttempts: 1,
         emailError: null,
+        emailLockedAt: null,
+        emailLockedBy: null,
       },
     });
   });
@@ -173,8 +175,17 @@ describe("varseltjenesten", () => {
         emailAttempts: 1,
         emailNextAttemptAt: expect.any(Date),
         emailError: "SMTP nede",
+        emailLockedAt: null,
+        emailLockedBy: null,
       },
     });
+
+    const update = mocks.prisma.notification.update.mock.calls[0][0] as {
+      data: { emailNextAttemptAt: Date };
+    };
+    const delayMs = update.data.emailNextAttemptAt.getTime() - Date.now();
+    expect(delayMs).toBeGreaterThan(5 * 60_000);
+    expect(delayMs).toBeLessThanOrEqual(60 * 60_000 + 1_000);
   });
 
   it("gir opp etter fem forsøk", async () => {
@@ -198,7 +209,126 @@ describe("varseltjenesten", () => {
         emailAttempts: 5,
         emailNextAttemptAt: expect.any(Date),
         emailError: "Gave up",
+        emailLockedAt: null,
+        emailLockedBy: null,
       },
+    });
+  });
+
+  it("sender bare én gang når to kall kjører samtidig", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    // Første kall holder på låsen mens det andre starter.
+    let releaseSend: (value: boolean) => void = () => {};
+    mocks.sendNotificationEmail.mockImplementation(
+      () => new Promise<boolean>((resolve) => (releaseSend = resolve)),
+    );
+
+    const first = processPendingNotificationEmails();
+    // Vent til første kall faktisk står i sendingen, og start deretter det andre.
+    await vi.waitFor(() =>
+      expect(mocks.sendNotificationEmail).toHaveBeenCalledTimes(1),
+    );
+    const second = processPendingNotificationEmails();
+    releaseSend(true);
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(mocks.sendNotificationEmail).toHaveBeenCalledTimes(1);
+    expect(a.sent + b.sent).toBe(1);
+    expect(a.processed + b.processed).toBe(1);
+  });
+
+  it("tar over en utløpt lease", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+
+    const result = await processPendingNotificationEmails();
+
+    expect(result).toEqual({ processed: 1, sent: 1 });
+    const findArgs = mocks.prisma.notification.findMany.mock.calls[0][0] as {
+      where: { OR: Array<Record<string, unknown>> };
+    };
+    expect(findArgs.where.OR).toEqual([
+      { emailLockedAt: null },
+      { emailLockedAt: { lt: expect.any(Date) } },
+    ]);
+
+    const claimArgs = mocks.prisma.notification.updateMany.mock.calls[0][0] as {
+      where: { id: string; emailSentAt: null; OR: unknown };
+      data: { emailLockedAt: Date; emailLockedBy: string };
+    };
+    expect(claimArgs.where).toEqual({
+      id: "n1",
+      emailSentAt: null,
+      OR: [
+        { emailLockedAt: null },
+        { emailLockedAt: { lt: expect.any(Date) } },
+      ],
+    });
+    expect(claimArgs.data.emailLockedBy).toContain(String(process.pid));
+    expect(claimArgs.data.emailLockedAt).toBeInstanceOf(Date);
+    expect(mocks.sendNotificationEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("sender ikke når en annen instans vant claimet", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    mocks.prisma.notification.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await processPendingNotificationEmails();
+
+    expect(result).toEqual({ processed: 1, sent: 0 });
+    expect(mocks.sendNotificationEmail).not.toHaveBeenCalled();
+    expect(mocks.prisma.notification.update).not.toHaveBeenCalled();
+  });
+
+  it("frigjør låsen og backer av når sending feiler", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    mocks.sendNotificationEmail.mockRejectedValue(new Error("SMTP nede"));
+
+    await processPendingNotificationEmails();
+
+    expect(mocks.prisma.notification.update).toHaveBeenCalledWith({
+      where: { id: "n1" },
+      data: expect.objectContaining({
+        emailAttempts: 1,
+        emailError: "SMTP nede",
+        emailLockedAt: null,
+        emailLockedBy: null,
+      }),
     });
   });
 
