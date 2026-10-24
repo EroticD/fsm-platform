@@ -1,7 +1,10 @@
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { toDateOnly } from "@/lib/dates";
-import { notifyUser } from "./notifications";
+import { getDefaultDepartmentId } from "@/lib/departments";
+import { allowRequestDb } from "@/lib/rate-limit-db";
+import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import {
   fail,
   ok,
@@ -12,8 +15,131 @@ import {
 
 const PAGE_SIZE = 20;
 
+/** Kundebestillinger: maks fem per time, og ti per IP. */
+const BOOKING_WINDOW_MS = 60 * 60_000;
+const BOOKING_CUSTOMER_LIMIT = 5;
+const BOOKING_IP_LIMIT = 10;
+/** Maks antall åpne bestillinger kunden kan ha liggende samtidig. */
+const BOOKING_OPEN_LIMIT = 5;
+/** Like bestillinger innenfor dette vinduet regnes som samme hendelse. */
+const BOOKING_DUPLICATE_WINDOW_MS = 10 * 60_000;
+
 function idFrom(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, 64) : "";
+}
+
+/**
+ * Kunden bestiller et nytt oppdrag.
+ *
+ * Autorisasjonen er serverstyrt: kunden kan bare bestille til sin egen
+ * `customerId`, uansett hva klienten sender. Bestillingen rate-limites både
+ * per kunde og per IP, og like bestillinger innenfor ti minutter slås sammen
+ * slik at dobbeltklikk ikke gir flere oppdrag eller e-poster.
+ */
+export async function createBooking(
+  actor: ServiceActor,
+  input: { title: string; description: string; ip?: string },
+): Promise<ServiceResult<{ id: string; duplicate?: boolean }>> {
+  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
+    return fail("forbidden");
+  }
+
+  const customerId = actor.customerId;
+  const title = cleanText(input.title, { maxLength: LIMITS.title });
+  if (!title) return fail("missing_fields");
+  const description = cleanMarkdown(input.description);
+
+  const customerLimit = await allowRequestDb(
+    `booking:customer:${customerId}`,
+    BOOKING_CUSTOMER_LIMIT,
+    BOOKING_WINDOW_MS,
+  );
+  if (!customerLimit.allowed) return fail("rate_limited");
+
+  if (input.ip) {
+    const ipLimit = await allowRequestDb(
+      `booking:ip:${input.ip}`,
+      BOOKING_IP_LIMIT,
+      BOOKING_WINDOW_MS,
+    );
+    if (!ipLimit.allowed) return fail("rate_limited");
+  }
+
+  // Samme tittel og beskrivelse like etter forrige bestilling er nesten
+  // alltid et dobbeltklikk. Da returneres den eksisterende saken uten ny
+  // varsling eller e-post.
+  const duplicate = await prisma.workOrder.findFirst({
+    where: {
+      customerId,
+      title,
+      description,
+      deletedAt: null,
+      createdAt: { gte: new Date(Date.now() - BOOKING_DUPLICATE_WINDOW_MS) },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (duplicate) return ok({ id: duplicate.id, duplicate: true });
+
+  const openBookings = await prisma.workOrder.count({
+    where: { customerId, status: "OPEN", deletedAt: null },
+  });
+  if (openBookings >= BOOKING_OPEN_LIMIT) return fail("conflict");
+
+  // Kundebestillinger havner i standardavdelingen, som før. Finnes ingen
+  // aktiv avdeling, kan bestillingen ikke opprettes.
+  const departmentId = await getDefaultDepartmentId();
+  if (!departmentId) return fail("error");
+
+  let createdId: string;
+  try {
+    createdId = await prisma.$transaction(async (tx) => {
+      const created = await tx.workOrder.create({
+        data: {
+          title,
+          description: description || "",
+          departmentId,
+          customerId,
+          contactId: actor.contactId || undefined,
+          creatorName: actor.name || actor.email || "Kunde",
+          status: "OPEN",
+          technicians: { connect: [] },
+        },
+        select: { id: true },
+      });
+
+      await audit(tx, {
+        entityType: "WorkOrder",
+        entityId: created.id,
+        action: `Kunde booket nytt oppdrag: ${title}`,
+        actor: toAuditActor(actor),
+      });
+
+      return created.id;
+    });
+  } catch (error) {
+    // Transaksjonen ruller tilbake både oppdraget og revisjonsloggen.
+    console.error("Databasefeil ved booking av oppdrag:", error);
+    return fail("error");
+  }
+
+  // Varselet legges i køen (in-app + e-post sendes av jobbworkeren), slik at
+  // treg SMTP ikke blokkerer bestillingen. Bare kontoret i destinasjons-
+  // avdelingen varsles.
+  try {
+    await notifyWorkOrderEvent(
+      createdId,
+      "BOOKING",
+      "Ny bestilling fra kundeportal",
+      `Kunden har booket «${title}».`,
+      `/oppdrag/${createdId}`,
+      `booking:${createdId}`,
+    );
+  } catch (error) {
+    console.error("Kunne ikke legge bestillingsvarsel i køen:", error);
+  }
+
+  return ok({ id: createdId });
 }
 
 /**

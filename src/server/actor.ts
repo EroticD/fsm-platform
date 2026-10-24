@@ -18,6 +18,7 @@ export type ServiceActor = {
   isActive: boolean;
   departmentId: string | null;
   customerId?: string | null;
+  contactId?: string | null;
   permissions?: string[] | null;
   permissionsCustomized?: boolean | null;
   roleDefinition?: { permissions?: string[] | null } | null;
@@ -29,6 +30,7 @@ export type ServiceError =
   | "invalid"
   | "not_found"
   | "conflict"
+  | "rate_limited"
   | "error"
   | "missing_fields"
   | "missing_contact"
