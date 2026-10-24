@@ -31,6 +31,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { clearCalendarToken } from "./calendar-feed";
 
 type RoleRecord = {
   key: string;
@@ -323,6 +324,7 @@ export async function changeRole(
         sessionVersion: { increment: 1 },
       },
     });
+    await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: id,
@@ -378,6 +380,7 @@ export async function setActive(
       where: { id },
       data: { isActive: active, sessionVersion: { increment: 1 } },
     });
+    if (!active) await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: id,
@@ -427,6 +430,7 @@ export async function changeDepartment(
       where: { id },
       data: { departmentId, sessionVersion: { increment: 1 } },
     });
+    await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: id,
@@ -526,6 +530,7 @@ export async function changePermissions(
         sessionVersion: { increment: 1 },
       },
     });
+    await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: id,
@@ -563,6 +568,7 @@ export async function resetPermissions(
         sessionVersion: { increment: 1 },
       },
     });
+    await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: id,
@@ -732,6 +738,7 @@ export async function setPortalUserActive(
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id }, data: { isActive: active } });
+    if (!active) await clearCalendarToken(id, tx);
     await audit(tx, {
       entityType: "Customer",
       entityId: customerId,

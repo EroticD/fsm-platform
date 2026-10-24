@@ -206,6 +206,15 @@ describe("2FA-innstillinger – verifisering", () => {
         action: "Slå på to-trinns verifisering",
       }),
     });
+    // En eksisterende kalenderlenke skal ikke overleve en 2FA-endring.
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        calendarTokenHash: null,
+        calendarTokenCreatedAt: null,
+        calendarTokenLastUsedAt: null,
+      },
+    });
   });
 
   it("avbryter oppsett og ugyldiggjør øktene i samme transaksjon", async () => {

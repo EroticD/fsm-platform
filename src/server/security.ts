@@ -4,6 +4,7 @@ import { audit } from "@/lib/audit";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { cleanText } from "@/lib/sanitize";
 import { createTotpSecret, verifyTotp } from "@/lib/two-factor";
+import { clearCalendarToken } from "./calendar-feed";
 import { toAuditActor, type ServiceActor } from "./actor";
 
 /** 2FA-innstillinger krever ny autentisering, med både bruker- og IP-grense. */
@@ -194,6 +195,7 @@ export async function confirmTwoFactorSetup(
       },
       select: { sessionVersion: true },
     });
+    await clearCalendarToken(actor.id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: actor.id,
@@ -234,6 +236,7 @@ export async function cancelTwoFactorSetup(
       },
       select: { sessionVersion: true },
     });
+    await clearCalendarToken(actor.id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: actor.id,
@@ -284,6 +287,7 @@ export async function disableTwoFactor(
       },
       select: { sessionVersion: true },
     });
+    await clearCalendarToken(actor.id, tx);
     await audit(tx, {
       entityType: "User",
       entityId: actor.id,
