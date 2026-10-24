@@ -295,6 +295,7 @@ export async function notifyOverdueWorkOrders(
   );
   const workOrders = await prisma.workOrder.findMany({
     where: {
+      deletedAt: null,
       scheduledFor: { lt: today },
       status: { notIn: ["COMPLETED", "CANCELLED"] },
     },

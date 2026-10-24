@@ -89,8 +89,8 @@ export async function getCustomerDetail(
 
   // Kunder, kontakter, enheter, avtaler, dokumenter og rapporter er felles for
   // alle avdelinger. Oppdragene på kundekortet er derimot avdelingssperret.
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
     include: {
       department: true,
       responsibleTechnician: true,
@@ -280,8 +280,8 @@ export async function getCustomerEditOptions(
 ) {
   if (!can(actor, "customers.manage")) return fail("forbidden");
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
   });
   if (!customer) return fail("not_found");
 
@@ -618,8 +618,8 @@ export async function createUnit(
   if (!parsed.success) return fail("invalid");
   const { customerId, model, serialNumber, location } = parsed.data;
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
     select: { id: true },
   });
   if (!customer) return fail("not_found");
@@ -782,8 +782,8 @@ export async function createContract(
   const intervalMonths = parsed.data.intervalMonths;
   if (!startDate || !isContractInterval(intervalMonths)) return fail("invalid");
 
-  const customerExists = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customerExists = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
     select: { id: true },
   });
   if (!customerExists) return fail("not_found");
@@ -968,8 +968,8 @@ export async function addCustomerAttachment(
     return fail("file_not_found");
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
     select: { id: true, departmentId: true },
   });
   if (!customer) return fail("customer_not_found");

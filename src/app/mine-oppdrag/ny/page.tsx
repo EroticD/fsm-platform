@@ -31,6 +31,7 @@ export default async function TechnicianCreateWorkOrderPage() {
 
   // Henter kunder og maler fra databasen
   const customers = await prisma.customer.findMany({
+    where: { deletedAt: null },
     orderBy: { name: 'asc' },
     take: 100,
     select: {

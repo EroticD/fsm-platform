@@ -193,6 +193,7 @@ export async function getStatistics(
   const [statsCustomers, statsTechnicians, totalWorkOrders, statusGroups, customerCounts] =
     await Promise.all([
       prisma.customer.findMany({
+        where: { deletedAt: null },
         orderBy: { name: "asc" },
         take: 50,
         select: { id: true, name: true },
@@ -214,7 +215,7 @@ export async function getStatistics(
         _count: { _all: true },
       }),
       prisma.customer.findMany({
-        where: { workOrder: { some: statsWhere } },
+        where: { deletedAt: null, workOrder: { some: statsWhere } },
         orderBy: { name: "asc" },
         take: 100,
         select: {

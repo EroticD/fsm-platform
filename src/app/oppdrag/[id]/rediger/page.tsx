@@ -51,6 +51,7 @@ export default async function EditWorkOrderPage({
 
   // Avgrensede lister – skjemaet er ikke en katalog over alle kunder.
   const customers = await prisma.customer.findMany({
+    where: { deletedAt: null },
     orderBy: { name: 'asc' },
     take: 100,
     select: { id: true, name: true, city: true },

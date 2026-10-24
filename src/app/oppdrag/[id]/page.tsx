@@ -487,10 +487,22 @@ export default async function AdminWorkOrderPage({
                                     </Link>
                                   )}
                                   {isAdmin && (
-                                    <form action={setReportLock}>
+                                    <form action={setReportLock} className="flex items-center gap-2 flex-wrap">
                                       <input type="hidden" name="workOrderId" value={workOrder.id} />
                                       <input type="hidden" name="reportId" value={report.id} />
                                       <input type="hidden" name="lock" value={report.isLocked ? "0" : "1"} />
+                                      {report.isLocked && (
+                                        <input
+                                          type="text"
+                                          name="reason"
+                                          required
+                                          maxLength={1000}
+                                          aria-label={t("orders.detail.unlockReason")}
+                                          placeholder={t("orders.detail.unlockReasonPlaceholder")}
+                                          title={t("orders.detail.unlockReasonRequired")}
+                                          className="border-2 border-amber-300 bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-full outline-none focus:border-amber-500 min-w-[12rem]"
+                                        />
+                                      )}
                                       <button
                                         type="submit"
                                         className={`text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm whitespace-nowrap ${

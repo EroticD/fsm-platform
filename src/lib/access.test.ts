@@ -45,12 +45,13 @@ describe("workOrderScope", () => {
   it("lar administrator se alle oppdrag", () => {
     expect(
       workOrderScope({ ...technician, role: "ADMIN" } as never),
-    ).toEqual({});
+    ).toEqual({ deletedAt: null });
   });
 
   it("begrenser ansatte til egen avdeling", () => {
     expect(workOrderScope(technician as never)).toEqual({
       departmentId: "dep-a",
+      deletedAt: null,
     });
   });
 
@@ -67,7 +68,7 @@ describe("workOrderScope", () => {
         role: "USER",
         permissions: ["workorders.view"],
       } as never),
-    ).toEqual({ departmentId: "dep-a" });
+    ).toEqual({ departmentId: "dep-a", deletedAt: null });
   });
 
   it("gir ikke en USER uten oppdragsrettigheter tilgang", () => {
@@ -87,7 +88,7 @@ describe("workOrderScope", () => {
         role: "CUSTOMER",
         customerId: "customer-1",
       } as never),
-    ).toEqual({ customerId: "customer-1" });
+    ).toEqual({ customerId: "customer-1", deletedAt: null });
   });
 
   it("gir ingen oppdrag til inaktive brukere", () => {

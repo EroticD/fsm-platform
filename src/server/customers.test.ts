@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     customer: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
@@ -112,6 +113,9 @@ beforeEach(() => {
   );
   mocks.prisma.auditLog.create.mockResolvedValue({});
   mocks.prisma.contact.findFirst.mockResolvedValue(null);
+  mocks.prisma.customer.findFirst.mockImplementation(
+    async (args: unknown) => mocks.prisma.customer.findUnique(args),
+  );
   mocks.prisma.contract.findUnique.mockResolvedValue(null);
   mocks.claimUpload.mockResolvedValue({ claimed: true });
 });
@@ -126,6 +130,9 @@ describe("kundetjenesten – autorisasjon", () => {
 
   it("nekter å oppdatere kontaktperson på en annen kunde", async () => {
     mocks.prisma.contact.findFirst.mockResolvedValue(null);
+  mocks.prisma.customer.findFirst.mockImplementation(
+    async (args: unknown) => mocks.prisma.customer.findUnique(args),
+  );
 
     const result = await updateContact(office(), "kunde-1", {
       id: "kontakt-fra-kunde-2",

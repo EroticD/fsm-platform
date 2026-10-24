@@ -28,10 +28,10 @@ export type NameSearchRow = {
 
 /** Hvilke tabeller og kolonner som har trigram-indeks. */
 export const NAME_SEARCH_FIELDS = {
-  "Customer.name": { table: '"Customer"', column: '"name"' },
-  "Customer.city": { table: '"Customer"', column: '"city"' },
-  "Product.model": { table: '"Product"', column: '"model"' },
-  "WorkOrder.title": { table: '"WorkOrder"', column: '"title"' },
+  "Customer.name": { table: '"Customer"', column: '"name"', hasDeletedAt: true },
+  "Customer.city": { table: '"Customer"', column: '"city"', hasDeletedAt: true },
+  "Product.model": { table: '"Product"', column: '"model"', hasDeletedAt: false },
+  "WorkOrder.title": { table: '"WorkOrder"', column: '"title"', hasDeletedAt: true },
 } as const;
 
 export type NameSearchTable = "Customer" | "Product" | "WorkOrder";
@@ -90,6 +90,7 @@ export async function searchDocuments(
       ) AS "snippet"
     FROM "Document" d, q
     WHERE d."searchTsv" @@ q.tsq
+      AND d."deletedAt" IS NULL
     ORDER BY ts_rank(d."searchTsv", q.tsq) DESC, d."title" ASC
     LIMIT ${take}
   `);
@@ -116,12 +117,18 @@ export async function searchByName(
   const take = takeLimit(limit);
 
   // `%` bruker pg_trgm-indeksen (gin_trgm_ops) når kolonnen er indeksert.
+  // Mykt slettede rader skal aldri dukke opp i søket.
+  const deletedFilter = field.hasDeletedAt
+    ? Prisma.sql`AND ${Prisma.raw(field.table)}."deletedAt" IS NULL`
+    : Prisma.empty;
+
   return prisma.$queryRaw<NameSearchRow[]>(Prisma.sql`
     SELECT
       "id",
       similarity(coalesce(${Prisma.raw(field.column)}, ''), ${query}) AS "score"
     FROM ${Prisma.raw(field.table)}
     WHERE ${Prisma.raw(field.column)} % ${query}
+      ${deletedFilter}
     ORDER BY "score" DESC, "id" ASC
     LIMIT ${take}
   `);

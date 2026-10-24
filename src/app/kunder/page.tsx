@@ -30,6 +30,7 @@ export default async function KunderPage({
 
   const where = search
     ? {
+        deletedAt: null,
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
           { orgNumber: { contains: search, mode: "insensitive" as const } },
@@ -37,7 +38,7 @@ export default async function KunderPage({
           { email: { contains: search, mode: "insensitive" as const } },
         ],
       }
-    : {};
+    : { deletedAt: null };
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({

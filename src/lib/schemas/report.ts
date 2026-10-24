@@ -14,10 +14,11 @@ export const reportSubmitSchema = z.object({
   returnTo: limitedText(LIMITS.line).optional(),
 });
 
-/** Låse eller låse opp en signert rapport. */
+/** Låse eller låse opp en signert rapport. Årsak kreves ved opplåsing. */
 export const reportUnlockSchema = z.object({
   reportId: idSchema,
   lock: z.enum(["0", "1"]).transform((value) => value === "1"),
+  reason: limitedText(1000).optional(),
 });
 
 /**

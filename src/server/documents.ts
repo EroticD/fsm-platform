@@ -92,7 +92,7 @@ export async function getDocumentLibrary(
     }),
   ]);
 
-  const docWhere: Prisma.DocumentWhereInput = { folderId };
+  const docWhere: Prisma.DocumentWhereInput = { folderId, deletedAt: null };
   if (searchQuery) {
     docWhere.OR = [
       { title: { contains: searchQuery, mode: "insensitive" } },
@@ -131,8 +131,8 @@ export async function getDocumentLibrary(
       }),
       prisma.document.count({ where: docWhere }),
       params.documentId
-        ? prisma.document.findUnique({
-            where: { id: params.documentId },
+        ? prisma.document.findFirst({
+            where: { id: params.documentId, deletedAt: null },
             select: {
               id: true,
               title: true,
@@ -163,7 +163,7 @@ export async function getDocumentLibrary(
       // Duplikatkontroll ved mappeopplasting trenger filnavn og størrelse for
       // hele mappen – men bare disse lette feltene, ikke dokumentinnholdet.
       prisma.document.findMany({
-        where: { folderId },
+        where: { folderId, deletedAt: null },
         select: { fileName: true, fileSize: true },
         take: 1000,
       }),
@@ -290,8 +290,8 @@ export async function restoreDocumentVersion(
   });
   if (!version) return fail("not_found");
 
-  const doc = await prisma.document.findUnique({
-    where: { id: version.documentId },
+  const doc = await prisma.document.findFirst({
+    where: { id: version.documentId, deletedAt: null },
   });
   if (!doc) return fail("not_found");
 
@@ -341,8 +341,8 @@ export async function deleteDocument(
   if (!parsed.success) return fail("invalid");
   const id = parsed.data.id;
 
-  const doc = await prisma.document.findUnique({
-    where: { id },
+  const doc = await prisma.document.findFirst({
+    where: { id, deletedAt: null },
     include: { versions: { select: { filePath: true } } },
   });
   if (!doc) return fail("not_found");
@@ -416,7 +416,9 @@ export async function updateDocument(
 
   if (fileUrl && !isUploadUrl(fileUrl)) return fail("invalid");
 
-  const existing = await prisma.document.findUnique({ where: { id } });
+  const existing = await prisma.document.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!existing) return fail("not_found");
 
   // Behold den gamle filen som en versjon før den byttes ut.
@@ -701,6 +703,7 @@ export async function bulkCreateDocuments(
         fileName: item.fileName || "dokument.pdf",
         fileSize: item.fileSize || 0,
         folderId: targetFolderId || null,
+        deletedAt: null,
       },
     });
     if (existing) {
@@ -783,7 +786,10 @@ export async function reindexDocuments(
   if (!can(actor, "documents.manage")) return fail("forbidden");
 
   const docs = await prisma.document.findMany({
-    where: { OR: [{ contentText: null }, { contentText: "" }] },
+    where: {
+      deletedAt: null,
+      OR: [{ contentText: null }, { contentText: "" }],
+    },
     select: { id: true, filePath: true },
     take: 500,
   });

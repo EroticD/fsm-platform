@@ -51,6 +51,11 @@ describe("searchDocuments", () => {
     expect(sql.values).toContain("hydraulisk pumpe");
     expect(sql.values).toContain(7);
   });
+
+  it("utelater mykt slettede dokumenter", async () => {
+    await searchDocuments("pumpe", 10);
+    expect(lastSql().text).toContain('d."deletedAt" IS NULL');
+  });
 });
 
 describe("searchByName", () => {
@@ -72,6 +77,17 @@ describe("searchByName", () => {
     ).rejects.toThrow("Ugyldig tabell/kolonne");
 
     expect(mocks.queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("utelater mykt slettede kunder og oppdrag, men ikke enheter", async () => {
+    await searchByName("Customer", "name", "gardshol", 10);
+    expect(lastSql().text).toContain('"Customer"."deletedAt" IS NULL');
+
+    await searchByName("WorkOrder", "title", "service", 10);
+    expect(lastSql().text).toContain('"WorkOrder"."deletedAt" IS NULL');
+
+    await searchByName("Product", "model", "pumpe", 10);
+    expect(lastSql().text).not.toContain("deletedAt");
   });
 
   it("vet hvilke kolonner som har trigram-indeks", () => {

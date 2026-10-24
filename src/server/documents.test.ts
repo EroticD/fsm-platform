@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     document: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
@@ -103,6 +104,9 @@ beforeEach(() => {
   );
   mocks.prisma.auditLog.create.mockResolvedValue({});
   mocks.prisma.document.findUnique.mockResolvedValue(currentDocument);
+  mocks.prisma.document.findFirst.mockImplementation(
+    async (args: unknown) => mocks.prisma.document.findUnique(args),
+  );
   mocks.prisma.document.create.mockResolvedValue({ id: "doc-2" });
   mocks.prisma.documentVersion.findUnique.mockResolvedValue(previousVersion);
   mocks.prisma.documentVersion.create.mockResolvedValue({});

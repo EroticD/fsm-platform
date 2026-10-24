@@ -1,8 +1,10 @@
 import prisma from "@/lib/prisma";
+import { audit } from "@/lib/audit";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
 import { logger } from "@/lib/logger";
 import { deleteUploadIfOwned } from "@/lib/upload-store";
+import { releaseUpload } from "@/lib/upload-cleanup";
 import {
   notifyOverdueWorkOrders,
   processPendingNotificationEmails,
@@ -50,9 +52,21 @@ export const DRAFT_TTL_MS = 7 * 24 * 60 * 60_000;
 /** Hvor ofte foreldede kladder ryddes. */
 export const DRAFT_CLEANUP_INTERVAL_MS = 6 * 60 * 60_000;
 
+/** Hvor lenge mykt slettede oppdrag beholdes før de hard-slettes. */
+export const RETENTION_DAYS = Math.max(
+  1,
+  Number.parseInt(process.env.RETENTION_DAYS ?? "", 10) || 365,
+);
+
+/** Hvor ofte bevaringsjobben ser etter utløpte oppdrag. */
+export const RETENTION_CLEANUP_INTERVAL_MS = 6 * 60 * 60_000;
+
+const DAY_MS = 24 * 60 * 60_000;
+
 type WorkerGlobal = typeof globalThis & {
   __fsmPdfJobWorkerStarted?: boolean;
   __fsmDraftCleanupStarted?: boolean;
+  __fsmWorkOrderRetentionStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -315,6 +329,98 @@ export function startDraftCleanup(): void {
   timer.unref?.();
 }
 
+/**
+ * Hard-sletter mykt slettede oppdrag når bevaringsperioden er utløpt.
+ *
+ * Et oppdrag med `legalHold` – eller med en rapport som har `legalHold` – skal
+ * aldri røres. Rapporter, revisjoner og kommentarer slettes sammen med
+ * oppdraget (cascade); opplastingsfilene frigjøres først etter at databasen er
+ * oppdatert, slik at vi aldri sitter igjen med filer uten referanse.
+ */
+export async function cleanupRetainedWorkOrders(
+  now = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - RETENTION_DAYS * DAY_MS);
+
+  const expired = await prisma.workOrder.findMany({
+    where: {
+      deletedAt: { lt: cutoff },
+      legalHold: false,
+      reports: { none: { legalHold: true } },
+    },
+    select: { id: true, title: true },
+    take: 200,
+  });
+  if (expired.length === 0) return 0;
+
+  const ids = expired.map((workOrder) => workOrder.id);
+  const uploads = await prisma.upload.findMany({
+    where: { ownerType: "WORK_ORDER", ownerId: { in: ids } },
+    select: { ownerId: true, storedName: true },
+    take: 5000,
+  });
+
+  let deleted = 0;
+  for (const workOrder of expired) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await audit(tx, {
+          entityType: "WorkOrder",
+          entityId: workOrder.id,
+          action:
+            `Automatisk slettet oppdraget «${workOrder.title}» etter ` +
+            `bevaringsperioden (${RETENTION_DAYS} dager)`,
+          actor: { id: "system", name: "System", email: null },
+          metadata: { retentionDays: RETENTION_DAYS, automatic: true },
+        });
+        await tx.workOrder.delete({ where: { id: workOrder.id } });
+      });
+      deleted += 1;
+
+      for (const upload of uploads) {
+        if (upload.ownerId === workOrder.id) {
+          await releaseUpload(`/uploads/${upload.storedName}`);
+        }
+      }
+    } catch (error) {
+      logger.error("Kunne ikke hard-slette utløpt oppdrag", {
+        workOrderId: workOrder.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (deleted > 0) {
+    logger.info("Hard-slettet utløpte oppdrag etter bevaringsperioden", {
+      count: deleted,
+      retentionDays: RETENTION_DAYS,
+    });
+  }
+  return deleted;
+}
+
+/**
+ * Starter bevaringsjobben. Egen global markør gjør at HMR og gjentatte kall
+ * fra `instrumentation.ts` ikke lager flere intervaller.
+ */
+export function startWorkOrderRetentionCleanup(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmWorkOrderRetentionStarted) return;
+  scope.__fsmWorkOrderRetentionStarted = true;
+
+  const run = () => {
+    void cleanupRetainedWorkOrders().catch((error) => {
+      logger.error("Kunne ikke kjøre bevaringsjobben for oppdrag", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
+  run();
+  const timer = setInterval(run, RETENTION_CLEANUP_INTERVAL_MS);
+  timer.unref?.();
+}
+
 async function runWorkerLoop(workerIndex: number): Promise<void> {
   // Litt spredning, så ikke alle workerne spør databasen i samme øyeblikk.
   await sleep(1_000 + workerIndex * 250);
@@ -354,6 +460,9 @@ export function startJobWorker(): void {
 
   // Rydd utløpte kladder ved oppstart og deretter hvert sjette døgn.
   startDraftCleanup();
+
+  // Hard-slett mykt slettede oppdrag når bevaringsperioden er utløpt.
+  startWorkOrderRetentionCleanup();
 
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.
@@ -403,4 +512,5 @@ export function resetJobWorkerForTests(): void {
   const scope = globalThis as WorkerGlobal;
   scope.__fsmPdfJobWorkerStarted = false;
   scope.__fsmDraftCleanupStarted = false;
+  scope.__fsmWorkOrderRetentionStarted = false;
 }
