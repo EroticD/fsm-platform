@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { buildInviteUrl } from "@/lib/invite";
@@ -49,6 +50,7 @@ export default async function CustomerDetailPage({
   const customerId = resolvedParams.id;
   const { invite, inviteToken, error, mail, tab, side } = await searchParams;
   const orderPage = parsePage(side);
+  const t = await getTranslations("common");
 
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -62,16 +64,20 @@ export default async function CustomerDetailPage({
   const ownDepartmentId = user.departmentId;
 
   const tabs = [
-    { key: "oversikt", label: "📊 Oversikt" },
-    { key: "oppdrag", label: "📂 Oppdrag" },
-    { key: "avtaler", label: "📄 Serviceavtaler" },
-    { key: "vedlegg", label: "📎 Vedlegg" },
-    { key: "enheter", label: "🔧 Enheter" },
-    { key: "kontakter", label: "👤 Kontakter" },
-    ...(office ? [{ key: "portal", label: "🔐 Kundeportal" }] : []),
-    { key: "aktivitet", label: "📋 Aktivitet" },
+    { key: "oversikt", label: t("customers.detail.tabs.overview") },
+    { key: "oppdrag", label: t("customers.detail.tabs.orders") },
+    { key: "avtaler", label: t("customers.detail.tabs.contracts") },
+    { key: "vedlegg", label: t("customers.detail.tabs.attachments") },
+    { key: "enheter", label: t("customers.detail.tabs.units") },
+    { key: "kontakter", label: t("customers.detail.tabs.contacts") },
+    ...(office
+      ? [{ key: "portal", label: t("customers.detail.tabs.portal") }]
+      : []),
+    { key: "aktivitet", label: t("customers.detail.tabs.activity") },
   ];
-  const currentTab = tabs.some((t) => t.key === tab) ? (tab as string) : "oversikt";
+  const currentTab = tabs.some((entry) => entry.key === tab)
+    ? (tab as string)
+    : "oversikt";
 
   const result = await getCustomerDetail(user, customerId, {
     tab: currentTab,
@@ -82,9 +88,9 @@ export default async function CustomerDetailPage({
     if (result.reason === "forbidden") redirect("/");
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Kunden finnes ikke</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("customers.detail.notFound")}</h1>
         <Link href="/kunder" className="text-blue-600 font-bold hover:underline">
-          Gå tilbake til kundearkivet
+          {t("customers.detail.backToArchive")}
         </Link>
       </div>
     );
@@ -101,11 +107,11 @@ export default async function CustomerDetailPage({
 
   const portalError =
     error === "mangler_felt"
-      ? "Fyll ut navn, e-post og velg en kontaktperson."
+      ? t("customers.portal.errorMissingFields")
       : error === "ugyldig_kontakt"
-        ? "Kontaktpersonen tilhører ikke denne kunden."
+        ? t("customers.portal.errorInvalidContact")
         : error === "epost_finnes"
-          ? "Det finnes allerede en bruker med denne e-postadressen."
+          ? t("customers.portal.errorDuplicateEmail")
           : null;
 
   const addContact = addContactAction.bind(null, customerId);
@@ -123,48 +129,52 @@ export default async function CustomerDetailPage({
           <div>
             <h1 className="text-xl sm:text-3xl font-black text-gray-900">{customer.name}</h1>
             <p className="text-gray-500 mt-1 text-sm font-medium">
-              Kundenummer: {customer.customerNumber || "–"}
-              {customer.orgNumber ? ` • Org.nr: ${customer.orgNumber}` : ""}
+              {t("customers.detail.customerNumber", {
+                number: customer.customerNumber || "–",
+              })}
+              {customer.orgNumber
+                ? ` • ${t("customers.detail.orgNumber", { number: customer.orgNumber })}`
+                : ""}
             </p>
           </div>
           <div className="flex gap-2 sm:gap-3">
             {canCreateWorkOrders && (
               <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                ➕ Nytt oppdrag
+                ➕ {t("customers.detail.newWorkOrder")}
               </Link>
             )}
             {office && (
               <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                ✏️ Rediger
+                ✏️ {t("customers.detail.edit")}
               </Link>
             )}
             <Link href="/kunder" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-              &larr; Kunder
+              &larr; {t("customers.detail.backToCustomers")}
             </Link>
           </div>
         </div>
 
         {/* FANER (TABS) */}
         <nav className="flex gap-1 bg-white border-2 border-gray-200 rounded-2xl p-1 shadow-sm overflow-x-auto">
-          {tabs.map((t) => (
+          {tabs.map((entry) => (
             <Link
-              key={t.key}
-              href={`?tab=${t.key}`}
+              key={entry.key}
+              href={`?tab=${entry.key}`}
               scroll={false}
               className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition ${
-                currentTab === t.key
+                currentTab === entry.key
                   ? "bg-blue-600 text-white shadow-sm"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {t.label}
+              {entry.label}
             </Link>
           ))}
         </nav>
 
         {error === "ugyldig-data" && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
-            ⛔ Endringen kunne ikke lagres. Sjekk feltene og prøv igjen.
+            ⛔ {t("customers.detail.editError")}
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { parsePage } from "@/lib/pagination";
@@ -31,6 +32,8 @@ export default async function DocumentsPage({
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "documents.view")) redirect("/");
 
+  const t = await getTranslations("common");
+
   const office = hasPermission(user, "documents.manage");
   const isAdmin = user.role === "ADMIN";
 
@@ -56,19 +59,19 @@ export default async function DocumentsPage({
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900">📚 Dokumentbibliotek</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900">{t("documents.page.title")}</h1>
             <p className="text-gray-500 mt-1 text-sm font-medium">
-              Brukermanualer og PDF-filer for feltarbeid. Søk og filtrer på tags.
+              {t("documents.page.description")}
             </p>
           </div>
           <Link href="/" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-            ← Dashbord
+            ← {t("documents.page.dashboard")}
           </Link>
         </div>
 
         {error === "ugyldig-data" && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            ⛔ Dokumentet kunne ikke lagres. Sjekk tittel, fil og mapper.
+            ⛔ {t("documents.page.errorInvalidData")}
           </div>
         )}
 

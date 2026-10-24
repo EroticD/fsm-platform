@@ -1,1 +1,94 @@
-{}
+{
+  "documents": {
+    "page": {
+      "title": "📚 Dokumentbibliotek",
+      "description": "Brukermanualer og PDF-filer for feltarbeid. Søk og filtrer på tags.",
+      "dashboard": "Dashbord",
+      "errorInvalidData": "Dokumentet kunne ikke lagres. Sjekk tittel, fil og mapper."
+    },
+    "browser": {
+      "searchPlaceholder": "Søk i tittel, beskrivelse, filnavn eller tags...",
+      "search": "Søk",
+      "reset": "Nullstill",
+      "tagFilter": "Filter på tag:",
+      "root": "Rot",
+      "close": "Lukk",
+      "openPdf": "Åpne PDF",
+      "versionsCount": "{count, plural, one {# tidligere versjon} other {# tidligere versjoner}}",
+      "noPreviousVersions": "Ingen tidligere versjoner",
+      "subfolders": "Undermapper",
+      "documents": "Dokumenter ({count})",
+      "empty": "Ingen dokumenter i denne mappen.",
+      "emptyFiltered": "Prøv et annet søkeord eller fjern filteret.",
+      "emptyUpload": "Last opp en PDF nedenfor.",
+      "uploadedBy": "Lastet opp av {name}",
+      "versions": "Versjoner",
+      "delete": "Slett",
+      "deleteConfirm": "Slette dokumentet «{title}»?",
+      "previous": "Forrige",
+      "next": "Neste",
+      "pageOf": "Side {page} av {totalPages}",
+      "documentCount": "{count, plural, one {# dokument} other {# dokumenter}}",
+      "newFolder": "📁 Opprett ny mappe",
+      "folderNamePlaceholder": "Navn på mappe",
+      "createFolder": "Opprett",
+      "uploadPdf": "⬆️ Last opp PDF",
+      "uploadStructure": "📥 Last opp mappestruktur",
+      "uploadStructureHint": "Velg en mappe på din PC. Alle PDF-filer lastes opp og undermapper opprettes automatisk.",
+      "reindex": "🔄 Indekser alle PDF-er for søk",
+      "reindexHint": "Ekstraherer tekst fra PDF-ene slik at innhold kan søkes på. Kjøres automatisk ved opplasting, men kan kjøres manuelt for å fylle ut manglende."
+    },
+    "upload": {
+      "pdfFile": "PDF-fil",
+      "uploading": "Laster opp...",
+      "uploaded": "Opplastet: {name}",
+      "title": "Tittel",
+      "titlePlaceholder": "F.eks. Brukermanual varmepumpe",
+      "description": "Beskrivelse (valgfritt)",
+      "descriptionPlaceholder": "Kort beskrivelse av innholdet...",
+      "tags": "Tags",
+      "save": "💾 Lagre dokument",
+      "pdfOnly": "Bare PDF-filer er tillatt.",
+      "uploadFailed": "Opplasting feilet",
+      "uploadFirst": "Last opp en PDF først."
+    },
+    "bulk": {
+      "chooseFolder": "Velg mappe",
+      "chooseFolderHint": "Velg en mappe. Alle PDF-filer i mappen og undermapper importeres.",
+      "skipped": "⚠️ {count} fil(er) hoppet over fordi de allerede eksisterer med samme størrelse.",
+      "summary": "{files} PDF-filer å laste opp, {folders} undermapper",
+      "chooseFirst": "Velg en mappe med PDF-filer først.",
+      "progressUploading": "Laster opp {current}/{total}: {name}",
+      "progressCreating": "Oppretter dokumenter i database...",
+      "progressDone": "✓ Ferdig! {count} dokumenter lastet opp.",
+      "uploadFailed": "Opplasting feilet",
+      "fileUploadFailed": "Feil ved opplasting av {name}",
+      "uploadButton": "📥 Last opp {count} filer",
+      "uploading": "Laster opp..."
+    },
+    "edit": {
+      "open": "✏️ Rediger",
+      "close": "✕ Lukk",
+      "title": "Tittel",
+      "description": "Beskrivelse",
+      "folder": "Mappe",
+      "rootFolder": "— Rot (ingen mappe) —",
+      "tags": "Tags",
+      "replaceFile": "Bytt fil (valgfritt)",
+      "uploadingNew": "Laster opp ny fil...",
+      "newFileReady": "✓ Ny fil klar: {name} ({size} KB)",
+      "currentFile": "Gjeldende fil: {name} ({size} KB)",
+      "save": "💾 Lagre endringer",
+      "previousVersions": "🗂️ Tidligere versjoner ({count})",
+      "openVersion": "Åpne",
+      "restore": "Gjenopprett",
+      "pdfOnly": "Bare PDF-filer er tillatt.",
+      "uploadFailed": "Opplasting feilet"
+    },
+    "tagSelector": {
+      "newTagPlaceholder": "Ny tag (Enter for å legge til)",
+      "add": "+ Legg til",
+      "selected": "Valgte tags:"
+    }
+  }
+}

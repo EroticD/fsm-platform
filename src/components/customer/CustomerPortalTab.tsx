@@ -1,4 +1,5 @@
 import CopyButton from "@/components/CopyButton";
+import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
 
@@ -16,7 +17,7 @@ type PortalTabProps = {
   resendPortalInvite: (formData: FormData) => Promise<void>;
 };
 
-export default function CustomerPortalTab({
+export default async function CustomerPortalTab({
   customerId,
   contacts,
   portalUsers,
@@ -29,12 +30,14 @@ export default function CustomerPortalTab({
   setPortalUserActive,
   resendPortalInvite,
 }: PortalTabProps) {
+  const t = await getTranslations("common");
+
   if (!office) return null;
 
   return (
     <CustomerTabPanel
-      title="🔐 Kundeportalbrukere"
-      description="Brukere som kan logge inn i kundeportalen og se denne kundens data og teknikertilgjengelighet."
+      title={`🔐 ${t("customers.portal.title")}`}
+      description={t("customers.portal.description")}
     >
       {portalError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-bold">
@@ -45,12 +48,17 @@ export default function CustomerPortalTab({
       {inviteUser && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
           <p className="text-sm font-bold text-green-900 mb-1">
-            ✅ Invitasjon klar for {inviteUser.name || inviteUser.email}
+            ✅ {t("customers.portal.inviteReady", {
+              name:
+                inviteUser.name ||
+                inviteUser.email ||
+                t("customers.portal.noName"),
+            })}
           </p>
           <p className="text-xs text-green-800 mb-3">
             {mail === "sent"
-              ? "Invitasjons-e-posten er sendt til brukeren."
-              : "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env) – kopier lenken og send den til brukeren manuelt."}
+              ? t("customers.portal.inviteSent")
+              : t("customers.portal.inviteManual")}
           </p>
           {inviteUrl ? (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -59,11 +67,11 @@ export default function CustomerPortalTab({
                 value={inviteUrl}
                 className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs text-gray-700 font-mono"
               />
-              <CopyButton value={inviteUrl} label="Kopier lenke" />
+              <CopyButton value={inviteUrl} label={t("customers.portal.copyLink")} />
             </div>
           ) : (
             <p className="text-xs text-red-700 font-bold">
-              Ingen gyldig lenke. Trykk «Ny lenke» for å lage en ny.
+              {t("customers.portal.noValidLink")}
             </p>
           )}
         </div>
@@ -71,46 +79,46 @@ export default function CustomerPortalTab({
 
       {contacts.length === 0 ? (
         <p className="text-xs text-gray-500 italic bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3">
-          Legg til en kontaktperson først – kundeportalbrukere må kobles til en kontaktperson.
+          {t("customers.portal.addContactFirst")}
         </p>
       ) : (
         <form action={createPortalUser} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
           <input type="hidden" name="customerId" value={customerId} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Navn *</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.name")} *</label>
               <input
                 type="text"
                 name="name"
                 required
-                placeholder="F.eks. Kari Nordmann"
+                placeholder={t("customers.portal.namePlaceholder")}
                 className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">E-post *</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.email")} *</label>
               <input
                 type="email"
                 name="email"
                 required
-                placeholder="kari@bedriften.no"
+                placeholder={t("customers.portal.emailPlaceholder")}
                 className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Kontaktperson *</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.contact")} *</label>
             <select
               name="contactId"
               required
               defaultValue=""
               className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
             >
-              <option value="">-- Velg kontaktperson --</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.role ? ` (${c.role})` : ""}
+              <option value="">{t("customers.portal.chooseContact")}</option>
+              {contacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name}
+                  {contact.role ? ` (${contact.role})` : ""}
                 </option>
               ))}
             </select>
@@ -119,7 +127,7 @@ export default function CustomerPortalTab({
             type="submit"
             className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
           >
-            Opprett og send invitasjon
+            {t("customers.portal.createAndInvite")}
           </button>
         </form>
       )}
@@ -135,7 +143,7 @@ export default function CustomerPortalTab({
                 className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50"
               >
                 <div>
-                  <p className="text-sm font-bold text-gray-900">{u.name || "Uten navn"}</p>
+                  <p className="text-sm font-bold text-gray-900">{u.name || t("customers.portal.noName")}</p>
                   <p className="text-xs text-gray-500">
                     {u.email}
                     {u.contact ? ` • ${u.contact.name}` : ""}
@@ -146,16 +154,18 @@ export default function CustomerPortalTab({
                         u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
                       }`}
                     >
-                      {u.isActive ? "Aktiv" : "Inaktiv"}
+                      {u.isActive
+                        ? t("customers.portal.active")
+                        : t("customers.portal.inactive")}
                     </span>
                     {!u.password && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-200 text-gray-600">
-                        Mangler passord
+                        {t("customers.portal.missingPassword")}
                       </span>
                     )}
                     {hasPendingInvite && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-blue-100 text-blue-800">
-                        Invitert
+                        {t("customers.portal.invited")}
                       </span>
                     )}
                   </div>
@@ -168,7 +178,7 @@ export default function CustomerPortalTab({
                       type="submit"
                       className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
                     >
-                      🔗 Ny lenke
+                      🔗 {t("customers.portal.newLink")}
                     </button>
                   </form>
                   <form action={setPortalUserActive}>
@@ -183,7 +193,9 @@ export default function CustomerPortalTab({
                           : "bg-green-600 text-white border-green-600 hover:bg-green-700"
                       }`}
                     >
-                      {u.isActive ? "Deaktiver" : "Aktiver"}
+                      {u.isActive
+                        ? t("customers.portal.deactivate")
+                        : t("customers.portal.activate")}
                     </button>
                   </form>
                 </div>

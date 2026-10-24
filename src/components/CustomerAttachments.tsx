@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   addCustomerAttachment,
   removeCustomerAttachment,
@@ -37,6 +38,7 @@ export default function CustomerAttachments({
   canDelete: boolean;
 }) {
   const router = useRouter();
+  const t = useTranslations("common");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
@@ -63,7 +65,7 @@ export default function CustomerAttachments({
         const res = await fetch("/api/upload", { method: "POST", body });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.fileUrl) {
-          throw new Error(json.error || "Opplasting feilet");
+          throw new Error(json.error || t("customers.attachments.uploadFailed"));
         }
 
         const attachmentData = new FormData();
@@ -72,7 +74,11 @@ export default function CustomerAttachments({
         attachmentData.set("fileName", json.fileName || file.name);
 
         const result = await addCustomerAttachment(attachmentData);
-        if (!result.ok) throw new Error(result.error || "Kunne ikke lagre vedlegget");
+        if (!result.ok) {
+          throw new Error(
+            result.error || t("customers.attachments.saveFailed"),
+          );
+        }
       } catch {
         failed.push(file.name);
       }
@@ -85,8 +91,11 @@ export default function CustomerAttachments({
     if (failed.length > 0) {
       setError(
         failed.length === 1
-          ? `Kunne ikke laste opp ${failed[0]}`
-          : `Kunne ikke laste opp ${failed.length} filer: ${failed.join(", ")}`,
+          ? t("customers.attachments.uploadFailedOne", { name: failed[0] })
+          : t("customers.attachments.uploadFailedMany", {
+              count: failed.length,
+              names: failed.join(", "),
+            }),
       );
     }
 
@@ -110,7 +119,7 @@ export default function CustomerAttachments({
 
     const result = await removeCustomerAttachment(data);
     if (!result.ok) {
-      setError(result.error || "Kunne ikke slette vedlegget");
+      setError(result.error || t("customers.attachments.deleteFailed"));
     }
 
     setBusy(false);
@@ -120,21 +129,20 @@ export default function CustomerAttachments({
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
       <div className="flex items-baseline justify-between gap-2 mb-3 border-b pb-2">
-        <h2 className="font-black text-gray-900">📎 Vedlegg</h2>
+        <h2 className="font-black text-gray-900">📎 {t("customers.attachments.title")}</h2>
         {attachments.length > 0 && (
           <span className="text-xs font-bold text-gray-500">
-            {attachments.length} fil{attachments.length === 1 ? "" : "er"}
+            {t("customers.attachments.fileCount", { count: attachments.length })}
           </span>
         )}
       </div>
 
       <p className="text-xs text-gray-500 mb-3">
-        Dokumenter, avtaler og bilder som hører til kunden. Dette er separat fra
-        vedlegg på enkeltoppdrag.
+        {t("customers.attachments.description")}
       </p>
 
       {attachments.length === 0 ? (
-        <p className="text-xs text-gray-500 italic mb-3">Ingen vedlegg ennå.</p>
+        <p className="text-xs text-gray-500 italic mb-3">{t("customers.attachments.empty")}</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
           {attachments.map((attachment) => (
@@ -205,14 +213,21 @@ export default function CustomerAttachments({
             className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white outline-none focus:border-blue-700 disabled:opacity-60"
           />
           <p className="text-[11px] text-gray-500">
-            Du kan velge flere filer samtidig. Maks 100 MB per fil.
+            {t("customers.attachments.uploadLimit")}
           </p>
         </div>
       )}
 
       {busy && (
         <p className="text-[11px] font-bold text-blue-700 animate-pulse mt-2">
-          Laster opp {progress ? `${progress.done + 1} av ${progress.total}` : ""} …
+          {t("customers.attachments.uploading", {
+            progress: progress
+              ? t("customers.attachments.uploadingProgress", {
+                  done: progress.done + 1,
+                  total: progress.total,
+                })
+              : "",
+          })}
         </p>
       )}
 
@@ -220,8 +235,16 @@ export default function CustomerAttachments({
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Slett vedlegg"
-        description={pendingDelete ? `Slette vedlegget «${pendingDelete.fileName}»?` : undefined}
+        title={t("customers.attachments.deleteTitle")}
+        description={
+          pendingDelete
+            ? t("customers.attachments.deleteConfirm", {
+                name: pendingDelete.fileName,
+              })
+            : undefined
+        }
+        confirmLabel={t("delete")}
+        cancelLabel={t("cancel")}
         onCancel={() => setPendingDelete(null)}
         onConfirm={confirmRemove}
         busy={busy}

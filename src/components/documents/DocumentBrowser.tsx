@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { DocumentLibraryData } from "@/server/documents";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import UploadDocumentForm from "@/app/dokumenter/UploadDocumentForm";
@@ -22,7 +23,7 @@ type DocumentBrowserProps = {
   reindexDocumentsAction: (formData: FormData) => Promise<void>;
 };
 
-export default function DocumentBrowser({
+export default async function DocumentBrowser({
   data,
   folderId,
   searchQuery,
@@ -38,6 +39,7 @@ export default function DocumentBrowser({
   bulkCreateDocumentsAction,
   reindexDocumentsAction,
 }: DocumentBrowserProps) {
+  const t = await getTranslations("common");
   const {
     breadcrumb,
     subFolders,
@@ -98,18 +100,18 @@ export default function DocumentBrowser({
             type="search"
             name="q"
             defaultValue={searchQuery}
-            placeholder="Søk i tittel, beskrivelse, filnavn eller tags..."
+            placeholder={t("documents.browser.searchPlaceholder")}
             className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
           />
           <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition">
-            Søk
+            {t("documents.browser.search")}
           </button>
           {(searchQuery || tagFilter) && (
             <Link
               href={folderLink(folderId)}
               className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
             >
-              Nullstill
+              {t("documents.browser.reset")}
             </Link>
           )}
         </form>
@@ -117,7 +119,7 @@ export default function DocumentBrowser({
         {/* Tag-filter chips */}
         {allTags.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider self-center">Filter på tag:</span>
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider self-center">{t("documents.browser.tagFilter")}</span>
             {allTags.map((tag) => (
               <Link
                 key={tag.id}
@@ -138,7 +140,7 @@ export default function DocumentBrowser({
 
       {/* BREADCRUMB */}
       <div className="flex items-center gap-2 text-sm font-bold text-gray-600 flex-wrap">
-        <Link href="/dokumenter" className="hover:text-blue-700 transition">📁 Rot</Link>
+        <Link href="/dokumenter" className="hover:text-blue-700 transition">📁 {t("documents.browser.root")}</Link>
         {breadcrumb.map((f, i) => (
           <span key={f.id} className="flex items-center gap-2">
             <span className="text-gray-400">/</span>
@@ -160,15 +162,17 @@ export default function DocumentBrowser({
               <p className="text-xs text-gray-500 mt-0.5">
                 {detailDocument.fileName} • {(detailDocument.fileSize / 1024).toFixed(0)} KB
                 {detailDocument.versions.length > 0
-                  ? ` • ${detailDocument.versions.length} tidligere versjon(er)`
-                  : " • Ingen tidligere versjoner"}
+                  ? ` • ${t("documents.browser.versionsCount", {
+                      count: detailDocument.versions.length,
+                    })}`
+                  : ` • ${t("documents.browser.noPreviousVersions")}`}
               </p>
             </div>
             <Link
               href={pageLink(page)}
               className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
             >
-              ✕ Lukk
+              ✕ {t("documents.browser.close")}
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -178,7 +182,7 @@ export default function DocumentBrowser({
               rel="noreferrer"
               className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
             >
-              📖 Åpne PDF
+              📖 {t("documents.browser.openPdf")}
             </a>
             {office && (
               <EditDocumentForm
@@ -196,7 +200,7 @@ export default function DocumentBrowser({
       {/* UNDERMAPPER */}
       {subFolders.length > 0 && (
         <div>
-          <h2 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">Undermapper</h2>
+          <h2 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">{t("documents.browser.subfolders")}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {subFolders.map((f) => (
               <Link
@@ -215,15 +219,15 @@ export default function DocumentBrowser({
       {/* DOKUMENTER */}
       <div>
         <h2 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">
-          Dokumenter ({totalDocuments})
+          {t("documents.browser.documents", { count: totalDocuments })}
         </h2>
         {documents.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">Ingen dokumenter i denne mappen.</p>
+            <p className="text-gray-600 font-bold">{t("documents.browser.empty")}</p>
             <p className="text-xs text-gray-500 mt-1">
               {searchQuery || tagFilter
-                ? "Prøv et annet søkeord eller fjern filteret."
-                : "Last opp en PDF nedenfor."}
+                ? t("documents.browser.emptyFiltered")
+                : t("documents.browser.emptyUpload")}
             </p>
           </div>
         ) : (
@@ -244,7 +248,9 @@ export default function DocumentBrowser({
                     )}
                     <p className="text-[10px] text-gray-500 mt-1">
                       {doc.fileName} • {(doc.fileSize / 1024).toFixed(0)} KB
-                      {doc.uploadedBy ? ` • Lastet opp av ${doc.uploadedBy}` : ""}
+                      {doc.uploadedBy
+                        ? ` • ${t("documents.browser.uploadedBy", { name: doc.uploadedBy })}`
+                        : ""}
                     </p>
                     {doc.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -268,14 +274,14 @@ export default function DocumentBrowser({
                       rel="noreferrer"
                       className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
                     >
-                      📖 Åpne PDF
+                      📖 {t("documents.browser.openPdf")}
                     </a>
                     {office && (
                       <Link
                         href={docLink(doc.id)}
                         className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
                       >
-                        🗂️ Versjoner
+                        🗂️ {t("documents.browser.versions")}
                       </Link>
                     )}
                     {office && (
@@ -288,13 +294,18 @@ export default function DocumentBrowser({
                       />
                     )}
                     {isAdmin && (
-                      <ConfirmSubmitForm action={deleteDocumentAction} confirmMessage={`Slette dokumentet «${doc.title}»?`}>
+                      <ConfirmSubmitForm
+                        action={deleteDocumentAction}
+                        confirmMessage={t("documents.browser.deleteConfirm", {
+                          title: doc.title,
+                        })}
+                      >
                         <input type="hidden" name="id" value={doc.id} />
                         <button
                           type="submit"
                           className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition whitespace-nowrap"
                         >
-                          🗑️ Slett
+                          🗑️ {t("documents.browser.delete")}
                         </button>
                       </ConfirmSubmitForm>
                     )}
@@ -309,15 +320,16 @@ export default function DocumentBrowser({
           <div className="flex flex-wrap items-center justify-center gap-3 mt-3 text-sm font-bold">
             {page > 1 && (
               <Link href={pageLink(page - 1)} className="text-blue-700 hover:underline">
-                &larr; Forrige
+                &larr; {t("documents.browser.previous")}
               </Link>
             )}
             <span className="text-gray-500 text-xs">
-              Side {page} av {totalPages} • {totalDocuments} dokument(er)
+              {t("documents.browser.pageOf", { page, totalPages })} •{" "}
+              {t("documents.browser.documentCount", { count: totalDocuments })}
             </span>
             {page < totalPages && (
               <Link href={pageLink(page + 1)} className="text-blue-700 hover:underline">
-                Neste &rarr;
+                {t("documents.browser.next")} &rarr;
               </Link>
             )}
           </div>
@@ -329,32 +341,32 @@ export default function DocumentBrowser({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* NY MAPPE */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">📁 Opprett ny mappe</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">{t("documents.browser.newFolder")}</h2>
             <form action={createFolderAction} className="flex gap-3">
               <input
                 type="text"
                 name="name"
-                placeholder="Navn på mappe"
+                placeholder={t("documents.browser.folderNamePlaceholder")}
                 required
                 className="flex-1 min-w-0 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
               />
               <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap">
-                + Opprett
+                + {t("documents.browser.createFolder")}
               </button>
             </form>
           </div>
 
           {/* LAST OPP DOKUMENT */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">⬆️ Last opp PDF</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">{t("documents.browser.uploadPdf")}</h2>
             <UploadDocumentForm folderId={folderId} allTags={allTags} createDocument={createDocumentAction} />
           </div>
 
           {/* LAST OPP MAPPESTRUKTUR */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">📥 Last opp mappestruktur</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">{t("documents.browser.uploadStructure")}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Velg en mappe på din PC. Alle PDF-filer lastes opp og undermapper opprettes automatisk.
+              {t("documents.browser.uploadStructureHint")}
             </p>
             <BulkUploadForm folderId={folderId} allTags={allTags} existingFiles={existingFiles} bulkCreateDocuments={bulkCreateDocumentsAction} />
 
@@ -364,10 +376,10 @@ export default function DocumentBrowser({
                   type="submit"
                   className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-300 transition shadow-sm"
                 >
-                  🔄 Indekser alle PDF-er for søk
+                  {t("documents.browser.reindex")}
                 </button>
                 <p className="text-xs text-gray-500 mt-2">
-                  Ekstraherer tekst fra PDF-ene slik at innhold kan søkes på. Kjøres automatisk ved opplasting, men kan kjøres manuelt for å fylle ut manglende.
+                  {t("documents.browser.reindexHint")}
                 </p>
               </form>
             </div>

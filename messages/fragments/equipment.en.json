@@ -1,1 +1,30 @@
-{}
+{
+  "equipment": {
+    "list": {
+      "title": "🔧 Equipment & units",
+      "subtitle": "All registered equipment at customers",
+      "summary": "{units, plural, one {# unit} other {# units}} at {customers, plural, one {# customer} other {# customers}}",
+      "dashboard": "Dashboard",
+      "customers": "Customers",
+      "units": "Units",
+      "withHistory": "Has service history",
+      "withDeviation": "With deviations",
+      "searchPlaceholder": "Search by model, serial number, location or customer ...",
+      "search": "Search",
+      "reset": "Reset",
+      "hits": "{total} matches for \"{query}\".",
+      "noMatches": "No units match \"{query}\".",
+      "empty": "No units registered yet.",
+      "emptyHint": "Units are added on the customer card, under the \"Equipment / units\" tab.",
+      "goToCustomers": "Go to customers",
+      "deviations": "{count} deviations",
+      "serviceCount": "{count, plural, one {# service} other {# services}}",
+      "neverChecked": "Never inspected",
+      "lastService": "last {date}",
+      "never": "Never",
+      "firstPage": "First page",
+      "showMore": "Show more",
+      "showing": "Showing {shown} of {total} units. Use search to narrow down."
+    }
+  }
+}
