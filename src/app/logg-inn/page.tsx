@@ -39,6 +39,9 @@ export default async function LoginPage({
       case "TooManyAttempts":
         error = t("loginErrorTooMany");
         break;
+      case "TwoFactorUnavailable":
+        error = t("loginErrorTwoFactorUnavailable");
+        break;
       default:
         error = t("loginErrorDefault");
     }

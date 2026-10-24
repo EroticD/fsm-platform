@@ -32,11 +32,46 @@ export async function actorName(): Promise<string> {
 /**
  * Ugyldiggjør alle eksisterende økter for en bruker. Kalles når passord,
  * rolle, rettigheter, aktiv status eller 2FA endres.
+ *
+ * Returnerer den nye versjonen slik at den som utførte endringen kan fornye
+ * sin egen cookie og fortsette å være innlogget.
  */
-export async function bumpSessionVersion(userId: string): Promise<void> {
-  await prisma.user.update({
+export async function bumpSessionVersion(userId: string): Promise<number> {
+  const user = await prisma.user.update({
     where: { id: userId },
     data: { sessionVersion: { increment: 1 } },
+    select: { sessionVersion: true },
+  });
+  return user.sessionVersion;
+}
+
+/**
+ * Fornyer session-cookien etter en øktversjonsøkning. Andre økter blir
+ * ugyldige, men den som nettopp gjorde endringen skal slippe å logge inn på
+ * nytt. Henter bare feltene cookien trenger – aldri passord eller hemmeligheter.
+ */
+export async function refreshSessionCookie(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      sessionVersion: true,
+    },
+  });
+  if (!user) return;
+
+  // Dynamisk import holder Next-avhengighetene ute av moduler som bare trenger
+  // bumpSessionVersion (for eksempel enhetstester).
+  const { createSessionCookie } = await import("@/lib/session-token");
+  await createSessionCookie({
+    id: user.id,
+    email: user.email ?? "",
+    name: user.name,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
   });
 }
 

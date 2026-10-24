@@ -72,7 +72,12 @@ export async function loginAction(formData: FormData): Promise<never> {
     select: { isTwoFactorEnabled: true, twoFactorSecret: true },
   });
 
-  if (dbUser?.isTwoFactorEnabled && dbUser.twoFactorSecret) {
+  if (dbUser?.isTwoFactorEnabled && !dbUser.twoFactorSecret) {
+    // Feilkonfigurert 2FA skal aldri falle tilbake til innlogging uten kode.
+    redirect(fail("TwoFactorUnavailable"));
+  }
+
+  if (dbUser?.isTwoFactorEnabled) {
     await setPendingTwoFactor(result.user.id);
     const params = new URLSearchParams();
     if (callbackUrl !== "/") params.set("callbackUrl", callbackUrl);

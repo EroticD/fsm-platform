@@ -1,0 +1,102 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { getCurrentUser, refreshSessionCookie } from "@/lib/session";
+import {
+  cancelTwoFactorSetup,
+  confirmTwoFactorSetup,
+  disableTwoFactor,
+  startTwoFactorSetup,
+} from "@/server/security";
+
+const BASE = "/innstillinger?tab=sikkerhet";
+
+/** Klient-IP bak reverse proxy, brukt som ekstra rate-limit-nøkkel. */
+async function requestIp(): Promise<string | undefined> {
+  const requestHeaders = await headers();
+  return (
+    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    requestHeaders.get("x-real-ip") ||
+    undefined
+  );
+}
+
+async function currentActor() {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/");
+  return actor;
+}
+
+export async function startSetupAction(formData: FormData): Promise<never> {
+  const actor = await currentActor();
+  const result = await startTwoFactorSetup(
+    actor,
+    { password: formData.get("password") },
+    await requestIp(),
+  );
+
+  if (!result.ok) {
+    redirect(`${BASE}&error=passord`);
+  }
+
+  revalidatePath("/innstillinger");
+  redirect(`${BASE}&setup=1`);
+}
+
+export async function confirmSetupAction(formData: FormData): Promise<never> {
+  const actor = await currentActor();
+  const result = await confirmTwoFactorSetup(
+    actor,
+    { code: formData.get("code") },
+    await requestIp(),
+  );
+
+  if (!result.ok) {
+    redirect(`${BASE}&setup=1&error=kode`);
+  }
+
+  // Andre økter er nå ugyldige; den som aktiverte 2FA skal fortsatt være innlogget.
+  await refreshSessionCookie(actor.id);
+  revalidatePath("/innstillinger");
+  redirect(`${BASE}&ok=enabled`);
+}
+
+export async function cancelSetupAction(formData: FormData): Promise<never> {
+  const actor = await currentActor();
+  const result = await cancelTwoFactorSetup(
+    actor,
+    { password: formData.get("password") },
+    await requestIp(),
+  );
+
+  if (!result.ok) {
+    redirect(`${BASE}&error=passord`);
+  }
+
+  await refreshSessionCookie(actor.id);
+  revalidatePath("/innstillinger");
+  redirect(BASE);
+}
+
+export async function disableTwoFactorAction(formData: FormData): Promise<never> {
+  const actor = await currentActor();
+  const result = await disableTwoFactor(
+    actor,
+    {
+      password: formData.get("password"),
+      code: formData.get("code"),
+    },
+    await requestIp(),
+  );
+
+  if (!result.ok) {
+    const error = result.reason === "invalid_password" ? "passord" : "kode";
+    redirect(`${BASE}&error=${error}`);
+  }
+
+  await refreshSessionCookie(actor.id);
+  revalidatePath("/innstillinger");
+  redirect(`${BASE}&ok=disabled`);
+}
