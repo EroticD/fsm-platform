@@ -284,6 +284,48 @@ describe("reports-tjenesten", () => {
     );
   });
 
+  it("avviser en rapport uten enheter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const data = formData();
+    data.set("unitsJson", "[]");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-data",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser manglende påkrevd sjekkpunkt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [
+        {
+          ...template,
+          fieldsJson: JSON.stringify([
+            { id: "f1", type: "CHECKBOX", label: "Sjekket", required: true },
+          ]),
+        },
+      ],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const data = formData();
+    data.delete("answer__unit-0__f1");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-data",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("avviser en samtidig innsending som taper låsekravet", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue({

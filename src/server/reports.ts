@@ -524,6 +524,38 @@ export async function submitReport(
     uploadedById: user.id,
   });
 
+  // En signert rapport er et juridisk dokument. HTML `required` i skjemaet er
+  // bare en hjelp for nettleseren; serveren må avvise manglende påkrevde
+  // sjekkpunkter og rapporter uten enheter. Ellers kunne en klient sende inn
+  // en «godkjent» rapport med hull i dokumentasjonen.
+  if (unitRows.length === 0) {
+    return { ok: false, error: "ugyldig-data", returnTo: returnPathFrom(formData, workOrderId) };
+  }
+
+  const hasMissingRequired = unitRows.some((row) => {
+    let answers: Record<string, unknown>;
+    try {
+      answers = JSON.parse(row.answersJson) as Record<string, unknown>;
+    } catch {
+      return true;
+    }
+
+    return fields.some((field) => {
+      if (!field.required) return false;
+      const value = answers[field.id];
+
+      if (field.type === "CHECKBOX") return value !== true;
+      if (field.type === "IMAGE") {
+        return parseImageUrls(typeof value === "string" ? value : "").length === 0;
+      }
+      return typeof value !== "string" || value.trim().length === 0;
+    });
+  });
+
+  if (hasMissingRequired) {
+    return { ok: false, error: "ugyldig-data", returnTo: returnPathFrom(formData, workOrderId) };
+  }
+
   const text = (name: string) =>
     cleanText(formData.get(name), { maxLength: LIMITS.title }) || null;
 
