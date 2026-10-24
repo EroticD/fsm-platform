@@ -4,7 +4,7 @@ import { audit } from "@/lib/audit";
 import { notifyWorkOrderEvent } from "./notifications";
 import { hasPermission } from "@/lib/permissions";
 import { isOffice } from "@/lib/session";
-import { canAccessWorkOrder, workOrderScope, type AccessUser } from "@/lib/access";
+import { workOrderScope, type AccessUser } from "@/lib/access";
 import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
@@ -174,6 +174,9 @@ const REVISION_SOURCE_SELECT = {
   technicianName: true,
   customerSignatureUrl: true,
   customerName: true,
+  customerAcknowledgedAt: true,
+  customerAcknowledgedBy: true,
+  customerAcknowledgedComment: true,
   units: {
     orderBy: { sortOrder: "asc" as const },
     select: {
@@ -218,6 +221,9 @@ function revisionSnapshot(
     technicianName: current.technicianName,
     customerSignatureUrl: current.customerSignatureUrl,
     customerName: current.customerName,
+    customerAcknowledgedAt: current.customerAcknowledgedAt,
+    customerAcknowledgedBy: current.customerAcknowledgedBy,
+    customerAcknowledgedComment: current.customerAcknowledgedComment,
     reason,
     createdById,
   };
@@ -899,10 +905,29 @@ export async function submitReport(
           data: {
             ...data,
             revision: { increment: 1 },
+            // Ny innsending er en ny versjon av rapporten. Kunden må kvittere
+            // for den nye versjonen, så en tidligere kvittering nullstilles.
+            customerAcknowledgedAt: null,
+            customerAcknowledgedBy: null,
+            customerAcknowledgedComment: null,
             // Enhetene erstattes helt, slik at rapporten speiler det som ble sendt inn.
             units: { deleteMany: {}, create: unitRows },
           },
         });
+
+        if (current.customerAcknowledgedAt) {
+          await audit(tx, {
+            entityType: "Report",
+            entityId: current.id,
+            action: "Kundens kvittering ble trukket tilbake ved ny innsending",
+            actor: { id: user.id, name: user.name, email: user.email },
+            metadata: {
+              workOrderId,
+              acknowledgedAt: current.customerAcknowledgedAt.toISOString(),
+              acknowledgedBy: current.customerAcknowledgedBy,
+            },
+          });
+        }
         reportId = current.id;
       } else {
         const created = await tx.report.create({
@@ -1090,10 +1115,13 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 404, message: "Fant ikke oppdraget" };
   }
 
-  // Kundeportalbrukere ser bare egen kunde, og ansatte bare egen avdeling.
+  // Kundeportalbrukere ser bare egen kunde. Ansatte med reports.view kan se
+  // rapporter fra alle avdelinger, men får ikke dermed se oppdraget i listene.
   // En kunde uten kundetilknytning må aldri matche et oppdrag uten kunde.
-  if (!canAccessWorkOrder(viewer, workOrder)) {
-    return { ok: false, status: 403, message: "Ingen tilgang" };
+  if (viewer.role === "CUSTOMER") {
+    if (!viewer.customerId || workOrder.customerId !== viewer.customerId) {
+      return { ok: false, status: 403, message: "Ingen tilgang" };
+    }
   }
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false, status: 403, message: "Ingen tilgang" };

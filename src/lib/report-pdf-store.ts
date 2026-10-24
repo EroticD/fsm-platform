@@ -197,11 +197,12 @@ export async function getOrRenderReportPdf(
   workOrderId: string,
   baseUrl?: string,
 ): Promise<ReportPdfResult | null> {
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, deletedAt: null },
     include: {
       customer: true,
       reports: {
+        where: { deletedAt: null },
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "asc" },
       },

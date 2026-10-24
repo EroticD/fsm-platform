@@ -1,21 +1,16 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
-import { workOrderScope } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder } from "@/lib/access";
+import { reportWhereFor } from "@/lib/report-filters";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
 // ---------------------------------------------------------------------------
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
 
 /**
  * Tidsrom for rapportlisten. «denne-maneden» er standard, slik at listen viser
@@ -31,40 +26,6 @@ type RangeKey = (typeof RANGES)[number]["key"];
 
 function isRangeKey(value: string): value is RangeKey {
   return RANGES.some((r) => r.key === value);
-}
-
-function whereFor(
-  range: RangeKey,
-  excludeCancelled = false,
-  workOrderFilter: Prisma.WorkOrderWhereInput = {},
-): Prisma.ReportWhereInput {
-  const now = new Date();
-  let base: Prisma.ReportWhereInput = { deletedAt: null };
-  if (range === "denne-maneden") {
-    base = { completedAt: { gte: startOfMonth(now) } };
-  } else if (range === "forrige-maned") {
-    base = {
-      completedAt: {
-        gte: startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-        lt: startOfMonth(now),
-      },
-    };
-  }
-
-  return {
-    AND: [
-      base,
-      {
-        workOrder: {
-          deletedAt: null,
-          ...workOrderFilter,
-          ...(excludeCancelled
-            ? { status: { not: WorkStatus.CANCELLED } }
-            : {}),
-        },
-      },
-    ],
-  };
 }
 
 export default async function ReportsPage({
@@ -84,11 +45,13 @@ export default async function ReportsPage({
   const { vis } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
   const excludeCancelled = user.role === "TECHNICIAN";
-  const orderScope = workOrderScope(user);
 
+  // Rapporter er delbare på tvers av avdelinger for ansatte med reports.view.
+  // Oppdragslistene er fortsatt avdelingsavgrensede, og oppdragslenken under
+  // vises bare når brukeren faktisk har tilgang til oppdraget.
   const [reports, total, thisMonth, lastMonth, allReports] = await Promise.all([
     prisma.report.findMany({
-      where: whereFor(range, excludeCancelled, orderScope),
+      where: reportWhereFor(range, excludeCancelled),
       orderBy: { completedAt: "desc" },
       take: 100,
       include: {
@@ -106,10 +69,10 @@ export default async function ReportsPage({
         units: { select: { id: true, status: true } },
       },
     }),
-    prisma.report.count({ where: whereFor(range, excludeCancelled, orderScope) }),
-    prisma.report.count({ where: whereFor("denne-maneden", excludeCancelled, orderScope) }),
-    prisma.report.count({ where: whereFor("forrige-maned", excludeCancelled, orderScope) }),
-    prisma.report.count({ where: whereFor("alle", excludeCancelled, orderScope) }),
+    prisma.report.count({ where: reportWhereFor(range, excludeCancelled) }),
+    prisma.report.count({ where: reportWhereFor("denne-maneden", excludeCancelled) }),
+    prisma.report.count({ where: reportWhereFor("forrige-maned", excludeCancelled) }),
+    prisma.report.count({ where: reportWhereFor("alle", excludeCancelled) }),
   ]);
 
   const rangeLabel = (key: RangeKey) =>

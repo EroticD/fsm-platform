@@ -4,7 +4,6 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { canAccessWorkOrder } from "@/lib/access";
 
 export default async function ReportViewerPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("common");
@@ -42,12 +41,9 @@ export default async function ReportViewerPage({ params }: { params: Promise<{ i
   if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
     redirect("/");
   }
-  // Kontor/montør må også være i oppdragets avdeling. Uten denne sjekken kunne
-  // en kjent oppdrags-id gi tilgang til en annen avdelings rapport.
-  if (!canAccessWorkOrder(viewer, workOrder)) {
-    redirect("/rapporter");
-  }
-  // Kansellerte oppdrag er lukket for montørene, også rapportene deres.
+  // Ansatte med reports.view kan åpne rapporter fra alle avdelinger, selv om
+  // selve oppdraget ikke er synlig i oppdragslistene deres. Kansellerte
+  // oppdrag er fortsatt lukket for montørene, også rapportene deres.
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     redirect("/rapporter");
   }
