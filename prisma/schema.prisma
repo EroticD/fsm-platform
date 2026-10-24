@@ -103,11 +103,9 @@ model User {
   // Kladder for sjekklister brukeren har begynt å fylle ut.
   reportDrafts ReportDraft[]
 
-  // Kalenderabonnement (iCal). Token lagres hashet; plaintext-kolonnen fjernes
-  // i en egen migrering etter at SEC-6-koden er merget.
-  calendarToken          String?   @unique
-  calendarTokenHash      String?   @unique
-  calendarTokenCreatedAt DateTime?
+  // Kalenderabonnement (iCal). Bare SHA-256-hashen lagres.
+  calendarTokenHash       String?   @unique
+  calendarTokenCreatedAt  DateTime?
   calendarTokenLastUsedAt DateTime?
 
   notifications           Notification[]
