@@ -6,9 +6,16 @@
  * godkjent script kan laste flere, uten å åpne for vilkårlige inline-script.
  */
 export function buildCsp(nonce: string): string {
+  // Reacts utviklingsmodus bruker eval() til feilsøking. Produksjon skal aldri
+  // ha 'unsafe-eval'.
+  const scriptSrc =
+    process.env.NODE_ENV === "production"
+      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
+      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`;
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    scriptSrc,
     // Tailwind og FullCalendar setter inline-stiler. Stiler er ikke script.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
