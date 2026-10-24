@@ -35,6 +35,7 @@ const WORK_ORDER_LIST_SELECT = {
   description: true,
   technicians: { select: { name: true }, take: 10 },
   reports: {
+    where: { deletedAt: null },
     select: { id: true, completedAt: true, isLocked: true },
     orderBy: { completedAt: "desc" as const },
     take: 1,

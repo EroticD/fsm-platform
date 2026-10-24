@@ -172,6 +172,7 @@ export async function getPortalReportHistory(
         title: true,
         scheduledFor: true,
         reports: {
+          where: { deletedAt: null },
           orderBy: { completedAt: "desc" },
           take: 1,
           select: {
