@@ -42,7 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   IN_PROGRESS: "Påbegynt",
   WAITING: "Venter",
   COMPLETED: "Fullført",
-  PENDING: "Venter / Planlagt",
+  PENDING: "Venter",
   CANCELLED: "Kansellert",
   OPEN: "Åpen",
 };

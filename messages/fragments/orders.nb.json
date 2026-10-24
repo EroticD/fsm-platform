@@ -122,7 +122,7 @@
       "addTemplate": "+ Legg til",
       "changeStatus": "Endre Status",
       "statusOpen": "Åpen / Ny",
-      "statusPending": "Venter / Planlagt",
+      "statusPending": "Venter",
       "statusInProgress": "Påbegynt",
       "statusCompleted": "Fullført",
       "statusCancelled": "Kansellert",
@@ -185,7 +185,9 @@
       "reopenReason": "Grunn til gjenåpning / statusendring",
       "reopenReasonPlaceholder": "Beskriv hvorfor oppdraget gjenåpnes eller statusen overstyres",
       "checklistLockedOnly": "Sjekklisten er låst, men det låser bare sjekklisten. Oppdraget kan fortsatt redigeres og få ny status.",
-      "closedLocked": "Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag."
+      "closedLocked": "Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
+      "statusPlanned": "Planlagt",
+      "statusWaiting": "Venter"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -244,7 +246,7 @@
       "back": "← Tilbake",
       "statusTitle": "Oppdragsstatus",
       "statusOpen": "Åpen / Ny",
-      "statusPending": "Venter / Planlagt",
+      "statusPending": "Venter",
       "statusInProgress": "Påbegynt",
       "statusCompleted": "Fullført",
       "statusCancelled": "Kansellert",
@@ -289,7 +291,9 @@
       "waitingFill": "Venter på utfylling",
       "extraChecklist": "Trenger du et ekstra skjema?",
       "selectTemplate": "-- Velg sjekklistemal --",
-      "auditLog": "📋 Aktivitetslogg"
+      "auditLog": "📋 Aktivitetslogg",
+      "statusPlanned": "Planlagt",
+      "statusWaiting": "Venter"
     },
     "fieldNew": {
       "noDepartmentTitle": "Du mangler avdeling",

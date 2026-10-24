@@ -110,7 +110,7 @@
     "statusInProgress": "Påbegynt",
     "statusCancelled": "Kansellert",
     "statusOpen": "Åpen / Ny",
-    "statusPending": "Venter / Planlagt",
+    "statusPending": "Venter",
     "statusPlanned": "Planlagt",
     "statusWaiting": "Venter",
     "technicians": "Montører",

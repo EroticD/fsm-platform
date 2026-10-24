@@ -162,6 +162,7 @@ export default async function CalendarPage() {
                         let badgeText = t("calendar.page.statusPlanned");
                         if (wo.status === "IN_PROGRESS") { badgeColor = "bg-blue-100 text-blue-800"; badgeText = t("calendar.page.statusInProgress"); }
                         else if (wo.status === "WAITING") { badgeColor = "bg-orange-100 text-orange-800"; badgeText = t("calendar.page.statusWaiting"); }
+                        else if (wo.status === "PENDING") { badgeColor = "bg-yellow-100 text-yellow-800"; badgeText = t("calendar.page.statusPending"); }
 
                         return (
                           <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group">

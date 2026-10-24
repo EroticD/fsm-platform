@@ -122,7 +122,7 @@
       "addTemplate": "+ Add",
       "changeStatus": "Change Status",
       "statusOpen": "Open / New",
-      "statusPending": "Waiting / Planned",
+      "statusPending": "Waiting",
       "statusInProgress": "In progress",
       "statusCompleted": "Completed",
       "statusCancelled": "Cancelled",
@@ -185,7 +185,9 @@
       "reopenReason": "Reason for reopening / status change",
       "reopenReasonPlaceholder": "Describe why the work order is reopened or the status is overridden",
       "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status.",
-      "closedLocked": "This work order is completed or cancelled and locked. You can add comments or clone it into a new work order."
+      "closedLocked": "This work order is completed or cancelled and locked. You can add comments or clone it into a new work order.",
+      "statusPlanned": "Planned",
+      "statusWaiting": "Waiting"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -244,7 +246,7 @@
       "back": "← Back",
       "statusTitle": "Work order status",
       "statusOpen": "Open / New",
-      "statusPending": "Waiting / Planned",
+      "statusPending": "Waiting",
       "statusInProgress": "In progress",
       "statusCompleted": "Completed",
       "statusCancelled": "Cancelled",
@@ -289,7 +291,9 @@
       "waitingFill": "Waiting to be filled in",
       "extraChecklist": "Do you need an extra form?",
       "selectTemplate": "-- Select checklist template --",
-      "auditLog": "📋 Activity log"
+      "auditLog": "📋 Activity log",
+      "statusPlanned": "Planned",
+      "statusWaiting": "Waiting"
     },
     "fieldNew": {
       "noDepartmentTitle": "You are missing a department",

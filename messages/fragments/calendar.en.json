@@ -26,7 +26,8 @@
       "statusInProgress": "In progress",
       "statusWaiting": "Waiting",
       "recentlyCompleted": "Recently completed ({count})",
-      "completed": "✅ Completed"
+      "completed": "✅ Completed",
+      "statusPending": "Waiting"
     },
     "month": {
       "title": "📅 Month calendar",
@@ -72,9 +73,10 @@
       "badgeInProgress": "🔄 In progress",
       "badgeCancelled": "❌ Cancelled",
       "badgeOpen": "✨ Open",
-      "badgePending": "⏳ Planned",
+      "badgePending": "⏳ Waiting",
       "badgePlanned": "📅 Planned",
-      "badgeWaiting": "⏸️ Waiting"
+      "badgeWaiting": "⏸️ Waiting",
+      "statusPending": "Waiting"
     },
     "client": {
       "today": "Today",

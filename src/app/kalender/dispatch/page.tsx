@@ -231,6 +231,7 @@ export default async function DispatchPage({
       case "CANCELLED":
         return t("calendar.dispatch.statusCancelled");
       case "PENDING":
+        return t("calendar.dispatch.statusPending");
       case "PLANNED":
         return t("calendar.dispatch.statusPlanned");
       default:
@@ -442,7 +443,7 @@ export default async function DispatchPage({
                           <option value="WAITING">{t("calendar.dispatch.statusWaiting")}</option>
                           <option value="COMPLETED">{t("calendar.dispatch.statusCompleted")}</option>
                           <option value="CANCELLED">{t("calendar.dispatch.statusCancelled")}</option>
-                          <option value="PENDING">{t("calendar.dispatch.statusPlanned")}</option>
+                          <option value="PENDING">{t("calendar.dispatch.statusPending")}</option>
                           <option value="PLANNED">{t("calendar.dispatch.statusPlanned")}</option>
                         </select>
                         <button type="submit" className="bg-gray-900 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition whitespace-nowrap">

@@ -59,7 +59,7 @@
     "statusOptions": {
       "all": "All statuses",
       "open": "Open",
-      "pending": "Waiting / Planned",
+      "pending": "Waiting",
       "waiting": "Waiting",
       "inProgress": "In progress",
       "planned": "Planned",

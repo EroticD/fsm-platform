@@ -26,7 +26,8 @@
       "statusInProgress": "Påbegynt",
       "statusWaiting": "Venter",
       "recentlyCompleted": "Nylig fullført ({count})",
-      "completed": "✅ Fullført"
+      "completed": "✅ Fullført",
+      "statusPending": "Venter"
     },
     "month": {
       "title": "📅 Månedskalender",
@@ -72,9 +73,10 @@
       "badgeInProgress": "🔄 Påbegynt",
       "badgeCancelled": "❌ Kansellert",
       "badgeOpen": "✨ Åpen",
-      "badgePending": "⏳ Planlagt",
+      "badgePending": "⏳ Venter",
       "badgePlanned": "📅 Planlagt",
-      "badgeWaiting": "⏸️ Venter"
+      "badgeWaiting": "⏸️ Venter",
+      "statusPending": "Venter"
     },
     "client": {
       "today": "I dag",

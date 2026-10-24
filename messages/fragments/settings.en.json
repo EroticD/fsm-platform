@@ -83,7 +83,7 @@
         "COMPLETED": "Completed",
         "CANCELLED": "Cancelled",
         "OPEN": "Open",
-        "PENDING": "Planned (PENDING)"
+        "PENDING": "Waiting"
       },
       "fromDate": "From date",
       "toDate": "To date"

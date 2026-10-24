@@ -83,7 +83,7 @@
         "COMPLETED": "Fullført",
         "CANCELLED": "Kansellert",
         "OPEN": "Åpen",
-        "PENDING": "Planlagt (PENDING)"
+        "PENDING": "Venter"
       },
       "fromDate": "Fra dato",
       "toDate": "Til dato"

@@ -111,7 +111,7 @@
     "statusInProgress": "In progress",
     "statusCancelled": "Cancelled",
     "statusOpen": "Open / New",
-    "statusPending": "Pending / Planned",
+    "statusPending": "Waiting",
     "statusPlanned": "Planned",
     "statusWaiting": "Waiting",
     "technicians": "Technicians",

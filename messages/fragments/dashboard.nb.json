@@ -59,7 +59,7 @@
     "statusOptions": {
       "all": "Alle statuser",
       "open": "Åpen",
-      "pending": "Venter / Planlagt",
+      "pending": "Venter",
       "waiting": "Venter",
       "inProgress": "Påbegynt",
       "planned": "Planlagt",

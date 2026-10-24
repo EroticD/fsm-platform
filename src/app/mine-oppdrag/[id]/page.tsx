@@ -88,9 +88,9 @@ export default async function TechnicianWorkOrderPage({
   const statusLabels: Record<WorkStatus, string> = {
     OPEN: t("orders.fieldDetail.statusOpen"),
     PENDING: t("orders.fieldDetail.statusPending"),
-    PLANNED: t("orders.fieldDetail.statusPending"),
+    PLANNED: t("orders.fieldDetail.statusPlanned"),
     IN_PROGRESS: t("orders.fieldDetail.statusInProgress"),
-    WAITING: t("orders.fieldDetail.statusPending"),
+    WAITING: t("orders.fieldDetail.statusWaiting"),
     COMPLETED: t("orders.fieldDetail.statusCompleted"),
     CANCELLED: t("orders.fieldDetail.statusCancelled"),
   };
