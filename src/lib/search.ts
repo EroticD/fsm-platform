@@ -1,11 +1,13 @@
 import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
-import { fuzzyScore } from "@/lib/fuzzy";
+import { fuzzyScore, normalizeSearchText } from "@/lib/fuzzy";
 import { formatDate } from "@/lib/dates";
 import { WorkStatus } from "@prisma/client";
 import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
+import { reportSearchWhere } from "@/lib/search-filters";
 import {
+  searchBySubstring,
   searchByName,
   searchDocuments,
   type NameSearchRow,
@@ -116,9 +118,12 @@ export async function performSearch(
   query: string,
   options: SearchOptions
 ): Promise<SearchResults> {
-  const q = query.trim();
+  const originalQuery = query.trim();
+  // All matching skjer på normalisert form. Det gjør «arlig-service» lik
+  // «Årlig service» og «2026-1042» lik «NO-2026-1042».
+  const q = normalizeSearchText(originalQuery);
   if (q.length < 2) {
-    return { query: q, total: 0, groups: [] };
+    return { query: originalQuery, total: 0, groups: [] };
   }
 
   const includeCancelled = options.includeCancelled ?? false;
@@ -145,7 +150,7 @@ export async function performSearch(
     !canTemplates &&
     !canDocuments
   ) {
-    return { query: q, total: 0, groups: [] };
+    return { query: originalQuery, total: 0, groups: [] };
   }
 
   const contains = { contains: q, mode: "insensitive" as const };
@@ -178,31 +183,53 @@ export async function performSearch(
 
   // Første runde: indekserte kandidatsøk. Ingen av disse leser store
   // tekstfelt (contentText/pageTexts) eller hele tabeller.
-  const [customerNameHits, customerCityHits, productHits, workOrderHits, documentHits] =
-    await Promise.all([
-      canCustomers
-        ? searchByName("Customer", "name", q, CANDIDATES)
-        : Promise.resolve([] as NameSearchRow[]),
-      canCustomers
-        ? searchByName("Customer", "city", q, CANDIDATES)
-        : Promise.resolve([] as NameSearchRow[]),
-      canEquipment
-        ? searchByName("Product", "model", q, CANDIDATES)
-        : Promise.resolve([] as NameSearchRow[]),
-      canWorkOrders
-        ? searchByName("WorkOrder", "title", q, CANDIDATES)
-        : Promise.resolve([] as NameSearchRow[]),
-      canDocuments
-        ? searchDocuments(q, CANDIDATES)
-        : Promise.resolve([]),
-    ]);
+  const [
+    customerNameHits,
+    customerCityHits,
+    productHits,
+    workOrderTitleHits,
+    workOrderTitleSubstringHits,
+    workOrderNumberHits,
+    tagHits,
+    documentHits,
+  ] = await Promise.all([
+    canCustomers
+      ? searchByName("Customer", "name", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canCustomers
+      ? searchByName("Customer", "city", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canEquipment
+      ? searchByName("Product", "model", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canWorkOrders
+      ? searchByName("WorkOrder", "title", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canWorkOrders
+      ? searchBySubstring("WorkOrder", "title", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canWorkOrders
+      ? searchBySubstring("WorkOrder", "orderNumber", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canWorkOrders
+      ? searchBySubstring("Tag", "name", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    canDocuments
+      ? searchDocuments(originalQuery, CANDIDATES)
+      : Promise.resolve([]),
+  ]);
 
   const customerHits = mergeNameHits(customerNameHits, customerCityHits);
   const productHitIds = mergeNameHits(productHits);
-  const workOrderHitIds = mergeNameHits(workOrderHits);
+  const workOrderHitIds = mergeNameHits(
+    workOrderTitleHits,
+    workOrderTitleSubstringHits,
+    workOrderNumberHits,
+  );
+  const tagHitIds = mergeNameHits(tagHits);
 
   // Andre runde: hent bare feltene vi trenger for visning og rangering.
-  const [customers, contacts, units, workOrders, reports, comments, users, templates, folders] =
+  const [customers, contacts, units, workOrders, tags, reports, comments, users, templates, folders] =
     await Promise.all([
       prisma.customer.findMany({
         where: canCustomers ? { id: { in: customerHits.ids }, deletedAt: null } : noRows,
@@ -259,33 +286,42 @@ export async function performSearch(
           ? {
               AND: [
                 workOrderScope(user),
-                { id: { in: workOrderHitIds.ids } },
                 ...(includeCancelled ? [] : [{ status: { not: WorkStatus.CANCELLED } }]),
+                {
+                  OR: [
+                    { id: { in: workOrderHitIds.ids } },
+                    ...(tagHitIds.ids.length > 0
+                      ? [{ tags: { some: { id: { in: tagHitIds.ids } } } }]
+                      : []),
+                  ],
+                },
               ],
             }
           : noRows,
         select: {
           id: true,
           title: true,
+          orderNumber: true,
           description: true,
           creatorName: true,
           status: true,
           scheduledFor: true,
           customer: { select: { name: true } },
+          tags: { select: { id: true, name: true, color: true } },
         },
         take: CANDIDATES,
       }),
+      prisma.tag.findMany({
+        where: canWorkOrders ? { id: { in: tagHitIds.ids } } : noRows,
+        select: { id: true, name: true, color: true },
+        orderBy: { name: "asc" },
+        take: CANDIDATES,
+      }),
       prisma.report.findMany({
-        where: canReports
-          ? {
-              comments: contains,
-              deletedAt: null,
-              workOrder: {
-                deletedAt: null,
-                ...(includeCancelled ? {} : { status: { not: "CANCELLED" } }),
-              },
-            }
-          : noRows,
+        // Rapporter deles på tvers av regioner for ansatte med rapporttilgang.
+        // Bevisst uten workOrderScope; oppdrag og kommentarer er fortsatt
+        // avdelingsbegrenset.
+        where: canReports ? reportSearchWhere(q, includeCancelled) : noRows,
         include: { template: { select: { title: true } }, workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } } }, orderBy: { completedAt: "desc" }, take: CANDIDATES,
       }),
       prisma.comment.findMany({
@@ -359,8 +395,21 @@ export async function performSearch(
   const fuzzyWorkOrders = rankIndexed(
     workOrders,
     (wo) => wo.id,
-    (wo) => [wo.title, wo.description, wo.creatorName, wo.customer?.name],
+    (wo) => [
+      wo.title,
+      wo.orderNumber,
+      wo.description,
+      wo.creatorName,
+      wo.customer?.name,
+      ...wo.tags.map((tag) => tag.name),
+    ],
     workOrderHitIds.rank,
+  );
+  const fuzzyTags = rankIndexed(
+    tags,
+    (tag) => tag.id,
+    (tag) => [tag.name],
+    tagHitIds.rank,
   );
   const fuzzyReports = rank(reports, (r) => [r.template?.title, r.workOrder.title, r.workOrder.customer?.name, r.comments]);
   const fuzzyComments = rank(comments, (c) => [c.content, c.authorName, c.workOrder?.title, c.customer?.name, c.contact?.name]);
@@ -408,9 +457,28 @@ export async function performSearch(
       icon: "📂",
       items: fuzzyWorkOrders.map((wo) => ({
         id: wo.id,
-        title: wo.title,
-        subtitle: joinInfo([wo.customer?.name ?? "Uten kunde", STATUS_LABELS[wo.status] ?? wo.status, formatDate(wo.scheduledFor)]),
+        title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
+        subtitle: joinInfo([
+          wo.orderNumber ? `Ordrenr. ${wo.orderNumber}` : null,
+          wo.customer?.name ?? "Uten kunde",
+          STATUS_LABELS[wo.status] ?? wo.status,
+          formatDate(wo.scheduledFor),
+          wo.tags.length > 0
+            ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}`
+            : null,
+        ]),
         href: `/oppdrag/${wo.id}`,
+      })),
+    },
+    {
+      kind: "tag",
+      label: "Tagger",
+      icon: "🏷️",
+      items: fuzzyTags.map((tag) => ({
+        id: tag.id,
+        title: tag.name,
+        subtitle: "Vis oppdrag med denne taggen",
+        href: `/oppdrag?tag=${encodeURIComponent(tag.name)}`,
       })),
     },
     {
@@ -520,5 +588,5 @@ export async function performSearch(
   ].filter((g) => g.items.length > 0);
 
   const total = groups.reduce((sum, g) => sum + g.items.length, 0);
-  return { query: q, total, groups };
+  return { query: originalQuery, total, groups };
 }

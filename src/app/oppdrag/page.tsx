@@ -10,6 +10,11 @@ import { formatDateRange } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import {
+  workOrderListSearchWhere,
+  workOrderTagWhere,
+} from "@/lib/search-filters";
+import { searchWorkOrderIds } from "@/lib/search-sql";
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
@@ -140,7 +145,7 @@ function orderByFor(view: ViewKey): Prisma.WorkOrderOrderByWithRelationInput[] {
 export default async function WorkOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vis?: string; q?: string; side?: string }>;
+  searchParams: Promise<{ vis?: string; q?: string; side?: string; tag?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -152,27 +157,25 @@ export default async function WorkOrdersPage({
   const office = user.role === "ADMIN" || user.role === "OFFICE";
   const canCreate = hasPermission(user, "workorders.create");
 
-  const { vis, q, side } = await searchParams;
+  const { vis, q, side, tag } = await searchParams;
   const requestedView: ViewKey = vis && isViewKey(vis) ? vis : "alle";
   // Kansellerte oppdrag er historikk for kontoret; montørene skal ikke se dem.
   const view: ViewKey =
     !office && requestedView === "kansellerte" ? "alle" : requestedView;
   const search = q?.trim() || "";
+  const tagFilter = tag?.trim() || "";
   const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
 
   const dates = getDateContext();
 
-  const searchWhere: Prisma.WorkOrderWhereInput = search
-    ? {
-        OR: [
-          { title: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          { customer: { name: { contains: search, mode: "insensitive" } } },
-          { customer: { city: { contains: search, mode: "insensitive" } } },
-          { customer: { address: { contains: search, mode: "insensitive" } } },
-        ],
-      }
-    : {};
+  // Normalisert treff i ordrenummer/tagger/kundefelt kan bare gjøres i SQL.
+  // Id-ene intersects alltid med workOrderScope nedenfor.
+  const smartSearchIds = search ? await searchWorkOrderIds(search) : [];
+
+  const searchWhere: Prisma.WorkOrderWhereInput =
+    workOrderListSearchWhere(search, smartSearchIds);
+  const tagWhere: Prisma.WorkOrderWhereInput = workOrderTagWhere(tagFilter);
+  const filters: Prisma.WorkOrderWhereInput = { AND: [searchWhere, tagWhere] };
 
   // Kansellerte oppdrag er avsluttet og vises ikke til montørene. Kontoret
   // trenger dem fortsatt for oppfølging og historikk. Avdelingsfilteret gjelder
@@ -185,7 +188,7 @@ export default async function WorkOrdersPage({
   };
 
   const activeWhere: Prisma.WorkOrderWhereInput = {
-    AND: [visibleStatus, whereFor(view, dates), searchWhere],
+    AND: [visibleStatus, whereFor(view, dates), filters],
   };
 
   const [statusGroups, todayCount, overdueCount, unassignedCount, total, orders] =
@@ -196,13 +199,13 @@ export default async function WorkOrdersPage({
         _count: { _all: true },
       }),
       prisma.workOrder.count({
-        where: { AND: [visibleStatus, whereFor("idag", dates), searchWhere] },
+        where: { AND: [visibleStatus, whereFor("idag", dates), filters] },
       }),
       prisma.workOrder.count({
-        where: { AND: [visibleStatus, whereFor("forfalte", dates), searchWhere] },
+        where: { AND: [visibleStatus, whereFor("forfalte", dates), filters] },
       }),
       prisma.workOrder.count({
-        where: { AND: [visibleStatus, whereFor("ikke-tildelt", dates), searchWhere] },
+        where: { AND: [visibleStatus, whereFor("ikke-tildelt", dates), filters] },
       }),
       prisma.workOrder.count({ where: activeWhere }),
       prisma.workOrder.findMany({
@@ -215,7 +218,7 @@ export default async function WorkOrdersPage({
           technicians: { select: { name: true } },
           templates: { select: { id: true } },
           reports: { select: { id: true } },
-          tags: { select: { id: true, name: true } },
+          tags: { select: { id: true, name: true, color: true } },
         },
       }),
     ]);
@@ -244,10 +247,11 @@ export default async function WorkOrdersPage({
   const activeView = availableViews.find((v) => v.key === view)!;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const linkFor = (key: ViewKey) => {
+  const linkFor = (key: ViewKey, includeTag = true) => {
     const params = new URLSearchParams();
     if (key !== "alle") params.set("vis", key);
     if (search) params.set("q", search);
+    if (includeTag && tagFilter) params.set("tag", tagFilter);
     const qs = params.toString();
     return `/oppdrag${qs ? `?${qs}` : ""}`;
   };
@@ -328,6 +332,7 @@ export default async function WorkOrdersPage({
 
           <form method="GET" action="/oppdrag" className="flex flex-wrap gap-2">
             <input type="hidden" name="vis" value={view} />
+            {tagFilter ? <input type="hidden" name="tag" value={tagFilter} /> : null}
             <input
               type="search"
               name="q"
@@ -341,15 +346,29 @@ export default async function WorkOrdersPage({
             >
               {t("orders.list.search")}
             </button>
-            {search ? (
+            {search || tagFilter ? (
               <Link
-                href={linkFor(view)}
+                href={linkFor(view, false)}
                 className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
               >
                 {t("orders.list.reset")}
               </Link>
             ) : null}
           </form>
+
+          {tagFilter ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="bg-blue-50 border-2 border-blue-200 text-blue-900 px-3 py-1.5 rounded-xl font-bold">
+                🏷️ {t("orders.list.filterTag", { tag: tagFilter })}
+              </span>
+              <Link
+                href={linkFor(view, false)}
+                className="text-blue-700 font-bold hover:underline"
+              >
+                {t("orders.list.clearTag")}
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         {/* LISTE */}
@@ -361,7 +380,9 @@ export default async function WorkOrdersPage({
             <p className="text-xs text-gray-500 mt-1">
               {search
                 ? t("orders.list.emptySearch", { query: search })
-                : t("orders.list.emptyHint")}
+                : tagFilter
+                  ? t("orders.list.emptyTag", { tag: tagFilter })
+                  : t("orders.list.emptyHint")}
             </p>
           </div>
         ) : (
@@ -376,7 +397,14 @@ export default async function WorkOrdersPage({
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-black text-gray-900 truncate">{wo.title}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-black text-gray-900 truncate">{wo.title}</p>
+                      {wo.orderNumber ? (
+                        <span className="text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {t("orders.list.orderNumber")} {wo.orderNumber}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-[11px] text-gray-500 mt-1">
                       🏢 {wo.customer?.name || t("orders.list.noCustomer")}
                       {address ? ` • 📍 ${address}` : ""}
@@ -385,7 +413,7 @@ export default async function WorkOrdersPage({
                     </p>
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {wo.tags.map((tag: any) => (
+                        {wo.tags.map((tag) => (
                           <span
                             key={tag.id}
                             className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm"

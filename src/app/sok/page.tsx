@@ -8,6 +8,7 @@ import { allowRequestDb } from "@/lib/rate-limit-db";
 const GROUP_KEYS: Record<string, string> = {
   customer: "components.search.groups.customer",
   workOrder: "components.search.groups.workOrder",
+  tag: "components.search.groups.tag",
   unit: "components.search.groups.unit",
   contact: "components.search.groups.contact",
   report: "components.search.groups.report",
