@@ -37,7 +37,7 @@ vi.mock("@/lib/rate-limit-db", () => ({
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
-import { loginAction } from "./actions";
+import { loginAction, safeRelativeTarget } from "./actions";
 
 function formData(values: Record<string, string>): FormData {
   const form = new FormData();
@@ -101,5 +101,23 @@ describe("loginAction – fail closed for 2FA", () => {
 
     expect(mocks.setPendingTwoFactor).toHaveBeenCalledWith("user-1");
     expect(mocks.createSessionCookie).not.toHaveBeenCalled();
+  });
+});
+
+describe("safeRelativeTarget", () => {
+  it("beholder vanlige relative stier", () => {
+    expect(safeRelativeTarget("/kunder?x=1#a")).toBe("/kunder?x=1#a");
+  });
+
+  it.each([
+    "//evil.example",
+    "/..//evil.example",
+    "/a/..//evil.example",
+    "/.//evil.example",
+    "/\\evil.example",
+    "https://evil.example",
+    "javascript:alert(1)",
+  ])("avviser utenforliggende mål: %s", (value) => {
+    expect(safeRelativeTarget(value)).toBe("/");
   });
 });
