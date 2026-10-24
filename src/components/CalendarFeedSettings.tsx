@@ -1,14 +1,9 @@
-import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { getCalendarTokenStatus } from "@/server/calendar-feed";
-import {
-  createCalendarTokenAction,
-  revokeCalendarTokenAction,
-} from "@/app/innstillinger/calendar-actions";
+import CalendarFeedSettingsForm from "@/components/CalendarFeedSettingsForm";
 
 /** Lar brukeren abonnere på egne oppdrag i Google Calendar/Outlook. */
 export default async function CalendarFeedSettings() {
-  const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -19,46 +14,12 @@ export default async function CalendarFeedSettings() {
     process.env.APP_URL ||
     process.env.NEXTAUTH_URL ||
     "http://localhost:3000";
-  const feedUrl = status.data.token
-    ? `${base.replace(/\/$/, "")}/api/kalender/ical?token=${status.data.token}`
-    : null;
 
+  // Bare statusen sendes videre – selve tokenet finnes ikke i klartekst.
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-bold text-gray-900">📅 {t("p3.calendarFeed.title")}</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        {t("p3.calendarFeed.description")}
-      </p>
-
-      {feedUrl ? (
-        <div className="mt-4 space-y-3">
-          <label className="block text-xs font-bold text-gray-600">
-            {t("p3.calendarFeed.link")}
-            <input
-              readOnly
-              value={feedUrl}
-              className="mt-1 min-h-11 w-full rounded-xl border border-gray-300 bg-gray-50 px-3 text-sm text-gray-900"
-            />
-          </label>
-          <form action={revokeCalendarTokenAction}>
-            <button
-              type="submit"
-              className="min-h-11 rounded-xl border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
-            >
-              {t("p3.calendarFeed.revoke")}
-            </button>
-          </form>
-        </div>
-      ) : (
-        <form action={createCalendarTokenAction} className="mt-4">
-          <button
-            type="submit"
-            className="min-h-11 rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
-          >
-            {t("p3.calendarFeed.create")}
-          </button>
-        </form>
-      )}
-    </section>
+    <CalendarFeedSettingsForm
+      initialActive={status.data.active}
+      baseUrl={base}
+    />
   );
 }

@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
 import { bumpSessionVersion } from "@/lib/session";
+import { clearCalendarToken } from "@/server/calendar-feed";
 
 export default async function ActivateAccountPage({
   searchParams,
@@ -52,6 +53,7 @@ export default async function ActivateAccountPage({
       },
     });
     await bumpSessionVersion(user.id);
+    await clearCalendarToken(user.id);
 
     await prisma.auditLog.create({
       data: {
