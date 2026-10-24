@@ -140,6 +140,28 @@ describe("getOrRenderReportPdf", () => {
     expect(mockedLoadReportPdf).not.toHaveBeenCalled();
   });
 
+  it("filtrerer bort slettede rapporter og slettede oppdrag", async () => {
+    mocked.workOrder.findUnique.mockResolvedValue({
+      ...workOrderWithCache(null),
+      reports: [],
+    });
+
+    const result = await getOrRenderReportPdf("wo-1");
+
+    expect(result).toBeNull();
+    expect(mocked.workOrder.findUnique).toHaveBeenCalledWith({
+      where: { id: "wo-1", deletedAt: null },
+      include: {
+        customer: true,
+        reports: {
+          where: { deletedAt: null },
+          include: { units: { orderBy: { sortOrder: "asc" } } },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+  });
+
   it("rendrer, lagrer og registrerer PDF når hashen er ukjent", async () => {
     mocked.workOrder.findUnique.mockResolvedValue(workOrderWithCache(null));
     mockedLoadReportPdf.mockResolvedValue({

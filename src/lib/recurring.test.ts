@@ -59,53 +59,97 @@ function useTransaction(tx: Record<string, unknown>) {
   );
 }
 
+/** Transaksjonsklient for den korte krav-/opprett-transaksjonen. */
+function claimTransaction(overrides: Record<string, unknown> = {}) {
+  return {
+    $queryRaw: vi.fn().mockResolvedValue([{ locked: true }]),
+    contract: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    workOrder: { create: vi.fn().mockResolvedValue({ id: "wo-new" }) },
+    auditLog: { create: vi.fn().mockResolvedValue({}) },
+    ...overrides,
+  };
+}
+
+/** SQL-teksten fra en tagget `$queryRaw`-kall. */
+function rawSql(queryRaw: Mock, index = 0): string {
+  const call = queryRaw.mock.calls[index];
+  return (call[0] as TemplateStringsArray).join("?");
+}
+
 const now = new Date("2026-06-01T00:00:00.000Z");
 
-describe("generateDueRecurringWorkOrders", () => {
-  beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocked.$transaction.mockReset();
+  mockedPdfStore.mockReset();
+  mocked.contract.findUnique.mockResolvedValue(contract());
+  mocked.contract.findMany.mockResolvedValue([]);
+  mocked.workOrder.findFirst.mockResolvedValue(null);
+});
 
-  it("returnerer tom liste når advisory-låsen er opptatt", async () => {
+describe("generateDueRecurringWorkOrders", () => {
+  it("hopper over avtalen når den transaksjonsscoped låsen er opptatt", async () => {
     const queryRaw = vi.fn().mockResolvedValue([{ locked: false }]);
-    useTransaction({ $queryRaw: queryRaw });
+    const tx = claimTransaction({ $queryRaw: queryRaw });
+    useTransaction(tx);
+    mocked.contract.findMany.mockResolvedValue([{ id: "contract-1" }]);
 
     const results = await generateDueRecurringWorkOrders(now);
 
-    expect(results).toEqual([]);
-    expect(mocked.contract.findMany).not.toHaveBeenCalled();
-    // Låsen ble aldri tatt, så den skal heller ikke frigjøres.
+    expect(results).toEqual([{ contractId: "contract-1", skipped: "locked" }]);
+    expect(tx.contract.updateMany).not.toHaveBeenCalled();
+    expect(tx.workOrder.create).not.toHaveBeenCalled();
+    // Låsen ble aldri tatt. Det finnes ingen sesjonslås å frigjøre.
     expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(rawSql(queryRaw)).toContain("pg_try_advisory_xact_lock");
   });
 
-  it("frigjør låsen etter kjøringen", async () => {
-    const queryRaw = vi
-      .fn()
-      .mockResolvedValueOnce([{ locked: true }])
-      .mockResolvedValueOnce([{ ok: true }]);
-    useTransaction({ $queryRaw: queryRaw });
-    mocked.contract.findMany.mockResolvedValue([]);
+  it("frigjør låsen automatisk (ingen pg_advisory_unlock) etter kjøringen", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([{ locked: true }]);
+    const tx = claimTransaction({ $queryRaw: queryRaw });
+    useTransaction(tx);
+    mocked.contract.findMany.mockResolvedValue([{ id: "contract-1" }]);
 
-    await generateDueRecurringWorkOrders(now);
+    const results = await generateDueRecurringWorkOrders(now);
 
-    expect(mocked.contract.findMany).toHaveBeenCalledTimes(1);
-    expect(queryRaw).toHaveBeenCalledTimes(2);
+    expect(results).toEqual([
+      expect.objectContaining({ contractId: "contract-1", workOrderId: "wo-new" }),
+    ]);
+    // Bare låsekallet – opplåsing skjer implisitt ved commit.
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(rawSql(queryRaw)).not.toContain("pg_advisory_unlock");
+  });
+
+  it("blokkerer trygt når transaksjonen feiler, uten å frigjøre manuelt", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([{ locked: true }]);
+    const tx = claimTransaction({
+      $queryRaw: queryRaw,
+      workOrder: {
+        create: vi.fn().mockRejectedValue(new Error("databasen feilet")),
+      },
+    });
+    useTransaction(tx);
+    mocked.contract.findMany.mockResolvedValue([{ id: "contract-1" }]);
+
+    const results = await generateDueRecurringWorkOrders(now);
+
+    expect(results).toEqual([
+      {
+        contractId: "contract-1",
+        skipped: "error",
+        error: "databasen feilet",
+      },
+    ]);
+    // Feilen ruller tilbake transaksjonen. Låsen forsvinner med den, og vi
+    // skal aldri kalle pg_advisory_unlock på en sesjonslås.
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(rawSql(queryRaw)).not.toContain("pg_advisory_unlock");
   });
 });
 
 describe("generateRecurringWorkOrderForContract", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocked.$transaction.mockReset();
-    mockedPdfStore.mockReset();
-    mocked.contract.findUnique.mockResolvedValue(contract());
-    mocked.workOrder.findFirst.mockResolvedValue(null);
-  });
-
   it("oppretter oppdraget når avtalen er forfalt", async () => {
-    const tx = {
-      contract: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-      workOrder: { create: vi.fn().mockResolvedValue({ id: "wo-new" }) },
-      auditLog: { create: vi.fn().mockResolvedValue({}) },
-    };
+    const tx = claimTransaction();
     useTransaction(tx);
 
     const result = await generateRecurringWorkOrderForContract("contract-1", now);
@@ -124,6 +168,39 @@ describe("generateRecurringWorkOrderForContract", () => {
     expect(mocked.attachment.create).not.toHaveBeenCalled();
   });
 
+  it("bruker pg_try_advisory_xact_lock, ikke den sesjonsscoped varianten", async () => {
+    const tx = claimTransaction();
+    useTransaction(tx);
+
+    await generateRecurringWorkOrderForContract("contract-1", now);
+
+    const sql = rawSql(tx.$queryRaw);
+    expect(sql).toContain("pg_try_advisory_xact_lock");
+    expect(sql).not.toContain("pg_try_advisory_lock");
+    expect(sql).not.toContain("pg_advisory_unlock");
+  });
+
+  it("holder krav-transaksjonen kort og avgrenset", async () => {
+    const tx = claimTransaction();
+    useTransaction(tx);
+
+    await generateRecurringWorkOrderForContract("contract-1", now);
+
+    expect(mocked.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        maxWait: expect.any(Number),
+        timeout: expect.any(Number),
+      }),
+    );
+    const options = mocked.$transaction.mock.calls[0][1] as {
+      maxWait: number;
+      timeout: number;
+    };
+    expect(options.timeout).toBeLessThanOrEqual(60_000);
+    expect(options.maxWait).toBeLessThanOrEqual(10_000);
+  });
+
   it("behandler unikhetskollisjon som «allerede generert»", async () => {
     mocked.$transaction.mockRejectedValue({ code: "P2002" });
 
@@ -133,6 +210,24 @@ describe("generateRecurringWorkOrderForContract", () => {
       contractId: "contract-1",
       skipped: "already-generated",
     });
+  });
+
+  it("lar andre transaksjonsfeil boble opp og frigjør låsen via rollback", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([{ locked: true }]);
+    const tx = claimTransaction({
+      $queryRaw: queryRaw,
+      workOrder: {
+        create: vi.fn().mockRejectedValue(new Error("databasen feilet")),
+      },
+    });
+    useTransaction(tx);
+
+    await expect(
+      generateRecurringWorkOrderForContract("contract-1", now),
+    ).rejects.toThrow("databasen feilet");
+
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(rawSql(queryRaw)).not.toContain("pg_advisory_unlock");
   });
 
   it("legger ved forrige rapport først etter at oppdraget er opprettet", async () => {
@@ -148,12 +243,7 @@ describe("generateRecurringWorkOrderForContract", () => {
     mocked.attachment.create.mockResolvedValue({});
     mocked.workOrder.update.mockResolvedValue({});
 
-    const tx = {
-      contract: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-      workOrder: { create: vi.fn().mockResolvedValue({ id: "wo-new" }) },
-      auditLog: { create: vi.fn().mockResolvedValue({}) },
-    };
-    useTransaction(tx);
+    useTransaction(claimTransaction());
 
     const result = await generateRecurringWorkOrderForContract("contract-1", now);
 
@@ -168,6 +258,23 @@ describe("generateRecurringWorkOrderForContract", () => {
     });
   });
 
+  it("ekskluderer slettede oppdrag og rapporter fra forrige rapport-oppslag", async () => {
+    const tx = claimTransaction();
+    useTransaction(tx);
+
+    await generateRecurringWorkOrderForContract("contract-1", now);
+
+    expect(mocked.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          contractId: "contract-1",
+          deletedAt: null,
+          reports: { some: { deletedAt: null } },
+        }),
+      }),
+    );
+  });
+
   it("beholder oppdraget når vedlegget ikke kan lages", async () => {
     mocked.workOrder.findFirst.mockResolvedValue({
       id: "wo-previous",
@@ -175,12 +282,7 @@ describe("generateRecurringWorkOrderForContract", () => {
     });
     mockedPdfStore.mockRejectedValue(new Error("PDF feilet"));
 
-    const tx = {
-      contract: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-      workOrder: { create: vi.fn().mockResolvedValue({ id: "wo-new" }) },
-      auditLog: { create: vi.fn().mockResolvedValue({}) },
-    };
-    useTransaction(tx);
+    useTransaction(claimTransaction());
 
     const result = await generateRecurringWorkOrderForContract("contract-1", now);
 
