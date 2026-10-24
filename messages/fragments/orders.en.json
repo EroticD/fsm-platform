@@ -272,7 +272,6 @@
       "waitingFill": "Waiting to be filled in",
       "extraChecklist": "Do you need an extra form?",
       "selectTemplate": "-- Select checklist template --",
-      "add": "+ Add",
       "auditLog": "📋 Activity log"
     },
     "fieldNew": {
@@ -457,6 +456,42 @@
       "department": "The work order must belong to a department. Ask an administrator to add you to an active department, or create a department first.",
       "invalidData": "⛔ The work order could not be saved. Check the title, date and department.",
       "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date."
+    },
+    "reportsPage": {
+      "title": "Service reports",
+      "subtitle": "Completed checklists with signatures and photos",
+      "count": "{count, plural, one {# report} other {# reports}}",
+      "dashboard": "Dashboard",
+      "orders": "Work orders",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "all": "All",
+      "allHistory": "all history",
+      "emptyTitle": "No reports {range}.",
+      "emptyDescription": "Reports appear here as soon as technicians complete and save a checklist.",
+      "defaultTitle": "Service report",
+      "noDate": "No date",
+      "noCustomer": "No customer",
+      "unknownWorkOrder": "Unknown work order",
+      "deviations": "❌ {count} deviations",
+      "units": "{count, plural, one {# unit} other {# units}}",
+      "locked": "🔒 Locked",
+      "openForEdit": "🔓 Open for correction",
+      "unsigned": "Unsigned",
+      "viewPdf": "📄 View report (PDF)",
+      "openWorkOrder": "📂 Open work order",
+      "showing": "Showing the {shown} newest of {total} reports."
+    },
+    "reportViewer": {
+      "notFoundWorkOrder": "Work order not found.",
+      "noReport": "No report found for this work order yet.",
+      "back": "Back",
+      "backToPortal": "Back to portal",
+      "closePdf": "Close PDF",
+      "reportFor": "Report for: {title}",
+      "download": "⬇ Download PDF",
+      "iframeTitle": "Service report – {title}",
+      "noCustomer": "No customer"
     }
   }
 }

@@ -47,13 +47,27 @@
       "save": "Lagre"
     },
     "search": {
-      "placeholder": "Søk i kunder, oppdrag, enheter, kontakter, rapporter …",
-      "ariaLabel": "Globalt søk",
-      "clear": "Tøm søk",
-      "searching": "Søker…",
-      "searchingShort": "søker…",
-      "noResults": "Ingen treff på «{query}».",
-      "seeAll": "Se alle {count} treff i søket →"
+      "title": "Søk",
+      "home": "Hjem",
+      "prompt": "Skriv inn noe i søkefeltet for å starte. 👆",
+      "tooMany": "For mange søk!",
+      "retry": "Prøv igjen om {seconds} sekunder.",
+      "resultsFor": "Søkeresultater for «{query}»",
+      "hits": "{count} treff",
+      "noHits": "Ingen treff!",
+      "noHitsHint": "Prøv kortere søkeord, annen rekkefølge, eller fjern mellomrom/store bokstaver.",
+      "groups": {
+        "customer": "Kunder",
+        "workOrder": "Oppdrag",
+        "unit": "Utstyr",
+        "contact": "Kontaktpersoner",
+        "report": "Rapporter",
+        "comment": "Kommentarer",
+        "user": "Ansatte",
+        "template": "Sjekklister",
+        "folder": "Mapper",
+        "document": "Dokumenter"
+      }
     },
     "markdown": {
       "bold": "Fet (Ctrl+B)",

@@ -1,14 +1,34 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { performSearch, type SearchResults } from "@/lib/search";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+
+const GROUP_KEYS: Record<string, string> = {
+  customer: "components.search.groups.customer",
+  workOrder: "components.search.groups.workOrder",
+  unit: "components.search.groups.unit",
+  contact: "components.search.groups.contact",
+  report: "components.search.groups.report",
+  comment: "components.search.groups.comment",
+  user: "components.search.groups.user",
+  template: "components.search.groups.template",
+  folder: "components.search.groups.folder",
+  document: "components.search.groups.document",
+};
 
 export default async function SearchResultsPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const t = await getTranslations("common");
+  const groupLabel = (kind: string) => {
+    const key = GROUP_KEYS[kind];
+    return key ? (t as unknown as (key: string) => string)(key) : kind;
+  };
+
   const user = await getCurrentUser();
   if (!user?.isActive) redirect("/api/auth/signin");
   if (user.role === "CUSTOMER") redirect("/kundeportal");
@@ -35,47 +55,50 @@ export default async function SearchResultsPage({
         {/* Tilbake og søkefelt */}
         <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
           <Link href="/" className="bg-white border text-gray-700 px-4 py-3 rounded-xl font-bold hover:bg-gray-50 shadow-sm whitespace-nowrap">
-            &larr; Hjem
+            &larr; {t("components.search.home")}
           </Link>
           <form action="/sok" method="GET" className="flex-1 flex gap-2">
             <input
               type="text"
               name="q"
               defaultValue={query}
+              aria-label={t("components.search.title")}
               className="w-full border p-3 rounded-xl shadow-sm text-gray-800 text-lg outline-none"
               required
             />
             <button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 shadow-sm">
-              Søk
+              {t("components.search.title")}
             </button>
           </form>
         </div>
 
         {query.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-500 text-lg">Skriv inn noe i søkefeltet for å starte. 👆</p>
+            <p className="text-gray-500 text-lg">{t("components.search.prompt")}</p>
           </div>
         ) : (
           <div className="space-y-6">
             {rateLimited ? (
               <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 text-center">
-                <p className="text-yellow-800 font-bold">For mange søk!</p>
+                <p className="text-yellow-800 font-bold">{t("components.search.tooMany")}</p>
                 <p className="text-yellow-700 text-sm mt-1">
-                  Prøv igjen om {searchLimit.retryAfterSeconds} sekunder.
+                  {t("components.search.retry", { seconds: searchLimit.retryAfterSeconds })}
                 </p>
               </div>
             ) : (
               <>
                 <h1 className="text-2xl font-bold text-gray-800">
-                  Søkeresultater for «{query}»{" "}
-                  <span className="text-gray-400 text-lg">({results.total} treff)</span>
+                  {t("components.search.resultsFor", { query })}{" "}
+                  <span className="text-gray-400 text-lg">
+                    ({t("components.search.hits", { count: results.total })})
+                  </span>
                 </h1>
 
                 {results.total === 0 && (
                   <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 text-center">
-                    <p className="text-yellow-800 font-bold">Ingen treff!</p>
+                    <p className="text-yellow-800 font-bold">{t("components.search.noHits")}</p>
                     <p className="text-yellow-700 text-sm mt-1">
-                      Prøv kortere søkeord, annen rekkefølge, eller fjern mellomrom/store bokstaver.
+                      {t("components.search.noHitsHint")}
                     </p>
                   </div>
                 )}
@@ -84,7 +107,7 @@ export default async function SearchResultsPage({
                   {results.groups.map((group) => (
                     <div key={group.kind} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                       <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
-                        {group.icon} {group.label} ({group.items.length})
+                        {group.icon} {groupLabel(group.kind)} ({group.items.length})
                       </h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {group.items.map((item) => (

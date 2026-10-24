@@ -272,7 +272,6 @@
       "waitingFill": "Venter på utfylling",
       "extraChecklist": "Trenger du et ekstra skjema?",
       "selectTemplate": "-- Velg sjekklistemal --",
-      "add": "+ Legg til",
       "auditLog": "📋 Aktivitetslogg"
     },
     "fieldNew": {
@@ -457,6 +456,42 @@
       "department": "Oppdraget må tilhøre en avdeling. Be en administrator legge deg til i en aktiv avdeling, eller opprett en avdeling først.",
       "invalidData": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.",
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato."
+    },
+    "reportsPage": {
+      "title": "Servicerapporter",
+      "subtitle": "Utfylte sjekklister med signaturer og bilder",
+      "count": "{count, plural, one {# rapport} other {# rapporter}}",
+      "dashboard": "Dashbord",
+      "orders": "Oppdrag",
+      "thisMonth": "Denne måneden",
+      "lastMonth": "Forrige måned",
+      "all": "Alle",
+      "allHistory": "hele historikken",
+      "emptyTitle": "Ingen rapporter {range}.",
+      "emptyDescription": "Rapporter vises her så snart montørene har fylt ut og lagret et skjema.",
+      "defaultTitle": "Servicerapport",
+      "noDate": "Ingen dato",
+      "noCustomer": "Uten kunde",
+      "unknownWorkOrder": "Ukjent oppdrag",
+      "deviations": "❌ {count} avvik",
+      "units": "{count, plural, one {# enhet} other {# enheter}}",
+      "locked": "🔒 Låst",
+      "openForEdit": "🔓 Åpen for retting",
+      "unsigned": "Ikke signert",
+      "viewPdf": "📄 Se rapport (PDF)",
+      "openWorkOrder": "📂 Åpne oppdraget",
+      "showing": "Viser de {shown} nyeste av {total} rapporter."
+    },
+    "reportViewer": {
+      "notFoundWorkOrder": "Fant ikke oppdraget.",
+      "noReport": "Fant ingen rapport på dette oppdraget ennå.",
+      "back": "Tilbake",
+      "backToPortal": "Tilbake til portalen",
+      "closePdf": "Lukk PDF",
+      "reportFor": "Rapport for: {title}",
+      "download": "⬇ Last ned PDF",
+      "iframeTitle": "Servicerapport – {title}",
+      "noCustomer": "Uten kunde"
     }
   }
 }

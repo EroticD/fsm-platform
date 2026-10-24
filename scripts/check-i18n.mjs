@@ -87,6 +87,9 @@ const norwegianText = />[^<>{}]*[æøåÆØÅ][^<>{}]*</g;
 const hardcoded = [];
 for (const file of walk(path.join(root, "src"))) {
   if (file.includes(".test.")) continue;
+  // PDF-motoren (react-pdf) har ikke tilgang til next-intl-konteksten. PDF-
+  // etikettene er derfor bevisst norske inntil PDF-malen får en egen locale.
+  if (file.endsWith("ReportDocument.tsx")) continue;
   const source = fs.readFileSync(file, "utf8");
   for (const match of source.matchAll(norwegianText)) {
     const text = match[0].slice(1, -1).trim();

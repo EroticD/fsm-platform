@@ -47,13 +47,27 @@
       "save": "Save"
     },
     "search": {
-      "placeholder": "Search customers, work orders, equipment, contacts, reports …",
-      "ariaLabel": "Global search",
-      "clear": "Clear search",
-      "searching": "Searching…",
-      "searchingShort": "searching…",
-      "noResults": "No results for “{query}”.",
-      "seeAll": "See all {count} results in the search →"
+      "title": "Search",
+      "home": "Home",
+      "prompt": "Type something in the search field to start. 👆",
+      "tooMany": "Too many searches!",
+      "retry": "Try again in {seconds} seconds.",
+      "resultsFor": "Search results for “{query}”",
+      "hits": "{count} hits",
+      "noHits": "No results!",
+      "noHitsHint": "Try a shorter term, a different order, or remove spaces/capital letters.",
+      "groups": {
+        "customer": "Customers",
+        "workOrder": "Work orders",
+        "unit": "Equipment",
+        "contact": "Contacts",
+        "report": "Reports",
+        "comment": "Comments",
+        "user": "Employees",
+        "template": "Checklists",
+        "folder": "Folders",
+        "document": "Documents"
+      }
     },
     "markdown": {
       "bold": "Bold (Ctrl+B)",
