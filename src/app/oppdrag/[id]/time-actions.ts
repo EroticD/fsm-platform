@@ -73,7 +73,7 @@ export async function addMaterialAction(formData: FormData) {
     sku: formData.get("sku") || null,
     quantity: formData.get("quantity"),
     unit: formData.get("unit") || "stk",
-    unitPrice: formData.get("unitPrice"),
+    unitPrice: formData.get("unitPrice") || null,
   });
   revalidateWorkOrder(id);
 }

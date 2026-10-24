@@ -9,6 +9,7 @@ import {
 import {
   can,
   fail,
+  isOfficeActor,
   ok,
   toAuditActor,
   workOrderScopeFor,
@@ -30,24 +31,106 @@ const ENTRY_SELECT = {
   updatedAt: true,
 } as const;
 
+const MAX_ENTRY_MINUTES = 24 * 60;
+
+type PricedWorkOrder = {
+  id: string;
+  departmentId: string;
+  customerId: string | null;
+  contract: { hourlyRate: unknown } | null;
+  customer: { hourlyRate: unknown } | null;
+};
+
 async function requireWorkOrder(
   actor: ServiceActor,
   workOrderId: string,
   permission: Permission,
-) {
+): Promise<PricedWorkOrder | null> {
   if (!actor.isActive || !can(actor, permission)) return null;
   return prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScopeFor(actor) },
-    select: { id: true, departmentId: true, customerId: true },
+    select: {
+      id: true,
+      departmentId: true,
+      customerId: true,
+      contract: { select: { hourlyRate: true } },
+      customer: { select: { hourlyRate: true } },
+    },
   });
 }
 
+/** Er verdien en unikhetskollisjon (P2002), f.eks. to samtidige start? */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+function numericRate(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const rate = Number(value);
+  return Number.isFinite(rate) ? rate : null;
+}
+
+/** Standardpris når verken avtalen eller kunden har en timepris. */
+function defaultHourlyRate(): number | null {
+  const raw = process.env.DEFAULT_HOURLY_RATE;
+  if (raw === undefined || raw.trim() === "") return null;
+  const rate = Number(raw);
+  return Number.isFinite(rate) && rate >= 0 ? rate : null;
+}
+
+/** Avtalens pris overstyrer kundens, som igjen overstyrer standardprisen. */
+function resolveHourlyRate(workOrder: PricedWorkOrder): number | null {
+  const contractRate = numericRate(workOrder.contract?.hourlyRate);
+  if (contractRate !== null) return contractRate;
+  const customerRate = numericRate(workOrder.customer?.hourlyRate);
+  if (customerRate !== null) return customerRate;
+  return defaultHourlyRate();
+}
+
 function minutesBetween(start: Date, end: Date): number {
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000));
+  return Math.round((end.getTime() - start.getTime()) / 60_000);
+}
+
+function invalidDuration(minutes: number): boolean {
+  return !Number.isFinite(minutes) || minutes <= 0 || minutes > MAX_ENTRY_MINUTES;
+}
+
+/**
+ * Har brukeren allerede en registrering som overlapper [startedAt, endedAt)?
+ * Et åpent tidsintervall regnes som uendelig, og en åpen eksisterende
+ * registrering overlapper alltid.
+ */
+async function hasOverlap(
+  userId: string,
+  startedAt: Date,
+  endedAt: Date | null | undefined,
+  excludeId?: string,
+): Promise<boolean> {
+  const other = await prisma.timeEntry.findFirst({
+    where: {
+      userId,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      ...(endedAt ? { startedAt: { lt: endedAt } } : {}),
+      OR: [
+        { endedAt: null },
+        ...(endedAt ? [{ endedAt: { gt: startedAt } }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(other);
 }
 
 function idFrom(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, 64) : "";
+}
+
+function canSeeRate(actor: ServiceActor, entryUserId: string): boolean {
+  return isOfficeActor(actor) || entryUserId === actor.id;
 }
 
 export async function listTimeEntries(
@@ -66,7 +149,12 @@ export async function listTimeEntries(
     take: 200,
     select: ENTRY_SELECT,
   });
-  return ok(entries);
+
+  return ok(
+    entries.map((entry) =>
+      canSeeRate(actor, entry.userId) ? entry : { ...entry, hourlyRate: null },
+    ),
+  );
 }
 
 /** Starter en timer. Én aktiv timer per bruker, uavhengig av oppdrag. */
@@ -76,9 +164,12 @@ export async function startTimer(
 ): Promise<ServiceResult<{ id: string }>> {
   const workOrderId = idFrom(input.workOrderId);
   if (!workOrderId) return fail("invalid");
-  if (!(await requireWorkOrder(actor, workOrderId, "workorders.update"))) {
-    return fail("forbidden");
-  }
+  const workOrder = await requireWorkOrder(
+    actor,
+    workOrderId,
+    "workorders.update",
+  );
+  if (!workOrder) return fail("forbidden");
 
   const active = await prisma.timeEntry.findFirst({
     where: { userId: actor.id, endedAt: null },
@@ -91,29 +182,37 @@ export async function startTimer(
       ? input.description.trim().slice(0, 2000) || null
       : null;
 
-  const created = await prisma.$transaction(async (tx) => {
-    const entry = await tx.timeEntry.create({
-      data: {
-        workOrderId,
-        userId: actor.id,
-        startedAt: new Date(),
-        description,
-        billable: true,
-      },
-      select: { id: true },
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const entry = await tx.timeEntry.create({
+        data: {
+          workOrderId,
+          userId: actor.id,
+          startedAt: new Date(),
+          description,
+          billable: true,
+          hourlyRate: resolveHourlyRate(workOrder),
+          activeKey: actor.id,
+        },
+        select: { id: true },
+      });
+
+      await audit(tx, {
+        entityType: "TimeEntry",
+        entityId: entry.id,
+        action: "Startet timer",
+        actor: toAuditActor(actor),
+        metadata: { workOrderId },
+      });
+      return entry;
     });
 
-    await audit(tx, {
-      entityType: "TimeEntry",
-      entityId: entry.id,
-      action: "Startet timer",
-      actor: toAuditActor(actor),
-      metadata: { workOrderId },
-    });
-    return entry;
-  });
-
-  return ok({ id: created.id });
+    return ok({ id: created.id });
+  } catch (error) {
+    // To samtidige starter kolliderer på den unike activeKey-verdien.
+    if (isUniqueViolation(error)) return fail("conflict");
+    throw error;
+  }
 }
 
 export async function stopTimer(
@@ -134,25 +233,27 @@ export async function stopTimer(
     },
   });
   if (!entry) return fail("not_found");
-  if (entry.userId !== actor.id && actor.role !== "ADMIN") {
+  if (entry.userId !== actor.id && !isOfficeActor(actor)) {
     return fail("forbidden");
   }
   if (entry.endedAt) return fail("conflict");
 
   const endedAt = new Date();
-  const minutes = minutesBetween(entry.startedAt, endedAt);
+  const rawMinutes = minutesBetween(entry.startedAt, endedAt);
+  if (rawMinutes < 0) return fail("invalid");
+  const minutes = Math.min(rawMinutes, MAX_ENTRY_MINUTES);
 
   await prisma.$transaction(async (tx) => {
     await tx.timeEntry.update({
       where: { id },
-      data: { endedAt, minutes },
+      data: { endedAt, minutes, activeKey: null },
     });
     await audit(tx, {
       entityType: "TimeEntry",
       entityId: id,
       action: "Stoppet timer",
       actor: toAuditActor(actor),
-      metadata: { workOrderId: entry.workOrderId },
+      metadata: { workOrderId: entry.workOrderId, minutes },
     });
   });
 
@@ -173,37 +274,61 @@ export async function addManualTime(
   );
   if (!workOrder) return fail("forbidden");
 
-  const minutes = parsed.data.endedAt
-    ? minutesBetween(parsed.data.startedAt, parsed.data.endedAt)
-    : parsed.data.minutes ?? 0;
-  if (minutes <= 0) return fail("invalid");
+  const endedAt = parsed.data.endedAt ?? null;
+  const minutes = endedAt
+    ? minutesBetween(parsed.data.startedAt, endedAt)
+    : (parsed.data.minutes ?? 0);
+  if (invalidDuration(minutes)) return fail("invalid");
 
-  const created = await prisma.$transaction(async (tx) => {
-    const entry = await tx.timeEntry.create({
-      data: {
-        workOrderId: parsed.data.workOrderId,
-        userId: actor.id,
-        startedAt: parsed.data.startedAt,
-        endedAt: parsed.data.endedAt ?? null,
-        minutes,
-        description: parsed.data.description ?? null,
-        billable: parsed.data.billable ?? true,
-        hourlyRate: parsed.data.hourlyRate ?? null,
-      },
-      select: { id: true },
+  if (await hasOverlap(actor.id, parsed.data.startedAt, endedAt)) {
+    return fail("conflict");
+  }
+
+  const resolvedRate = resolveHourlyRate(workOrder);
+  const override =
+    isOfficeActor(actor) && parsed.data.hourlyRate !== undefined && parsed.data.hourlyRate !== null
+      ? parsed.data.hourlyRate
+      : null;
+  const hourlyRate = override ?? resolvedRate;
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const entry = await tx.timeEntry.create({
+        data: {
+          workOrderId: parsed.data.workOrderId,
+          userId: actor.id,
+          startedAt: parsed.data.startedAt,
+          endedAt,
+          minutes,
+          description: parsed.data.description ?? null,
+          billable: parsed.data.billable ?? true,
+          hourlyRate,
+          activeKey: endedAt ? null : actor.id,
+        },
+        select: { id: true },
+      });
+
+      await audit(tx, {
+        entityType: "TimeEntry",
+        entityId: entry.id,
+        action: "Registrerte timer",
+        actor: toAuditActor(actor),
+        metadata: {
+          workOrderId: parsed.data.workOrderId,
+          minutes,
+          ...(override !== null
+            ? { hourlyRate: { before: resolvedRate, after: override } }
+            : {}),
+        },
+      });
+      return entry;
     });
 
-    await audit(tx, {
-      entityType: "TimeEntry",
-      entityId: entry.id,
-      action: "Registrerte timer",
-      actor: toAuditActor(actor),
-      metadata: { workOrderId: parsed.data.workOrderId, minutes },
-    });
-    return entry;
-  });
-
-  return ok({ id: created.id, minutes });
+    return ok({ id: created.id, minutes });
+  } catch (error) {
+    if (isUniqueViolation(error)) return fail("conflict");
+    throw error;
+  }
 }
 
 export async function updateTimeEntry(
@@ -215,50 +340,83 @@ export async function updateTimeEntry(
 
   const entry = await prisma.timeEntry.findUnique({
     where: { id: parsed.data.id },
-    select: { id: true, userId: true, workOrderId: true },
+    select: {
+      id: true,
+      userId: true,
+      workOrderId: true,
+      startedAt: true,
+      endedAt: true,
+      minutes: true,
+      hourlyRate: true,
+    },
   });
   if (!entry) return fail("not_found");
-  if (entry.userId !== actor.id && actor.role !== "ADMIN") {
+  if (entry.userId !== actor.id && !isOfficeActor(actor)) {
     return fail("forbidden");
   }
   if (!(await requireWorkOrder(actor, entry.workOrderId, "workorders.update"))) {
     return fail("forbidden");
   }
 
-  const minutes =
-    parsed.data.endedAt && parsed.data.startedAt
-      ? minutesBetween(parsed.data.startedAt, parsed.data.endedAt)
-      : parsed.data.minutes;
-  if (!minutes || minutes <= 0) return fail("invalid");
+  const startedAt = parsed.data.startedAt ?? entry.startedAt;
+  const endedAt =
+    parsed.data.endedAt !== undefined ? parsed.data.endedAt : entry.endedAt;
+  const minutes = endedAt
+    ? minutesBetween(startedAt, endedAt)
+    : (parsed.data.minutes ?? entry.minutes ?? 0);
+  if (invalidDuration(minutes)) return fail("invalid");
 
-  await prisma.$transaction(async (tx) => {
-    await tx.timeEntry.update({
-      where: { id: entry.id },
-      data: {
-        ...(parsed.data.startedAt ? { startedAt: parsed.data.startedAt } : {}),
-        ...(parsed.data.endedAt !== undefined
-          ? { endedAt: parsed.data.endedAt ?? null }
-          : {}),
-        minutes,
-        ...(parsed.data.description !== undefined
-          ? { description: parsed.data.description ?? null }
-          : {}),
-        ...(parsed.data.billable !== undefined
-          ? { billable: parsed.data.billable }
-          : {}),
-        ...(parsed.data.hourlyRate !== undefined
-          ? { hourlyRate: parsed.data.hourlyRate ?? null }
-          : {}),
-      },
+  if (await hasOverlap(entry.userId, startedAt, endedAt, entry.id)) {
+    return fail("conflict");
+  }
+
+  // Bare kontoret kan endre timeprisen. Teknikere kan ikke overstyre den
+  // verken ved opprettelse eller oppdatering.
+  const rateOverride =
+    isOfficeActor(actor) && parsed.data.hourlyRate !== undefined
+      ? (parsed.data.hourlyRate ?? null)
+      : undefined;
+  const rateAudit =
+    rateOverride !== undefined
+      ? { before: numericRate(entry.hourlyRate), after: rateOverride }
+      : null;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.timeEntry.update({
+        where: { id: entry.id },
+        data: {
+          ...(parsed.data.startedAt ? { startedAt: parsed.data.startedAt } : {}),
+          ...(parsed.data.endedAt !== undefined
+            ? { endedAt: parsed.data.endedAt ?? null }
+            : {}),
+          minutes,
+          activeKey: endedAt ? null : entry.userId,
+          ...(parsed.data.description !== undefined
+            ? { description: parsed.data.description ?? null }
+            : {}),
+          ...(parsed.data.billable !== undefined
+            ? { billable: parsed.data.billable }
+            : {}),
+          ...(rateOverride !== undefined ? { hourlyRate: rateOverride } : {}),
+        },
+      });
+      await audit(tx, {
+        entityType: "TimeEntry",
+        entityId: entry.id,
+        action: "Oppdaterte timer",
+        actor: toAuditActor(actor),
+        metadata: {
+          workOrderId: entry.workOrderId,
+          minutes,
+          ...(rateAudit ? { hourlyRate: rateAudit } : {}),
+        },
+      });
     });
-    await audit(tx, {
-      entityType: "TimeEntry",
-      entityId: entry.id,
-      action: "Oppdaterte timer",
-      actor: toAuditActor(actor),
-      metadata: { workOrderId: entry.workOrderId, minutes },
-    });
-  });
+  } catch (error) {
+    if (isUniqueViolation(error)) return fail("conflict");
+    throw error;
+  }
 
   return ok({ minutes });
 }
@@ -275,7 +433,7 @@ export async function deleteTimeEntry(
     select: { id: true, userId: true, workOrderId: true },
   });
   if (!entry) return fail("not_found");
-  if (entry.userId !== actor.id && actor.role !== "ADMIN") {
+  if (entry.userId !== actor.id && !isOfficeActor(actor)) {
     return fail("forbidden");
   }
   if (!(await requireWorkOrder(actor, entry.workOrderId, "workorders.view"))) {
@@ -308,7 +466,7 @@ export async function getTimeTotals(
 
   const entries = await prisma.timeEntry.findMany({
     where: { workOrderId: id },
-    select: { minutes: true, billable: true, hourlyRate: true },
+    select: { userId: true, minutes: true, billable: true, hourlyRate: true },
     take: 2000,
   });
 
@@ -320,7 +478,10 @@ export async function getTimeTotals(
     minutes += entryMinutes;
     if (entry.billable) {
       billableMinutes += entryMinutes;
-      amount += (entryMinutes / 60) * Number(entry.hourlyRate ?? 0);
+      // Feltbrukere skal ikke kunne utlede andre brukeres timepris via summen.
+      if (canSeeRate(actor, entry.userId)) {
+        amount += (entryMinutes / 60) * Number(entry.hourlyRate ?? 0);
+      }
     }
   }
 

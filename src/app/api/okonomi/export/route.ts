@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
   for (const material of materials) {
     const quantity = Number(material.quantity);
-    const price = Number(material.unitPrice);
+    const price = Number(material.unitPrice ?? 0);
     const amount = quantity * price;
     total += amount;
     rows.push([
