@@ -26,10 +26,21 @@ Appen svarer på <http://localhost:3000>. OCR krever `poppler-utils` lokalt
 Kjør alt lokalt og få det grønt:
 
 ```bash
-npm run typecheck   # next typegen + tsc --noEmit
-npm test            # vitest
-npm run lint        # eslint
-npm run build       # produksjonsbygg
+npm run typecheck        # next typegen + tsc --noEmit
+npm test                 # vitest (enhetstester)
+npm run test:integration # mot en dedikert Postgres-testdatabase
+npm run test:e2e         # Playwright (krever `npx playwright install chromium`)
+npm run lint             # eslint
+npm run build            # produksjonsbygg
+```
+
+Integrasjonstestene hoppes over med mindre `TEST_DATABASE_URL` er satt (eller
+`CI=true`). Lag en egen database og kjør migrasjonene først:
+
+```bash
+createdb fsm_integration
+DATABASE_URL=postgresql://.../fsm_integration npx prisma migrate deploy
+TEST_DATABASE_URL=postgresql://.../fsm_integration npm run test:integration
 ```
 
 CI kjører de samme stegene, i tillegg til Docker-bygg og en sjekk for at
