@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/dates";
 import { markdownToPlainText } from "@/lib/markdown";
 import type { CustomerDetailData } from "@/server/customers";
@@ -14,7 +15,7 @@ type OrdersTabProps = {
   pageSize: number;
 };
 
-export default function CustomerOrdersTab({
+export default async function CustomerOrdersTab({
   customerId,
   canCreateWorkOrders,
   totalOrders,
@@ -23,27 +24,29 @@ export default function CustomerOrdersTab({
   orderPage,
   pageSize,
 }: OrdersTabProps) {
+  const t = await getTranslations("common");
+
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
       <div className="flex justify-between items-center mb-4 border-b pb-2">
         <div>
-          <h2 className="text-lg font-black text-gray-900">📂 Oppdragshistorikk</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Viser alle tidligere og aktive oppdrag for denne kunden.</p>
+          <h2 className="text-lg font-black text-gray-900">📂 {t("customers.orders.title")}</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{t("customers.orders.description")}</p>
         </div>
         {canCreateWorkOrders && (
           <Link
             href={`/oppdrag/ny?customerId=${customerId}`}
             className="bg-blue-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-black hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
           >
-            ➕ Nytt oppdrag
+            ➕ {t("customers.orders.newOrder")}
           </Link>
         )}
       </div>
 
       {totalOrders === 0 ? (
         <div className="bg-gray-50 border-2 border-dashed border-gray-200 p-6 rounded-2xl text-center">
-          <p className="text-gray-600 font-bold mb-1">Ingen oppdrag registrert på kunden ennå.</p>
-          <p className="text-xs text-gray-500">Opprett et oppdrag for å komme i gang med historikken.</p>
+          <p className="text-gray-600 font-bold mb-1">{t("customers.orders.emptyTitle")}</p>
+          <p className="text-xs text-gray-500">{t("customers.orders.emptyDescription")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -57,8 +60,12 @@ export default function CustomerOrdersTab({
                 <div>
                   <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
                   <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                    Planlagt: {formatDate(wo.scheduledFor, "Ingen dato")}
-                    {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r) utfylt` : ""}
+                    {t("customers.orders.scheduled", {
+                      date: formatDate(wo.scheduledFor, t("customers.overview.noDate")),
+                    })}
+                    {wo._count.reports > 0
+                      ? ` • 📋 ${t("customers.orders.reportsDone", { count: wo._count.reports })}`
+                      : ""}
                   </p>
                 </div>
                 <StatusBadge status={wo.status} />
@@ -72,10 +79,13 @@ export default function CustomerOrdersTab({
 
               <div className="mt-2 flex justify-between items-center text-[10px] pt-2 border-t border-gray-200 text-gray-600">
                 <span>
-                  <strong>Montør(er):</strong> {wo.technicians.length > 0 ? wo.technicians.map((t) => t.name).join(", ") : "Ikke tildelt"}
+                  <strong>{t("customers.orders.technicians")}</strong>{" "}
+                  {wo.technicians.length > 0
+                    ? wo.technicians.map((technician) => technician.name).join(", ")
+                    : t("customers.orders.unassigned")}
                 </span>
                 <span className="font-black text-blue-600 hover:underline">
-                  Se detaljer &rarr;
+                  {t("customers.orders.viewDetails")} &rarr;
                 </span>
               </div>
             </Link>
@@ -90,19 +100,22 @@ export default function CustomerOrdersTab({
               href={`?tab=oppdrag&side=${orderPage - 1}`}
               className="text-blue-600 hover:underline"
             >
-              &larr; Forrige
+              &larr; {t("customers.orders.previous")}
             </Link>
           )}
           <span className="text-gray-500">
-            Viser {(orderPage - 1) * pageSize + 1}–
-            {Math.min(orderPage * pageSize, totalOrders)} av {totalOrders}
+            {t("customers.orders.showing", {
+              from: (orderPage - 1) * pageSize + 1,
+              to: Math.min(orderPage * pageSize, totalOrders),
+              total: totalOrders,
+            })}
           </span>
           {orderPage < orderTotalPages && (
             <Link
               href={`?tab=oppdrag&side=${orderPage + 1}`}
               className="text-blue-600 hover:underline"
             >
-              Neste &rarr;
+              {t("customers.orders.next")} &rarr;
             </Link>
           )}
         </div>

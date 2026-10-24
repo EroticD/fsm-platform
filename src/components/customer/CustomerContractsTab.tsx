@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
-import { contractIntervalLabel } from "@/lib/contracts";
 import { CONTRACT_INTERVAL_MONTHS } from "@/lib/contracts";
 import { formatDate, toDateOnly } from "@/lib/dates";
 import type { CustomerDetailData } from "@/server/customers";
@@ -20,7 +20,7 @@ type ContractsTabProps = {
   deleteContract: (formData: FormData) => Promise<void>;
 };
 
-export default function CustomerContractsTab({
+export default async function CustomerContractsTab({
   customer,
   templates,
   departments,
@@ -33,10 +33,12 @@ export default function CustomerContractsTab({
   toggleContract,
   deleteContract,
 }: ContractsTabProps) {
+  const t = await getTranslations("common");
+
   return (
     <CustomerTabPanel
-      title="📄 Serviceavtaler"
-      description="Gjentagende service med fast intervall. Ved hvert intervall opprettes et nytt oppdrag med kundedata og en ny, tom sjekkliste. Forrige rapport legges ved som PDF."
+      title={`📄 ${t("customers.contracts.title")}`}
+      description={t("customers.contracts.description")}
     >
       {office && (isAdmin || ownDepartmentId) && (
         <form
@@ -46,19 +48,19 @@ export default function CustomerContractsTab({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Tittel *
+                {t("customers.contracts.titleLabel")} *
               </label>
               <input
                 type="text"
                 name="title"
                 required
-                placeholder="F.eks. Årlig service på portanlegg"
+                placeholder={t("customers.contracts.titlePlaceholder")}
                 className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
               />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Avdeling *
+                {t("customers.contracts.department")} *
               </label>
               {isAdmin ? (
                 <select
@@ -70,19 +72,21 @@ export default function CustomerContractsTab({
                   {departments.map((department) => (
                     <option key={department.id} value={department.id}>
                       {department.name}
-                      {department.isDefault ? " (standard)" : ""}
+                      {department.isDefault
+                        ? ` ${t("customers.contracts.defaultDepartment")}`
+                        : ""}
                     </option>
                   ))}
                 </select>
               ) : (
                 <div className="w-full border border-gray-200 bg-white p-2 rounded-xl text-sm text-gray-800 font-bold">
-                  {userDepartmentName || "Ingen avdeling"}
+                  {userDepartmentName || t("customers.contracts.noDepartment")}
                 </div>
               )}
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Startdato *
+                {t("customers.contracts.startDate")} *
               </label>
               <input
                 type="date"
@@ -94,7 +98,7 @@ export default function CustomerContractsTab({
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Intervall *
+                {t("customers.contracts.interval")} *
               </label>
               <select
                 name="intervalMonths"
@@ -104,21 +108,21 @@ export default function CustomerContractsTab({
               >
                 {CONTRACT_INTERVAL_MONTHS.map((months) => (
                   <option key={months} value={months}>
-                    {contractIntervalLabel(months)}
+                    {t("customers.contracts.intervalMonths", { months })}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Kontaktperson (valgfritt)
+                {t("customers.contracts.contact")}
               </label>
               <select
                 name="contactId"
                 defaultValue=""
                 className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
               >
-                <option value="">Bruk kundens første kontaktperson</option>
+                <option value="">{t("customers.contracts.firstContact")}</option>
                 {customer.contacts.map((contact) => (
                   <option key={contact.id} value={contact.id}>
                     {contact.name}
@@ -129,14 +133,14 @@ export default function CustomerContractsTab({
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Sjekkliste (valgfritt)
+                {t("customers.contracts.template")}
               </label>
               <select
                 name="templateId"
                 defaultValue=""
                 className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
               >
-                <option value="">Ingen sjekkliste</option>
+                <option value="">{t("customers.contracts.noTemplate")}</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.title}
@@ -146,28 +150,26 @@ export default function CustomerContractsTab({
             </div>
           </div>
           <p className="text-[11px] text-gray-500">
-            Sjekklisten festes til hvert nye oppdrag, men rapporten er alltid
-            ny og tom. Er startdatoen i dag, opprettes første oppdrag med en
-            gang. Er den i fortiden, brukes neste framtidige intervall.
+            {t("customers.contracts.hint")}
           </p>
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
           >
-            Opprett serviceavtale
+            {t("customers.contracts.create")}
           </button>
         </form>
       )}
 
       {office && !isAdmin && !ownDepartmentId && (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 font-bold">
-          Du må være knyttet til en avdeling for å opprette serviceavtaler.
+          {t("customers.contracts.missingDepartment")}
         </p>
       )}
 
       {customer._count.contracts === 0 ? (
         <p className="text-xs text-gray-500 italic">
-          Ingen serviceavtaler registrert på denne kunden.
+          {t("customers.contracts.empty")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -184,18 +186,28 @@ export default function CustomerContractsTab({
                       {contract.title}
                     </p>
                     <p className="text-[11px] text-gray-600 mt-0.5">
-                      Startdato: {formatDate(contract.startDate, "–")} • Intervall:{" "}
-                      {contractIntervalLabel(contract.intervalMonths)} • Neste
-                      service: {formatDate(contract.nextServiceDate, "–")}
+                      {t("customers.contracts.startDateValue", {
+                        date: formatDate(contract.startDate, "–"),
+                      })}{" "}
+                      •{" "}
+                      {t("customers.contracts.intervalValue", {
+                        interval: t("customers.contracts.intervalMonths", {
+                          months: contract.intervalMonths,
+                        }),
+                      })}{" "}
+                      •{" "}
+                      {t("customers.contracts.nextService", {
+                        date: formatDate(contract.nextServiceDate, "–"),
+                      })}
                     </p>
                     <p className="text-[11px] text-gray-600">
-                      Sjekkliste:{" "}
+                      {t("customers.contracts.checklist")}{" "}
                       <span className="font-bold text-blue-800">
-                        {contract.template?.title || "Ingen"}
+                        {contract.template?.title || t("customers.contracts.none")}
                       </span>
                     </p>
                     <p className="text-[11px] text-gray-600">
-                      🏷️ Avdeling:{" "}
+                      🏷️ {t("customers.contracts.departmentValue")}{" "}
                       <span className="font-bold">{contract.department.name}</span>
                     </p>
                   </div>
@@ -206,7 +218,9 @@ export default function CustomerContractsTab({
                         : "bg-amber-100 text-amber-800 border-amber-200"
                     }`}
                   >
-                    {contract.isActive ? "Aktiv" : "Pauset"}
+                    {contract.isActive
+                      ? t("customers.contracts.active")
+                      : t("customers.contracts.paused")}
                   </span>
                 </div>
 
@@ -215,8 +229,13 @@ export default function CustomerContractsTab({
                     href={`/oppdrag/${latestOrder.id}`}
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:underline"
                   >
-                    Siste oppdrag: {latestOrder.title} •{" "}
-                    {formatDate(latestOrder.scheduledFor, "Ingen dato")} →
+                    {t("customers.contracts.latestOrder", {
+                      title: latestOrder.title,
+                      date: formatDate(
+                        latestOrder.scheduledFor,
+                        t("customers.overview.noDate"),
+                      ),
+                    })}
                   </Link>
                 )}
 
@@ -237,20 +256,24 @@ export default function CustomerContractsTab({
                             : "bg-green-600 text-white border-green-600 hover:bg-green-700"
                         }`}
                       >
-                        {contract.isActive ? "Pause" : "Aktiver"}
+                        {contract.isActive
+                          ? t("customers.contracts.pause")
+                          : t("customers.contracts.activate")}
                       </button>
                     </form>
                     {isAdmin && (
                       <ConfirmSubmitForm
                         action={deleteContract}
-                        confirmMessage={`Slette serviceavtalen «${contract.title}»? Oppdrag som allerede er opprettet blir liggende.`}
+                        confirmMessage={t("customers.contracts.deleteConfirm", {
+                          title: contract.title,
+                        })}
                       >
                         <input type="hidden" name="id" value={contract.id} />
                         <button
                           type="submit"
                           className="text-[10px] font-bold px-3 py-1.5 rounded-lg border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition"
                         >
-                          Slett
+                          {t("customers.contracts.delete")}
                         </button>
                       </ConfirmSubmitForm>
                     )}

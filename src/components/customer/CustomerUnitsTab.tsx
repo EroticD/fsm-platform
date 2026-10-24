@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/dates";
 import UnitHistory from "@/components/UnitHistory";
 import type { CustomerDetailData } from "@/server/customers";
@@ -25,7 +26,7 @@ type UnitsTabProps = {
   deleteUnit: (formData: FormData) => Promise<void>;
 };
 
-export default function CustomerUnitsTab({
+export default async function CustomerUnitsTab({
   customerId,
   products,
   canManageEquipment,
@@ -34,10 +35,12 @@ export default function CustomerUnitsTab({
   updateUnit,
   deleteUnit,
 }: UnitsTabProps) {
+  const t = await getTranslations("common");
+
   return (
     <CustomerTabPanel
-      title="🔧 Utstyr / enheter"
-      description="Maskinene og utstyret kunden har. Enhetene kan velges når montøren fyller ut en servicerapport, og rapporten husker hvilke enheter som ble kontrollert."
+      title={`🔧 ${t("customers.units.title")}`}
+      description={t("customers.units.description")}
     >
       {/* Skjema for ny enhet – krever equipment.manage */}
       {canManageEquipment && (
@@ -45,26 +48,26 @@ export default function CustomerUnitsTab({
           <input type="hidden" name="customerId" value={customerId} />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Betegnelse *</label>
-              <input type="text" name="model" required placeholder="F.eks. Port Nord" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.units.model")} *</label>
+              <input type="text" name="model" required placeholder={t("customers.units.modelPlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Serienummer</label>
-              <input type="text" name="serialNumber" placeholder="F.eks. 12-3456" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.units.serialNumber")}</label>
+              <input type="text" name="serialNumber" placeholder={t("customers.units.serialPlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Plassering</label>
-              <input type="text" name="location" placeholder="F.eks. Bygg A, plan 2" className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.units.location")}</label>
+              <input type="text" name="location" placeholder={t("customers.units.locationPlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
             </div>
           </div>
           <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap">
-            Legg til enhet
+            {t("customers.units.add")}
           </button>
         </form>
       )}
 
       {products.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">Ingen registrerte enheter på denne kunden.</p>
+        <p className="text-xs text-gray-500 italic">{t("customers.units.empty")}</p>
       ) : (
         <div className="space-y-2">
           {products.map((unit) => (
@@ -74,32 +77,41 @@ export default function CustomerUnitsTab({
                   <summary className="cursor-pointer list-none">
                     <span className="font-bold text-gray-900 text-sm">{unit.model}</span>
                     <span className="block text-[11px] text-gray-500 mt-0.5">
-                      {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
+                      {unit.serialNumber
+                        ? t("customers.units.serial", { serial: unit.serialNumber })
+                        : t("customers.units.withoutSerial")}
                       {unit.location ? ` • ${unit.location}` : ""}
                     </span>
                     <span className="block text-[11px] mt-1">
                       {unit._count.reportUnits === 0 ? (
-                        <span className="text-gray-400">🕓 Aldri kontrollert</span>
+                        <span className="text-gray-400">🕓 {t("customers.units.neverChecked")}</span>
                       ) : (
                         <span className="text-blue-800 font-bold">
-                          🕓 {unit._count.reportUnits}{" "}
-                          {unit._count.reportUnits === 1 ? "service" : "servicer"} • siste{" "}
-                          {formatDate(lastServiceDate(unit.reportUnits), "Ingen dato")}
+                          🕓 {t("customers.units.serviceCount", { count: unit._count.reportUnits })} •{" "}
+                          {t("customers.units.lastService", {
+                            date: formatDate(
+                              lastServiceDate(unit.reportUnits),
+                              t("customers.units.noDate"),
+                            ),
+                          })}
                         </span>
                       )}
                       <span className="ml-2 text-blue-600 font-bold">
-                        ▾ Vis historikk og redigering
+                        ▾ {t("customers.units.showHistory")}
                       </span>
                     </span>
                   </summary>
 
                   <div className="mt-3 border-t border-gray-200 pt-3">
                     <p className="text-[11px] font-black text-gray-600 uppercase tracking-wider mb-2">
-                      🕓 Servicehistorikk ({unit._count.reportUnits})
+                      🕓 {t("customers.units.serviceHistory", { count: unit._count.reportUnits })}
                     </p>
                     {unit._count.reportUnits > unit.reportUnits.length && (
                       <p className="text-[10px] text-gray-500 mb-2">
-                        Viser de {unit.reportUnits.length} nyeste av {unit._count.reportUnits} kontroller.
+                        {t("customers.units.showingRecent", {
+                          shown: unit.reportUnits.length,
+                          total: unit._count.reportUnits,
+                        })}
                       </p>
                     )}
                     <UnitHistory entries={unit.reportUnits} />
@@ -108,27 +120,27 @@ export default function CustomerUnitsTab({
                   {canManageEquipment && (
                     <details className="mt-3 border-t border-gray-200 pt-3">
                       <summary className="cursor-pointer text-[11px] font-black text-gray-600 uppercase tracking-wider">
-                        ✏️ Endre enhet
+                        ✏️ {t("customers.units.editUnit")}
                       </summary>
 
                       <form action={updateUnit} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
                         <input type="hidden" name="customerId" value={customerId} />
                         <input type="hidden" name="id" value={unit.id} />
                         <div>
-                          <label className="block text-[10px] font-bold text-gray-600 mb-1">Betegnelse *</label>
+                          <label className="block text-[10px] font-bold text-gray-600 mb-1">{t("customers.units.model")} *</label>
                           <input type="text" name="model" required defaultValue={unit.model} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-gray-600 mb-1">Serienummer</label>
+                          <label className="block text-[10px] font-bold text-gray-600 mb-1">{t("customers.units.serialNumber")}</label>
                           <input type="text" name="serialNumber" defaultValue={unit.serialNumber || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-gray-600 mb-1">Plassering</label>
+                          <label className="block text-[10px] font-bold text-gray-600 mb-1">{t("customers.units.location")}</label>
                           <input type="text" name="location" defaultValue={unit.location || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
                         </div>
                         <div className="sm:col-span-3 flex justify-end">
                           <button type="submit" className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 transition">
-                            Lagre endringer
+                            {t("customers.units.save")}
                           </button>
                         </div>
                       </form>
@@ -140,7 +152,7 @@ export default function CustomerUnitsTab({
                   <form action={deleteUnit}>
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={unit.id} />
-                    <button type="submit" title="Slett enhet" className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
+                    <button type="submit" title={t("customers.units.delete")} className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
                       🗑️
                     </button>
                   </form>

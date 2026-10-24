@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import KpiCard from "@/components/KpiCard";
 import MarkdownView from "@/components/MarkdownView";
@@ -20,7 +21,7 @@ type OverviewProps = {
   recentLogs: CustomerDetailData["recentLogs"];
 };
 
-export default function CustomerOverviewTab({
+export default async function CustomerOverviewTab({
   customer,
   customerId,
   office,
@@ -33,27 +34,33 @@ export default function CustomerOverviewTab({
   recentOrders,
   recentLogs,
 }: OverviewProps) {
+  const t = await getTranslations("common");
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon="📂" label="Oppdrag totalt" value={totalOrders} tone="gray" href="?tab=oppdrag" />
-        <KpiCard icon="🔄" label="Aktive oppdrag" value={activeOrders} tone="blue" href="?tab=oppdrag" />
-        <KpiCard icon="✅" label="Fullførte" value={completedOrders} tone="green" href="?tab=oppdrag" />
-        <KpiCard icon="📋" label="Utfylte sjekklister" value={reportCount} tone="amber" href="?tab=oppdrag" />
+        <KpiCard icon="📂" label={t("customers.overview.totalOrders")} value={totalOrders} tone="gray" href="?tab=oppdrag" />
+        <KpiCard icon="🔄" label={t("customers.overview.activeOrders")} value={activeOrders} tone="blue" href="?tab=oppdrag" />
+        <KpiCard icon="✅" label={t("customers.overview.completedOrders")} value={completedOrders} tone="green" href="?tab=oppdrag" />
+        <KpiCard icon="📋" label={t("customers.overview.reports")} value={reportCount} tone="amber" href="?tab=oppdrag" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon="🔧" label="Enheter" value={customer._count.products} tone="gray" href="?tab=enheter" />
-        <KpiCard icon="👤" label="Kontaktpersoner" value={customer._count.contacts} tone="gray" href="?tab=kontakter" />
-        <KpiCard icon="📄" label="Serviceavtaler" value={customer._count.contracts} tone="blue" href="?tab=avtaler" />
-        <KpiCard icon="📎" label="Vedlegg" value={customer._count.attachments} tone="gray" href="?tab=vedlegg" />
+        <KpiCard icon="🔧" label={t("customers.overview.units")} value={customer._count.products} tone="gray" href="?tab=enheter" />
+        <KpiCard icon="👤" label={t("customers.overview.contacts")} value={customer._count.contacts} tone="gray" href="?tab=kontakter" />
+        <KpiCard icon="📄" label={t("customers.overview.contracts")} value={customer._count.contracts} tone="blue" href="?tab=avtaler" />
+        <KpiCard icon="📎" label={t("customers.overview.attachments")} value={customer._count.attachments} tone="gray" href="?tab=vedlegg" />
         {office && (
-          <KpiCard icon="🔐" label="Portalbrukere" value={portalUserCount} tone="gray" href="?tab=portal" />
+          <KpiCard icon="🔐" label={t("customers.overview.portalUsers")} value={portalUserCount} tone="gray" href="?tab=portal" />
         )}
         <KpiCard
           icon="🗓️"
-          label="Neste oppdrag"
-          value={nextOrder ? formatDate(nextOrder.scheduledFor, "Ingen dato") : "Ingen"}
+          label={t("customers.overview.nextOrder")}
+          value={
+            nextOrder
+              ? formatDate(nextOrder.scheduledFor, t("customers.overview.noDate"))
+              : t("customers.overview.none")
+          }
           sub={nextOrder?.title}
           tone="blue"
           href="?tab=oppdrag"
@@ -64,31 +71,31 @@ export default function CustomerOverviewTab({
         {/* Bedriftsinformasjon */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4 lg:col-span-1">
           <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="font-black text-gray-900 text-base">🏢 Bedriftsinformasjon</h2>
+            <h2 className="font-black text-gray-900 text-base">🏢 {t("customers.overview.companyInfo")}</h2>
             {office && (
               <Link href={`/kunder/${customerId}/rediger`} className="text-[11px] font-bold text-blue-600 hover:underline">
-                Endre
+                {t("customers.overview.change")}
               </Link>
             )}
           </div>
           <div className="text-sm space-y-3 text-gray-800">
-            <p><strong>Adresse:</strong><br />
+            <p><strong>{t("customers.overview.address")}</strong><br />
               <GoogleMapsLink
                 address={customer.address}
                 postalCode={customer.postalCode}
                 city={customer.city}
-                label={customer.address || "Ikke oppgitt"}
+                label={customer.address || t("customers.overview.notProvided")}
               />
               <br />
               {customer.postalCode || ""} {customer.city || ""}
             </p>
-            <p><strong>Telefon:</strong><br />{customer.phone ? <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a> : "Ikke oppgitt"}</p>
-            <p><strong>E-post:</strong><br />{customer.email ? <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a> : "Ikke oppgitt"}</p>
-            <p><strong>Avdeling:</strong><br />{customer.department?.name || "Ikke tilknyttet"}</p>
-            <p><strong>Ansvarlig montør:</strong><br />{customer.responsibleTechnician?.name || "Ikke satt"}</p>
+            <p><strong>{t("customers.overview.phone")}</strong><br />{customer.phone ? <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a> : t("customers.overview.notProvided")}</p>
+            <p><strong>{t("customers.overview.email")}</strong><br />{customer.email ? <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a> : t("customers.overview.notProvided")}</p>
+            <p><strong>{t("customers.overview.department")}</strong><br />{customer.department?.name || t("customers.overview.noDepartment")}</p>
+            <p><strong>{t("customers.overview.responsibleTechnician")}</strong><br />{customer.responsibleTechnician?.name || t("customers.overview.noResponsible")}</p>
             {customer.notes && (
               <div>
-                <strong>Notat:</strong>
+                <strong>{t("customers.overview.notes")}</strong>
                 <div className="text-gray-600 mt-0.5">
                   <MarkdownView value={customer.notes} />
                 </div>
@@ -100,14 +107,14 @@ export default function CustomerOverviewTab({
         {/* Siste oppdrag */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3 lg:col-span-2">
           <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="font-black text-gray-900 text-base">📂 Siste oppdrag</h2>
+            <h2 className="font-black text-gray-900 text-base">📂 {t("customers.overview.recentOrders")}</h2>
             <Link href="?tab=oppdrag" className="text-[11px] font-bold text-blue-600 hover:underline">
-              Se alle ({totalOrders})
+              {t("customers.overview.seeAll", { count: totalOrders })}
             </Link>
           </div>
 
           {recentOrders.length === 0 ? (
-            <p className="text-xs text-gray-500 italic">Ingen oppdrag registrert ennå.</p>
+            <p className="text-xs text-gray-500 italic">{t("customers.overview.noOrders")}</p>
           ) : (
             <div className="space-y-2">
               {recentOrders.map((wo) => (
@@ -121,8 +128,10 @@ export default function CustomerOverviewTab({
                     <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-[10px] text-gray-500 mt-1">
-                    {formatDate(wo.scheduledFor, "Ingen dato")}
-                    {wo._count.reports > 0 ? ` • 📋 ${wo._count.reports} sjekkliste(r)` : ""}
+                    {formatDate(wo.scheduledFor, t("customers.overview.noDate"))}
+                    {wo._count.reports > 0
+                      ? ` • 📋 ${t("customers.overview.checklists", { count: wo._count.reports })}`
+                      : ""}
                   </p>
                 </Link>
               ))}
@@ -134,13 +143,13 @@ export default function CustomerOverviewTab({
       {/* Siste aktivitet */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
         <div className="flex items-center justify-between border-b pb-2 mb-3">
-          <h2 className="font-black text-gray-900 text-base">📋 Siste aktivitet</h2>
+          <h2 className="font-black text-gray-900 text-base">📋 {t("customers.overview.recentActivity")}</h2>
           <Link href="?tab=aktivitet" className="text-[11px] font-bold text-blue-600 hover:underline">
-            Se all aktivitet
+            {t("customers.overview.seeAllActivity")}
           </Link>
         </div>
         {recentLogs.length === 0 ? (
-          <p className="text-xs text-gray-500 italic">Ingen aktivitet registrert.</p>
+          <p className="text-xs text-gray-500 italic">{t("customers.overview.noActivity")}</p>
         ) : (
           <ol className="space-y-2">
             {recentLogs.map((log) => (
@@ -149,7 +158,7 @@ export default function CustomerOverviewTab({
                 <div className="min-w-0">
                   <p className="text-gray-800 font-medium">{log.action}</p>
                   <p className="text-[10px] text-gray-500">
-                    {log.userName || "Ukjent"} • {formatDateTime(log.createdAt)}
+                    {log.userName || t("customers.overview.unknownUser")} • {formatDateTime(log.createdAt)}
                   </p>
                 </div>
               </li>

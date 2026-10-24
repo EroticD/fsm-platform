@@ -1,5 +1,6 @@
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
+import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
 
 type ActivityTabProps = {
@@ -10,17 +11,19 @@ type ActivityTabProps = {
   canManageCustomers: boolean;
 };
 
-export default function CustomerActivityTab({
+export default async function CustomerActivityTab({
   customerId,
   auditLogs,
   comments,
   currentUserName,
   canManageCustomers,
 }: ActivityTabProps) {
+  const t = await getTranslations("common");
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-        <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 Aktivitetslogg</h2>
+        <h2 className="font-black text-gray-900 mb-3 border-b pb-2">📋 {t("customers.activity.title")}</h2>
         <AuditLogTable logs={auditLogs} />
       </div>
 
