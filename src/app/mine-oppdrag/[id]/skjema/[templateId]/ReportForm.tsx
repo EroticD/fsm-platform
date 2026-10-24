@@ -8,6 +8,11 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import { readLineComment } from "@/lib/report-answers";
 import { saveDraft, submitReport } from "./actions";
+import {
+  loadDraftLocally,
+  queueDraftForRetry,
+  saveDraftLocally,
+} from "@/lib/offline/draft-outbox";
 
 export type CustomerUnit = {
   id: string;
@@ -66,6 +71,7 @@ function SubmitButton({ isEditing }: { isEditing: boolean }) {
 
 export default function ReportForm({
   workOrderId,
+  userId,
   templateId,
   fields,
   customerUnits,
@@ -77,6 +83,7 @@ export default function ReportForm({
   returnTo,
 }: {
   workOrderId: string;
+  userId: string;
   templateId: string;
   fields: TemplateField[];
   customerUnits: CustomerUnit[];
@@ -125,19 +132,50 @@ export default function ReportForm({
   // fylles ut.
   const formRef = useRef<HTMLFormElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [draftStatus, setDraftStatus] = useState<"idle" | "saving" | "saved" | "error">(
-    initialDraft ? "saved" : "idle",
-  );
+  const [draftStatus, setDraftStatus] = useState<
+    "idle" | "saving" | "saved" | "error" | "offline"
+  >(initialDraft ? "saved" : "idle");
   const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(
     draftUpdatedAt ? new Date(draftUpdatedAt) : null,
   );
 
+  // Holder siste state tilgjengelig i autolagringen uten å gjenskape callbacken
+  // på hver tastetrykk.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const saveDraftNow = useCallback(async () => {
     const form = formRef.current;
     if (!form) return;
+
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(
+      [...formData.entries()].filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+
     setDraftStatus("saving");
+
+    // Lokal først: kladden overlever nettbrudd og fanelukkinger.
     try {
-      const result = await saveDraft(new FormData(form));
+      await saveDraftLocally({
+        userId,
+        workOrderId,
+        templateId,
+        payload: {
+          state: stateRef.current,
+          notes: payload.notes ?? "",
+        },
+      });
+    } catch {
+      // IndexedDB utilgjengelig – fortsett med serverlagring.
+    }
+
+    try {
+      const result = await saveDraft(formData);
       if (result.ok) {
         setDraftStatus("saved");
         setDraftSavedAt(result.savedAt ? new Date(result.savedAt) : new Date());
@@ -145,9 +183,14 @@ export default function ReportForm({
         setDraftStatus("error");
       }
     } catch {
-      setDraftStatus("error");
+      setDraftStatus("offline");
+      try {
+        await queueDraftForRetry(payload);
+      } catch {
+        // Outbox er også utilgjengelig; serverkladden er tapt for denne økten.
+      }
     }
-  }, []);
+  }, [templateId, userId, workOrderId]);
 
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -176,6 +219,33 @@ export default function ReportForm({
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [saveDraftNow]);
+
+  // Gjenopprett en nyere lokal kladd (f.eks. laget offline) når serverkladden
+  // er eldre. En signert rapport skal aldri overskrives av en lokal kladd.
+  useEffect(() => {
+    if (initialReport) return;
+    let active = true;
+    void loadDraftLocally({ userId, workOrderId, templateId })
+      .then((local) => {
+        if (!active || !local) return;
+        const serverTime = draftUpdatedAt
+          ? new Date(draftUpdatedAt).getTime()
+          : 0;
+        if (local.updatedAt <= serverTime) return;
+        const snapshot = local.payload as {
+          state?: { counter: number; units: UnitEntry[] };
+        };
+        if (snapshot.state && Array.isArray(snapshot.state.units)) {
+          setState(snapshot.state);
+          setDraftStatus("saved");
+          setDraftSavedAt(new Date(local.updatedAt));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [draftUpdatedAt, initialReport, templateId, userId, workOrderId]);
 
   // Sjekkpunkter som krever oppfølging (f.eks. «Utbedres»), gruppert per enhet.
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
@@ -274,6 +344,7 @@ export default function ReportForm({
                 })
               : t("orders.reportForm.draftSaved"))}
           {draftStatus === "error" && t("orders.reportForm.draftError")}
+          {draftStatus === "offline" && t("orders.reportForm.draftOffline")}
           {draftStatus === "idle" && t("orders.reportForm.draftIdle")}
         </span>
         <button

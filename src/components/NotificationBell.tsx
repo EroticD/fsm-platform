@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 /** Bjelle i headeren med antall uleste varsler. Poller hvert minutt. */
 export default function NotificationBell() {
+  const t = useTranslations("common");
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function NotificationBell() {
   return (
     <Link
       href="/varsler"
-      aria-label={count > 0 ? `Varsler (${count} uleste)` : "Varsler"}
+      aria-label={count > 0 ? t("p3.bell.unread", { count }) : t("p3.bell.label")}
       className="relative flex h-11 w-11 items-center justify-center rounded-xl text-xl text-gray-600 hover:bg-gray-100"
     >
       🔔

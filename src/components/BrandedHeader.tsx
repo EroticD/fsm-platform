@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import LanguageSwitcher from "./LanguageSwitcher";import GlobalSearch from "./GlobalSearch";
+import LanguageSwitcher from "./LanguageSwitcher";
+import GlobalSearch from "./GlobalSearch";
+import NotificationBell from "./NotificationBell";
+import { clearOfflineCaches } from "@/lib/offline/cache";
 
 type NavItem = {
   href: string;
@@ -18,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "dashboard", icon: "🏠" },
   { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
   { href: "/kalender", labelKey: "calendar", icon: "📅" },
+  { href: "/kart", labelKey: "map", icon: "🗺️" },
   { href: "/kunder", labelKey: "customers", icon: "🏢" },
   { href: "/dokumenter", labelKey: "documents", icon: "📚" },
   { href: "/oppdrag/ny", labelKey: "newWorkOrder", icon: "" },
@@ -32,6 +36,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
   { href: "/oppdrag", labelKey: "workOrders", icon: "📂" },
   { href: "/kalender", labelKey: "calendar", icon: "📅" },
+  { href: "/kart", labelKey: "map", icon: "🗺️" },
   { href: "/kunder", labelKey: "customers", icon: "🏢" },
   { href: "/dokumenter", labelKey: "documents", icon: "📚" },
   { href: "/enheter", labelKey: "equipment", icon: "🔧" },
@@ -48,6 +53,16 @@ function navItemsFor(role?: string): NavItem[] {
   if (role === "TECHNICIAN") return TECHNICIAN_NAV;
   if (role === "CUSTOMER") return CUSTOMER_NAV;
   return NAV_ITEMS;
+}
+
+function handleLogoutSubmit(event: FormEvent<HTMLFormElement>) {
+  const form = event.currentTarget;
+  if (form.dataset.cleared === "1") return;
+  event.preventDefault();
+  void clearOfflineCaches().finally(() => {
+    form.dataset.cleared = "1";
+    form.requestSubmit();
+  });
 }
 
 export default function BrandedHeader({
@@ -170,8 +185,9 @@ export default function BrandedHeader({
           </div>
         )}
 
-        {/* Language switcher */}
-        <div className="hidden lg:flex items-center">
+        {/* Varsler og språk */}
+        <div className="hidden lg:flex items-center gap-2">
+          {role !== "CUSTOMER" && <NotificationBell />}
           <LanguageSwitcher />
         </div>
       </div>
@@ -226,7 +242,7 @@ function GlobalNavDesktop({ primaryColor, role }: { primaryColor: string; role?:
           </Link>
         )}
       )}
-      <form action="/api/auth/signout" method="POST" className="flex items-center">
+      <form action="/api/auth/signout" method="POST" onSubmit={handleLogoutSubmit} className="flex items-center">
         <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition border border-transparent whitespace-nowrap">
           🚪 {t("components.header.logOut")}
         </button>
@@ -263,7 +279,7 @@ function GlobalNavMobile({
           </Link>
         )}
       )}
-      <form action="/api/auth/signout" method="POST" className="w-full flex items-center">
+      <form action="/api/auth/signout" method="POST" onSubmit={handleLogoutSubmit} className="w-full flex items-center">
         <button
           type="submit"
           onClick={onNavigate}

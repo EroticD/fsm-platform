@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { formatDateTime } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { listNotifications } from "@/server/notifications";
@@ -20,6 +21,7 @@ export default async function NotificationsPage({
 }: {
   searchParams: Promise<{ u?: string; p?: string }>;
 }) {
+  const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 
@@ -42,9 +44,9 @@ export default async function NotificationsPage({
     <div className="mx-auto min-h-screen max-w-3xl space-y-5 p-4 sm:p-6">
       <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Varsler</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("p3.notifications.title")}</h1>
           <p className="text-sm text-gray-600">
-            {data.unread} uleste av {data.total} totalt
+            {t("p3.notifications.unreadOf", { unread: data.unread, total: data.total })}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -52,13 +54,13 @@ export default async function NotificationsPage({
             href="/varsler/innstillinger"
             className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
           >
-            Innstillinger
+            {t("p3.notifications.settings")}
           </Link>
           <Link
             href={unreadOnly ? "/varsler" : "/varsler?u=1"}
             className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
           >
-            {unreadOnly ? "Vis alle" : "Bare uleste"}
+            {unreadOnly ? t("p3.notifications.all") : t("p3.notifications.unreadOnly")}
           </Link>
           {data.unread > 0 && (
             <form action={markAllReadAction}>
@@ -66,7 +68,7 @@ export default async function NotificationsPage({
                 type="submit"
                 className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
               >
-                Merk alle som lest
+                {t("p3.notifications.markAllRead")}
               </button>
             </form>
           )}
@@ -76,8 +78,8 @@ export default async function NotificationsPage({
       {data.items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
           <p className="text-3xl" aria-hidden="true">🔔</p>
-          <p className="mt-2 font-bold text-gray-900">Ingen varsler</p>
-          <p className="text-sm text-gray-600">Du er helt oppdatert.</p>
+          <p className="mt-2 font-bold text-gray-900">{t("p3.notifications.emptyTitle")}</p>
+          <p className="text-sm text-gray-600">{t("p3.notifications.emptyDescription")}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -108,7 +110,7 @@ export default async function NotificationsPage({
                       href={notification.href}
                       className="text-xs font-bold text-blue-700 hover:underline"
                     >
-                      Åpne
+                      {t("p3.notifications.open")}
                     </Link>
                   )}
                   {!notification.readAt && (
@@ -118,7 +120,7 @@ export default async function NotificationsPage({
                         type="submit"
                         className="text-xs font-bold text-gray-500 hover:text-gray-800"
                       >
-                        Merk lest
+                        {t("p3.notifications.markRead")}
                       </button>
                     </form>
                   )}
@@ -138,10 +140,10 @@ export default async function NotificationsPage({
             }).toString()}`}
             className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
           >
-            Forrige
+            {t("p3.notifications.previous")}
           </Link>
           <span className="text-gray-500">
-            Side {data.page} av {data.totalPages}
+            {t("p3.notifications.pageOf", { page: data.page, pages: data.totalPages })}
           </span>
           <Link
             href={`/varsler?${new URLSearchParams({
@@ -150,7 +152,7 @@ export default async function NotificationsPage({
             }).toString()}`}
             className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
           >
-            Neste
+            {t("p3.notifications.next")}
           </Link>
         </div>
       )}

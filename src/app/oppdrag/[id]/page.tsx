@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -9,6 +10,7 @@ import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
+import TimeMaterialsPanel from "./TimeMaterialsPanel";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -368,7 +370,7 @@ export default async function AdminWorkOrderPage({
                       key={tag.id}
                       className="text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm"
                       suppressHydrationWarning
-                      style={{ backgroundColor: tag.color || "#3b82f6" }}
+                      style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                     >
                       🏷️ {tag.name}
                     </span>
@@ -736,6 +738,8 @@ export default async function AdminWorkOrderPage({
 
             </div>
           </div>
+
+          <TimeMaterialsPanel workOrderId={workOrderId} />
 
           {/* Audit log - full width bottom */}
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">

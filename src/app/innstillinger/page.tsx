@@ -7,6 +7,7 @@ import RolesAdmin from "@/components/RolesAdmin";
 import SecuritySettings from "@/components/SecuritySettings";
 import SettingsTabs from "@/components/settings/SettingsTabs";
 import BrandingTab from "@/components/settings/BrandingTab";
+import CalendarFeedSettings from "@/components/CalendarFeedSettings";
 import TemplatesTab from "@/components/settings/TemplatesTab";
 import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
@@ -157,11 +158,14 @@ export default async function SettingsPage({
 
         {/* FANE 1: BRANDING */}
         {currentTab === "branding" && canBranding && (
-          <BrandingTab
-            branding={branding}
-            error={error}
-            saveBranding={saveBrandingAction}
-          />
+          <div className="space-y-6">
+            <BrandingTab
+              branding={branding}
+              error={error}
+              saveBranding={saveBrandingAction}
+            />
+            <CalendarFeedSettings />
+          </div>
         )}
 
         {/* FANE 2: ANSATTE */}

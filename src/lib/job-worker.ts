@@ -2,7 +2,10 @@ import prisma from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
 import { logger } from "@/lib/logger";
-import { processPendingNotificationEmails } from "@/server/notifications";
+import {
+  notifyOverdueWorkOrders,
+  processPendingNotificationEmails,
+} from "@/server/notifications";
 
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -291,6 +294,18 @@ export function startJobWorker(): void {
   processNotifications();
   const notificationTimer = setInterval(processNotifications, 60_000);
   notificationTimer.unref?.();
+
+  // Én overdue-sjekk ved oppstart og deretter hvert sjette døgn.
+  const notifyOverdue = () => {
+    void notifyOverdueWorkOrders().catch((error) => {
+      logger.error("Kunne ikke varsle om forfalte oppdrag", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+  notifyOverdue();
+  const overdueTimer = setInterval(notifyOverdue, 6 * 60 * 60_000);
+  overdueTimer.unref?.();
 
   logger.info("Tekstuttrekk: jobbworker startet", {
     concurrency: JOB_WORKER_CONCURRENCY,

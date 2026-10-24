@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { toDateOnly } from "@/lib/dates";
+import { notifyUser } from "./notifications";
 import {
   fail,
   ok,
@@ -64,6 +66,65 @@ export async function getPortalReportHistory(
     page,
     totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
   });
+}
+
+/**
+ * Kunden ber kontoret oppdatere kontaktinformasjonen sin. Selve endringen
+ * gjøres av kontoret; kunden får ikke skrive til kundekortet direkte.
+ */
+export async function requestContactUpdate(
+  actor: ServiceActor,
+  input: { contactId?: unknown; message?: unknown },
+): Promise<ServiceResult<{ notified: number }>> {
+  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
+    return fail("forbidden");
+  }
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: actor.customerId },
+    select: { id: true, name: true, departmentId: true },
+  });
+  if (!customer) return fail("not_found");
+
+  const contactId = idFrom(input.contactId);
+  if (contactId) {
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, customerId: actor.customerId },
+      select: { id: true, name: true },
+    });
+    if (!contact) return fail("not_found");
+  }
+
+  const message =
+    typeof input.message === "string"
+      ? input.message.trim().slice(0, 2000)
+      : "";
+  const office = await prisma.user.findMany({
+    where: {
+      departmentId: customer.departmentId,
+      role: { in: ["ADMIN", "OFFICE"] },
+      isActive: true,
+    },
+    select: { id: true },
+    take: 50,
+  });
+
+  let notified = 0;
+  for (const user of office) {
+    const result = await notifyUser({
+      userId: user.id,
+      type: "CONTACT_UPDATE",
+      title: "Kunde ber om oppdatert kontaktinformasjon",
+      body:
+        message ||
+        `Kunden ${customer.name} ber om oppdatering av kontaktinformasjon.`,
+      href: `/kunder/${customer.id}`,
+      dedupeKey: `contact-update:${customer.id}:${toDateOnly(new Date())}:${user.id}`,
+    });
+    if (result) notified += 1;
+  }
+
+  return ok({ notified });
 }
 
 /**

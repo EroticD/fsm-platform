@@ -67,7 +67,14 @@
         "template": "Checklists",
         "folder": "Folders",
         "document": "Documents"
-      }
+      },
+      "placeholder": "Search customers, work orders, equipment, contacts, reports …",
+      "ariaLabel": "Global search",
+      "searchingShort": "searching…",
+      "clear": "Clear search",
+      "searching": "Searching …",
+      "noResults": "No results for “{query}”",
+      "seeAll": "See all {count} results"
     },
     "markdown": {
       "bold": "Bold (Ctrl+B)",

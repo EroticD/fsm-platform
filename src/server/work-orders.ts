@@ -1,6 +1,7 @@
 import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { releaseUpload } from "@/lib/upload-cleanup";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
@@ -431,6 +432,21 @@ export async function changeWorkOrderStatus(
     action,
   });
 
+  if (result.ok && status === "CANCELLED") {
+    try {
+      await notifyWorkOrderEvent(
+        workOrderId,
+        "CANCELLED",
+        "Oppdraget er kansellert",
+        "Oppdraget er kansellert.",
+        `/oppdrag/${workOrderId}`,
+        `cancelled:${workOrderId}`,
+      );
+    } catch {
+      // Varsling er best effort og skal ikke velte statusendringen.
+    }
+  }
+
   return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 
@@ -509,6 +525,18 @@ export async function updateWorkOrderDate(
     });
 
     if (updated.count === 0) return { ok: false, error: "ikke-funnet" };
+    try {
+      await notifyWorkOrderEvent(
+        workOrderId,
+        "DATE_CHANGED",
+        "Oppdraget er flyttet",
+        `Ny dato: ${toDateOnly(scheduledFor)}`,
+        `/oppdrag/${workOrderId}`,
+        `date:${workOrderId}:${toDateOnly(scheduledFor)}`,
+      );
+    } catch {
+      // Varsling er best effort.
+    }
     return { ok: true };
   } catch {
     return { ok: false, error: "ukjent" };
@@ -772,6 +800,21 @@ async function changeTechnician(
         options.mode === "connect" ? { technicianId: userId } : { userId },
     });
   });
+
+  if (options.mode === "connect") {
+    try {
+      await notifyUser({
+        userId,
+        type: "ASSIGNMENT",
+        title: "Du er tildelt et oppdrag",
+        body: "Et oppdrag er tildelt deg.",
+        href: `/mine-oppdrag/${workOrderId}`,
+        dedupeKey: `assignment:${workOrderId}:${userId}`,
+      });
+    } catch {
+      // Varsling er best effort.
+    }
+  }
 
   return { ok: true };
 }

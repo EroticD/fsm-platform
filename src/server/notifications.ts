@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/email";
+import { toDateOnly } from "@/lib/dates";
 import {
   fail,
   ok,
@@ -16,6 +17,7 @@ export const NOTIFICATION_TYPES = [
   "BOOKING",
   "CONTRACT_DUE",
   "OVERDUE",
+  "CONTACT_UPDATE",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -243,7 +245,7 @@ export async function notifyWorkOrderEvent(
 
   const recipients = new Set(workOrder.technicians.map((user) => user.id));
 
-  if (type === "BOOKING" || type === "REPORT_READY") {
+  if (type === "BOOKING" || type === "REPORT_READY" || type === "CONTRACT_DUE" || type === "OVERDUE") {
     const office = await prisma.user.findMany({
       where: {
         departmentId: workOrder.departmentId,
@@ -280,6 +282,36 @@ export async function notifyWorkOrderEvent(
       dedupeKey: `${dedupeKey}:${userId}`,
     });
     if (result) created += 1;
+  }
+  return created;
+}
+
+/** Varsler én gang per dag om oppdrag som er forfalt. */
+export async function notifyOverdueWorkOrders(
+  now = new Date(),
+): Promise<number> {
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const workOrders = await prisma.workOrder.findMany({
+    where: {
+      scheduledFor: { lt: today },
+      status: { notIn: ["COMPLETED", "CANCELLED"] },
+    },
+    select: { id: true, title: true },
+    take: 100,
+  });
+
+  let created = 0;
+  for (const workOrder of workOrders) {
+    created += await notifyWorkOrderEvent(
+      workOrder.id,
+      "OVERDUE",
+      "Oppdrag er forfalt",
+      `Oppdraget «${workOrder.title}» er forfalt.`,
+      `/oppdrag/${workOrder.id}`,
+      `overdue:${workOrder.id}:${toDateOnly(today)}`,
+    );
   }
   return created;
 }

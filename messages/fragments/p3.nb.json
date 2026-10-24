@@ -1,0 +1,106 @@
+{
+  "p3": {
+    "notifications": {
+      "title": "Varsler",
+      "unreadOf": "{unread} uleste av {total} totalt",
+      "all": "Vis alle",
+      "unreadOnly": "Bare uleste",
+      "markAllRead": "Merk alle som lest",
+      "emptyTitle": "Ingen varsler",
+      "emptyDescription": "Du er helt oppdatert.",
+      "open": "Åpne",
+      "markRead": "Merk lest",
+      "previous": "Forrige",
+      "next": "Neste",
+      "pageOf": "Side {page} av {pages}",
+      "settings": "Innstillinger"
+    },
+    "notificationSettings": {
+      "title": "Varselinnstillinger",
+      "description": "Velg hvilke hendelser du vil varsles om i appen og på e-post.",
+      "event": "Hendelse",
+      "inApp": "I appen",
+      "email": "E-post",
+      "save": "Lagre varselinnstillinger",
+      "toNotifications": "Til varsler",
+      "labels": {
+        "ASSIGNMENT": "Du blir tildelt et oppdrag",
+        "DATE_CHANGED": "Oppdraget flyttes",
+        "CANCELLED": "Oppdraget kanselleres",
+        "REPORT_READY": "Rapport er klar",
+        "BOOKING": "Ny booking fra kundeportalen",
+        "CONTRACT_DUE": "Serviceavtale forfaller",
+        "OVERDUE": "Oppdrag er forfalt"
+      },
+      "inAppAria": "{label} i appen",
+      "emailAria": "{label} på e-post"
+    },
+    "timeMaterials": {
+      "timeTitle": "Timer",
+      "materialTitle": "Materialer",
+      "active": "Aktiv timer startet {time}",
+      "stop": "Stopp timer",
+      "descriptionPlaceholder": "Hva arbeider du med? (valgfritt)",
+      "start": "Start timer",
+      "manual": "Registrer timer manuelt",
+      "from": "Fra",
+      "to": "Til",
+      "description": "Beskrivelse",
+      "hourlyRate": "Timepris (valgfritt)",
+      "billable": "Fakturerbart",
+      "saveTime": "Lagre timer",
+      "noTime": "Ingen timer registrert ennå.",
+      "delete": "Slett",
+      "notBillable": "ikke fakturerbart",
+      "lines": "{count} linjer",
+      "noMaterials": "Ingen materialer registrert.",
+      "name": "Navn",
+      "sku": "SKU",
+      "quantity": "Antall",
+      "price": "Pris",
+      "add": "Legg til",
+      "hoursShort": "t",
+      "minutesShort": "min",
+      "activeShort": "(aktiv)",
+      "exportCsv": "Eksporter CSV"
+    },
+    "calendarFeed": {
+      "title": "Kalenderabonnement",
+      "description": "Abonner på dine oppdrag i Google Calendar, Outlook eller Apple Kalender. Lenken er personlig og kan tilbakekalles når som helst.",
+      "link": "iCal-lenke",
+      "revoke": "Tilbakekall lenken",
+      "create": "Lag kalenderlenke"
+    },
+    "offline": {
+      "pending": "📤 {count} kladd(er) venter på sending",
+      "offline": "📴 Du er offline – kladder lagres lokalt og sendes når nettet er tilbake"
+    },
+    "portalReports": {
+      "title": "📄 Rapporter",
+      "count": "{count} rapporter",
+      "empty": "Ingen rapporter er publisert ennå.",
+      "performed": "Utført {date}",
+      "signed": "signert",
+      "download": "Last ned PDF",
+      "acknowledged": "✓ Kvittert {date}",
+      "commentPlaceholder": "Kommentar (valgfritt)",
+      "acknowledge": "Kvitter mottatt",
+      "requestUpdate": "Be om oppdatering av kontaktinformasjon",
+      "requestUpdatePlaceholder": "Hva skal oppdateres?",
+      "requestUpdateButton": "Send forespørsel"
+    },
+    "bell": {
+      "label": "Varsler",
+      "unread": "Varsler ({count} uleste)"
+    },
+    "map": {
+      "title": "Kart",
+      "description": "Oppdrag gruppert etter sted. Åpne i Google Maps for veibeskrivelse.",
+      "calendar": "Kalender",
+      "empty": "Ingen oppdrag med adresse ennå.",
+      "noCustomer": "Uten kunde",
+      "openMaps": "Åpne i Maps",
+      "unknownCity": "Ukjent sted"
+    }
+  }
+}

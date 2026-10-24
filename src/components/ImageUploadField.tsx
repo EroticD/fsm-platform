@@ -100,6 +100,7 @@ export default function ImageUploadField({
 
       <input
         type="file"
+        capture="environment"
         accept="image/*"
         multiple
         onChange={handleChange}

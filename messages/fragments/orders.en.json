@@ -401,7 +401,8 @@
       "technicianSignature": "✍️ Technician",
       "technicianHelper": "The person who performed the job.",
       "customerSignature": "✍️ Customer",
-      "customerHelper": "The customer representative on site."
+      "customerHelper": "The customer representative on site.",
+      "draftOffline": "Saved locally – will sync when back online"
     },
     "attachments": {
       "title": "📎 Attachments",

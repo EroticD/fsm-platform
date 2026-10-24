@@ -436,7 +436,8 @@
       "reports": "Reports",
       "newWorkOrder": "New work order",
       "settings": "Settings",
-      "customerPortal": "Customer portal"
+      "customerPortal": "Customer portal",
+      "map": "Map"
     }
   }
 }

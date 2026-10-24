@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -111,7 +112,7 @@ export default async function TechnicianWorkOrderPage({
                     key={tag.id}
                     className="text-white px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm"
                     suppressHydrationWarning
-                    style={{ backgroundColor: tag.color || "#3b82f6" }}
+                    style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                   >
                     🏷️ {tag.name}
                   </span>

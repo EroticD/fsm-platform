@@ -9,6 +9,7 @@ import BrandedHeader from "@/components/BrandedHeader";
 import BrandingColors from "@/components/BrandingColors";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import ToastProvider from "@/components/ToastProvider";
+import OfflineBanner from "@/components/OfflineBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,6 +67,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
             <BrandingColors />
+            <OfflineBanner />
             <BrandedHeader showNav role={session?.user?.role} />
             <main id="main-content" className="flex-1">
               {children}

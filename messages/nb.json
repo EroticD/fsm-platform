@@ -436,7 +436,8 @@
       "reports": "Rapporter",
       "newWorkOrder": "Nytt oppdrag",
       "settings": "Innstillinger",
-      "customerPortal": "Kundeportal"
+      "customerPortal": "Kundeportal",
+      "map": "Kart"
     }
   }
 }

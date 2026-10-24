@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { getCalendarTokenStatus } from "@/server/calendar-feed";
 import {
@@ -7,6 +8,7 @@ import {
 
 /** Lar brukeren abonnere på egne oppdrag i Google Calendar/Outlook. */
 export default async function CalendarFeedSettings() {
+  const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -23,16 +25,15 @@ export default async function CalendarFeedSettings() {
 
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-bold text-gray-900">📅 Kalenderabonnement</h2>
+      <h2 className="text-lg font-bold text-gray-900">📅 {t("p3.calendarFeed.title")}</h2>
       <p className="mt-1 text-sm text-gray-600">
-        Abonner på dine oppdrag i Google Calendar, Outlook eller Apple Kalender.
-        Lenken er personlig og kan tilbakekalles når som helst.
+        {t("p3.calendarFeed.description")}
       </p>
 
       {feedUrl ? (
         <div className="mt-4 space-y-3">
           <label className="block text-xs font-bold text-gray-600">
-            iCal-lenke
+            {t("p3.calendarFeed.link")}
             <input
               readOnly
               value={feedUrl}
@@ -44,7 +45,7 @@ export default async function CalendarFeedSettings() {
               type="submit"
               className="min-h-11 rounded-xl border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
             >
-              Tilbakekall lenken
+              {t("p3.calendarFeed.revoke")}
             </button>
           </form>
         </div>
@@ -54,7 +55,7 @@ export default async function CalendarFeedSettings() {
             type="submit"
             className="min-h-11 rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
           >
-            Lag kalenderlenke
+            {t("p3.calendarFeed.create")}
           </button>
         </form>
       )}

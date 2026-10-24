@@ -191,6 +191,7 @@ export default async function TechnicianFillFormPage({
 
         <ReportForm
           workOrderId={workOrderId}
+          userId={user.id}
           templateId={templateId}
           fields={fields}
           customerUnits={customerUnits}

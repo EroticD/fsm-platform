@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -184,9 +185,9 @@ export default async function TechnicianDashboard({
                       {wo.tags.map((tag: any) => (
                         <span
                           key={tag.id}
-                          className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                          className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
                           suppressHydrationWarning
-                          style={{ backgroundColor: tag.color || "#3b82f6" }}
+                          style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                         >
                           🏷️ {tag.name}
                         </span>

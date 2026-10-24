@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { notifyWorkOrderEvent } from "@/server/notifications";
 import { contractIntervalLabel } from "@/lib/contracts";
 import {
   addDaysUtc,
@@ -209,6 +210,19 @@ export async function generateRecurringWorkOrderForContract(
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  try {
+    await notifyWorkOrderEvent(
+      workOrderId,
+      "CONTRACT_DUE",
+      "Serviceavtale forfaller",
+      `Nytt oppdrag er opprettet for ${contract.title}.`,
+      `/oppdrag/${workOrderId}`,
+      `contract-due:${workOrderId}`,
+    );
+  } catch {
+    // Varsling er best effort.
   }
 
   return {

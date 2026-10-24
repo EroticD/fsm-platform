@@ -67,7 +67,14 @@
         "template": "Sjekklister",
         "folder": "Mapper",
         "document": "Dokumenter"
-      }
+      },
+      "placeholder": "Søk i kunder, oppdrag, enheter, kontakter, rapporter …",
+      "ariaLabel": "Globalt søk",
+      "searchingShort": "søker…",
+      "clear": "Tøm søk",
+      "searching": "Søker …",
+      "noResults": "Ingen treff for «{query}»",
+      "seeAll": "Se alle {count} treff"
     },
     "markdown": {
       "bold": "Fet (Ctrl+B)",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { getPortalReportHistory } from "@/server/portal";
@@ -21,6 +22,7 @@ type WorkOrderView = {
 
 /** Rapporthistorikk, nedlasting og kvittering for kundeportalen. */
 export default async function ReportHistory() {
+  const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user || user.role !== "CUSTOMER" || !user.customerId) return null;
 
@@ -35,13 +37,13 @@ export default async function ReportHistory() {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
-        <h2 className="text-lg font-bold text-gray-900">📄 Rapporter</h2>
-        <span className="text-xs text-gray-500">{data.total} rapporter</span>
+        <h2 className="text-lg font-bold text-gray-900">{t("p3.portalReports.title")}</h2>
+        <span className="text-xs text-gray-500">{t("p3.portalReports.count", { count: data.total })}</span>
       </div>
 
       {data.items.length === 0 ? (
         <p className="text-sm italic text-gray-500">
-          Ingen rapporter er publisert ennå.
+          {t("p3.portalReports.empty")}
         </p>
       ) : (
         <ul className="divide-y divide-gray-100">
@@ -54,21 +56,21 @@ export default async function ReportHistory() {
                   <div>
                     <p className="font-bold text-gray-900">{workOrder.title}</p>
                     <p className="text-xs text-gray-500">
-                      Utført {formatDate(workOrder.scheduledFor || report.completedAt)}
-                      {report.isLocked ? " · signert" : ""}
+                      {t("p3.portalReports.performed", { date: formatDate(workOrder.scheduledFor || report.completedAt) })}
+                      {report.isLocked ? ` · ${t("p3.portalReports.signed")}` : ""}
                     </p>
                   </div>
                   <Link
                     href={`/api/rapporter/${workOrder.id}/pdf`}
                     className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
                   >
-                    Last ned PDF
+                    {t("p3.portalReports.download")}
                   </Link>
                 </div>
 
                 {report.customerAcknowledgedAt ? (
                   <p className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-800">
-                    ✓ Kvittert {formatDate(report.customerAcknowledgedAt)}
+                    {t("p3.portalReports.acknowledged", { date: formatDate(report.customerAcknowledgedAt) })}
                   </p>
                 ) : (
                   <form
@@ -79,14 +81,14 @@ export default async function ReportHistory() {
                     <input type="hidden" name="reportId" value={report.id} />
                     <input
                       name="comment"
-                      placeholder="Kommentar (valgfritt)"
+                      placeholder={t("p3.portalReports.commentPlaceholder")}
                       className="min-h-11 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900"
                     />
                     <button
                       type="submit"
                       className="min-h-11 rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
                     >
-                      Kvitter mottatt
+                      {t("p3.portalReports.acknowledge")}
                     </button>
                   </form>
                 )}

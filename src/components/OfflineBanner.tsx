@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import {
   flushDraftOutbox,
   pendingDraftCount,
@@ -11,8 +12,20 @@ import {
  * Outboxen tømmes automatisk når nettverket kommer tilbake.
  */
 export default function OfflineBanner() {
-  const [online, setOnline] = useState(true);
+  const t = useTranslations("common");
   const [pending, setPending] = useState(0);
+  const online = useSyncExternalStore(
+    (callback) => {
+      window.addEventListener("online", callback);
+      window.addEventListener("offline", callback);
+      return () => {
+        window.removeEventListener("online", callback);
+        window.removeEventListener("offline", callback);
+      };
+    },
+    () => navigator.onLine,
+    () => true,
+  );
 
   useEffect(() => {
     const refresh = async () => {
@@ -20,24 +33,18 @@ export default function OfflineBanner() {
     };
 
     const goOnline = async () => {
-      setOnline(true);
       await flushDraftOutbox();
       await refresh();
     };
 
-    const goOffline = () => setOnline(false);
-
-    setOnline(navigator.onLine);
     void refresh();
     window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
     const interval = window.setInterval(() => {
       if (navigator.onLine) void refresh();
     }, 10_000);
 
     return () => {
       window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
       window.clearInterval(interval);
     };
   }, []);
@@ -55,8 +62,8 @@ export default function OfflineBanner() {
       }`}
     >
       {online
-        ? `📤 ${pending} kladd${pending === 1 ? "" : "er"} venter på sending`
-        : "📴 Du er offline – kladder lagres lokalt og sendes når nettet er tilbake"}
+        ? t("p3.offline.pending", { count: pending })
+        : t("p3.offline.offline")}
     </div>
   );
 }

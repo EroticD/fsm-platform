@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { readableTextColor } from "@/lib/colors";
 import { getTranslations } from "next-intl/server";
 import type { DocumentLibraryData } from "@/server/documents";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
@@ -257,9 +258,9 @@ export default async function DocumentBrowser({
                         {doc.tags.map((tag) => (
                           <span
                             key={tag.id}
-                            className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                            className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
                             suppressHydrationWarning
-                            style={{ backgroundColor: tag.color || "#3b82f6" }}
+                            style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >
                             🏷️ {tag.name}
                           </span>

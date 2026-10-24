@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { formatDateTime } from "@/lib/dates";
 import { hasPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
@@ -37,11 +38,17 @@ const currency = new Intl.NumberFormat("nb-NO", {
   currency: "NOK",
 });
 
-function minutesLabel(minutes: number) {
+function minutesLabel(
+  minutes: number,
+  hoursShort: string,
+  minutesShort: string,
+) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  if (hours === 0) return `${rest} min`;
-  return rest === 0 ? `${hours} t` : `${hours} t ${rest} min`;
+  if (hours === 0) return `${rest} ${minutesShort}`;
+  return rest === 0
+    ? `${hours} ${hoursShort}`
+    : `${hours} ${hoursShort} ${rest} ${minutesShort}`;
 }
 
 /**
@@ -54,8 +61,12 @@ export default async function TimeMaterialsPanel({
 }: {
   workOrderId: string;
 }) {
+  const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "workorders.view")) return null;
+
+  const hoursShort = t("p3.timeMaterials.hoursShort");
+  const minutesShort = t("p3.timeMaterials.minutesShort");
 
   const [timeResult, materialResult, timeTotals, materialTotals] =
     await Promise.all([
@@ -78,16 +89,24 @@ export default async function TimeMaterialsPanel({
     <div className="space-y-5">
       <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
-          <h2 className="text-lg font-bold text-gray-900">⏱️ Timer</h2>
-          <p className="text-sm text-gray-600">
-            {minutesLabel(timeTotals.data.minutes)} · {currency.format(timeTotals.data.amount)}
-          </p>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">⏱️ {t("p3.timeMaterials.timeTitle")}</h2>
+            <p className="text-sm text-gray-600">
+              {minutesLabel(timeTotals.data.minutes, hoursShort, minutesShort)} · {currency.format(timeTotals.data.amount)}
+            </p>
+          </div>
+          <a
+            href={`/api/okonomi/export?workOrderId=${workOrderId}`}
+            className="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+          >
+            {t("p3.timeMaterials.exportCsv")}
+          </a>
         </div>
 
         {active ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
             <p className="text-sm font-bold text-blue-900">
-              Aktiv timer startet {formatDateTime(active.startedAt)}
+              {t("p3.timeMaterials.active", { time: formatDateTime(active.startedAt) })}
             </p>
             <form action={stopTimerAction}>
               <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -96,7 +115,7 @@ export default async function TimeMaterialsPanel({
                 type="submit"
                 className="min-h-11 rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
               >
-                Stopp timer
+                {t("p3.timeMaterials.stop")}
               </button>
             </form>
           </div>
@@ -109,14 +128,14 @@ export default async function TimeMaterialsPanel({
               <input type="hidden" name="workOrderId" value={workOrderId} />
               <input
                 name="description"
-                placeholder="Hva arbeider du med? (valgfritt)"
+                placeholder={t("p3.timeMaterials.descriptionPlaceholder")}
                 className="min-h-11 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900"
               />
               <button
                 type="submit"
                 className="min-h-11 rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
               >
-                Start timer
+                {t("p3.timeMaterials.start")}
               </button>
             </form>
           )
@@ -124,12 +143,12 @@ export default async function TimeMaterialsPanel({
 
         <details className="mb-4 rounded-xl border border-gray-200 p-3">
           <summary className="cursor-pointer text-sm font-bold text-gray-700">
-            Registrer timer manuelt
+            {t("p3.timeMaterials.manual")}
           </summary>
           <form action={addTimeAction} className="mt-3 grid gap-2 sm:grid-cols-2">
             <input type="hidden" name="workOrderId" value={workOrderId} />
             <label className="text-xs font-bold text-gray-600">
-              Fra
+              {t("p3.timeMaterials.from")}
               <input
                 type="datetime-local"
                 name="startedAt"
@@ -138,7 +157,7 @@ export default async function TimeMaterialsPanel({
               />
             </label>
             <label className="text-xs font-bold text-gray-600">
-              Til
+              {t("p3.timeMaterials.to")}
               <input
                 type="datetime-local"
                 name="endedAt"
@@ -146,14 +165,14 @@ export default async function TimeMaterialsPanel({
               />
             </label>
             <label className="text-xs font-bold text-gray-600 sm:col-span-2">
-              Beskrivelse
+              {t("p3.timeMaterials.description")}
               <input
                 name="description"
                 className="mt-1 min-h-11 w-full rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
               />
             </label>
             <label className="text-xs font-bold text-gray-600">
-              Timepris (valgfritt)
+              {t("p3.timeMaterials.hourlyRate")}
               <input
                 type="number"
                 name="hourlyRate"
@@ -164,19 +183,19 @@ export default async function TimeMaterialsPanel({
             </label>
             <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
               <input type="checkbox" name="billable" defaultChecked className="h-4 w-4" />
-              Fakturerbart
+              {t("p3.timeMaterials.billable")}
             </label>
             <button
               type="submit"
               className="min-h-11 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800 sm:col-span-2"
             >
-              Lagre timer
+              {t("p3.timeMaterials.saveTime")}
             </button>
           </form>
         </details>
 
         {entries.length === 0 ? (
-          <p className="text-sm italic text-gray-500">Ingen timer registrert ennå.</p>
+          <p className="text-sm italic text-gray-500">{t("p3.timeMaterials.noTime")}</p>
         ) : (
           <ul className="divide-y divide-gray-100">
             {entries.slice(0, 20).map((entry) => (
@@ -184,12 +203,12 @@ export default async function TimeMaterialsPanel({
                 <div>
                   <p className="text-sm font-bold text-gray-900">
                     {formatDateTime(entry.startedAt)}
-                    {entry.endedAt ? ` → ${formatDateTime(entry.endedAt)}` : " (aktiv)"}
+                    {entry.endedAt ? ` → ${formatDateTime(entry.endedAt)}` : ` ${t("p3.timeMaterials.activeShort")}`}
                   </p>
                   <p className="text-xs text-gray-600">
-                    {minutesLabel(entry.minutes ?? 0)}
+                    {minutesLabel(entry.minutes ?? 0, hoursShort, minutesShort)}
                     {entry.description ? ` · ${entry.description}` : ""}
-                    {entry.billable ? "" : " · ikke fakturerbart"}
+                    {entry.billable ? "" : ` · ${t("p3.timeMaterials.notBillable")}`}
                   </p>
                 </div>
                 {(entry.userId === user.id || user.role === "ADMIN") && (
@@ -200,7 +219,7 @@ export default async function TimeMaterialsPanel({
                       type="submit"
                       className="min-h-11 rounded-xl px-3 text-xs font-bold text-red-600 hover:bg-red-50"
                     >
-                      Slett
+                      {t("p3.timeMaterials.delete")}
                     </button>
                   </form>
                 )}
@@ -212,9 +231,9 @@ export default async function TimeMaterialsPanel({
 
       <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
-          <h2 className="text-lg font-bold text-gray-900">📦 Materialer</h2>
+          <h2 className="text-lg font-bold text-gray-900">📦 {t("p3.timeMaterials.materialTitle")}</h2>
           <p className="text-sm text-gray-600">
-            {materialTotals.data.count} linjer · {currency.format(materialTotals.data.amount)}
+            {t("p3.timeMaterials.lines", { count: materialTotals.data.count })} · {currency.format(materialTotals.data.amount)}
           </p>
         </div>
 
@@ -224,12 +243,12 @@ export default async function TimeMaterialsPanel({
             <input
               name="name"
               required
-              placeholder="Navn"
+              placeholder={t("p3.timeMaterials.name")}
               className="min-h-11 rounded-xl border border-gray-300 px-3 text-sm text-gray-900 sm:col-span-2"
             />
             <input
               name="sku"
-              placeholder="SKU"
+              placeholder={t("p3.timeMaterials.sku")}
               className="min-h-11 rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
             />
             <input
@@ -247,20 +266,20 @@ export default async function TimeMaterialsPanel({
               required
               min="0"
               step="0.01"
-              placeholder="Pris"
+              placeholder={t("p3.timeMaterials.price")}
               className="min-h-11 rounded-xl border border-gray-300 px-3 text-sm text-gray-900"
             />
             <button
               type="submit"
               className="min-h-11 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
             >
-              Legg til
+              {t("p3.timeMaterials.add")}
             </button>
           </form>
         )}
 
         {materials.length === 0 ? (
-          <p className="text-sm italic text-gray-500">Ingen materialer registrert.</p>
+          <p className="text-sm italic text-gray-500">{t("p3.timeMaterials.noMaterials")}</p>
         ) : (
           <ul className="divide-y divide-gray-100">
             {materials.map((material) => (
@@ -284,7 +303,7 @@ export default async function TimeMaterialsPanel({
                       type="submit"
                       className="min-h-11 rounded-xl px-3 text-xs font-bold text-red-600 hover:bg-red-50"
                     >
-                      Slett
+                      {t("p3.timeMaterials.delete")}
                     </button>
                   </form>
                 )}

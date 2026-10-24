@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { notifyWorkOrderEvent } from "./notifications";
 import { hasPermission } from "@/lib/permissions";
 import { isOffice } from "@/lib/session";
 import { workOrderScope, type AccessUser } from "@/lib/access";
@@ -725,6 +726,19 @@ export async function submitReport(
   }
   if (previousCustomerSignature && previousCustomerSignature !== customerSignatureUrl) {
     await deleteUploadIfOwned(previousCustomerSignature, signatureOwner);
+  }
+
+  try {
+    await notifyWorkOrderEvent(
+      workOrderId,
+      "REPORT_READY",
+      "Rapport klar",
+      "En signert rapport er klar.",
+      `/mine-oppdrag/${workOrderId}`,
+      `report-ready:${workOrderId}:${templateId}`,
+    );
+  } catch {
+    // Varsling er best effort; rapporten er allerede lagret.
   }
 
   return { ok: true, returnTo };

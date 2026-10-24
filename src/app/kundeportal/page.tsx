@@ -19,7 +19,9 @@ import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
 import { sendBookingNotification } from "@/lib/email";
 import { parsePage } from "@/lib/pagination";
+import ReportHistory from "@/components/portal/ReportHistory";
 import StatusBadge from "@/components/StatusBadge";
+import { requestContactUpdateAction } from "./report-actions";
 
 /** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
 const UPCOMING_PAGE_SIZE = 20;
@@ -377,6 +379,25 @@ export default async function KundeportalPage({
               )}
             </div>
           </div>
+
+          <form action={requestContactUpdateAction} className="mt-4 space-y-2 border-t border-gray-200 pt-4">
+            <label htmlFor="contact-update-message" className="block text-sm font-bold text-gray-700">
+              {t("p3.portalReports.requestUpdate")}
+            </label>
+            <textarea
+              id="contact-update-message"
+              name="message"
+              rows={2}
+              placeholder={t("p3.portalReports.requestUpdatePlaceholder")}
+              className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900"
+            />
+            <button
+              type="submit"
+              className="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+            >
+              {t("p3.portalReports.requestUpdateButton")}
+            </button>
+          </form>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -587,6 +608,10 @@ export default async function KundeportalPage({
             </div>
 
           </div>
+        </div>
+
+        <div className="mt-6">
+          <ReportHistory />
         </div>
 
         {/* TEKNIKERTILGJENGELIGHET – neste 7 dager */}

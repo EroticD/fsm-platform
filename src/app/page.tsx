@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -79,9 +80,9 @@ async function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string
               {wo.tags.map((tag: any) => (
                 <span
                   key={tag.id}
-                  className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                  className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
                   suppressHydrationWarning
-                  style={{ backgroundColor: tag.color || "#3b82f6" }}
+                  style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                 >
                   🏷️ {tag.name}
                 </span>
@@ -593,9 +594,9 @@ export default async function AdminDashboard({
                         {wo.tags.map((tag: any) => (
                           <span
                             key={tag.id}
-                            className="text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                            className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
                             suppressHydrationWarning
-                            style={{ backgroundColor: tag.color || "#3b82f6" }}
+                            style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >
                             🏷️ {tag.name}
                           </span>
@@ -610,7 +611,7 @@ export default async function AdminDashboard({
                         {wo.technicians.length > 0 ? (
                           wo.technicians.map((tech) => tech.name?.split(" ")[0]).filter(Boolean).join(", ")
                         ) : (
-                          <span className="text-red-500 font-medium">{t("dashboard.notAssigned")}</span>
+                          <span className="text-red-700 font-bold">{t("dashboard.notAssigned")}</span>
                         )}
                       </p>
                     </div>

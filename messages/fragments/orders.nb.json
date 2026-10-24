@@ -401,7 +401,8 @@
       "technicianSignature": "✍️ Montør / tekniker",
       "technicianHelper": "Den som utførte jobben.",
       "customerSignature": "✍️ Kunde",
-      "customerHelper": "Kundens representant på stedet."
+      "customerHelper": "Kundens representant på stedet.",
+      "draftOffline": "Lagret lokalt – sendes når nettet er tilbake"
     },
     "attachments": {
       "title": "📎 Vedlegg",

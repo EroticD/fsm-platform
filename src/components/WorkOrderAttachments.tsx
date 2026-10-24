@@ -200,6 +200,7 @@ export default function WorkOrderAttachments({
         <div className="space-y-2">
           <input
             type="file"
+        capture="environment"
             accept="image/*,application/pdf,.pdf"
             multiple
             onChange={handleChange}

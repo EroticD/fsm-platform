@@ -22,7 +22,9 @@ import dashboardEn from "../../messages/fragments/dashboard.en.json";
 import equipmentNb from "../../messages/fragments/equipment.nb.json";
 import equipmentEn from "../../messages/fragments/equipment.en.json";
 import errorsNb from "../../messages/fragments/errors.nb.json";
+import p3Nb from "../../messages/fragments/p3.nb.json";
 import errorsEn from "../../messages/fragments/errors.en.json";
+import p3En from "../../messages/fragments/p3.en.json";
 
 type Messages = Record<string, unknown>;
 
@@ -62,6 +64,7 @@ const nbFragments = mergeAll([
   dashboardNb,
   equipmentNb,
   errorsNb,
+  p3Nb,
 ]);
 
 const enFragments = mergeAll([
@@ -76,6 +79,7 @@ const enFragments = mergeAll([
   dashboardEn,
   equipmentEn,
   errorsEn,
+  p3En,
 ]);
 
 /**
