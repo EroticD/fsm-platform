@@ -222,13 +222,19 @@ export default function ReportDocument({
     };
   });
 
-  const knownStatuses = blocks.map((b) => b.status).filter((s) => s !== "UKJENT");
+  // Bare rapporter med enheter har et godkjent/avvik-resultat. En rapport uten
+  // enheter skal verken vises som godkjent eller avvik, selv om eldre rader
+  // fortsatt har GODKJENT/AVVIK lagret.
+  const unitBlocks = blocks.filter((b) => b.requiresUnits);
+  const knownStatuses = unitBlocks.map((b) => b.status).filter((s) => s !== "UKJENT");
   const overallStatus =
-    knownStatuses.length === 0 ? "UKJENT" : knownStatuses.includes("AVVIK") ? "AVVIK" : "GODKJENT";
-  const totalUnits = blocks.reduce(
-    (sum, b) => sum + (b.requiresUnits ? b.units.length : 0),
-    0,
-  );
+    knownStatuses.length === 0
+      ? "UKJENT"
+      : knownStatuses.includes("AVVIK")
+        ? "AVVIK"
+        : "GODKJENT";
+  const hasUnitReports = unitBlocks.length > 0;
+  const totalUnits = unitBlocks.reduce((sum, b) => sum + b.units.length, 0);
   const customer = workOrder.customer || data.customer || {};
   // Én rapport gir et presist dokumentnavn; flere sjekklister på samme
   // oppdrag beholder den generelle tittelen.
@@ -720,13 +726,15 @@ export default function ReportDocument({
           </View>
         </View>
 
-        {/* SAMLET RESULTAT */}
-        <View style={styles.statusBox}>
-          <Text style={styles.statusText}>
-            {overallStatus === "GODKJENT" ? "Godkjent / utført" : overallStatus === "AVVIK" ? "Avvik funnet" : "Ukjent resultat"}
-            {totalUnits > 0 ? ` – ${totalUnits} ${totalUnits === 1 ? "enhet" : "enheter"} kontrollert` : ""}
-          </Text>
-        </View>
+        {/* SAMLET RESULTAT – bare når minst én rapport har enheter */}
+        {hasUnitReports && (
+          <View style={styles.statusBox}>
+            <Text style={styles.statusText}>
+              {overallStatus === "GODKJENT" ? "Godkjent / utført" : overallStatus === "AVVIK" ? "Avvik funnet" : "Ukjent resultat"}
+              {totalUnits > 0 ? ` – ${totalUnits} ${totalUnits === 1 ? "enhet" : "enheter"} kontrollert` : ""}
+            </Text>
+          </View>
+        )}
 
         {/* ÉN SEKSJON PER UTFYLT SJEKKLISTE */}
         {planned.map(({ block, units, legacy }, blockIndex) => (
@@ -736,7 +744,11 @@ export default function ReportDocument({
                 {block.name || `Sjekkliste ${blockIndex + 1}`}
                 {block.category === "HMS" ? "  •  HMS-dokumentasjon" : ""}
                 {block.date ? `  •  ${block.date}` : ""}
-                {block.status !== "UKJENT" ? (block.status === "AVVIK" ? "  –  Avvik" : "  –  Godkjent") : ""}
+                {block.requiresUnits && block.status !== "UKJENT"
+                  ? block.status === "AVVIK"
+                    ? "  –  Avvik"
+                    : "  –  Godkjent"
+                  : ""}
               </Text>
             ) : null}
 
@@ -861,7 +873,7 @@ export default function ReportDocument({
                 <Text style={styles.metaKey}>Sjekkliste: </Text>
                 {attachment.checklist}
                 {attachment.date ? `  •  ${attachment.date}` : ""}
-                {attachment.status
+                {attachment.requiresUnits && attachment.status
                   ? `  •  ${attachment.status === "AVVIK" ? "Avvik" : "Godkjent"}`
                   : ""}
               </Text>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseRevisionUnits,
   revisionLegacyAnswers,
+  revisionStatus,
   revisionToDocumentData,
   revisionToDocumentReport,
 } from "./report-revision";
@@ -85,7 +86,7 @@ describe("revisionToDocumentReport", () => {
         {
           id: "anonym",
           label: "",
-          status: "GODKJENT",
+          status: "UTEN_ENHET",
           answersJson: JSON.stringify({ f1: "Svar" }),
           comment: null,
           sortOrder: 0,
@@ -95,7 +96,34 @@ describe("revisionToDocumentReport", () => {
 
     expect(report.requiresUnits).toBe(false);
     expect(report.units).toHaveLength(1);
+    expect(report.units[0].status).toBe("UTEN_ENHET");
     expect(revisionLegacyAnswers(revision)).toEqual({ f1: "Gammelt svar" });
+  });
+});
+
+describe("revisionStatus", () => {
+  it("utleder status fra dataJson for rapporter med enheter", () => {
+    expect(revisionStatus(revision)).toBe("AVVIK");
+    expect(
+      revisionStatus({ ...revision, dataJson: JSON.stringify({ status: "GODKJENT" }) }),
+    ).toBe("GODKJENT");
+  });
+
+  it("ignorerer gammel godkjenning/avvik for revisjoner uten enheter", () => {
+    expect(
+      revisionStatus({
+        ...revision,
+        requiresUnits: false,
+        dataJson: JSON.stringify({ status: "AVVIK" }),
+      }),
+    ).toBe("UTEN_ENHET");
+    expect(
+      revisionStatus({
+        ...revision,
+        requiresUnits: false,
+        dataJson: JSON.stringify({ status: "GODKJENT" }),
+      }),
+    ).toBe("UTEN_ENHET");
   });
 });
 
