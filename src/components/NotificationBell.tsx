@@ -94,7 +94,7 @@ export default function NotificationBell() {
     <Link
       href="/varsler"
       aria-label={count > 0 ? t("p3.bell.unread", { count }) : t("p3.bell.label")}
-      className="relative flex h-11 w-11 items-center justify-center rounded-xl text-xl text-gray-600 hover:bg-gray-100"
+      className="relative flex h-11 w-11 items-center justify-center rounded-xl text-xl text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
     >
       🔔
       {count > 0 && (

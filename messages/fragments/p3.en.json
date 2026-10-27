@@ -13,7 +13,22 @@
       "previous": "Previous",
       "next": "Next",
       "pageOf": "Page {page} of {pages}",
-      "settings": "Settings"
+      "settings": "Settings",
+      "fromLabel": "From:",
+      "sourceFallback": "System notification",
+      "unread": "Unread",
+      "openAria": "Open the notification “{title}”",
+      "markReadAria": "Mark the notification “{title}” as read",
+      "types": {
+        "ASSIGNMENT": "Assignment",
+        "DATE_CHANGED": "Date change",
+        "CANCELLED": "Cancellation",
+        "REPORT_READY": "Report",
+        "BOOKING": "Booking",
+        "CONTRACT_DUE": "Service agreement",
+        "OVERDUE": "Overdue",
+        "CONTACT_UPDATE": "Contact update"
+      }
     },
     "notificationSettings": {
       "title": "Notification settings",
