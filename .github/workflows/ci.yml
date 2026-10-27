@@ -113,6 +113,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verifiser Prisma schema-engine i imaget
+        run: |
+          docker run --rm --entrypoint sh fsm-platform:ci -lc '
+            test -n "$(find node_modules/@prisma/engines -maxdepth 1 -name "schema-engine-*" -print -quit)" &&
+            node node_modules/prisma/build/index.js -v
+          '
+
       - name: Skann imaget for sårbarheter
         uses: aquasecurity/trivy-action@v0.36.0
         with:
