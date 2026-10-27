@@ -268,6 +268,10 @@ model WorkOrder {
   title        String
   /// Eksternt ordrenummer fra kundens system.
   orderNumber  String?
+  /// Normalisert ordrenummer for duplikatkontroll/søk.
+  orderNumberNormalized String?
+  /// Unik nøkkel for automatisk opprettet utbedringsoppdrag.
+  deviationSourceKey String? @unique
   description  String?
   scheduledFor DateTime? @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
@@ -315,6 +319,8 @@ model WorkOrder {
   @@index([scheduledFor])
   @@index([contractId])
   @@index([orderNumber])
+  @@index([orderNumberNormalized])
+  @@unique([departmentId, orderNumberNormalized])
   @@index([scheduledTo])
   @@index([deletedAt])
 
