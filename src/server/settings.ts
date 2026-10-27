@@ -344,23 +344,36 @@ export async function saveBranding(
 // Sjekklistemaler
 // ---------------------------------------------------------------------------
 
+/** Avkrysningsfelt: eksplisitt «true»/«false» vinner, ellers standardverdien. */
+export function checkboxValue(value: unknown, defaultValue: boolean): boolean {
+  const values = Array.isArray(value) ? value : [value];
+  if (values.some((item) => item === "true" || item === "on")) return true;
+  if (values.some((item) => item === "false" || item === "0")) return false;
+  return defaultValue;
+}
+
 export async function createTemplate(
   actor: ServiceActor,
-  input: { title?: unknown },
+  input: { title?: unknown; reportName?: unknown; requiresUnits?: unknown },
 ): Promise<ServiceResult<{ id: string }>> {
   if (!can(actor, "templates.manage")) return fail("forbidden");
 
   const title = cleanText(input.title, { maxLength: LIMITS.title });
   if (!title) return fail("invalid");
 
+  const reportName = cleanText(input.reportName, { maxLength: LIMITS.title }) || null;
+  const requiresUnits = checkboxValue(input.requiresUnits, true);
+
   const template = await prisma.$transaction(async (tx) => {
     const created = await tx.template.create({
-      data: { title, fieldsJson: "[]" },
+      data: { title, reportName, requiresUnits, fieldsJson: "[]" },
     });
     await audit(tx, {
       entityType: "Template",
       entityId: created.id,
-      action: `Opprettet sjekkliste: ${title}`,
+      action: `Opprettet sjekkliste: ${title}${
+        reportName ? ` (rapportnavn: ${reportName})` : ""
+      }${requiresUnits ? "" : " (uten enheter)"}`,
       actor: toAuditActor(actor),
     });
     return created;

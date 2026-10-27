@@ -43,6 +43,8 @@ export default async function EditTemplatePage({
         {/* DEN VISUELLE BYGGEREN */}
         <TemplateBuilder 
           initialTitle={template.title} 
+          initialReportName={template.reportName ?? ""}
+          initialRequiresUnits={template.requiresUnits}
           initialFieldsJson={template.fieldsJson || "[]"} 
           saveAction={saveTemplate}
           templateId={template.id}

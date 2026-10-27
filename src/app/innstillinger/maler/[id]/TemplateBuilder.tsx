@@ -47,17 +47,23 @@ function createFieldId(): string {
 
 export default function TemplateBuilder({ 
   initialTitle, 
+  initialReportName = "",
+  initialRequiresUnits = true,
   initialFieldsJson, 
   saveAction,
   templateId,
 }: { 
   initialTitle: string; 
+  initialReportName?: string;
+  initialRequiresUnits?: boolean;
   initialFieldsJson: string; 
   saveAction: (formData: FormData) => Promise<void> | void;
   templateId: string;
 }) {
   const t = useTranslations("common");
   const [title, setTitle] = useState(initialTitle);
+  const [reportName, setReportName] = useState(initialReportName);
+  const [requiresUnits, setRequiresUnits] = useState(initialRequiresUnits);
   
   const [fields, setFields] = useState<FormField[]>(() => {
     try {
@@ -115,6 +121,7 @@ export default function TemplateBuilder({
       
       <input type="hidden" name="fieldsJson" value={JSON.stringify(fields)} />
       <input type="hidden" name="id" value={templateId} />
+      <input type="hidden" name="requiresUnits" value={requiresUnits ? "true" : "false"} />
       
       <div>
         <label className="block text-sm font-black text-gray-900 mb-1">{t("settings.templateBuilder.name")}</label>
@@ -126,6 +133,36 @@ export default function TemplateBuilder({
           required 
           className="w-full border-2 border-gray-300 p-3 rounded-xl text-lg text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400" 
         />
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <div>
+          <label className="block text-sm font-black text-gray-900 mb-1">
+            {t("settings.templateBuilder.reportName")}
+          </label>
+          <input
+            type="text"
+            name="reportName"
+            value={reportName}
+            onChange={(e) => setReportName(e.target.value)}
+            placeholder={t("settings.templates.reportNamePlaceholder")}
+            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+          />
+          <p className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.reportNameHint")}</p>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-sm font-bold text-gray-900 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={requiresUnits}
+              onChange={(e) => setRequiresUnits(e.target.checked)}
+              className="w-4 h-4 text-blue-700 rounded border-gray-400 focus:ring-blue-600 cursor-pointer"
+            />
+            {t("settings.templateBuilder.requiresUnits")}
+          </label>
+          <p className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.requiresUnitsHint")}</p>
+        </div>
       </div>
 
       <div className="border-t border-gray-200 pt-6">

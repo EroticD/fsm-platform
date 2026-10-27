@@ -167,6 +167,84 @@ describe("innstillingstjenesten – logo må eies av avsenderen", () => {
   });
 });
 
+describe("innstillingstjenesten – maler", () => {
+  it("lagrer rapportnavn og slår av enhetskravet", async () => {
+    const result = await createTemplate(office(), {
+      title: "Årlig service",
+      reportName: "  Rapport <b>Årlig</b>  ",
+      requiresUnits: "false",
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "template-1" } });
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: {
+        title: "Årlig service",
+        reportName: "Rapport Årlig",
+        requiresUnits: false,
+        fieldsJson: "[]",
+      },
+    });
+  });
+
+  it("bruker «true» når enhetskravet mangler", async () => {
+    const result = await createTemplate(office(), { title: "Uten valg" });
+
+    expect(result).toEqual({ ok: true, data: { id: "template-1" } });
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requiresUnits: true, reportName: null }),
+    });
+  });
+
+  it("tolker avkrysningsfelt med både skjult false og valgt true som på", async () => {
+    await createTemplate(office(), {
+      title: "Med enheter",
+      requiresUnits: ["false", "true"],
+    });
+
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requiresUnits: true }),
+    });
+  });
+
+  it("begrenser rapportnavnet til tittelens maksimumslengde", async () => {
+    await createTemplate(office(), {
+      title: "Langt navn",
+      reportName: "x".repeat(500),
+    });
+
+    const data = mocks.prisma.template.create.mock.calls[0][0].data;
+    expect(data.reportName).toHaveLength(200);
+  });
+
+  it("skriver rapportnavn og enhetskrav til revisjonsloggen", async () => {
+    const auditCreate = vi.fn(async () => ({}));
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          template: { create: vi.fn(async () => ({ id: "template-1" })) },
+          auditLog: { create: auditCreate },
+        }),
+    );
+
+    await createTemplate(office(), {
+      title: "Årlig service",
+      reportName: "Service rapport",
+      requiresUnits: "false",
+    });
+
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("Service rapport"),
+      }),
+    });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("uten enheter"),
+      }),
+    });
+  });
+});
+
 describe("innstillingstjenesten – revisjon", () => {
   it("skriver revisjonslogg i samme transaksjon som malen", async () => {
     const auditCreate = vi.fn(async () => ({}));

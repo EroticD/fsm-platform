@@ -24,15 +24,32 @@ export default async function TemplatesTab({
         <h2 className="text-xl font-bold text-gray-900 mb-2">{t("settings.templates.createTitle")}</h2>
         <p className="text-sm text-gray-500 mb-5">{t("settings.templates.createDesc")}</p>
 
-        <form action={createTemplate} className="flex gap-3 max-w-lg">
+        <form action={createTemplate} className="max-w-lg space-y-3">
           <input
             type="text"
             name="title"
             placeholder={t("settings.templates.titlePlaceholder")}
             required
-            className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+            className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
           />
-          <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+          <input
+            type="text"
+            name="reportName"
+            placeholder={t("settings.templates.reportNamePlaceholder")}
+            className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+          />
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
+            <input type="hidden" name="requiresUnits" value="false" />
+            <input
+              type="checkbox"
+              name="requiresUnits"
+              value="true"
+              defaultChecked
+              className="w-4 h-4 rounded border-gray-400 text-blue-700 focus:ring-blue-600"
+            />
+            {t("settings.templates.createRequiresUnits")}
+          </label>
+          <button type="submit" className="w-full bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
             {t("settings.templates.createButton")}
           </button>
         </form>
@@ -49,10 +66,26 @@ export default async function TemplatesTab({
         ) : (
           <div className="space-y-3">
             {templates.map((template) => (
-              <div key={template.id} className="flex justify-between items-center p-4 bg-gray-50 border border-gray-100 rounded-xl">
-                <span className="font-bold text-gray-800">{template.title}</span>
+              <div key={template.id} className="flex justify-between items-center gap-3 p-4 bg-gray-50 border border-gray-100 rounded-xl">
+                <div className="min-w-0">
+                  <span className="font-bold text-gray-800">{template.title}</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    <span className="text-[11px] font-bold text-gray-700 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                      {t("settings.templateBuilder.reportName")}: {template.reportName || template.title}
+                    </span>
+                    <span
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                        template.requiresUnits
+                          ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+                          : "text-amber-800 bg-amber-50 border-amber-200"
+                      }`}
+                    >
+                      {template.requiresUnits ? "✓" : "✕"} {t("settings.templateBuilder.requiresUnits")}
+                    </span>
+                  </div>
+                </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   <Link
                     href={`/innstillinger/maler/${template.id}`}
                     className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 font-bold text-sm px-3 py-1.5 rounded-lg transition"
