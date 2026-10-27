@@ -506,6 +506,7 @@ function readAnswers(formData: FormData, fields: TemplateField[], key: string) {
  */
 async function filterOwnedImageAnswers(
   unitRows: Array<{ answersJson: string }>,
+  fields: TemplateField[],
   ctx: {
     ownerId: string;
     departmentId: string;
@@ -513,12 +514,20 @@ async function filterOwnedImageAnswers(
     uploadedById: string;
   },
 ): Promise<void> {
+  // Bare faktiske bildefelt skal gjennom bilde-ACL. Tall, datoer, tekst og
+  // andre svar er vanlige strenger og må aldri tolkes som URL-er – det var
+  // årsaken til at gamle rapporter fikk «[]» i stedet for verdien.
+  const imageFieldIds = new Set(
+    fields.filter((field) => field.type === "IMAGE").map((field) => field.id),
+  );
+  if (imageFieldIds.size === 0) return;
+
   const names = new Set<string>();
   for (const row of unitRows) {
     try {
       const answers = JSON.parse(row.answersJson) as Record<string, unknown>;
-      for (const value of Object.values(answers)) {
-        if (typeof value !== "string") continue;
+      for (const [key, value] of Object.entries(answers)) {
+        if (!imageFieldIds.has(key) || typeof value !== "string") continue;
         for (const url of parseImageUrls(value)) {
           if (url.startsWith("/uploads/")) {
             names.add(url.slice("/uploads/".length));
@@ -563,7 +572,7 @@ async function filterOwnedImageAnswers(
       const answers = JSON.parse(row.answersJson) as Record<string, unknown>;
       let changed = false;
       for (const [key, value] of Object.entries(answers)) {
-        if (typeof value !== "string") continue;
+        if (!imageFieldIds.has(key) || typeof value !== "string") continue;
         const urls = parseImageUrls(value);
         if (urls.length === 0) continue;
         const filtered = urls.filter((url) => allowed.has(url));
@@ -977,7 +986,7 @@ export async function submitReport(
 
   // Bildefeltene kan inneholde URL-er fra andre oppdrag/kunder. Fjern dem før
   // rapporten lagres, slik at PDF-en ikke lekker filer brukeren ikke eier.
-  await filterOwnedImageAnswers(unitRows, {
+  await filterOwnedImageAnswers(unitRows, fields, {
     ownerId: workOrderId,
     departmentId: workOrder.departmentId,
     customerId: workOrder.customerId,

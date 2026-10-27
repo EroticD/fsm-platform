@@ -703,6 +703,62 @@ describe("reports-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("bevarer tall, dato og tekst når rapporten har bildefelt", async () => {
+    const mixedTemplate = {
+      id: "tpl-mixed",
+      title: "Bilde og verdier",
+      reportName: "Bilde og verdier",
+      category: "SERVICE",
+      hmsType: null,
+      requiresUnits: true,
+      fieldsJson: JSON.stringify([
+        { id: "f_num", type: "NUMBER", label: "Antall", required: false },
+        { id: "f_date", type: "DATE", label: "Dato", required: false },
+        { id: "f_text", type: "TEXT", label: "Tekst", required: false },
+        { id: "f_image", type: "IMAGE", label: "Bilde", required: false },
+      ]),
+    };
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [mixedTemplate],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.upload.findMany.mockResolvedValue([
+      {
+        storedName: "bilde.png",
+        ownerType: "WORK_ORDER",
+        ownerId: "wo1",
+        uploadedById: "u1",
+      },
+    ]);
+    const tx = withTransaction();
+    const data = new FormData();
+    data.set("workOrderId", "wo1");
+    data.set("templateId", mixedTemplate.id);
+    data.set("unitsJson", JSON.stringify([{ key: "unit-0", label: "Pumpe" }]));
+    data.set("status__unit-0", "GODKJENT");
+    data.set("answer__unit-0__f_num", "42");
+    data.set("answer__unit-0__f_date", "2026-10-27");
+    data.set("answer__unit-0__f_text", "Viktig tekst");
+    data.set("answer__unit-0__f_image", '["/uploads/bilde.png"]');
+
+    const result = await submitReport(actor(), data);
+    expect(result.ok).toBe(true);
+
+    const create = (
+      tx.report.create as unknown as {
+        mock: { calls: Array<[{ data: { units: { create: Array<{ answersJson: string }> } } }]> };
+      }
+    ).mock.calls[0][0];
+    const answers = JSON.parse(create.data.units.create[0].answersJson);
+    expect(answers).toMatchObject({
+      f_num: "42",
+      f_date: "2026-10-27",
+      f_text: "Viktig tekst",
+      f_image: '["/uploads/bilde.png"]',
+    });
+  });
+
   it("ignorerer klientens avviksstatus og lagrer nøytral status uten enheter", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       ...workOrder(),
