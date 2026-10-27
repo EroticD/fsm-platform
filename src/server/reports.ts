@@ -168,6 +168,8 @@ const REVISION_SOURCE_SELECT = {
   dataJson: true,
   comments: true,
   templateTitle: true,
+  name: true,
+  requiresUnits: true,
   completedAt: true,
   templateSnapshotJson: true,
   technicianSignatureUrl: true,
@@ -215,6 +217,8 @@ function revisionSnapshot(
     unitsJson: JSON.stringify(current.units ?? []),
     comments: current.comments,
     templateTitle: current.templateTitle,
+    name: current.name,
+    requiresUnits: current.requiresUnits,
     completedAt: current.completedAt,
     templateSnapshotJson: current.templateSnapshotJson,
     technicianSignatureUrl: current.technicianSignatureUrl,
@@ -682,6 +686,9 @@ export async function submitReport(
   const template = workOrder.templates[0];
   if (!template) return { ok: false, error: "ikke-funnet" };
   const fields = parseFields(template.fieldsJson);
+  // Eldre maler (og testdata) kan mangle feltet; standarden er at enheter
+  // kreves, som i databasen.
+  const templateRequiresUnits = template.requiresUnits !== false;
 
   // Én rapport per sjekkliste per oppdrag. Er den allerede fylt ut og låst, kan
   // den ikke endres før en administrator har låst den opp.
@@ -717,30 +724,51 @@ export async function submitReport(
     sortOrder: number;
   }> = [];
 
-  for (const [index, unit] of parseUnits(formData.get("unitsJson")).entries()) {
-    const label = cleanText(unit.label, { maxLength: LIMITS.title });
-    if (!label) continue; // hopper over tomme rader
+  if (templateRequiresUnits) {
+    for (const [index, unit] of parseUnits(formData.get("unitsJson")).entries()) {
+      const label = cleanText(unit.label, { maxLength: LIMITS.title });
+      if (!label) continue; // hopper over tomme rader
 
-    const status = formData.get(`status__${unit.key}`) === "AVVIK" ? "AVVIK" : "GODKJENT";
+      const status = formData.get(`status__${unit.key}`) === "AVVIK" ? "AVVIK" : "GODKJENT";
+      unitStatus.push(status);
+
+      const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
+      const location = cleanText(unit.location, { maxLength: LIMITS.line }) || null;
+
+      unitRows.push({
+        productId: await resolveProductId(workOrder.customerId, {
+          productId: unit.productId || "",
+          label,
+          serialNumber: serialNumber ?? "",
+          location: location ?? "",
+        }),
+        label,
+        serialNumber,
+        location,
+        status,
+        answersJson: JSON.stringify(readAnswers(formData, fields, unit.key)),
+        comment: cleanMarkdown(formData.get(`comment__${unit.key}`)) || null,
+        sortOrder: index,
+      });
+    }
+  } else {
+    // Malen bruker ikke enheter. Da godtas nøyaktig én anonym oppføring, og
+    // eventuell produkt-/enhetsmetadata fra klienten ignoreres. Nøkkelen
+    // brukes bare for å lese svarfeltene i skjemaet.
+    const [anonymous] = parseUnits(formData.get("unitsJson"));
+    const key = anonymous?.key || "report";
+    const status = formData.get(`status__${key}`) === "AVVIK" ? "AVVIK" : "GODKJENT";
     unitStatus.push(status);
 
-    const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
-    const location = cleanText(unit.location, { maxLength: LIMITS.line }) || null;
-
     unitRows.push({
-      productId: await resolveProductId(workOrder.customerId, {
-        productId: unit.productId || "",
-        label,
-        serialNumber: serialNumber ?? "",
-        location: location ?? "",
-      }),
-      label,
-      serialNumber,
-      location,
+      productId: null,
+      label: "",
+      serialNumber: null,
+      location: null,
       status,
-      answersJson: JSON.stringify(readAnswers(formData, fields, unit.key)),
-      comment: cleanMarkdown(formData.get(`comment__${unit.key}`)) || null,
-      sortOrder: index,
+      answersJson: JSON.stringify(readAnswers(formData, fields, key)),
+      comment: cleanMarkdown(formData.get(`comment__${key}`)) || null,
+      sortOrder: 0,
     });
   }
 
@@ -842,15 +870,22 @@ export async function submitReport(
     customerName: text("customerName") ?? existing?.customerName ?? null,
     // Frys malen slik den var da rapporten ble signert.
     templateTitle: template.title,
+    // Rapportnavnet og enhetsvalget fryses også, slik at PDF og lister viser
+    // samme navn selv om malen endres senere.
+    name: template.reportName || template.title,
+    requiresUnits: templateRequiresUnits,
     templateSnapshotJson: template.fieldsJson,
     isLocked: true,
     lockedAt: now,
     lockedByName: user.name || user.email,
   };
 
+  const unitSummary = templateRequiresUnits
+    ? `${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}`
+    : "uten enheter";
   const actionText =
     `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template.title}` +
-    ` (${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
+    ` (${unitSummary}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
     " – rapporten låses automatisk";
 
   const signatureOwner = { ownerType: "WORK_ORDER" as const, ownerId: workOrderId };

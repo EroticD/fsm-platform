@@ -178,6 +178,7 @@ export async function getPortalReportHistory(
           take: 1,
           select: {
             id: true,
+            name: true,
             completedAt: true,
             isLocked: true,
             pdfUrl: true,

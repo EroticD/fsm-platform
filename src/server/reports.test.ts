@@ -101,6 +101,42 @@ function formData(overrides: { workOrderId?: string; templateId?: string } = {})
   return data;
 }
 
+const noUnitTemplate = {
+  id: "tpl1",
+  title: "Samlet sjekkliste",
+  reportName: "Egen rapport",
+  requiresUnits: false,
+  fieldsJson: JSON.stringify([
+    { id: "f1", type: "TEXT", label: "Tilstand", required: false },
+  ]),
+};
+
+function noUnitFormData() {
+  const data = new FormData();
+  data.set("workOrderId", "wo1");
+  data.set("templateId", "tpl1");
+  // Klienten kan fortsatt sende enhetsmetadata; serveren skal ignorere den.
+  data.set(
+    "unitsJson",
+    JSON.stringify([
+      {
+        key: "report",
+        label: "Skal ignoreres",
+        productId: "produkt-1",
+        serialNumber: "SN-999",
+        location: "Feil sted",
+      },
+      { key: "ekstra", label: "Ekstra enhet" },
+    ]),
+  );
+  data.set("status__report", "AVVIK");
+  data.set("answer__report__f1", "Avvik funnet");
+  data.set("comment__report", "Kommentar til rapporten");
+  data.set("notes", "Alt i orden");
+  data.set("returnTo", "/oppdrag/wo1");
+  return data;
+}
+
 function txClient(overrides: Record<string, unknown> = {}) {
   return {
     report: {
@@ -124,6 +160,8 @@ function revisionSource(overrides: Record<string, unknown> = {}) {
     dataJson: JSON.stringify({ status: "GODKJENT", unitCount: 1 }),
     comments: "Gammel kommentar fra signeringen",
     templateTitle: "Gammel sjekkliste",
+    name: "Gammel rapport",
+    requiresUnits: false,
     completedAt: new Date("2026-01-02T00:00:00.000Z"),
     templateSnapshotJson: template.fieldsJson,
     technicianSignatureUrl: "/uploads/tekniker-gammel.png",
@@ -199,6 +237,8 @@ describe("reports-tjenesten", () => {
         workOrderId: "wo1",
         templateId: "tpl1",
         templateTitle: "Sjekkliste",
+        name: "Sjekkliste",
+        requiresUnits: true,
         templateSnapshotJson: template.fieldsJson,
         isLocked: true,
       }),
@@ -311,6 +351,8 @@ describe("reports-tjenesten", () => {
         unitsJson: expect.stringContaining("SN-1"),
         comments: "Gammel kommentar fra signeringen",
         templateTitle: "Gammel sjekkliste",
+        name: "Gammel rapport",
+        requiresUnits: false,
         completedAt: new Date("2026-01-02T00:00:00.000Z"),
         technicianSignatureUrl: "/uploads/tekniker-gammel.png",
       }),
@@ -462,6 +504,31 @@ describe("reports-tjenesten", () => {
     expect(mocks.prisma.reportDraft.upsert).not.toHaveBeenCalled();
   });
 
+  it("lagrer kladd for en mal uten enheter med den anonyme oppføringen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [noUnitTemplate],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+
+    const data = noUnitFormData();
+    data.set("unitsJson", JSON.stringify([{ key: "report" }]));
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result.ok).toBe(true);
+    const upsert = mocks.prisma.reportDraft.upsert.mock.calls[0][0] as {
+      create: { dataJson: string };
+    };
+    const payload = JSON.parse(upsert.create.dataJson) as {
+      units: Array<Record<string, unknown>>;
+    };
+    expect(payload.units).toHaveLength(1);
+    expect(payload.units[0]).toMatchObject({ label: "", status: "AVVIK" });
+  });
+
   it("sletter en erstattet kladdesignatur etter vellykket lagring", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue(null);
@@ -499,8 +566,104 @@ describe("reports-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("avviser manglende påkrevd sjekkpunkt", async () => {
+  it("godtar en mal uten enheter med nøyaktig én anonym oppføring", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [noUnitTemplate],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction();
+
+    const result = await submitReport(actor(), noUnitFormData());
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.product.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.create).not.toHaveBeenCalled();
+
+    const create = (
+      tx.report.create as unknown as {
+        mock: { calls: Array<[{ data: { name: string; requiresUnits: boolean; units: { create: Array<Record<string, unknown>> } } }]> };
+      }
+    ).mock.calls[0][0];
+    expect(create.data.name).toBe("Egen rapport");
+    expect(create.data.requiresUnits).toBe(false);
+    expect(create.data.units.create).toHaveLength(1);
+    expect(create.data.units.create[0]).toMatchObject({
+      productId: null,
+      label: "",
+      serialNumber: null,
+      location: null,
+      status: "AVVIK",
+      comment: "Kommentar til rapporten",
+      sortOrder: 0,
+    });
+    expect(JSON.parse(String(create.data.units.create[0].answersJson))).toMatchObject({
+      f1: "Avvik funnet",
+    });
+  });
+
+  it("håndhever påkrevde felt i den anonyme oppføringen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [
+        {
+          ...noUnitTemplate,
+          fieldsJson: JSON.stringify([
+            { id: "f1", type: "CHECKBOX", label: "Sjekket", required: true },
+          ]),
+        },
+      ],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const data = noUnitFormData();
+    data.delete("answer__report__f1");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-data",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("tar vare på rapportnavn og enhetsvalg i revisjonen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: null,
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () =>
+            revisionSource({ revision: 2, name: "Egen rapport", requiresUnits: false }),
+          ),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.reportRevision.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        revision: 2,
+        name: "Egen rapport",
+        requiresUnits: false,
+      }),
+    });
+  });
+
+  it("avviser manglende påkrevd sjekkpunkt", async () => {    mocks.prisma.workOrder.findFirst.mockResolvedValue({
       ...workOrder(),
       templates: [
         {

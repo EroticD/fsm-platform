@@ -40,6 +40,10 @@ type RawReport = {
   templateId?: string | null;
   /** Frosset mal-navn/-innhold fra da rapporten ble signert. */
   templateTitle?: string | null;
+  /** Rapportens eget visningsnavn, om malen har det. */
+  name?: string | null;
+  /** Om rapporten er knyttet til enheter. Eldre rapporter mangler feltet. */
+  requiresUnits?: boolean | null;
   templateSnapshotJson?: string | null;
   dataJson?: string | null;
   comments?: string | null;
@@ -55,7 +59,9 @@ type RawReport = {
 
 type ReportBlock = {
   id: string;
+  name: string | null;
   templateTitle: string | null;
+  requiresUnits: boolean;
   date: string | null;
   status: string;
   fields: TemplateFieldDef[];
@@ -74,6 +80,7 @@ type ReportBlock = {
 type UnitContext = {
   key: string;
   checklist: string;
+  requiresUnits: boolean;
   date: string | null;
   unitLabel: string | null;
   serialNumber: string | null;
@@ -119,6 +126,7 @@ type Attachment = {
   n: number;
   url: string;
   checklist: string;
+  requiresUnits: boolean;
   date: string | null;
   unitLabel: string | null;
   serialNumber: string | null;
@@ -175,7 +183,9 @@ export default function ReportDocument({
 
     return {
       id: report.id,
+      name: report.name ?? report.templateTitle ?? template?.title ?? null,
       templateTitle: report.templateTitle ?? template?.title ?? null,
+      requiresUnits: report.requiresUnits !== false,
       date: formatDate(report.createdAt) || null,
       status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,
@@ -198,7 +208,10 @@ export default function ReportDocument({
   const knownStatuses = blocks.map((b) => b.status).filter((s) => s !== "UKJENT");
   const overallStatus =
     knownStatuses.length === 0 ? "UKJENT" : knownStatuses.includes("AVVIK") ? "AVVIK" : "GODKJENT";
-  const totalUnits = blocks.reduce((sum, b) => sum + b.units.length, 0);
+  const totalUnits = blocks.reduce(
+    (sum, b) => sum + (b.requiresUnits ? b.units.length : 0),
+    0,
+  );
   const customer = workOrder.customer || data.customer || {};
 
   // Hvem som utførte jobben: navnene fra rapportene (signatur eller brukeren som
@@ -299,7 +312,7 @@ export default function ReportDocument({
 
   const planned: PlannedBlock[] = [];
   for (const block of blocks) {
-    const checklist = block.templateTitle || `Sjekkliste ${block.id.slice(0, 6)}`;
+    const checklist = block.name || block.templateTitle || `Sjekkliste ${block.id.slice(0, 6)}`;
 
     const units: Array<{ unit: ReportUnit; index: number; rows: PlannedRow[] }> = [];
     for (let index = 0; index < block.units.length; index += 1) {
@@ -310,6 +323,7 @@ export default function ReportDocument({
         rows: planUnit(block.fields, parseJsonObject(unit.answersJson), {
           key: `${block.id}::${unit.id}`,
           checklist,
+          requiresUnits: block.requiresUnits,
           date: block.date,
           unitLabel: unit.label,
           serialNumber: unit.serialNumber ?? null,
@@ -326,6 +340,7 @@ export default function ReportDocument({
         ? planUnit(block.fields, block.answers, {
             key: `${block.id}::uten-enhet`,
             checklist,
+            requiresUnits: block.requiresUnits,
             date: block.date,
             unitLabel: null,
             serialNumber: null,
@@ -361,6 +376,7 @@ export default function ReportDocument({
         n: imageNumber,
         url,
         checklist: context.checklist,
+        requiresUnits: context.requiresUnits,
         date: context.date,
         unitLabel: context.unitLabel,
         serialNumber: context.serialNumber,
@@ -663,43 +679,52 @@ export default function ReportDocument({
         {/* ÉN SEKSJON PER UTFYLT SJEKKLISTE */}
         {planned.map(({ block, units, legacy }, blockIndex) => (
           <View key={block.id} style={styles.section} wrap>
-            {blocks.length > 1 || block.templateTitle ? (
+            {blocks.length > 1 || block.name ? (
               <Text style={styles.reportTitle}>
-                {block.templateTitle || `Sjekkliste ${blockIndex + 1}`}
+                {block.name || `Sjekkliste ${blockIndex + 1}`}
                 {block.date ? `  •  ${block.date}` : ""}
                 {block.status !== "UKJENT" ? (block.status === "AVVIK" ? "  –  Avvik" : "  –  Godkjent") : ""}
               </Text>
             ) : null}
 
             {/* Enheter med sine egne sjekkpunkter */}
-            {units.map(({ unit, index, rows }) => (
-              <View key={unit.id} style={styles.unitCard}>
-                <View style={styles.unitHeader}>
-                  <View style={styles.unitHeaderText}>
-                    <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
-                    <Text style={styles.unitMeta}>
-                      {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
-                      {unit.location ? `  •  ${unit.location}` : ""}
+            {units.map(({ unit, index, rows }) =>
+              block.requiresUnits ? (
+                <View key={unit.id} style={styles.unitCard}>
+                  <View style={styles.unitHeader}>
+                    <View style={styles.unitHeaderText}>
+                      <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
+                      <Text style={styles.unitMeta}>
+                        {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
+                        {unit.location ? `  •  ${unit.location}` : ""}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        ...styles.unitStatus,
+                        backgroundColor: unit.status === "AVVIK" ? '#fee2e2' : '#dcfce7',
+                        color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
+                      }}
+                    >
+                      {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      ...styles.unitStatus,
-                      backgroundColor: unit.status === "AVVIK" ? '#fee2e2' : '#dcfce7',
-                      color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
-                    }}
-                  >
-                    {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
-                  </Text>
-                </View>
 
-                <View style={styles.unitBody}>
-                  {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.answerRow))}
-                </View>
+                  <View style={styles.unitBody}>
+                    {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.answerRow))}
+                  </View>
 
-                {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
-              </View>
-            ))}
+                  {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
+                </View>
+              ) : (
+                // Rapport uten enheter: sjekkpunktene vises direkte, uten
+                // enhetskort, nummer, serienummer eller plassering.
+                <View key={unit.id} style={styles.unitBody}>
+                  {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.checklistItem))}
+                  {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
+                </View>
+              ),
+            )}
 
             {/* Eldre rapporter uten enheter */}
             {legacy.length > 0 && (
@@ -765,12 +790,14 @@ export default function ReportDocument({
                 <Text style={styles.metaKey}>Sjekkpunkt: </Text>
                 {attachment.point}
               </Text>
-              <Text style={styles.metaRow}>
-                <Text style={styles.metaKey}>Enhet: </Text>
-                {attachment.unitLabel || "Uten enhet"}
-                {attachment.serialNumber ? `  •  Serienummer: ${attachment.serialNumber}` : ""}
-                {attachment.location ? `  •  Plassering: ${attachment.location}` : ""}
-              </Text>
+              {attachment.requiresUnits && (
+                <Text style={styles.metaRow}>
+                  <Text style={styles.metaKey}>Enhet: </Text>
+                  {attachment.unitLabel || "Uten enhet"}
+                  {attachment.serialNumber ? `  •  Serienummer: ${attachment.serialNumber}` : ""}
+                  {attachment.location ? `  •  Plassering: ${attachment.location}` : ""}
+                </Text>
+              )}
               <Text style={styles.metaRow}>
                 <Text style={styles.metaKey}>Sjekkliste: </Text>
                 {attachment.checklist}
