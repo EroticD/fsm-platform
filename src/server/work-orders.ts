@@ -452,7 +452,8 @@ export async function updateWorkOrder(
           orderNumberNormalized,
           description,
           departmentId,
-          customerId,
+          // Tom kunde betyr et internt oppdrag, ikke en uendret kunde.
+          customerId: customerId || null,
           contactId: validContactId || null,
           scheduledFor: scheduledForDate,
           scheduledTo:

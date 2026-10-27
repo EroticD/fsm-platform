@@ -12,6 +12,10 @@ import {
   reportUnitSummary,
 } from "@/lib/report-display";
 import { pageWindow, parsePage } from "@/lib/pagination";
+import {
+  HMS_TYPE_MESSAGE_KEYS,
+  isHmsReport,
+} from "@/lib/template-categories";
 
 /** Rapporter per side. Listen kan bla gjennom hele historikken. */
 const PAGE_SIZE = 50;
@@ -39,7 +43,7 @@ function isRangeKey(value: string): value is RangeKey {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vis?: string; side?: string }>;
+  searchParams: Promise<{ vis?: string; side?: string; type?: string }>;
 }) {
   const t = await getTranslations("common");
   const user = await getCurrentUser();
@@ -50,10 +54,13 @@ export default async function ReportsPage({
   if (user.role === "CUSTOMER") redirect("/kundeportal");
   if (!hasPermission(user, "reports.view")) redirect("/");
 
-  const { vis, side } = await searchParams;
+  const { vis, side, type } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
+  // Bare den ene, eksplisitte kategorien støttes. Ukjente verdier ignoreres,
+  // slik at en gammel lenke fortsatt viser alle rapporter.
+  const category = type === "HMS" ? ("HMS" as const) : undefined;
   const excludeCancelled = user.role === "TECHNICIAN";
-  const where = reportWhereFor(range, excludeCancelled);
+  const where = reportWhereFor(range, excludeCancelled, category);
 
   // Rapporter er delbare på tvers av avdelinger for ansatte med reports.view.
   // Oppdragslistene er fortsatt avdelingsavgrensede, og oppdragslenken under
@@ -83,9 +90,15 @@ export default async function ReportsPage({
         units: { select: { id: true, status: true } },
       },
     }),
-    prisma.report.count({ where: reportWhereFor("denne-maneden", excludeCancelled) }),
-    prisma.report.count({ where: reportWhereFor("forrige-maned", excludeCancelled) }),
-    prisma.report.count({ where: reportWhereFor("alle", excludeCancelled) }),
+    prisma.report.count({
+      where: reportWhereFor("denne-maneden", excludeCancelled, category),
+    }),
+    prisma.report.count({
+      where: reportWhereFor("forrige-maned", excludeCancelled, category),
+    }),
+    prisma.report.count({
+      where: reportWhereFor("alle", excludeCancelled, category),
+    }),
   ]);
 
   const rangeLabel = (key: RangeKey) =>
@@ -104,7 +117,25 @@ export default async function ReportsPage({
   const pageHref = (page: number) => {
     const params = new URLSearchParams();
     if (range !== "denne-maneden") params.set("vis", range);
+    if (category) params.set("type", category);
     if (page > 1) params.set("side", String(page));
+    const query = params.toString();
+    return `/rapporter${query ? `?${query}` : ""}`;
+  };
+
+  // Tidsromslenkene beholder et eventuelt kategorifilter.
+  const rangeHref = (key: RangeKey) => {
+    const params = new URLSearchParams();
+    if (key !== "denne-maneden") params.set("vis", key);
+    if (category) params.set("type", category);
+    const query = params.toString();
+    return `/rapporter${query ? `?${query}` : ""}`;
+  };
+
+  const categoryHref = (next?: "HMS") => {
+    const params = new URLSearchParams();
+    if (range !== "denne-maneden") params.set("vis", range);
+    if (next) params.set("type", next);
     const query = params.toString();
     return `/rapporter${query ? `?${query}` : ""}`;
   };
@@ -147,7 +178,7 @@ export default async function ReportsPage({
               return (
                 <Link
                   key={r.key}
-                  href={`/rapporter${r.key === "denne-maneden" ? "" : `?vis=${r.key}`}`}
+                  href={rangeHref(r.key)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
                     active
                       ? "bg-blue-700 border-blue-700 text-white shadow-sm"
@@ -167,6 +198,32 @@ export default async function ReportsPage({
               );
             })}
           </div>
+
+          <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-gray-100">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-wider">
+              {t("orders.reportsPage.filterLabel")}
+            </span>
+            <Link
+              href={categoryHref()}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
+                !category
+                  ? "bg-blue-700 border-blue-700 text-white"
+                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
+              }`}
+            >
+              {t("orders.reportsPage.filterAll")}
+            </Link>
+            <Link
+              href={categoryHref("HMS")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
+                category === "HMS"
+                  ? "bg-blue-700 border-blue-700 text-white"
+                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
+              }`}
+            >
+              🛡️ {t("orders.templateGroups.hms")}
+            </Link>
+          </div>
         </div>
 
         {/* LISTE */}
@@ -185,6 +242,7 @@ export default async function ReportsPage({
               const summary = reportUnitSummary(report);
               const unitCount = summary.unitCount;
               const deviations = summary.deviationCount;
+              const hms = isHmsReport(report);
               const canOpenWorkOrder =
                 Boolean(report.workOrder) &&
                 canAccessWorkOrder(user, report.workOrder!) &&
@@ -197,16 +255,25 @@ export default async function ReportsPage({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-black text-gray-900 truncate">
+                        {hms && (
+                          <span className="inline-block align-middle mr-2 bg-indigo-100 text-indigo-900 border border-indigo-200 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                            🛡️ {t("orders.templateGroups.hmsBadge")}
+                          </span>
+                        )}
                         {reportDisplayName(report, t("orders.reportsPage.defaultTitle"))}
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
                         📅 {formatDate(report.completedAt, t("orders.reportsPage.noDate"))}
                         {" • 🏢 "}
-                        {report.workOrder?.customer?.name || t("orders.reportsPage.noCustomer")}
+                        {report.workOrder?.customer?.name ||
+                          t("orders.reportsPage.internalOrder")}
                         {" • 📂 "}
                         {report.workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
                         {report.workOrder?.orderNumber
                           ? ` • #${report.workOrder.orderNumber}`
+                          : ""}
+                        {hms && report.hmsType
+                          ? ` • ${t(HMS_TYPE_MESSAGE_KEYS[report.hmsType])}`
                           : ""}
                       </p>
                     </div>

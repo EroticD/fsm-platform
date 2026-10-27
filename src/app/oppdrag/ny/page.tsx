@@ -9,6 +9,10 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments, getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment, staffWhere } from "@/lib/access";
+import {
+  HMS_TYPE_MESSAGE_KEYS,
+  splitTemplatesByCategory,
+} from "@/lib/template-categories";
 import { createWorkOrder } from "./actions";
 
 export default async function AdminCreateWorkOrderPage({
@@ -40,6 +44,8 @@ export default async function AdminCreateWorkOrderPage({
     select: { id: true, name: true, city: true, customerNumber: true },
   });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
+  const { service: serviceTemplates, hms: hmsTemplates } =
+    splitTemplatesByCategory(templates);
   const technicians = await prisma.user.findMany({
     where: isAdmin ? staffWhere() : staffForDepartment(ownDepartmentId),
     include: { department: true },
@@ -155,14 +161,43 @@ export default async function AdminCreateWorkOrderPage({
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.templates")}</label>
             <p className="text-xs text-gray-500 mb-2">{t("orders.new.templatesHint")}</p>
-            <div className="max-h-40 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-2">
-              {templates.map(template => (
-                <label key={template.id} className="flex items-center gap-3 cursor-pointer hover:bg-blue-100 p-2 rounded-lg transition">
-                  <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 text-blue-600 rounded border-gray-300" />
-                  <span className="font-bold text-blue-900 text-sm">{template.title}</span>
-                </label>
-              ))}
-              {templates.length === 0 && <p className="text-sm text-gray-500 p-2">{t("orders.new.noTemplates")}</p>}
+            <div className="max-h-64 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-3">
+              {templates.length === 0 && (
+                <p className="text-sm text-gray-500 p-2">{t("orders.new.noTemplates")}</p>
+              )}
+
+              {serviceTemplates.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-wider px-1">
+                    {t("orders.templateGroups.service")}
+                  </p>
+                  {serviceTemplates.map((template) => (
+                    <label key={template.id} className="flex items-center gap-3 cursor-pointer hover:bg-blue-100 p-2 rounded-lg transition">
+                      <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 text-blue-600 rounded border-gray-300" />
+                      <span className="font-bold text-blue-900 text-sm">{template.title}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {hmsTemplates.length > 0 && (
+                <div className="space-y-1 border-t border-indigo-200 pt-2">
+                  <p className="text-[10px] font-black text-indigo-900 uppercase tracking-wider px-1">
+                    🛡️ {t("orders.templateGroups.hms")}
+                  </p>
+                  {hmsTemplates.map((template) => (
+                    <label key={template.id} className="flex items-center gap-3 cursor-pointer hover:bg-indigo-100 p-2 rounded-lg transition">
+                      <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 text-indigo-600 rounded border-gray-300" />
+                      <span className="font-bold text-indigo-900 text-sm">{template.title}</span>
+                      <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                        {template.hmsType
+                          ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
+                          : t("orders.templateGroups.hmsBadge")}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

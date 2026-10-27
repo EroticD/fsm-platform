@@ -337,6 +337,8 @@ export async function getReportRevisionForPdf(
       templateTitle: true,
       name: true,
       requiresUnits: true,
+      templateCategory: true,
+      hmsType: true,
       completedAt: true,
       templateSnapshotJson: true,
       technicianSignatureUrl: true,

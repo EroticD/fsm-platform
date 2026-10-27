@@ -12,6 +12,11 @@ import {
 } from "@/lib/report-images";
 import { MarkdownPdf } from "@/lib/markdown-pdf";
 import { formatDate } from "@/lib/dates";
+import type { HmsFormType, TemplateCategory } from "@prisma/client";
+import {
+  HMS_TYPE_LABELS,
+  reportTemplateCategoryOf,
+} from "@/lib/template-categories";
 
 type TemplateFieldDef = {
   id: string;
@@ -47,6 +52,9 @@ type RawReport = {
   name?: string | null;
   /** Om rapporten er knyttet til enheter. Eldre rapporter mangler feltet. */
   requiresUnits?: boolean | null;
+  /** Frosset kategori/type fra malen. Eldre rapporter mangler feltene. */
+  templateCategory?: TemplateCategory | null;
+  hmsType?: HmsFormType | null;
   templateSnapshotJson?: string | null;
   dataJson?: string | null;
   comments?: string | null;
@@ -65,6 +73,8 @@ type ReportBlock = {
   name: string | null;
   templateTitle: string | null;
   requiresUnits: boolean;
+  category: TemplateCategory;
+  hmsType: HmsFormType | null;
   date: string | null;
   status: string;
   fields: TemplateFieldDef[];
@@ -189,6 +199,10 @@ export default function ReportDocument({
       name: report.name ?? report.templateTitle ?? template?.title ?? null,
       templateTitle: report.templateTitle ?? template?.title ?? null,
       requiresUnits: report.requiresUnits !== false,
+      // Kategorien leses fra rapportens frosne felt, aldri fra den levende
+      // malen. Mangler feltet (eldre rapport), er den SERVICE.
+      category: reportTemplateCategoryOf(report),
+      hmsType: report.hmsType ?? null,
       date: formatDate(report.createdAt) || null,
       status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,
@@ -220,6 +234,20 @@ export default function ReportDocument({
   // oppdrag beholder den generelle tittelen.
   const documentTitle =
     blocks.length === 1 && blocks[0]?.name ? blocks[0].name : "Servicerapport";
+
+  // Kategori/type vises i toppen av PDF-en. Én HMS-rapport får den konkrete
+  // undertypen; et oppdrag med flere skjemaer får en nøytral merking.
+  const hmsBlocks = blocks.filter((block) => block.category === "HMS");
+  const hmsHeader =
+    hmsBlocks.length === 0
+      ? null
+      : blocks.length === 1
+        ? `HMS-dokumentasjon${
+            hmsBlocks[0].hmsType
+              ? ` · ${HMS_TYPE_LABELS[hmsBlocks[0].hmsType]}`
+              : ""
+          }`
+        : "Inneholder HMS-dokumentasjon";
 
   // Hvem som utførte jobben: navnene fra rapportene (signatur eller brukeren som
   // lagret). Bare hvis ingen rapport har navn, faller vi tilbake på montørene
@@ -428,6 +456,7 @@ export default function ReportDocument({
     logo: { maxHeight: 60, maxWidth: 160, objectFit: 'contain' },
     // Tittel og firmanavn står til høyre i toppen av rapporten.
     headerTextBlock: { alignItems: 'flex-end' },
+    headerHms: { fontSize: 9, color: '#374151', fontWeight: 'bold', marginTop: 2, textAlign: 'right' },
     headerOrder: { fontSize: 10, color: '#374151', fontWeight: 'bold', marginTop: 2, textAlign: 'right' },
     companyName: { fontSize: 10, color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right' },
 
@@ -660,6 +689,7 @@ export default function ReportDocument({
           )}
           <View style={styles.headerTextBlock}>
             <Text style={styles.headerText}>{documentTitle}</Text>
+            {hmsHeader && <Text style={styles.headerHms}>{hmsHeader}</Text>}
             {workOrder.orderNumber && (
               <Text style={styles.headerOrder}>
                 Ordrenr. {workOrder.orderNumber}
@@ -704,6 +734,7 @@ export default function ReportDocument({
             {blocks.length > 1 || block.name ? (
               <Text style={styles.reportTitle}>
                 {block.name || `Sjekkliste ${blockIndex + 1}`}
+                {block.category === "HMS" ? "  •  HMS-dokumentasjon" : ""}
                 {block.date ? `  •  ${block.date}` : ""}
                 {block.status !== "UKJENT" ? (block.status === "AVVIK" ? "  –  Avvik" : "  –  Godkjent") : ""}
               </Text>

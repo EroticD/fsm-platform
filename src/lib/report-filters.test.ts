@@ -43,4 +43,18 @@ describe("reportWhereFor", () => {
       },
     });
   });
+
+  it("filtrerer på rapportens frosne kategori uten å miste tidsrommet", () => {
+    const where = reportWhereFor("denne-maneden", false, "HMS");
+    const parts = where.AND as Array<Record<string, unknown>>;
+
+    expect(parts).toContainEqual({ templateCategory: "HMS" });
+    expect(parts).toContainEqual({ deletedAt: null });
+    expect(parts.some((part) => "completedAt" in part)).toBe(true);
+    expect(
+      (where.AND as Array<Record<string, unknown>>).find(
+        (part) => "workOrder" in part,
+      ),
+    ).toEqual({ workOrder: { deletedAt: null } });
+  });
 });

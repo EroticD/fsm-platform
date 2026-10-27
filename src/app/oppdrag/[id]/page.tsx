@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
@@ -35,6 +36,11 @@ import {
   reportAcknowledgement,
   reportUnitSummary,
 } from "@/lib/report-display";
+import {
+  HMS_TYPE_MESSAGE_KEYS,
+  isHmsTemplate,
+  splitTemplatesByCategory,
+} from "@/lib/template-categories";
 
 type ReportField = {
   id: string;
@@ -430,6 +436,17 @@ export default async function AdminWorkOrderPage({
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
+  const {
+    service: serviceTemplates,
+    hms: hmsTemplates,
+  } = splitTemplatesByCategory(workOrder.templates);
+  // Service-sjekklistene vises først, deretter HMS-dokumentasjonen, slik at
+  // eksisterende serviceflyt er uendret og HMS får en tydelig seksjon.
+  const orderedTemplates = [...serviceTemplates, ...hmsTemplates];
+  const {
+    service: availableServiceTemplates,
+    hms: availableHmsTemplates,
+  } = splitTemplatesByCategory(availableTemplates);
   const allTags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
   const staffUsers = await prisma.user.findMany({
@@ -495,7 +512,13 @@ export default async function AdminWorkOrderPage({
                 </div>
               )
             )}
-            <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || t("orders.detail.noCustomer")}</Link></p>
+            <p className="text-gray-600 font-medium">🏢{" "}
+              {workOrder.customer ? (
+                <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer.name}</Link>
+              ) : (
+                <span className="font-bold text-gray-800">{t("orders.detail.internalOrder")}</span>
+              )}
+            </p>
             <p className="text-xs text-gray-500 font-bold mt-1">{t("orders.detail.department", { name: workOrder.department.name })}</p>
             {workOrder.orderNumber && (
               <p className="text-xs text-gray-600 font-bold mt-1">
@@ -632,15 +655,39 @@ export default async function AdminWorkOrderPage({
                   <p className="text-sm text-gray-500 italic mb-4">{t("orders.detail.noChecklists")}</p>
                 ) : (
                   <div className="space-y-4 mb-6">
-                    {workOrder.templates.map(template => {
+                    {orderedTemplates.map((template, templateIndex) => {
                       const report = workOrder.reports.find(r => r.templateId === template.id);
                       // Skjemaet kan fylles ut både fra feltportalen og herfra.
                       const fillHref = `/mine-oppdrag/${workOrder.id}/skjema/${template.id}?returnTo=${encodeURIComponent(`/oppdrag/${workOrder.id}`)}`;
+                      const startsHmsSection =
+                        templateIndex === serviceTemplates.length &&
+                        hmsTemplates.length > 0;
 
                       return (
-                        <div key={template.id} className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                        <Fragment key={template.id}>
+                        {startsHmsSection && (
+                          <div className="flex items-center gap-2 pt-2">
+                            <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">
+                              🛡️ {t("orders.templateGroups.hms")}
+                            </span>
+                            <span className="h-px flex-1 bg-indigo-200" />
+                          </div>
+                        )}
+                        <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                           <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-                            <span className="font-black text-gray-900 text-base">{template.title}</span>
+                            <span className="font-black text-gray-900 text-base flex items-center gap-2 flex-wrap">
+                              {template.title}
+                              {isHmsTemplate(template) && (
+                                <span
+                                  className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
+                                  title={t("orders.templateGroups.hms")}
+                                >
+                                  🛡️ {template.hmsType
+                                    ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
+                                    : t("orders.templateGroups.hmsBadge")}
+                                </span>
+                              )}
+                            </span>
                             <div className="flex items-center gap-2 flex-wrap">
                               {report ? (
                                 <>
@@ -761,6 +808,7 @@ export default async function AdminWorkOrderPage({
                             <p className="text-xs text-gray-500 italic">{t("orders.detail.waitingForm")}</p>
                           )}
                         </div>
+                        </Fragment>
                       );
                     })}
                   </div>
@@ -778,9 +826,20 @@ export default async function AdminWorkOrderPage({
                           className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
                         >
                           <option value="" disabled>{t("orders.detail.selectTemplate")}</option>
-                          {availableTemplates.map(template => (
-                            <option key={template.id} value={template.id}>{template.title}</option>
-                          ))}
+                          {availableServiceTemplates.length > 0 && (
+                            <optgroup label={t("orders.templateGroups.service")}>
+                              {availableServiceTemplates.map((template) => (
+                                <option key={template.id} value={template.id}>{template.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {availableHmsTemplates.length > 0 && (
+                            <optgroup label={`🛡️ ${t("orders.templateGroups.hms")}`}>
+                              {availableHmsTemplates.map((template) => (
+                                <option key={template.id} value={template.id}>{template.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                         <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
                           {t("orders.detail.addTemplate")}
@@ -859,7 +918,7 @@ export default async function AdminWorkOrderPage({
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
                 <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.locationTitle")}</h2>
                 <div className="space-y-2 text-gray-800 mb-4">
-                  <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.noCustomer")}</p>
+                  <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.internalOrder")}</p>
                   <p><strong>{t("orders.detail.address")}</strong>
                     <GoogleMapsLink
                       address={workOrder.customer?.address}

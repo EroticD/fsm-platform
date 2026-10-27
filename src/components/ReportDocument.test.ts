@@ -14,11 +14,15 @@ async function renderText({
   requiresUnits,
   label = "",
   orderNumber,
+  templateCategory,
+  hmsType,
 }: {
   name?: string | null;
   requiresUnits: boolean;
   label?: string;
   orderNumber?: string | null;
+  templateCategory?: "SERVICE" | "HMS";
+  hmsType?: "SJA" | "DEVIATION" | null;
 }) {
   const data = {
     workOrder: {
@@ -36,6 +40,8 @@ async function renderText({
         templateTitle: "Maltittel",
         name,
         requiresUnits,
+        templateCategory,
+        hmsType,
         dataJson: JSON.stringify({ status: "GODKJENT" }),
         createdAt: new Date("2026-01-02T00:00:00.000Z"),
         units: [
@@ -99,6 +105,29 @@ describe("ReportDocument", () => {
     });
 
     expect(text).toContain("ORD-42");
+  });
+
+  it("viser HMS-kategori og type fra rapportens frosne felt", async () => {
+    const text = await renderText({
+      name: "Sikker Jobb Analyse",
+      requiresUnits: false,
+      templateCategory: "HMS",
+      hmsType: "SJA",
+    });
+
+    expect(text).toContain("HMS-dokumentasjon");
+    expect(text).toContain("Sikker jobb analyse (SJA)");
+  });
+
+  it("viser ikke HMS-merking på en vanlig servicerapport", async () => {
+    const text = await renderText({
+      name: "Egen rapport",
+      requiresUnits: true,
+      label: "Pumpe",
+      templateCategory: "SERVICE",
+    });
+
+    expect(text).not.toContain("HMS-dokumentasjon");
   });
 
   it("rendrer et revisjonsøyeblikksbilde uten den levende malen", async () => {

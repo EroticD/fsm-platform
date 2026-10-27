@@ -1,3 +1,4 @@
+import type { HmsFormType } from "@prisma/client";
 import { parseJsonObject, reportStatus } from "@/lib/report-answers";
 
 /**
@@ -28,6 +29,8 @@ export type RevisionSnapshotSource = {
   templateTitle?: string | null;
   name?: string | null;
   requiresUnits?: boolean | null;
+  templateCategory?: "SERVICE" | "HMS" | null;
+  hmsType?: HmsFormType | null;
   completedAt?: Date | string | null;
   templateSnapshotJson?: string | null;
   technicianSignatureUrl?: string | null;
@@ -117,6 +120,8 @@ export function revisionToDocumentReport(revision: RevisionSnapshotSource) {
     templateTitle: revision.templateTitle ?? null,
     name: revision.name ?? null,
     requiresUnits: revision.requiresUnits !== false,
+    templateCategory: revision.templateCategory === "HMS" ? "HMS" : "SERVICE",
+    hmsType: revision.hmsType ?? null,
     templateSnapshotJson: revision.templateSnapshotJson ?? null,
     dataJson: revision.dataJson,
     comments: revision.comments ?? null,

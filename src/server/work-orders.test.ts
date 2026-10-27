@@ -310,6 +310,43 @@ describe("work-orders-tjenesten", () => {
     });
   });
 
+  it("kan redigere et internt oppdrag uten kunde", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      orderNumber: null,
+      orderNumberNormalized: null,
+    });
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Internt vedlikehold",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: expect.objectContaining({
+        customerId: null,
+        contactId: null,
+      }),
+    });
+    expect(tx.upload.updateMany).toHaveBeenCalledWith({
+      where: { ownerType: "WORK_ORDER", ownerId: "wo-1" },
+      data: { departmentId: "dep-a", customerId: null },
+    });
+  });
+
   it("avviser en montør fra en annen avdeling ved tildeling", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
