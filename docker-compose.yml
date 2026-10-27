@@ -8,6 +8,13 @@
 #
 # Appen svarer da på http://localhost:3000
 
+# Roter Docker-loggen, slik at en disk ikke fylles av json-file-loggeren.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:15
@@ -16,6 +23,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_DB: ${POSTGRES_DB:-fsm_db}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD i .env}
+    logging: *default-logging
     ports:
       # Bindes til localhost slik at databasen ikke eksponeres på nettverket.
       - "127.0.0.1:5432:5432"
@@ -65,6 +73,7 @@ services:
       RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
       CRON_SECRET: ${CRON_SECRET:-}
       READY_SECRET: ${READY_SECRET:-}
+    logging: *default-logging
     ports:
       # I produksjon bør dette være "127.0.0.1:3000:3000" når appen står bak en
       # reverse proxy på samme maskin. Da kan ikke appen nås direkte utenom TLS.

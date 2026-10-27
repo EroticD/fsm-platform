@@ -120,7 +120,10 @@ docker compose up -d --build
 ## Drift
 
 - `/api/health` er liveness, og `/api/ready` sjekker database, opplastingsvolum
-  og jobbkø.
+  og jobbkø. Produksjons-Compose bruker readiness som healthcheck uten å
+  restart-loope ved databaseutfall.
+- Produksjon bruker `docker-compose.prod.yml` med `APP_IMAGE` pinnet til en
+  publisert versjon (ikke `latest`) og Postgres pinnet til en 15.x-minor.
 - Migrasjoner kjøres ved oppstart med `prisma migrate deploy`.
 - `SEED_DATABASE` er av som standard; seed bare en tom database eksplisitt.
 - Backup, restore-test, logging og skalering er dokumentert i
