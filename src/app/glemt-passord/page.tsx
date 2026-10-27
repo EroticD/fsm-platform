@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -20,10 +21,9 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
     if (!email) return;
 
     const requestHeaders = await headers();
-    const ip =
-      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      requestHeaders.get("x-real-ip") ||
-      "ukjent";
+    // Uten TRUST_PROXY er IP-en ukjent. Da faller vi tilbake til en felles
+    // nøkkel, og e-postgrensen over tar fortsatt hånd om misbruk.
+    const ip = clientIpFrom(requestHeaders) ?? "ukjent";
     const normalizedEmail = email.trim().toLowerCase();
     const [emailLimit, ipLimit] = await Promise.all([
       allowRequestDb(`reset:email:${normalizedEmail}`, 5, 15 * 60_000),

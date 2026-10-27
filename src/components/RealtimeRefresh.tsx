@@ -6,9 +6,21 @@ import { useRouter } from "next/navigation";
 /** Slår sammen raske hendelser til én oppdatering. */
 const REFRESH_DEBOUNCE_MS = 300;
 
+/** Begrenset gjenoppkobling: en 401/403 skal ikke gi en uendelig løkke. */
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+
 export type RealtimeEventDetail = {
   kind: string;
 };
+
+/** Eksportert for test: pause før neste forsøk, med litt jitter. */
+export function reconnectDelayMs(attempt: number): number {
+  const safe = Math.max(1, Math.floor(attempt));
+  const base = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** (safe - 1));
+  return Math.round(base * (0.8 + Math.random() * 0.4));
+}
 
 /**
  * Lytter på `/api/events` og oppdaterer serverkomponentene når data endres.
@@ -23,6 +35,8 @@ export default function RealtimeRefresh() {
   useEffect(() => {
     let source: EventSource | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempts = 0;
     let dirty = false;
     let disposed = false;
 
@@ -30,6 +44,13 @@ export default function RealtimeRefresh() {
       if (timer) {
         clearTimeout(timer);
         timer = null;
+      }
+    };
+
+    const clearReconnect = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
 
@@ -74,13 +95,36 @@ export default function RealtimeRefresh() {
 
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    // EventSource kobler automatisk til på nytt ved nettverksfeil.
-    source = new EventSource("/api/events");
-    source.addEventListener("refresh", onRefresh);
+    const connect = () => {
+      if (disposed) return;
+      clearReconnect();
+
+      // Vi lukker selv på feil og prøver på nytt med tak. EventSource sin
+      // automatiske retry ville ellers fortsatt i det uendelige på 401/403.
+      const current = new EventSource("/api/events");
+      source = current;
+
+      current.addEventListener("open", () => {
+        reconnectAttempts = 0;
+      });
+      current.addEventListener("refresh", onRefresh);
+      current.addEventListener("error", () => {
+        if (disposed) return;
+        current.close();
+        if (source === current) source = null;
+
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+        reconnectAttempts += 1;
+        reconnectTimer = setTimeout(connect, reconnectDelayMs(reconnectAttempts));
+      });
+    };
+
+    connect();
 
     return () => {
       disposed = true;
       clearTimer();
+      clearReconnect();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       source?.removeEventListener("refresh", onRefresh);
       source?.close();

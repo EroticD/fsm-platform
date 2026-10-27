@@ -1,10 +1,14 @@
 name: Docker-image
 
-# Publiserer et ferdig image til GitHub Container Registry. Kjører når du
-# dytter en versjonstag (v0.1.0, v1.2.3 ...) eller starter den manuelt.
+# Publiserer et ferdig image til GitHub Container Registry.
+#
+# Publisering skjer bare etter at CI-kjøringen for samme commit/tag er grønn.
+# En tag (v0.1.0, v1.2.3 ...) starter både CI og – når CI er ferdig – denne
+# workflowen. Manuell kjøring er alltid tilgjengelig for bevisste unntak.
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -12,15 +16,24 @@ permissions:
   packages: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: true
 
 jobs:
   publish:
     name: Bygg og publiser til GHCR
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Ved workflow_run er ikke ref-en sjekket ut automatisk. Bruk commit-en
+          # CI faktisk verifiserte, ikke en nyere commit på grenen.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
 
       - uses: docker/setup-buildx-action@v4
 
@@ -37,21 +50,29 @@ jobs:
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
+      - name: Sett versjon
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "value=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.value }}
             type=sha
-          flavor: |
-            latest=auto
+            type=raw,value=latest,enable=${{ startsWith(steps.version.outputs.value, 'v') }}
           labels: |
             org.opencontainers.image.licenses=BUSL-1.1
 
       - name: Bygg og push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -59,7 +80,19 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BUILD_VERSION=${{ github.ref_name }}
-            BUILD_REVISION=${{ github.sha }}
+            BUILD_VERSION=${{ steps.version.outputs.value }}
+            BUILD_REVISION=${{ github.event.workflow_run.head_sha || github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Skann det faktisk publiserte manifestet. CI skanner også imaget før
+      # dette, men denne sjekken fanger forskjeller i byggecachen.
+      - name: Skann publisert image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"

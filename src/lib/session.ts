@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
@@ -9,8 +10,13 @@ import { hasPermission, type Permission } from "@/lib/permissions";
  * Slår opp på bruker-id (ikke e-post), og avviser økten hvis brukeren er
  * deaktivert eller øktversjonen ikke lenger stemmer. Da blir deaktiverte
  * brukere og gamle JWTs ugyldige umiddelbart.
+ *
+ * `cache` gjør at samme forespørsel bare slår opp brukeren én gang, selv om
+ * layout, side og flere server actions kaller funksjonen. Utenfor en
+ * React-forespørsel (tester, skript) kaller React funksjonen direkte, så
+ * oppførselen er den samme.
  */
-export async function getCurrentUser() {
+const getCurrentUserCached = cache(async () => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;
 
@@ -21,6 +27,10 @@ export async function getCurrentUser() {
   if (!user?.isActive) return null;
   if (user.sessionVersion !== session.user.sessionVersion) return null;
   return user;
+});
+
+export async function getCurrentUser() {
+  return getCurrentUserCached();
 }
 
 /** Navnet på den innloggede brukeren (til aktivitetsloggen). */

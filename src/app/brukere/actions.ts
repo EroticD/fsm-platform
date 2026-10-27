@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { safeRelativeTarget } from "@/lib/safe-redirect";
 import {
   changeDepartment as changeDepartmentService,
   changePermissions as changePermissionsService,
@@ -22,7 +23,11 @@ import {
  */
 function returnPath(formData: FormData): string {
   const raw = (formData.get("returnTo") as string) || "";
-  return raw.startsWith("/") && !raw.startsWith("//") ? raw : "/brukere";
+  // Samme normalisering som innloggingsredirecten: absolutte URL-er, "//vert"
+  // og backslash-stier avvises, slik at skjemaet ikke kan brukes som åpen
+  // omdirigering.
+  const target = safeRelativeTarget(raw);
+  return target === "/" && raw !== "/" ? "/brukere" : target;
 }
 
 /** Legger på et query-parameter, uansett om stien allerede har query. */
@@ -63,15 +68,12 @@ export async function createUser(formData: FormData) {
     return;
   }
 
-  const { id, token, mailSent } = result.data;
+  const { id, mailSent } = result.data;
   revalidateUserAdmin();
-  redirect(
-    withParam(
-      withParam(withParam(back, "invite", id), "inviteToken", token),
-      "mail",
-      mailSent ? "sent" : "manual",
-    ),
-  );
+  // Den rå invitasjonsnøkkelen skal aldri ligge i en URL. Den finnes bare i
+  // e-posten (eller vises én gang i utviklingsmodus), slik at den ikke havner i
+  // logger, referrer-headere eller nettleserhistorikk.
+  redirect(withParam(withParam(back, "invite", id), "mail", mailSent ? "sent" : "manual"));
 }
 
 export async function deleteUser(formData: FormData) {
@@ -218,13 +220,10 @@ export async function generateInvite(formData: FormData) {
     return;
   }
 
-  const { id, token, mailSent } = result.data;
+  const { id, mailSent } = result.data;
   revalidateUserAdmin();
-  redirect(
-    withParam(
-      withParam(withParam(back, "invite", id), "inviteToken", token),
-      "mail",
-      mailSent ? "sent" : "manual",
-    ),
-  );
+  // Den rå invitasjonsnøkkelen skal aldri ligge i en URL. Den finnes bare i
+  // e-posten (eller vises én gang i utviklingsmodus), slik at den ikke havner i
+  // logger, referrer-headere eller nettleserhistorikk.
+  redirect(withParam(withParam(back, "invite", id), "mail", mailSent ? "sent" : "manual"));
 }

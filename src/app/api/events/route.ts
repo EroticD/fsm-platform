@@ -1,6 +1,11 @@
-import { Client } from "pg";
-import { isRealtimeKind, REALTIME_CHANNEL } from "@/lib/realtime";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, isStaff } from "@/lib/session";
+import { clientIpFrom } from "@/lib/client-ip";
+import {
+  acquireRealtimeSlot,
+  releaseRealtimeSlot,
+  subscribeRealtime,
+} from "@/lib/realtime-hub";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,111 +14,102 @@ export const dynamic = "force-dynamic";
 const HEARTBEAT_MS = 25_000;
 
 /**
- * node-postgres kjenner ikke Prismas `?schema=`-parameter. Den må fjernes før
- * tilkoblingsstrengen brukes, ellers tolkes den som en ukjent parameter.
- */
-function realtimeConnectionString(): string {
-  const raw = process.env.DATABASE_URL ?? "";
-  if (!raw) return "";
-  try {
-    const url = new URL(raw);
-    url.searchParams.delete("schema");
-    return url.toString();
-  } catch {
-    return raw;
-  }
-}
-
-/**
- * Server-sendte hendelser for dataendringer. Hver tilkobling lytter på
- * PostgreSQL-kanalen og videresender bare kategori-navnet – aldri data.
+ * Server-sendte hendelser for dataendringer.
+ *
+ * Alle tilkoblinger deler én `LISTEN`-forbindelse per prosess (se
+ * `realtime-hub.ts`). Ruten krever en aktiv, intern bruker: kundeportalen og
+ * utloggede får ingen strøm, og det er en hard grense per bruker/IP.
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
+  if (!isStaff(user.role)) {
+    return new Response("Forbidden", { status: 403 });
+  }
 
-  const connectionString = realtimeConnectionString();
-  if (!connectionString) {
-    return new Response("Realtime er ikke konfigurert", { status: 503 });
+  const slot = {
+    userId: user.id,
+    ip: clientIpFrom(request.headers),
+  };
+  if (!acquireRealtimeSlot(slot)) {
+    logger.warn("Sanntid: tilkoblingsgrensen er nådd", {
+      userId: user.id,
+      ip: slot.ip ?? null,
+    });
+    return new Response("For mange sanntidsforbindelser", {
+      status: 429,
+      headers: { "Retry-After": "30" },
+    });
   }
 
   const encoder = new TextEncoder();
-  let client: Client | null = null;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let unsubscribe: (() => void) | null = null;
+  let released = false;
   let closed = false;
 
+  const cleanup = (controller?: ReadableStreamDefaultController<Uint8Array>) => {
+    if (closed) {
+      if (controller) {
+        try {
+          controller.close();
+        } catch {
+          // Allerede lukket.
+        }
+      }
+      return;
+    }
+    closed = true;
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
+    }
+    unsubscribe?.();
+    unsubscribe = null;
+    if (!released) {
+      released = true;
+      releaseRealtimeSlot(slot);
+    }
+    if (controller) {
+      try {
+        controller.close();
+      } catch {
+        // Nettleseren lukket strømmen først.
+      }
+    }
+  };
+
   const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
+    start(controller) {
       const send = (message: string) => {
         if (closed) return;
         try {
           controller.enqueue(encoder.encode(message));
         } catch {
-          closed = true;
+          cleanup(controller);
         }
       };
 
-      const stop = () => {
-        if (closed) return;
-        closed = true;
-        if (heartbeat) {
-          clearInterval(heartbeat);
-          heartbeat = null;
-        }
-        const current = client;
-        client = null;
-        if (current) {
-          void current.end().catch(() => {});
-        }
-        try {
-          controller.close();
-        } catch {
-          // Strømmen kan allerede være lukket av nettleseren.
-        }
-      };
+      request.signal.addEventListener("abort", () => cleanup(controller), {
+        once: true,
+      });
 
-      request.signal.addEventListener("abort", stop, { once: true });
-
-      // Nettleseren prøver igjen etter fem sekunder hvis forbindelsen ryker.
+      // Nettleserens innebygde retry brukes bare som fallback; klienten har
+      // egen, begrenset backoff (se RealtimeRefresh).
       send("retry: 5000\n\n");
 
-      client = new Client({ connectionString });
-      const pgClient = client;
-      pgClient.on("notification", (message) => {
-        if (message.channel !== REALTIME_CHANNEL) return;
-        const kind = message.payload?.trim();
-        if (!kind || !isRealtimeKind(kind)) return;
+      unsubscribe = subscribeRealtime((kind) => {
         send(`event: refresh\ndata: ${kind}\n\n`);
       });
-      pgClient.on("error", stop);
-      pgClient.on("end", stop);
-
-      try {
-        await pgClient.connect();
-        if (closed) {
-          void pgClient.end().catch(() => {});
-          return;
-        }
-        await pgClient.query(`LISTEN ${REALTIME_CHANNEL}`);
-      } catch {
-        stop();
-        return;
-      }
 
       heartbeat = setInterval(() => send(": heartbeat\n\n"), HEARTBEAT_MS);
       heartbeat.unref?.();
     },
 
     cancel() {
-      // Nettleseren lukket strømmen. Rydd opp uten å røre controlleren.
-      if (heartbeat) clearInterval(heartbeat);
-      heartbeat = null;
-      const current = client;
-      client = null;
-      if (current) void current.end().catch(() => {});
-      closed = true;
+      cleanup();
     },
   });
 

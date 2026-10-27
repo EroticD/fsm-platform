@@ -1,8 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractPdfText } from "./pdf-text";
+import {
+  extractPdfText,
+  MAX_OCR_PAGES,
+  OCR_DPI,
+  OCR_TOTAL_TIMEOUT_MS,
+  PDFTOPPM_TIMEOUT_MS,
+} from "./pdf-text";
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("OCR-grenser", () => {
+  it("har trygge standardverdier for sider, DPI og tid", () => {
+    expect(MAX_OCR_PAGES).toBeGreaterThanOrEqual(1);
+    expect(MAX_OCR_PAGES).toBeLessThanOrEqual(200);
+    expect(OCR_DPI).toBeGreaterThanOrEqual(72);
+    expect(OCR_DPI).toBeLessThanOrEqual(300);
+    expect(OCR_TOTAL_TIMEOUT_MS).toBeGreaterThanOrEqual(10_000);
+    expect(PDFTOPPM_TIMEOUT_MS).toBeGreaterThanOrEqual(5_000);
+  });
 });
 
 describe("extractPdfText – stivalidering", () => {

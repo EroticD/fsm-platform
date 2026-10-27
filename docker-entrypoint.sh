@@ -16,6 +16,15 @@ prisma_cli() {
 }
 
 if [ -n "${DATABASE_URL:-}" ] && [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
+  # Valgfri, trygg sperre for produksjon: krev at en fersk backup er tatt og
+  # bekreftet før migrasjonene kjøres. Standard er av, slik at lokal utvikling
+  # og eksisterende oppsett ikke endres.
+  if [ "${REQUIRE_BACKUP_BEFORE_MIGRATE:-false}" = "true" ] && [ "${BACKUP_CONFIRMED:-false}" != "true" ]; then
+    echo "✖ REQUIRE_BACKUP_BEFORE_MIGRATE=true, men BACKUP_CONFIRMED er ikke satt."
+    echo "  Ta backup (./scripts/backup.sh), verifiser den, og start med BACKUP_CONFIRMED=true."
+    exit 1
+  fi
+
   echo "→ Venter på at databasen skal svare ..."
   forsok=0
   until echo "SELECT 1;" | prisma_cli db execute --stdin >/dev/null 2>&1; do

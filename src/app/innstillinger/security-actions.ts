@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser, refreshSessionCookie } from "@/lib/session";
+import { clientIpFrom } from "@/lib/client-ip";
 import {
   cancelTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -17,13 +18,8 @@ const BASE = "/innstillinger?tab=sikkerhet";
 async function requestIp(): Promise<string | undefined> {
   // Uten en betrodd proxy kan en klient sette X-Forwarded-For fritt. Da er
   // IP-nøkkelen meningsløs; brukergrensen gjelder fortsatt.
-  if (process.env.TRUST_PROXY !== "true") return undefined;
   const requestHeaders = await headers();
-  return (
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    requestHeaders.get("x-real-ip") ||
-    undefined
-  );
+  return clientIpFrom(requestHeaders);
 }
 
 async function currentActor() {

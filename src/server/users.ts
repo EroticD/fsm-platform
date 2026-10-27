@@ -604,6 +604,11 @@ export async function generateInvite(
   if (!actor.isActive) return fail("forbidden");
   if (!can(actor, "users.manage")) return fail("forbidden");
 
+  // En invitasjonslenke lar mottakeren sette nytt passord. For en konto som
+  // allerede er aktiv er det en kontoovertakelse, ikke en invitasjon. Aktive
+  // brukere må bruke «glemt passord» (som går til e-postadressen) i stedet.
+  if (user.isActive) return fail("forbidden");
+
   // En invitasjonslenke gir mulighet til å sette nytt passord. For en
   // administrator er det derfor en full kontoovertakelse, og krever admin.
   if (user.role === "ADMIN" && !isAdminActor(actor)) return fail("forbidden");
@@ -770,6 +775,9 @@ export async function resendPortalInvite(
   if (!user || user.role !== "CUSTOMER" || user.customerId !== customerId) {
     return fail("not_found");
   }
+  // Samme regel som for interne brukere: en aktiv konto kan ikke få en ny
+  // invitasjonslenke som lar noen sette passordet på nytt.
+  if (user.isActive) return fail("forbidden");
 
   const token = await prisma.$transaction(async (tx) => {
     const created = await createInviteToken(id, tx);

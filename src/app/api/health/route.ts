@@ -1,29 +1,22 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { logger, requestIdFrom } from "@/lib/logger";
+import { requestIdFrom } from "@/lib/logger";
 
-// Helsesjekk for Docker/orchestrator: svarer 200 bare hvis databasen er tilgjengelig.
-// Ruten krever ikke innlogging, slik at containeren kan sjekke seg selv.
+/**
+ * Liveness-sjekk for Docker/orchestrator.
+ *
+ * Denne ruten skal være billig: den svarer bare på at Node-prosessen lever og
+ * kan håndtere forespørsler. Database, disk og jobbkø sjekkes i `/api/ready`,
+ * slik at en treg database ikke får containeren til å bli drept og restartet i
+ * en løkke.
+ */
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const requestId = requestIdFrom(new Headers(request.headers));
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({
-      status: "ok",
-      database: "up",
-      requestId,
-      time: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error("Helsesjekk feilet", {
-      requestId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return NextResponse.json(
-      { status: "error", database: "down", requestId },
-      { status: 503 },
-    );
-  }
+  return NextResponse.json({
+    status: "ok",
+    requestId,
+    time: new Date().toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+  });
 }

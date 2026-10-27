@@ -1,6 +1,28 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/credentials";
+import { clientIpFrom } from "@/lib/client-ip";
+
+/**
+ * NextAuth gir `request.headers` som enten et Headers-objekt eller et vanlig
+ * objekt, avhengig av adapter. Den lille wrapperen gjør at vi alltid kan bruke
+ * den samme, proxy-bevisste IP-hjelperen.
+ */
+function requestHeaders(request: { headers?: unknown } | undefined) {
+  const raw = request?.headers;
+  if (!raw) return null;
+  return {
+    get(name: string): string | null {
+      const lower = name.toLowerCase();
+      if (typeof (raw as Headers).get === "function") {
+        return (raw as Headers).get(lower);
+      }
+      const record = raw as Record<string, unknown>;
+      const value = record[lower] ?? record[name];
+      return typeof value === "string" ? value : null;
+    },
+  };
+}
 
 /**
  * Felles NextAuth-konfigurasjon.
@@ -22,8 +44,8 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Passord", type: "password" },
       },
       async authorize(credentials, request) {
-        const forwarded = request?.headers?.["x-forwarded-for"];
-        const ip = forwarded?.split(",")[0]?.trim() || request?.headers?.["x-real-ip"];
+        const requestHeadersView = requestHeaders(request);
+        const ip = requestHeadersView ? clientIpFrom(requestHeadersView) : undefined;
 
         const result = await verifyCredentials(
           credentials?.email ?? "",
