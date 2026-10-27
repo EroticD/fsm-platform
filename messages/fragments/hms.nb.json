@@ -1,0 +1,87 @@
+{
+  "hms": {
+    "badge": "HMS-bibliotek",
+    "title": "HMS",
+    "subtitle": "Samlet inngang til HMS-skjemaer, maler og dokumentasjon for helse, miljø og sikkerhet.",
+    "backToDashboard": "Til dashbordet",
+    "navigationLabel": "HMS-kategorier",
+    "libraryTitle": "HMS-skjemaer",
+    "libraryDescription": "Bruk et HMS-skjema på et oppdrag, eller administrer malene som er tilgjengelige.",
+    "templatesAdmin": "HMS-skjema maler",
+    "templateCount": "{count} maler",
+    "internalWorkOrder": "Internt oppdrag",
+    "customerWorkOrder": "Kundeoppdrag",
+    "linked": "HMS-skjemaet er knyttet til oppdraget.",
+    "groups": {
+      "sja": "Sikker Jobb Analyse (SJA)",
+      "sjaDescription": "Gjennomgang av en konkret, risikofylt arbeidsoppgave før oppstart.",
+      "hotWork": "Varme arbeider",
+      "hotWorkDescription": "Tillatelse og kontroll før sveising, sliping og annet arbeid med varme eller gnister.",
+      "internalControl": "Internkontroll",
+      "internalControlDescription": "Risikovurdering, handlingsplan og systematisk HMS-arbeid.",
+      "deviation": "Avvik",
+      "deviationDescription": "Meld, undersøk og lukk HMS-avvik, ulykker og nestenulykker.",
+      "safetyRound": "Vernerunde",
+      "safetyRoundDescription": "Systematisk befaring av arbeidsplassen for å avdekke farer og mangler.",
+      "writtenInstruction": "Skriftlig instruks",
+      "writtenInstructionDescription": "Instruks for arbeid som kan innebære særlig fare for liv eller helse.",
+      "general": "Generelt",
+      "generalDescription": "Øvrige HMS-skjemaer og egendefinerte maler."
+    },
+    "template": {
+      "reportName": "Rapportnavn",
+      "reports": "{count} rapporter",
+      "workOrders": "{count} oppdrag",
+      "edit": "Rediger",
+      "use": "Knytt til oppdrag",
+      "untyped": "Uten HMS-type",
+      "noDescription": "Ingen beskrivelse."
+    },
+    "empty": {
+      "title": "Ingen HMS-skjemaer funnet",
+      "description": "Standardmalene skal være installert automatisk. Sjekk maladministrasjonen hvis de mangler.",
+      "adminLink": "Gå til maladministrasjon"
+    },
+    "link": {
+      "title": "Knytt HMS-skjema til oppdrag",
+      "description": "Velg et HMS-skjema og et aktivt oppdrag. Skjemaet legges på oppdraget slik at det kan fylles ut der.",
+      "templateLabel": "HMS-skjema",
+      "workOrderLabel": "Oppdrag",
+      "selectTemplate": "Velg HMS-skjema",
+      "selectWorkOrder": "Velg oppdrag",
+      "submit": "Knytt skjema til oppdrag",
+      "noWorkOrders": "Du har ingen aktive oppdrag du kan knytte skjemaer til."
+    },
+    "recent": {
+      "title": "Siste HMS-dokumentasjon",
+      "description": "Fullførte HMS-skjemaer på oppdrag du har tilgang til.",
+      "count": "{count} dokumenter",
+      "workOrder": "Oppdrag",
+      "report": "Skjema",
+      "completed": "Fullført",
+      "status": "Status",
+      "actions": "Handlinger",
+      "viewPdf": "Se PDF",
+      "openWorkOrder": "Åpne oppdrag",
+      "emptyTitle": "Ingen HMS-dokumentasjon ennå",
+      "emptyDescription": "Når et HMS-skjema fylles ut på et oppdrag, dukker det opp her.",
+      "unknownReport": "HMS-skjema",
+      "noDate": "Ingen dato"
+    },
+    "error": {
+      "forbidden": "Du har ikke tilgang til å knytte HMS-skjemaer til dette oppdraget.",
+      "invalid": "Skjemaet eller oppdraget er ugyldig.",
+      "notFound": "Fant ikke oppdraget.",
+      "locked": "Oppdraget er fullført eller kansellert og kan ikke endres.",
+      "unknown": "Noe gikk galt. Prøv igjen."
+    }
+  },
+  "nav": {
+    "hms": "HMS"
+  },
+  "dashboard": {
+    "quickActions": {
+      "hms": "HMS"
+    }
+  }
+}

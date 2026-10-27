@@ -21,6 +21,8 @@ import dashboardNb from "../../messages/fragments/dashboard.nb.json";
 import dashboardEn from "../../messages/fragments/dashboard.en.json";
 import equipmentNb from "../../messages/fragments/equipment.nb.json";
 import equipmentEn from "../../messages/fragments/equipment.en.json";
+import hmsNb from "../../messages/fragments/hms.nb.json";
+import hmsEn from "../../messages/fragments/hms.en.json";
 import errorsNb from "../../messages/fragments/errors.nb.json";
 import p3Nb from "../../messages/fragments/p3.nb.json";
 import errorsEn from "../../messages/fragments/errors.en.json";
@@ -63,6 +65,7 @@ const nbFragments = mergeAll([
   portalNb,
   dashboardNb,
   equipmentNb,
+  hmsNb,
   errorsNb,
   p3Nb,
 ]);
@@ -78,6 +81,7 @@ const enFragments = mergeAll([
   portalEn,
   dashboardEn,
   equipmentEn,
+  hmsEn,
   errorsEn,
   p3En,
 ]);
