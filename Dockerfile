@@ -46,11 +46,14 @@ RUN --mount=type=cache,target=/root/.npm \
 # ---------------------------------------------------------------------------
 FROM base AS prisma-cli
 ARG PRISMA_VERSION
+# npm 12 blokkerer install-skript som standard. Kjør Prisma sin
+# engine-postinstall eksplisitt, ellers mangler schema-engine i imaget.
 RUN --mount=type=cache,target=/root/.npm \
     mkdir -p /cli \
  && cd /cli \
  && npm init -y >/dev/null \
- && npm install --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}"
+ && npm install --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}" \
+ && node node_modules/@prisma/engines/scripts/postinstall.js
 
 # ---------------------------------------------------------------------------
 # tessdata – henter OCR-språkdata i et eget steg. Da slipper det ferdige
