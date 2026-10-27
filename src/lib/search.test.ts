@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { fuzzyScore, normalizeSearchText } from "@/lib/fuzzy";
 import {
+  parseSearchFilters,
   reportSearchWhere,
+  serializeSearchFilters,
+  workOrderFilterWhere,
   workOrderListSearchWhere,
   workOrderTagWhere,
 } from "@/lib/search-filters";
@@ -88,5 +91,96 @@ describe("reportSearchWhere", () => {
     expect(JSON.stringify(reportSearchWhere("pumpe", true))).not.toContain(
       '"status"',
     );
+  });
+});
+
+describe("parseSearchFilters", () => {
+  it("leser og validerer URL-filtre", () => {
+    const params = new URLSearchParams(
+      "types=report,workOrder&status=completed&customer=cust-1&technician=tech-1&dateFrom=2026-01-01&dateTo=2026-01-31&tag=Service&hmsType=sja",
+    );
+
+    expect(parseSearchFilters(params)).toEqual({
+      types: ["report", "workOrder"],
+      status: "COMPLETED",
+      customer: "cust-1",
+      technician: "tech-1",
+      dateFrom: "2026-01-01",
+      dateTo: "2026-01-31",
+      tag: "Service",
+      hmsType: "SJA",
+    });
+  });
+
+  it("forkaster ukjente grupper, statuser, HMS-typer og utrygge id-er", () => {
+    expect(
+      parseSearchFilters({
+        types: ["report", "hemmelig", "drop table"],
+        status: "HEMMELIG",
+        customer: "<script>alert(1)</script>",
+        technician: "x".repeat(100),
+        dateFrom: "2026-13-99",
+        dateTo: "i går",
+        hmsType: "UKJENT",
+      }),
+    ).toEqual({ types: ["report"] });
+  });
+
+  it("godtar både gjentatte parametre og kommalister", () => {
+    const params = new URLSearchParams();
+    params.append("types", "report");
+    params.append("types", "unit,tag");
+    expect(parseSearchFilters(params).types).toEqual(["report", "unit", "tag"]);
+  });
+});
+
+describe("serializeSearchFilters", () => {
+  it("gir en URL-query som kan leses tilbake", () => {
+    const serialized = serializeSearchFilters({
+      types: ["report"],
+      status: "COMPLETED",
+      tag: "Årlig service",
+      customer: "cust-1",
+    });
+    const parsed = parseSearchFilters(new URLSearchParams(serialized));
+
+    expect(parsed).toEqual({
+      types: ["report"],
+      status: "COMPLETED",
+      customer: "cust-1",
+      tag: "Årlig service",
+    });
+    expect(serialized).not.toContain("<?");
+  });
+
+  it("gir tom streng uten filtre", () => {
+    expect(serializeSearchFilters({})).toBe("");
+    expect(serializeSearchFilters(null)).toBe("");
+  });
+});
+
+describe("workOrderFilterWhere", () => {
+  it("bygger Prisma-filter for status, kunde, montør, tag og dato", () => {
+    const where = workOrderFilterWhere({
+      status: "PLANNED",
+      customer: "cust-1",
+      technician: "tech-1",
+      tag: "Service",
+      dateFrom: "2026-01-01",
+      dateTo: "2026-01-31",
+    });
+
+    expect(where.status).toBe("PLANNED");
+    expect(where.customerId).toBe("cust-1");
+    expect(where.technicians).toEqual({ some: { id: "tech-1" } });
+    expect(where.tags).toEqual({ some: { name: "Service" } });
+    expect(where.scheduledFor).toEqual({
+      gte: new Date("2026-01-01T00:00:00.000Z"),
+      lte: new Date("2026-01-31T23:59:59.999Z"),
+    });
+  });
+
+  it("gir tomt filter uten verdier", () => {
+    expect(workOrderFilterWhere({})).toEqual({});
   });
 });

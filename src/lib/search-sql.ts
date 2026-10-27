@@ -19,6 +19,8 @@ export type DocumentSearchRow = {
   fileName: string;
   filePath: string;
   snippet: string | null;
+  /** ts_rank fra fulltekstsøket, når det finnes. */
+  score?: number;
 };
 
 /** Et navnetreff med trigram-likhet (0–1). */
@@ -52,6 +54,299 @@ export const SUBSTRING_SEARCH_FIELDS = {
 
 export type SubstringSearchTable = "WorkOrder" | "Tag";
 export type SubstringSearchColumn = "title" | "orderNumber" | "name";
+
+/**
+ * Tabeller og kolonner som kan søkes med normalisert delstreng. Listen er en
+ * allowlist: tabell- og kolonnenavn kommer aldri fra brukeren.
+ *
+ * Kontakter, brukere, maler, mapper, rapporter og kommentarer bruker denne
+ * veien i stedet for Prismas `contains`, slik at søket blir like tolerant for
+ * æ/ø/å, aksenter og tegnsetting som resten av søket.
+ */
+const NORMALIZED_SEARCH_TABLES = {
+  Customer: {
+    table: '"Customer"',
+    columns: ["name", "city", "address", "customerNumber", "orgNumber", "email"],
+    hasDeletedAt: true,
+  },
+  Product: {
+    table: '"Product"',
+    columns: ["model", "serialNumber", "location"],
+    hasDeletedAt: false,
+  },
+  Contact: {
+    table: '"Contact"',
+    columns: ["name", "email", "phone", "role"],
+    hasDeletedAt: false,
+  },
+  WorkOrder: {
+    table: '"WorkOrder"',
+    columns: ["title", "description", "orderNumber"],
+    hasDeletedAt: true,
+  },
+  Tag: { table: '"Tag"', columns: ["name"], hasDeletedAt: false },
+  Report: {
+    table: '"Report"',
+    columns: ["reportNumber", "name", "templateTitle", "comments"],
+    hasDeletedAt: true,
+  },
+  Comment: { table: '"Comment"', columns: ["content", "authorName"], hasDeletedAt: false },
+  User: { table: '"User"', columns: ["name", "email", "phone"], hasDeletedAt: false },
+  Template: {
+    table: '"Template"',
+    columns: ["title", "reportName", "description"],
+    hasDeletedAt: false,
+  },
+  DocumentFolder: { table: '"DocumentFolder"', columns: ["name"], hasDeletedAt: false },
+} as const;
+
+export type NormalizedSearchTable = keyof typeof NORMALIZED_SEARCH_TABLES;
+
+/** Et normalisert treff med en grov score (eksakt > prefiks > delstreng). */
+export type NormalizedSearchRow = NameSearchRow;
+
+function normalizedTableConfig(table: NormalizedSearchTable) {
+  const config = NORMALIZED_SEARCH_TABLES[table];
+  if (!config) throw new Error(`Ugyldig tabell for normalisert søk: ${table}`);
+  return config;
+}
+
+function normalizedColumnExpression(
+  table: NormalizedSearchTable,
+  column: string,
+): Prisma.Sql {
+  const config = normalizedTableConfig(table);
+  if (!(config.columns as readonly string[]).includes(column)) {
+    throw new Error(`Ugyldig kolonne for normalisert søk: ${table}.${column}`);
+  }
+  return normalizedSql(Prisma.raw(`${config.table}."${column}"`));
+}
+
+/**
+ * Normalisert delstrengsøk mot én eller flere allowlistede kolonner.
+ *
+ * Returnerer id-er og score, ikke visningsdata. Kalleren henter de få radene
+ * den trenger og legger alltid på tilgangskontroll før noe vises.
+ */
+export async function searchNormalizedIds(
+  table: NormalizedSearchTable,
+  query: string,
+  limit: number,
+  columns?: string[],
+): Promise<NormalizedSearchRow[]> {
+  const config = normalizedTableConfig(table);
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+
+  const selected = columns ?? [...config.columns];
+  for (const column of selected) {
+    if (!(config.columns as readonly string[]).includes(column)) {
+      throw new Error(`Ugyldig kolonne for normalisert søk: ${table}.${column}`);
+    }
+  }
+  if (selected.length === 0) return [];
+
+  const take = takeLimit(limit);
+  const rawQuery = query.trim();
+  const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
+  const contains = selected.map(
+    (column) => Prisma.sql`(
+      strpos(${normalizedColumnExpression(table, column)}, ${term}) > 0
+      OR ${Prisma.raw(`${config.table}."${column}"`)} % ${rawQuery}
+    )`,
+  );
+  const exact = selected.map(
+    (column) => Prisma.sql`${normalizedColumnExpression(table, column)} = ${term}`,
+  );
+  const prefix = selected.map(
+    (column) =>
+      Prisma.sql`strpos(${normalizedColumnExpression(table, column)}, ${term}) = 1`,
+  );
+  const deletedFilter = config.hasDeletedAt
+    ? Prisma.sql`AND ${Prisma.raw(config.table)}."deletedAt" IS NULL`
+    : Prisma.empty;
+
+  return prisma.$queryRaw<NormalizedSearchRow[]>(Prisma.sql`
+    SELECT
+      "id",
+      CASE
+        WHEN ${Prisma.join(exact, " OR ")} THEN 1
+        WHEN ${Prisma.join(prefix, " OR ")} THEN 0.9
+        ELSE 0.8
+      END AS "score"
+    FROM ${Prisma.raw(config.table)}
+    WHERE (${Prisma.join(contains, " OR ")})
+      ${deletedFilter}
+    ORDER BY "score" DESC, "id" ASC
+    LIMIT ${take}
+  `);
+}
+
+export type ReportSearchRow = {
+  id: string;
+  score: number;
+  snippet: string | null;
+  /** Antall rapporter som matcher før limit, med samme filter og tilgang. */
+  total: number;
+};
+
+export type ReportSearchOptions = {
+  limit: number;
+  includeCancelled: boolean;
+  filters?: import("./search-filters").SearchFilters;
+};
+
+/**
+ * Fulltekst- og trigramsøk i rapporter.
+ *
+ * Bruker de nye GIN-indeksene:
+ * - `Report_search_fts_idx` for navn, malnavn, rapportnummer og kommentar
+ * - `ReportUnit_answers_fts_idx` for sjekkpunkt-svar
+ * - trigram-indeksene for rapportnummer/navn/malnavn
+ *
+ * I tillegg matcher vi normalisert oppdragstittel og kundenavn, slik at
+ * «pumpe service» finner rapporten selv når teksten bare står på oppdraget.
+ * Alle verdier er parametrisert; tabell- og kolonnenavn er faste.
+ */
+export async function searchReports(
+  query: string,
+  options: ReportSearchOptions,
+): Promise<ReportSearchRow[]> {
+  const rawQuery = query.trim();
+  const normalizedQuery = normalizeSearchText(rawQuery);
+  if (!normalizedQuery) return [];
+
+  const take = takeLimit(options.limit);
+  const filters = options.filters ?? {};
+  const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
+
+  const reportText = Prisma.sql`(
+    coalesce(r."name", '') || ' ' ||
+    coalesce(r."templateTitle", '') || ' ' ||
+    coalesce(r."reportNumber", '') || ' ' ||
+    coalesce(r."comments", '')
+  )`;
+  const reportTsv = Prisma.sql`to_tsvector('norwegian', ${reportText})`;
+
+  const unitAnswers = Prisma.sql`(
+    SELECT string_agg(ru."answersJson", ' ')
+    FROM "ReportUnit" ru
+    WHERE ru."reportId" = r."id"
+  )`;
+
+  const normalizedReportNumber = normalizedSql(Prisma.raw('r."reportNumber"'));
+  const normalizedName = normalizedSql(Prisma.raw('r."name"'));
+  const normalizedTemplateTitle = normalizedSql(Prisma.raw('r."templateTitle"'));
+  const normalizedComments = normalizedSql(Prisma.raw('r."comments"'));
+  const normalizedHmsType = normalizedSql(Prisma.raw('r."hmsType"::text'));
+  const normalizedWorkOrderTitle = normalizedSql(Prisma.raw('w."title"'));
+  const normalizedCustomerName = normalizedSql(Prisma.raw('c."name"'));
+
+  const substringMatch = Prisma.sql`(
+    strpos(${normalizedReportNumber}, ${term}) > 0
+    OR strpos(${normalizedName}, ${term}) > 0
+    OR strpos(${normalizedTemplateTitle}, ${term}) > 0
+    OR strpos(${normalizedComments}, ${term}) > 0
+    OR strpos(${normalizedHmsType}, ${term}) > 0
+    OR strpos(${normalizedWorkOrderTitle}, ${term}) > 0
+    OR strpos(${normalizedCustomerName}, ${term}) > 0
+    OR EXISTS (
+      SELECT 1 FROM "ReportUnit" ru
+      WHERE ru."reportId" = r."id"
+        AND strpos(${normalizedSql(Prisma.raw('ru."answersJson"'))}, ${term}) > 0
+    )
+  )`;
+
+  const matchingUnits = Prisma.sql`EXISTS (
+    SELECT 1 FROM "ReportUnit" ru
+    WHERE ru."reportId" = r."id"
+      AND to_tsvector('norwegian', coalesce(ru."answersJson", '')) @@ q.tsq
+  )`;
+
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`${reportTsv} @@ q.tsq`,
+    Prisma.sql`r."reportNumber" % ${rawQuery}`,
+    Prisma.sql`r."name" % ${rawQuery}`,
+    Prisma.sql`r."templateTitle" % ${rawQuery}`,
+    Prisma.sql`w."title" % ${rawQuery}`,
+    Prisma.sql`c."name" % ${rawQuery}`,
+    matchingUnits,
+    substringMatch,
+  ];
+
+  if (!options.includeCancelled) {
+    conditions.push(Prisma.sql`w."status" <> 'CANCELLED'::"WorkStatus"`);
+  }
+  if (filters.status) {
+    conditions.push(Prisma.sql`w."status" = ${filters.status}::"WorkStatus"`);
+  }
+  if (filters.customer) {
+    conditions.push(Prisma.sql`w."customerId" = ${filters.customer}`);
+  }
+  if (filters.technician) {
+    conditions.push(Prisma.sql`EXISTS (
+      SELECT 1 FROM "_WorkOrderTechnicians" wt
+      WHERE wt."B" = w."id" AND wt."A" = ${filters.technician}
+    )`);
+  }
+  if (filters.tag) {
+    conditions.push(Prisma.sql`EXISTS (
+      SELECT 1 FROM "_WorkOrderTags" wt
+      JOIN "Tag" t ON t."id" = wt."A"
+      WHERE wt."B" = w."id" AND t."name" = ${filters.tag}
+    )`);
+  }
+  if (filters.hmsType) {
+    conditions.push(Prisma.sql`r."hmsType" = ${filters.hmsType}::"HmsFormType"`);
+  }
+  if (filters.dateFrom) {
+    conditions.push(Prisma.sql`r."completedAt" >= ${filters.dateFrom}::date`);
+  }
+  if (filters.dateTo) {
+    conditions.push(
+      Prisma.sql`r."completedAt" < (${filters.dateTo}::date + INTERVAL '1 day')`,
+    );
+  }
+
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string; score: number; snippet: string | null; total: bigint | number }>
+  >(Prisma.sql`
+    WITH q AS (
+      SELECT websearch_to_tsquery('norwegian', ${rawQuery}) AS tsq
+    )
+    SELECT
+      r."id",
+      GREATEST(
+        ts_rank(${reportTsv}, q.tsq) * 4,
+        similarity(coalesce(r."reportNumber", ''), ${rawQuery}),
+        similarity(coalesce(r."name", ''), ${rawQuery}),
+        similarity(coalesce(r."templateTitle", ''), ${rawQuery})
+      ) AS "score",
+      ts_headline(
+        'norwegian',
+        ${reportText} || ' ' || coalesce(${unitAnswers}, ''),
+        q.tsq,
+        'MaxFragments=2,MaxWords=18,MinWords=5'
+      ) AS "snippet",
+      COUNT(*) OVER() AS "total"
+    FROM "Report" r
+    JOIN "WorkOrder" w ON w."id" = r."workOrderId"
+    LEFT JOIN "Customer" c ON c."id" = w."customerId"
+    CROSS JOIN q
+    WHERE r."deletedAt" IS NULL
+      AND w."deletedAt" IS NULL
+      AND (${Prisma.join(conditions, " AND ")})
+    ORDER BY "score" DESC, r."completedAt" DESC
+    LIMIT ${take}
+  `);
+
+  return rows.map((row) => ({
+    id: row.id,
+    score: Number(row.score) || 0,
+    snippet: row.snippet,
+    total: Number(row.total) || 0,
+  }));
+}
 
 /** En hard øvre grense, uavhengig av hva kalleren ber om. */
 const MAX_LIMIT = 200;
