@@ -1,21 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { formatDateTime } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { listNotifications } from "@/server/notifications";
 import { notificationHrefForUser } from "@/lib/notification-links";
-import {
-  markAllReadAction,
-  markReadAction,
-  openNotificationAction,
-} from "./actions";
+import NotificationCard from "./NotificationCard";
+import { markAllReadAction } from "./actions";
 
 type NotificationItem = {
   id: string;
   type: string;
   title: string;
   body: string | null;
+  sourceLabel: string | null;
   href: string | null;
   readAt: Date | null;
   createdAt: Date;
@@ -97,57 +94,11 @@ export default async function NotificationsPage({
       ) : (
         <ul className="space-y-3">
           {data.items.map((notification) => (
-            <li
+            <NotificationCard
               key={notification.id}
-              className={`rounded-2xl border bg-white p-4 shadow-sm ${
-                notification.readAt
-                  ? "border-gray-100"
-                  : "border-blue-200 ring-1 ring-blue-100"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-bold text-gray-900">{notification.title}</p>
-                  {notification.body && (
-                    <p className="mt-1 whitespace-pre-line text-sm text-gray-600">
-                      {notification.body}
-                    </p>
-                  )}
-                  <p className="mt-2 text-[11px] text-gray-600">
-                    {formatDateTime(notification.createdAt)}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  {hrefFor(notification) && (
-                    <form action={openNotificationAction}>
-                      <input type="hidden" name="id" value={notification.id} />
-                      <input
-                        type="hidden"
-                        name="href"
-                        value={hrefFor(notification) ?? ""}
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs font-bold text-blue-700 hover:underline"
-                      >
-                        {t("p3.notifications.open")}
-                      </button>
-                    </form>
-                  )}
-                  {!notification.readAt && (
-                    <form action={markReadAction}>
-                      <input type="hidden" name="id" value={notification.id} />
-                      <button
-                        type="submit"
-                        className="text-xs font-bold text-gray-500 hover:text-gray-800"
-                      >
-                        {t("p3.notifications.markRead")}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            </li>
+              notification={notification}
+              href={hrefFor(notification)}
+            />
           ))}
         </ul>
       )}

@@ -13,7 +13,22 @@
       "previous": "Forrige",
       "next": "Neste",
       "pageOf": "Side {page} av {pages}",
-      "settings": "Innstillinger"
+      "settings": "Innstillinger",
+      "fromLabel": "Fra:",
+      "sourceFallback": "Systemvarsel",
+      "unread": "Ulest",
+      "openAria": "Åpne varselet «{title}»",
+      "markReadAria": "Merk varselet «{title}» som lest",
+      "types": {
+        "ASSIGNMENT": "Tildeling",
+        "DATE_CHANGED": "Datoendring",
+        "CANCELLED": "Kansellering",
+        "REPORT_READY": "Rapport",
+        "BOOKING": "Booking",
+        "CONTRACT_DUE": "Serviceavtale",
+        "OVERDUE": "Forfalt",
+        "CONTACT_UPDATE": "Kontaktoppdatering"
+      }
     },
     "notificationSettings": {
       "title": "Varselinnstillinger",
