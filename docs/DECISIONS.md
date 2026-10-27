@@ -129,6 +129,28 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
    `submitReport` returnerer `remediationWorkOrderId` slik at UI kan lenke til
    oppdraget.
 
+### HMS-skjemaer
+
+- **HMS er en egen malkategori.** `Template.category` er `SERVICE` eller `HMS`,
+  og HMS-maler har `hmsType` (`SJA`, `HOT_WORK`, `INTERNAL_CONTROL`,
+  `DEVIATION`, `SAFETY_ROUND`, `WRITTEN_INSTRUCTION` eller `GENERAL`).
+  Rapportens kategori og HMS-type fryses ved signering, slik at lister og PDF
+  viser riktig historikk selv om malen endres senere.
+- **Standardmaler installeres av migrasjonen.** Seks HMS-skjemaer fra
+  `/HMS-skjemaer` er lagt inn med stabile id-er og `requiresUnits = false`.
+  Migrasjonen overskriver ikke maler som allerede finnes. De kan redigeres i
+  maladministrasjonen som vanlige maler.
+- **HMS-skjemaer knyttes til oppdrag, ikke til en egen rapporttabell.** Dermed
+  gjelder samme låsing, signatur, revisjon, bevaringsplikt, PDF og
+  tilgangskontroll som for servicerapporter. Både kundeoppdrag og interne
+  oppdrag (`customerId = null`) kan bruke HMS-skjemaer.
+- **Egen HMS-inngang.** `/hms` samler malbibliotek, dokumentasjon og en
+  koblingsflate. Kobling går gjennom `addTemplate` i oppdragstjenesten, slik at
+  avdelingssperre, låste oppdrag og revisjonslogg ikke kan omgås.
+- **Internkontroll og øvrige HMS-skjemaer følger samme malmotor.** Risikovurdering,
+  avvik, vernerunde og skriftlig instruks er egne `hmsType`-verdier, ikke
+  hardkodede tabeller. Skjemaene kan derfor tilpasses uten kodeendringer.
+
 ### Bevaringsplikt, retensjon og eksport
 
 - **Bevaringsplikt (legal hold) er en frysebryter, ikke bare en slettesperre.**
