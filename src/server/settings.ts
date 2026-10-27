@@ -4,6 +4,8 @@ import { audit } from "@/lib/audit";
 import { isSafeLogoUrl } from "@/lib/logo";
 import { isBrandingLogoForActor } from "@/lib/upload-ownership";
 import { LIMITS, cleanColor, cleanStatus, cleanText, cleanUrl } from "@/lib/sanitize";
+import { cleanTemplateFieldsJson } from "@/lib/template-fields";
+import { resolveTemplateClassification } from "@/lib/template-category";
 import {
   can,
   fail,
@@ -358,34 +360,166 @@ export function checkboxValue(value: unknown, defaultValue: boolean): boolean {
   return defaultValue;
 }
 
+export type TemplateInput = {
+  title?: unknown;
+  reportName?: unknown;
+  description?: unknown;
+  category?: unknown;
+  hmsType?: unknown;
+  requiresUnits?: unknown;
+  fieldsJson?: unknown;
+};
+
+function templateAuditSuffix(input: {
+  category: "SERVICE" | "HMS";
+  hmsType: string | null;
+}): string {
+  return input.category === "HMS" && input.hmsType
+    ? ` [HMS: ${input.hmsType}]`
+    : "";
+}
+
 export async function createTemplate(
   actor: ServiceActor,
-  input: { title?: unknown; reportName?: unknown; requiresUnits?: unknown },
+  input: TemplateInput,
 ): Promise<ServiceResult<{ id: string }>> {
   if (!can(actor, "templates.manage")) return fail("forbidden");
 
   const title = cleanText(input.title, { maxLength: LIMITS.title });
   if (!title) return fail("invalid");
 
+  const classification = resolveTemplateClassification({
+    category: input.category,
+    hmsType: input.hmsType,
+    defaultCategory: "SERVICE",
+  });
+  if (!classification) return fail("invalid");
+
   const reportName = cleanText(input.reportName, { maxLength: LIMITS.title }) || null;
+  const description =
+    cleanText(input.description, { maxLength: LIMITS.text }) || null;
   const requiresUnits = checkboxValue(input.requiresUnits, true);
 
   const template = await prisma.$transaction(async (tx) => {
     const created = await tx.template.create({
-      data: { title, reportName, requiresUnits, fieldsJson: "[]" },
+      data: {
+        title,
+        reportName,
+        description,
+        category: classification.category,
+        hmsType: classification.hmsType,
+        requiresUnits,
+        fieldsJson: "[]",
+      },
     });
     await audit(tx, {
       entityType: "Template",
       entityId: created.id,
       action: `Opprettet sjekkliste: ${title}${
         reportName ? ` (rapportnavn: ${reportName})` : ""
-      }${requiresUnits ? "" : " (uten enheter)"}`,
+      }${requiresUnits ? "" : " (uten enheter)"}${templateAuditSuffix(
+        classification,
+      )}`,
       actor: toAuditActor(actor),
     });
     return created;
   });
 
   return ok({ id: template.id });
+}
+
+/**
+ * Oppdaterer en eksisterende sjekklistemal.
+ *
+ * Kategori og HMS-type valideres med de samme reglene som ved opprettelse.
+ * Når feltene ikke sendes med, beholder malen det den hadde – en SERVICE-mal
+ * blir dermed ikke til HMS bare fordi en eldre klient mangler feltet.
+ */
+export async function updateTemplate(
+  actor: ServiceActor,
+  input: TemplateInput & { id?: unknown },
+): Promise<ServiceResult<{ id: string }>> {
+  if (!can(actor, "templates.manage")) return fail("forbidden");
+
+  const id = cleanText(input.id, { maxLength: LIMITS.line });
+  const title = cleanText(input.title, { maxLength: LIMITS.title });
+  if (!id || !title) return fail("invalid");
+
+  const existing = await prisma.template.findUnique({ where: { id } });
+  if (!existing) return fail("not_found");
+
+  const classification = resolveTemplateClassification({
+    category: input.category,
+    hmsType: input.hmsType === undefined ? existing.hmsType : input.hmsType,
+    defaultCategory: existing.category,
+  });
+  if (!classification) return fail("invalid");
+
+  const reportName =
+    input.reportName === undefined
+      ? existing.reportName
+      : cleanText(input.reportName, { maxLength: LIMITS.title }) || null;
+  const description =
+    input.description === undefined
+      ? existing.description
+      : cleanText(input.description, { maxLength: LIMITS.text }) || null;
+  const requiresUnits =
+    input.requiresUnits === undefined
+      ? existing.requiresUnits
+      : checkboxValue(input.requiresUnits, existing.requiresUnits);
+  const fieldsJson =
+    input.fieldsJson === undefined
+      ? undefined
+      : cleanTemplateFieldsJson(input.fieldsJson);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.template.update({
+      where: { id },
+      data: {
+        title,
+        reportName,
+        description,
+        category: classification.category,
+        hmsType: classification.hmsType,
+        requiresUnits,
+        ...(fieldsJson === undefined ? {} : { fieldsJson }),
+      },
+    });
+    const changes = [`Endret sjekkliste: ${existing.title || title} → ${title}`];
+    if ((existing.reportName ?? null) !== reportName) {
+      changes.push(
+        `rapportnavn: ${existing.reportName || "(tomt)"} → ${reportName || "(tomt)"}`,
+      );
+    }
+    if ((existing.description ?? null) !== description) {
+      changes.push(
+        `beskrivelse: ${existing.description || "(tomt)"} → ${description || "(tomt)"}`,
+      );
+    }
+    if ((existing.requiresUnits ?? true) !== requiresUnits) {
+      changes.push(
+        `enheter: ${existing.requiresUnits ?? true ? "ja" : "nei"} → ${requiresUnits ? "ja" : "nei"}`,
+      );
+    }
+    if (existing.category !== classification.category) {
+      changes.push(
+        `kategori: ${existing.category} → ${classification.category}`,
+      );
+    }
+    if ((existing.hmsType ?? null) !== classification.hmsType) {
+      changes.push(
+        `HMS-type: ${existing.hmsType || "(ingen)"} → ${classification.hmsType || "(ingen)"}`,
+      );
+    }
+    await audit(tx, {
+      entityType: "Template",
+      entityId: id,
+      action: changes.join(" · "),
+      actor: toAuditActor(actor),
+    });
+  });
+
+  return ok({ id });
 }
 
 /**
