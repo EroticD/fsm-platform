@@ -2,28 +2,42 @@ import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
 import { fuzzyScore, normalizeSearchText } from "@/lib/fuzzy";
 import { formatDate } from "@/lib/dates";
-import { WorkStatus } from "@prisma/client";
+import { WorkStatus, type Prisma } from "@prisma/client";
 import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
-import { reportSearchWhere } from "@/lib/search-filters";
+import {
+  parseSearchFilters,
+  workOrderFilterWhere,
+  type SearchFilters,
+} from "@/lib/search-filters";
 import {
   searchBySubstring,
   searchByName,
   searchDocuments,
+  searchNormalizedIds,
+  searchReports,
+  searchWorkOrderIds,
+  type DocumentSearchRow,
   type NameSearchRow,
 } from "@/lib/search-sql";
+
+export type { SearchFilters } from "@/lib/search-filters";
 
 export type SearchItem = {
   id: string;
   title: string;
   subtitle?: string;
   href: string;
+  /** Relevans 0–1. Høyere er bedre. */
+  score?: number;
 };
 
 export type SearchGroup = {
   kind: string;
   label: string;
   icon: string;
+  /** Antall treff i gruppen før paginering. */
+  total: number;
   items: SearchItem[];
 };
 
@@ -31,13 +45,26 @@ export type SearchResults = {
   query: string;
   total: number;
   groups: SearchGroup[];
+  tookMs?: number;
 };
 
-const LIMIT = 5;
-// Hent et begrenset antall kandidater fra databasen og ranger dem deretter
-// fuzzy i JS. Databasen bruker indeksene (GIN/trigram), så vi laster aldri
-// hele tabeller eller store tekstfelt inn i Node.
-const CANDIDATES = 60;
+export type SearchOptions = {
+  /** Brukeren som søker. Styrer avdelingssynlige oppdrag, kommentarer og ansatte. */
+  user: AccessUser;
+  /** Kontoret kan søke i kansellerte oppdrag; montørene skal ikke se dem. */
+  includeCancelled?: boolean;
+  /** 1-basert side. */
+  page?: number;
+  /** Antall treff per gruppe. Nedtrekket bruker 5, /sok bruker 20. */
+  pageSize?: number;
+  filters?: SearchFilters;
+};
+
+const DEFAULT_PAGE_SIZE = 5;
+const MAX_PAGE_SIZE = 50;
+/** Hvor mange kandidater vi henter per gruppe før fuzzy-rangering. */
+const CANDIDATES = 500;
+const MAX_QUERY_LENGTH = 100;
 
 const STATUS_LABELS: Record<string, string> = {
   PLANNED: "Planlagt",
@@ -56,15 +83,23 @@ const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: "Kundeportal",
 };
 
+/** Rekkefølgen gruppene vises i når relevansen er lik. */
+const GROUP_ORDER = [
+  "customer",
+  "workOrder",
+  "tag",
+  "unit",
+  "contact",
+  "report",
+  "comment",
+  "user",
+  "template",
+  "folder",
+  "document",
+] as const;
+
 function joinInfo(parts: (string | null | undefined | false)[]) {
   return parts.filter(Boolean).join(" • ");
-}
-
-/** Bygger et OR-filter for en liste med tekstfelter. */
-function textOr(fields: string[], q: string) {
-  return {
-    OR: fields.map((f) => ({ [f]: { contains: q, mode: "insensitive" as const } })),
-  };
 }
 
 /** Fjerner ts_headline-markeringene (<b> … </b>) før teksten vises som ren tekst. */
@@ -76,14 +111,18 @@ function snippetText(snippet: string | null | undefined): string | null {
     .trim();
 }
 
+function clampInt(value: number | undefined, fallback: number, min: number, max: number) {
+  const parsed = Number.isFinite(value) ? Math.trunc(value as number) : fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
 type MergedHits = {
   ids: string[];
-  /** Posisjon fra databasen, brukt som tie-breaker etter fuzzy-scoren. */
-  rank: Map<string, number>;
+  scores: Map<string, number>;
 };
 
-/** Slår sammen treff fra flere trigram-kolonner og beholder høyeste score. */
-function mergeNameHits(...lists: NameSearchRow[][]): MergedHits {
+/** Slår sammen treff fra flere trigram-/normaliserte søk og beholder høyeste score. */
+function mergeHits(...lists: NameSearchRow[][]): MergedHits {
   const best = new Map<string, number>();
   for (const list of lists) {
     for (const hit of list) {
@@ -93,45 +132,48 @@ function mergeNameHits(...lists: NameSearchRow[][]): MergedHits {
   }
 
   const sorted = [...best.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, CANDIDATES);
 
   return {
     ids: sorted.map(([id]) => id),
-    rank: new Map(sorted.map(([id], index) => [id, index])),
+    scores: new Map(sorted),
   };
 }
 
-type SearchOptions = {
-  /** Brukeren som søker. Styrer avdelingssynlige oppdrag, kommentarer og ansatte. */
-  user: AccessUser;
-  /** Kontoret kan søke i kansellerte oppdrag; montørene skal ikke se dem. */
-  includeCancelled?: boolean;
-};
-
 /**
  * Kjernesøkelogikken — brukes av både det globale hurtigsøket (/api/search)
- * og søkeresultatsiden (/sok). Henter først kandidater fra databasen (raskt,
- * via fulltekst- og trigram-indekser), og rangerer dem deretter fuzzy.
+ * og søkeresultatsiden (/sok).
+ *
+ * Kandidatene hentes via fulltekst- og trigram-indekser. Alle grupper får ekte
+ * totaltall og pagineres, og hvert treff har en relevansscore. Tilgangskontroll
+ * legges på hver databaseforespørsel, aldri etter at data er hentet.
  */
 export async function performSearch(
   query: string,
-  options: SearchOptions
+  options: SearchOptions,
 ): Promise<SearchResults> {
-  const originalQuery = query.trim();
+  const started = Date.now();
+  const originalQuery = String(query ?? "").trim().slice(0, MAX_QUERY_LENGTH);
   // All matching skjer på normalisert form. Det gjør «arlig-service» lik
   // «Årlig service» og «2026-1042» lik «NO-2026-1042».
   const q = normalizeSearchText(originalQuery);
+  const filters = parseSearchFilters(
+    (options.filters ?? {}) as Record<string, string | string[] | undefined>,
+  );
+  const page = clampInt(options.page, 1, 1, 10_000);
+  const pageSize = clampInt(options.pageSize, DEFAULT_PAGE_SIZE, 1, MAX_PAGE_SIZE);
+
   if (q.length < 2) {
-    return { query: originalQuery, total: 0, groups: [] };
+    return { query: originalQuery, total: 0, groups: [], tookMs: Date.now() - started };
   }
 
   const includeCancelled = options.includeCancelled ?? false;
   const user = options.user;
+  const selectedTypes = filters.types ? new Set(filters.types) : null;
+  const wants = (kind: string) => !selectedTypes || selectedTypes.has(kind);
 
   // Søket skal bare vise kategorier brukeren faktisk har tilgang til.
-  // Kunder, enheter, rapporter, dokumenter og maler er felles for alle
-  // avdelinger, men fortsatt avhengige av rettighetene.
   const canCustomers = hasPermission(user, "customers.view");
   const canWorkOrders = hasPermission(user, "workorders.view");
   const canEquipment = hasPermission(user, "equipment.view");
@@ -150,320 +192,530 @@ export async function performSearch(
     !canTemplates &&
     !canDocuments
   ) {
-    return { query: originalQuery, total: 0, groups: [] };
+    return { query: originalQuery, total: 0, groups: [], tookMs: Date.now() - started };
   }
 
-  const contains = { contains: q, mode: "insensitive" as const };
-  const noRows = { id: { in: [] } };
+  const noRows = { id: { in: [] as string[] } };
 
-  const commentAccess = canWorkOrders || canCustomers
-    ? {
-        OR: [
-          ...(canWorkOrders
-            ? [
-                {
-                  AND: [
-                    { workOrderId: { not: null } },
-                    {
-                      workOrder: {
-                        ...workOrderScope(user),
-                        ...(includeCancelled
-                          ? {}
-                          : { status: { not: WorkStatus.CANCELLED } }),
+  const commentAccess =
+    canWorkOrders || canCustomers
+      ? {
+          OR: [
+            ...(canWorkOrders
+              ? [
+                  {
+                    AND: [
+                      { workOrderId: { not: null } },
+                      {
+                        workOrder: {
+                          ...workOrderScope(user),
+                          ...(includeCancelled
+                            ? {}
+                            : { status: { not: WorkStatus.CANCELLED } }),
+                        },
                       },
-                    },
-                  ],
-                },
-              ]
-            : []),
-          ...(canCustomers
-            ? [
-                {
-                  workOrderId: null,
-                  OR: [
-                    { customer: { deletedAt: null } },
-                    { contact: { customer: { deletedAt: null } } },
-                    { customerId: null, contactId: null },
-                  ],
-                },
-              ]
+                    ],
+                  },
+                ]
+              : []),
+            ...(canCustomers
+              ? [
+                  {
+                    workOrderId: null,
+                    OR: [
+                      { customer: { deletedAt: null } },
+                      { contact: { customer: { deletedAt: null } } },
+                      { customerId: null, contactId: null },
+                    ],
+                  },
+                ]
+              : []),
+          ],
+        }
+      : noRows;
+
+  // Hvor mange kandidater vi trenger for å kunne svare på denne siden.
+  const fetchLimit = Math.min(CANDIDATES, Math.max(pageSize * page * 2, 25));
+
+  // Første runde: indekserte kandidatsøk. Ingen av disse leser store
+  // tekstfelt eller hele tabeller. Hver gruppe slås bare opp når den er valgt.
+  const [
+    customerNameHits,
+    customerCityHits,
+    productModelHits,
+    productNormalizedHits,
+    contactHits,
+    workOrderTitleHits,
+    workOrderTitleSubstringHits,
+    workOrderNumberHits,
+    workOrderNormalizedHits,
+    tagHits,
+    userHits,
+    templateHits,
+    folderHits,
+    commentHits,
+    documentHits,
+  ] = await Promise.all([
+    wants("customer") && canCustomers
+      ? searchByName("Customer", "name", originalQuery, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("customer") && canCustomers
+      ? searchByName("Customer", "city", originalQuery, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("unit") && canEquipment
+      ? searchByName("Product", "model", originalQuery, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("unit") && canEquipment
+      ? searchNormalizedIds("Product", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("contact") && canCustomers
+      ? searchNormalizedIds("Contact", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("workOrder") && canWorkOrders
+      ? searchByName("WorkOrder", "title", originalQuery, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("workOrder") && canWorkOrders
+      ? searchBySubstring("WorkOrder", "title", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("workOrder") && canWorkOrders
+      ? searchBySubstring("WorkOrder", "orderNumber", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("workOrder") && canWorkOrders
+      ? searchWorkOrderIds(q, CANDIDATES).then((ids) =>
+          ids.map((id, index) => ({ id, score: Math.max(0.3, 1 - index / CANDIDATES) })),
+        )
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("tag") && canWorkOrders
+      ? searchBySubstring("Tag", "name", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("user") && canUsers
+      ? searchNormalizedIds("User", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("template") && canTemplates
+      ? searchNormalizedIds("Template", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("folder") && canDocuments
+      ? searchNormalizedIds("DocumentFolder", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("comment") && (canWorkOrders || canCustomers)
+      ? searchNormalizedIds("Comment", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    wants("document") && canDocuments
+      ? searchDocuments(originalQuery, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+  ]);
+
+  // Rapporter har eget fulltekstsøk som også returnerer ekte totaltall.
+  const reportHits =
+    wants("report") && canReports
+      ? await searchReports(originalQuery, {
+          limit: fetchLimit,
+          includeCancelled,
+          filters,
+        })
+      : [];
+
+  const customerHits = mergeHits(customerNameHits, customerCityHits);
+  const productHits = mergeHits(productModelHits, productNormalizedHits);
+  const workOrderHits = mergeHits(
+    workOrderTitleHits,
+    workOrderTitleSubstringHits,
+    workOrderNumberHits,
+    workOrderNormalizedHits,
+  );
+  const tagHitsMerged = mergeHits(tagHits);
+  const contactHitsMerged = mergeHits(contactHits);
+  const userHitsMerged = mergeHits(userHits);
+  const templateHitsMerged = mergeHits(templateHits);
+  const folderHitsMerged = mergeHits(folderHits);
+  const commentHitsMerged = mergeHits(commentHits);
+  const reportScores = new Map(reportHits.map((hit) => [hit.id, Number(hit.score) || 0]));
+
+  const workOrderFilter = workOrderFilterWhere(filters);
+  const tagFilter = filters.tag ? { name: filters.tag } : undefined;
+
+  // Andre runde: hent bare feltene vi trenger for visning og rangering.
+  // Alle `where`-objektene nedenfor gjenbrukes til telling, slik at totaltallet
+  // har nøyaktig samme omfang og filter som listen.
+  const customerWhere = canCustomers && wants("customer")
+    ? {
+        AND: [
+          { deletedAt: null },
+          { id: { in: customerHits.ids } },
+          ...(filters.customer ? [{ id: filters.customer }] : []),
+        ],
+      }
+    : noRows;
+
+  const contactWhere = canCustomers && wants("contact")
+    ? {
+        AND: [
+          { id: { in: contactHitsMerged.ids } },
+          {
+            customer: {
+              deletedAt: null,
+              ...(filters.customer ? { id: filters.customer } : {}),
+            },
+          },
+        ],
+      }
+    : noRows;
+
+  const productWhere = canEquipment && wants("unit")
+    ? {
+        AND: [
+          { id: { in: productHits.ids } },
+          {
+            customer: {
+              deletedAt: null,
+              ...(filters.customer ? { id: filters.customer } : {}),
+            },
+          },
+        ],
+      }
+    : noRows;
+
+  const workOrderWhere = canWorkOrders && wants("workOrder")
+    ? {
+        AND: [
+          workOrderScope(user),
+          ...(includeCancelled ? [] : [{ status: { not: WorkStatus.CANCELLED } }]),
+          workOrderFilter,
+          {
+            OR: [
+              { id: { in: workOrderHits.ids } },
+              ...(tagHitsMerged.ids.length > 0
+                ? [{ tags: { some: { id: { in: tagHitsMerged.ids } } } }]
+                : []),
+            ],
+          },
+        ],
+      }
+    : noRows;
+
+  const tagWhere = canWorkOrders && wants("tag")
+    ? {
+        AND: [
+          { id: { in: tagHitsMerged.ids } },
+          ...(tagFilter ? [tagFilter] : []),
+          {
+            workOrders: {
+              some: {
+                AND: [
+                  workOrderScope(user),
+                  ...(includeCancelled
+                    ? []
+                    : [{ status: { not: WorkStatus.CANCELLED } }]),
+                  workOrderFilter,
+                ],
+              },
+            },
+          },
+        ],
+      }
+    : noRows;
+
+  const userWhere = canUsers && wants("user")
+    ? { AND: [{ id: { in: userHitsMerged.ids } }, departmentUsersScope(user)] }
+    : noRows;
+
+  const templateWhere = canTemplates && wants("template")
+    ? {
+        AND: [
+          { id: { in: templateHitsMerged.ids } },
+          ...(filters.hmsType
+            ? [{ hmsType: filters.hmsType as Prisma.TemplateWhereInput["hmsType"] }]
             : []),
         ],
       }
     : noRows;
 
-  // Første runde: indekserte kandidatsøk. Ingen av disse leser store
-  // tekstfelt (contentText/pageTexts) eller hele tabeller.
+  const folderWhere = canDocuments && wants("folder")
+    ? { id: { in: folderHitsMerged.ids } }
+    : noRows;
+
+  const commentCustomerFilter = filters.customer
+    ? {
+        OR: [
+          { customerId: filters.customer },
+          { workOrder: { customerId: filters.customer } },
+          { contact: { customerId: filters.customer } },
+        ],
+      }
+    : null;
+
+  const commentWhere =
+    wants("comment") && (canWorkOrders || canCustomers)
+      ? {
+          AND: [
+            { id: { in: commentHitsMerged.ids } },
+            commentAccess,
+            ...(commentCustomerFilter ? [commentCustomerFilter] : []),
+          ],
+        }
+      : noRows;
+
+  const documentRows = documentHits as DocumentSearchRow[];
+  const documentWhere = canDocuments && wants("document")
+    ? { id: { in: documentRows.map((hit) => hit.id) }, deletedAt: null }
+    : noRows;
+
+  const reportWhere = canReports && wants("report")
+    ? { id: { in: reportHits.map((hit) => hit.id) }, deletedAt: null }
+    : noRows;
+
   const [
-    customerNameHits,
-    customerCityHits,
-    productHits,
-    workOrderTitleHits,
-    workOrderTitleSubstringHits,
-    workOrderNumberHits,
-    tagHits,
-    documentHits,
+    customers,
+    contacts,
+    units,
+    workOrders,
+    tags,
+    reports,
+    comments,
+    users,
+    templates,
+    folders,
+    documents,
+    customerTotal,
+    contactTotal,
+    productTotal,
+    workOrderTotal,
+    tagTotal,
+    userTotal,
+    templateTotal,
+    folderTotal,
+    commentTotal,
+    documentTotal,
   ] = await Promise.all([
-    canCustomers
-      ? searchByName("Customer", "name", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canCustomers
-      ? searchByName("Customer", "city", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canEquipment
-      ? searchByName("Product", "model", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canWorkOrders
-      ? searchByName("WorkOrder", "title", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canWorkOrders
-      ? searchBySubstring("WorkOrder", "title", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canWorkOrders
-      ? searchBySubstring("WorkOrder", "orderNumber", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canWorkOrders
-      ? searchBySubstring("Tag", "name", q, CANDIDATES)
-      : Promise.resolve([] as NameSearchRow[]),
-    canDocuments
-      ? searchDocuments(originalQuery, CANDIDATES)
-      : Promise.resolve([]),
+    prisma.customer.findMany({
+      where: customerWhere,
+      select: {
+        id: true,
+        name: true,
+        customerNumber: true,
+        orgNumber: true,
+        city: true,
+        phone: true,
+        email: true,
+      },
+      take: fetchLimit,
+    }),
+    prisma.contact.findMany({
+      where: contactWhere,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        customerId: true,
+        customer: { select: { name: true } },
+      },
+      orderBy: { name: "asc" },
+      take: fetchLimit,
+    }),
+    prisma.product.findMany({
+      where: productWhere,
+      select: {
+        id: true,
+        model: true,
+        serialNumber: true,
+        location: true,
+        customerId: true,
+        customer: { select: { id: true, name: true } },
+      },
+      take: fetchLimit,
+    }),
+    prisma.workOrder.findMany({
+      where: workOrderWhere,
+      select: {
+        id: true,
+        title: true,
+        orderNumber: true,
+        description: true,
+        creatorName: true,
+        status: true,
+        scheduledFor: true,
+        customer: { select: { name: true } },
+        tags: { select: { id: true, name: true, color: true } },
+        technicians: { select: { id: true, name: true } },
+      },
+      take: fetchLimit,
+    }),
+    prisma.tag.findMany({
+      where: tagWhere,
+      select: { id: true, name: true, color: true },
+      orderBy: { name: "asc" },
+      take: fetchLimit,
+    }),
+    prisma.report.findMany({
+      where: reportWhere,
+      include: {
+        template: { select: { title: true } },
+        workOrder: {
+          select: { id: true, title: true, customer: { select: { name: true } } },
+        },
+      },
+      orderBy: { completedAt: "desc" },
+      take: fetchLimit,
+    }),
+    prisma.comment.findMany({
+      where: commentWhere,
+      include: {
+        workOrder: { select: { id: true, title: true } },
+        customer: { select: { id: true, name: true } },
+        contact: { select: { id: true, name: true, customerId: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: fetchLimit,
+    }),
+    prisma.user.findMany({
+      where: userWhere,
+      include: { roleDefinition: { select: { label: true } } },
+      orderBy: { name: "asc" },
+      take: fetchLimit,
+    }),
+    prisma.template.findMany({
+      where: templateWhere,
+      orderBy: { title: "asc" },
+      take: fetchLimit,
+    }),
+    prisma.documentFolder.findMany({
+      where: folderWhere,
+      orderBy: { name: "asc" },
+      take: fetchLimit,
+    }),
+    prisma.document.findMany({
+      where: documentWhere,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileName: true,
+        filePath: true,
+        tags: { select: { name: true } },
+      },
+      take: fetchLimit,
+    }),
+    prisma.customer.count({ where: customerWhere }),
+    prisma.contact.count({ where: contactWhere }),
+    prisma.product.count({ where: productWhere }),
+    prisma.workOrder.count({ where: workOrderWhere }),
+    prisma.tag.count({ where: tagWhere }),
+    prisma.user.count({ where: userWhere }),
+    prisma.template.count({ where: templateWhere }),
+    prisma.documentFolder.count({ where: folderWhere }),
+    prisma.comment.count({ where: commentWhere }),
+    prisma.document.count({ where: documentWhere }),
   ]);
 
-  const customerHits = mergeNameHits(customerNameHits, customerCityHits);
-  const productHitIds = mergeNameHits(productHits);
-  const workOrderHitIds = mergeNameHits(
-    workOrderTitleHits,
-    workOrderTitleSubstringHits,
-    workOrderNumberHits,
-  );
-  const tagHitIds = mergeNameHits(tagHits);
+  const documentById = new Map(documentRows.map((hit) => [hit.id, hit]));
 
-  // Andre runde: hent bare feltene vi trenger for visning og rangering.
-  const [customers, contacts, units, workOrders, tags, reports, comments, users, templates, folders] =
-    await Promise.all([
-      prisma.customer.findMany({
-        where: canCustomers ? { id: { in: customerHits.ids }, deletedAt: null } : noRows,
-        select: {
-          id: true,
-          name: true,
-          customerNumber: true,
-          orgNumber: true,
-          city: true,
-          phone: true,
-          email: true,
-        },
-        take: CANDIDATES,
-      }),
-      prisma.contact.findMany({
-        where: canCustomers
-          ? {
-              AND: [
-                textOr(["name", "email", "phone", "role"], q),
-                { customer: { deletedAt: null } },
-              ],
-            }
-          : noRows,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          customerId: true,
-          customer: { select: { name: true } },
-        },
-        orderBy: { name: "asc" }, take: CANDIDATES,
-      }),
-      prisma.product.findMany({
-        where: canEquipment
-          ? {
-              id: { in: productHitIds.ids },
-              customer: { deletedAt: null },
-            }
-          : noRows,
-        select: {
-          id: true,
-          model: true,
-          serialNumber: true,
-          location: true,
-          customerId: true,
-          customer: { select: { id: true, name: true } },
-        },
-        take: CANDIDATES,
-      }),
-      prisma.workOrder.findMany({
-        where: canWorkOrders
-          ? {
-              AND: [
-                workOrderScope(user),
-                ...(includeCancelled ? [] : [{ status: { not: WorkStatus.CANCELLED } }]),
-                {
-                  OR: [
-                    { id: { in: workOrderHitIds.ids } },
-                    ...(tagHitIds.ids.length > 0
-                      ? [{ tags: { some: { id: { in: tagHitIds.ids } } } }]
-                      : []),
-                  ],
-                },
-              ],
-            }
-          : noRows,
-        select: {
-          id: true,
-          title: true,
-          orderNumber: true,
-          description: true,
-          creatorName: true,
-          status: true,
-          scheduledFor: true,
-          customer: { select: { name: true } },
-          tags: { select: { id: true, name: true, color: true } },
-        },
-        take: CANDIDATES,
-      }),
-      prisma.tag.findMany({
-        // En tag kan bare vises når den faktisk brukes på et oppdrag aktøren
-        // kan se. Ellers ville tag-navn fra andre avdelinger lekke ut.
-        where: canWorkOrders
-          ? {
-              id: { in: tagHitIds.ids },
-              workOrders: {
-                some: {
-                  AND: [
-                    workOrderScope(user),
-                    ...(includeCancelled
-                      ? []
-                      : [{ status: { not: WorkStatus.CANCELLED } }]),
-                  ],
-                },
-              },
-            }
-          : noRows,
-        select: { id: true, name: true, color: true },
-        orderBy: { name: "asc" },
-        take: CANDIDATES,
-      }),
-      prisma.report.findMany({
-        // Rapporter deles på tvers av regioner for ansatte med rapporttilgang.
-        // Bevisst uten workOrderScope; oppdrag og kommentarer er fortsatt
-        // avdelingsbegrenset.
-        where: canReports ? reportSearchWhere(q, includeCancelled) : noRows,
-        include: { template: { select: { title: true } }, workOrder: { select: { id: true, title: true, customer: { select: { name: true } } } } }, orderBy: { completedAt: "desc" }, take: CANDIDATES,
-      }),
-      prisma.comment.findMany({
-        where: {
-          AND: [textOr(["content", "authorName"], q), commentAccess],
-        },
-        include: { workOrder: { select: { id: true, title: true } }, customer: { select: { id: true, name: true } }, contact: { select: { id: true, name: true, customerId: true } } }, orderBy: { createdAt: "desc" }, take: CANDIDATES,
-      }),
-      prisma.user.findMany({
-        where: canUsers
-          ? { AND: [textOr(["name", "email"], q), departmentUsersScope(user)] }
-          : noRows,
-        include: { roleDefinition: { select: { label: true } } },
-        orderBy: { name: "asc" }, take: CANDIDATES,
-      }),
-      prisma.template.findMany({
-        where: canTemplates ? { title: contains } : noRows,
-        orderBy: { title: "asc" }, take: CANDIDATES,
-      }),
-      prisma.documentFolder.findMany({
-        where: canDocuments ? { name: contains } : noRows,
-        orderBy: { name: "asc" }, take: CANDIDATES,
-      }),
-    ]);
+  type Scored<T> = { item: T; score: number };
 
-  /** Fuzzy-rangering av en liten, allerede avgrenset kandidatliste. */
-  function rank<T>(items: T[], getFields: (item: T) => (string | null | undefined)[]) {
-    return items
-      .map((item) => ({ item, score: fuzzyScore(q, ...getFields(item)) }))
-      .filter((s) => s.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, LIMIT)
-      .map((s) => s.item);
-  }
-
-  /**
-   * Som `rank`, men beholder alle kandidatene databasen fant (trigram/fulltekst
-   * kan gi treff som den rent tekstlige fuzzy-scoren ikke fanger, f.eks. bøyning
-   * eller skrivefeil). Databasens rekkefølge brukes som tie-breaker.
-   */
-  function rankIndexed<T>(
+  /** Rangerer en kandidatliste med fuzzy + databasescore. */
+  function rank<T>(
     items: T[],
     getId: (item: T) => string,
     getFields: (item: T) => (string | null | undefined)[],
-    order?: Map<string, number>,
-  ) {
+    dbScores?: Map<string, number>,
+  ): Scored<T>[] {
     return items
-      .map((item) => ({
-        item,
-        score: fuzzyScore(q, ...getFields(item)),
-        rank: order?.get(getId(item)) ?? Number.MAX_SAFE_INTEGER,
-      }))
-      .sort((a, b) => b.score - a.score || a.rank - b.rank)
-      .slice(0, LIMIT)
-      .map((s) => s.item);
+      .map((item) => {
+        const id = getId(item);
+        const db = dbScores?.get(id) ?? 0;
+        const fuzzy = fuzzyScore(q, ...getFields(item));
+        // Databasescoren løfter typo-/bøyningstreff som fuzzy-scoren ikke
+        // fanger, men et rent teksttreff veier tyngst.
+        const score = fuzzy > 0 ? Math.min(1, fuzzy * 0.75 + db * 0.25) : db * 0.5;
+        return { item, score, db };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          b.db - a.db ||
+          getId(a.item).localeCompare(getId(b.item)),
+      )
+      .slice(0, fetchLimit)
+      .map(({ item, score }) => ({ item, score }));
   }
 
-  const fuzzyCustomers = rankIndexed(
-    customers,
-    (c) => c.id,
-    (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email],
-    customerHits.rank,
-  );
-  const fuzzyContacts = rank(contacts, (c) => [c.name, c.email, c.phone, c.role, c.customer?.name]);
-  const fuzzyUnits = rankIndexed(
-    units,
-    (p) => p.id,
-    (p) => [p.model, p.serialNumber, p.location, p.customer?.name],
-    productHitIds.rank,
-  );
-  const fuzzyWorkOrders = rankIndexed(
-    workOrders,
-    (wo) => wo.id,
-    (wo) => [
-      wo.title,
-      wo.orderNumber,
-      wo.description,
-      wo.creatorName,
-      wo.customer?.name,
-      ...wo.tags.map((tag) => tag.name),
-    ],
-    workOrderHitIds.rank,
-  );
-  const fuzzyTags = rankIndexed(
-    tags,
-    (tag) => tag.id,
-    (tag) => [tag.name],
-    tagHitIds.rank,
-  );
-  const fuzzyReports = rank(reports, (r) => [r.template?.title, r.workOrder.title, r.workOrder.customer?.name, r.comments]);
-  const fuzzyComments = rank(comments, (c) => [c.content, c.authorName, c.workOrder?.title, c.customer?.name, c.contact?.name]);
-  const fuzzyUsers = rank(users, (u) => [u.name, u.email]);
-  const fuzzyTemplates = rank(templates, (t) => [t.title]);
-  // Fulltekstsøket har allerede rangert dokumentene med ts_rank. fuzzyScore
-  // brukes bare til å løfte eksakte treff i tittel/filnavn øverst.
-  const fuzzyDocuments = rankIndexed(
-    documentHits,
-    (d) => d.id,
-    (d) => [d.title, d.description, d.fileName, d.snippet],
-  );
-  const fuzzyFolders = rank(folders, (f) => [f.name]);
+  /** Paginerer en allerede rangert liste. */
+  function pageItems<T>(entries: Scored<T>[]): Scored<T>[] {
+    const start = (page - 1) * pageSize;
+    return entries.slice(start, start + pageSize);
+  }
 
-  // Tags er bare nødvendig for de få dokumentene som faktisk vises.
-  const documentTags = fuzzyDocuments.length > 0
-    ? await prisma.document.findMany({
-        where: {
-          id: { in: fuzzyDocuments.map((d) => d.id) },
-          deletedAt: null,
-        },
-        select: { id: true, tags: { select: { name: true } } },
-        take: LIMIT,
-      })
-    : [];
-  const documentTagNames = new Map(
-    documentTags.map((d) => [d.id, d.tags.map((t) => t.name).join(", ")]),
+  const rankedCustomers = pageItems(
+    rank(customers, (c) => c.id, (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email], customerHits.scores),
+  );
+  const rankedContacts = pageItems(
+    rank(contacts, (c) => c.id, (c) => [c.name, c.email, c.phone, c.role, c.customer?.name], contactHitsMerged.scores),
+  );
+  const rankedUnits = pageItems(
+    rank(units, (p) => p.id, (p) => [p.model, p.serialNumber, p.location, p.customer?.name], productHits.scores),
+  );
+  const rankedWorkOrders = pageItems(
+    rank(
+      workOrders,
+      (wo) => wo.id,
+      (wo) => [
+        wo.title,
+        wo.orderNumber,
+        wo.description,
+        wo.creatorName,
+        wo.customer?.name,
+        ...wo.technicians.map((technician) => technician.name),
+        ...wo.tags.map((tag) => tag.name),
+      ],
+      workOrderHits.scores,
+    ),
+  );
+  const rankedTags = pageItems(
+    rank(tags, (tag) => tag.id, (tag) => [tag.name], tagHitsMerged.scores),
+  );
+  const rankedReports = pageItems(
+    rank(
+      reports,
+      (r) => r.id,
+      (r) => [
+        r.reportNumber,
+        r.name,
+        r.templateTitle,
+        r.template?.title,
+        r.workOrder.title,
+        r.workOrder.customer?.name,
+        r.comments,
+        r.hmsType,
+      ],
+      reportScores,
+    ),
+  );
+  const rankedComments = pageItems(
+    rank(
+      comments,
+      (c) => c.id,
+      (c) => [c.content, c.authorName, c.workOrder?.title, c.customer?.name, c.contact?.name],
+      commentHitsMerged.scores,
+    ),
+  );
+  const rankedUsers = pageItems(
+    rank(users, (u) => u.id, (u) => [u.name, u.email], userHitsMerged.scores),
+  );
+  const rankedTemplates = pageItems(
+    rank(templates, (t) => t.id, (t) => [t.title, t.reportName, t.description], templateHitsMerged.scores),
+  );
+  const rankedFolders = pageItems(
+    rank(folders, (f) => f.id, (f) => [f.name], folderHitsMerged.scores),
+  );
+  const rankedDocuments = pageItems(
+    rank(
+      documents,
+      (d) => d.id,
+      (d) => [d.title, d.description, d.fileName, documentById.get(d.id)?.snippet],
+      new Map(documentRows.map((hit) => [hit.id, Number(hit.score) || 0])),
+    ),
   );
 
   const groups: SearchGroup[] = [
@@ -471,18 +723,27 @@ export async function performSearch(
       kind: "customer",
       label: "Kunder",
       icon: "🏢",
-      items: fuzzyCustomers.map((c) => ({
+      total: customerTotal,
+      items: rankedCustomers.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
-        subtitle: joinInfo([c.customerNumber && `#${c.customerNumber}`, c.orgNumber && `Org.nr ${c.orgNumber}`, c.city, c.phone, c.email]),
+        subtitle: joinInfo([
+          c.customerNumber && `#${c.customerNumber}`,
+          c.orgNumber && `Org.nr ${c.orgNumber}`,
+          c.city,
+          c.phone,
+          c.email,
+        ]),
         href: `/kunder/${c.id}`,
+        score,
       })),
     },
     {
       kind: "workOrder",
       label: "Oppdrag",
       icon: "📂",
-      items: fuzzyWorkOrders.map((wo) => ({
+      total: workOrderTotal,
+      items: rankedWorkOrders.map(({ item: wo, score }) => ({
         id: wo.id,
         title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
         subtitle: joinInfo([
@@ -490,62 +751,83 @@ export async function performSearch(
           wo.customer?.name ?? "Uten kunde",
           STATUS_LABELS[wo.status] ?? wo.status,
           formatDate(wo.scheduledFor),
-          wo.tags.length > 0
-            ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}`
-            : null,
+          wo.tags.length > 0 ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}` : null,
         ]),
         href: `/oppdrag/${wo.id}`,
+        score,
       })),
     },
     {
       kind: "tag",
       label: "Tagger",
       icon: "🏷️",
-      items: fuzzyTags.map((tag) => ({
+      total: tagTotal,
+      items: rankedTags.map(({ item: tag, score }) => ({
         id: tag.id,
         title: tag.name,
         subtitle: "Vis oppdrag med denne taggen",
         href: `/oppdrag?tag=${encodeURIComponent(tag.name)}`,
+        score,
       })),
     },
     {
       kind: "unit",
       label: "Enheter",
       icon: "🔧",
-      items: fuzzyUnits.map((p) => ({
+      total: productTotal,
+      items: rankedUnits.map(({ item: p, score }) => ({
         id: p.id,
         title: p.model,
         subtitle: joinInfo([p.customer?.name, p.serialNumber && `SN ${p.serialNumber}`, p.location]),
         href: `/kunder/${p.customerId}?tab=enheter`,
+        score,
       })),
     },
     {
       kind: "contact",
       label: "Kontaktpersoner",
       icon: "👤",
-      items: fuzzyContacts.map((c) => ({
+      total: contactTotal,
+      items: rankedContacts.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
         subtitle: joinInfo([c.customer?.name, c.role, c.phone, c.email]),
         href: `/kunder/${c.customerId}?tab=kontakter`,
+        score,
       })),
     },
     {
       kind: "report",
       label: "Rapporter",
       icon: "📋",
-      items: fuzzyReports.map((r) => ({
-        id: r.id,
-        title: `${r.template?.title ?? "Rapport"} – ${r.workOrder.title}`,
-        subtitle: joinInfo([r.workOrder.customer?.name, r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null, formatDate(r.completedAt)]),
-        href: `/rapporter/${r.workOrderId}`,
-      })),
+      total: canReports && wants("report") ? (reportHits[0]?.total ?? 0) : 0,
+      items: rankedReports.map(({ item: r, score }) => {
+        const reportHit = reportHits.find((hit) => hit.id === r.id);
+        const snippet = snippetText(reportHit?.snippet);
+        return {
+          id: r.id,
+          title: joinInfo([
+            r.reportNumber ? `#${r.reportNumber}` : null,
+            r.name ?? r.templateTitle ?? r.template?.title ?? "Rapport",
+            r.workOrder.title,
+          ]),
+          subtitle: joinInfo([
+            r.workOrder.customer?.name,
+            snippet ? snippet.slice(0, 100) : r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null,
+            r.hmsType ? `HMS: ${r.hmsType}` : null,
+            formatDate(r.completedAt),
+          ]),
+          href: `/rapporter/${r.workOrderId}`,
+          score,
+        };
+      }),
     },
     {
       kind: "comment",
       label: "Kommentarer",
       icon: "💬",
-      items: fuzzyComments.map((c) => {
+      total: commentTotal,
+      items: rankedComments.map(({ item: c, score }) => {
         const href = c.workOrderId
           ? `/oppdrag/${c.workOrderId}`
           : c.customerId
@@ -557,8 +839,13 @@ export async function performSearch(
         return {
           id: c.id,
           title: text.length > 90 ? `${text.slice(0, 90)}…` : text,
-          subtitle: joinInfo([c.workOrder?.title ?? c.customer?.name ?? c.contact?.name, c.authorName, formatDate(c.createdAt)]),
+          subtitle: joinInfo([
+            c.workOrder?.title ?? c.customer?.name ?? c.contact?.name,
+            c.authorName,
+            formatDate(c.createdAt),
+          ]),
           href,
+          score,
         };
       }),
     },
@@ -566,54 +853,74 @@ export async function performSearch(
       kind: "user",
       label: "Brukere",
       icon: "👥",
-      items: fuzzyUsers.map((u) => ({
+      total: userTotal,
+      items: rankedUsers.map(({ item: u, score }) => ({
         id: u.id,
         title: u.name || u.email || "Uten navn",
-        subtitle: joinInfo([
-          u.roleDefinition?.label ?? ROLE_LABELS[u.role] ?? u.role,
-          u.email,
-        ]),
+        subtitle: joinInfo([u.roleDefinition?.label ?? ROLE_LABELS[u.role] ?? u.role, u.email]),
         href: u.customerId ? `/kunder/${u.customerId}?tab=portal` : "/innstillinger?tab=ansatte",
+        score,
       })),
     },
     {
       kind: "template",
       label: "Sjekklister",
       icon: "🧾",
-      items: fuzzyTemplates.map((t) => ({
+      total: templateTotal,
+      items: rankedTemplates.map(({ item: t, score }) => ({
         id: t.id,
         title: t.title,
-        subtitle: "Sjekkliste / mal",
+        subtitle: joinInfo([
+          "Sjekkliste / mal",
+          t.reportName && `Rapportnavn: ${t.reportName}`,
+          t.hmsType && `HMS: ${t.hmsType}`,
+        ]),
         href: `/innstillinger/maler/${t.id}`,
+        score,
       })),
     },
     {
       kind: "folder",
       label: "Mapper",
       icon: "📁",
-      items: fuzzyFolders.map((f) => ({
+      total: folderTotal,
+      items: rankedFolders.map(({ item: f, score }) => ({
         id: f.id,
         title: f.name,
         subtitle: "Mappe i dokumentbiblioteket",
         href: `/dokumenter?folder=${f.id}`,
+        score,
       })),
     },
     {
       kind: "document",
       label: "Dokumenter",
       icon: "📚",
-      items: fuzzyDocuments.map((d) => ({
-        id: d.id,
-        title: d.title,
-        subtitle: joinInfo([
-          documentTagNames.get(d.id),
-          d.description ? d.description.slice(0, 60) : snippetText(d.snippet)?.slice(0, 80),
-        ]),
-        href: d.filePath,
-      })),
+      total: documentTotal,
+      items: rankedDocuments.map(({ item: d, score }) => {
+        const hit = documentById.get(d.id);
+        return {
+          id: d.id,
+          title: d.title,
+          subtitle: joinInfo([
+            d.tags.map((tag) => tag.name).join(", "),
+            d.description?.slice(0, 60) ?? snippetText(hit?.snippet)?.slice(0, 80),
+          ]),
+          href: d.filePath,
+          score,
+        };
+      }),
     },
-  ].filter((g) => g.items.length > 0);
+  ].filter((group) => group.total > 0 || group.items.length > 0);
 
-  const total = groups.reduce((sum, g) => sum + g.items.length, 0);
-  return { query: originalQuery, total, groups };
+  groups.sort((a, b) => {
+    const bestA = a.items[0]?.score ?? 0;
+    const bestB = b.items[0]?.score ?? 0;
+    if (bestB !== bestA) return bestB - bestA;
+    return GROUP_ORDER.indexOf(a.kind as (typeof GROUP_ORDER)[number]) -
+      GROUP_ORDER.indexOf(b.kind as (typeof GROUP_ORDER)[number]);
+  });
+
+  const total = groups.reduce((sum, group) => sum + group.total, 0);
+  return { query: originalQuery, total, groups, tookMs: Date.now() - started };
 }
