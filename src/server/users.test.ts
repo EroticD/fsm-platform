@@ -237,7 +237,7 @@ describe("brukertjenesten – avdelingssperre", () => {
 describe("brukertjenesten – invitasjon og revisjon", () => {
   it("lager invitasjonslenke og revisjonslogg for vanlig bruker", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue(
-      target({ roleDefinition: roles.TECHNICIAN }),
+      target({ roleDefinition: roles.TECHNICIAN, isActive: false }),
     );
 
     const result = await generateInvite(admin(), { id: "target" });
@@ -248,9 +248,21 @@ describe("brukertjenesten – invitasjon og revisjon", () => {
     expect(mocks.sendInviteEmail).toHaveBeenCalled();
   });
 
+  it("nekter å lage invitasjonslenke for en aktiv konto", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ roleDefinition: roles.TECHNICIAN, isActive: true }),
+    );
+
+    const result = await generateInvite(admin(), { id: "target" });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.createInviteToken).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
+  });
+
   it("sender ikke e-post når revisjonsloggen feiler", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue(
-      target({ roleDefinition: roles.TECHNICIAN }),
+      target({ roleDefinition: roles.TECHNICIAN, isActive: false }),
     );
     mocks.prisma.$transaction.mockImplementation(
       async (callback: (tx: unknown) => unknown) =>
@@ -319,7 +331,7 @@ describe("brukertjenesten – kundeportalbrukere", () => {
 
   it("sender ny invitasjon til en ekte kundeportalbruker", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue(
-      target({ role: "CUSTOMER", customerId: "kunde-1" }),
+      target({ role: "CUSTOMER", customerId: "kunde-1", isActive: false }),
     );
 
     const result = await resendPortalInvite(office(), {
@@ -330,6 +342,21 @@ describe("brukertjenesten – kundeportalbrukere", () => {
     expect(result.ok).toBe(true);
     expect(mocks.createInviteToken).toHaveBeenCalledWith("target", mocks.prisma);
     expect(mocks.sendInviteEmail).toHaveBeenCalled();
+  });
+
+  it("sender ikke ny invitasjon til en aktiv kundeportalbruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "CUSTOMER", customerId: "kunde-1", isActive: true }),
+    );
+
+    const result = await resendPortalInvite(office(), {
+      customerId: "kunde-1",
+      id: "target",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.createInviteToken).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
   });
 
   it.each(["ADMIN", "OFFICE", "TECHNICIAN"])(

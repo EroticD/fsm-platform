@@ -72,7 +72,10 @@ vi.mock("@/lib/email", () => ({ sendInviteEmail: mocks.sendInviteEmail }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
+import { redirect } from "next/navigation";
 import { changeRole, createUser, deleteUser, generateInvite } from "@/app/brukere/actions";
+
+const mockedRedirect = vi.mocked(redirect);
 
 function formData(values: Record<string, string>): FormData {
   const form = new FormData();
@@ -227,6 +230,44 @@ describe("createUser", () => {
       data: expect.objectContaining({ departmentId: "dep-a" }),
     });
   });
+
+  it("avviser en ekstern returnTo og faller tilbake til /brukere", async () => {
+    mocks.state.actorRole = "OFFICE";
+    await createUser(
+      formData({
+        name: "Ny",
+        email: "ny@firma.no",
+        role: "TECHNICIAN",
+        returnTo: "https://evil.example/phishing",
+      }),
+    );
+
+    expect(mockedRedirect).toHaveBeenCalled();
+    for (const [target] of mockedRedirect.mock.calls) {
+      const path = String(target);
+      expect(path.startsWith("/")).toBe(true);
+      expect(path.startsWith("//")).toBe(false);
+      expect(path).not.toContain("evil.example");
+    }
+  });
+
+  it("legger aldri den rå invitasjonsnøkkelen i redirect-URLen", async () => {
+    mocks.state.actorRole = "OFFICE";
+    await createUser(
+      formData({
+        name: "Ny",
+        email: "ny@firma.no",
+        role: "TECHNICIAN",
+        returnTo: "/brukere",
+      }),
+    );
+
+    expect(mockedRedirect).toHaveBeenCalled();
+    for (const [target] of mockedRedirect.mock.calls) {
+      expect(String(target)).not.toContain("raa-token");
+      expect(String(target)).not.toContain("inviteToken");
+    }
+  });
 });
 
 describe("generateInvite", () => {
@@ -241,8 +282,18 @@ describe("generateInvite", () => {
   it("lar en kontorbruker lage invitasjon til en montør", async () => {
     mocks.state.actorRole = "OFFICE";
     mocks.state.targetRole = "TECHNICIAN";
+    mocks.state.targetActive = false;
     await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
     expect(mocks.createInviteToken).toHaveBeenCalled();
+  });
+
+  it("lar ikke en kontorbruker invitere en aktiv konto", async () => {
+    mocks.state.actorRole = "OFFICE";
+    mocks.state.targetRole = "TECHNICIAN";
+    mocks.state.targetActive = true;
+    await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
+    expect(mocks.createInviteToken).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
   });
 
   it("lar ikke en kontorbruker invitere en bruker med rettigheter aktøren ikke har", async () => {
@@ -253,6 +304,20 @@ describe("generateInvite", () => {
     await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
     expect(mocks.createInviteToken).not.toHaveBeenCalled();
     expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("legger ikke invitasjonsnøkkelen i redirect-URLen", async () => {
+    mocks.state.actorRole = "OFFICE";
+    mocks.state.targetRole = "TECHNICIAN";
+    mocks.state.targetActive = false;
+    await generateInvite(formData({ id: "target", returnTo: "/brukere" }));
+
+    expect(mockedRedirect).toHaveBeenCalled();
+    for (const [target] of mockedRedirect.mock.calls) {
+      expect(String(target)).not.toContain("raa-token");
+      expect(String(target)).not.toContain("inviteToken");
+      expect(String(target)).toContain("invite=target");
+    }
   });
 });
 

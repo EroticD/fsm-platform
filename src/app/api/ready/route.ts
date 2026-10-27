@@ -5,18 +5,63 @@ import prisma from "@/lib/prisma";
 import { uploadDir } from "@/lib/uploads";
 import { logger, requestIdFrom } from "@/lib/logger";
 import { hasValidBearer } from "@/lib/secrets";
+import { clientIpFrom } from "@/lib/client-ip";
+import { allowRequestMemory } from "@/lib/rate-limit-memory";
 
 /**
  * Readiness-sjekk for container/orchestrator.
  *
- * Forskjellen fra /api/health (liveness) er at denne også kontrollerer at
- * opplastingsvolumet er skrivbart og at jobbkøen kan leses. En app som svarer
- * på HTTP, men ikke kan lagre bilder eller lese jobber, er ikke klar til trafikk.
+ * Uautentiserte kall får bare en billig databasekontroll og en kort status –
+ * aldri disk- eller køarbeid. Detaljene (skrivbart volum, jobbkø) er gated bak
+ * READY_SECRET/CRON_SECRET. Kall uten hemmelighet rate-limites i minnet, slik
+ * at ruten ikke kan brukes til å hamre på databasen.
  */
 export const dynamic = "force-dynamic";
 
+/** Hvor mange uautentiserte readiness-kall som godtas per IP og minutt. */
+const UNAUTHENTICATED_LIMIT = 120;
+
 export async function GET(request: Request) {
   const requestId = requestIdFrom(new Headers(request.headers));
+  const authorized = hasValidBearer(request, [
+    process.env.READY_SECRET,
+    process.env.CRON_SECRET,
+  ]);
+
+  if (!authorized) {
+    const ip = clientIpFrom(request.headers) ?? "ukjent";
+    const limit = allowRequestMemory(
+      `ready:${ip}`,
+      UNAUTHENTICATED_LIMIT,
+      60_000,
+    );
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { status: "throttled" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(limit.retryAfterSeconds) },
+        },
+      );
+    }
+
+    let database: "up" | "down" = "down";
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      database = "up";
+    } catch (error) {
+      logger.error("Readiness: databasen svarer ikke", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    const ready = database === "up";
+    return NextResponse.json(
+      { status: ready ? "ready" : "not_ready" },
+      { status: ready ? 200 : 503 },
+    );
+  }
+
   let ready = true;
 
   let database: "up" | "down" = "down";
@@ -60,16 +105,6 @@ export async function GET(request: Request) {
   }
 
   const status = ready ? "ready" : "not_ready";
-  const authorized = hasValidBearer(request, [
-    process.env.READY_SECRET,
-    process.env.CRON_SECRET,
-  ]);
-
-  // Uten hemmelighet får kalleren bare status – ikke database, disk eller kø.
-  if (!authorized) {
-    return NextResponse.json({ status }, { status: ready ? 200 : 503 });
-  }
-
   return NextResponse.json(
     {
       status,

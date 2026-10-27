@@ -70,4 +70,34 @@ describe("NextAuth authorize", () => {
     const result = await authorize!({ email: "feil@example.com", password: "x" }, { headers: {} });
     expect(result).toBeNull();
   });
+
+  it("ignorerer X-Forwarded-For når proxy ikke er betrodd", async () => {
+    const original = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = "false";
+    try {
+      mockedVerify.mockResolvedValue({ status: "invalid" });
+      await authorize!(
+        { email: "kari@example.com", password: "x" },
+        { headers: { "x-forwarded-for": "1.2.3.4" } },
+      );
+      expect(mockedVerify).toHaveBeenCalledWith("kari@example.com", "x", undefined);
+    } finally {
+      process.env.TRUST_PROXY = original;
+    }
+  });
+
+  it("bruker første X-Forwarded-For når proxy er betrodd", async () => {
+    const original = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = "true";
+    try {
+      mockedVerify.mockResolvedValue({ status: "invalid" });
+      await authorize!(
+        { email: "kari@example.com", password: "x" },
+        { headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1" } },
+      );
+      expect(mockedVerify).toHaveBeenCalledWith("kari@example.com", "x", "1.2.3.4");
+    } finally {
+      process.env.TRUST_PROXY = original;
+    }
+  });
 });

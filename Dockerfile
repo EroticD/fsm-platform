@@ -136,10 +136,12 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
 USER nextjs
 EXPOSE 3000
 
-# Containeren regnes som frisk når appen svarer på helsesjekken (som også
-# verifiserer at databasen er tilgjengelig).
+# Containeren regnes som frisk når appen svarer på liveness-sjekken. Den er
+# bevisst uten databasekall, slik at en midlertidig treg database ikke får
+# Docker til å restarte en ellers fungerende prosess. Readiness (database,
+# disk, kø) sjekkes av orchestratoren på /api/ready.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]

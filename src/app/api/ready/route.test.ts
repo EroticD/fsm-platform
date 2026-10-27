@@ -12,6 +12,8 @@ vi.mock("node:fs/promises", () => ({
 vi.mock("@/lib/uploads", () => ({ uploadDir: () => "/tmp/uploads" }));
 
 import { GET } from "./route";
+import fs from "node:fs/promises";
+import prisma from "@/lib/prisma";
 
 const originalReady = process.env.READY_SECRET;
 const originalCron = process.env.CRON_SECRET;
@@ -30,6 +32,18 @@ describe("/api/ready", () => {
     const response = await GET(new Request("http://localhost:3000/api/ready"));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: "ready" });
+  });
+
+  it("gjør ikke disk- eller køarbeid for uautentiserte kall", async () => {
+    const access = vi.mocked(fs.access);
+    const count = vi.mocked(prisma.documentJob.count);
+    access.mockClear();
+    count.mockClear();
+
+    await GET(new Request("http://localhost:3000/api/ready"));
+
+    expect(access).not.toHaveBeenCalled();
+    expect(count).not.toHaveBeenCalled();
   });
 
   it("returnerer detaljer med gyldig READY_SECRET", async () => {

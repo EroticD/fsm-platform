@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, dev]
+    tags: ["v*"]
   pull_request:
 
 # Avbryt tidligere kjøringer for samme gren når nye commits kommer inn.

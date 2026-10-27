@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   // den når opplastingsruten. Øker grensen så store dokumenter kommer gjennom.
   experimental: {
     proxyClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
+
+    // Rapporter sendes som server action med signaturbilder som data-URL-er.
+    // Standardgrensen på 1 MB er for lav for to signaturer + skjemafelt, og
+    // ville gitt en uklar feil før rapporten når serveren. Selve filopplasting
+    // (bilder/PDF) går fortsatt via /api/upload, ikke gjennom actions.
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
   },
 
   // I utviklingsmodus blokkerer Next.js forespørsler fra andre "origins" enn
