@@ -263,6 +263,7 @@ export async function requestContactUpdate(
         message ||
         `Kunden ${customer.name} ber om oppdatering av kontaktinformasjon.`,
       href: `/kunder/${customer.id}`,
+      sourceLabel: `Kunde: ${customer.name}`,
       dedupeKey: `contact-update:${customer.id}:${toDateOnly(new Date())}:${user.id}`,
     });
     if (result) notified += 1;

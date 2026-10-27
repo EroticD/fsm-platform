@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     notification: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
     },
     user: { findMany: vi.fn() },
     workOrder: { findUnique: vi.fn() },
+    customer: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
   sendNotificationEmail: vi.fn(),
@@ -32,6 +34,7 @@ import {
   markNotificationRead,
   notifyUser,
   notifyWorkOrderEvent,
+  openNotification,
   processPendingNotificationEmails,
 } from "./notifications";
 
@@ -86,8 +89,83 @@ describe("varseltjenesten", () => {
     });
   });
 
-  it("hopper over e-post når brukeren har slått den av", async () => {
-    mocks.prisma.notificationPreference.findUnique.mockResolvedValue({
+  it("lagrer en eksplisitt kilde-etikett som ren tekst", async () => {
+    await notifyUser({
+      userId: "u1",
+      type: "ASSIGNMENT",
+      title: "Nytt oppdrag",
+      href: "/oppdrag/wo1",
+      sourceLabel: "Oppdrag: <b>Test</b> · Kunde AS https://example.test",
+    });
+
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceLabel: "Oppdrag: Test · Kunde AS",
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("utleder kilde fra oppdragslenken når den mangler", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      title: "testoppdrag",
+      customer: { name: "Biniam" },
+    });
+
+    await notifyUser({
+      userId: "u1",
+      type: "ASSIGNMENT",
+      title: "Nytt oppdrag",
+      href: "/mine-oppdrag/wo1",
+    });
+
+    expect(mocks.prisma.workOrder.findUnique).toHaveBeenCalledWith({
+      where: { id: "wo1" },
+      select: { title: true, customer: { select: { name: true } } },
+    });
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceLabel: "Oppdrag: testoppdrag · Biniam",
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("utleder kunde fra kundelenken når kilden mangler", async () => {
+    mocks.prisma.customer.findUnique.mockResolvedValue({
+      name: "Pipelife Norge AS",
+    });
+
+    await notifyUser({
+      userId: "u1",
+      type: "CONTACT_UPDATE",
+      title: "Kontaktinfo",
+      href: "/kunder/cust1",
+    });
+
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceLabel: "Kunde: Pipelife Norge AS",
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("bruker Systemvarsel når lenken ikke gir en kjent kilde", async () => {
+    await notifyUser({
+      userId: "u1",
+      type: "ASSIGNMENT",
+      title: "Nytt oppdrag",
+      href: "/varsler",
+    });
+
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sourceLabel: "Systemvarsel" }),
+      select: { id: true },
+    });
+  });
+
+  it("hopper over e-post når brukeren har slått den av", async () => {    mocks.prisma.notificationPreference.findUnique.mockResolvedValue({
       inApp: true,
       email: false,
     });
@@ -217,6 +295,29 @@ describe("varseltjenesten", () => {
       "Rapport klar",
       "En signert rapport er klar.",
       "/kundeportal#rapporter",
+    );
+  });
+
+  it("sender kilde-etiketten med i e-postteksten", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Du er tildelt et oppdrag",
+        body: "«testoppdrag» er tildelt deg.",
+        sourceLabel: "Oppdrag: testoppdrag · Biniam",
+        href: "/mine-oppdrag/wo1",
+        emailAttempts: 0,
+        user: { email: "kari@example.test", role: "TECHNICIAN" },
+      },
+    ]);
+
+    await processPendingNotificationEmails();
+
+    expect(mocks.sendNotificationEmail).toHaveBeenCalledWith(
+      "kari@example.test",
+      "Du er tildelt et oppdrag",
+      "Oppdrag: testoppdrag · Biniam\n\n«testoppdrag» er tildelt deg.",
+      "/mine-oppdrag/wo1",
     );
   });
 
@@ -409,8 +510,95 @@ describe("varseltjenesten", () => {
 
   it("returnerer not_found når varselet ikke finnes", async () => {
     mocks.prisma.notification.updateMany.mockResolvedValue({ count: 0 });
+    mocks.prisma.notification.findFirst.mockResolvedValue(null);
     const result = await markNotificationRead(actor, "n1");
     expect(result).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("er idempotent når varselet allerede er lest", async () => {
+    mocks.prisma.notification.updateMany.mockResolvedValue({ count: 0 });
+    mocks.prisma.notification.findFirst.mockResolvedValue({ id: "n1" });
+
+    const result = await markNotificationRead(actor, "n1");
+
+    expect(result).toEqual({ ok: true, data: undefined });
+  });
+
+  it("åpner varselet, markerer det lest og returnerer en intern lenke", async () => {
+    mocks.prisma.notification.findFirst.mockResolvedValue({
+      id: "n1",
+      type: "ASSIGNMENT",
+      href: "/oppdrag/wo1",
+      readAt: null,
+    });
+
+    const result = await openNotification(actor, "n1");
+
+    expect(result).toEqual({ ok: true, data: { href: "/oppdrag/wo1" } });
+    expect(mocks.prisma.notification.findFirst).toHaveBeenCalledWith({
+      where: { id: "n1", userId: "u1" },
+      select: { id: true, type: true, href: true, readAt: true },
+    });
+    expect(mocks.prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: "n1", userId: "u1", readAt: null },
+      data: { readAt: expect.any(Date) },
+    });
+  });
+
+  it("avviser å åpne en annen brukers varsel", async () => {
+    mocks.prisma.notification.findFirst.mockResolvedValue(null);
+
+    const result = await openNotification(actor, "n1");
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.notification.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("åpner varsel uten lenke uten å feile", async () => {
+    mocks.prisma.notification.findFirst.mockResolvedValue({
+      id: "n1",
+      type: "ASSIGNMENT",
+      href: null,
+      readAt: new Date(),
+    });
+
+    const result = await openNotification(actor, "n1");
+
+    expect(result).toEqual({ ok: true, data: { href: null } });
+    // Allerede lest: ingen ny skriving.
+    expect(mocks.prisma.notification.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("kaster bort lagrede lenker som ikke er interne", async () => {
+    mocks.prisma.notification.findFirst.mockResolvedValue({
+      id: "n1",
+      type: "ASSIGNMENT",
+      href: "//ondsinnet.example",
+      readAt: null,
+    });
+
+    const result = await openNotification(actor, "n1");
+
+    expect(result).toEqual({ ok: true, data: { href: null } });
+  });
+
+  it("sender kundeportalbrukere til rapportdelen ved åpning", async () => {
+    mocks.prisma.notification.findFirst.mockResolvedValue({
+      id: "n1",
+      type: "REPORT_READY",
+      href: "/oppdrag/wo1",
+      readAt: null,
+    });
+
+    const result = await openNotification(
+      { ...actor, role: "CUSTOMER", customerId: "cust1" },
+      "n1",
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      data: { href: "/kundeportal#rapporter" },
+    });
   });
 
   it("lister varsler med side og uleste", async () => {
@@ -435,8 +623,10 @@ describe("varseltjenesten", () => {
   it("varsler teknikere og kontoret på en oppdragshendelse", async () => {
     mocks.prisma.workOrder.findUnique.mockResolvedValue({
       id: "wo1",
+      title: "testoppdrag",
       departmentId: "dep-a",
-      customerId: null,
+      customerId: "cust1",
+      customer: { name: "Biniam" },
       technicians: [{ id: "tech1" }],
     });
     mocks.prisma.user.findMany.mockResolvedValue([{ id: "office1" }]);
@@ -452,6 +642,12 @@ describe("varseltjenesten", () => {
 
     expect(count).toBe(2);
     expect(mocks.prisma.notification.create).toHaveBeenCalledTimes(2);
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceLabel: "Oppdrag: testoppdrag · Biniam",
+      }),
+      select: { id: true },
+    });
     // Inaktive montører skal aldri varsles, selv om de står på oppdraget.
     expect(mocks.prisma.workOrder.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
