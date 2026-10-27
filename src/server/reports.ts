@@ -1265,12 +1265,13 @@ export async function submitReport(
   // slettes bevisst ikke. Revisjonshistorikken peker fortsatt på dem, og en
   // opplåst rapport skal kunne vises slik den ble signert den gangen.
 
+  const reportName = template.reportName || template.title;
   try {
     await notifyWorkOrderEvent(
       workOrderId,
       "REPORT_READY",
-      "Rapport klar",
-      "En signert rapport er klar.",
+      `Rapport klar: ${reportName}`,
+      `«${reportName}» for «${workOrder.title}» er signert og klar.`,
       `/mine-oppdrag/${workOrderId}`,
       `report-ready:${workOrderId}:${templateId}`,
     );

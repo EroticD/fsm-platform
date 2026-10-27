@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   storeDataImage: vi.fn(),
   deleteUploadIfOwned: vi.fn(),
   getOrRenderReportPdf: vi.fn(),
+  notifyWorkOrderEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -41,6 +42,9 @@ vi.mock("@/lib/upload-store", () => ({
 }));
 vi.mock("@/lib/report-pdf-store", () => ({
   getOrRenderReportPdf: mocks.getOrRenderReportPdf,
+}));
+vi.mock("./notifications", () => ({
+  notifyWorkOrderEvent: mocks.notifyWorkOrderEvent,
 }));
 
 import {
@@ -77,6 +81,7 @@ function actor(overrides: Record<string, unknown> = {}): AccessUser {
 function workOrder() {
   return {
     id: "wo1",
+    title: "Testoppdrag",
     customerId: null,
     departmentId: "dep-a",
     status: "OPEN",
@@ -213,6 +218,7 @@ describe("reports-tjenesten", () => {
     vi.clearAllMocks();
     mocks.storeDataImage.mockResolvedValue("/uploads/signatur.png");
     mocks.deleteUploadIfOwned.mockResolvedValue(undefined);
+    mocks.notifyWorkOrderEvent.mockResolvedValue(1);
   });
 
   it("avviser innsending med ugyldige id-er før databasen røres", async () => {
@@ -269,6 +275,24 @@ describe("reports-tjenesten", () => {
         metadata: { reportId: "r1", templateId: "tpl1", remediationWorkOrderId: null },
       }),
     });
+  });
+
+  it("varsler om klar rapport med rapport- og oppdragsnavn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    withTransaction();
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result.ok).toBe(true);
+    expect(mocks.notifyWorkOrderEvent).toHaveBeenCalledWith(
+      "wo1",
+      "REPORT_READY",
+      "Rapport klar: Sjekkliste",
+      "«Sjekkliste» for «Testoppdrag» er signert og klar.",
+      "/mine-oppdrag/wo1",
+      "report-ready:wo1:tpl1",
+    );
   });
 
   it("lagrer kategori og HMS-type fra malen som øyeblikksbilde", async () => {

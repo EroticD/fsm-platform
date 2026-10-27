@@ -83,6 +83,7 @@ type Actor = AccessUser | null;
 
 type WorkOrderAccess = {
   id: string;
+  title: string;
   departmentId: string;
   customerId: string | null;
   status: string;
@@ -113,7 +114,13 @@ async function requireAccess(
 
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScope(user) },
-    select: { id: true, departmentId: true, customerId: true, status: true },
+    select: {
+      id: true,
+      title: true,
+      departmentId: true,
+      customerId: true,
+      status: true,
+    },
   });
   if (!workOrder) return null;
 
@@ -569,7 +576,9 @@ export async function changeWorkOrderStatus(
         workOrderId,
         "CANCELLED",
         "Oppdraget er kansellert",
-        "Oppdraget er kansellert.",
+        access.title
+          ? `«${access.title}» er kansellert.`
+          : "Oppdraget er kansellert.",
         `/oppdrag/${workOrderId}`,
         `cancelled:${workOrderId}`,
       );
@@ -597,7 +606,7 @@ export async function updateWorkOrderDate(
 
   const existing = await prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScope(user) },
-    select: { status: true },
+    select: { status: true, title: true },
   });
   if (!existing) return { ok: false, error: "ikke-funnet" };
   if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
@@ -670,7 +679,9 @@ export async function updateWorkOrderDate(
         workOrderId,
         "DATE_CHANGED",
         "Oppdraget er flyttet",
-        `Ny dato: ${toDateOnly(scheduledFor)}`,
+        existing.title
+          ? `«${existing.title}» er flyttet. Ny dato: ${toDateOnly(scheduledFor)}`
+          : `Ny dato: ${toDateOnly(scheduledFor)}`,
         `/oppdrag/${workOrderId}`,
         `date:${workOrderId}:${toDateOnly(scheduledFor)}`,
       );
@@ -951,7 +962,9 @@ async function changeTechnician(
         userId,
         type: "ASSIGNMENT",
         title: "Du er tildelt et oppdrag",
-        body: "Et oppdrag er tildelt deg.",
+        body: access.title
+          ? `«${access.title}» er tildelt deg.`
+          : "Et oppdrag er tildelt deg.",
         href: `/mine-oppdrag/${workOrderId}`,
         dedupeKey: `assignment:${workOrderId}:${userId}`,
       });

@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import {
   markAllNotificationsRead,
   markNotificationRead,
+  openNotification,
 } from "@/server/notifications";
 
 export async function markReadAction(formData: FormData) {
@@ -16,20 +17,19 @@ export async function markReadAction(formData: FormData) {
 }
 
 /**
- * Åpner varselet og markerer det som lest. Bare interne stier godtas, slik at
- * skjemaet ikke kan brukes som en åpen viderekobling.
+ * Åpner varselet og markerer det som lest. Skjemaet sender bare id-en; den
+ * lagrede lenken slås opp på serveren og valideres som intern, slik at
+ * skjemaet aldri kan brukes som en åpen viderekobling.
  */
 export async function openNotificationAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) return;
 
-  await markNotificationRead(user, formData.get("id"));
-
-  const href = String(formData.get("href") ?? "");
-  if (href.startsWith("/") && !href.startsWith("//")) {
-    redirect(href);
-  }
+  const result = await openNotification(user, formData.get("id"));
   revalidatePath("/varsler");
+  if (!result.ok || !result.data.href) return;
+
+  redirect(result.data.href);
 }
 
 export async function markAllReadAction() {
