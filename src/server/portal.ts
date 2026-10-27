@@ -189,6 +189,7 @@ export async function getPortalReportHistory(
             id: true,
             name: true,
             templateTitle: true,
+            reportNumber: true,
             requiresUnits: true,
             completedAt: true,
             isLocked: true,

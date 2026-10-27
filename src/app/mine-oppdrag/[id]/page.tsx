@@ -438,6 +438,13 @@ export default async function TechnicianWorkOrderPage({
                             : t("orders.templateGroups.hmsBadge")}
                         </span>
                       )}
+                      {report?.reportNumber && (
+                        <span className="bg-white text-gray-700 border border-gray-300 text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {t("orders.reportsPage.reportNumber", {
+                            number: report.reportNumber,
+                          })}
+                        </span>
+                      )}
                       {report?.isLocked && (
                         <span className="bg-gray-800 text-white text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.locked")}

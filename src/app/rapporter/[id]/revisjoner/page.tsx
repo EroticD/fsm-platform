@@ -140,6 +140,12 @@ async function RevisionSnapshot({
           <p className="mt-1 font-bold text-gray-900">
             {revision.reason || t("orders.revisions.noReason")}
           </p>
+          {revision.reportNumber && (
+            <p className="mt-1 text-xs text-gray-600">
+              {t("orders.revisions.reportNumber")}:{" "}
+              <span className="font-bold text-gray-900">{revision.reportNumber}</span>
+            </p>
+          )}
           <p className="mt-1 text-xs text-gray-600">
             {t("orders.revisions.actor")}:{" "}
             {revision.actorName || t("orders.revisions.unknownActor")}

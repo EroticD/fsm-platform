@@ -32,6 +32,7 @@ export type RevisionSnapshotSource = {
   comments?: string | null;
   templateTitle?: string | null;
   name?: string | null;
+  reportNumber?: string | null;
   requiresUnits?: boolean | null;
   templateCategory?: "SERVICE" | "HMS" | null;
   hmsType?: HmsFormType | null;
@@ -133,6 +134,7 @@ export function revisionToDocumentReport(revision: RevisionSnapshotSource) {
     id: revision.id,
     templateTitle: revision.templateTitle ?? null,
     name: revision.name ?? null,
+    reportNumber: revision.reportNumber ?? null,
     requiresUnits: revision.requiresUnits !== false,
     templateCategory: revision.templateCategory === "HMS" ? "HMS" : "SERVICE",
     hmsType: revision.hmsType ?? null,

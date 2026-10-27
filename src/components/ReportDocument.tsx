@@ -50,6 +50,8 @@ type RawReport = {
   templateTitle?: string | null;
   /** Rapportens eget visningsnavn, om malen har det. */
   name?: string | null;
+  /** Automatisk rapportnummer for HMS-rapporter. */
+  reportNumber?: string | null;
   /** Om rapporten er knyttet til enheter. Eldre rapporter mangler feltet. */
   requiresUnits?: boolean | null;
   /** Frosset kategori/type fra malen. Eldre rapporter mangler feltene. */
@@ -72,6 +74,7 @@ type ReportBlock = {
   id: string;
   name: string | null;
   templateTitle: string | null;
+  reportNumber: string | null;
   requiresUnits: boolean;
   category: TemplateCategory;
   hmsType: HmsFormType | null;
@@ -198,6 +201,7 @@ export default function ReportDocument({
       id: report.id,
       name: report.name ?? report.templateTitle ?? template?.title ?? null,
       templateTitle: report.templateTitle ?? template?.title ?? null,
+      reportNumber: report.reportNumber ?? null,
       requiresUnits: report.requiresUnits !== false,
       // Kategorien leses fra rapportens frosne felt, aldri fra den levende
       // malen. Mangler feltet (eldre rapport), er den SERVICE.
@@ -701,6 +705,11 @@ export default function ReportDocument({
                 Ordrenr. {workOrder.orderNumber}
               </Text>
             )}
+            {blocks.length === 1 && blocks[0]?.reportNumber && (
+              <Text style={styles.headerOrder}>
+                Rapportnr. {blocks[0].reportNumber}
+              </Text>
+            )}
             <Text style={styles.companyName}>{companyName}</Text>
           </View>
         </View>
@@ -743,6 +752,7 @@ export default function ReportDocument({
               <Text style={styles.reportTitle}>
                 {block.name || `Sjekkliste ${blockIndex + 1}`}
                 {block.category === "HMS" ? "  •  HMS-dokumentasjon" : ""}
+                {block.reportNumber ? `  •  Rapportnr. ${block.reportNumber}` : ""}
                 {block.date ? `  •  ${block.date}` : ""}
                 {block.requiresUnits && block.status !== "UKJENT"
                   ? block.status === "AVVIK"

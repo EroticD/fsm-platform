@@ -450,6 +450,8 @@ model Report {
   templateTitle        String?
   /// Rapportens visningsnavn, kopiert fra malen da rapporten ble laget.
   name                 String?
+  /// Automatisk rapportnummer for HMS-rapporter, f.eks. abc1234.
+  reportNumber         String?          @unique
   /// Om rapporten har enheter. Snapshot fra malen.
   requiresUnits        Boolean          @default(true)
   /// Kategori og HMS-type frosset ved signering.
@@ -508,6 +510,8 @@ model ReportRevision {
   comments                    String?
   templateTitle               String?
   name                        String?
+  /// Rapportnummeret rapporten hadde da revisjonen ble laget.
+  reportNumber                String?
   requiresUnits               Boolean          @default(true)
   templateCategory            TemplateCategory @default(SERVICE)
   hmsType                     HmsFormType?

@@ -200,7 +200,8 @@
         "answersTitle": "Answers to checkpoints:",
         "generalNotes": "General notes from the technician:",
         "customerAcknowledged": "Customer acknowledged {date}",
-        "customerAcknowledgementComment": "Customer's acknowledgement comment"
+        "customerAcknowledgementComment": "Customer's acknowledgement comment",
+        "reportNumber": "Report number"
       },
       "unlockReason": "Reason for unlocking",
       "unlockReasonPlaceholder": "Describe what needs to be corrected",
@@ -561,7 +562,8 @@
       "revisions": "Revisions ({count})",
       "previousPage": "Previous",
       "nextPage": "Next",
-      "showingPage": "Page {page} of {totalPages} · {total} reports"
+      "showingPage": "Page {page} of {totalPages} · {total} reports",
+      "reportNumber": "Report no. {number}"
     },
     "revisions": {
       "title": "Revisions",
@@ -584,7 +586,8 @@
       "downloadPdf": "⬇ Download revision (PDF)",
       "unitSummary": "{count, plural, one {# unit} other {# units}} · {deviations} deviations",
       "noUnits": "The report does not use units",
-      "noUnitLabel": "Unnamed"
+      "noUnitLabel": "Unnamed",
+      "reportNumber": "Report number"
     },
     "reportViewer": {
       "notFoundWorkOrder": "Work order not found.",

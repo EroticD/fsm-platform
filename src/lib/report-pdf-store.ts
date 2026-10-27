@@ -33,6 +33,7 @@ export type ReportPdfHashInput = {
   lockedByName?: string | null;
   templateId?: string | null;
   name?: string | null;
+  reportNumber?: string | null;
   requiresUnits?: boolean | null;
   templateSnapshotJson?: string | null;
   units?: ReadonlyArray<{
@@ -55,7 +56,7 @@ function canonicalReport(report: ReportPdfHashInput) {
   return {
     // Økes når PDF-renderingen endres, slik at gamle, ufullstendige
     // PDF-er (for eksempel uten signaturbilder) ikke gjenbrukes fra cachen.
-    rendererVersion: 3,
+    rendererVersion: 4,
     id: report.id,
     updatedAt,
     comments: report.comments ?? null,
@@ -66,6 +67,7 @@ function canonicalReport(report: ReportPdfHashInput) {
     lockedByName: report.lockedByName ?? null,
     templateId: report.templateId ?? null,
     name: report.name ?? null,
+    reportNumber: report.reportNumber ?? null,
     requiresUnits: report.requiresUnits !== false,
     templateSnapshot: report.templateSnapshotJson ?? null,
     unitCount: report.units?.length ?? 0,

@@ -88,7 +88,8 @@
       "history": "🕘 Revisjoner",
       "requestUpdate": "Be om oppdatering av kontaktinformasjon",
       "requestUpdatePlaceholder": "Hva skal oppdateres?",
-      "requestUpdateButton": "Send forespørsel"
+      "requestUpdateButton": "Send forespørsel",
+      "reportNumber": "Rapportnr. {number}"
     },
     "bell": {
       "label": "Varsler",

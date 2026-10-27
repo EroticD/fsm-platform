@@ -44,6 +44,7 @@ describeIntegration("HMS-skjema på internt oppdrag", () => {
   });
 
   afterAll(async () => {
+    await prisma.auditLog.deleteMany({ where: { entityId: workOrderId } });
     await prisma.report.deleteMany({ where: { workOrderId } });
     await prisma.workOrder.deleteMany({ where: { id: workOrderId } });
     await prisma.user.deleteMany({ where: { id: userId } });
@@ -77,6 +78,7 @@ describeIntegration("HMS-skjema på internt oppdrag", () => {
     expect(report.hmsType).toBe("SJA");
     expect(report.requiresUnits).toBe(false);
     expect(report.name).toBe("Sikker Jobb Analyse (SJA)");
+    expect(report.reportNumber).toMatch(/^[a-z]{3}\d{4}$/);
     expect(JSON.parse(report.dataJson)).toMatchObject({
       status: REPORT_STATUS_WITHOUT_UNITS,
     });
@@ -90,5 +92,14 @@ describeIntegration("HMS-skjema på internt oppdrag", () => {
       where: { id: workOrderId },
     });
     expect(workOrder.customerId).toBeNull();
+
+    const audit = await prisma.auditLog.findFirst({
+      where: {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Tildelte rapportnummer ${report.reportNumber}`,
+      },
+    });
+    expect(audit).not.toBeNull();
   });
 });

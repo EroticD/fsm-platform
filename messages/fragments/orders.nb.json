@@ -200,7 +200,8 @@
         "answersTitle": "Svar på sjekkpunkter:",
         "generalNotes": "Generelle notater fra montør:",
         "customerAcknowledged": "Kunden kvitterte {date}",
-        "customerAcknowledgementComment": "Kundens kommentar til kvitteringen"
+        "customerAcknowledgementComment": "Kundens kommentar til kvitteringen",
+        "reportNumber": "Rapportnummer"
       },
       "unlockReason": "Årsak til opplåsing",
       "unlockReasonPlaceholder": "Beskriv hva som skal rettes",
@@ -561,7 +562,8 @@
       "revisions": "Revisjoner ({count})",
       "previousPage": "Forrige",
       "nextPage": "Neste",
-      "showingPage": "Side {page} av {totalPages} · {total} rapporter"
+      "showingPage": "Side {page} av {totalPages} · {total} rapporter",
+      "reportNumber": "Rapportnr. {number}"
     },
     "revisions": {
       "title": "Revisjoner",
@@ -584,7 +586,8 @@
       "downloadPdf": "⬇ Last ned revisjonen (PDF)",
       "unitSummary": "{count, plural, one {# enhet} other {# enheter}} · {deviations} avvik",
       "noUnits": "Rapporten bruker ikke enheter",
-      "noUnitLabel": "Uten navn"
+      "noUnitLabel": "Uten navn",
+      "reportNumber": "Rapportnummer"
     },
     "reportViewer": {
       "notFoundWorkOrder": "Fant ikke oppdraget.",

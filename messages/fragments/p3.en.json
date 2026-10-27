@@ -88,7 +88,8 @@
       "history": "🕘 Revisions",
       "requestUpdate": "Request a contact information update",
       "requestUpdatePlaceholder": "What should be updated?",
-      "requestUpdateButton": "Send request"
+      "requestUpdateButton": "Send request",
+      "reportNumber": "Report no. {number}"
     },
     "bell": {
       "label": "Notifications",

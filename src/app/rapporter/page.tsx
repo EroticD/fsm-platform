@@ -275,6 +275,11 @@ export default async function ReportsPage({
                         {hms && report.hmsType
                           ? ` • ${t(HMS_TYPE_MESSAGE_KEYS[report.hmsType])}`
                           : ""}
+                        {report.reportNumber
+                          ? ` • ${t("orders.reportsPage.reportNumber", {
+                              number: report.reportNumber,
+                            })}`
+                          : ""}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">

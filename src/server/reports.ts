@@ -16,6 +16,7 @@ import {
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
+import { generateReportNumber } from "@/lib/report-number";
 
 /**
  * Tjenestelaget for rapporter.
@@ -181,6 +182,7 @@ const REVISION_SOURCE_SELECT = {
   comments: true,
   templateTitle: true,
   name: true,
+  reportNumber: true,
   requiresUnits: true,
   templateCategory: true,
   hmsType: true,
@@ -224,6 +226,24 @@ type RevisionSource = Prisma.ReportGetPayload<{ select: typeof REVISION_SOURCE_S
  * `dataJson` under `_revisionMeta`. Da bevares de uten en migrering, og
  * eksisterende lesere som bare ser etter `status`/`answers` er upåvirket.
  */
+/**
+ * Finner et ledig rapportnummer. Unik indeks er den endelige garantien; denne
+ * kontrollen gjør kollisjoner praktisk talt fraværende og lar oss prøve på nytt
+ * uten å avbryte hele rapporttransaksjonen.
+ */
+async function allocateReportNumber(
+  tx: Prisma.TransactionClient,
+): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = generateReportNumber();
+    const used = await tx.report.count({
+      where: { reportNumber: candidate },
+    });
+    if (!used) return candidate;
+  }
+  throw new Error("Kunne ikke generere et unikt rapportnummer");
+}
+
 function revisionDataJson(current: RevisionSource): string {
   let base: Record<string, unknown>;
   try {
@@ -261,6 +281,7 @@ function revisionSnapshot(
     comments: current.comments,
     templateTitle: current.templateTitle,
     name: current.name,
+    reportNumber: current.reportNumber ?? null,
     requiresUnits: current.requiresUnits,
     // Kategorien og HMS-typen fryses sammen med resten av rapporten. Eldre
     // rader uten verdi behandles som en vanlig servicesjekkliste.
@@ -1116,6 +1137,7 @@ export async function submitReport(
   let remediationWorkOrderId: string | null = null;
   try {
     const result = await prisma.$transaction(async (tx) => {
+      let generatedReportNumber: string | null = null;
       const current = await tx.report.findUnique({
         where: { workOrderId_templateId: { workOrderId, templateId } },
         select: REVISION_SOURCE_SELECT,
@@ -1148,10 +1170,18 @@ export async function submitReport(
           data: revisionSnapshot(current, "Ny innsending", user.id),
         });
 
+        const reportNumber =
+          current.reportNumber ??
+          (template.category === "HMS" ? await allocateReportNumber(tx) : null);
+        if (!current.reportNumber && reportNumber) {
+          generatedReportNumber = reportNumber;
+        }
+
         await tx.report.update({
           where: { id: current.id },
           data: {
             ...data,
+            reportNumber,
             revision: { increment: 1 },
             // Ny innsending er en ny versjon av rapporten. Kunden må kvittere
             // for den nye versjonen, så en tidligere kvittering nullstilles.
@@ -1178,16 +1208,34 @@ export async function submitReport(
         }
         reportId = current.id;
       } else {
+        const reportNumber =
+          template.category === "HMS" ? await allocateReportNumber(tx) : null;
+        generatedReportNumber = reportNumber;
         const created = await tx.report.create({
           data: {
             workOrderId,
             templateId,
             ...data,
+            reportNumber,
             units: { create: unitRows },
           },
           select: { id: true },
         });
         reportId = created.id;
+      }
+
+      if (generatedReportNumber) {
+        await audit(tx, {
+          entityType: "WorkOrder",
+          entityId: workOrderId,
+          action: `Tildelte rapportnummer ${generatedReportNumber}`,
+          actor: { id: user.id, name: user.name, email: user.email },
+          metadata: {
+            reportId,
+            templateId,
+            reportNumber: generatedReportNumber,
+          },
+        });
       }
 
       // Automatisk utbedringsoppdrag: nøyaktig ett per rapport. Den unike

@@ -206,6 +206,11 @@ async function ReportContent({ report, template }: { report: any; template: any 
   return (
     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm text-sm space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
+        {report?.reportNumber && (
+          <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-black tracking-wide text-gray-700">
+            {t("orders.detail.report.reportNumber")}: {report.reportNumber}
+          </span>
+        )}
         {summary.usesUnits && (
           <>
             <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>

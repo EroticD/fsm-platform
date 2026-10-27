@@ -10,6 +10,7 @@ type ReportView = {
   id: string;
   name: string | null;
   templateTitle: string | null;
+  reportNumber: string | null;
   requiresUnits: boolean;
   completedAt: Date | null;
   isLocked: boolean;
@@ -129,6 +130,11 @@ export default async function ReportHistory({
                             })}
                             {report.isLocked
                               ? ` · ${t("p3.portalReports.signed")}`
+                              : ""}
+                            {report.reportNumber
+                              ? ` · ${t("p3.portalReports.reportNumber", {
+                                  number: report.reportNumber,
+                                })}`
                               : ""}
                             {report.revision > 0
                               ? ` · ${t("p3.portalReports.revision", {

@@ -28,6 +28,7 @@ export type RevisionReportIdentity = {
   id: string;
   name: string | null;
   templateTitle: string | null;
+  reportNumber: string | null;
   requiresUnits: boolean;
   revision: number;
   completedAt: Date | null;
@@ -52,6 +53,7 @@ export type ReportRevisionSummary = {
   actorName: string | null;
   name: string | null;
   templateTitle: string | null;
+  reportNumber: string | null;
   requiresUnits: boolean;
   completedAt: Date | null;
   unitCount: number;
@@ -89,6 +91,7 @@ const REPORT_ACCESS_SELECT = {
   workOrderId: true,
   name: true,
   templateTitle: true,
+  reportNumber: true,
   requiresUnits: true,
   revision: true,
   completedAt: true,
@@ -114,6 +117,7 @@ type AccessibleReport = {
   workOrderId: string;
   name: string | null;
   templateTitle: string | null;
+  reportNumber: string | null;
   requiresUnits: boolean;
   revision: number;
   completedAt: Date | null;
@@ -162,6 +166,7 @@ function reportIdentity(report: AccessibleReport): RevisionReportIdentity {
     id: report.id,
     name: report.name,
     templateTitle: report.templateTitle,
+    reportNumber: report.reportNumber,
     requiresUnits: report.requiresUnits !== false,
     revision: report.revision,
     completedAt: report.completedAt,
@@ -221,6 +226,7 @@ function summaryOf(
       : null,
     name: revision.name ?? null,
     templateTitle: revision.templateTitle ?? null,
+    reportNumber: revision.reportNumber ?? null,
     requiresUnits: revision.requiresUnits !== false,
     completedAt: dateOrNull(revision.completedAt),
     unitCount: revision.requiresUnits === false ? 0 : units.length,
@@ -336,6 +342,7 @@ export async function getReportRevisionForPdf(
       comments: true,
       templateTitle: true,
       name: true,
+      reportNumber: true,
       requiresUnits: true,
       templateCategory: true,
       hmsType: true,
@@ -412,6 +419,7 @@ export async function getWorkOrderRevisionOverview(
           workOrderId: true,
           name: true,
           templateTitle: true,
+          reportNumber: true,
           requiresUnits: true,
           revision: true,
           completedAt: true,
@@ -464,6 +472,7 @@ export async function getWorkOrderRevisionOverview(
           id: report.id,
           name: report.name,
           templateTitle: report.templateTitle,
+          reportNumber: report.reportNumber,
           requiresUnits: report.requiresUnits !== false,
           revision: report.revision,
           completedAt: report.completedAt,

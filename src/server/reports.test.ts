@@ -147,6 +147,7 @@ function txClient(overrides: Record<string, unknown> = {}) {
   return {
     report: {
       findUnique: vi.fn(async () => null),
+      count: vi.fn(async () => 0),
       updateMany: vi.fn(async () => ({ count: 1 })),
       update: vi.fn(async () => ({})),
       create: vi.fn(async () => ({ id: "r1" })),
@@ -324,8 +325,28 @@ describe("reports-tjenesten", () => {
         templateCategory: "HMS",
         hmsType: "SJA",
         name: "SJA – Sikker jobb analyse",
+        reportNumber: expect.stringMatching(/^[a-z]{3}\d{4}$/),
       }),
       select: { id: true },
+    });
+
+    const reportNumber = (
+      tx.report.create as unknown as {
+        mock: { calls: Array<[{ data: { reportNumber: string } }]> };
+      }
+    ).mock.calls[0][0].data.reportNumber;
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo1",
+        action: `Tildelte rapportnummer ${reportNumber}`,
+        actorId: "u1",
+        metadata: expect.objectContaining({
+          reportId: "r1",
+          templateId: "tpl1",
+          reportNumber,
+        }),
+      }),
     });
   });
 
