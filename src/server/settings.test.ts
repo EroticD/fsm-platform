@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
     user: { findMany: vi.fn() },
     customer: { findMany: vi.fn() },
     workOrder: { count: vi.fn(), groupBy: vi.fn() },
+    report: { count: vi.fn() },
+    contract: { count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -28,6 +30,7 @@ vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 
 import {
   createTemplate,
+  deleteTemplate,
   getStatistics,
   saveBranding,
 } from "./settings";
@@ -240,6 +243,58 @@ describe("innstillingstjenesten – maler", () => {
     expect(auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         action: expect.stringContaining("uten enheter"),
+      }),
+    });
+  });
+
+  it("nekter å hard-slette en mal som er brukt av rapporter, oppdrag eller aktive avtaler", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Årlig service",
+    });
+    mocks.prisma.report.count.mockResolvedValue(2);
+    mocks.prisma.contract.count.mockResolvedValue(1);
+    mocks.prisma.workOrder.count.mockResolvedValue(3);
+
+    const result = await deleteTemplate(admin(), { id: "template-1" });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "in_use",
+      details: { reports: 2, activeContracts: 1, workOrders: 3 },
+    });
+    expect(mocks.prisma.template.delete).not.toHaveBeenCalled();
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    // Det blokkerte forsøket logges med bruken som stoppet det.
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Template",
+        entityId: "template-1",
+        metadata: { reports: 2, activeContracts: 1, workOrders: 3 },
+      }),
+    });
+  });
+
+  it("sletter en ubrukt mal og logger det", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Ubrukt mal",
+    });
+    mocks.prisma.report.count.mockResolvedValue(0);
+    mocks.prisma.contract.count.mockResolvedValue(0);
+    mocks.prisma.workOrder.count.mockResolvedValue(0);
+
+    const result = await deleteTemplate(admin(), { id: "template-1" });
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(mocks.prisma.template.delete).toHaveBeenCalledWith({
+      where: { id: "template-1" },
+    });
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Template",
+        entityId: "template-1",
+        action: "Slettet sjekkliste: Ubrukt mal",
       }),
     });
   });

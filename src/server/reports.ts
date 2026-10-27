@@ -5,7 +5,7 @@ import { notifyWorkOrderEvent } from "./notifications";
 import { hasPermission } from "@/lib/permissions";
 import { isOffice } from "@/lib/session";
 import { workOrderScope, type AccessUser } from "@/lib/access";
-import { lineCommentKey, parseImageUrls } from "@/lib/report-answers";
+import { isLineCommentKey, lineCommentKey, parseImageUrls } from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
@@ -165,6 +165,11 @@ const REVISION_SOURCE_SELECT = {
   id: true,
   revision: true,
   isLocked: true,
+  lockedAt: true,
+  lockedByName: true,
+  templateId: true,
+  pdfHash: true,
+  legalHold: true,
   dataJson: true,
   comments: true,
   templateTitle: true,
@@ -204,7 +209,36 @@ type RevisionSource = Prisma.ReportGetPayload<{ select: typeof REVISION_SOURCE_S
  * Revisjonsnummeret er rapportens nummer *før* endringen. Selve
  * `Report.revision` økes i samme transaksjon, så en revisjon alltid kan knyttes
  * til den tilstanden den ble laget fra.
+ *
+ * Skjemaet har egne kolonner for navn, enhetskrav og kvittering. Mal-id,
+ * låsemetadata og PDF-hash har ingen egne kolonner; de legges derfor i
+ * `dataJson` under `_revisionMeta`. Da bevares de uten en migrering, og
+ * eksisterende lesere som bare ser etter `status`/`answers` er upåvirket.
  */
+function revisionDataJson(current: RevisionSource): string {
+  let base: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(current.dataJson) as unknown;
+    base =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : { raw: current.dataJson };
+  } catch {
+    base = { raw: current.dataJson };
+  }
+
+  return JSON.stringify({
+    ...base,
+    _revisionMeta: {
+      templateId: current.templateId,
+      isLocked: current.isLocked,
+      lockedAt: current.lockedAt?.toISOString() ?? null,
+      lockedByName: current.lockedByName,
+      pdfHash: current.pdfHash,
+    },
+  });
+}
+
 function revisionSnapshot(
   current: RevisionSource,
   reason: string,
@@ -213,7 +247,7 @@ function revisionSnapshot(
   return {
     reportId: current.id,
     revision: current.revision,
-    dataJson: current.dataJson,
+    dataJson: revisionDataJson(current),
     unitsJson: JSON.stringify(current.units ?? []),
     comments: current.comments,
     templateTitle: current.templateTitle,
@@ -277,6 +311,123 @@ function parseFields(fieldsJson: string | null | undefined): TemplateField[] {
   } catch {
     return [];
   }
+}
+
+type RemediationUnit = {
+  label: string;
+  serialNumber: string | null;
+  location: string | null;
+  status: string;
+  answersJson: string;
+  comment: string | null;
+};
+
+/** Lesbart svar for ett sjekkpunkt, brukt i utbedringsoppdragets beskrivelse. */
+function readableAnswer(field: TemplateField, value: unknown): string {
+  if (value === true) return "Ja";
+  if (value === false) return "Nei";
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (field.type === "IMAGE") {
+    try {
+      const urls = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(urls) && urls.length > 0) {
+        return `${urls.length} bilde${urls.length === 1 ? "" : "r"}`;
+      }
+    } catch {}
+    return trimmed.startsWith("[") ? "Bilde" : "Bilde vedlagt";
+  }
+
+  return trimmed;
+}
+
+/**
+ * Lager tittel og beskrivelse til det automatiske utbedringsoppdraget.
+ *
+ * Teksten skal være lesbar for montøren som skal rette avvikene: hvilke
+ * enheter som har avvik, hva som er registrert på hvert sjekkpunkt, og hvilke
+ * kommentarer som hører til. Alle avvik fra rapporten tas med, ikke bare det
+ * første.
+ */
+function remediationOrderSummary(input: {
+  reportId: string;
+  reportName: string;
+  workOrderTitle: string;
+  notes: string;
+  units: RemediationUnit[];
+  fields: TemplateField[];
+}): { title: string; description: string } {
+  const title = cleanText(`Utbedring av avvik – ${input.reportName}`, {
+    maxLength: LIMITS.title,
+  });
+
+  const lines: string[] = [
+    `Automatisk opprettet utbedringsoppdrag for rapporten «${input.reportName}» (rapport-ID: ${input.reportId}).`,
+    `Kildeoppdrag: ${input.workOrderTitle}.`,
+    "",
+    `Avvik som må utbedres (${input.units.length}):`,
+  ];
+
+  input.units.forEach((unit, index) => {
+    const name = unit.label || "Rapporten (uten enhet)";
+    const details = [
+      unit.serialNumber ? `serienr. ${unit.serialNumber}` : "",
+      unit.location ? `sted: ${unit.location}` : "",
+    ].filter(Boolean);
+
+    lines.push(
+      `${index + 1}. ${name}${details.length > 0 ? ` (${details.join(", ")})` : ""}`,
+    );
+
+    if (unit.comment) lines.push(`   Kommentar: ${unit.comment}`);
+
+    let answers: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(unit.answersJson) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        answers = parsed as Record<string, unknown>;
+      }
+    } catch {}
+
+    const fieldIds = new Set(input.fields.map((field) => field.id));
+    for (const field of input.fields) {
+      const value = readableAnswer(field, answers[field.id]);
+      const lineComment = answers[lineCommentKey(field.id)];
+      const comment = typeof lineComment === "string" ? lineComment.trim() : "";
+      if (!value && !comment) continue;
+
+      const label = field.label || field.id;
+      lines.push(
+        `   – ${label}: ${value || "(ingen verdi)"}${comment ? ` — ${comment}` : ""}`,
+      );
+    }
+
+    // Svar som ikke finnes i malen lenger skal likevel ikke forsvinne fra
+    // oppsummeringen, så lenge de ikke er selve linjekommentaren.
+    for (const [key, value] of Object.entries(answers)) {
+      if (fieldIds.has(key) || isLineCommentKey(key)) continue;
+      const text =
+        typeof value === "string"
+          ? value.trim()
+          : value === true
+            ? "Ja"
+            : value === false
+              ? "Nei"
+              : "";
+      if (text) lines.push(`   – ${key}: ${text}`);
+    }
+  });
+
+  if (input.notes) {
+    lines.push("", `Rapportnotat: ${input.notes}`);
+  }
+
+  return {
+    title,
+    description: cleanMarkdown(lines.join("\n")),
+  };
 }
 
 /** Leser sjekkpunktene for én enhet ut fra feltnavnene i skjemaet. */
@@ -503,7 +654,7 @@ export async function saveDraft(
   const [existingReport, previousDraft] = await Promise.all([
     prisma.report.findUnique({
       where: { workOrderId_templateId: { workOrderId, templateId } },
-      select: { isLocked: true },
+      select: { isLocked: true, legalHold: true },
     }),
     prisma.reportDraft.findUnique({
       where: {
@@ -512,7 +663,7 @@ export async function saveDraft(
       select: { dataJson: true },
     }),
   ]);
-  if (existingReport?.isLocked) return { ok: false };
+  if (existingReport?.isLocked || existingReport?.legalHold) return { ok: false };
 
   const fields = parseFields(template.fieldsJson);
 
@@ -631,10 +782,11 @@ export type SubmitReportError =
   | "ikke-funnet"
   | "kansellert"
   | "locked"
+  | "legal-hold"
   | "signatur";
 
 export type SubmitReportResult =
-  | { ok: true; returnTo: string }
+  | { ok: true; returnTo: string; remediationWorkOrderId?: string }
   | { ok: false; error: SubmitReportError; returnTo?: string };
 
 /**
@@ -697,12 +849,21 @@ export async function submitReport(
     select: {
       id: true,
       isLocked: true,
+      legalHold: true,
       technicianSignatureUrl: true,
       technicianName: true,
       customerSignatureUrl: true,
       customerName: true,
     },
   });
+
+  if (existing?.legalHold || (existing && workOrder.legalHold)) {
+    return {
+      ok: false,
+      error: "legal-hold",
+      returnTo: returnPathFrom(formData, workOrderId),
+    };
+  }
 
   if (existing?.isLocked) {
     return {
@@ -818,6 +979,12 @@ export async function submitReport(
 
   // Rapporten er "godkjent" bare når ingen av enhetene har avvik.
   const overallStatus = unitStatus.includes("AVVIK") ? "AVVIK" : "GODKJENT";
+  const notes = cleanMarkdown(formData.get("notes"));
+
+  // Alle avvik – også på en rapport uten enheter – skal få nøyaktig ett
+  // utbedringsoppdrag. Avvikene identifiseres før transaksjonen, men selve
+  // oppdraget opprettes sammen med rapporten og revisjonsloggen.
+  const deviatingUnits = unitRows.filter((unit) => unit.status === "AVVIK");
 
   const now = new Date();
 
@@ -858,7 +1025,7 @@ export async function submitReport(
   }
 
   const data = {
-    comments: cleanMarkdown(formData.get("notes")),
+    comments: notes,
     dataJson: JSON.stringify({
       status: overallStatus,
       answers: {},
@@ -875,6 +1042,10 @@ export async function submitReport(
     name: template.reportName || template.title,
     requiresUnits: templateRequiresUnits,
     templateSnapshotJson: template.fieldsJson,
+    // En rapport på et oppdrag med bevaringsplikt arver flagget, slik at den
+    // ikke kan slettes eller endres selv om oppdraget senere skulle bli
+    // behandlet isolert.
+    legalHold: workOrder.legalHold,
     isLocked: true,
     lockedAt: now,
     lockedByName: user.name || user.email,
@@ -905,12 +1076,18 @@ export async function submitReport(
   // Skrivingen gjøres i én transaksjon med en ny låsesjekk, slik at to
   // samtidige innsendinger ikke kan overskrive en signert rapport.
   let locked = false;
+  let legalHold = false;
+  let remediationWorkOrderId: string | null = null;
   try {
     const result = await prisma.$transaction(async (tx) => {
       const current = await tx.report.findUnique({
         where: { workOrderId_templateId: { workOrderId, templateId } },
         select: REVISION_SOURCE_SELECT,
       });
+      // Bevaringsplikten kan ha blitt slått på etter at kallet startet.
+      if (current && (current.legalHold || workOrder.legalHold)) {
+        return { legalHold: true } as const;
+      }
       if (current?.isLocked) return { locked: true } as const;
 
       let reportId: string;
@@ -977,6 +1154,65 @@ export async function submitReport(
         reportId = created.id;
       }
 
+      // Automatisk utbedringsoppdrag: nøyaktig ett per rapport. Den unike
+      // `deviationSourceKey` gjør en ny innsending idempotent, også når to
+      // samtidige innsendinger kommer gjennom hver sin transaksjon.
+      if (deviatingUnits.length > 0) {
+        const deviationSourceKey = `report:${reportId}`;
+        const existingRemediation = await tx.workOrder.findUnique({
+          where: { deviationSourceKey },
+          select: { id: true },
+        });
+
+        if (!existingRemediation) {
+          const summary = remediationOrderSummary({
+            reportId,
+            reportName: template.reportName || template.title,
+            workOrderTitle: workOrder.title,
+            notes,
+            units: deviatingUnits,
+            fields,
+          });
+
+          const remediation = await tx.workOrder.create({
+            data: {
+              title: summary.title,
+              description: summary.description,
+              // Utbedringsoppdraget er udatert; kontoret planlegger det selv.
+              scheduledFor: null,
+              scheduledTo: null,
+              status: "OPEN",
+              departmentId: workOrder.departmentId,
+              customerId: workOrder.customerId,
+              contactId: workOrder.contactId,
+              creatorName: user.name || user.email || "System",
+              deviationSourceKey,
+              // Den som oppdaget avviket, er naturlig ansvarlig for utbedringen.
+              technicians: { connect: [{ id: user.id }] },
+            },
+            select: { id: true },
+          });
+          remediationWorkOrderId = remediation.id;
+
+          await audit(tx, {
+            entityType: "WorkOrder",
+            entityId: remediation.id,
+            action: `Opprettet automatisk utbedringsoppdrag for ${deviatingUnits.length} avvik fra rapporten «${template.reportName || template.title}»`,
+            actor: { id: user.id, name: user.name, email: user.email },
+            metadata: {
+              reportId,
+              sourceWorkOrderId: workOrderId,
+              deviationSourceKey,
+              deviationCount: deviatingUnits.length,
+              assignedTechnicianId: user.id,
+              scheduledFor: null,
+            },
+          });
+        } else {
+          remediationWorkOrderId = existingRemediation.id;
+        }
+      }
+
       // Kladden er ikke lenger nødvendig når rapporten er lagret.
       await tx.reportDraft.deleteMany({
         where: { workOrderId, templateId, userId: user.id },
@@ -989,12 +1225,13 @@ export async function submitReport(
         entityId: workOrderId,
         action: actionText,
         actor: { id: user.id, name: user.name, email: user.email },
-        metadata: { reportId, templateId },
+        metadata: { reportId, templateId, remediationWorkOrderId },
       });
 
-      return { locked: false } as const;
+      return { locked: false, legalHold: false } as const;
     });
-    locked = result.locked;
+    locked = Boolean("locked" in result && result.locked);
+    legalHold = Boolean("legalHold" in result && result.legalHold);
   } catch (error) {
     await cleanupNewSignatures();
     // Samtidig innsending: den unike indeksen avviser duplikatet.
@@ -1002,6 +1239,11 @@ export async function submitReport(
       return { ok: false, error: "locked", returnTo };
     }
     throw error;
+  }
+
+  if (legalHold) {
+    await cleanupNewSignatures();
+    return { ok: false, error: "legal-hold", returnTo };
   }
 
   if (locked) {
@@ -1026,12 +1268,32 @@ export async function submitReport(
     // Varsling er best effort; rapporten er allerede lagret.
   }
 
-  return { ok: true, returnTo };
+  if (remediationWorkOrderId) {
+    try {
+      await notifyWorkOrderEvent(
+        remediationWorkOrderId,
+        "ASSIGNMENT",
+        "Nytt utbedringsoppdrag",
+        `Et utbedringsoppdrag for ${deviatingUnits.length} avvik er opprettet og tildelt deg.`,
+        `/mine-oppdrag/${remediationWorkOrderId}`,
+        `remediation:${remediationWorkOrderId}`,
+      );
+    } catch {
+      // Varsling er best effort; oppdraget er allerede opprettet.
+    }
+  }
+
+  return {
+    ok: true,
+    returnTo,
+    // UI kan lenke direkte til utbedringsoppdraget når rapporten hadde avvik.
+    ...(remediationWorkOrderId ? { remediationWorkOrderId } : {}),
+  };
 }
 
 export type ReportLockResult =
   | { ok: true }
-  | { ok: false; error: "ikke-tilgang" | "ugyldig-data" | "ikke-funnet" };
+  | { ok: false; error: "ikke-tilgang" | "ugyldig-data" | "ikke-funnet" | "legal-hold" };
 
 /**
  * Låser eller låser opp en signert rapport. Bare administrator kan låse opp
@@ -1065,14 +1327,26 @@ export async function setReportLock(
 
   const lockedUntil = new Date();
   let found = false;
+  let held = false;
 
   await prisma.$transaction(async (tx) => {
     const current = await tx.report.findFirst({
       where: { id: reportId, workOrderId, deletedAt: null },
-      select: REVISION_SOURCE_SELECT,
+      select: {
+        ...REVISION_SOURCE_SELECT,
+        workOrder: { select: { legalHold: true } },
+      },
     });
     if (!current) return;
     found = true;
+
+    // Bevaringsplikt fryser rapporten. Opplåsing er en endring av beviset og
+    // skal ikke skje selv om administratoren har rettighet til det – holdet må
+    // først frigjøres eksplisitt med grunn.
+    if (current.legalHold || current.workOrder.legalHold) {
+      held = true;
+      return;
+    }
 
     if (shouldLock) {
       await tx.report.update({
@@ -1091,9 +1365,30 @@ export async function setReportLock(
           isLocked: false,
           lockedAt: null,
           lockedByName: null,
+          // Opplåsing er en ny versjon av beviset. En kvittering kunden ga for
+          // den signerte versjonen kan ikke gjelde etter at den åpnes for
+          // retting, og må derfor trekkes tilbake med revisjonsspor.
+          customerAcknowledgedAt: null,
+          customerAcknowledgedBy: null,
+          customerAcknowledgedComment: null,
           revision: { increment: 1 },
         },
       });
+
+      if (current.customerAcknowledgedAt) {
+        await audit(tx, {
+          entityType: "Report",
+          entityId: reportId,
+          action: "Kundens kvittering ble trukket tilbake ved opplåsing",
+          actor: { id: user.id, name: user.name, email: user.email },
+          metadata: {
+            workOrderId,
+            acknowledgedAt: current.customerAcknowledgedAt.toISOString(),
+            acknowledgedBy: current.customerAcknowledgedBy,
+            reason,
+          },
+        });
+      }
     }
 
     // Rapporten hører til oppdraget, så hendelsen følger oppdragets id.
@@ -1108,6 +1403,7 @@ export async function setReportLock(
     });
   });
 
+  if (held) return { ok: false, error: "legal-hold" };
   return found ? { ok: true } : { ok: false, error: "ikke-funnet" };
 }
 

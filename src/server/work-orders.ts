@@ -4,6 +4,7 @@ import { audit } from "@/lib/audit";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
+import { normalizeOrderNumber } from "@/lib/order-number";
 import {
   staffForDepartment,
   workOrderScope,
@@ -50,6 +51,7 @@ export type WorkOrderError =
   | "workorder-locked"
   | "legal-hold"
   | "reason-required"
+  | "duplikat-ordrenummer"
   | "avdeling"
   | "ukjent";
 
@@ -127,6 +129,36 @@ async function requireAccess(
 /** Leser en id fra et skjema uten å stole på klienten. */
 function rawId(value: unknown): string {
   return cleanText(value, { maxLength: LIMITS.line });
+}
+
+/** Er feilen brudd på en unik indeks, f.eks. ordrenummer per avdeling? */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+/**
+ * Sjekker om et normalisert ordrenummer allerede finnes i avdelingen.
+ * Unikhetsindeksen er siste skanse; denne sjekken gir en forståelig feil.
+ */
+async function orderNumberTaken(
+  departmentId: string,
+  orderNumberNormalized: string | null,
+  exceptWorkOrderId?: string,
+): Promise<boolean> {
+  if (!orderNumberNormalized) return false;
+
+  const count = await prisma.workOrder.count({
+    where: {
+      departmentId,
+      orderNumberNormalized,
+      ...(exceptWorkOrderId ? { id: { not: exceptWorkOrderId } } : {}),
+    },
+  });
+  return count > 0;
 }
 
 /** Rydder en liste med tag-navn fra skjemaet. */
@@ -229,6 +261,11 @@ export async function createWorkOrder(
   const scheduledTo = parsedEnd && parsedEnd > scheduledFor ? parsedEnd : null;
   const title = parsed.data.title;
   const orderNumber = parsed.data.orderNumber || null;
+  const orderNumberNormalized = normalizeOrderNumber(orderNumber);
+
+  if (await orderNumberTaken(departmentId, orderNumberNormalized)) {
+    return { ok: false, error: "duplikat-ordrenummer" };
+  }
 
   let id: string;
   try {
@@ -237,6 +274,7 @@ export async function createWorkOrder(
         data: {
           title,
           orderNumber,
+          orderNumberNormalized,
           description: description || "",
           departmentId,
           customerId: customerId || undefined,
@@ -266,12 +304,22 @@ export async function createWorkOrder(
         entityId: newWorkOrder.id,
         action: `Kontoret opprettet nytt oppdrag: ${title}`,
         actor: auditActor(user),
-        metadata: { customerId: customerId || null },
+        metadata: {
+          customerId: customerId || null,
+          orderNumber,
+          orderNumberNormalized,
+        },
       });
 
       return newWorkOrder.id;
     });
   } catch (dbError) {
+    // En samtidig opprettelse kan vinne kappløpet selv om forhåndssjekken
+    // passerte. Unikhetsindeksen avviser duplikatet, og brukeren får samme
+    // forståelige feil som ved forhåndssjekken.
+    if (isUniqueViolation(dbError)) {
+      return { ok: false, error: "duplikat-ordrenummer" };
+    }
     console.error("Databasefeil ved opprettelse av oppdrag:", dbError);
     throw new Error("Kunne ikke opprette oppdrag");
   }
@@ -309,6 +357,8 @@ export async function updateWorkOrder(
       departmentId: true,
       customerId: true,
       status: true,
+      orderNumber: true,
+      orderNumberNormalized: true,
     },
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
@@ -370,8 +420,18 @@ export async function updateWorkOrder(
     scheduledFor,
     scheduledTo,
   } = parsed.data;
+  const orderNumberValue = orderNumber || null;
+  const orderNumberNormalized = normalizeOrderNumber(orderNumberValue);
   const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
   const scheduledToDate = scheduledTo ? parseDateOnly(scheduledTo) : null;
+
+  // Ordrenummeret er unikt per avdeling. Sjekk før skriving, slik at brukeren
+  // får en tydelig feil i stedet for en generell databasefeil.
+  if (
+    await orderNumberTaken(departmentId, orderNumberNormalized, workOrderId)
+  ) {
+    return { ok: false, error: "duplikat-ordrenummer" };
+  }
 
   // Kontaktpersonen må tilhøre den valgte kunden; ellers tømmes feltet.
   let validContactId: string | undefined = contactId;
@@ -382,47 +442,62 @@ export async function updateWorkOrder(
     if (!contact || contact.customerId !== customerId) validContactId = undefined;
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.workOrder.update({
-      where: { id: workOrderId },
-      data: {
-        title,
-        orderNumber: orderNumber || null,
-        description,
-        departmentId,
-        customerId,
-        contactId: validContactId || null,
-        scheduledFor: scheduledForDate,
-        scheduledTo:
-          scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
-            ? scheduledToDate
-            : null,
-        technicians: { set: validTechnicianIds.map((id) => ({ id })) },
-        tags: {
-          set: [],
-          connectOrCreate: tagNames.map((name) => ({
-            where: { name },
-            create: { name },
-          })),
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrderId },
+        data: {
+          title,
+          orderNumber: orderNumberValue,
+          orderNumberNormalized,
+          description,
+          departmentId,
+          customerId,
+          contactId: validContactId || null,
+          scheduledFor: scheduledForDate,
+          scheduledTo:
+            scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
+              ? scheduledToDate
+              : null,
+          technicians: { set: validTechnicianIds.map((id) => ({ id })) },
+          tags: {
+            set: [],
+            connectOrCreate: tagNames.map((name) => ({
+              where: { name },
+              create: { name },
+            })),
+          },
         },
-      },
-    });
+      });
 
-    await audit(tx, {
-      entityType: "WorkOrder",
-      entityId: workOrderId,
-      action: `Oppdaterte oppdraget: ${title}`,
-      actor: auditActor(user),
-    });
+      await audit(tx, {
+        entityType: "WorkOrder",
+        entityId: workOrderId,
+        action: `Oppdaterte oppdraget: ${title}`,
+        actor: auditActor(user),
+        metadata: {
+          orderNumber: {
+            from: currentWorkOrder.orderNumber,
+            to: orderNumberValue,
+          },
+          orderNumberNormalized,
+        },
+      });
 
-    // Filene til oppdraget arver avdeling og kunde fra oppdraget. Flyttes
-    // oppdraget, må ACL-en på opplastingsradene følge med i samme transaksjon;
-    // ellers ville brukere i den gamle avdelingen fortsatt kunne lese filene.
-    await tx.upload.updateMany({
-      where: { ownerType: "WORK_ORDER", ownerId: workOrderId },
-      data: { departmentId, customerId: customerId || null },
+      // Filene til oppdraget arver avdeling og kunde fra oppdraget. Flyttes
+      // oppdraget, må ACL-en på opplastingsradene følge med i samme transaksjon;
+      // ellers ville brukere i den gamle avdelingen fortsatt kunne lese filene.
+      await tx.upload.updateMany({
+        where: { ownerType: "WORK_ORDER", ownerId: workOrderId },
+        data: { departmentId, customerId: customerId || null },
+      });
     });
-  });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return { ok: false, error: "duplikat-ordrenummer" };
+    }
+    throw error;
+  }
 
   return { ok: true };
 }
@@ -966,6 +1041,11 @@ export async function cloneWorkOrder(
       const created = await tx.workOrder.create({
         data: {
           title: source.title,
+          // Ordrenummeret er unikt per avdeling og hører til det opprinnelige
+          // oppdraget. En klone starter derfor uten ordrenummer, og kontoret
+          // setter et nytt hvis klonen skal ha et eksternt nummer.
+          orderNumber: null,
+          orderNumberNormalized: null,
           description: source.description,
           departmentId: source.departmentId,
           customerId: source.customerId,
@@ -992,7 +1072,11 @@ export async function cloneWorkOrder(
         entityId: created.id,
         action: `Klonet oppdraget «${source.title}» til nytt oppdrag`,
         actor: auditActor(user),
-        metadata: { sourceWorkOrderId: source.id, customerId: source.customerId },
+        metadata: {
+          sourceWorkOrderId: source.id,
+          customerId: source.customerId,
+          orderNumberCleared: source.orderNumber ?? null,
+        },
       });
 
       return created.id;
@@ -1011,11 +1095,19 @@ export async function cloneWorkOrder(
  * Bare administrator kan gjøre dette. Bevaringsplikten må ligge både på
  * oppdraget og på hver rapport, fordi retensjonsjobben vurderer dem hver for
  * seg. Endringene og revisjonsloggen skrives i samme transaksjon.
+ *
+ * Å slå på bevaringsplikt smitter til alle rapportene. Å slå den av krever en
+ * grunn, og rører bevisst **ikke** rapportenes egne `legalHold`-flagg: en
+ * rapport kan ha fått bevaringsplikt uavhengig av oppdraget, og en avslått
+ * bryter skal aldri frigjøre bevis i det stille. Rapporter frigjøres enkeltvis
+ * med `setReportLegalHold(..., false, grunn)`, og hver frigjøring logges med
+ * rapport-id.
  */
 export async function setWorkOrderLegalHold(
   user: Actor,
   workOrderId: string,
   rawHold: unknown,
+  rawReason?: unknown,
 ): Promise<WorkOrderResult> {
   if (!user?.isActive || user.role !== "ADMIN") {
     return { ok: false, error: "ikke-tilgang" };
@@ -1031,30 +1123,112 @@ export async function setWorkOrderLegalHold(
     rawHold === "on" ||
     rawHold === "1";
 
+  const reason = cleanText(rawReason, { maxLength: 1000 });
+  // Frigjøring av bevis er en bevisst handling som skal kunne forklares.
+  if (!hold && !reason) return { ok: false, error: "reason-required" };
+
   const target = await prisma.workOrder.findUnique({
     where: { id },
     select: {
       id: true,
       title: true,
-      _count: { select: { reports: true } },
+      legalHold: true,
+      reports: { select: { id: true, legalHold: true } },
     },
   });
   if (!target) return { ok: false, error: "ikke-funnet" };
 
+  const retainedReportIds = target.reports
+    .filter((report) => report.legalHold)
+    .map((report) => report.id);
+
   await prisma.$transaction(async (tx) => {
     await tx.workOrder.update({ where: { id }, data: { legalHold: hold } });
-    await tx.report.updateMany({
-      where: { workOrderId: id },
-      data: { legalHold: hold },
-    });
+
+    if (hold) {
+      // Bevaringsplikt på oppdraget skal gjelde hele beviskjeden.
+      await tx.report.updateMany({
+        where: { workOrderId: id },
+        data: { legalHold: true },
+      });
+    }
+    // Ved avslag oppdateres ingen rapporter. Se dokumentasjonen over.
+
     await audit(tx, {
       entityType: "WorkOrder",
       entityId: id,
       action: hold
         ? `Slo på bevaringsplikt for oppdraget «${target.title}»`
-        : `Slo av bevaringsplikt for oppdraget «${target.title}»`,
+        : `Slo av bevaringsplikt for oppdraget «${target.title}» (rapporter beholder sin egen bevaringsplikt)`,
       actor: auditActor(user),
-      metadata: { legalHold: hold, reportCount: target._count.reports },
+      metadata: {
+        legalHold: hold,
+        reportCount: target.reports.length,
+        ...(!hold ? { reason, retainedReportIds } : {}),
+      },
+    });
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Slår bevaringsplikt på eller av for én enkelt rapport. Brukes når en rapport
+ * har fått bevaringsplikt uavhengig av oppdraget, eller når en administrator
+ * bevisst vil frigjøre én rapport etter at oppdragets bryter er slått av.
+ *
+ * Frigjøring krever en grunn og logges med rapport-id. Selve rapportinnholdet
+ * røres ikke.
+ */
+export async function setReportLegalHold(
+  user: Actor,
+  workOrderId: string,
+  rawReportId: unknown,
+  rawHold: unknown,
+  rawReason?: unknown,
+): Promise<WorkOrderResult> {
+  if (!user?.isActive || user.role !== "ADMIN") {
+    return { ok: false, error: "ikke-tilgang" };
+  }
+
+  const workOrder = rawId(workOrderId);
+  const reportId = rawId(rawReportId);
+  if (!workOrder || !reportId) return { ok: false, error: "ugyldig-data" };
+
+  const hold =
+    rawHold === true ||
+    rawHold === "true" ||
+    rawHold === "on" ||
+    rawHold === "1";
+
+  const reason = cleanText(rawReason, { maxLength: 1000 });
+  if (!hold && !reason) return { ok: false, error: "reason-required" };
+
+  const report = await prisma.report.findFirst({
+    where: { id: reportId, workOrderId: workOrder, deletedAt: null },
+    select: { id: true, name: true, templateTitle: true, legalHold: true },
+  });
+  if (!report) return { ok: false, error: "ikke-funnet" };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.report.update({
+      where: { id: report.id },
+      data: { legalHold: hold },
+    });
+
+    await audit(tx, {
+      entityType: "Report",
+      entityId: report.id,
+      action: hold
+        ? `Slo på bevaringsplikt for rapporten «${report.name || report.templateTitle || report.id}»`
+        : `Slo av bevaringsplikt for rapporten «${report.name || report.templateTitle || report.id}»`,
+      actor: auditActor(user),
+      metadata: {
+        legalHold: hold,
+        workOrderId: workOrder,
+        reportId: report.id,
+        ...(!hold ? { reason } : {}),
+      },
     });
   });
 

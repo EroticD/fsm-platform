@@ -388,6 +388,15 @@ export async function createTemplate(
   return ok({ id: template.id });
 }
 
+/**
+ * Sletter en sjekklistemal.
+ *
+ * Malen kan være festet til oppdrag, rapporter eller aktive serviceavtaler. En
+ * hard sletting ville da fjerne malen fra historikken eller bryte en aktiv
+ * avtale, så sletting nektes når den er i bruk. Svaret inneholder antall
+ * referanser slik at UI kan vise hva som må ryddes først. Selve slettingen
+ * logges; et blokkert forsøk logges også, med bruken som stoppet det.
+ */
 export async function deleteTemplate(
   actor: ServiceActor,
   input: { id?: unknown },
@@ -400,6 +409,27 @@ export async function deleteTemplate(
   const template = await prisma.template.findUnique({ where: { id } });
   if (!template) return fail("not_found");
 
+  const [reports, activeContracts, workOrders] = await Promise.all([
+    prisma.report.count({ where: { templateId: id } }),
+    prisma.contract.count({ where: { templateId: id, isActive: true } }),
+    prisma.workOrder.count({ where: { templates: { some: { id } } } }),
+  ]);
+
+  if (reports > 0 || activeContracts > 0 || workOrders > 0) {
+    const usage = { reports, activeContracts, workOrders };
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Template",
+        entityId: id,
+        action: `Blokkerte sletting av sjekklisten «${template.title}» fordi den er i bruk`,
+        userName: actor.name || actor.email || "Ukjent",
+        actorId: actor.id,
+        metadata: usage,
+      },
+    });
+    return fail("in_use", usage);
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.template.delete({ where: { id } });
     await audit(tx, {
@@ -407,6 +437,7 @@ export async function deleteTemplate(
       entityId: id,
       action: `Slettet sjekkliste: ${template.title}`,
       actor: toAuditActor(actor),
+      metadata: { reports: 0, activeContracts: 0, workOrders: 0 },
     });
   });
   return ok(undefined);

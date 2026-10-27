@@ -343,6 +343,12 @@ export function startDraftCleanup(): void {
  * revisjoner og kommentarer slettes sammen med oppdraget (cascade);
  * opplastingsfilene frigjøres først etter at databasen er oppdatert, slik at vi
  * aldri sitter igjen med filer uten referanse.
+ *
+ * Retensjonspolicyen er bevisst konservativ: `reports: { none: {} }` betyr at
+ * et oppdrag med én eller flere rapporter aldri hard-slettes automatisk – også
+ * når rapporten er ulåst eller mangler signatur. Bevis kan derfor bare fjernes
+ * manuelt, og bare av en administrator. Se `docs/DECISIONS.md` for eksport- og
+ * oppbevaringsreglene.
  */
 export async function cleanupRetainedWorkOrders(
   now = new Date(),

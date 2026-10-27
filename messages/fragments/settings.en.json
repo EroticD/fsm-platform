@@ -317,6 +317,7 @@
       "missingContact": "Customer portal users must be linked to a contact person on the customer card.",
       "duplicateEmail": "A user with this email address already exists.",
       "missingField": "Fill in name, email and select a contact person.",
+      "templateInUse": "The checklist is used by reports, work orders or active service contracts and cannot be deleted. Remove the usage first.",
       "unknown": "Something went wrong. Try again."
     }
   }

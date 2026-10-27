@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
-    attachment: { findFirst: vi.fn(), create: vi.fn() },
+    attachment: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
+    workOrder: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
   claimUpload: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock("fs/promises", () => ({
   default: { access: vi.fn(async () => undefined) },
 }));
 
-import { addAttachment } from "./attachment-actions";
+import { addAttachment, removeAttachment } from "./attachment-actions";
 
 const access = {
   user: {
@@ -110,5 +111,62 @@ describe("addAttachment – eierskap", () => {
       },
     });
     expect(mocks.audit).toHaveBeenCalled();
+  });
+});
+
+describe("removeAttachment – bevaringsplikt", () => {
+  function removeForm() {
+    const data = new FormData();
+    data.set("attachmentId", "att-1");
+    return data;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requireAdmin.mockResolvedValue(true);
+    mocks.getCurrentUser.mockResolvedValue({
+      id: "admin-1",
+      name: "Admin",
+      email: "admin@example.com",
+    });
+    mocks.prisma.attachment.findUnique.mockResolvedValue({
+      id: "att-1",
+      workOrderId: "wo1",
+      fileName: "fil.pdf",
+      dataUrl: "/uploads/fil.pdf",
+    });
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      legalHold: false,
+      reports: [{ legalHold: false }],
+    });
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mocks.prisma) => unknown) =>
+        callback(mocks.prisma),
+    );
+  });
+
+  it("avviser sletting når oppdraget har bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      legalHold: true,
+      reports: [],
+    });
+
+    const result = await removeAttachment(removeForm());
+
+    expect(result.ok).toBe(false);
+    expect(String(result.error)).toContain("bevaringsplikt");
+    expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
+  });
+
+  it("avviser sletting når en rapport har bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      legalHold: false,
+      reports: [{ legalHold: true }],
+    });
+
+    const result = await removeAttachment(removeForm());
+
+    expect(result.ok).toBe(false);
+    expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
   });
 });

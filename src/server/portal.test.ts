@@ -117,7 +117,7 @@ describe("kundeportaltjenesten", () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo1",
       customerId: "cust-1",
-      reports: [{ id: "r1", customerAcknowledgedAt: null }],
+      reports: [{ id: "r1", isLocked: true, customerAcknowledgedAt: null }],
     });
 
     const result = await acknowledgeReport(customer(), {
@@ -145,16 +145,74 @@ describe("kundeportaltjenesten", () => {
         entityType: "Report",
         entityId: "r1",
         action: "Kunden kvitterte for rapporten",
-        metadata: { workOrderId: "wo1" },
+        metadata: { workOrderId: "wo1", reportId: "r1" },
       }),
     );
+  });
+
+  it("kvitterer for en bestemt eldre rapport, ikke bare den nyeste", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo1",
+      customerId: "cust-1",
+      reports: [
+        { id: "r2", isLocked: true, customerAcknowledgedAt: null },
+        { id: "r1", isLocked: true, customerAcknowledgedAt: null },
+      ],
+    });
+
+    const result = await acknowledgeReport(customer(), {
+      workOrderId: "wo1",
+      reportId: "r1",
+    });
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(mocks.prisma.report.update).toHaveBeenCalledWith({
+      where: { id: "r1" },
+      data: expect.objectContaining({ customerAcknowledgedBy: "Kunde" }),
+    });
+    expect(mocks.audit).toHaveBeenCalledWith(
+      mocks.prisma,
+      expect.objectContaining({ entityId: "r1" }),
+    );
+  });
+
+  it("avviser kvittering for en opplåst rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo1",
+      customerId: "cust-1",
+      reports: [{ id: "r1", isLocked: false, customerAcknowledgedAt: null }],
+    });
+
+    const result = await acknowledgeReport(customer(), {
+      workOrderId: "wo1",
+      reportId: "r1",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.report.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser kvittering for en slettet rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo1",
+      customerId: "cust-1",
+      reports: [],
+    });
+
+    const result = await acknowledgeReport(customer(), {
+      workOrderId: "wo1",
+      reportId: "slettet",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.report.update).not.toHaveBeenCalled();
   });
 
   it("er idempotent når rapporten allerede er kvittert", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo1",
       customerId: "cust-1",
-      reports: [{ id: "r1", customerAcknowledgedAt: new Date() }],
+      reports: [{ id: "r1", isLocked: true, customerAcknowledgedAt: new Date() }],
     });
 
     const result = await acknowledgeReport(customer(), { workOrderId: "wo1" });
