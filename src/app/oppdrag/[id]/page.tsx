@@ -206,10 +206,14 @@ async function ReportContent({ report, template }: { report: any; template: any 
   return (
     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm text-sm space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>
-        <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
-          {reportStatus === "GODKJENT" ? t("orders.detail.report.approved") : t("orders.detail.report.deviation")}
-        </span>
+        {summary.usesUnits && (
+          <>
+            <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>
+            <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
+              {reportStatus === "GODKJENT" ? t("orders.detail.report.approved") : t("orders.detail.report.deviation")}
+            </span>
+          </>
+        )}
         {report?.legalHold && (
           <span className="rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900">
             🔒 {t("orders.detail.legalHoldBadge")}

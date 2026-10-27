@@ -7,6 +7,7 @@ import FieldInput, { type TemplateField } from "./FieldInput";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import { readLineComment } from "@/lib/report-answers";
+import { reportFormSections } from "./report-form-sections";
 import { saveDraft, submitReport } from "./actions";
 import {
   loadDraftLocally,
@@ -379,6 +380,7 @@ export default function ReportForm({
   );
 
   const statusLabel = "block text-xs font-black uppercase tracking-wider text-gray-600 mb-2";
+  const visibility = reportFormSections(requiresUnits);
 
   return (
     <form
@@ -437,14 +439,16 @@ export default function ReportForm({
         </div>
       )}
 
-      {/* SAMLET RESULTAT */}
-      <div className={`p-4 rounded-xl border-2 ${overallStatus === "AVVIK" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
-        <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
-        <p className={`font-black ${overallStatus === "AVVIK" ? "text-red-800" : "text-green-800"}`}>
-          {overallStatus === "AVVIK" ? t("orders.reportForm.overallDeviation") : t("orders.reportForm.overallApproved")}
-        </p>
-        <p className="text-[11px] text-gray-600 mt-1">{t("orders.reportForm.overallHint")}</p>
-      </div>
+      {/* SAMLET RESULTAT – bare for maler som bruker enheter. */}
+      {visibility.showOverallResult && (
+        <div className={`p-4 rounded-xl border-2 ${overallStatus === "AVVIK" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+          <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
+          <p className={`font-black ${overallStatus === "AVVIK" ? "text-red-800" : "text-green-800"}`}>
+            {overallStatus === "AVVIK" ? t("orders.reportForm.overallDeviation") : t("orders.reportForm.overallApproved")}
+          </p>
+          <p className="text-[11px] text-gray-600 mt-1">{t("orders.reportForm.overallHint")}</p>
+        </div>
+      )}
 
       {/* ENHETER – eller sjekkpunkter for en rapport uten enheter */}
       <div className="space-y-4 border-t-2 border-b-2 border-gray-200 py-6">
@@ -561,43 +565,45 @@ export default function ReportForm({
               </>
             )}
 
-            {/* RESULTAT */}
-            <div>
-              <label className={statusLabel}>{t("orders.reportForm.unitResult")}</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label
-                  className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
-                    unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-gray-300 hover:bg-green-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`status__${unit.key}`}
-                    value="GODKJENT"
-                    checked={unit.status === "GODKJENT"}
-                    onChange={() => patchUnit(unit.key, { status: "GODKJENT" })}
-                    className="w-5 h-5 text-green-600"
-                  />
-                  <span className="font-bold text-gray-900">{t("orders.reportForm.approved")}</span>
-                </label>
+            {/* RESULTAT – enhetsstatus finnes bare når malen bruker enheter. */}
+            {visibility.showUnitResult && (
+              <div>
+                <label className={statusLabel}>{t("orders.reportForm.unitResult")}</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
+                      unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-gray-300 hover:bg-green-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`status__${unit.key}`}
+                      value="GODKJENT"
+                      checked={unit.status === "GODKJENT"}
+                      onChange={() => patchUnit(unit.key, { status: "GODKJENT" })}
+                      className="w-5 h-5 text-green-600"
+                    />
+                    <span className="font-bold text-gray-900">{t("orders.reportForm.approved")}</span>
+                  </label>
 
-                <label
-                  className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
-                    unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-gray-300 hover:bg-red-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`status__${unit.key}`}
-                    value="AVVIK"
-                    checked={unit.status === "AVVIK"}
-                    onChange={() => patchUnit(unit.key, { status: "AVVIK" })}
-                    className="w-5 h-5 text-red-600"
-                  />
-                  <span className="font-bold text-gray-900">{t("orders.reportForm.deviation")}</span>
-                </label>
+                  <label
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
+                      unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-gray-300 hover:bg-red-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`status__${unit.key}`}
+                      value="AVVIK"
+                      checked={unit.status === "AVVIK"}
+                      onChange={() => patchUnit(unit.key, { status: "AVVIK" })}
+                      className="w-5 h-5 text-red-600"
+                    />
+                    <span className="font-bold text-gray-900">{t("orders.reportForm.deviation")}</span>
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* SJEKKPUNKTER */}
             {fields.length > 0 && (
@@ -630,6 +636,7 @@ export default function ReportForm({
             )}
 
             {(() => {
+              if (!visibility.showFollowUpWarning) return null;
               const pending = followUps[unit.key] ?? [];
               if (pending.length === 0) return null;
               return (
@@ -654,16 +661,19 @@ export default function ReportForm({
               );
             })()}
 
-            {/* KOMMENTAR */}
-            <div>
-              <label className={statusLabel}>{t("orders.reportForm.unitComment")}</label>
-              <MarkdownEditor
-                name={`comment__${unit.key}`}
-                defaultValue={unit.comment}
-                rows={2}
-                placeholder={t("orders.reportForm.unitCommentPlaceholder")}
-              />
-            </div>
+            {/* KOMMENTAR – per-enhet bare når malen bruker enheter. Generelle
+                notater under dekker rapporter uten enheter. */}
+            {visibility.showUnitComment && (
+              <div>
+                <label className={statusLabel}>{t("orders.reportForm.unitComment")}</label>
+                <MarkdownEditor
+                  name={`comment__${unit.key}`}
+                  defaultValue={unit.comment}
+                  rows={2}
+                  placeholder={t("orders.reportForm.unitCommentPlaceholder")}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>

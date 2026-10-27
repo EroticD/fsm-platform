@@ -150,19 +150,23 @@ async function RevisionSnapshot({
           </p>
         </div>
         <div className="rounded-xl bg-gray-50 p-3 text-sm">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-            {t("orders.revisions.status")}
-          </p>
-          <p
-            className={`mt-1 font-black ${
-              status === "AVVIK" ? "text-red-800" : "text-green-800"
-            }`}
-          >
-            {status === "AVVIK"
-              ? t("orders.detail.report.deviation")
-              : t("orders.detail.report.approved")}
-          </p>
-          <p className="mt-1 text-xs text-gray-600">
+          {revision.requiresUnits && (
+            <>
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                {t("orders.revisions.status")}
+              </p>
+              <p
+                className={`mt-1 font-black ${
+                  status === "AVVIK" ? "text-red-800" : "text-green-800"
+                }`}
+              >
+                {status === "AVVIK"
+                  ? t("orders.detail.report.deviation")
+                  : t("orders.detail.report.approved")}
+              </p>
+            </>
+          )}
+          <p className={`text-xs text-gray-600 ${revision.requiresUnits ? "mt-1" : ""}`}>
             {revision.requiresUnits
               ? t("orders.revisions.unitSummary", {
                   count: revision.unitCount,
