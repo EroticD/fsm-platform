@@ -44,6 +44,8 @@ import {
   bulkCreateDocuments,
   createDocument,
   deleteDocument,
+  getDocumentLibrary,
+  restoreDocument,
   restoreDocumentVersion,
   updateDocument,
 } from "./documents";
@@ -147,6 +149,98 @@ describe("dokumenttjenesten – autorisasjon", () => {
     expect(technicianResult).toEqual({ ok: false, reason: "forbidden" });
     expect(officeResult).toEqual({ ok: false, reason: "forbidden" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("dokumenttjenesten – myk sletting og gjenoppretting", () => {
+  it("myksletter dokumentet i stedet for å slette filen", async () => {
+    const result = await deleteDocument(admin(), { id: "doc-1" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.document.update).toHaveBeenCalledWith({
+      where: { id: "doc-1" },
+      data: {
+        deletedAt: expect.any(Date),
+        deletedBy: "Actor",
+      },
+    });
+    expect(mocks.prisma.document.delete).not.toHaveBeenCalled();
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Document",
+        entityId: "doc-1",
+        actorId: "actor",
+      }),
+    });
+  });
+
+  it("gjenoppretter et slettet dokument", async () => {
+    mocks.prisma.document.findUnique.mockResolvedValue({
+      ...currentDocument,
+      deletedAt: new Date(),
+    });
+
+    const result = await restoreDocument(admin(), { id: "doc-1" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.document.update).toHaveBeenCalledWith({
+      where: { id: "doc-1" },
+      data: { deletedAt: null, deletedBy: null },
+    });
+  });
+
+  it("nekter gjenoppretting for kontor", async () => {
+    const result = await restoreDocument(office(), { id: "doc-1" });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.document.update).not.toHaveBeenCalled();
+  });
+
+  it("viser papirkurven bare til administrator", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue(null);
+    mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+    mocks.prisma.document.count.mockResolvedValue(0);
+    mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+
+    await getDocumentLibrary(admin(), {
+      folderId: null,
+      search: "",
+      tag: "",
+      page: 1,
+      documentId: null,
+      deleted: true,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { deletedAt: unknown; folderId: string | null };
+    };
+    expect(args.where).toMatchObject({
+      folderId: null,
+      deletedAt: { not: null },
+    });
+  });
+
+  it("ignorerer papirkurven for brukere som ikke er administrator", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue(null);
+    mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+    mocks.prisma.document.count.mockResolvedValue(0);
+    mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+
+    await getDocumentLibrary(office(), {
+      folderId: null,
+      search: "",
+      tag: "",
+      page: 1,
+      documentId: null,
+      deleted: true,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { deletedAt: unknown };
+    };
+    expect(args.where.deletedAt).toBeNull();
   });
 });
 

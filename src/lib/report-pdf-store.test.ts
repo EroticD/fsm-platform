@@ -14,6 +14,11 @@ vi.mock("@/lib/report-pdf", () => ({
   reportFileNameForWorkOrder: vi.fn(() => "kunde-servicerapport-2026-01-01"),
 }));
 
+const releaseUploadMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/upload-cleanup", () => ({
+  releaseUpload: releaseUploadMock,
+}));
+
 vi.mock("node:fs/promises", () => {
   const api = {
     readFile: vi.fn(),
@@ -129,6 +134,7 @@ describe("getOrRenderReportPdf", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    releaseUploadMock.mockResolvedValue(true);
     mockedReadFile.mockResolvedValue(Buffer.from("%PDF-cached"));
     mockedWriteFile.mockResolvedValue(undefined);
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
@@ -236,6 +242,8 @@ describe("getOrRenderReportPdf", () => {
 
     expect(mockedLoadReportPdf).toHaveBeenCalledTimes(1);
     expect(result?.buffer.toString()).toBe("%PDF-new");
+    // Den gamle, nå urefererte PDF-cachen frigjøres etter at den nye er lagret.
+    expect(releaseUploadMock).toHaveBeenCalledWith("/uploads/cache.pdf");
   });
 
   it("sletter filen når registreringen i databasen feiler", async () => {

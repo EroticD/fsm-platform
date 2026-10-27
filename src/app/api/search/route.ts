@@ -22,5 +22,9 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   const includeCancelled = currentUser.role === "ADMIN" || currentUser.role === "OFFICE";
   const results = await performSearch(q, { user: currentUser, includeCancelled });
-  return NextResponse.json(results);
+  // Søkeresultatet er person- og kundedata som er avgrenset per bruker. Det
+  // skal aldri mellomlagres i nettleser, proxy eller delt cache.
+  return NextResponse.json(results, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }

@@ -63,6 +63,7 @@ export default async function EditWorkOrderPage({
     take: 100,
   });
   const contacts = await prisma.contact.findMany({
+    where: { customer: { deletedAt: null } },
     orderBy: { name: 'asc' },
     take: 200,
     select: { id: true, name: true, role: true, customerId: true },

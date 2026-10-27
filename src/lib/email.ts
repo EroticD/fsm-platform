@@ -18,6 +18,20 @@ function safeEmailLogoUrl(value: string | null | undefined): string {
   }
 }
 
+/**
+ * Kort og PII-fri feilbeskrivelse for logger. Nodemailer og SMTP kan legge
+ * mottakeradressen i både melding og konvolutt, så vi logger aldri rå feil.
+ */
+function safeEmailError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const name = "name" in error ? String((error as { name?: unknown }).name) : "";
+    const code = "code" in error ? String((error as { code?: unknown }).code) : "";
+    if (code) return code;
+    if (name) return name;
+  }
+  return "ukjent feil";
+}
+
 /** Er SMTP konfigurert i .env? */
 function isSmtpConfigured() {
   return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -192,9 +206,9 @@ export async function sendWorkOrderReport(
       subject: `Servicerapport - ${escapeHtml(workOrder.title)}`,
       html: htmlContent,
     });
-    console.log("✅ E-post sendt til", customerEmail);
+    console.log("✅ Servicerapport sendt på e-post");
   } catch (error) {
-    console.error("❌ Feil ved sending av e-post:", error);
+    console.error("❌ Feil ved sending av servicerapport-e-post:", safeEmailError(error));
   }
 }
 
@@ -265,10 +279,10 @@ export async function sendInviteEmail(
       subject: `Velkommen til ${companyName} – sett ditt passord`,
       html: htmlContent,
     });
-    console.log("✅ Invitasjons-e-post sendt til", to);
+    console.log("✅ Invitasjons-e-post sendt");
     return true;
   } catch (error) {
-    console.error("❌ Feil ved sending av invitasjons-e-post:", error);
+    console.error("❌ Feil ved sending av invitasjons-e-post:", safeEmailError(error));
     return false;
   }
 }
@@ -363,7 +377,10 @@ export async function sendBookingNotification(
       });
       officeSent += 1;
     } catch (error) {
-      console.error("❌ Feil ved sending av bestillingsvarsel til kontoret:", error);
+      console.error(
+        "❌ Feil ved sending av bestillingsvarsel til kontoret:",
+        safeEmailError(error),
+      );
     }
   }
 
@@ -381,7 +398,10 @@ export async function sendBookingNotification(
       });
       customerSent = true;
     } catch (error) {
-      console.error("❌ Feil ved sending av bestillingsbekreftelse:", error);
+      console.error(
+        "❌ Feil ved sending av bestillingsbekreftelse:",
+        safeEmailError(error),
+      );
     }
   }
 

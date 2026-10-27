@@ -39,6 +39,18 @@ type RoleRecord = {
   permissions: string[];
 };
 
+/**
+ * Prisma-feil kan inneholde kolonneverdier, og en e-postadresse er en vanlig
+ * unik nøkkel. Logg derfor bare feilkoden – aldri rå melding eller verdier.
+ */
+function safePrismaErrorCode(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && /^[A-Z][0-9]{4}$/.test(code)) return code;
+  }
+  return "ukjent";
+}
+
 type RoleAwareActor = ServiceActor & {
   roleDefinition?: { permissions?: string[] | null } | null;
 };
@@ -204,7 +216,9 @@ export async function createUser(
       return created;
     });
   } catch (error) {
-    console.error("Feil ved opprettelse av bruker", error);
+    console.error(
+      `Feil ved opprettelse av bruker (Prisma ${safePrismaErrorCode(error)})`,
+    );
     return fail("duplicate_email");
   }
 
@@ -706,7 +720,9 @@ export async function createPortalUser(
       return user;
     });
   } catch (error) {
-    console.error("Feil ved opprettelse av kundeportalbruker", error);
+    console.error(
+      `Feil ved opprettelse av kundeportalbruker (Prisma ${safePrismaErrorCode(error)})`,
+    );
     return fail("duplicate_email");
   }
 

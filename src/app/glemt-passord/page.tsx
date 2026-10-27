@@ -73,8 +73,10 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
             subject: tr("auth.forgot.emailSubject"),
             html: `<p>${tr("auth.forgot.emailBody")}</p><p><a href="${resetUrl}">${tr("auth.forgot.emailLink")}</a></p><p>${tr("auth.forgot.emailExpiry")}</p>`
           });
-        } catch (e) {
-          console.error("Feil ved sending av e-post:", e);
+        } catch {
+          // Rå SMTP-feil kan inneholde mottakeradressen. Logg derfor ingenting
+          // som kan knyttes til den innskrevne e-posten.
+          console.error("Feil ved sending av tilbakestillings-e-post");
         }
       }
     }

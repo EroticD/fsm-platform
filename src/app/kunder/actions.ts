@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { createCustomer, updateCustomer } from "@/server/customers";
+import {
+  createCustomer,
+  deleteCustomer,
+  restoreCustomer,
+  updateCustomer,
+} from "@/server/customers";
 
 /** Registrerer en ny kunde. Tynn wrapper rundt kundetjenesten. */
 export async function addCustomer(formData: FormData) {
@@ -60,4 +65,31 @@ export async function updateCustomerAction(
 
   revalidatePath(`/kunder/${customerId}`);
   revalidatePath("/kunder");
+}
+
+/** Myksletter en kunde. Bare administrator kommer gjennom i tjenesten. */
+export async function deleteCustomerAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
+  const id = String(formData.get("id") ?? "");
+  const result = await deleteCustomer(actor, id);
+  if (!result.ok) return;
+
+  revalidatePath("/kunder");
+  revalidatePath("/");
+  redirect("/kunder");
+}
+
+/** Gjenoppretter en mykt slettet kunde. Bare administrator. */
+export async function restoreCustomerAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
+  const id = String(formData.get("id") ?? "");
+  const result = await restoreCustomer(actor, id);
+  if (!result.ok) return;
+
+  revalidatePath("/kunder");
+  redirect("/kunder?slettet=1");
 }

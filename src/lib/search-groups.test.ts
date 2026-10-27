@@ -116,6 +116,47 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
       where: { AND: unknown[] };
     };
     expect(JSON.stringify(workOrderWhere.where)).toContain('"tags"');
+
+    // Tag-genren skal bare vise tagger som brukes av et oppdrag søkeren ser.
+    const tagArgs = mocks.tagFindMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+    };
+    expect(tagArgs.where).toMatchObject({
+      id: { in: ["tag-1"] },
+      workOrders: {
+        some: {
+          AND: expect.arrayContaining([{ deletedAt: null }]),
+        },
+      },
+    });
+  });
+
+  it("avgrenser tag-resultater til brukerens avdeling", async () => {
+    const technician = {
+      id: "tech-1",
+      role: "TECHNICIAN",
+      isActive: true,
+      departmentId: "dept-2",
+      customerId: null,
+      permissions: [],
+      permissionsCustomized: false,
+      roleDefinition: { permissions: ["workorders.view", "customers.view"] },
+    } as unknown as AccessUser;
+
+    mocks.searchBySubstring.mockImplementation(async (table: string, column: string) => {
+      if (table === "Tag" && column === "name") {
+        return [{ id: "tag-hemmelig", score: 1 }];
+      }
+      return [];
+    });
+    mocks.tagFindMany.mockResolvedValue([]);
+
+    await performSearch("hemmelig", { user: technician });
+
+    const tagArgs = mocks.tagFindMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+    };
+    expect(JSON.stringify(tagArgs.where)).toContain('"departmentId":"dept-2"');
   });
 
   it("søker i ordrenummer med normalisert delstreng", async () => {
@@ -149,6 +190,18 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
     );
     const workOrderGroup = results.groups.find((group) => group.kind === "workOrder");
     expect(workOrderGroup?.items[0].title).toContain("NO-2026-1042");
+  });
+
+  it("utelater kommentarer som henger på en slettet kunde", async () => {
+    await performSearch("service", { user: admin });
+
+    const args = mocks.commentFindMany.mock.calls[0][0] as {
+      where: { AND: unknown[] };
+    };
+    const json = JSON.stringify(args.where);
+
+    expect(json).toContain('"customer":{"deletedAt":null}');
+    expect(json).toContain('"contact":{"customer":{"deletedAt":null}}');
   });
 
   it("henter rapporter uten avdelingsfilter", async () => {

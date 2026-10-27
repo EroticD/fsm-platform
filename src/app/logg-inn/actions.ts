@@ -81,8 +81,10 @@ export async function loginAction(formData: FormData): Promise<never> {
         actorId: result.user.id,
       },
     });
-  } catch (error) {
-    console.error("Kunne ikke logge innloggingen:", error);
+  } catch {
+    // Revisjonsraden kan inneholde brukerens e-post som userName. Logg derfor
+    // aldri den rå feilen.
+    console.error("Kunne ikke logge innloggingen");
   }
 
   await createSessionCookie(result.user);
