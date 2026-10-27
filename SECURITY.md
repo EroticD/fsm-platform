@@ -69,4 +69,5 @@ Aktuelle områder:
   `x-forwarded-proto` når `TRUST_PROXY=true`.
 - Ta sikkerhetskopier med `scripts/backup.sh`. Bruk `BACKUP_AGE_RECIPIENT` for
   kryptering og `BACKUP_REMOTE` for kopi til ekstern lagring. Kjør
-  `scripts/restore-test.sh` månedlig.
+  `scripts/restore-test.sh` månedlig – den dekrypterer med `AGE_IDENTITY` og
+  verifiserer også opplastingsarkivet. Se `docs/OPERATIONS.md`.
