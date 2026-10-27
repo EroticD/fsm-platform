@@ -45,7 +45,9 @@ export const workOrderUpdateSchema = z
     orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
     departmentId: idSchema,
-    customerId: idSchema,
+    // Kunden er valgfri også ved redigering, slik at interne oppdrag uten
+    // kunde kan lagres uten å måtte knyttes til en kunde.
+    customerId: optionalIdSchema,
     contactId: optionalIdSchema,
     scheduledFor: optionalDateOnlySchema,
     scheduledTo: optionalDateOnlySchema,

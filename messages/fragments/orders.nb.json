@@ -52,7 +52,7 @@
       "emptySearch": "Ingen treff på «{query}». Prøv et annet søkeord, eller nullstill søket.",
       "emptyTag": "Ingen oppdrag med taggen «{tag}».",
       "emptyHint": "Velg en annen visning over, eller opprett et nytt oppdrag.",
-      "noCustomer": "Uten kunde",
+      "noCustomer": "Internt oppdrag",
       "noDate": "Ingen dato",
       "unassigned": "⚠️ Ikke tildelt montør",
       "checklists": "📋 {done}/{total} sjekklister utfylt",
@@ -104,12 +104,27 @@
       "noContacts": "Kunden har ingen registrerte kontaktpersoner. Du kan legge til én når oppdraget er opprettet.",
       "noContactOption": "— Ingen kontaktperson —"
     },
+    "templateGroups": {
+      "service": "Service / sjekklister",
+      "hms": "HMS-dokumentasjon",
+      "hmsBadge": "HMS"
+    },
+    "hmsTypes": {
+      "general": "Generelt HMS-skjema",
+      "sja": "Sikker jobb analyse (SJA)",
+      "hotWork": "Varmt arbeid",
+      "internalControl": "Risikovurdering / internkontroll",
+      "deviation": "Avviksmelding",
+      "safetyRound": "Vernerunde",
+      "writtenInstruction": "Skriftlig instruks"
+    },
     "detail": {
       "notFoundTitle": "Oppdraget finnes ikke",
       "goToDashboard": "Gå til dashbordet",
       "saveTags": "💾 Lagre tags",
       "department": "🏷️ Avdeling: {name}",
       "noCustomer": "Uten kunde",
+      "internalOrder": "Internt oppdrag",
       "editWorkOrder": "✏️ Rediger oppdrag",
       "deleteConfirm": "Slette oppdraget «{title}»? Alle rapporter, kommentarer og vedlegg til oppdraget blir slettet. Dette kan ikke angres.",
       "deleteWorkOrder": "🗑️ Slett oppdrag",
@@ -269,6 +284,7 @@
       "notFoundText": "Det kan ha blitt slettet, eller så er lenken feil.",
       "backToOverview": "Gå tilbake til oversikten",
       "noCustomer": "Uten kunde",
+      "internalOrder": "Internt oppdrag",
       "department": "🏷️ Avdeling: {name}",
       "back": "← Tilbake",
       "statusTitle": "Oppdragsstatus",
@@ -527,8 +543,11 @@
       "emptyTitle": "Ingen rapporter {range}.",
       "emptyDescription": "Rapporter vises her så snart montørene har fylt ut og lagret et skjema.",
       "defaultTitle": "Servicerapport",
+      "filterLabel": "Type",
+      "filterAll": "Alle",
       "noDate": "Ingen dato",
-      "noCustomer": "Uten kunde",
+      "noCustomer": "Internt oppdrag",
+      "internalOrder": "Internt oppdrag",
       "unknownWorkOrder": "Ukjent oppdrag",
       "deviations": "❌ {count} avvik",
       "units": "{count, plural, one {# enhet} other {# enheter}}",
@@ -576,7 +595,7 @@
       "reportFor": "Rapport for: {title}",
       "download": "⬇ Last ned PDF",
       "iframeTitle": "Servicerapport – {title}",
-      "noCustomer": "Uten kunde"
+      "noCustomer": "Internt oppdrag"
     }
   }
 }

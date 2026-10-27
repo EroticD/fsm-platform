@@ -171,6 +171,8 @@ function revisionSource(overrides: Record<string, unknown> = {}) {
     templateTitle: "Gammel sjekkliste",
     name: "Gammel rapport",
     requiresUnits: false,
+    templateCategory: "SERVICE",
+    hmsType: null,
     completedAt: new Date("2026-01-02T00:00:00.000Z"),
     templateSnapshotJson: template.fieldsJson,
     technicianSignatureUrl: "/uploads/tekniker-gammel.png",
@@ -249,6 +251,9 @@ describe("reports-tjenesten", () => {
         templateTitle: "Sjekkliste",
         name: "Sjekkliste",
         requiresUnits: true,
+        // Eldre maler uten kategori lagres som service.
+        templateCategory: "SERVICE",
+        hmsType: null,
         templateSnapshotJson: template.fieldsJson,
         isLocked: true,
       }),
@@ -262,6 +267,76 @@ describe("reports-tjenesten", () => {
         entityType: "WorkOrder",
         entityId: "wo1",
         metadata: { reportId: "r1", templateId: "tpl1", remediationWorkOrderId: null },
+      }),
+    });
+  });
+
+  it("lagrer kategori og HMS-type fra malen som øyeblikksbilde", async () => {
+    const hmsTemplate = {
+      id: "tpl1",
+      title: "Sikker Jobb Analyse",
+      reportName: "SJA – Sikker jobb analyse",
+      category: "HMS",
+      hmsType: "SJA",
+      requiresUnits: false,
+      fieldsJson: JSON.stringify([
+        { id: "f1", type: "TEXT", label: "Hva skal gjøres?", required: false },
+      ]),
+    };
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [hmsTemplate],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction();
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        templateId: "tpl1",
+        templateCategory: "HMS",
+        hmsType: "SJA",
+        name: "SJA – Sikker jobb analyse",
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("bevarer kategori og HMS-type i revisjonsøyeblikksbildet", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: null,
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () =>
+            revisionSource({
+              revision: 1,
+              templateCategory: "HMS",
+              hmsType: "DEVIATION",
+            }),
+          ),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+
+    await submitReport(actor(), formData());
+
+    expect(tx.reportRevision.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        templateCategory: "HMS",
+        hmsType: "DEVIATION",
       }),
     });
   });

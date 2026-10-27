@@ -52,7 +52,7 @@
       "emptySearch": "No matches for “{query}”. Try another search term, or reset the search.",
       "emptyTag": "No work orders with the tag “{tag}”.",
       "emptyHint": "Choose another view above, or create a new work order.",
-      "noCustomer": "No customer",
+      "noCustomer": "Internal work order",
       "noDate": "No date",
       "unassigned": "⚠️ No technician assigned",
       "checklists": "📋 {done}/{total} checklists completed",
@@ -104,12 +104,27 @@
       "noContacts": "The customer has no registered contact persons. You can add one once the work order is created.",
       "noContactOption": "— No contact person —"
     },
+    "templateGroups": {
+      "service": "Service / checklists",
+      "hms": "HMS documentation",
+      "hmsBadge": "HMS"
+    },
+    "hmsTypes": {
+      "general": "General HMS form",
+      "sja": "Safe job analysis (SJA)",
+      "hotWork": "Hot work",
+      "internalControl": "Risk assessment / internal control",
+      "deviation": "Deviation report",
+      "safetyRound": "Safety round",
+      "writtenInstruction": "Written instruction"
+    },
     "detail": {
       "notFoundTitle": "The work order does not exist",
       "goToDashboard": "Go to the dashboard",
       "saveTags": "💾 Save tags",
       "department": "🏷️ Department: {name}",
       "noCustomer": "No customer",
+      "internalOrder": "Internal work order",
       "editWorkOrder": "✏️ Edit work order",
       "deleteConfirm": "Delete the work order “{title}”? All reports, comments and attachments for the work order will be deleted. This cannot be undone.",
       "deleteWorkOrder": "🗑️ Delete work order",
@@ -269,6 +284,7 @@
       "notFoundText": "It may have been deleted, or the link is incorrect.",
       "backToOverview": "Go back to the overview",
       "noCustomer": "No customer",
+      "internalOrder": "Internal work order",
       "department": "🏷️ Department: {name}",
       "back": "← Back",
       "statusTitle": "Work order status",
@@ -527,8 +543,11 @@
       "emptyTitle": "No reports {range}.",
       "emptyDescription": "Reports appear here as soon as technicians complete and save a checklist.",
       "defaultTitle": "Service report",
+      "filterLabel": "Type",
+      "filterAll": "All",
       "noDate": "No date",
-      "noCustomer": "No customer",
+      "noCustomer": "Internal work order",
+      "internalOrder": "Internal work order",
       "unknownWorkOrder": "Unknown work order",
       "deviations": "❌ {count} deviations",
       "units": "{count, plural, one {# unit} other {# units}}",
@@ -576,7 +595,7 @@
       "reportFor": "Report for: {title}",
       "download": "⬇ Download PDF",
       "iframeTitle": "Service report – {title}",
-      "noCustomer": "No customer"
+      "noCustomer": "Internal work order"
     }
   }
 }

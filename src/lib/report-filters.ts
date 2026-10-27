@@ -17,6 +17,7 @@ function startOfMonth(date: Date) {
 export function reportWhereFor(
   range: ReportRange,
   excludeCancelled = false,
+  category?: "HMS",
 ): Prisma.ReportWhereInput {
   const now = new Date();
   let dateFilter: Prisma.ReportWhereInput = {};
@@ -35,6 +36,9 @@ export function reportWhereFor(
     AND: [
       { deletedAt: null },
       dateFilter,
+      // Kategorifilteret bruker rapportens frosne felt, ikke den levende
+      // malen, slik at en senere endring av malen ikke flytter historikk.
+      ...(category ? [{ templateCategory: category }] : []),
       {
         workOrder: {
           deletedAt: null,

@@ -175,6 +175,8 @@ const REVISION_SOURCE_SELECT = {
   templateTitle: true,
   name: true,
   requiresUnits: true,
+  templateCategory: true,
+  hmsType: true,
   completedAt: true,
   templateSnapshotJson: true,
   technicianSignatureUrl: true,
@@ -253,6 +255,10 @@ function revisionSnapshot(
     templateTitle: current.templateTitle,
     name: current.name,
     requiresUnits: current.requiresUnits,
+    // Kategorien og HMS-typen fryses sammen med resten av rapporten. Eldre
+    // rader uten verdi behandles som en vanlig servicesjekkliste.
+    templateCategory: current.templateCategory ?? "SERVICE",
+    hmsType: current.hmsType ?? null,
     completedAt: current.completedAt,
     templateSnapshotJson: current.templateSnapshotJson,
     technicianSignatureUrl: current.technicianSignatureUrl,
@@ -1041,6 +1047,10 @@ export async function submitReport(
     // samme navn selv om malen endres senere.
     name: template.reportName || template.title,
     requiresUnits: templateRequiresUnits,
+    // Kategori og HMS-type fryses ved signering. Da viser PDF og lister samme
+    // klassifisering selv om malen senere endres eller flyttes.
+    templateCategory: template.category ?? "SERVICE",
+    hmsType: template.hmsType ?? null,
     templateSnapshotJson: template.fieldsJson,
     // En rapport på et oppdrag med bevaringsplikt arver flagget, slik at den
     // ikke kan slettes eller endres selv om oppdraget senere skulle bli
