@@ -694,6 +694,10 @@ model Notification {
   type               String
   title              String
   body               String?
+  /// Menneskevennlig kilde, f.eks. «Oppdrag: testoppdrag · Biniam» eller
+  /// «Kunde: Pipelife Norge AS». Frosset ved opprettelse slik at varselet
+  /// fortsatt viser hvor det kom fra selv om oppdraget senere endres.
+  sourceLabel        String?
   href               String?
   readAt             DateTime?
   /// Unik nøkkel per hendelse, slik at samme varsel ikke lages to ganger.
