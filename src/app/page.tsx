@@ -114,6 +114,7 @@ const OFFICE_ACTIONS = [
   { href: "/kalender/dispatch", icon: "🎛️", labelKey: "dashboard.quickActions.dispatch" },
   { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
   { href: "/dokumenter", icon: "📚", labelKey: "dashboard.quickActions.documents" },
+  { href: "/hms", icon: "🦺", labelKey: "dashboard.quickActions.hms" },
   { href: "/innstillinger?tab=maler", icon: "📋", labelKey: "dashboard.quickActions.checklists" },
   { href: "/innstillinger?tab=ansatte", icon: "👥", labelKey: "dashboard.quickActions.employees" },
   { href: "/innstillinger?tab=statistikk", icon: "📊", labelKey: "dashboard.quickActions.statistics" },
@@ -126,6 +127,7 @@ const FIELD_ACTIONS = [
   { href: "/oppdrag", icon: "📂", labelKey: "dashboard.quickActions.allWorkOrders" },
   { href: "/kalender", icon: "📅", labelKey: "dashboard.quickActions.calendar" },
   { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
+  { href: "/hms", icon: "🦺", labelKey: "dashboard.quickActions.hms" },
   { href: "/enheter", icon: "🔧", labelKey: "dashboard.quickActions.equipment" },
   { href: "/rapporter", icon: "📄", labelKey: "dashboard.quickActions.reports" },
 ];
@@ -175,6 +177,7 @@ export default async function AdminDashboard({
   if (hasPermission(user, "workorders.assign")) allowedHrefs.add("/kalender/dispatch");
   if (hasPermission(user, "customers.view")) allowedHrefs.add("/kunder");
   if (hasPermission(user, "documents.view")) allowedHrefs.add("/dokumenter");
+  if (hasPermission(user, "templates.view")) allowedHrefs.add("/hms");
   if (hasPermission(user, "templates.manage")) allowedHrefs.add("/innstillinger?tab=maler");
   if (hasPermission(user, "users.view")) allowedHrefs.add("/innstillinger?tab=ansatte");
   if (hasPermission(user, "reports.view")) allowedHrefs.add("/innstillinger?tab=statistikk");

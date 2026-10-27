@@ -1,0 +1,87 @@
+{
+  "hms": {
+    "badge": "HSE library",
+    "title": "HSE",
+    "subtitle": "One place for HSE forms, templates and documentation for health, safety and environment.",
+    "backToDashboard": "Back to dashboard",
+    "navigationLabel": "HSE categories",
+    "libraryTitle": "HSE forms",
+    "libraryDescription": "Use an HSE form on a work order, or manage the available templates.",
+    "templatesAdmin": "HSE form templates",
+    "templateCount": "{count} templates",
+    "internalWorkOrder": "Internal work order",
+    "customerWorkOrder": "Customer work order",
+    "linked": "The HSE form was linked to the work order.",
+    "groups": {
+      "sja": "Safe Job Analysis (SJA)",
+      "sjaDescription": "Review of a specific, high-risk task before work starts.",
+      "hotWork": "Hot work",
+      "hotWorkDescription": "Permit and checks before welding, grinding and other work involving heat or sparks.",
+      "internalControl": "Internal control",
+      "internalControlDescription": "Risk assessment, action plan and systematic HSE work.",
+      "deviation": "Deviations",
+      "deviationDescription": "Report, investigate and close HSE deviations, accidents and near misses.",
+      "safetyRound": "Safety round",
+      "safetyRoundDescription": "Systematic inspection of the workplace to identify hazards and shortcomings.",
+      "writtenInstruction": "Written instruction",
+      "writtenInstructionDescription": "Instruction for work that may involve particular danger to life or health.",
+      "general": "General",
+      "generalDescription": "Other HSE forms and custom templates."
+    },
+    "template": {
+      "reportName": "Report name",
+      "reports": "{count} reports",
+      "workOrders": "{count} work orders",
+      "edit": "Edit",
+      "use": "Link to work order",
+      "untyped": "No HSE type",
+      "noDescription": "No description."
+    },
+    "empty": {
+      "title": "No HSE forms found",
+      "description": "The standard templates should be installed automatically. Check template management if they are missing.",
+      "adminLink": "Go to template management"
+    },
+    "link": {
+      "title": "Link HSE form to work order",
+      "description": "Choose an HSE form and an active work order. The form is added to the work order so it can be filled out there.",
+      "templateLabel": "HSE form",
+      "workOrderLabel": "Work order",
+      "selectTemplate": "Choose HSE form",
+      "selectWorkOrder": "Choose work order",
+      "submit": "Link form to work order",
+      "noWorkOrders": "You have no active work orders to link forms to."
+    },
+    "recent": {
+      "title": "Recent HSE documentation",
+      "description": "Completed HSE forms on work orders you can access.",
+      "count": "{count} documents",
+      "workOrder": "Work order",
+      "report": "Form",
+      "completed": "Completed",
+      "status": "Status",
+      "actions": "Actions",
+      "viewPdf": "View PDF",
+      "openWorkOrder": "Open work order",
+      "emptyTitle": "No HSE documentation yet",
+      "emptyDescription": "When an HSE form is filled out on a work order, it will appear here.",
+      "unknownReport": "HSE form",
+      "noDate": "No date"
+    },
+    "error": {
+      "forbidden": "You do not have permission to link HSE forms to this work order.",
+      "invalid": "The form or work order is invalid.",
+      "notFound": "The work order was not found.",
+      "locked": "The work order is completed or cancelled and cannot be changed.",
+      "unknown": "Something went wrong. Try again."
+    }
+  },
+  "nav": {
+    "hms": "HSE"
+  },
+  "dashboard": {
+    "quickActions": {
+      "hms": "HSE"
+    }
+  }
+}
