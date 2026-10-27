@@ -218,7 +218,10 @@ export async function getOrRenderReportPdf(
   const reports = workOrder.reports;
   const latest = reports[reports.length - 1];
   const pdfHash = computeReportPdfHashForReports(reports);
-  const fileName = reportFileNameForWorkOrder(workOrder);
+  const fileName = reportFileNameForWorkOrder(
+    workOrder,
+    reports.length === 1 ? latest.name : null,
+  );
 
   // Uendret innhold og filen finnes fortsatt: bruk mellomlagringen.
   if (latest.pdfUrl && latest.pdfHash === pdfHash) {

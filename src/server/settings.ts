@@ -39,7 +39,13 @@ export async function getSettingsOverview(actor: ServiceActor) {
   const isAdmin = isAdminActor(actor);
   const [branding, templates, tags, documentTags] = await Promise.all([
     prisma.branding.findFirst(),
-    prisma.template.findMany({ orderBy: { title: "asc" } }),
+    prisma.template.findMany({
+      orderBy: { title: "asc" },
+      // Brukes til å advare før en mal slettes mens den fortsatt er i bruk.
+      include: {
+        _count: { select: { reports: true, workOrder: true, contracts: true } },
+      },
+    }),
     prisma.tag.findMany({ orderBy: { name: "asc" } }),
     prisma.documentTag.findMany({ orderBy: { name: "asc" } }),
   ]);

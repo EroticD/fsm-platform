@@ -51,7 +51,7 @@ function dateKey(d: Date) {
 export default async function KundeportalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ u?: string; h?: string }>;
+  searchParams: Promise<{ u?: string; h?: string; r?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -60,6 +60,7 @@ export default async function KundeportalPage({
   const listParams = await searchParams;
   const upcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
+  const reportPage = parsePage(listParams.r);
 
   if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return (
@@ -561,7 +562,7 @@ export default async function KundeportalPage({
         </div>
 
         <div className="mt-6">
-          <ReportHistory />
+          <ReportHistory page={reportPage} />
         </div>
 
         {/* TEKNIKERTILGJENGELIGHET – neste 7 dager */}

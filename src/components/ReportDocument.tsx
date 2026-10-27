@@ -6,7 +6,10 @@ import {
   parseJsonObject,
   readLineComment,
 } from "@/lib/report-answers";
-import type { PdfImage } from "@/lib/report-images";
+import {
+  resolvePdfImageSource,
+  type PdfImage,
+} from "@/lib/report-images";
 import { MarkdownPdf } from "@/lib/markdown-pdf";
 import { formatDate } from "@/lib/dates";
 
@@ -112,7 +115,7 @@ type PreparedRow = {
   alert: boolean;
   isImage: boolean;
   /** Numrene viser til vedleggssidene bakerst i rapporten. */
-  images: Array<{ n: number; src: string }>;
+  images: Array<{ n: number; image: PdfImage }>;
 };
 
 type PlannedBlock = {
@@ -213,6 +216,10 @@ export default function ReportDocument({
     0,
   );
   const customer = workOrder.customer || data.customer || {};
+  // Én rapport gir et presist dokumentnavn; flere sjekklister på samme
+  // oppdrag beholder den generelle tittelen.
+  const documentTitle =
+    blocks.length === 1 && blocks[0]?.name ? blocks[0].name : "Servicerapport";
 
   // Hvem som utførte jobben: navnene fra rapportene (signatur eller brukeren som
   // lagret). Bare hvis ingen rapport har navn, faller vi tilbake på montørene
@@ -234,17 +241,19 @@ export default function ReportDocument({
   const logoUrl = globalLogoUrl || null;
   const companyName = globalCompanyName || "FSM System";
 
-  /** Relativ bilde-URL (/uploads/...) må gjøres absolutt for at PDF-en skal kunne hente den. */
-  const absoluteUrl = (url: string) => {
-    if (/^(https?:|data:)/.test(url)) return url;
-    const origin =
-      baseUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
-    return `${origin}${url}`;
-  };
-
-  /** Bildet slik det skal tegnes: nedskalert hvis vi klarte det, ellers original-URL. */
-  const pdfImage = (url: string): PdfImage =>
-    pdfImages?.[url] ?? { src: absoluteUrl(url) };
+  /**
+   * Bildet slik det skal tegnes.
+   *
+   * Bare bilder som allerede er bakt inn som data-URL, eller som ligger i
+   * appens egen opplastingsmappe, får være med. Eksterne http(s)-adresser
+   * avvises – PDF-motoren skal aldri hente ukjent innhold.
+   */
+  const pdfImage = (url: string): PdfImage | null =>
+    resolvePdfImageSource(
+      url,
+      pdfImages,
+      baseUrl ?? (typeof window !== "undefined" ? window.location.origin : ""),
+    );
 
   const answerText = (field: TemplateFieldDef | null, answer: unknown): string => {
     if (field?.type === "CHECKBOX") return answer ? "Ja / utført" : "Nei / ikke krysset ut";
@@ -396,10 +405,12 @@ export default function ReportDocument({
     comment: row.comment,
     alert: row.alert,
     isImage: row.isImage,
-    images: row.urls.map((url, i) => ({
-      n: imageNumbers.get(rowKey(row))?.[i] ?? 0,
-      src: pdfImage(url).src,
-    })),
+    images: row.urls.flatMap((url, i) => {
+      const image = pdfImage(url);
+      return image
+        ? [{ n: imageNumbers.get(rowKey(row))?.[i] ?? 0, image }]
+        : [];
+    }),
   });
 
   const styles = StyleSheet.create({
@@ -417,6 +428,7 @@ export default function ReportDocument({
     logo: { maxHeight: 60, maxWidth: 160, objectFit: 'contain' },
     // Tittel og firmanavn står til høyre i toppen av rapporten.
     headerTextBlock: { alignItems: 'flex-end' },
+    headerOrder: { fontSize: 10, color: '#374151', fontWeight: 'bold', marginTop: 2, textAlign: 'right' },
     companyName: { fontSize: 10, color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right' },
 
     section: { marginBottom: 20 },
@@ -564,19 +576,22 @@ export default function ReportDocument({
     </View>
   );
 
-  const signatureBox = (label: string, url?: string | null, name?: string | null) => (
-    <View style={styles.signatureBox} wrap={false}>
-      <Text style={styles.label}>{label}</Text>
-      {url ? (
-        // react-pdf tegner <Image> inn i PDF-en, ikke i DOM-en (og støtter ikke alt)
-        // eslint-disable-next-line jsx-a11y/alt-text
-        <Image src={pdfImage(url).src} style={styles.signatureImage} />
-      ) : (
-        <Text style={styles.signatureMissing}>Ikke signert</Text>
-      )}
-      <Text style={styles.signatureLine}>{name || "—"}</Text>
-    </View>
-  );
+  const signatureBox = (label: string, url?: string | null, name?: string | null) => {
+    const image = pdfImage(url ?? "");
+    return (
+      <View style={styles.signatureBox} wrap={false}>
+        <Text style={styles.label}>{label}</Text>
+        {image ? (
+          // react-pdf tegner <Image> inn i PDF-en, ikke i DOM-en (og støtter ikke alt)
+          // eslint-disable-next-line jsx-a11y/alt-text
+          <Image src={image.src} style={styles.signatureImage} />
+        ) : (
+          <Text style={styles.signatureMissing}>Ikke signert</Text>
+        )}
+        <Text style={styles.signatureLine}>{name || "—"}</Text>
+      </View>
+    );
+  };
 
   /**
    * Sjekkpunkt med miniatyrbilder.
@@ -617,7 +632,7 @@ export default function ReportDocument({
           {row.images.map((image) => (
             <View key={image.n} style={styles.thumbBox}>
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
-              <Image src={image.src} style={styles.thumbImage} />
+              <Image src={image.image.src} style={styles.thumbImage} />
               <Text style={styles.thumbLabel}>Bilde {image.n}</Text>
             </View>
           ))}
@@ -629,20 +644,27 @@ export default function ReportDocument({
     </View>
   );
 
+  const logoImage = pdfImage(logoUrl ?? "");
+
   return (
-    <Document>
+    <Document title={documentTitle} author={companyName}>
       <Page size="A4" style={styles.page}>
 
-        {/* HEADER: logo til venstre, tittel og firmanavn til høyre */}
+        {/* HEADER: logo til venstre, tittel, ordrenummer og firmanavn til høyre */}
         <View style={styles.headerContainer}>
-          {logoUrl ? (
+          {logoImage ? (
             // eslint-disable-next-line jsx-a11y/alt-text
-            <Image src={pdfImage(logoUrl).src} style={styles.logo} />
+            <Image src={logoImage.src} style={styles.logo} />
           ) : (
             <View />
           )}
           <View style={styles.headerTextBlock}>
-            <Text style={styles.headerText}>Servicerapport</Text>
+            <Text style={styles.headerText}>{documentTitle}</Text>
+            {workOrder.orderNumber && (
+              <Text style={styles.headerOrder}>
+                Ordrenr. {workOrder.orderNumber}
+              </Text>
+            )}
             <Text style={styles.companyName}>{companyName}</Text>
           </View>
         </View>
@@ -755,10 +777,11 @@ export default function ReportDocument({
         VEDLEGG: hvert bilde får sin egen side, slik at detaljene faktisk er
         lesbare. Nummeret viser tilbake til sjekkpunktet i rapporten.
       */}
-      {attachments.map((attachment) => {
+      {attachments.flatMap((attachment) => {
         const image = pdfImage(attachment.url);
+        if (!image) return [];
 
-        return (
+        return [
           <Page key={attachment.n} size="A4" style={styles.page}>
             <View style={styles.attachmentHeader}>
               <View>
@@ -768,7 +791,12 @@ export default function ReportDocument({
                 </Text>
               </View>
               <View style={styles.headerTextBlock}>
-                <Text style={styles.attachmentKicker}>Servicerapport</Text>
+                <Text style={styles.attachmentKicker}>{documentTitle}</Text>
+                {workOrder.orderNumber && (
+                  <Text style={styles.headerOrder}>
+                    Ordrenr. {workOrder.orderNumber}
+                  </Text>
+                )}
                 <Text style={styles.companyName}>{companyName}</Text>
               </View>
             </View>
@@ -815,8 +843,8 @@ export default function ReportDocument({
             </View>
 
             {renderFooter()}
-          </Page>
-        );
+          </Page>,
+        ];
       })}
     </Document>
   );

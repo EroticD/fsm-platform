@@ -59,6 +59,9 @@
       "acknowledged": "✓ Kvittert {date}",
       "commentPlaceholder": "Kommentar (valgfritt)",
       "acknowledge": "Kvitter mottatt",
+      "orderNumber": "Ordrenr. {number}",
+      "revision": "revisjon {revision}",
+      "history": "🕘 Revisjoner",
       "requestUpdate": "Be om oppdatering av kontaktinformasjon",
       "requestUpdatePlaceholder": "Hva skal oppdateres?",
       "requestUpdateButton": "Send forespørsel"
