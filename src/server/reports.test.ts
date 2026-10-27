@@ -53,6 +53,7 @@ import {
   setReportLock,
   submitReport,
 } from "./reports";
+import { REPORT_STATUS_WITHOUT_UNITS } from "@/lib/report-answers";
 
 const template = {
   id: "tpl1",
@@ -638,7 +639,10 @@ describe("reports-tjenesten", () => {
       units: Array<Record<string, unknown>>;
     };
     expect(payload.units).toHaveLength(1);
-    expect(payload.units[0]).toMatchObject({ label: "", status: "AVVIK" });
+    expect(payload.units[0]).toMatchObject({
+      label: "",
+      status: REPORT_STATUS_WITHOUT_UNITS,
+    });
   });
 
   it("sletter en erstattet kladdesignatur etter vellykket lagring", async () => {
@@ -678,7 +682,7 @@ describe("reports-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("godtar en mal uten enheter med nøyaktig én anonym oppføring", async () => {
+  it("ignorerer klientens avviksstatus og lagrer nøytral status uten enheter", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       ...workOrder(),
       templates: [noUnitTemplate],
@@ -686,36 +690,40 @@ describe("reports-tjenesten", () => {
     mocks.prisma.report.findUnique.mockResolvedValue(null);
     const tx = withTransaction();
 
+    // Klienten sender status=AVVIK, men uten enheter finnes det ingen enhet å
+    // melde avvik på.
     const result = await submitReport(actor(), noUnitFormData());
 
-    expect(result).toEqual({
-      ok: true,
-      returnTo: "/oppdrag/wo1",
-      remediationWorkOrderId: "wo-rem",
-    });
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
     expect(mocks.prisma.product.findUnique).not.toHaveBeenCalled();
     expect(mocks.prisma.product.create).not.toHaveBeenCalled();
 
     const create = (
       tx.report.create as unknown as {
-        mock: { calls: Array<[{ data: { name: string; requiresUnits: boolean; units: { create: Array<Record<string, unknown>> } } }]> };
+        mock: { calls: Array<[{ data: { name: string; requiresUnits: boolean; dataJson: string; units: { create: Array<Record<string, unknown>> } } }]> };
       }
     ).mock.calls[0][0];
     expect(create.data.name).toBe("Egen rapport");
     expect(create.data.requiresUnits).toBe(false);
+    expect(JSON.parse(create.data.dataJson)).toMatchObject({
+      status: REPORT_STATUS_WITHOUT_UNITS,
+    });
     expect(create.data.units.create).toHaveLength(1);
     expect(create.data.units.create[0]).toMatchObject({
       productId: null,
       label: "",
       serialNumber: null,
       location: null,
-      status: "AVVIK",
+      status: REPORT_STATUS_WITHOUT_UNITS,
       comment: "Kommentar til rapporten",
       sortOrder: 0,
     });
     expect(JSON.parse(String(create.data.units.create[0].answersJson))).toMatchObject({
       f1: "Avvik funnet",
     });
+    // Selv om klienten sendte AVVIK skal det ikke lages utbedringsoppdrag.
+    expect(tx.workOrder.findUnique).not.toHaveBeenCalled();
+    expect(tx.workOrder.create).not.toHaveBeenCalled();
   });
 
   it("håndhever påkrevde felt i den anonyme oppføringen", async () => {
@@ -1350,6 +1358,13 @@ describe("reports-tjenesten", () => {
     expect(String(create.data.title)).toContain("Utbedring av avvik");
     expect(String(create.data.description)).toContain("Pumpe");
     expect(String(create.data.description)).toContain("Lekkasje ved pakning");
+    const reportCreate = (
+      tx.report.create.mock.calls[0] as unknown as [
+        { data: { dataJson: string; units: { create: Array<Record<string, unknown>> } } },
+      ]
+    )[0];
+    expect(JSON.parse(reportCreate.data.dataJson)).toMatchObject({ status: "AVVIK" });
+    expect(reportCreate.data.units.create[0]).toMatchObject({ status: "AVVIK" });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         entityType: "WorkOrder",
@@ -1373,6 +1388,15 @@ describe("reports-tjenesten", () => {
 
     expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
     expect(tx.workOrder.create).not.toHaveBeenCalled();
+    const reportCreate = (
+      tx.report.create.mock.calls[0] as unknown as [
+        { data: { dataJson: string; units: { create: Array<Record<string, unknown>> } } },
+      ]
+    )[0];
+    expect(JSON.parse(reportCreate.data.dataJson)).toMatchObject({
+      status: "GODKJENT",
+    });
+    expect(reportCreate.data.units.create[0]).toMatchObject({ status: "GODKJENT" });
   });
 
   it("oppretter ikke et nytt utbedringsoppdrag ved ny innsending av samme avvik", async () => {

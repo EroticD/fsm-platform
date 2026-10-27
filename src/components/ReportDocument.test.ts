@@ -9,6 +9,19 @@ const fieldsJson = JSON.stringify([
   { id: "f1", type: "TEXT", label: "Tilstand" },
 ]);
 
+async function renderDocument(data: unknown) {
+  const buffer = await renderToBuffer(
+    React.createElement(ReportDocument, { data }) as never,
+  );
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText();
+    return result.text;
+  } finally {
+    await parser.destroy();
+  }
+}
+
 async function renderText({
   name,
   requiresUnits,
@@ -59,16 +72,7 @@ async function renderText({
     ],
   };
 
-  const buffer = await renderToBuffer(
-    React.createElement(ReportDocument, { data }) as never,
-  );
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getText();
-    return result.text;
-  } finally {
-    await parser.destroy();
-  }
+  return renderDocument(data);
 }
 
 describe("ReportDocument", () => {
@@ -88,6 +92,167 @@ describe("ReportDocument", () => {
     expect(text).not.toContain("Kjeller");
     expect(text).not.toContain("enheter kontrollert");
     expect(text).not.toContain("Enhet:");
+  });
+
+  it("skjuler resultatet for en rapport uten enheter, også med gammel status", async () => {
+    const data = {
+      workOrder: {
+        title: "Serviceoppdrag",
+        status: "OPEN",
+        customer: { name: "Kunde AS" },
+        templates: [{ id: "tpl1", title: "Maltittel", fieldsJson }],
+      },
+      reports: [
+        {
+          id: "r1",
+          templateId: "tpl1",
+          name: "Egen rapport",
+          requiresUnits: false,
+          // Eldre rapport uten enheter kan ha en vanlig status lagret.
+          dataJson: JSON.stringify({ status: "AVVIK" }),
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          units: [
+            {
+              id: "u1",
+              label: "",
+              status: "AVVIK",
+              answersJson: JSON.stringify({ f1: "Alt ok" }),
+              comment: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    const text = await renderDocument(data);
+
+    expect(text).toContain("Egen rapport");
+    expect(text).toContain("Alt ok");
+    expect(text).not.toContain("Godkjent / utført");
+    expect(text).not.toContain("Avvik funnet");
+    expect(text).not.toContain("Ukjent resultat");
+    expect(text).not.toContain("–  Avvik");
+    expect(text).not.toContain("–  Godkjent");
+  });
+
+  it("viser resultatet når rapporten har enheter", async () => {
+    const text = await renderText({
+      name: "Enhetsrapport",
+      requiresUnits: true,
+      label: "Pumpe",
+    });
+
+    expect(text).toContain("Godkjent / utført");
+    expect(text).toContain("1 enhet kontrollert");
+  });
+
+  it("henter samlet resultat fra enhetsrapportene i et blandet oppdrag", async () => {
+    const data = {
+      workOrder: {
+        title: "Serviceoppdrag",
+        status: "OPEN",
+        customer: { name: "Kunde AS" },
+        templates: [{ id: "tpl1", title: "Maltittel", fieldsJson }],
+      },
+      reports: [
+        {
+          id: "r-unitless",
+          templateId: "tpl1",
+          name: "Uten enheter",
+          requiresUnits: false,
+          // Gammel avviksstatus skal ignoreres når rapporten ikke har enheter.
+          dataJson: JSON.stringify({ status: "AVVIK" }),
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          units: [
+            {
+              id: "u0",
+              label: "",
+              status: "AVVIK",
+              answersJson: JSON.stringify({ f1: "Alt ok" }),
+              comment: null,
+            },
+          ],
+        },
+        {
+          id: "r-unit",
+          templateId: "tpl1",
+          name: "Med enheter",
+          requiresUnits: true,
+          dataJson: JSON.stringify({ status: "GODKJENT" }),
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          units: [
+            {
+              id: "u1",
+              label: "Pumpe",
+              serialNumber: "SN-123",
+              location: "Kjeller",
+              status: "GODKJENT",
+              answersJson: JSON.stringify({ f1: "Alt ok" }),
+              comment: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    const text = await renderDocument(data);
+
+    expect(text).toContain("Godkjent / utført");
+    expect(text).not.toContain("Avvik funnet");
+  });
+
+  it("viser avvik når en enhetsrapport i et blandet oppdrag har avvik", async () => {
+    const data = {
+      workOrder: {
+        title: "Serviceoppdrag",
+        status: "OPEN",
+        customer: { name: "Kunde AS" },
+        templates: [{ id: "tpl1", title: "Maltittel", fieldsJson }],
+      },
+      reports: [
+        {
+          id: "r-unitless",
+          templateId: "tpl1",
+          name: "Uten enheter",
+          requiresUnits: false,
+          dataJson: JSON.stringify({ status: "GODKJENT" }),
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          units: [
+            {
+              id: "u0",
+              label: "",
+              status: "GODKJENT",
+              answersJson: JSON.stringify({ f1: "Alt ok" }),
+              comment: null,
+            },
+          ],
+        },
+        {
+          id: "r-unit",
+          templateId: "tpl1",
+          name: "Med enheter",
+          requiresUnits: true,
+          dataJson: JSON.stringify({ status: "AVVIK" }),
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          units: [
+            {
+              id: "u1",
+              label: "Pumpe",
+              serialNumber: "SN-123",
+              location: "Kjeller",
+              status: "AVVIK",
+              answersJson: JSON.stringify({ f1: "Alt ok" }),
+              comment: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    const text = await renderDocument(data);
+
+    expect(text).toContain("Avvik funnet");
+    expect(text).not.toContain("Godkjent / utført");
   });
 
   it("faller tilbake til malkilden når rapporten mangler eget navn", async () => {

@@ -1,5 +1,9 @@
 import type { HmsFormType } from "@prisma/client";
-import { parseJsonObject, reportStatus } from "@/lib/report-answers";
+import {
+  REPORT_STATUS_WITHOUT_UNITS,
+  parseJsonObject,
+  reportStatus,
+} from "@/lib/report-answers";
 
 /**
  * Hjelpere for revisjonsøyeblikksbilder.
@@ -67,7 +71,11 @@ export function parseRevisionUnits(
         label: typeof unit.label === "string" ? unit.label : "",
         serialNumber: textOrNull(unit.serialNumber),
         location: textOrNull(unit.location),
-        status: unit.status === "AVVIK" ? "AVVIK" : "GODKJENT",
+        status:
+          unit.status === "AVVIK" ||
+          unit.status === REPORT_STATUS_WITHOUT_UNITS
+            ? unit.status
+            : "GODKJENT",
         answersJson:
           typeof unit.answersJson === "string" ? unit.answersJson : "{}",
         comment: textOrNull(unit.comment),
@@ -80,8 +88,14 @@ export function parseRevisionUnits(
   }
 }
 
-/** Statusen revisjonen hadde, utledet fra `dataJson`. */
-export function revisionStatus(revision: Pick<RevisionSnapshotSource, "dataJson">): string {
+/**
+ * Statusen revisjonen hadde. Revisjoner uten enheter har ingen godkjenning
+ * eller avvik, uansett hva som ble lagret i eldre `dataJson`.
+ */
+export function revisionStatus(
+  revision: Pick<RevisionSnapshotSource, "dataJson" | "requiresUnits">,
+): string {
+  if (revision.requiresUnits === false) return REPORT_STATUS_WITHOUT_UNITS;
   return reportStatus(revision.dataJson);
 }
 

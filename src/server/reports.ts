@@ -5,7 +5,14 @@ import { notifyWorkOrderEvent } from "./notifications";
 import { hasPermission } from "@/lib/permissions";
 import { isOffice } from "@/lib/session";
 import { workOrderScope, type AccessUser } from "@/lib/access";
-import { isLineCommentKey, lineCommentKey, parseImageUrls } from "@/lib/report-answers";
+import {
+  REPORT_STATUS_APPROVED,
+  REPORT_STATUS_DEVIATION,
+  REPORT_STATUS_WITHOUT_UNITS,
+  isLineCommentKey,
+  lineCommentKey,
+  parseImageUrls,
+} from "@/lib/report-answers";
 import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize";
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
@@ -672,13 +679,20 @@ export async function saveDraft(
   if (existingReport?.isLocked || existingReport?.legalHold) return { ok: false };
 
   const fields = parseFields(template.fieldsJson);
+  // Eldre maler (og testdata) kan mangle feltet; standarden er at enheter
+  // kreves, som i databasen.
+  const draftRequiresUnits = template.requiresUnits !== false;
 
   const units = parseUnits(parsedInput.data.unitsJson).map((unit) => ({
     productId: unit.productId || "",
     label: cleanText(unit.label, { maxLength: LIMITS.title }),
     serialNumber: cleanText(unit.serialNumber, { maxLength: LIMITS.line }),
     location: cleanText(unit.location, { maxLength: LIMITS.line }),
-    status: formData.get(`status__${unit.key}`) === "AVVIK" ? "AVVIK" : "GODKJENT",
+    status: draftRequiresUnits
+      ? formData.get(`status__${unit.key}`) === REPORT_STATUS_DEVIATION
+        ? REPORT_STATUS_DEVIATION
+        : REPORT_STATUS_APPROVED
+      : REPORT_STATUS_WITHOUT_UNITS,
     comment: cleanMarkdown(formData.get(`comment__${unit.key}`)),
     answers: readAnswers(formData, fields, unit.key),
   }));
@@ -896,7 +910,10 @@ export async function submitReport(
       const label = cleanText(unit.label, { maxLength: LIMITS.title });
       if (!label) continue; // hopper over tomme rader
 
-      const status = formData.get(`status__${unit.key}`) === "AVVIK" ? "AVVIK" : "GODKJENT";
+      const status =
+        formData.get(`status__${unit.key}`) === REPORT_STATUS_DEVIATION
+          ? REPORT_STATUS_DEVIATION
+          : REPORT_STATUS_APPROVED;
       unitStatus.push(status);
 
       const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
@@ -921,18 +938,16 @@ export async function submitReport(
   } else {
     // Malen bruker ikke enheter. Da godtas nøyaktig én anonym oppføring, og
     // eventuell produkt-/enhetsmetadata fra klienten ignoreres. Nøkkelen
-    // brukes bare for å lese svarfeltene i skjemaet.
+    // brukes bare for å lese svarfeltene i skjemaet. Den anonyme raden får
+    // en nøytral status: det finnes ingen enhet å godkjenne eller melde avvik på.
     const [anonymous] = parseUnits(formData.get("unitsJson"));
     const key = anonymous?.key || "report";
-    const status = formData.get(`status__${key}`) === "AVVIK" ? "AVVIK" : "GODKJENT";
-    unitStatus.push(status);
-
     unitRows.push({
       productId: null,
       label: "",
       serialNumber: null,
       location: null,
-      status,
+      status: REPORT_STATUS_WITHOUT_UNITS,
       answersJson: JSON.stringify(readAnswers(formData, fields, key)),
       comment: cleanMarkdown(formData.get(`comment__${key}`)) || null,
       sortOrder: 0,
@@ -983,14 +998,21 @@ export async function submitReport(
   const text = (name: string) =>
     cleanText(formData.get(name), { maxLength: LIMITS.title }) || null;
 
-  // Rapporten er "godkjent" bare når ingen av enhetene har avvik.
-  const overallStatus = unitStatus.includes("AVVIK") ? "AVVIK" : "GODKJENT";
+  // Rapporten er "godkjent" bare når ingen av enhetene har avvik. Uten enheter
+  // finnes det ingen godkjenning eller avvik å utlede – da lagres en nøytral
+  // status som visningen kjenner igjen.
+  const overallStatus = templateRequiresUnits
+    ? unitStatus.includes(REPORT_STATUS_DEVIATION)
+      ? REPORT_STATUS_DEVIATION
+      : REPORT_STATUS_APPROVED
+    : REPORT_STATUS_WITHOUT_UNITS;
   const notes = cleanMarkdown(formData.get("notes"));
 
-  // Alle avvik – også på en rapport uten enheter – skal få nøyaktig ett
-  // utbedringsoppdrag. Avvikene identifiseres før transaksjonen, men selve
-  // oppdraget opprettes sammen med rapporten og revisjonsloggen.
-  const deviatingUnits = unitRows.filter((unit) => unit.status === "AVVIK");
+  // Bare enheter kan ha avvik. En rapport uten enheter skal aldri gi
+  // utbedringsoppdrag, selv om klienten sender status=AVVIK.
+  const deviatingUnits = templateRequiresUnits
+    ? unitRows.filter((unit) => unit.status === REPORT_STATUS_DEVIATION)
+    : [];
 
   const now = new Date();
 
@@ -1064,9 +1086,13 @@ export async function submitReport(
   const unitSummary = templateRequiresUnits
     ? `${unitRows.length} ${unitRows.length === 1 ? "enhet" : "enheter"}`
     : "uten enheter";
+  // Uten enheter finnes ingen godkjenning/avvik å melde i loggen.
+  const statusSummary = templateRequiresUnits
+    ? `, ${overallStatus === REPORT_STATUS_DEVIATION ? "avvik" : "godkjent"}`
+    : "";
   const actionText =
     `${existing ? "Rapport oppdatert" : `${isOffice(user.role) ? "Kontoret" : "Montør"} fylte ut skjema`}: ${template.title}` +
-    ` (${unitSummary}, ${overallStatus === "AVVIK" ? "avvik" : "godkjent"})` +
+    ` (${unitSummary}${statusSummary})` +
     " – rapporten låses automatisk";
 
   const signatureOwner = { ownerType: "WORK_ORDER" as const, ownerId: workOrderId };

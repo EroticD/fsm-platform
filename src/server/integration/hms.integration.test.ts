@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import prisma from "@/lib/prisma";
 import { submitReport } from "@/server/reports";
+import { REPORT_STATUS_WITHOUT_UNITS } from "@/lib/report-answers";
 import type { AccessUser } from "@/lib/access";
 import { integrationEnabled, unique } from "@/test/integration-helpers";
 
@@ -76,6 +77,14 @@ describeIntegration("HMS-skjema på internt oppdrag", () => {
     expect(report.hmsType).toBe("SJA");
     expect(report.requiresUnits).toBe(false);
     expect(report.name).toBe("Sikker Jobb Analyse (SJA)");
+    expect(JSON.parse(report.dataJson)).toMatchObject({
+      status: REPORT_STATUS_WITHOUT_UNITS,
+    });
+    const units = await prisma.reportUnit.findMany({
+      where: { reportId: report.id },
+    });
+    expect(units).toHaveLength(1);
+    expect(units[0].status).toBe(REPORT_STATUS_WITHOUT_UNITS);
 
     const workOrder = await prisma.workOrder.findUniqueOrThrow({
       where: { id: workOrderId },
