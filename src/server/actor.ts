@@ -30,6 +30,7 @@ export type ServiceError =
   | "invalid"
   | "not_found"
   | "conflict"
+  | "in_use"
   | "rate_limited"
   | "error"
   | "missing_fields"
@@ -40,7 +41,12 @@ export type ServiceError =
   | "file_not_found"
   | "customer_not_found";
 
-export type ServiceFailure = { ok: false; reason: ServiceError };
+export type ServiceFailure = {
+  ok: false;
+  reason: ServiceError;
+  /** Valgfri tilleggsinformasjon, f.eks. hva en mal er i bruk til. */
+  details?: unknown;
+};
 
 export type ServiceResult<T = undefined> =
   | { ok: true; data: T }
@@ -50,8 +56,8 @@ export function ok<T>(data: T): ServiceResult<T> {
   return { ok: true, data };
 }
 
-export function fail(reason: ServiceError): ServiceFailure {
-  return { ok: false, reason };
+export function fail(reason: ServiceError, details?: unknown): ServiceFailure {
+  return details === undefined ? { ok: false, reason } : { ok: false, reason, details };
 }
 
 /** Aktørformatet revisjonsloggen lagrer. */

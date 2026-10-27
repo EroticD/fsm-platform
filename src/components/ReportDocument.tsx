@@ -6,9 +6,17 @@ import {
   parseJsonObject,
   readLineComment,
 } from "@/lib/report-answers";
-import type { PdfImage } from "@/lib/report-images";
+import {
+  resolvePdfImageSource,
+  type PdfImage,
+} from "@/lib/report-images";
 import { MarkdownPdf } from "@/lib/markdown-pdf";
 import { formatDate } from "@/lib/dates";
+import type { HmsFormType, TemplateCategory } from "@prisma/client";
+import {
+  HMS_TYPE_LABELS,
+  reportTemplateCategoryOf,
+} from "@/lib/template-categories";
 
 type TemplateFieldDef = {
   id: string;
@@ -40,6 +48,15 @@ type RawReport = {
   templateId?: string | null;
   /** Frosset mal-navn/-innhold fra da rapporten ble signert. */
   templateTitle?: string | null;
+  /** Rapportens eget visningsnavn, om malen har det. */
+  name?: string | null;
+  /** Automatisk rapportnummer for HMS-rapporter. */
+  reportNumber?: string | null;
+  /** Om rapporten er knyttet til enheter. Eldre rapporter mangler feltet. */
+  requiresUnits?: boolean | null;
+  /** Frosset kategori/type fra malen. Eldre rapporter mangler feltene. */
+  templateCategory?: TemplateCategory | null;
+  hmsType?: HmsFormType | null;
   templateSnapshotJson?: string | null;
   dataJson?: string | null;
   comments?: string | null;
@@ -55,7 +72,12 @@ type RawReport = {
 
 type ReportBlock = {
   id: string;
+  name: string | null;
   templateTitle: string | null;
+  reportNumber: string | null;
+  requiresUnits: boolean;
+  category: TemplateCategory;
+  hmsType: HmsFormType | null;
   date: string | null;
   status: string;
   fields: TemplateFieldDef[];
@@ -74,6 +96,7 @@ type ReportBlock = {
 type UnitContext = {
   key: string;
   checklist: string;
+  requiresUnits: boolean;
   date: string | null;
   unitLabel: string | null;
   serialNumber: string | null;
@@ -105,7 +128,7 @@ type PreparedRow = {
   alert: boolean;
   isImage: boolean;
   /** Numrene viser til vedleggssidene bakerst i rapporten. */
-  images: Array<{ n: number; src: string }>;
+  images: Array<{ n: number; image: PdfImage }>;
 };
 
 type PlannedBlock = {
@@ -119,6 +142,7 @@ type Attachment = {
   n: number;
   url: string;
   checklist: string;
+  requiresUnits: boolean;
   date: string | null;
   unitLabel: string | null;
   serialNumber: string | null;
@@ -175,7 +199,14 @@ export default function ReportDocument({
 
     return {
       id: report.id,
+      name: report.name ?? report.templateTitle ?? template?.title ?? null,
       templateTitle: report.templateTitle ?? template?.title ?? null,
+      reportNumber: report.reportNumber ?? null,
+      requiresUnits: report.requiresUnits !== false,
+      // Kategorien leses fra rapportens frosne felt, aldri fra den levende
+      // malen. Mangler feltet (eldre rapport), er den SERVICE.
+      category: reportTemplateCategoryOf(report),
+      hmsType: report.hmsType ?? null,
       date: formatDate(report.createdAt) || null,
       status: typeof parsed.status === "string" && parsed.status ? parsed.status : "UKJENT",
       fields,
@@ -195,11 +226,38 @@ export default function ReportDocument({
     };
   });
 
-  const knownStatuses = blocks.map((b) => b.status).filter((s) => s !== "UKJENT");
+  // Bare rapporter med enheter har et godkjent/avvik-resultat. En rapport uten
+  // enheter skal verken vises som godkjent eller avvik, selv om eldre rader
+  // fortsatt har GODKJENT/AVVIK lagret.
+  const unitBlocks = blocks.filter((b) => b.requiresUnits);
+  const knownStatuses = unitBlocks.map((b) => b.status).filter((s) => s !== "UKJENT");
   const overallStatus =
-    knownStatuses.length === 0 ? "UKJENT" : knownStatuses.includes("AVVIK") ? "AVVIK" : "GODKJENT";
-  const totalUnits = blocks.reduce((sum, b) => sum + b.units.length, 0);
+    knownStatuses.length === 0
+      ? "UKJENT"
+      : knownStatuses.includes("AVVIK")
+        ? "AVVIK"
+        : "GODKJENT";
+  const hasUnitReports = unitBlocks.length > 0;
+  const totalUnits = unitBlocks.reduce((sum, b) => sum + b.units.length, 0);
   const customer = workOrder.customer || data.customer || {};
+  // Én rapport gir et presist dokumentnavn; flere sjekklister på samme
+  // oppdrag beholder den generelle tittelen.
+  const documentTitle =
+    blocks.length === 1 && blocks[0]?.name ? blocks[0].name : "Servicerapport";
+
+  // Kategori/type vises i toppen av PDF-en. Én HMS-rapport får den konkrete
+  // undertypen; et oppdrag med flere skjemaer får en nøytral merking.
+  const hmsBlocks = blocks.filter((block) => block.category === "HMS");
+  const hmsHeader =
+    hmsBlocks.length === 0
+      ? null
+      : blocks.length === 1
+        ? `HMS-dokumentasjon${
+            hmsBlocks[0].hmsType
+              ? ` · ${HMS_TYPE_LABELS[hmsBlocks[0].hmsType]}`
+              : ""
+          }`
+        : "Inneholder HMS-dokumentasjon";
 
   // Hvem som utførte jobben: navnene fra rapportene (signatur eller brukeren som
   // lagret). Bare hvis ingen rapport har navn, faller vi tilbake på montørene
@@ -221,17 +279,19 @@ export default function ReportDocument({
   const logoUrl = globalLogoUrl || null;
   const companyName = globalCompanyName || "FSM System";
 
-  /** Relativ bilde-URL (/uploads/...) må gjøres absolutt for at PDF-en skal kunne hente den. */
-  const absoluteUrl = (url: string) => {
-    if (/^(https?:|data:)/.test(url)) return url;
-    const origin =
-      baseUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
-    return `${origin}${url}`;
-  };
-
-  /** Bildet slik det skal tegnes: nedskalert hvis vi klarte det, ellers original-URL. */
-  const pdfImage = (url: string): PdfImage =>
-    pdfImages?.[url] ?? { src: absoluteUrl(url) };
+  /**
+   * Bildet slik det skal tegnes.
+   *
+   * Bare bilder som allerede er bakt inn som data-URL, eller som ligger i
+   * appens egen opplastingsmappe, får være med. Eksterne http(s)-adresser
+   * avvises – PDF-motoren skal aldri hente ukjent innhold.
+   */
+  const pdfImage = (url: string): PdfImage | null =>
+    resolvePdfImageSource(
+      url,
+      pdfImages,
+      baseUrl ?? (typeof window !== "undefined" ? window.location.origin : ""),
+    );
 
   const answerText = (field: TemplateFieldDef | null, answer: unknown): string => {
     if (field?.type === "CHECKBOX") return answer ? "Ja / utført" : "Nei / ikke krysset ut";
@@ -299,7 +359,7 @@ export default function ReportDocument({
 
   const planned: PlannedBlock[] = [];
   for (const block of blocks) {
-    const checklist = block.templateTitle || `Sjekkliste ${block.id.slice(0, 6)}`;
+    const checklist = block.name || block.templateTitle || `Sjekkliste ${block.id.slice(0, 6)}`;
 
     const units: Array<{ unit: ReportUnit; index: number; rows: PlannedRow[] }> = [];
     for (let index = 0; index < block.units.length; index += 1) {
@@ -310,6 +370,7 @@ export default function ReportDocument({
         rows: planUnit(block.fields, parseJsonObject(unit.answersJson), {
           key: `${block.id}::${unit.id}`,
           checklist,
+          requiresUnits: block.requiresUnits,
           date: block.date,
           unitLabel: unit.label,
           serialNumber: unit.serialNumber ?? null,
@@ -326,6 +387,7 @@ export default function ReportDocument({
         ? planUnit(block.fields, block.answers, {
             key: `${block.id}::uten-enhet`,
             checklist,
+            requiresUnits: block.requiresUnits,
             date: block.date,
             unitLabel: null,
             serialNumber: null,
@@ -361,6 +423,7 @@ export default function ReportDocument({
         n: imageNumber,
         url,
         checklist: context.checklist,
+        requiresUnits: context.requiresUnits,
         date: context.date,
         unitLabel: context.unitLabel,
         serialNumber: context.serialNumber,
@@ -380,10 +443,12 @@ export default function ReportDocument({
     comment: row.comment,
     alert: row.alert,
     isImage: row.isImage,
-    images: row.urls.map((url, i) => ({
-      n: imageNumbers.get(rowKey(row))?.[i] ?? 0,
-      src: pdfImage(url).src,
-    })),
+    images: row.urls.flatMap((url, i) => {
+      const image = pdfImage(url);
+      return image
+        ? [{ n: imageNumbers.get(rowKey(row))?.[i] ?? 0, image }]
+        : [];
+    }),
   });
 
   const styles = StyleSheet.create({
@@ -401,6 +466,8 @@ export default function ReportDocument({
     logo: { maxHeight: 60, maxWidth: 160, objectFit: 'contain' },
     // Tittel og firmanavn står til høyre i toppen av rapporten.
     headerTextBlock: { alignItems: 'flex-end' },
+    headerHms: { fontSize: 9, color: '#374151', fontWeight: 'bold', marginTop: 2, textAlign: 'right' },
+    headerOrder: { fontSize: 10, color: '#374151', fontWeight: 'bold', marginTop: 2, textAlign: 'right' },
     companyName: { fontSize: 10, color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right' },
 
     section: { marginBottom: 20 },
@@ -548,19 +615,22 @@ export default function ReportDocument({
     </View>
   );
 
-  const signatureBox = (label: string, url?: string | null, name?: string | null) => (
-    <View style={styles.signatureBox} wrap={false}>
-      <Text style={styles.label}>{label}</Text>
-      {url ? (
-        // react-pdf tegner <Image> inn i PDF-en, ikke i DOM-en (og støtter ikke alt)
-        // eslint-disable-next-line jsx-a11y/alt-text
-        <Image src={pdfImage(url).src} style={styles.signatureImage} />
-      ) : (
-        <Text style={styles.signatureMissing}>Ikke signert</Text>
-      )}
-      <Text style={styles.signatureLine}>{name || "—"}</Text>
-    </View>
-  );
+  const signatureBox = (label: string, url?: string | null, name?: string | null) => {
+    const image = pdfImage(url ?? "");
+    return (
+      <View style={styles.signatureBox} wrap={false}>
+        <Text style={styles.label}>{label}</Text>
+        {image ? (
+          // react-pdf tegner <Image> inn i PDF-en, ikke i DOM-en (og støtter ikke alt)
+          // eslint-disable-next-line jsx-a11y/alt-text
+          <Image src={image.src} style={styles.signatureImage} />
+        ) : (
+          <Text style={styles.signatureMissing}>Ikke signert</Text>
+        )}
+        <Text style={styles.signatureLine}>{name || "—"}</Text>
+      </View>
+    );
+  };
 
   /**
    * Sjekkpunkt med miniatyrbilder.
@@ -601,7 +671,7 @@ export default function ReportDocument({
           {row.images.map((image) => (
             <View key={image.n} style={styles.thumbBox}>
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
-              <Image src={image.src} style={styles.thumbImage} />
+              <Image src={image.image.src} style={styles.thumbImage} />
               <Text style={styles.thumbLabel}>Bilde {image.n}</Text>
             </View>
           ))}
@@ -613,20 +683,33 @@ export default function ReportDocument({
     </View>
   );
 
+  const logoImage = pdfImage(logoUrl ?? "");
+
   return (
-    <Document>
+    <Document title={documentTitle} author={companyName}>
       <Page size="A4" style={styles.page}>
 
-        {/* HEADER: logo til venstre, tittel og firmanavn til høyre */}
+        {/* HEADER: logo til venstre, tittel, ordrenummer og firmanavn til høyre */}
         <View style={styles.headerContainer}>
-          {logoUrl ? (
+          {logoImage ? (
             // eslint-disable-next-line jsx-a11y/alt-text
-            <Image src={pdfImage(logoUrl).src} style={styles.logo} />
+            <Image src={logoImage.src} style={styles.logo} />
           ) : (
             <View />
           )}
           <View style={styles.headerTextBlock}>
-            <Text style={styles.headerText}>Servicerapport</Text>
+            <Text style={styles.headerText}>{documentTitle}</Text>
+            {hmsHeader && <Text style={styles.headerHms}>{hmsHeader}</Text>}
+            {workOrder.orderNumber && (
+              <Text style={styles.headerOrder}>
+                Ordrenr. {workOrder.orderNumber}
+              </Text>
+            )}
+            {blocks.length === 1 && blocks[0]?.reportNumber && (
+              <Text style={styles.headerOrder}>
+                Rapportnr. {blocks[0].reportNumber}
+              </Text>
+            )}
             <Text style={styles.companyName}>{companyName}</Text>
           </View>
         </View>
@@ -652,54 +735,71 @@ export default function ReportDocument({
           </View>
         </View>
 
-        {/* SAMLET RESULTAT */}
-        <View style={styles.statusBox}>
-          <Text style={styles.statusText}>
-            {overallStatus === "GODKJENT" ? "Godkjent / utført" : overallStatus === "AVVIK" ? "Avvik funnet" : "Ukjent resultat"}
-            {totalUnits > 0 ? ` – ${totalUnits} ${totalUnits === 1 ? "enhet" : "enheter"} kontrollert` : ""}
-          </Text>
-        </View>
+        {/* SAMLET RESULTAT – bare når minst én rapport har enheter */}
+        {hasUnitReports && (
+          <View style={styles.statusBox}>
+            <Text style={styles.statusText}>
+              {overallStatus === "GODKJENT" ? "Godkjent / utført" : overallStatus === "AVVIK" ? "Avvik funnet" : "Ukjent resultat"}
+              {totalUnits > 0 ? ` – ${totalUnits} ${totalUnits === 1 ? "enhet" : "enheter"} kontrollert` : ""}
+            </Text>
+          </View>
+        )}
 
         {/* ÉN SEKSJON PER UTFYLT SJEKKLISTE */}
         {planned.map(({ block, units, legacy }, blockIndex) => (
           <View key={block.id} style={styles.section} wrap>
-            {blocks.length > 1 || block.templateTitle ? (
+            {blocks.length > 1 || block.name ? (
               <Text style={styles.reportTitle}>
-                {block.templateTitle || `Sjekkliste ${blockIndex + 1}`}
+                {block.name || `Sjekkliste ${blockIndex + 1}`}
+                {block.category === "HMS" ? "  •  HMS-dokumentasjon" : ""}
+                {block.reportNumber ? `  •  Rapportnr. ${block.reportNumber}` : ""}
                 {block.date ? `  •  ${block.date}` : ""}
-                {block.status !== "UKJENT" ? (block.status === "AVVIK" ? "  –  Avvik" : "  –  Godkjent") : ""}
+                {block.requiresUnits && block.status !== "UKJENT"
+                  ? block.status === "AVVIK"
+                    ? "  –  Avvik"
+                    : "  –  Godkjent"
+                  : ""}
               </Text>
             ) : null}
 
             {/* Enheter med sine egne sjekkpunkter */}
-            {units.map(({ unit, index, rows }) => (
-              <View key={unit.id} style={styles.unitCard}>
-                <View style={styles.unitHeader}>
-                  <View style={styles.unitHeaderText}>
-                    <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
-                    <Text style={styles.unitMeta}>
-                      {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
-                      {unit.location ? `  •  ${unit.location}` : ""}
+            {units.map(({ unit, index, rows }) =>
+              block.requiresUnits ? (
+                <View key={unit.id} style={styles.unitCard}>
+                  <View style={styles.unitHeader}>
+                    <View style={styles.unitHeaderText}>
+                      <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
+                      <Text style={styles.unitMeta}>
+                        {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
+                        {unit.location ? `  •  ${unit.location}` : ""}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        ...styles.unitStatus,
+                        backgroundColor: unit.status === "AVVIK" ? '#fee2e2' : '#dcfce7',
+                        color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
+                      }}
+                    >
+                      {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      ...styles.unitStatus,
-                      backgroundColor: unit.status === "AVVIK" ? '#fee2e2' : '#dcfce7',
-                      color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
-                    }}
-                  >
-                    {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
-                  </Text>
-                </View>
 
-                <View style={styles.unitBody}>
-                  {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.answerRow))}
-                </View>
+                  <View style={styles.unitBody}>
+                    {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.answerRow))}
+                  </View>
 
-                {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
-              </View>
-            ))}
+                  {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
+                </View>
+              ) : (
+                // Rapport uten enheter: sjekkpunktene vises direkte, uten
+                // enhetskort, nummer, serienummer eller plassering.
+                <View key={unit.id} style={styles.unitBody}>
+                  {rows.map((row, i) => answerBlock(prepareRow(row), i, styles.checklistItem))}
+                  {unit.comment && <MarkdownPdf value={unit.comment} base={styles.unitComment} />}
+                </View>
+              ),
+            )}
 
             {/* Eldre rapporter uten enheter */}
             {legacy.length > 0 && (
@@ -730,10 +830,11 @@ export default function ReportDocument({
         VEDLEGG: hvert bilde får sin egen side, slik at detaljene faktisk er
         lesbare. Nummeret viser tilbake til sjekkpunktet i rapporten.
       */}
-      {attachments.map((attachment) => {
+      {attachments.flatMap((attachment) => {
         const image = pdfImage(attachment.url);
+        if (!image) return [];
 
-        return (
+        return [
           <Page key={attachment.n} size="A4" style={styles.page}>
             <View style={styles.attachmentHeader}>
               <View>
@@ -743,7 +844,12 @@ export default function ReportDocument({
                 </Text>
               </View>
               <View style={styles.headerTextBlock}>
-                <Text style={styles.attachmentKicker}>Servicerapport</Text>
+                <Text style={styles.attachmentKicker}>{documentTitle}</Text>
+                {workOrder.orderNumber && (
+                  <Text style={styles.headerOrder}>
+                    Ordrenr. {workOrder.orderNumber}
+                  </Text>
+                )}
                 <Text style={styles.companyName}>{companyName}</Text>
               </View>
             </View>
@@ -765,17 +871,19 @@ export default function ReportDocument({
                 <Text style={styles.metaKey}>Sjekkpunkt: </Text>
                 {attachment.point}
               </Text>
-              <Text style={styles.metaRow}>
-                <Text style={styles.metaKey}>Enhet: </Text>
-                {attachment.unitLabel || "Uten enhet"}
-                {attachment.serialNumber ? `  •  Serienummer: ${attachment.serialNumber}` : ""}
-                {attachment.location ? `  •  Plassering: ${attachment.location}` : ""}
-              </Text>
+              {attachment.requiresUnits && (
+                <Text style={styles.metaRow}>
+                  <Text style={styles.metaKey}>Enhet: </Text>
+                  {attachment.unitLabel || "Uten enhet"}
+                  {attachment.serialNumber ? `  •  Serienummer: ${attachment.serialNumber}` : ""}
+                  {attachment.location ? `  •  Plassering: ${attachment.location}` : ""}
+                </Text>
+              )}
               <Text style={styles.metaRow}>
                 <Text style={styles.metaKey}>Sjekkliste: </Text>
                 {attachment.checklist}
                 {attachment.date ? `  •  ${attachment.date}` : ""}
-                {attachment.status
+                {attachment.requiresUnits && attachment.status
                   ? `  •  ${attachment.status === "AVVIK" ? "Avvik" : "Godkjent"}`
                   : ""}
               </Text>
@@ -788,8 +896,8 @@ export default function ReportDocument({
             </View>
 
             {renderFooter()}
-          </Page>
-        );
+          </Page>,
+        ];
       })}
     </Document>
   );

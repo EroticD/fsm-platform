@@ -4,7 +4,13 @@ import type { ServiceActor } from "./actor";
 const mocks = vi.hoisted(() => ({
   prisma: {
     branding: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
-    template: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+    template: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
     tag: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     documentTag: {
       findMany: vi.fn(),
@@ -15,10 +21,13 @@ const mocks = vi.hoisted(() => ({
     },
     department: { findMany: vi.fn() },
     role: { findMany: vi.fn() },
+    upload: { findUnique: vi.fn(), findMany: vi.fn() },
     auditLog: { create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     user: { findMany: vi.fn() },
     customer: { findMany: vi.fn() },
     workOrder: { count: vi.fn(), groupBy: vi.fn() },
+    report: { count: vi.fn() },
+    contract: { count: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -27,8 +36,10 @@ vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 
 import {
   createTemplate,
+  deleteTemplate,
   getStatistics,
   saveBranding,
+  updateTemplate,
 } from "./settings";
 
 function actor(overrides: Partial<ServiceActor> = {}): ServiceActor {
@@ -60,6 +71,8 @@ beforeEach(() => {
   mocks.prisma.branding.findFirst.mockResolvedValue({ id: "branding-1" });
   mocks.prisma.branding.update.mockResolvedValue({ id: "branding-1" });
   mocks.prisma.template.create.mockResolvedValue({ id: "template-1" });
+  mocks.prisma.template.update.mockResolvedValue({ id: "template-1" });
+  mocks.prisma.upload.findUnique.mockResolvedValue(null);
 });
 
 describe("innstillingstjenesten – autorisasjon", () => {
@@ -91,6 +104,429 @@ describe("innstillingstjenesten – autorisasjon", () => {
 
     expect(result).toEqual({ ok: false, reason: "invalid_logo" });
     expect(mocks.prisma.branding.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("innstillingstjenesten – logo må eies av avsenderen", () => {
+  const logo = "/uploads/11111111-1111-4111-8111-111111111111.png";
+
+  it.each(["WORK_ORDER", "USER", "CUSTOMER", "DOCUMENT"])(
+    "avviser en logo som tilhører %s",
+    async (ownerType) => {
+      mocks.prisma.upload.findUnique.mockResolvedValue({
+        ownerType,
+        uploadedById: "actor",
+      });
+
+      const result = await saveBranding(admin(), {
+        companyName: "Nytt navn",
+        logoUrl: logo,
+      });
+
+      expect(result).toEqual({ ok: false, reason: "invalid_logo" });
+      expect(mocks.prisma.branding.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it("avviser en logo som mangler opplastingsrad", async () => {
+    mocks.prisma.upload.findUnique.mockResolvedValue(null);
+
+    const result = await saveBranding(admin(), {
+      companyName: "Nytt navn",
+      logoUrl: logo,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_logo" });
+    expect(mocks.prisma.branding.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser en merkevarelogo som er lastet opp av en annen bruker", async () => {
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "BRANDING",
+      uploadedById: "noen-andre",
+    });
+
+    const result = await saveBranding(admin(), {
+      companyName: "Nytt navn",
+      logoUrl: logo,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_logo" });
+    expect(mocks.prisma.branding.update).not.toHaveBeenCalled();
+  });
+
+  it("lagrer en merkevarelogo som er lastet opp av samme bruker", async () => {
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "BRANDING",
+      uploadedById: "actor",
+    });
+
+    const result = await saveBranding(admin(), {
+      companyName: "Nytt navn",
+      logoUrl: logo,
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "branding-1" } });
+    expect(mocks.prisma.upload.findUnique).toHaveBeenCalledWith({
+      where: { storedName: "11111111-1111-4111-8111-111111111111.png" },
+      select: { ownerType: true, uploadedById: true },
+    });
+    expect(mocks.prisma.branding.update).toHaveBeenCalledWith({
+      where: { id: "branding-1" },
+      data: expect.objectContaining({ logoUrl: logo }),
+    });
+  });
+});
+
+describe("innstillingstjenesten – maler", () => {
+  it("lagrer rapportnavn og slår av enhetskravet", async () => {
+    const result = await createTemplate(office(), {
+      title: "Årlig service",
+      reportName: "  Rapport <b>Årlig</b>  ",
+      requiresUnits: "false",
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "template-1" } });
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: {
+        title: "Årlig service",
+        reportName: "Rapport Årlig",
+        description: null,
+        category: "SERVICE",
+        hmsType: null,
+        requiresUnits: false,
+        fieldsJson: "[]",
+      },
+    });
+  });
+
+  it("bruker «true» når enhetskravet mangler", async () => {
+    const result = await createTemplate(office(), { title: "Uten valg" });
+
+    expect(result).toEqual({ ok: true, data: { id: "template-1" } });
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requiresUnits: true, reportName: null }),
+    });
+  });
+
+  it("tolker avkrysningsfelt med både skjult false og valgt true som på", async () => {
+    await createTemplate(office(), {
+      title: "Med enheter",
+      requiresUnits: ["false", "true"],
+    });
+
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ requiresUnits: true }),
+    });
+  });
+
+  it("begrenser rapportnavnet til tittelens maksimumslengde", async () => {
+    await createTemplate(office(), {
+      title: "Langt navn",
+      reportName: "x".repeat(500),
+    });
+
+    const data = mocks.prisma.template.create.mock.calls[0][0].data;
+    expect(data.reportName).toHaveLength(200);
+  });
+
+  it("skriver rapportnavn og enhetskrav til revisjonsloggen", async () => {
+    const auditCreate = vi.fn(async () => ({}));
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          template: { create: vi.fn(async () => ({ id: "template-1" })) },
+          auditLog: { create: auditCreate },
+        }),
+    );
+
+    await createTemplate(office(), {
+      title: "Årlig service",
+      reportName: "Service rapport",
+      requiresUnits: "false",
+    });
+
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("Service rapport"),
+      }),
+    });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("uten enheter"),
+      }),
+    });
+  });
+
+  it("nekter å hard-slette en mal som er brukt av rapporter, oppdrag eller aktive avtaler", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Årlig service",
+    });
+    mocks.prisma.report.count.mockResolvedValue(2);
+    mocks.prisma.contract.count.mockResolvedValue(1);
+    mocks.prisma.workOrder.count.mockResolvedValue(3);
+
+    const result = await deleteTemplate(admin(), { id: "template-1" });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "in_use",
+      details: { reports: 2, activeContracts: 1, workOrders: 3 },
+    });
+    expect(mocks.prisma.template.delete).not.toHaveBeenCalled();
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    // Det blokkerte forsøket logges med bruken som stoppet det.
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Template",
+        entityId: "template-1",
+        metadata: { reports: 2, activeContracts: 1, workOrders: 3 },
+      }),
+    });
+  });
+
+  it("sletter en ubrukt mal og logger det", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Ubrukt mal",
+    });
+    mocks.prisma.report.count.mockResolvedValue(0);
+    mocks.prisma.contract.count.mockResolvedValue(0);
+    mocks.prisma.workOrder.count.mockResolvedValue(0);
+
+    const result = await deleteTemplate(admin(), { id: "template-1" });
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(mocks.prisma.template.delete).toHaveBeenCalledWith({
+      where: { id: "template-1" },
+    });
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Template",
+        entityId: "template-1",
+        action: "Slettet sjekkliste: Ubrukt mal",
+      }),
+    });
+  });
+});
+
+describe("innstillingstjenesten – HMS-kategori i maler", () => {
+  it("oppretter en HMS-mal med type og beskrivelse", async () => {
+    const result = await createTemplate(office(), {
+      title: "Sikker jobb analyse",
+      description: "  Gjennomgang før risikofylt arbeid  ",
+      category: "HMS",
+      hmsType: "SJA",
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "template-1" } });
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        description: "Gjennomgang før risikofylt arbeid",
+        category: "HMS",
+        hmsType: "SJA",
+      }),
+    });
+  });
+
+  it("avviser ukjent kategori uten å skrive til databasen", async () => {
+    const result = await createTemplate(office(), {
+      title: "Ukjent",
+      category: "ANNET",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.template.create).not.toHaveBeenCalled();
+  });
+
+  it("avviser HMS uten gyldig HMS-type", async () => {
+    const result = await createTemplate(office(), {
+      title: "HMS uten type",
+      category: "HMS",
+      hmsType: "UKJENT",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.template.create).not.toHaveBeenCalled();
+  });
+
+  it("tvinger bort HMS-type på service-maler", async () => {
+    await createTemplate(office(), {
+      title: "Service",
+      category: "SERVICE",
+      hmsType: "SJA",
+    });
+
+    expect(mocks.prisma.template.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ category: "SERVICE", hmsType: null }),
+    });
+  });
+
+  it("oppdaterer kategori, HMS-type og beskrivelse", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Gammel tittel",
+      reportName: null,
+      description: null,
+      category: "SERVICE",
+      hmsType: null,
+      requiresUnits: true,
+      fieldsJson: "[]",
+    });
+
+    const result = await updateTemplate(office(), {
+      id: "template-1",
+      title: "Vernerunde",
+      description: "Sjekkliste for vernerunde",
+      category: "HMS",
+      hmsType: "SAFETY_ROUND",
+      fieldsJson: JSON.stringify([
+        { id: "felt1", type: "TEXT", label: "Funn" },
+      ]),
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "template-1" } });
+    expect(mocks.prisma.template.update).toHaveBeenCalledWith({
+      where: { id: "template-1" },
+      data: expect.objectContaining({
+        title: "Vernerunde",
+        description: "Sjekkliste for vernerunde",
+        category: "HMS",
+        hmsType: "SAFETY_ROUND",
+        fieldsJson: JSON.stringify([
+          {
+            id: "felt1",
+            type: "TEXT",
+            label: "Funn",
+            required: false,
+          },
+        ]),
+      }),
+    });
+  });
+
+  it("beholder kategorien når feltet ikke sendes med", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "SJA",
+      reportName: null,
+      description: "Beskrivelse",
+      category: "HMS",
+      hmsType: "SJA",
+      requiresUnits: true,
+    });
+
+    await updateTemplate(office(), {
+      id: "template-1",
+      title: "SJA oppdatert",
+    });
+
+    expect(mocks.prisma.template.update).toHaveBeenCalledWith({
+      where: { id: "template-1" },
+      data: expect.objectContaining({
+        category: "HMS",
+        hmsType: "SJA",
+        description: "Beskrivelse",
+      }),
+    });
+  });
+
+  it("avviser ugyldig kategori ved oppdatering", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Mal",
+      category: "SERVICE",
+      hmsType: null,
+      requiresUnits: true,
+    });
+
+    const result = await updateTemplate(office(), {
+      id: "template-1",
+      title: "Mal",
+      category: "FEIL",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.template.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser HMS uten type ved oppdatering", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Mal",
+      category: "SERVICE",
+      hmsType: null,
+      requiresUnits: true,
+    });
+
+    const result = await updateTemplate(office(), {
+      id: "template-1",
+      title: "Mal",
+      category: "HMS",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.template.update).not.toHaveBeenCalled();
+  });
+
+  it("svarer not_found når malen ikke finnes", async () => {
+    mocks.prisma.template.findUnique.mockResolvedValue(null);
+
+    const result = await updateTemplate(office(), {
+      id: "finnes-ikke",
+      title: "Mal",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("logger endret kategori og HMS-type", async () => {
+    const auditCreate = vi.fn(async () => ({}));
+    mocks.prisma.template.findUnique.mockResolvedValue({
+      id: "template-1",
+      title: "Mal",
+      reportName: null,
+      description: null,
+      category: "SERVICE",
+      hmsType: null,
+      requiresUnits: true,
+    });
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          template: { update: vi.fn(async () => ({ id: "template-1" })) },
+          auditLog: { create: auditCreate },
+        }),
+    );
+
+    await updateTemplate(office(), {
+      id: "template-1",
+      title: "Avviksmelding",
+      category: "HMS",
+      hmsType: "DEVIATION",
+    });
+
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("kategori: SERVICE → HMS"),
+      }),
+    });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("HMS-type: (ingen) → DEVIATION"),
+      }),
+    });
+  });
+
+  it("nekter oppdatering uten templates.manage", async () => {
+    const result = await updateTemplate(
+      actor({ roleDefinition: { permissions: [] } }),
+      { id: "template-1", title: "Mal", category: "HMS", hmsType: "SJA" },
+    );
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.template.findUnique).not.toHaveBeenCalled();
   });
 });
 

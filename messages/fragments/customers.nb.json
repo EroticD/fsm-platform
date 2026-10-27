@@ -21,7 +21,12 @@
       "previous": "Forrige",
       "next": "Neste",
       "pagination": "Side {page} av {totalPages}",
-      "total": "{total, plural, one {# kunde} other {# kunder}}"
+      "total": "{total, plural, one {# kunde} other {# kunder}}",
+      "showDeleted": "🗑️ Papirkurv",
+      "showActive": "← Aktive kunder",
+      "deletedTitle": "Papirkurv: slettede kunder kan gjenopprettes av administrator.",
+      "restore": "Gjenopprett",
+      "delete": "Slett"
     },
     "detail": {
       "notFound": "Kunden finnes ikke",
@@ -31,6 +36,7 @@
       "newWorkOrder": "Nytt oppdrag",
       "edit": "Rediger",
       "backToCustomers": "Kunder",
+      "delete": "Slett kunde",
       "editError": "Endringen kunne ikke lagres. Sjekk feltene og prøv igjen.",
       "tabs": {
         "overview": "📊 Oversikt",

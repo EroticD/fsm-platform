@@ -13,7 +13,22 @@
       "previous": "Forrige",
       "next": "Neste",
       "pageOf": "Side {page} av {pages}",
-      "settings": "Innstillinger"
+      "settings": "Innstillinger",
+      "fromLabel": "Fra:",
+      "sourceFallback": "Systemvarsel",
+      "unread": "Ulest",
+      "openAria": "Åpne varselet «{title}»",
+      "markReadAria": "Merk varselet «{title}» som lest",
+      "types": {
+        "ASSIGNMENT": "Tildeling",
+        "DATE_CHANGED": "Datoendring",
+        "CANCELLED": "Kansellering",
+        "REPORT_READY": "Rapport",
+        "BOOKING": "Booking",
+        "CONTRACT_DUE": "Serviceavtale",
+        "OVERDUE": "Forfalt",
+        "CONTACT_UPDATE": "Kontaktoppdatering"
+      }
     },
     "notificationSettings": {
       "title": "Varselinnstillinger",
@@ -23,6 +38,8 @@
       "email": "E-post",
       "save": "Lagre varselinnstillinger",
       "toNotifications": "Til varsler",
+      "soundTitle": "Varsellyd",
+      "soundDescription": "Spill en kort lyd når nye varsler kommer mens appen er åpen.",
       "labels": {
         "ASSIGNMENT": "Du blir tildelt et oppdrag",
         "DATE_CHANGED": "Oppdraget flyttes",
@@ -30,7 +47,8 @@
         "REPORT_READY": "Rapport er klar",
         "BOOKING": "Ny booking fra kundeportalen",
         "CONTRACT_DUE": "Serviceavtale forfaller",
-        "OVERDUE": "Oppdrag er forfalt"
+        "OVERDUE": "Oppdrag er forfalt",
+        "CONTACT_UPDATE": "Kunde ber om oppdatert kontaktinformasjon"
       },
       "inAppAria": "{label} i appen",
       "emailAria": "{label} på e-post"
@@ -51,17 +69,27 @@
     },
     "portalReports": {
       "title": "📄 Rapporter",
-      "count": "{count} rapporter",
+      "count": "{count} oppdrag i historikken",
       "empty": "Ingen rapporter er publisert ennå.",
+      "workOrderPerformed": "Oppdrag utført {date}",
+      "unknownDate": "uten dato",
+      "noReport": "Ingen rapport er publisert for dette oppdraget.",
+      "previous": "Forrige side",
+      "next": "Neste side",
+      "pageOf": "Side {page} av {pages}",
       "performed": "Utført {date}",
       "signed": "signert",
       "download": "Last ned PDF",
       "acknowledged": "✓ Kvittert {date}",
       "commentPlaceholder": "Kommentar (valgfritt)",
       "acknowledge": "Kvitter mottatt",
+      "orderNumber": "Ordrenr. {number}",
+      "revision": "revisjon {revision}",
+      "history": "🕘 Revisjoner",
       "requestUpdate": "Be om oppdatering av kontaktinformasjon",
       "requestUpdatePlaceholder": "Hva skal oppdateres?",
-      "requestUpdateButton": "Send forespørsel"
+      "requestUpdateButton": "Send forespørsel",
+      "reportNumber": "Rapportnr. {number}"
     },
     "bell": {
       "label": "Varsler",

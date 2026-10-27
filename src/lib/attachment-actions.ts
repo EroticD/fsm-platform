@@ -118,6 +118,23 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
   const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
 
+  // Bevaringsplikt på oppdraget eller en av rapportene fryser også vedleggene.
+  // Sletting av bevis skal først skje etter at en administrator bevisst har
+  // frigjort holdet med grunn.
+  const hold = await prisma.workOrder.findUnique({
+    where: { id: attachment.workOrderId },
+    select: { legalHold: true, reports: { select: { legalHold: true } } },
+  });
+  if (
+    hold?.legalHold ||
+    hold?.reports.some((report) => report.legalHold)
+  ) {
+    return {
+      ok: false,
+      error: "Oppdraget har bevaringsplikt. Fjern bevaringsplikten med grunn før vedlegg slettes.",
+    };
+  }
+
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, error: "Ikke tilgang" };
 

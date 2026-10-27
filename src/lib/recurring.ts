@@ -15,7 +15,13 @@ export type RecurringGenerationResult = {
   contractId: string;
   workOrderId?: string;
   scheduledFor?: string;
-  skipped?: "inactive" | "not-due" | "already-generated" | "not-found" | "error";
+  skipped?:
+    | "inactive"
+    | "not-due"
+    | "already-generated"
+    | "not-found"
+    | "locked"
+    | "error";
   error?: string;
 };
 
@@ -29,16 +35,17 @@ export const RECURRING_ADVISORY_LOCK_ID = 918273;
 const CONTRACT_BATCH_SIZE = 50;
 
 /**
- * Låsen holdes i en interaktiv transaksjon, slik at `pg_try_advisory_lock` og
- * `pg_advisory_unlock` garantert går på samme tilkobling. En vanlig
- * `$queryRaw` kan havne på to ulike tilkoblinger i poolen, og da ville låsen
- * blitt hengende.
+ * Låsen er transaksjonsscoped (`pg_try_advisory_xact_lock`). PostgreSQL slipper
+ * den automatisk ved commit eller rollback, også når transaksjonen timer ut
+ * eller kaster. Da kan låsen aldri bli liggende igjen på en tilkobling i
+ * poolen, slik en sesjonsscoped lås kunne bli hvis frigjøringen feilet.
  *
- * Transaksjonen er bare en måte å feste tilkoblingen på; selve arbeidet kjøres
- * med den vanlige Prisma-klienten. En avtale som tar svært lang tid kan derfor
- * i teorien nå tidsgrensen, men jobben er avgrenset til forfalte avtaler.
+ * Transaksjonen er bevisst kort: den tar låsen, oppdaterer avtalens
+ * `nextServiceDate` og oppretter oppdraget i én atomisk enhet. PDF-rendring,
+ * vedlegg og varsling skjer etter commit, utenfor låsen.
  */
-const LOCK_TRANSACTION_TIMEOUT_MS = 30 * 60 * 1000;
+const CLAIM_TRANSACTION_MAX_WAIT_MS = 5_000;
+const CLAIM_TRANSACTION_TIMEOUT_MS = 15_000;
 
 /** Er feilen en unikhetskollisjon (P2002), f.eks. samme avtale og dato? */
 export function isUniqueViolation(error: unknown): boolean {
@@ -90,14 +97,16 @@ export async function generateRecurringWorkOrderForContract(
     return { contractId, skipped: "not-due" };
   }
 
-  // Forrige oppdrag på samme avtale som faktisk har en rapport. Hvis det
-  // umiddelbart forrige oppdraget ikke er fullført, brukes siste tilgjengelige
-  // rapport i stedet – den er fortsatt den siste servicen kunden har fått.
+  // Forrige oppdrag på samme avtale som faktisk har en ikke-slettet rapport.
+  // Hvis det umiddelbart forrige oppdraget ikke er fullført, brukes siste
+  // tilgjengelige rapport i stedet – den er fortsatt den siste servicen kunden
+  // har fått. Slettede oppdrag og rapporter skal aldri gjenoppstå som vedlegg.
   const previous = await prisma.workOrder.findFirst({
     where: {
       contractId: contract.id,
       scheduledFor: { lt: due },
-      reports: { some: {} },
+      deletedAt: null,
+      reports: { some: { deletedAt: null } },
     },
     orderBy: { scheduledFor: "desc" },
     select: { id: true, scheduledFor: true },
@@ -112,62 +121,93 @@ export async function generateRecurringWorkOrderForContract(
   const baseDescription =
     `Gjentagende serviceavtale – intervall ${contractIntervalLabel(contract.intervalMonths)}.`;
 
-  let workOrderId: string | null = null;
+  let claim:
+    | { status: "created"; workOrderId: string }
+    | { status: "locked" }
+    | { status: "already-generated" };
 
   try {
-    workOrderId = await prisma.$transaction(async (tx) => {
-      // Sjekk og oppdater avtalen i samme transaksjon. Da kan ikke
-      // bakgrunnsjobben og en manuell handling lage to oppdrag samtidig.
-      const updated = await tx.contract.updateMany({
-        where: {
-          id: contract.id,
-          isActive: true,
-          nextServiceDate: contract.nextServiceDate,
-        },
-        data: { nextServiceDate },
-      });
+    claim = await prisma.$transaction(
+      async (tx) => {
+        // Transaksjonsscoped lås: PostgreSQL slipper den ved commit/rollback.
+        // Låsen tas i samme korte transaksjon som selve kravet på avtalen.
+        if (!(await tryAcquireRecurringLock(tx))) {
+          return { status: "locked" as const };
+        }
 
-      if (updated.count === 0) return null;
+        // Sjekk og oppdater avtalen i samme transaksjon. Da kan ikke
+        // bakgrunnsjobben og en manuell handling lage to oppdrag samtidig.
+        const updated = await tx.contract.updateMany({
+          where: {
+            id: contract.id,
+            isActive: true,
+            nextServiceDate: contract.nextServiceDate,
+          },
+          data: { nextServiceDate },
+        });
 
-      const workOrder = await tx.workOrder.create({
-        data: {
-          title: contract.title,
-          description: baseDescription,
-          departmentId: contract.departmentId,
-          customerId: contract.customerId,
-          contactId: contract.contactId ?? contract.customer.contacts[0]?.id ?? null,
-          scheduledFor: due,
-          status: "PLANNED",
-          creatorName: "Serviceavtale",
-          contractId: contract.id,
-          templates: contract.templateId
-            ? { connect: { id: contract.templateId } }
-            : undefined,
-        },
-        select: { id: true },
-      });
+        if (updated.count === 0) {
+          return { status: "already-generated" as const };
+        }
 
-      await tx.auditLog.create({
-        data: {
-          entityType: "WorkOrder",
-          entityId: workOrder.id,
-          action: `Opprettet gjentagende oppdrag fra serviceavtalen «${contract.title}»`,
-          userName: "Serviceavtale",
-        },
-      });
+        const workOrder = await tx.workOrder.create({
+          data: {
+            title: contract.title,
+            description: baseDescription,
+            departmentId: contract.departmentId,
+            customerId: contract.customerId,
+            contactId: contract.contactId ?? contract.customer.contacts[0]?.id ?? null,
+            scheduledFor: due,
+            status: "PLANNED",
+            creatorName: "Serviceavtale",
+            contractId: contract.id,
+            templates: contract.templateId
+              ? { connect: { id: contract.templateId } }
+              : undefined,
+          },
+          select: { id: true },
+        });
 
-      return workOrder.id;
-    });
+        await tx.auditLog.create({
+          data: {
+            entityType: "WorkOrder",
+            entityId: workOrder.id,
+            action: `Opprettet gjentagende oppdrag fra serviceavtalen «${contract.title}»`,
+            userName: "Serviceavtale",
+            metadata: { customerId: contract.customerId, contractId: contract.id },
+          },
+        });
+
+        return { status: "created" as const, workOrderId: workOrder.id };
+      },
+      {
+        maxWait: CLAIM_TRANSACTION_MAX_WAIT_MS,
+        timeout: CLAIM_TRANSACTION_TIMEOUT_MS,
+      },
+    );
   } catch (error) {
     // `@@unique([contractId, scheduledFor])` er siste skanse mot to samtidige
     // kjøringer. En slik kollisjon er ikke en feil – oppdraget finnes allerede.
     if (isUniqueViolation(error)) {
       return { contractId, skipped: "already-generated" };
     }
+    // Transaksjonen rulles tilbake og den transaksjonsscoped låsen frigjøres
+    // automatisk, selv om feilen skyldes timeout eller en tapt tilkobling.
     throw error;
   }
 
-  if (!workOrderId) return { contractId, skipped: "already-generated" };
+  if (claim.status === "locked") {
+    logger.info("Serviceavtaler: låsen er opptatt, hopper over avtalen", {
+      contractId: contract.id,
+    });
+    return { contractId, skipped: "locked" };
+  }
+
+  if (claim.status === "already-generated") {
+    return { contractId, skipped: "already-generated" };
+  }
+
+  const workOrderId = claim.workOrderId;
 
   // Vedlegget lages først etter at oppdraget er committet. Da kan ikke en
   // PDF-feil rulle tilbake selve oppdraget, og PDF-en blir ikke liggende som
@@ -236,25 +276,13 @@ async function tryAcquireRecurringLock(
   tx: Prisma.TransactionClient,
 ): Promise<boolean> {
   const rows = await tx.$queryRaw<{ locked: boolean }[]>`
-    SELECT pg_try_advisory_lock(${RECURRING_ADVISORY_LOCK_ID}::bigint) AS locked
+    SELECT pg_try_advisory_xact_lock(${RECURRING_ADVISORY_LOCK_ID}::bigint) AS locked
   `;
   return rows[0]?.locked === true;
 }
 
-async function releaseRecurringLock(tx: Prisma.TransactionClient): Promise<void> {
-  try {
-    await tx.$queryRaw`
-      SELECT pg_advisory_unlock(${RECURRING_ADVISORY_LOCK_ID}::bigint)
-    `;
-  } catch (error) {
-    logger.error("Kunne ikke frigjøre serviceavtale-låsen", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-/** Selve genereringen. Kalles bare av den som holder advisory-låsen. */
-async function generateDueRecurringWorkOrdersLocked(
+/** Selve genereringen. Hver avtale kravsettes i sin egen korte transaksjon. */
+async function generateDueRecurringWorkOrdersBatch(
   now: Date,
 ): Promise<RecurringGenerationResult[]> {
   const contracts = await prisma.contract.findMany({
@@ -311,27 +339,14 @@ async function generateDueRecurringWorkOrdersLocked(
 /**
  * Finner alle aktive avtaler som har forfalt og genererer ett oppdrag hver.
  *
- * Kjøringen er beskyttet av en Postgres advisory lock, slik at to
- * app-instanser (eller den innebygde jobben og en ekstern cron) ikke lager
- * samme oppdrag samtidig. Er låsen opptatt, returneres en tom liste.
+ * Hver avtale kravsettes i en kort transaksjon beskyttet av en
+ * transaksjonsscoped Postgres advisory lock. To app-instanser (eller den
+ * innebygde jobben og en ekstern cron) kan derfor ikke lage samme oppdrag
+ * samtidig, og låsen frigjøres automatisk ved commit/rollback. Er låsen
+ * opptatt for en avtale, hoppes den over og tas ved neste kjøring.
  */
 export async function generateDueRecurringWorkOrders(
   now = new Date(),
 ): Promise<RecurringGenerationResult[]> {
-  return prisma.$transaction(
-    async (tx) => {
-      const locked = await tryAcquireRecurringLock(tx);
-      if (!locked) {
-        logger.info("Serviceavtaler: en annen prosess genererer allerede", {});
-        return [];
-      }
-
-      try {
-        return await generateDueRecurringWorkOrdersLocked(now);
-      } finally {
-        await releaseRecurringLock(tx);
-      }
-    },
-    { maxWait: 10_000, timeout: LOCK_TRANSACTION_TIMEOUT_MS },
-  );
+  return generateDueRecurringWorkOrdersBatch(now);
 }

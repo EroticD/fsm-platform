@@ -19,10 +19,10 @@ model Department {
   isDefault   Boolean @default(false)
 
   // Kontaktinfo for avdelingen/lokasjonen. Vises i kundeportalen.
-  phone   String?
-  email   String?
-  address String?
-  city    String?
+  phone      String?
+  email      String?
+  address    String?
+  city       String?
   postalCode String?
 
   createdAt DateTime @default(now())
@@ -110,15 +110,19 @@ model User {
 
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  savedSearches           SavedSearch[]
+  searchLogs              SearchLog[]
 
   @@index([departmentId])
   @@index([role])
   @@index([resetToken])
   @@index([customerId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_name_trgm")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_email_trgm")
 }
 
 model Customer {
-  id             String  @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
   customerNumber String?
   createdAt      DateTime @default(now())
@@ -145,7 +149,7 @@ model Customer {
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   responsibleTechnicianId String?
-  responsibleTechnician   User? @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
+  responsibleTechnician   User?   @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
 
   products    Product[]
   contracts   Contract[]
@@ -158,7 +162,6 @@ model Customer {
 
   @@index([departmentId])
   @@index([responsibleTechnicianId])
-
   @@index([email])
   @@index([orgNumber])
   @@index([name])
@@ -184,6 +187,9 @@ model Contact {
   contracts Contract[]
 
   @@index([customerId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_email_trgm")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_phone_trgm")
 }
 
 // En enhet er en maskin/utstyr som står hos kunden, f.eks. en port, en pumpe
@@ -202,6 +208,8 @@ model Product {
   @@index([customerId])
   @@index([customerId, serialNumber])
   @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm")
+  @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_serialNumber_trgm")
+  @@index([location(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_location_trgm")
 }
 
 // En serviceavtale beskriver en gjentagende service for en kunde. Hver gang
@@ -217,8 +225,8 @@ model Contract {
   /// Neste dato det skal opprettes et oppdrag for.
   nextServiceDate DateTime @db.Date
   isActive        Boolean  @default(true)
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
 
   // Avtalen eier avdelingen som de genererte oppdragene havner i.
   departmentId String
@@ -253,6 +261,24 @@ model CustomerAttachment {
   @@index([customerId])
 }
 
+/// Overordnet kategori for en mal. HMS-maler vises i HMS-flaten og på
+/// oppdragets HMS-dokumentasjon, service-maler i den vanlige sjekklisten.
+enum TemplateCategory {
+  SERVICE
+  HMS
+}
+
+/// Undertype for HMS-skjemaer. Styrer gruppering i HMS-biblioteket.
+enum HmsFormType {
+  GENERAL
+  SJA
+  HOT_WORK
+  INTERNAL_CONTROL
+  DEVIATION
+  SAFETY_ROUND
+  WRITTEN_INSTRUCTION
+}
+
 enum WorkStatus {
   PLANNED
   IN_PROGRESS
@@ -264,23 +290,27 @@ enum WorkStatus {
 }
 
 model WorkOrder {
-  id           String     @id @default(cuid())
-  title        String
+  id                    String     @id @default(cuid())
+  title                 String
   /// Eksternt ordrenummer fra kundens system.
-  orderNumber  String?
-  description  String?
-  scheduledFor DateTime? @db.Date
+  orderNumber           String?
+  /// Normalisert ordrenummer for duplikatkontroll/søk.
+  orderNumberNormalized String?
+  /// Unik nøkkel for automatisk opprettet utbedringsoppdrag.
+  deviationSourceKey    String?    @unique
+  description           String?
+  scheduledFor          DateTime?  @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
-  scheduledTo  DateTime? @db.Date
-  status       WorkStatus @default(PLANNED)
-  creatorName  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @default(now()) @updatedAt
+  scheduledTo           DateTime?  @db.Date
+  status                WorkStatus @default(PLANNED)
+  creatorName           String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @default(now()) @updatedAt
   /// Myk sletting: oppdraget skjules fra lister, men kan gjenopprettes.
-  deletedAt    DateTime?
-  deletedBy    String?
+  deletedAt             DateTime?
+  deletedBy             String?
   /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
-  legalHold    Boolean  @default(false)
+  legalHold             Boolean    @default(false)
 
   technicians User[] @relation("WorkOrderTechnicians")
 
@@ -303,23 +333,24 @@ model WorkOrder {
   contractId String?
   contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
 
-  templates    Template[] @relation("WorkOrderTemplates")
+  templates    Template[]    @relation("WorkOrderTemplates")
   reports      Report[]
-  workComments Comment[]  @relation("WorkOrderComments")
-  tags         Tag[]      @relation("WorkOrderTags")
+  workComments Comment[]     @relation("WorkOrderComments")
+  tags         Tag[]         @relation("WorkOrderTags")
   reportDrafts ReportDraft[]
 
+  @@unique([departmentId, orderNumberNormalized])
+  // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
+  @@unique([contractId, scheduledFor])
   @@index([departmentId])
   @@index([customerId])
   @@index([status])
   @@index([scheduledFor])
   @@index([contractId])
   @@index([orderNumber])
+  @@index([orderNumberNormalized])
   @@index([scheduledTo])
   @@index([deletedAt])
-
-  // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
-  @@unique([contractId, scheduledFor])
   @@index([departmentId, status, scheduledFor])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
 }
@@ -347,6 +378,7 @@ model DocumentFolder {
   documents Document[]
 
   @@index([parentId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "DocumentFolder_name_trgm")
 }
 
 model Document {
@@ -373,8 +405,8 @@ model Document {
   tags DocumentTag[] @relation("DocumentTagRelation")
 
   uploadedBy String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
   deletedBy  String?
 
@@ -395,8 +427,8 @@ model DocumentVersion {
 
   fileName String
   filePath String
-  fileSize Int      @default(0)
-  mimeType String   @default("application/pdf")
+  fileSize Int    @default(0)
+  mimeType String @default("application/pdf")
 
   createdBy String?
   createdAt DateTime @default(now())
@@ -426,10 +458,19 @@ model Report {
   // Øyeblikksbilde av malen da rapporten ble signert, slik at senere endringer
   // i malen ikke endrer en allerede signert rapport.
   templateTitle        String?
+  /// Rapportens visningsnavn, kopiert fra malen da rapporten ble laget.
+  name                 String?
+  /// Automatisk rapportnummer for HMS-rapporter, f.eks. abc1234.
+  reportNumber         String?          @unique
+  /// Om rapporten har enheter. Snapshot fra malen.
+  requiresUnits        Boolean          @default(true)
+  /// Kategori og HMS-type frosset ved signering.
+  templateCategory     TemplateCategory @default(SERVICE)
+  hmsType              HmsFormType?
   templateSnapshotJson String?
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Rapporten låses automatisk når den er fylt ut, og kan ikke endres igjen før
   // en administrator låser den opp. Det hindrer at en signert rapport endres i
@@ -455,9 +496,9 @@ model Report {
   deletedAt DateTime?
   deletedBy String?
   /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
-  legalHold Boolean @default(false)
+  legalHold Boolean   @default(false)
 
-  units ReportUnit[]
+  units     ReportUnit[]
   revisions ReportRevision[]
 
   @@unique([workOrderId, templateId])
@@ -465,28 +506,40 @@ model Report {
   @@index([completedAt])
   @@index([workOrderId, createdAt])
   @@index([deletedAt])
+  @@index([reportNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Report_reportNumber_trgm")
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Report_name_trgm")
+  @@index([templateTitle(ops: raw("gin_trgm_ops"))], type: Gin, map: "Report_templateTitle_trgm")
 }
 
 /// Uforanderlig øyeblikksbilde av en rapport før en endring. Signerte rapporter
 /// skal alltid kunne rekonstrueres, selv om de låses opp og endres senere.
 model ReportRevision {
-  id                   String   @id @default(cuid())
-  reportId             String
-  report               Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  revision             Int
-  dataJson             String
-  unitsJson            String
-  comments             String?
-  templateTitle        String?
-  completedAt          DateTime?
-  templateSnapshotJson String?
-  technicianSignatureUrl String?
-  customerSignatureUrl   String?
-  technicianName       String?
-  customerName         String?
-  reason               String?
-  createdById          String?
-  createdAt            DateTime @default(now())
+  id                          String           @id @default(cuid())
+  reportId                    String
+  report                      Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  revision                    Int
+  dataJson                    String
+  unitsJson                   String
+  comments                    String?
+  templateTitle               String?
+  name                        String?
+  /// Rapportnummeret rapporten hadde da revisjonen ble laget.
+  reportNumber                String?
+  requiresUnits               Boolean          @default(true)
+  templateCategory            TemplateCategory @default(SERVICE)
+  hmsType                     HmsFormType?
+  completedAt                 DateTime?
+  templateSnapshotJson        String?
+  technicianSignatureUrl      String?
+  customerSignatureUrl        String?
+  technicianName              String?
+  customerName                String?
+  customerAcknowledgedAt      DateTime?
+  customerAcknowledgedBy      String?
+  customerAcknowledgedComment String?
+  reason                      String?
+  createdById                 String?
+  createdAt                   DateTime         @default(now())
 
   @@unique([reportId, revision])
   @@index([reportId, createdAt])
@@ -523,12 +576,12 @@ model ReportUnit {
 // mal, slik at flere teknikere kan fylle ut samme sjekkliste uten å overskrive
 // hverandre. Kladden slettes når rapporten lagres.
 model ReportDraft {
-  id         String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workOrderId String
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   templateId  String
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   dataJson      String
   updatedByName String?
@@ -542,12 +595,25 @@ model ReportDraft {
 }
 
 model Template {
-  id         String      @id @default(cuid())
-  title      String
-  fieldsJson String
-  reports    Report[]
-  workOrder  WorkOrder[] @relation("WorkOrderTemplates")
-  contracts  Contract[]
+  id            String           @id @default(cuid())
+  title         String
+  /// Navnet som vises på produserte rapporter/PDF. Tomt = bruk title.
+  reportName    String?
+  /// Kort beskrivelse til malbiblioteket.
+  description   String?
+  /// SERVICE = vanlig sjekkliste, HMS = HMS-dokumentasjon.
+  category      TemplateCategory @default(SERVICE)
+  /// Undertype når category = HMS.
+  hmsType       HmsFormType?
+  /// Om rapporten skal knyttes til enheter. Kan slås av per mal.
+  requiresUnits Boolean          @default(true)
+  fieldsJson    String
+  reports       Report[]
+  workOrder     WorkOrder[]      @relation("WorkOrderTemplates")
+  contracts     Contract[]
+
+  @@index([category, hmsType])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Template_title_trgm")
 }
 
 model Attachment {
@@ -564,11 +630,11 @@ model Attachment {
 // Metadata for opplastede filer, slik at /uploads kan kreve tilgang per fil.
 // Selve filen ligger på disk med et tilfeldig navn (storedName).
 model Upload {
-  id           String   @id @default(cuid())
-  storedName   String   @unique
+  id           String @id @default(cuid())
+  storedName   String @unique
   originalName String
   mimeType     String
-  size         Int      @default(0)
+  size         Int    @default(0)
 
   // WORK_ORDER | CUSTOMER | DOCUMENT | USER
   ownerType    String
@@ -577,11 +643,15 @@ model Upload {
   customerId   String?
   uploadedById String?
 
+  /// SHA-256 av filinnholdet, brukt til deduplisering av kladdesignaturer.
+  contentHash String?
+
   createdAt DateTime @default(now())
 
   @@index([ownerType, ownerId])
   @@index([departmentId])
   @@index([uploadedById])
+  @@index([contentHash])
 }
 
 enum JobStatus {
@@ -635,23 +705,31 @@ model AuditLog {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// ASSIGNMENT | DATE_CHANGED | CANCELLED | REPORT_READY | BOOKING | CONTRACT_DUE | OVERDUE
-  type      String
-  title     String
-  body      String?
-  href      String?
-  readAt    DateTime?
+  type               String
+  title              String
+  body               String?
+  /// Menneskevennlig kilde, f.eks. «Oppdrag: testoppdrag · Biniam» eller
+  /// «Kunde: Pipelife Norge AS». Frosset ved opprettelse slik at varselet
+  /// fortsatt viser hvor det kom fra selv om oppdraget senere endres.
+  sourceLabel        String?
+  href               String?
+  readAt             DateTime?
   /// Unik nøkkel per hendelse, slik at samme varsel ikke lages to ganger.
-  dedupeKey String?  @unique
+  dedupeKey          String?   @unique
   /// E-postkvittering: null betyr at varselet fortsatt venter på utsending.
-  emailSentAt       DateTime?
-  emailError        String?
-  emailAttempts     Int      @default(0)
-  emailNextAttemptAt DateTime @default(now())
-  createdAt         DateTime @default(now())
+  emailSentAt        DateTime?
+  emailError         String?
+  emailAttempts      Int       @default(0)
+  emailNextAttemptAt DateTime  @default(now())
+  /// Kort lease mens en instans sender e-posten, slik at flere instanser
+  /// ikke sender samme varsel samtidig.
+  emailLockedAt      DateTime?
+  emailLockedBy      String?
+  createdAt          DateTime  @default(now())
 
   @@index([userId, readAt, createdAt])
   @@index([createdAt])
@@ -667,6 +745,40 @@ model NotificationPreference {
   email  Boolean @default(true)
 
   @@unique([userId, type])
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  query     String
+  /// Søkefiltre som JSON, slik at et lagret søk kan gjenopprettes eksakt.
+  filters   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt])
+}
+
+/// Anonymisert nok for intern analyse, men beholder søketeksten slik at
+/// nulltreff og populære søk kan forbedres. Slettes sammen med brukeren.
+model SearchLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  query           String
+  normalizedQuery String
+  resultCount     Int
+  latencyMs       Int
+  filters         Json?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([resultCount, createdAt])
+  @@index([normalizedQuery, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Branding {

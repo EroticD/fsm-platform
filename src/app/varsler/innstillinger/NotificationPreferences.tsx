@@ -4,6 +4,7 @@ import {
   getNotificationPreferences,
   NOTIFICATION_TYPES,
 } from "@/server/notifications";
+import NotificationSoundToggle from "@/components/NotificationSoundToggle";
 import { saveNotificationPreferencesAction } from "./actions";
 
 
@@ -22,6 +23,7 @@ export default async function NotificationPreferences() {
     BOOKING: t("p3.notificationSettings.labels.BOOKING"),
     CONTRACT_DUE: t("p3.notificationSettings.labels.CONTRACT_DUE"),
     OVERDUE: t("p3.notificationSettings.labels.OVERDUE"),
+    CONTACT_UPDATE: t("p3.notificationSettings.labels.CONTACT_UPDATE"),
   };
 
   const preferences = new Map(
@@ -30,6 +32,17 @@ export default async function NotificationPreferences() {
 
   return (
     <form action={saveNotificationPreferencesAction} className="space-y-4">
+      <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-bold text-gray-900">
+            {t("p3.notificationSettings.soundTitle")}
+          </p>
+          <p className="text-xs text-gray-600">
+            {t("p3.notificationSettings.soundDescription")}
+          </p>
+        </div>
+        <NotificationSoundToggle />
+      </div>
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
@@ -52,7 +65,7 @@ export default async function NotificationPreferences() {
                       type="checkbox"
                       name={`inApp_${type}`}
                       defaultChecked={preference?.inApp ?? true}
-                      aria-label={`${labels[type] ?? type} i appen`}
+                      aria-label={t("p3.notificationSettings.inAppAria", { label: labels[type] ?? type })}
                       className="h-5 w-5"
                     />
                   </td>
@@ -61,7 +74,7 @@ export default async function NotificationPreferences() {
                       type="checkbox"
                       name={`email_${type}`}
                       defaultChecked={preference?.email ?? true}
-                      aria-label={`${labels[type] ?? type} på e-post`}
+                      aria-label={t("p3.notificationSettings.emailAria", { label: labels[type] ?? type })}
                       className="h-5 w-5"
                     />
                   </td>

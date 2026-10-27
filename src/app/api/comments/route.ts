@@ -72,8 +72,8 @@ export async function POST(request: Request) {
     if (!hasPermission(user, "customers.manage")) {
       return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
     }
-    const target = await prisma.customer.findUnique({
-      where: { id: entityId },
+    const target = await prisma.customer.findFirst({
+      where: { id: entityId, deletedAt: null },
       select: { id: true },
     });
     if (!target) {

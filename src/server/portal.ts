@@ -113,13 +113,19 @@ export async function createBooking(
         entityId: created.id,
         action: `Kunde booket nytt oppdrag: ${title}`,
         actor: toAuditActor(actor),
+        metadata: { customerId },
       });
 
       return created.id;
     });
   } catch (error) {
     // Transaksjonen ruller tilbake både oppdraget og revisjonsloggen.
-    console.error("Databasefeil ved booking av oppdrag:", error);
+    // creatorName kan være brukerens e-post, så rå Prisma-feil logges ikke.
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "ukjent";
+    console.error(`Databasefeil ved booking av oppdrag (Prisma ${code})`);
     return fail("error");
   }
 
@@ -155,10 +161,12 @@ export async function getPortalReportHistory(
   }
 
   const page = Math.max(1, options.page ?? 1);
+  // Alle avsluttede oppdrag, også de uten rapport, slik at kundeportalen har
+  // én samlet historikk i stedet for to nesten like lister.
   const where = {
     customerId: actor.customerId,
     deletedAt: null,
-    reports: { some: { deletedAt: null } },
+    status: { in: ["COMPLETED", "CANCELLED"] as ("COMPLETED" | "CANCELLED")[] },
   };
 
   const [items, total] = await Promise.all([
@@ -170,17 +178,26 @@ export async function getPortalReportHistory(
       select: {
         id: true,
         title: true,
+        orderNumber: true,
         scheduledFor: true,
         reports: {
           where: { deletedAt: null },
           orderBy: { completedAt: "desc" },
-          take: 1,
+          // Alle rapporter for oppdraget, ikke bare den nyeste. Kunden skal
+          // kunne se og kvittere for hver enkelt rapport.
           select: {
             id: true,
+            name: true,
+            templateTitle: true,
+            reportNumber: true,
+            requiresUnits: true,
             completedAt: true,
             isLocked: true,
+            revision: true,
             pdfUrl: true,
             customerAcknowledgedAt: true,
+            customerAcknowledgedBy: true,
+            customerAcknowledgedComment: true,
           },
         },
       },
@@ -247,6 +264,7 @@ export async function requestContactUpdate(
         message ||
         `Kunden ${customer.name} ber om oppdatering av kontaktinformasjon.`,
       href: `/kunder/${customer.id}`,
+      sourceLabel: `Kunde: ${customer.name}`,
       dedupeKey: `contact-update:${customer.id}:${toDateOnly(new Date())}:${user.id}`,
     });
     if (result) notified += 1;
@@ -276,11 +294,14 @@ export async function acknowledgeReport(
       id: true,
       customerId: true,
       reports: {
+        // Alle rapportene hentes, ikke bare den nyeste: en kunde kan kvittere
+        // for en bestemt rapport i historikken. Slettede rapporter filtreres
+        // bort og kan derfor aldri kvitteres.
         where: { deletedAt: null },
         orderBy: { completedAt: "desc" },
-        take: 1,
         select: {
           id: true,
+          isLocked: true,
           customerAcknowledgedAt: true,
         },
       },
@@ -292,11 +313,14 @@ export async function acknowledgeReport(
   }
 
   const requestedReportId = idFrom(input.reportId);
-  const report =
-    (requestedReportId
-      ? workOrder.reports.find((row) => row.id === requestedReportId)
-      : workOrder.reports[0]) ?? null;
-  if (!report) return fail("not_found");
+  const report = requestedReportId
+    ? (workOrder.reports.find((row) => row.id === requestedReportId) ?? null)
+    : (workOrder.reports.find((row) => row.isLocked) ?? null);
+
+  // Bare en signert (låst) rapport er et ferdig dokument kunden kan kvittere
+  // for. En opplåst rapport er under retting, og en slettet rapport finnes
+  // ikke i listen.
+  if (!report || !report.isLocked) return fail("not_found");
   if (report.customerAcknowledgedAt) return ok(undefined);
 
   const comment =
@@ -319,7 +343,7 @@ export async function acknowledgeReport(
       entityId: report.id,
       action: "Kunden kvitterte for rapporten",
       actor: toAuditActor(actor),
-      metadata: { workOrderId },
+      metadata: { workOrderId, reportId: report.id },
     });
   });
 

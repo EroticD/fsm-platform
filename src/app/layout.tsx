@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
+import { isStaff } from "@/lib/session";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
@@ -10,6 +11,7 @@ import BrandingColors from "@/components/BrandingColors";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import ToastProvider from "@/components/ToastProvider";
 import OfflineBanner from "@/components/OfflineBanner";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,6 +71,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <BrandingColors />
             <OfflineBanner />
             <BrandedHeader showNav role={session?.user?.role} />
+            {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
+                innloggingssidene skal ikke åpne en SSE-tilkobling. */}
+            {isStaff(session?.user?.role) && <RealtimeRefresh />}
             <main id="main-content" className="flex-1">
               {children}
             </main>

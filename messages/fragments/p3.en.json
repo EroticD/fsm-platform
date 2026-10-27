@@ -13,7 +13,22 @@
       "previous": "Previous",
       "next": "Next",
       "pageOf": "Page {page} of {pages}",
-      "settings": "Settings"
+      "settings": "Settings",
+      "fromLabel": "From:",
+      "sourceFallback": "System notification",
+      "unread": "Unread",
+      "openAria": "Open the notification “{title}”",
+      "markReadAria": "Mark the notification “{title}” as read",
+      "types": {
+        "ASSIGNMENT": "Assignment",
+        "DATE_CHANGED": "Date change",
+        "CANCELLED": "Cancellation",
+        "REPORT_READY": "Report",
+        "BOOKING": "Booking",
+        "CONTRACT_DUE": "Service agreement",
+        "OVERDUE": "Overdue",
+        "CONTACT_UPDATE": "Contact update"
+      }
     },
     "notificationSettings": {
       "title": "Notification settings",
@@ -23,6 +38,8 @@
       "email": "Email",
       "save": "Save notification settings",
       "toNotifications": "Back to notifications",
+      "soundTitle": "Notification sound",
+      "soundDescription": "Play a short sound when new notifications arrive while the app is open.",
       "labels": {
         "ASSIGNMENT": "You are assigned a work order",
         "DATE_CHANGED": "Work order rescheduled",
@@ -30,7 +47,8 @@
         "REPORT_READY": "Report ready",
         "BOOKING": "New booking from the customer portal",
         "CONTRACT_DUE": "Service agreement due",
-        "OVERDUE": "Work order overdue"
+        "OVERDUE": "Work order overdue",
+        "CONTACT_UPDATE": "Customer requests updated contact information"
       },
       "inAppAria": "{label} in app",
       "emailAria": "{label} by email"
@@ -51,17 +69,27 @@
     },
     "portalReports": {
       "title": "📄 Reports",
-      "count": "{count} reports",
+      "count": "{count} work orders in history",
       "empty": "No reports have been published yet.",
+      "workOrderPerformed": "Work order completed {date}",
+      "unknownDate": "no date",
+      "noReport": "No report has been published for this work order.",
+      "previous": "Previous page",
+      "next": "Next page",
+      "pageOf": "Page {page} of {pages}",
       "performed": "Completed {date}",
       "signed": "signed",
       "download": "Download PDF",
       "acknowledged": "✓ Acknowledged {date}",
       "commentPlaceholder": "Comment (optional)",
       "acknowledge": "Acknowledge receipt",
+      "orderNumber": "Order no. {number}",
+      "revision": "revision {revision}",
+      "history": "🕘 Revisions",
       "requestUpdate": "Request a contact information update",
       "requestUpdatePlaceholder": "What should be updated?",
-      "requestUpdateButton": "Send request"
+      "requestUpdateButton": "Send request",
+      "reportNumber": "Report no. {number}"
     },
     "bell": {
       "label": "Notifications",

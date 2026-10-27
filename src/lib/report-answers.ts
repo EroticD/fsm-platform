@@ -41,7 +41,22 @@ export function parseJsonObject(raw: string | null | undefined): Record<string, 
   return {};
 }
 
-/** "GODKJENT" | "AVVIK" | "UKJENT" ut fra rapportens dataJson. */
+/** Rapportens samlede resultat når den har enheter. */
+export const REPORT_STATUS_APPROVED = "GODKJENT";
+export const REPORT_STATUS_DEVIATION = "AVVIK";
+
+/**
+ * Rapport uten enheter. En slik rapport har ingen enhet å godkjenne eller
+ * registrere avvik på, og skal derfor verken vises som godkjent eller avvik.
+ * Den anonyme raden som bærer svarfeltene lagrer denne verdien i `status`.
+ */
+export const REPORT_STATUS_WITHOUT_UNITS = "UTEN_ENHET";
+
+/**
+ * "GODKJENT" | "AVVIK" | "UTEN_ENHET" | "UKJENT" ut fra rapportens dataJson.
+ * Eldre rapporter uten enheter kan ha GODKJENT/AVVIK; visningen må bruke
+ * rapportens `requiresUnits` i stedet for å stole på den lagrede verdien.
+ */
 export function reportStatus(dataJson: string | null | undefined): string {
   const parsed = parseJsonObject(dataJson);
   const status = parsed.status;

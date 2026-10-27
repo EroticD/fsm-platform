@@ -39,10 +39,12 @@ export async function createPortalUser(formData: FormData) {
     return;
   }
 
-  const { customerId, id, token, mailSent } = result.data;
+  const { customerId, id, mailSent } = result.data;
   revalidatePath(`/kunder/${customerId}`);
+  // Invitasjonsnøkkelen sendes i e-post, ikke i adressen. En URL med nøkkelen
+  // ville lagret et kontoovertakelsesmiddel i logger og historikk.
   redirect(
-    `/kunder/${customerId}?tab=portal&invite=${id}&inviteToken=${encodeURIComponent(token)}&mail=${mailSent ? "sent" : "manual"}`,
+    `/kunder/${customerId}?tab=portal&invite=${id}&mail=${mailSent ? "sent" : "manual"}`,
   );
 }
 
@@ -73,9 +75,11 @@ export async function resendPortalInvite(formData: FormData) {
   });
   if (!result.ok) return;
 
-  const { customerId, id, token, mailSent } = result.data;
+  const { customerId, id, mailSent } = result.data;
   revalidatePath(`/kunder/${customerId}`);
+  // Invitasjonsnøkkelen sendes i e-post, ikke i adressen. En URL med nøkkelen
+  // ville lagret et kontoovertakelsesmiddel i logger og historikk.
   redirect(
-    `/kunder/${customerId}?tab=portal&invite=${id}&inviteToken=${encodeURIComponent(token)}&mail=${mailSent ? "sent" : "manual"}`,
+    `/kunder/${customerId}?tab=portal&invite=${id}&mail=${mailSent ? "sent" : "manual"}`,
   );
 }

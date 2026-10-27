@@ -6,9 +6,12 @@ import { useTranslations } from "next-intl";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
+import { splitTemplatesByCategory } from "@/lib/template-categories";
 
 export default function CreateWorkOrderForm({ customers, templates, tags }: { customers: any[], templates: any[], tags: any[] }) {
   const t = useTranslations("common");
+  const { service: serviceTemplates, hms: hmsTemplates } =
+    splitTemplatesByCategory(templates);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
@@ -114,9 +117,20 @@ export default function CreateWorkOrderForm({ customers, templates, tags }: { cu
             <label className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.templateLabel")}</label>
             <select name="templateId" className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50">
               <option value="">{t("orders.fieldNew.noTemplate")}</option>
-              {templates.map(template => (
-                <option key={template.id} value={template.id}>{template.title}</option>
-              ))}
+              {serviceTemplates.length > 0 && (
+                <optgroup label={t("orders.templateGroups.service")}>
+                  {serviceTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>{template.title}</option>
+                  ))}
+                </optgroup>
+              )}
+              {hmsTemplates.length > 0 && (
+                <optgroup label={`🛡️ ${t("orders.templateGroups.hms")}`}>
+                  {hmsTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>{template.title}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 

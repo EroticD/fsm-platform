@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
@@ -13,6 +14,11 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
+import {
+  HMS_TYPE_MESSAGE_KEYS,
+  isHmsTemplate,
+  splitTemplatesByCategory,
+} from "@/lib/template-categories";
 import {
   addComment,
   addTechnician,
@@ -130,6 +136,14 @@ export default async function TechnicianWorkOrderPage({
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
+  const { service: serviceTemplates, hms: hmsTemplates } =
+    splitTemplatesByCategory(workOrder.templates);
+  // Service først, deretter en egen HMS-seksjon. Rekkefølgen innad er uendret.
+  const orderedTemplates = [...serviceTemplates, ...hmsTemplates];
+  const {
+    service: availableServiceTemplates,
+    hms: availableHmsTemplates,
+  } = splitTemplatesByCategory(availableTemplates);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -139,7 +153,7 @@ export default async function TechnicianWorkOrderPage({
         <div className="flex justify-between items-start border-b pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-gray-900">{workOrder.title}</h1>
-            <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || t("orders.fieldDetail.noCustomer")}</p>
+            <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || t("orders.fieldDetail.internalOrder")}</p>
             <p className="text-xs text-gray-500 font-bold mt-1">{t("orders.fieldDetail.department", { name: workOrder.department.name })}</p>
             {workOrder.tags && workOrder.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -301,7 +315,7 @@ export default async function TechnicianWorkOrderPage({
                       <form action={removeTechnician} className="flex-shrink-0">
                         <input type="hidden" name="workOrderId" value={workOrderId} />
                         <input type="hidden" name="userId" value={tech.id} />
-                        <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
+                        <button type="submit" className="min-h-11 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg border border-red-300 transition whitespace-nowrap">
                           {tech.id === user.id ? t("orders.fieldDetail.removeMe") : t("orders.fieldDetail.remove")}
                         </button>
                       </form>
@@ -398,13 +412,39 @@ export default async function TechnicianWorkOrderPage({
             <p className="text-sm text-gray-500 italic mb-4">{t("orders.fieldDetail.noChecklists")}</p>
           ) : (
             <div className="space-y-3 mb-6">
-              {workOrder.templates.map(template => {
+              {orderedTemplates.map((template, templateIndex) => {
                 const report = workOrder.reports.find(report => report.templateId === template.id);
+                const startsHmsSection =
+                  templateIndex === serviceTemplates.length &&
+                  hmsTemplates.length > 0;
 
                 return (
-                  <div key={template.id} className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
-                    <span className={`font-bold text-sm ${report ? 'text-green-900' : 'text-blue-900'} flex items-center gap-2`}>
+                  <Fragment key={template.id}>
+                  {startsHmsSection && (
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-[10px] font-black text-indigo-900 uppercase tracking-wider">
+                        🛡️ {t("orders.templateGroups.hms")}
+                      </span>
+                      <span className="h-px flex-1 bg-indigo-200" />
+                    </div>
+                  )}
+                  <div className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                    <span className={`font-bold text-sm ${report ? 'text-green-900' : 'text-blue-900'} flex items-center gap-2 flex-wrap`}>
                       {template.title}
+                      {isHmsTemplate(template) && (
+                        <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                          🛡️ {template.hmsType
+                            ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
+                            : t("orders.templateGroups.hmsBadge")}
+                        </span>
+                      )}
+                      {report?.reportNumber && (
+                        <span className="bg-white text-gray-700 border border-gray-300 text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {t("orders.fieldDetail.reportNumber", {
+                            number: report.reportNumber,
+                          })}
+                        </span>
+                      )}
                       {report?.isLocked && (
                         <span className="bg-gray-800 text-white text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.locked")}
@@ -423,14 +463,14 @@ export default async function TechnicianWorkOrderPage({
                           href={`/rapporter/${workOrderId}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                          className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                         >
                           {t("orders.fieldDetail.openReport")}
                         </Link>
                         {canWriteReports && canUpdate && !report.isLocked && (
                           <Link
                             href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
-                            className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
+                            className="inline-flex min-h-11 items-center bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-amber-800 shadow-sm transition whitespace-nowrap"
                           >
                             {t("orders.fieldDetail.edit")}
                           </Link>
@@ -439,7 +479,7 @@ export default async function TechnicianWorkOrderPage({
                     ) : canWriteReports && canUpdate ? (
                       <Link
                         href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
-                        className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                        className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                       >
                         {t("orders.fieldDetail.fillForm")}
                       </Link>
@@ -449,6 +489,7 @@ export default async function TechnicianWorkOrderPage({
                       </span>
                     )}
                   </div>
+                  </Fragment>
                 );
               })}
             </div>
@@ -466,9 +507,20 @@ export default async function TechnicianWorkOrderPage({
                   className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectTemplate")}</option>
-                  {availableTemplates.map(template => (
-                    <option key={template.id} value={template.id}>{template.title}</option>
-                  ))}
+                  {availableServiceTemplates.length > 0 && (
+                    <optgroup label={t("orders.templateGroups.service")}>
+                      {availableServiceTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>{template.title}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {availableHmsTemplates.length > 0 && (
+                    <optgroup label={`🛡️ ${t("orders.templateGroups.hms")}`}>
+                      {availableHmsTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>{template.title}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <button type="submit" className="bg-gray-200 text-gray-800 px-4 py-2.5 rounded-xl text-sm font-black hover:bg-gray-300 transition shadow-sm whitespace-nowrap">
                   {t("orders.fieldDetail.add")}

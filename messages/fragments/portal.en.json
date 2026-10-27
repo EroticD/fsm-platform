@@ -36,7 +36,17 @@
       "titlePlaceholder": "E.g. Annual service",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "What do you need help with?",
-      "submit": "Book work order"
+      "submit": "Book work order",
+      "submitting": "Sending …",
+      "success": "Thank you! Your request has been sent, and the office will contact you to agree on a time.",
+      "successDuplicate": "Your request has already been received. We will contact you to agree on a time.",
+      "errors": {
+        "forbidden": "This account is not allowed to make bookings.",
+        "missingFields": "Enter a title before sending the request.",
+        "rateLimited": "You have sent many requests in a short time. Try again later.",
+        "conflict": "You already have several open requests. Contact us if you need more help.",
+        "generic": "The request could not be sent right now. Please try again shortly."
+      }
     },
     "upcoming": {
       "title": "Upcoming work orders",

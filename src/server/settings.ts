@@ -2,7 +2,10 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { isSafeLogoUrl } from "@/lib/logo";
+import { isBrandingLogoForActor } from "@/lib/upload-ownership";
 import { LIMITS, cleanColor, cleanStatus, cleanText, cleanUrl } from "@/lib/sanitize";
+import { cleanTemplateFieldsJson } from "@/lib/template-fields";
+import { resolveTemplateClassification } from "@/lib/template-category";
 import {
   can,
   fail,
@@ -38,7 +41,13 @@ export async function getSettingsOverview(actor: ServiceActor) {
   const isAdmin = isAdminActor(actor);
   const [branding, templates, tags, documentTags] = await Promise.all([
     prisma.branding.findFirst(),
-    prisma.template.findMany({ orderBy: { title: "asc" } }),
+    prisma.template.findMany({
+      orderBy: { title: "asc" },
+      // Brukes til å advare før en mal slettes mens den fortsatt er i bruk.
+      include: {
+        _count: { select: { reports: true, workOrder: true, contracts: true } },
+      },
+    }),
     prisma.tag.findMany({ orderBy: { name: "asc" } }),
     prisma.documentTag.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -306,6 +315,14 @@ export async function saveBranding(
   // interne tjenere og er en SSRF-risiko i PDF- og e-postgenerering.
   if (logoUrl && !isSafeLogoUrl(logoUrl)) return fail("invalid_logo");
 
+  // Stien alene sier ingenting om hvem som eier filen. Logoen må være lastet
+  // opp som merkevare av den som nå lagrer den – ellers kunne en hvilken som
+  // helst `/uploads`-fil fra et oppdrag, en kunde eller en annen bruker bli
+  // vist til alle innloggede og bakt inn i PDF-er.
+  if (logoUrl && !(await isBrandingLogoForActor(logoUrl, actor.id))) {
+    return fail("invalid_logo");
+  }
+
   const existing = await prisma.branding.findFirst();
 
   const branding = await prisma.$transaction(async (tx) => {
@@ -335,23 +352,74 @@ export async function saveBranding(
 // Sjekklistemaler
 // ---------------------------------------------------------------------------
 
+/** Avkrysningsfelt: eksplisitt «true»/«false» vinner, ellers standardverdien. */
+export function checkboxValue(value: unknown, defaultValue: boolean): boolean {
+  const values = Array.isArray(value) ? value : [value];
+  if (values.some((item) => item === "true" || item === "on")) return true;
+  if (values.some((item) => item === "false" || item === "0")) return false;
+  return defaultValue;
+}
+
+export type TemplateInput = {
+  title?: unknown;
+  reportName?: unknown;
+  description?: unknown;
+  category?: unknown;
+  hmsType?: unknown;
+  requiresUnits?: unknown;
+  fieldsJson?: unknown;
+};
+
+function templateAuditSuffix(input: {
+  category: "SERVICE" | "HMS";
+  hmsType: string | null;
+}): string {
+  return input.category === "HMS" && input.hmsType
+    ? ` [HMS: ${input.hmsType}]`
+    : "";
+}
+
 export async function createTemplate(
   actor: ServiceActor,
-  input: { title?: unknown },
+  input: TemplateInput,
 ): Promise<ServiceResult<{ id: string }>> {
   if (!can(actor, "templates.manage")) return fail("forbidden");
 
   const title = cleanText(input.title, { maxLength: LIMITS.title });
   if (!title) return fail("invalid");
 
+  const classification = resolveTemplateClassification({
+    category: input.category,
+    hmsType: input.hmsType,
+    defaultCategory: "SERVICE",
+  });
+  if (!classification) return fail("invalid");
+
+  const reportName = cleanText(input.reportName, { maxLength: LIMITS.title }) || null;
+  const description =
+    cleanText(input.description, { maxLength: LIMITS.text }) || null;
+  const requiresUnits = checkboxValue(input.requiresUnits, true);
+
   const template = await prisma.$transaction(async (tx) => {
     const created = await tx.template.create({
-      data: { title, fieldsJson: "[]" },
+      data: {
+        title,
+        reportName,
+        description,
+        category: classification.category,
+        hmsType: classification.hmsType,
+        requiresUnits,
+        fieldsJson: "[]",
+      },
     });
     await audit(tx, {
       entityType: "Template",
       entityId: created.id,
-      action: `Opprettet sjekkliste: ${title}`,
+      action: `Opprettet sjekkliste: ${title}${
+        reportName ? ` (rapportnavn: ${reportName})` : ""
+      }${requiresUnits ? "" : " (uten enheter)"}${templateAuditSuffix(
+        classification,
+      )}`,
       actor: toAuditActor(actor),
     });
     return created;
@@ -360,6 +428,109 @@ export async function createTemplate(
   return ok({ id: template.id });
 }
 
+/**
+ * Oppdaterer en eksisterende sjekklistemal.
+ *
+ * Kategori og HMS-type valideres med de samme reglene som ved opprettelse.
+ * Når feltene ikke sendes med, beholder malen det den hadde – en SERVICE-mal
+ * blir dermed ikke til HMS bare fordi en eldre klient mangler feltet.
+ */
+export async function updateTemplate(
+  actor: ServiceActor,
+  input: TemplateInput & { id?: unknown },
+): Promise<ServiceResult<{ id: string }>> {
+  if (!can(actor, "templates.manage")) return fail("forbidden");
+
+  const id = cleanText(input.id, { maxLength: LIMITS.line });
+  const title = cleanText(input.title, { maxLength: LIMITS.title });
+  if (!id || !title) return fail("invalid");
+
+  const existing = await prisma.template.findUnique({ where: { id } });
+  if (!existing) return fail("not_found");
+
+  const classification = resolveTemplateClassification({
+    category: input.category,
+    hmsType: input.hmsType === undefined ? existing.hmsType : input.hmsType,
+    defaultCategory: existing.category,
+  });
+  if (!classification) return fail("invalid");
+
+  const reportName =
+    input.reportName === undefined
+      ? existing.reportName
+      : cleanText(input.reportName, { maxLength: LIMITS.title }) || null;
+  const description =
+    input.description === undefined
+      ? existing.description
+      : cleanText(input.description, { maxLength: LIMITS.text }) || null;
+  const requiresUnits =
+    input.requiresUnits === undefined
+      ? existing.requiresUnits
+      : checkboxValue(input.requiresUnits, existing.requiresUnits);
+  const fieldsJson =
+    input.fieldsJson === undefined
+      ? undefined
+      : cleanTemplateFieldsJson(input.fieldsJson);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.template.update({
+      where: { id },
+      data: {
+        title,
+        reportName,
+        description,
+        category: classification.category,
+        hmsType: classification.hmsType,
+        requiresUnits,
+        ...(fieldsJson === undefined ? {} : { fieldsJson }),
+      },
+    });
+    const changes = [`Endret sjekkliste: ${existing.title || title} → ${title}`];
+    if ((existing.reportName ?? null) !== reportName) {
+      changes.push(
+        `rapportnavn: ${existing.reportName || "(tomt)"} → ${reportName || "(tomt)"}`,
+      );
+    }
+    if ((existing.description ?? null) !== description) {
+      changes.push(
+        `beskrivelse: ${existing.description || "(tomt)"} → ${description || "(tomt)"}`,
+      );
+    }
+    if ((existing.requiresUnits ?? true) !== requiresUnits) {
+      changes.push(
+        `enheter: ${existing.requiresUnits ?? true ? "ja" : "nei"} → ${requiresUnits ? "ja" : "nei"}`,
+      );
+    }
+    if (existing.category !== classification.category) {
+      changes.push(
+        `kategori: ${existing.category} → ${classification.category}`,
+      );
+    }
+    if ((existing.hmsType ?? null) !== classification.hmsType) {
+      changes.push(
+        `HMS-type: ${existing.hmsType || "(ingen)"} → ${classification.hmsType || "(ingen)"}`,
+      );
+    }
+    await audit(tx, {
+      entityType: "Template",
+      entityId: id,
+      action: changes.join(" · "),
+      actor: toAuditActor(actor),
+    });
+  });
+
+  return ok({ id });
+}
+
+/**
+ * Sletter en sjekklistemal.
+ *
+ * Malen kan være festet til oppdrag, rapporter eller aktive serviceavtaler. En
+ * hard sletting ville da fjerne malen fra historikken eller bryte en aktiv
+ * avtale, så sletting nektes når den er i bruk. Svaret inneholder antall
+ * referanser slik at UI kan vise hva som må ryddes først. Selve slettingen
+ * logges; et blokkert forsøk logges også, med bruken som stoppet det.
+ */
 export async function deleteTemplate(
   actor: ServiceActor,
   input: { id?: unknown },
@@ -372,6 +543,27 @@ export async function deleteTemplate(
   const template = await prisma.template.findUnique({ where: { id } });
   if (!template) return fail("not_found");
 
+  const [reports, activeContracts, workOrders] = await Promise.all([
+    prisma.report.count({ where: { templateId: id } }),
+    prisma.contract.count({ where: { templateId: id, isActive: true } }),
+    prisma.workOrder.count({ where: { templates: { some: { id } } } }),
+  ]);
+
+  if (reports > 0 || activeContracts > 0 || workOrders > 0) {
+    const usage = { reports, activeContracts, workOrders };
+    await prisma.auditLog.create({
+      data: {
+        entityType: "Template",
+        entityId: id,
+        action: `Blokkerte sletting av sjekklisten «${template.title}» fordi den er i bruk`,
+        userName: actor.name || actor.email || "Ukjent",
+        actorId: actor.id,
+        metadata: usage,
+      },
+    });
+    return fail("in_use", usage);
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.template.delete({ where: { id } });
     await audit(tx, {
@@ -379,6 +571,7 @@ export async function deleteTemplate(
       entityId: id,
       action: `Slettet sjekkliste: ${template.title}`,
       actor: toAuditActor(actor),
+      metadata: { reports: 0, activeContracts: 0, workOrders: 0 },
     });
   });
   return ok(undefined);

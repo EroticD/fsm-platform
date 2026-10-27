@@ -42,13 +42,17 @@
       "total": "{count, plural, one {# work order} other {# work orders}}",
       "backToDashboard": "← Dashboard",
       "newWorkOrder": "➕ New work order",
-      "searchPlaceholder": "Search title, description, customer or location ...",
+      "searchPlaceholder": "Search title, description, order number, tag, customer or location ...",
       "search": "Search",
       "reset": "Reset",
+      "orderNumber": "Order no.",
+      "filterTag": "Tag: {tag}",
+      "clearTag": "Clear tag filter",
       "emptyTitle": "No work orders in this view.",
       "emptySearch": "No matches for “{query}”. Try another search term, or reset the search.",
+      "emptyTag": "No work orders with the tag “{tag}”.",
       "emptyHint": "Choose another view above, or create a new work order.",
-      "noCustomer": "No customer",
+      "noCustomer": "Internal work order",
       "noDate": "No date",
       "unassigned": "⚠️ No technician assigned",
       "checklists": "📋 {done}/{total} checklists completed",
@@ -90,9 +94,29 @@
       "noMatch": "No customers matched the search.",
       "customerNumber": "Cust. no: {number}",
       "noCustomers": "No customers found in the system.",
+      "change": "Change customer",
+      "searchForAnother": "Search for another customer …",
+      "searching": "Searching …",
+      "searchFailed": "The customer search failed. Try again.",
+      "listLabel": "Customers",
+      "loadingContacts": "Loading contacts …",
       "contactLabel": "Contact person (optional)",
       "noContacts": "The customer has no registered contact persons. You can add one once the work order is created.",
       "noContactOption": "— No contact person —"
+    },
+    "templateGroups": {
+      "service": "Service / checklists",
+      "hms": "HMS documentation",
+      "hmsBadge": "HMS"
+    },
+    "hmsTypes": {
+      "general": "General HMS form",
+      "sja": "Safe job analysis (SJA)",
+      "hotWork": "Hot work",
+      "internalControl": "Risk assessment / internal control",
+      "deviation": "Deviation report",
+      "safetyRound": "Safety round",
+      "writtenInstruction": "Written instruction"
     },
     "detail": {
       "notFoundTitle": "The work order does not exist",
@@ -100,6 +124,7 @@
       "saveTags": "💾 Save tags",
       "department": "🏷️ Department: {name}",
       "noCustomer": "No customer",
+      "internalOrder": "Internal work order",
       "editWorkOrder": "✏️ Edit work order",
       "deleteConfirm": "Delete the work order “{title}”? All reports, comments and attachments for the work order will be deleted. This cannot be undone.",
       "deleteWorkOrder": "🗑️ Delete work order",
@@ -173,7 +198,10 @@
         "deviationShort": "❌ Deviation",
         "approvedShort": "✅ Approved",
         "answersTitle": "Answers to checkpoints:",
-        "generalNotes": "General notes from the technician:"
+        "generalNotes": "General notes from the technician:",
+        "customerAcknowledged": "Customer acknowledged {date}",
+        "customerAcknowledgementComment": "Customer's acknowledgement comment",
+        "reportNumber": "Report number: {number}"
       },
       "unlockReason": "Reason for unlocking",
       "unlockReasonPlaceholder": "Describe what needs to be corrected",
@@ -188,9 +216,20 @@
       "reopenReasonPlaceholder": "Describe why the work order is reopened or the status is overridden",
       "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status.",
       "closedLocked": "This work order is completed or cancelled and locked. You can add comments or clone it into a new work order.",
+      "legalHoldBadge": "Legal hold",
+      "legalHoldHint": "A legal hold prevents automatic deletion of the work order and its reports. Only an administrator can turn it off.",
+      "legalHoldEnable": "🔒 Enable legal hold",
+      "legalHoldDisable": "🔓 Disable legal hold",
+      "legalHoldReleaseReason": "Reason for releasing the legal hold",
+      "legalHoldReleaseReasonHint": "The reason is recorded in the audit log.",
+      "legalHoldReportBadge": "Legal hold on report",
+      "legalHoldReportHint": "One or more reports on this work order are under legal hold.",
+      "reportLegalHoldEnable": "🔒 Report hold",
+      "reportLegalHoldDisable": "🔓 Release report hold",
       "statusPlanned": "Planned",
       "statusWaiting": "Waiting",
-      "orderNumber": "Order number associated with work order"
+      "orderNumber": "Order number associated with work order",
+      "revisions": "Revisions ({count})"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -246,6 +285,7 @@
       "notFoundText": "It may have been deleted, or the link is incorrect.",
       "backToOverview": "Go back to the overview",
       "noCustomer": "No customer",
+      "internalOrder": "Internal work order",
       "department": "🏷️ Department: {name}",
       "back": "← Back",
       "statusTitle": "Work order status",
@@ -297,7 +337,8 @@
       "selectTemplate": "-- Select checklist template --",
       "auditLog": "📋 Activity log",
       "statusPlanned": "Planned",
-      "statusWaiting": "Waiting"
+      "statusWaiting": "Waiting",
+      "reportNumber": "Report no. {number}"
     },
     "fieldNew": {
       "noDepartmentTitle": "You are missing a department",
@@ -347,7 +388,8 @@
       "noCustomer": "No customer",
       "lockedTitle": "🔒 The report is locked",
       "lockedText": "This checklist has already been filled in and locked, and cannot be changed here. If corrections are needed, an administrator must unlock it first.",
-      "openPdf": "📄 View the report (PDF)"
+      "openPdf": "📄 View the report (PDF)",
+      "revisions": "Revisions ({count})"
     },
     "fieldInput": {
       "commentRequired": "💬 Comment for “{value}” – required",
@@ -427,7 +469,9 @@
       "technicianHelper": "The person who performed the job.",
       "customerSignature": "✍️ Customer",
       "customerHelper": "The customer representative on site.",
-      "draftOffline": "Saved locally – will sync when back online"
+      "draftOffline": "Saved locally – will sync when back online",
+      "reportNoUnitsTitle": "Checkpoints",
+      "reportNoUnitsHint": "This report is not linked to equipment units. The checkpoints are completed for the work order as a whole."
     },
     "attachments": {
       "title": "📎 Attachments",
@@ -483,7 +527,10 @@
       "invalidData": "⛔ The work order could not be saved. Check the title, date and department.",
       "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date.",
       "workOrderLocked": "🔒 This work order is completed or cancelled and locked. You can add comments or clone it.",
-      "reasonRequired": "You must provide a reason for reopening or changing the status."
+      "reasonRequired": "You must provide a reason for reopening or changing the status.",
+      "legalHold": "⛔ The work order cannot be deleted because it or one of its reports is under legal hold.",
+      "legalHoldFrozen": "⛔ The report is frozen by legal hold. An administrator must release the hold with a reason before it can be changed or unlocked.",
+      "duplicateOrderNumber": "⛔ The order number is already in use in this department. Use a different number."
     },
     "reportsPage": {
       "title": "Service reports",
@@ -498,8 +545,11 @@
       "emptyTitle": "No reports {range}.",
       "emptyDescription": "Reports appear here as soon as technicians complete and save a checklist.",
       "defaultTitle": "Service report",
+      "filterLabel": "Type",
+      "filterAll": "All",
       "noDate": "No date",
-      "noCustomer": "No customer",
+      "noCustomer": "Internal work order",
+      "internalOrder": "Internal work order",
       "unknownWorkOrder": "Unknown work order",
       "deviations": "❌ {count} deviations",
       "units": "{count, plural, one {# unit} other {# units}}",
@@ -508,7 +558,37 @@
       "unsigned": "Unsigned",
       "viewPdf": "📄 View report (PDF)",
       "openWorkOrder": "📂 Open work order",
-      "showing": "Showing the {shown} newest of {total} reports."
+      "showing": "Showing the {shown} newest of {total} reports.",
+      "noUnits": "No units",
+      "revisions": "Revisions ({count})",
+      "previousPage": "Previous",
+      "nextPage": "Next",
+      "showingPage": "Page {page} of {totalPages} · {total} reports",
+      "reportNumber": "Report no. {number}"
+    },
+    "revisions": {
+      "title": "Revisions",
+      "back": "Back",
+      "openCurrentPdf": "📄 Open current report",
+      "notFound": "The work order or its revisions were not found.",
+      "noReports": "The work order has no reports yet.",
+      "noRevisions": "No revisions",
+      "noReason": "No reason provided",
+      "unknownActor": "Unknown user",
+      "defaultName": "Service report",
+      "reason": "Reason",
+      "actor": "Changed by",
+      "createdAt": "Time",
+      "status": "Result in this version",
+      "currentRevision": "Current revision: {revision}",
+      "revisionLabel": "Revision {revision}",
+      "snapshotTitle": "Content of revision {revision}",
+      "snapshotMissing": "The content of this revision could not be found.",
+      "downloadPdf": "⬇ Download revision (PDF)",
+      "unitSummary": "{count, plural, one {# unit} other {# units}} · {deviations} deviations",
+      "noUnits": "The report does not use units",
+      "noUnitLabel": "Unnamed",
+      "reportNumber": "Report number"
     },
     "reportViewer": {
       "notFoundWorkOrder": "Work order not found.",
@@ -519,7 +599,7 @@
       "reportFor": "Report for: {title}",
       "download": "⬇ Download PDF",
       "iframeTitle": "Service report – {title}",
-      "noCustomer": "No customer"
+      "noCustomer": "Internal work order"
     }
   }
 }

@@ -39,8 +39,27 @@ export async function GET(
     if (user.role !== "ADMIN") {
       return new NextResponse("Fant ikke filen", { status: 404 });
     }
-  } else if (!canReadUpload(user, upload)) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
+  } else {
+    if (!canReadUpload(user, upload)) {
+      return new NextResponse("Ingen tilgang", { status: 403 });
+    }
+
+    // En oppdragsfil skal ikke være lesbar etter at oppdraget er mykt slettet.
+    // Administrator beholder tilgangen slik at gjenoppretting og revisjon er
+    // mulig. Selve slettingen rører ikke filen.
+    if (
+      upload.ownerType === "WORK_ORDER" &&
+      upload.ownerId &&
+      user.role !== "ADMIN"
+    ) {
+      const workOrder = await prisma.workOrder.findUnique({
+        where: { id: upload.ownerId },
+        select: { deletedAt: true },
+      });
+      if (!workOrder || workOrder.deletedAt) {
+        return new NextResponse("Fant ikke filen", { status: 404 });
+      }
+    }
   }
 
   try {

@@ -196,6 +196,7 @@ export default async function TechnicianFillFormPage({
           fields={fields}
           customerUnits={customerUnits}
           defaultUnitId={workOrder.productId}
+          requiresUnits={template.requiresUnits}
           technicianName={user.name || undefined}
           initialReport={initialReport}
           initialDraft={initialDraft}

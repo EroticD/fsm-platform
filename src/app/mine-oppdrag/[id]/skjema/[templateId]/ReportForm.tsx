@@ -7,6 +7,7 @@ import FieldInput, { type TemplateField } from "./FieldInput";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import { readLineComment } from "@/lib/report-answers";
+import { reportFormSections } from "./report-form-sections";
 import { saveDraft, submitReport } from "./actions";
 import {
   loadDraftLocally,
@@ -40,6 +41,39 @@ export type InitialReport = {
   customerName: string | null;
   units: Omit<UnitEntry, "key">[];
 };
+
+/** Fast nøkkel for den anonyme oppføringen når malen ikke bruker enheter. */
+const REPORT_WITHOUT_UNITS_KEY = "report";
+
+/** Sammenligner et svar med malens betingelsesverdi, uten hensyn til case. */
+function answerMatches(value: unknown, expected: string | undefined): boolean {
+  if (expected === undefined) return true;
+  const raw = (value === undefined || value === null ? "" : String(value))
+    .trim()
+    .toLowerCase();
+  const wanted = expected.trim().toLowerCase();
+  if (raw === wanted) return true;
+  // Avkrysningsfelt lagres som «true»/«false», men malbyggeren kan ha skrevet
+  // «Ja»/«Nei» som betingelse. Godta begge skrivemåtene.
+  const truthy = ["true", "ja", "yes", "1"];
+  const falsy = ["false", "nei", "no", "0"];
+  return (
+    (truthy.includes(raw) && truthy.includes(wanted)) ||
+    (falsy.includes(raw) && falsy.includes(wanted))
+  );
+}
+
+/**
+ * Er feltet synlig ut fra svarene i samme enhet? Betingede felt blir først
+ * vist når kildefeltet har verdien malen krever.
+ */
+function isFieldVisible(
+  field: TemplateField,
+  answers: Record<string, unknown>,
+): boolean {
+  if (!field.conditionalFieldId) return true;
+  return answerMatches(answers[field.conditionalFieldId], field.conditionalValue);
+}
 
 function makeUnit(key: string, from?: Partial<UnitEntry> | null): UnitEntry {
   return {
@@ -76,6 +110,7 @@ export default function ReportForm({
   fields,
   customerUnits,
   defaultUnitId,
+  requiresUnits = true,
   technicianName,
   initialReport,
   initialDraft,
@@ -88,6 +123,8 @@ export default function ReportForm({
   fields: TemplateField[];
   customerUnits: CustomerUnit[];
   defaultUnitId?: string | null;
+  /** Når false brukes én anonym oppføring uten enhetsfelter. */
+  requiresUnits?: boolean;
   technicianName?: string;
   initialReport?: InitialReport;
   /** Autolagret kladd – brukes hvis den finnes, ellers den lagrede rapporten. */
@@ -102,6 +139,23 @@ export default function ReportForm({
   const locale = useLocale();
 
   const [state, setState] = useState(() => {
+    // Rapport uten enheter: én anonym oppføring med fast nøkkel. Svarene
+    // gjenopprettes fra kladden/den opplåste rapporten, men enhetsmetadata
+    // ignoreres.
+    if (!requiresUnits) {
+      const previous = seed?.units[0];
+      return {
+        counter: 1,
+        units: [
+          makeUnit(REPORT_WITHOUT_UNITS_KEY, {
+            status: previous?.status,
+            comment: previous?.comment,
+            answers: previous?.answers,
+          }),
+        ],
+      };
+    }
+
     // Gjenopprett kladd/opplåst rapport: vis de lagrede enhetene og svarene.
     const startUnits =
       seed && seed.units.length > 0
@@ -236,7 +290,23 @@ export default function ReportForm({
           state?: { counter: number; units: UnitEntry[] };
         };
         if (snapshot.state && Array.isArray(snapshot.state.units)) {
-          setState(snapshot.state);
+          if (requiresUnits) {
+            setState(snapshot.state);
+          } else {
+            // En lokal kladd kan være laget før malen ble uten enheter. Da
+            // beholder vi svarene fra første oppføring i den faste nøkkelen.
+            const first = snapshot.state.units[0];
+            setState({
+              counter: 1,
+              units: [
+                makeUnit(REPORT_WITHOUT_UNITS_KEY, {
+                  status: first?.status,
+                  comment: first?.comment,
+                  answers: first?.answers,
+                }),
+              ],
+            });
+          }
           setDraftStatus("saved");
           setDraftSavedAt(new Date(local.updatedAt));
         }
@@ -245,7 +315,7 @@ export default function ReportForm({
     return () => {
       active = false;
     };
-  }, [draftUpdatedAt, initialReport, templateId, userId, workOrderId]);
+  }, [draftUpdatedAt, initialReport, requiresUnits, templateId, userId, workOrderId]);
 
   // Sjekkpunkter som krever oppfølging (f.eks. «Utbedres»), gruppert per enhet.
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
@@ -310,6 +380,7 @@ export default function ReportForm({
   );
 
   const statusLabel = "block text-xs font-black uppercase tracking-wider text-gray-600 mb-2";
+  const visibility = reportFormSections(requiresUnits);
 
   return (
     <form
@@ -368,170 +439,204 @@ export default function ReportForm({
         </div>
       )}
 
-      {/* SAMLET RESULTAT */}
-      <div className={`p-4 rounded-xl border-2 ${overallStatus === "AVVIK" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
-        <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
-        <p className={`font-black ${overallStatus === "AVVIK" ? "text-red-800" : "text-green-800"}`}>
-          {overallStatus === "AVVIK" ? t("orders.reportForm.overallDeviation") : t("orders.reportForm.overallApproved")}
-        </p>
-        <p className="text-[11px] text-gray-600 mt-1">{t("orders.reportForm.overallHint")}</p>
-      </div>
-
-      {/* ENHETER */}
-      <div className="space-y-4 border-t-2 border-b-2 border-gray-200 py-6">
-        <div className="flex flex-wrap justify-between items-start gap-3">
-          <div>
-            <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.unitsTitle")}</h2>
-            <p className="text-[11px] text-gray-500">{t("orders.reportForm.unitsHint")}</p>
-          </div>
-          <button
-            type="button"
-            onClick={addUnit}
-            className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-          >
-            {t("orders.reportForm.addUnit")}
-          </button>
+      {/* SAMLET RESULTAT – bare for maler som bruker enheter. */}
+      {visibility.showOverallResult && (
+        <div className={`p-4 rounded-xl border-2 ${overallStatus === "AVVIK" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+          <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
+          <p className={`font-black ${overallStatus === "AVVIK" ? "text-red-800" : "text-green-800"}`}>
+            {overallStatus === "AVVIK" ? t("orders.reportForm.overallDeviation") : t("orders.reportForm.overallApproved")}
+          </p>
+          <p className="text-[11px] text-gray-600 mt-1">{t("orders.reportForm.overallHint")}</p>
         </div>
+      )}
 
-        {units.length === 0 && (
+      {/* ENHETER – eller sjekkpunkter for en rapport uten enheter */}
+      <div className="space-y-4 border-t-2 border-b-2 border-gray-200 py-6">
+        {requiresUnits ? (
+          <div className="flex flex-wrap justify-between items-start gap-3">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.unitsTitle")}</h2>
+              <p className="text-[11px] text-gray-500">{t("orders.reportForm.unitsHint")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={addUnit}
+              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+            >
+              {t("orders.reportForm.addUnit")}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.checkpoints")}</h2>
+            <p className="text-[11px] text-gray-500">{t("orders.reportForm.reportNoUnitsHint")}</p>
+          </div>
+        )}
+
+        {requiresUnits && units.length === 0 && (
           <p className="text-sm text-gray-500 italic bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-4">
             {t("orders.reportForm.noUnits")}
           </p>
         )}
 
         {units.map((unit, index) => (
-          <div key={unit.key} className="border-2 border-gray-200 rounded-2xl p-4 sm:p-5 bg-white space-y-4">
-            <div className="flex justify-between items-center gap-3">
-              <h3 className="font-black text-gray-900">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
-              <button
-                type="button"
-                onClick={() => removeUnit(unit.key)}
-                className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap"
-              >
-                {t("orders.reportForm.removeUnit")}
-              </button>
-            </div>
+          <div
+            key={unit.key}
+            className={
+              requiresUnits
+                ? "border-2 border-gray-200 rounded-2xl p-4 sm:p-5 bg-white space-y-4"
+                : "bg-white space-y-4"
+            }
+          >
+            {requiresUnits && (
+              <>
+                <div className="flex justify-between items-center gap-3">
+                  <h3 className="font-black text-gray-900">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
+                  <button
+                    type="button"
+                    onClick={() => removeUnit(unit.key)}
+                    className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap"
+                  >
+                    {t("orders.reportForm.removeUnit")}
+                  </button>
+                </div>
 
-            {customerUnits.length > 0 && (
+                {customerUnits.length > 0 && (
+                  <div>
+                    <label className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
+                    <select
+                      value={unit.productId}
+                      onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
+                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                    >
+                      <option value="">{t("orders.reportForm.newUnit")}</option>
+                      {customerUnits.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.model}
+                          {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
+                          {u.location ? ` – ${u.location}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className={statusLabel}>{t("orders.reportForm.labelField")}</label>
+                    <input
+                      type="text"
+                      required
+                      value={unit.label}
+                      onChange={(e) => patchUnit(unit.key, { label: e.target.value })}
+                      placeholder={t("orders.reportForm.labelPlaceholder")}
+                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                    />
+                  </div>
+                  <div>
+                    <label className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
+                    <input
+                      type="text"
+                      value={unit.serialNumber}
+                      onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
+                      placeholder={t("orders.reportForm.serialNumberPlaceholder")}
+                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                    />
+                  </div>
+                  <div>
+                    <label className={statusLabel}>{t("orders.reportForm.location")}</label>
+                    <input
+                      type="text"
+                      value={unit.location}
+                      onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
+                      placeholder={t("orders.reportForm.locationPlaceholder")}
+                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                    />
+                  </div>
+                </div>
+
+                {unit.productId ? (
+                  <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
+                ) : (
+                  unit.label.trim() !== "" && (
+                    <p className="text-[11px] font-bold text-blue-700">{t("orders.reportForm.newUnitSaved")}</p>
+                  )
+                )}
+              </>
+            )}
+
+            {/* RESULTAT – enhetsstatus finnes bare når malen bruker enheter. */}
+            {visibility.showUnitResult && (
               <div>
-                <label className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
-                <select
-                  value={unit.productId}
-                  onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
-                  className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-                >
-                  <option value="">{t("orders.reportForm.newUnit")}</option>
-                  {customerUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.model}
-                      {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
-                      {u.location ? ` – ${u.location}` : ""}
-                    </option>
-                  ))}
-                </select>
+                <label className={statusLabel}>{t("orders.reportForm.unitResult")}</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
+                      unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-gray-300 hover:bg-green-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`status__${unit.key}`}
+                      value="GODKJENT"
+                      checked={unit.status === "GODKJENT"}
+                      onChange={() => patchUnit(unit.key, { status: "GODKJENT" })}
+                      className="w-5 h-5 text-green-600"
+                    />
+                    <span className="font-bold text-gray-900">{t("orders.reportForm.approved")}</span>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
+                      unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-gray-300 hover:bg-red-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`status__${unit.key}`}
+                      value="AVVIK"
+                      checked={unit.status === "AVVIK"}
+                      onChange={() => patchUnit(unit.key, { status: "AVVIK" })}
+                      className="w-5 h-5 text-red-600"
+                    />
+                    <span className="font-bold text-gray-900">{t("orders.reportForm.deviation")}</span>
+                  </label>
+                </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className={statusLabel}>{t("orders.reportForm.labelField")}</label>
-                <input
-                  type="text"
-                  required
-                  value={unit.label}
-                  onChange={(e) => patchUnit(unit.key, { label: e.target.value })}
-                  placeholder={t("orders.reportForm.labelPlaceholder")}
-                  className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-                />
-              </div>
-              <div>
-                <label className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
-                <input
-                  type="text"
-                  value={unit.serialNumber}
-                  onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
-                  placeholder={t("orders.reportForm.serialNumberPlaceholder")}
-                  className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-                />
-              </div>
-              <div>
-                <label className={statusLabel}>{t("orders.reportForm.location")}</label>
-                <input
-                  type="text"
-                  value={unit.location}
-                  onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
-                  placeholder={t("orders.reportForm.locationPlaceholder")}
-                  className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-                />
-              </div>
-            </div>
-
-            {unit.productId ? (
-              <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
-            ) : (
-              unit.label.trim() !== "" && (
-                <p className="text-[11px] font-bold text-blue-700">{t("orders.reportForm.newUnitSaved")}</p>
-              )
-            )}
-
-            {/* RESULTAT PER ENHET */}
-            <div>
-              <label className={statusLabel}>{t("orders.reportForm.unitResult")}</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label
-                  className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
-                    unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-gray-300 hover:bg-green-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`status__${unit.key}`}
-                    value="GODKJENT"
-                    checked={unit.status === "GODKJENT"}
-                    onChange={() => patchUnit(unit.key, { status: "GODKJENT" })}
-                    className="w-5 h-5 text-green-600"
-                  />
-                  <span className="font-bold text-gray-900">{t("orders.reportForm.approved")}</span>
-                </label>
-
-                <label
-                  className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
-                    unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-gray-300 hover:bg-red-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`status__${unit.key}`}
-                    value="AVVIK"
-                    checked={unit.status === "AVVIK"}
-                    onChange={() => patchUnit(unit.key, { status: "AVVIK" })}
-                    className="w-5 h-5 text-red-600"
-                  />
-                  <span className="font-bold text-gray-900">{t("orders.reportForm.deviation")}</span>
-                </label>
-              </div>
-            </div>
-
-            {/* SJEKKPUNKTER PER ENHET */}
+            {/* SJEKKPUNKTER */}
             {fields.length > 0 && (
               <div className="space-y-4 border-t-2 border-gray-100 pt-4">
-                <h4 className={statusLabel}>{t("orders.reportForm.checkpoints")}</h4>
-                {fields.map((field) => (
-                  <FieldInput
-                    key={field.id}
-                    field={field}
-                    name={`answer__${unit.key}__${field.id}`}
-                    commentName={`linecomment__${unit.key}__${field.id}`}
-                    defaultValue={unit.answers[field.id]}
-                    defaultComment={readLineComment(unit.answers, field.id)}
-                    onNeedsComment={(needs) => setFieldNeedsComment(unit.key, field.id, needs)}
-                    workOrderId={workOrderId}
-                  />
-                ))}
+                {requiresUnits && (
+                  <h4 className={statusLabel}>{t("orders.reportForm.checkpoints")}</h4>
+                )}
+                {fields
+                  .filter((field) => isFieldVisible(field, unit.answers))
+                  .map((field) => (
+                    <FieldInput
+                      key={field.id}
+                      field={field}
+                      name={`answer__${unit.key}__${field.id}`}
+                      commentName={`linecomment__${unit.key}__${field.id}`}
+                      defaultValue={unit.answers[field.id]}
+                      defaultComment={readLineComment(unit.answers, field.id)}
+                      onNeedsComment={(needs) =>
+                        setFieldNeedsComment(unit.key, field.id, needs)
+                      }
+                      onValueChange={(value) =>
+                        patchUnit(unit.key, {
+                          answers: { ...unit.answers, [field.id]: value },
+                        })
+                      }
+                      workOrderId={workOrderId}
+                    />
+                  ))}
               </div>
             )}
 
             {(() => {
+              if (!visibility.showFollowUpWarning) return null;
               const pending = followUps[unit.key] ?? [];
               if (pending.length === 0) return null;
               return (
@@ -556,16 +661,19 @@ export default function ReportForm({
               );
             })()}
 
-            {/* KOMMENTAR PER ENHET */}
-            <div>
-              <label className={statusLabel}>{t("orders.reportForm.unitComment")}</label>
-              <MarkdownEditor
-                name={`comment__${unit.key}`}
-                defaultValue={unit.comment}
-                rows={2}
-                placeholder={t("orders.reportForm.unitCommentPlaceholder")}
-              />
-            </div>
+            {/* KOMMENTAR – per-enhet bare når malen bruker enheter. Generelle
+                notater under dekker rapporter uten enheter. */}
+            {visibility.showUnitComment && (
+              <div>
+                <label className={statusLabel}>{t("orders.reportForm.unitComment")}</label>
+                <MarkdownEditor
+                  name={`comment__${unit.key}`}
+                  defaultValue={unit.comment}
+                  rows={2}
+                  placeholder={t("orders.reportForm.unitCommentPlaceholder")}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>

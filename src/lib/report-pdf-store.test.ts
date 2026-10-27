@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
-    workOrder: { findUnique: vi.fn() },
+    workOrder: { findFirst: vi.fn() },
     upload: { create: vi.fn() },
     report: { update: vi.fn() },
     $transaction: vi.fn(),
@@ -12,6 +12,11 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/report-pdf", () => ({
   loadReportPdf: vi.fn(),
   reportFileNameForWorkOrder: vi.fn(() => "kunde-servicerapport-2026-01-01"),
+}));
+
+const releaseUploadMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/upload-cleanup", () => ({
+  releaseUpload: releaseUploadMock,
 }));
 
 vi.mock("node:fs/promises", () => {
@@ -35,7 +40,7 @@ import {
 } from "./report-pdf-store";
 
 const mocked = prisma as unknown as {
-  workOrder: { findUnique: Mock };
+  workOrder: { findFirst: Mock };
   upload: { create: Mock };
   report: { update: Mock };
   $transaction: Mock;
@@ -52,6 +57,8 @@ function report(overrides: Partial<ReportPdfHashInput> = {}): ReportPdfHashInput
     technicianSignatureUrl: "/uploads/tekniker.png",
     customerSignatureUrl: "/uploads/kunde.png",
     templateId: "template-1",
+    name: "Egen rapport",
+    requiresUnits: true,
     templateSnapshotJson: '{"title":"Sjekkliste"}',
     units: [
       {
@@ -87,6 +94,14 @@ describe("pdfHash", () => {
     ).not.toBe(base);
   });
 
+  it("endres når rapportnavn eller enhetsvalg endres", () => {
+    const base = computeReportPdfHash(report());
+
+    expect(computeReportPdfHash(report({ name: "Nytt navn" }))).not.toBe(base);
+    expect(computeReportPdfHash(report({ requiresUnits: false }))).not.toBe(base);
+    expect(computeReportPdfHash(report({ name: null }))).not.toBe(base);
+  });
+
   it("tar med alle rapportene når PDF-en består av flere", () => {
     const first = report();
     const second = report({ id: "report-2" });
@@ -119,6 +134,7 @@ describe("getOrRenderReportPdf", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    releaseUploadMock.mockResolvedValue(true);
     mockedReadFile.mockResolvedValue(Buffer.from("%PDF-cached"));
     mockedWriteFile.mockResolvedValue(undefined);
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
@@ -131,7 +147,7 @@ describe("getOrRenderReportPdf", () => {
   });
 
   it("leser mellomlagret PDF uten å rendre på nytt", async () => {
-    mocked.workOrder.findUnique.mockResolvedValue(workOrderWithCache(pdfHash));
+    mocked.workOrder.findFirst.mockResolvedValue(workOrderWithCache(pdfHash));
 
     const result = await getOrRenderReportPdf("wo-1");
 
@@ -140,8 +156,46 @@ describe("getOrRenderReportPdf", () => {
     expect(mockedLoadReportPdf).not.toHaveBeenCalled();
   });
 
+  it("henter bare ikke-slettede rapporter på ikke-slettede oppdrag", async () => {
+    mocked.workOrder.findFirst.mockResolvedValue(workOrderWithCache(pdfHash));
+
+    await getOrRenderReportPdf("wo-1");
+
+    expect(mocked.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "wo-1", deletedAt: null },
+        include: expect.objectContaining({
+          reports: expect.objectContaining({
+            where: { deletedAt: null },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("lager ingen PDF for et slettet oppdrag", async () => {
+    mocked.workOrder.findFirst.mockResolvedValue(null);
+
+    const result = await getOrRenderReportPdf("wo-1");
+
+    expect(result).toBeNull();
+    expect(mockedLoadReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("lager ingen PDF når alle rapportene på oppdraget er slettet", async () => {
+    mocked.workOrder.findFirst.mockResolvedValue({
+      ...workOrderWithCache(null),
+      reports: [],
+    });
+
+    const result = await getOrRenderReportPdf("wo-1");
+
+    expect(result).toBeNull();
+    expect(mockedLoadReportPdf).not.toHaveBeenCalled();
+  });
+
   it("rendrer, lagrer og registrerer PDF når hashen er ukjent", async () => {
-    mocked.workOrder.findUnique.mockResolvedValue(workOrderWithCache(null));
+    mocked.workOrder.findFirst.mockResolvedValue(workOrderWithCache(null));
     mockedLoadReportPdf.mockResolvedValue({
       buffer: Buffer.from("%PDF-new"),
       fileName: "kunde-servicerapport",
@@ -177,7 +231,7 @@ describe("getOrRenderReportPdf", () => {
   });
 
   it("rendrer på nytt når den mellomlagrede filen er borte", async () => {
-    mocked.workOrder.findUnique.mockResolvedValue(workOrderWithCache(pdfHash));
+    mocked.workOrder.findFirst.mockResolvedValue(workOrderWithCache(pdfHash));
     mockedReadFile.mockRejectedValue(new Error("ENOENT"));
     mockedLoadReportPdf.mockResolvedValue({
       buffer: Buffer.from("%PDF-new"),
@@ -188,10 +242,12 @@ describe("getOrRenderReportPdf", () => {
 
     expect(mockedLoadReportPdf).toHaveBeenCalledTimes(1);
     expect(result?.buffer.toString()).toBe("%PDF-new");
+    // Den gamle, nå urefererte PDF-cachen frigjøres etter at den nye er lagret.
+    expect(releaseUploadMock).toHaveBeenCalledWith("/uploads/cache.pdf");
   });
 
   it("sletter filen når registreringen i databasen feiler", async () => {
-    mocked.workOrder.findUnique.mockResolvedValue(workOrderWithCache(null));
+    mocked.workOrder.findFirst.mockResolvedValue(workOrderWithCache(null));
     mockedLoadReportPdf.mockResolvedValue({
       buffer: Buffer.from("%PDF-new"),
       fileName: "kunde-servicerapport",

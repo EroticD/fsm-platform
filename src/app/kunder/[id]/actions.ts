@@ -8,9 +8,23 @@ import {
   createContract,
   deleteContact,
   deleteContract,
+  deleteCustomer,
   toggleContract,
   updateContact,
 } from "@/server/customers";
+
+/** Myksletter kunden fra kundekortet. Bare administrator. */
+export async function deleteCustomerAction(customerId: string) {
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
+  const result = await deleteCustomer(actor, customerId);
+  if (!result.ok) return;
+
+  revalidatePath("/kunder");
+  revalidatePath("/");
+  redirect("/kunder");
+}
 
 function revalidateContracts(customerId: string) {
   revalidatePath(`/kunder/${customerId}`);

@@ -20,6 +20,7 @@ type UnitsTabProps = {
   customerId: string;
   products: CustomerDetailData["products"];
   canManageEquipment: boolean;
+  canViewReports: boolean;
   isAdmin: boolean;
   createUnit: (formData: FormData) => Promise<void>;
   updateUnit: (formData: FormData) => Promise<void>;
@@ -30,6 +31,7 @@ export default async function CustomerUnitsTab({
   customerId,
   products,
   canManageEquipment,
+  canViewReports,
   isAdmin,
   createUnit,
   updateUnit,
@@ -82,40 +84,44 @@ export default async function CustomerUnitsTab({
                         : t("customers.units.withoutSerial")}
                       {unit.location ? ` • ${unit.location}` : ""}
                     </span>
-                    <span className="block text-[11px] mt-1">
-                      {unit._count.reportUnits === 0 ? (
-                        <span className="text-gray-400">🕓 {t("customers.units.neverChecked")}</span>
-                      ) : (
-                        <span className="text-blue-800 font-bold">
-                          🕓 {t("customers.units.serviceCount", { count: unit._count.reportUnits })} •{" "}
-                          {t("customers.units.lastService", {
-                            date: formatDate(
-                              lastServiceDate(unit.reportUnits),
-                              t("customers.units.noDate"),
-                            ),
-                          })}
+                    {canViewReports && (
+                      <span className="block text-[11px] mt-1">
+                        {unit._count.reportUnits === 0 ? (
+                          <span className="text-gray-400">🕓 {t("customers.units.neverChecked")}</span>
+                        ) : (
+                          <span className="text-blue-800 font-bold">
+                            🕓 {t("customers.units.serviceCount", { count: unit._count.reportUnits })} •{" "}
+                            {t("customers.units.lastService", {
+                              date: formatDate(
+                                lastServiceDate(unit.reportUnits),
+                                t("customers.units.noDate"),
+                              ),
+                            })}
+                          </span>
+                        )}
+                        <span className="ml-2 text-blue-600 font-bold">
+                          ▾ {t("customers.units.showHistory")}
                         </span>
-                      )}
-                      <span className="ml-2 text-blue-600 font-bold">
-                        ▾ {t("customers.units.showHistory")}
                       </span>
-                    </span>
+                    )}
                   </summary>
 
-                  <div className="mt-3 border-t border-gray-200 pt-3">
-                    <p className="text-[11px] font-black text-gray-600 uppercase tracking-wider mb-2">
-                      🕓 {t("customers.units.serviceHistory", { count: unit._count.reportUnits })}
-                    </p>
-                    {unit._count.reportUnits > unit.reportUnits.length && (
-                      <p className="text-[10px] text-gray-500 mb-2">
-                        {t("customers.units.showingRecent", {
-                          shown: unit.reportUnits.length,
-                          total: unit._count.reportUnits,
-                        })}
+                  {canViewReports && (
+                    <div className="mt-3 border-t border-gray-200 pt-3">
+                      <p className="text-[11px] font-black text-gray-600 uppercase tracking-wider mb-2">
+                        🕓 {t("customers.units.serviceHistory", { count: unit._count.reportUnits })}
                       </p>
-                    )}
-                    <UnitHistory entries={unit.reportUnits} />
-                  </div>
+                      {unit._count.reportUnits > unit.reportUnits.length && (
+                        <p className="text-[10px] text-gray-500 mb-2">
+                          {t("customers.units.showingRecent", {
+                            shown: unit.reportUnits.length,
+                            total: unit._count.reportUnits,
+                          })}
+                        </p>
+                      )}
+                      <UnitHistory entries={unit.reportUnits} />
+                    </div>
+                  )}
 
                   {canManageEquipment && (
                     <details className="mt-3 border-t border-gray-200 pt-3">

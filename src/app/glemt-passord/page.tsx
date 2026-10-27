@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import Link from "next/link";
 import { hashToken } from "@/lib/invite";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { clientIpFrom } from "@/lib/client-ip";
 
 export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -20,10 +21,9 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
     if (!email) return;
 
     const requestHeaders = await headers();
-    const ip =
-      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      requestHeaders.get("x-real-ip") ||
-      "ukjent";
+    // Uten TRUST_PROXY er IP-en ukjent. Da faller vi tilbake til en felles
+    // nøkkel, og e-postgrensen over tar fortsatt hånd om misbruk.
+    const ip = clientIpFrom(requestHeaders) ?? "ukjent";
     const normalizedEmail = email.trim().toLowerCase();
     const [emailLimit, ipLimit] = await Promise.all([
       allowRequestDb(`reset:email:${normalizedEmail}`, 5, 15 * 60_000),
@@ -73,8 +73,10 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
             subject: tr("auth.forgot.emailSubject"),
             html: `<p>${tr("auth.forgot.emailBody")}</p><p><a href="${resetUrl}">${tr("auth.forgot.emailLink")}</a></p><p>${tr("auth.forgot.emailExpiry")}</p>`
           });
-        } catch (e) {
-          console.error("Feil ved sending av e-post:", e);
+        } catch {
+          // Rå SMTP-feil kan inneholde mottakeradressen. Logg derfor ingenting
+          // som kan knyttes til den innskrevne e-posten.
+          console.error("Feil ved sending av tilbakestillings-e-post");
         }
       }
     }

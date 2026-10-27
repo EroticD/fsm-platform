@@ -23,7 +23,12 @@ export default async function AuditLogTab({
   dateTo,
 }: AuditLogTabProps) {
   const t = await getTranslations("common");
-  const baseUrl = `/innstillinger?tab=auditlog${search ? `&search=${search}` : ""}${dateFrom ? `&dateFrom=${dateFrom}` : ""}${dateTo ? `&dateTo=${dateTo}` : ""}`;
+  // Bevar alle aktive filtre når man blar, og kod verdiene riktig.
+  const baseParams = new URLSearchParams({ tab: "auditlog" });
+  if (search) baseParams.set("search", search);
+  if (dateFrom) baseParams.set("dateFrom", dateFrom);
+  if (dateTo) baseParams.set("dateTo", dateTo);
+  const baseUrl = `/innstillinger?${baseParams.toString()}`;
 
   return (
     <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
@@ -33,6 +38,7 @@ export default async function AuditLogTab({
       {/* FILTER OG SØK */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
         <form method="GET" className="flex flex-col sm:flex-row gap-3 flex-wrap">
+          <input type="hidden" name="tab" value="auditlog" />
           <input
             type="text"
             name="search"

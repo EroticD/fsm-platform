@@ -9,6 +9,7 @@ import {
 } from "@/lib/report-pdf";
 import { withRenderSlot } from "@/lib/render-queue";
 import { uploadDir } from "@/lib/uploads";
+import { releaseUpload } from "@/lib/upload-cleanup";
 
 /**
  * Mellomlagring av genererte rapport-PDF-er.
@@ -31,6 +32,9 @@ export type ReportPdfHashInput = {
   customerName?: string | null;
   lockedByName?: string | null;
   templateId?: string | null;
+  name?: string | null;
+  reportNumber?: string | null;
+  requiresUnits?: boolean | null;
   templateSnapshotJson?: string | null;
   units?: ReadonlyArray<{
     id?: string;
@@ -52,7 +56,7 @@ function canonicalReport(report: ReportPdfHashInput) {
   return {
     // Økes når PDF-renderingen endres, slik at gamle, ufullstendige
     // PDF-er (for eksempel uten signaturbilder) ikke gjenbrukes fra cachen.
-    rendererVersion: 2,
+    rendererVersion: 5,
     id: report.id,
     updatedAt,
     comments: report.comments ?? null,
@@ -62,6 +66,9 @@ function canonicalReport(report: ReportPdfHashInput) {
     customerName: report.customerName ?? null,
     lockedByName: report.lockedByName ?? null,
     templateId: report.templateId ?? null,
+    name: report.name ?? null,
+    reportNumber: report.reportNumber ?? null,
+    requiresUnits: report.requiresUnits !== false,
     templateSnapshot: report.templateSnapshotJson ?? null,
     unitCount: report.units?.length ?? 0,
     units: (report.units ?? []).map((unit) => ({
@@ -197,11 +204,12 @@ export async function getOrRenderReportPdf(
   workOrderId: string,
   baseUrl?: string,
 ): Promise<ReportPdfResult | null> {
-  const workOrder = await prisma.workOrder.findUnique({
-    where: { id: workOrderId },
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, deletedAt: null },
     include: {
       customer: true,
       reports: {
+        where: { deletedAt: null },
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "asc" },
       },
@@ -213,7 +221,10 @@ export async function getOrRenderReportPdf(
   const reports = workOrder.reports;
   const latest = reports[reports.length - 1];
   const pdfHash = computeReportPdfHashForReports(reports);
-  const fileName = reportFileNameForWorkOrder(workOrder);
+  const fileName = reportFileNameForWorkOrder(
+    workOrder,
+    reports.length === 1 ? latest.name : null,
+  );
 
   // Uendret innhold og filen finnes fortsatt: bruk mellomlagringen.
   if (latest.pdfUrl && latest.pdfHash === pdfHash) {
@@ -234,6 +245,7 @@ export async function getOrRenderReportPdf(
   );
   if (!pdf) return null;
 
+  const previousPdfUrl = latest.pdfUrl;
   const url = await storeReportPdf({
     workOrderId,
     reportId: latest.id,
@@ -242,6 +254,13 @@ export async function getOrRenderReportPdf(
     pdfHash,
     pdf,
   });
+
+  // Den forrige PDF-cachen er ikke lenger referert fra rapporten. Frigjør den
+  // når den nye er lagret; filen blir liggende hvis den også brukes andre
+  // steder (for eksempel av en revisjon).
+  if (url && previousPdfUrl && previousPdfUrl !== url) {
+    await releaseUpload(previousPdfUrl);
+  }
 
   return url ? { ...pdf, url } : pdf;
 }

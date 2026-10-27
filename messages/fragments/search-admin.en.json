@@ -1,0 +1,44 @@
+{
+  "searchAdmin": {
+    "linkLabel": "Search analytics",
+    "title": "Search analytics",
+    "subtitle": "Searches made in the internal search engine.",
+    "backToSearch": "Go to search",
+    "period": "Period",
+    "days": "{days} days",
+    "privacyTitle": "Audit and administrator access only",
+    "privacyBody": "Search terms can contain customer data, names and other personal information. This analysis is therefore only available to users with audit or administrator permissions. Raw user IDs are not shown.",
+    "stats": {
+      "total": "Total searches",
+      "zeroResults": "Zero results",
+      "zeroResultRate": "Zero-result rate",
+      "averageLatency": "Average response time"
+    },
+    "topQueries": {
+      "title": "Most used searches",
+      "description": "Search terms with the most searches in the period.",
+      "query": "Search term",
+      "count": "Count",
+      "empty": "No searches in this period."
+    },
+    "topZeroQueries": {
+      "title": "Searches with no results",
+      "description": "Terms users searched for but got no results for.",
+      "empty": "No searches without results in this period."
+    },
+    "daily": {
+      "title": "Daily trend",
+      "description": "Searches and zero results per day.",
+      "caption": "Daily overview of searches and zero results",
+      "date": "Date",
+      "count": "Searches",
+      "zeroResults": "Zero results",
+      "bar": "Distribution",
+      "barLabel": "{count} searches"
+    },
+    "empty": {
+      "title": "No search data yet",
+      "body": "No searches have been logged in this period. The analysis is filled in when someone uses the internal search engine."
+    }
+  }
+}

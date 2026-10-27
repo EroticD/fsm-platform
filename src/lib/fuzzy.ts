@@ -3,41 +3,41 @@
  * spacing, delvise treff og subsekvens-matching.
  */
 
-/** Normaliserer for substring/token-sammenligning: fjerner alle ikke-alfanumeriske tegn. */
-export function normalize(text: string | null | undefined): string {
+/**
+ * Normaliserer et søkeord eller en tekst for delstrengtreff.
+ *
+ * - lower case
+ * - æ/ø/å brettes til ae/o/a (samme mapping som PostgreSQLs `unaccent`)
+ * - aksenter fjernes (NFD + kombineringstegn)
+ * - alt som ikke er Unicode-bokstaver eller tall blir ett mellomrom
+ * - mellomrom trimmes og kollapses
+ *
+ * Den samme normaliseringen brukes ved spørringsgrensen, i JS-rangeringen og
+ * (via `normalizeSearchExpression` i search-sql.ts) i databasen. Da matcher
+ * «arlig-service» både «Årlig service» og «årlig service».
+ */
+export function normalizeSearchText(text: string | null | undefined): string {
   if (!text) return "";
-  let s = String(text).toLowerCase();
-  s = s
+  return String(text)
+    .toLowerCase()
     .replace(/æ/g, "ae")
-    .replace(/ø/g, "oe")
-    .replace(/å/g, "aa")
-    .replace(/é/g, "e")
-    .replace(/è/g, "e")
-    .replace(/ü/g, "u")
-    .replace(/ö/g, "o")
-    .replace(/ä/g, "a");
-  s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  s = s.replace(/[^a-z0-9]/g, "");
-  return s;
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** Normaliserer for substring/token-sammenligning: fjerner også mellomrom. */
+export function normalize(text: string | null | undefined): string {
+  return normalizeSearchText(text).replace(/\s+/g, "");
 }
 
 /** Normaliserer men BEVARER mellomrom, slik at vi kan gi bonus for ordgrenser. */
 function normalizeKeepSpaces(text: string | null | undefined): string {
-  if (!text) return "";
-  let s = String(text).toLowerCase();
-  s = s
-    .replace(/æ/g, "ae")
-    .replace(/ø/g, "oe")
-    .replace(/å/g, "aa")
-    .replace(/é/g, "e")
-    .replace(/è/g, "e")
-    .replace(/ü/g, "u")
-    .replace(/ö/g, "o")
-    .replace(/ä/g, "a");
-  s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  s = s.replace(/[^a-z0-9]+/g, " ");
-  s = s.trim().replace(/ +/g, " ");
-  return s;
+  return normalizeSearchText(text);
 }
 
 /** Splitter i ord. */
@@ -92,16 +92,16 @@ function fzfScore(query: string, text: string): number {
  * Rekkefølge: eksakt substring > token-treff > subsekvens (fzf) > delvis.
  */
 export function fuzzyScore(query: string, ...fields: (string | null | undefined)[]): number {
-  const nq = normalize(query);
+  const nq = normalizeSearchText(query);
   if (!nq) return 0;
-  const text = fields.map((f) => normalize(f)).join("");
+  const text = fields.map((f) => normalizeSearchText(f)).join(" ");
   if (!text) return 0;
 
   // 1. Eksakt substring i normalisert tekst (1.0)
   if (text.includes(nq)) return 1;
 
   // 2. Token-basert: alle query-ord må finnes som substring (0.9)
-  const qTokens = tokens(query).map(normalize).filter(Boolean);
+  const qTokens = tokens(query).map(normalizeSearchText).filter(Boolean);
   if (qTokens.length > 0) {
     let matched = 0;
     for (const qt of qTokens) {

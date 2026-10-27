@@ -42,7 +42,14 @@ export async function createTemplateAction(formData: FormData) {
   const actor = await getCurrentUser();
   if (!actor) return;
 
-  const result = await createTemplate(actor, { title: formData.get("title") });
+  const result = await createTemplate(actor, {
+    title: formData.get("title"),
+    reportName: formData.get("reportName"),
+    description: formData.get("description"),
+    category: formData.get("category"),
+    hmsType: formData.get("hmsType"),
+    requiresUnits: formData.getAll("requiresUnits"),
+  });
   if (!result.ok) return;
 
   revalidateSettings();

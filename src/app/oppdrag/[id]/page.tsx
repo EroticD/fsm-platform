@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
@@ -21,13 +22,25 @@ import {
   cloneWorkOrder,
   deleteWorkOrder,
   setContact,
+  setReportLegalHold,
   setReportLock,
   setTags,
   setTemplate,
+  setWorkOrderLegalHold,
   unassignTechnician,
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
+import { formatDate } from "@/lib/dates";
+import {
+  reportAcknowledgement,
+  reportUnitSummary,
+} from "@/lib/report-display";
+import {
+  HMS_TYPE_MESSAGE_KEYS,
+  isHmsTemplate,
+  splitTemplatesByCategory,
+} from "@/lib/template-categories";
 
 type ReportField = {
   id: string;
@@ -72,6 +85,20 @@ async function ReportContent({ report, template }: { report: any; template: any 
   }
 
   const units: ReportUnitView[] = report?.units ?? [];
+  const summary = reportUnitSummary(report ?? {});
+  const acknowledgement = reportAcknowledgement(report ?? {});
+  // Rapporter uten enheter lagrer svarene på én anonym rad. Den raden skal
+  // vises som vanlige sjekkpunkter, ikke som et enhetskort.
+  const anonymousUnit = !summary.usesUnits ? units[0] : undefined;
+  let anonymousAnswers: Record<string, unknown> = parsedAnswers;
+  if (anonymousUnit) {
+    try {
+      const parsed = JSON.parse(anonymousUnit.answersJson || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        anonymousAnswers = parsed as Record<string, unknown>;
+      }
+    } catch {}
+  }
 
   // Viser svaret på ett sjekkpunkt. Brukes både for enheter og for eldre rapporter.
   const renderAnswer = (field: ReportField, answer: unknown) => {
@@ -178,15 +205,48 @@ async function ReportContent({ report, template }: { report: any; template: any 
 
   return (
     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm text-sm space-y-4">
-      <div className="flex gap-2 items-center">
-        <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>
-        <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
-          {reportStatus === "GODKJENT" ? t("orders.detail.report.approved") : t("orders.detail.report.deviation")}
-        </span>
+      <div className="flex flex-wrap gap-2 items-center">
+        {report?.reportNumber && (
+          <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-black tracking-wide text-gray-700">
+            {t("orders.detail.report.reportNumber", {
+              number: report.reportNumber,
+            })}
+          </span>
+        )}
+        {summary.usesUnits && (
+          <>
+            <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>
+            <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
+              {reportStatus === "GODKJENT" ? t("orders.detail.report.approved") : t("orders.detail.report.deviation")}
+            </span>
+          </>
+        )}
+        {report?.legalHold && (
+          <span className="rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900">
+            🔒 {t("orders.detail.legalHoldBadge")}
+          </span>
+        )}
+        {acknowledgement.acknowledged && (
+          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
+            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDate(acknowledgement.at) })}
+          </span>
+        )}
       </div>
 
+      {acknowledgement.acknowledged && acknowledgement.comment && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
+          <p className="text-[10px] font-black uppercase tracking-wider text-green-700">
+            {t("orders.detail.report.customerAcknowledgementComment")}
+          </p>
+          <p className="mt-1 whitespace-pre-wrap">{acknowledgement.comment}</p>
+          {acknowledgement.by && (
+            <p className="mt-1 text-[11px] text-green-700">{acknowledgement.by}</p>
+          )}
+        </div>
+      )}
+
       {/* ENHETER */}
-      {units.length > 0 && (
+      {summary.usesUnits && units.length > 0 && (
         <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-3">
           <p className="text-xs font-black text-gray-600 uppercase tracking-wider">
             {t("orders.detail.report.unitsChecked", { count: units.length })}
@@ -230,8 +290,22 @@ async function ReportContent({ report, template }: { report: any; template: any 
         </div>
       )}
 
-      {/* SJEKKPUNKTER (eldre rapporter som ikke har enheter) */}
-      {units.length === 0 && fields.length > 0 && (
+      {/* SJEKKPUNKTER (rapporter uten enheter, eller eldre rapporter) */}
+      {!summary.usesUnits && fields.length > 0 && (
+        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
+          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">{t("orders.detail.report.answersTitle")}</p>
+          <div className="bg-gray-50 p-3 rounded-xl space-y-2 border-2 border-gray-200">
+            {fields.map((field) => fieldRow(field, anonymousAnswers, field.id))}
+          </div>
+          {anonymousUnit?.comment && (
+            <div className="bg-gray-50 px-3 py-2 rounded-xl border-2 border-gray-200 text-sm italic">
+              <MarkdownView value={anonymousUnit.comment} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {summary.usesUnits && units.length === 0 && fields.length > 0 && (
         <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
           <p className="text-xs font-black text-gray-600 uppercase tracking-wider">{t("orders.detail.report.answersTitle")}</p>
           <div className="bg-gray-50 p-3 rounded-xl space-y-2 border-2 border-gray-200">
@@ -373,6 +447,17 @@ export default async function AdminWorkOrderPage({
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
+  const {
+    service: serviceTemplates,
+    hms: hmsTemplates,
+  } = splitTemplatesByCategory(workOrder.templates);
+  // Service-sjekklistene vises først, deretter HMS-dokumentasjonen, slik at
+  // eksisterende serviceflyt er uendret og HMS får en tydelig seksjon.
+  const orderedTemplates = [...serviceTemplates, ...hmsTemplates];
+  const {
+    service: availableServiceTemplates,
+    hms: availableHmsTemplates,
+  } = splitTemplatesByCategory(availableTemplates);
   const allTags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
   const staffUsers = await prisma.user.findMany({
@@ -392,6 +477,23 @@ export default async function AdminWorkOrderPage({
             <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-xl md:text-3xl font-black text-gray-900">{workOrder.title}</h1>
               <StatusBadge status={workOrder.status} />
+              {workOrder.legalHold && (
+                <span
+                  className="bg-red-100 border-2 border-red-300 text-red-900 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide"
+                  title={t("orders.detail.legalHoldHint")}
+                >
+                  🔒 {t("orders.detail.legalHoldBadge")}
+                </span>
+              )}
+              {!workOrder.legalHold &&
+                workOrder.reports.some((report) => report.legalHold) && (
+                  <span
+                    className="bg-red-50 border-2 border-red-300 text-red-900 px-3 py-1 rounded-full text-xs font-bold"
+                    title={t("orders.detail.legalHoldReportHint")}
+                  >
+                    🔒 {t("orders.detail.legalHoldReportBadge")}
+                  </span>
+                )}
             </div>
             {/* Tags */}
             {canEdit ? (
@@ -421,7 +523,13 @@ export default async function AdminWorkOrderPage({
                 </div>
               )
             )}
-            <p className="text-gray-600 font-medium">🏢 <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer?.name || t("orders.detail.noCustomer")}</Link></p>
+            <p className="text-gray-600 font-medium">🏢{" "}
+              {workOrder.customer ? (
+                <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer.name}</Link>
+              ) : (
+                <span className="font-bold text-gray-800">{t("orders.detail.internalOrder")}</span>
+              )}
+            </p>
             <p className="text-xs text-gray-500 font-bold mt-1">{t("orders.detail.department", { name: workOrder.department.name })}</p>
             {workOrder.orderNumber && (
               <p className="text-xs text-gray-600 font-bold mt-1">
@@ -447,6 +555,41 @@ export default async function AdminWorkOrderPage({
                   className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm"
                 >
                   {t("orders.detail.cloneWorkOrder")}
+                </button>
+              </form>
+            )}
+            {isAdmin && (
+              <form action={setWorkOrderLegalHold}>
+                <input type="hidden" name="workOrderId" value={workOrder.id} />
+                <input
+                  type="hidden"
+                  name="hold"
+                  value={workOrder.legalHold ? "false" : "true"}
+                />
+                {workOrder.legalHold && (
+                  <input
+                    type="text"
+                    name="reason"
+                    required
+                    maxLength={1000}
+                    placeholder={t("orders.detail.legalHoldReleaseReason")}
+                    aria-label={t("orders.detail.legalHoldReleaseReason")}
+                    title={t("orders.detail.legalHoldReleaseReasonHint")}
+                    className="min-w-[12rem] rounded-xl border-2 border-red-300 bg-white px-3 py-2 text-xs font-medium text-gray-900 outline-none focus:border-red-500"
+                  />
+                )}
+                <button
+                  type="submit"
+                  title={t("orders.detail.legalHoldHint")}
+                  className={
+                    workOrder.legalHold
+                      ? "bg-red-100 border-2 border-red-300 text-red-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-200 transition shadow-sm"
+                      : "bg-white border-2 border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm"
+                  }
+                >
+                  {workOrder.legalHold
+                    ? t("orders.detail.legalHoldDisable")
+                    : t("orders.detail.legalHoldEnable")}
                 </button>
               </form>
             )}
@@ -482,7 +625,13 @@ export default async function AdminWorkOrderPage({
           </div>
         )}
 
-        {error && !["locked", "ugyldig-status"].includes(error) && (
+        {error === "legal-hold" && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            {t("orders.errors.legalHold")}
+          </div>
+        )}
+
+        {error && !["locked", "ugyldig-status", "legal-hold"].includes(error) && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
             {t("orders.errors.generic")}
           </div>
@@ -517,15 +666,39 @@ export default async function AdminWorkOrderPage({
                   <p className="text-sm text-gray-500 italic mb-4">{t("orders.detail.noChecklists")}</p>
                 ) : (
                   <div className="space-y-4 mb-6">
-                    {workOrder.templates.map(template => {
+                    {orderedTemplates.map((template, templateIndex) => {
                       const report = workOrder.reports.find(r => r.templateId === template.id);
                       // Skjemaet kan fylles ut både fra feltportalen og herfra.
                       const fillHref = `/mine-oppdrag/${workOrder.id}/skjema/${template.id}?returnTo=${encodeURIComponent(`/oppdrag/${workOrder.id}`)}`;
+                      const startsHmsSection =
+                        templateIndex === serviceTemplates.length &&
+                        hmsTemplates.length > 0;
 
                       return (
-                        <div key={template.id} className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                        <Fragment key={template.id}>
+                        {startsHmsSection && (
+                          <div className="flex items-center gap-2 pt-2">
+                            <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">
+                              🛡️ {t("orders.templateGroups.hms")}
+                            </span>
+                            <span className="h-px flex-1 bg-indigo-200" />
+                          </div>
+                        )}
+                        <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                           <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-                            <span className="font-black text-gray-900 text-base">{template.title}</span>
+                            <span className="font-black text-gray-900 text-base flex items-center gap-2 flex-wrap">
+                              {template.title}
+                              {isHmsTemplate(template) && (
+                                <span
+                                  className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
+                                  title={t("orders.templateGroups.hms")}
+                                >
+                                  🛡️ {template.hmsType
+                                    ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
+                                    : t("orders.templateGroups.hmsBadge")}
+                                </span>
+                              )}
+                            </span>
                             <div className="flex items-center gap-2 flex-wrap">
                               {report ? (
                                 <>
@@ -542,6 +715,12 @@ export default async function AdminWorkOrderPage({
                                     className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
                                   >
                                     {t("orders.detail.openPdf")}
+                                  </Link>
+                                  <Link
+                                    href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
+                                    className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                                  >
+                                    🕘 {t("orders.detail.revisions", { count: report.revision })}
                                   </Link>
                                   {canWriteReports && canModify && !report.isLocked && (
                                     <Link
@@ -580,6 +759,37 @@ export default async function AdminWorkOrderPage({
                                       </button>
                                     </form>
                                   )}
+                                  {isAdmin && (
+                                    <form action={setReportLegalHold} className="flex items-center gap-2 flex-wrap">
+                                      <input type="hidden" name="workOrderId" value={workOrder.id} />
+                                      <input type="hidden" name="reportId" value={report.id} />
+                                      <input type="hidden" name="hold" value={report.legalHold ? "false" : "true"} />
+                                      {report.legalHold && (
+                                        <input
+                                          type="text"
+                                          name="reason"
+                                          required
+                                          maxLength={1000}
+                                          aria-label={t("orders.detail.legalHoldReleaseReason")}
+                                          placeholder={t("orders.detail.legalHoldReleaseReason")}
+                                          title={t("orders.detail.legalHoldReleaseReasonHint")}
+                                          className="border-2 border-red-300 bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-full outline-none focus:border-red-500 min-w-[12rem]"
+                                        />
+                                      )}
+                                      <button
+                                        type="submit"
+                                        className={`text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm whitespace-nowrap ${
+                                          report.legalHold
+                                            ? "bg-red-100 border-2 border-red-300 text-red-900 hover:bg-red-200"
+                                            : "bg-white border-2 border-amber-300 text-amber-900 hover:bg-amber-50"
+                                        }`}
+                                      >
+                                        {report.legalHold
+                                          ? t("orders.detail.reportLegalHoldDisable")
+                                          : t("orders.detail.reportLegalHoldEnable")}
+                                      </button>
+                                    </form>
+                                  )}
                                 </>
                               ) : (
                                 <>
@@ -609,6 +819,7 @@ export default async function AdminWorkOrderPage({
                             <p className="text-xs text-gray-500 italic">{t("orders.detail.waitingForm")}</p>
                           )}
                         </div>
+                        </Fragment>
                       );
                     })}
                   </div>
@@ -626,9 +837,20 @@ export default async function AdminWorkOrderPage({
                           className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px]"
                         >
                           <option value="" disabled>{t("orders.detail.selectTemplate")}</option>
-                          {availableTemplates.map(template => (
-                            <option key={template.id} value={template.id}>{template.title}</option>
-                          ))}
+                          {availableServiceTemplates.length > 0 && (
+                            <optgroup label={t("orders.templateGroups.service")}>
+                              {availableServiceTemplates.map((template) => (
+                                <option key={template.id} value={template.id}>{template.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {availableHmsTemplates.length > 0 && (
+                            <optgroup label={`🛡️ ${t("orders.templateGroups.hms")}`}>
+                              {availableHmsTemplates.map((template) => (
+                                <option key={template.id} value={template.id}>{template.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                         <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
                           {t("orders.detail.addTemplate")}
@@ -707,7 +929,7 @@ export default async function AdminWorkOrderPage({
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
                 <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.locationTitle")}</h2>
                 <div className="space-y-2 text-gray-800 mb-4">
-                  <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.noCustomer")}</p>
+                  <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.internalOrder")}</p>
                   <p><strong>{t("orders.detail.address")}</strong>
                     <GoogleMapsLink
                       address={workOrder.customer?.address}

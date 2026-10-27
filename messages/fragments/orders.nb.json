@@ -42,13 +42,17 @@
       "total": "{count} oppdrag",
       "backToDashboard": "← Dashbord",
       "newWorkOrder": "➕ Nytt oppdrag",
-      "searchPlaceholder": "Søk i tittel, beskrivelse, kunde eller sted ...",
+      "searchPlaceholder": "Søk i tittel, beskrivelse, ordrenummer, tag, kunde eller sted ...",
       "search": "Søk",
       "reset": "Nullstill",
+      "orderNumber": "Ordrenr.",
+      "filterTag": "Tagg: {tag}",
+      "clearTag": "Fjern taggfilter",
       "emptyTitle": "Ingen oppdrag i denne visningen.",
       "emptySearch": "Ingen treff på «{query}». Prøv et annet søkeord, eller nullstill søket.",
+      "emptyTag": "Ingen oppdrag med taggen «{tag}».",
       "emptyHint": "Velg en annen visning over, eller opprett et nytt oppdrag.",
-      "noCustomer": "Uten kunde",
+      "noCustomer": "Internt oppdrag",
       "noDate": "Ingen dato",
       "unassigned": "⚠️ Ikke tildelt montør",
       "checklists": "📋 {done}/{total} sjekklister utfylt",
@@ -90,9 +94,29 @@
       "noMatch": "Ingen kunder matchet søket.",
       "customerNumber": "Knr: {number}",
       "noCustomers": "Ingen kunder funnet i systemet.",
+      "change": "Bytt kunde",
+      "searchForAnother": "Søk etter en annen kunde …",
+      "searching": "Søker …",
+      "searchFailed": "Kundesøket feilet. Prøv igjen.",
+      "listLabel": "Kunder",
+      "loadingContacts": "Henter kontaktpersoner …",
       "contactLabel": "Kontaktperson (valgfritt)",
       "noContacts": "Kunden har ingen registrerte kontaktpersoner. Du kan legge til én når oppdraget er opprettet.",
       "noContactOption": "— Ingen kontaktperson —"
+    },
+    "templateGroups": {
+      "service": "Service / sjekklister",
+      "hms": "HMS-dokumentasjon",
+      "hmsBadge": "HMS"
+    },
+    "hmsTypes": {
+      "general": "Generelt HMS-skjema",
+      "sja": "Sikker jobb analyse (SJA)",
+      "hotWork": "Varmt arbeid",
+      "internalControl": "Risikovurdering / internkontroll",
+      "deviation": "Avviksmelding",
+      "safetyRound": "Vernerunde",
+      "writtenInstruction": "Skriftlig instruks"
     },
     "detail": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -100,6 +124,7 @@
       "saveTags": "💾 Lagre tags",
       "department": "🏷️ Avdeling: {name}",
       "noCustomer": "Uten kunde",
+      "internalOrder": "Internt oppdrag",
       "editWorkOrder": "✏️ Rediger oppdrag",
       "deleteConfirm": "Slette oppdraget «{title}»? Alle rapporter, kommentarer og vedlegg til oppdraget blir slettet. Dette kan ikke angres.",
       "deleteWorkOrder": "🗑️ Slett oppdrag",
@@ -173,7 +198,10 @@
         "deviationShort": "❌ Avvik",
         "approvedShort": "✅ Godkjent",
         "answersTitle": "Svar på sjekkpunkter:",
-        "generalNotes": "Generelle notater fra montør:"
+        "generalNotes": "Generelle notater fra montør:",
+        "customerAcknowledged": "Kunden kvitterte {date}",
+        "customerAcknowledgementComment": "Kundens kommentar til kvitteringen",
+        "reportNumber": "Rapportnummer: {number}"
       },
       "unlockReason": "Årsak til opplåsing",
       "unlockReasonPlaceholder": "Beskriv hva som skal rettes",
@@ -188,9 +216,20 @@
       "reopenReasonPlaceholder": "Beskriv hvorfor oppdraget gjenåpnes eller statusen overstyres",
       "checklistLockedOnly": "Sjekklisten er låst, men det låser bare sjekklisten. Oppdraget kan fortsatt redigeres og få ny status.",
       "closedLocked": "Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
+      "legalHoldBadge": "Bevaringsplikt",
+      "legalHoldHint": "Bevaringsplikt hindrer automatisk sletting av oppdraget og rapportene. Bare administrator kan slå den av.",
+      "legalHoldEnable": "🔒 Slå på bevaringsplikt",
+      "legalHoldDisable": "🔓 Slå av bevaringsplikt",
+      "legalHoldReleaseReason": "Årsak til å oppheve bevaringsplikten",
+      "legalHoldReleaseReasonHint": "Årsaken logges i aktivitetsloggen.",
+      "legalHoldReportBadge": "Bevaringsplikt på rapport",
+      "legalHoldReportHint": "En eller flere rapporter på oppdraget har bevaringsplikt.",
+      "reportLegalHoldEnable": "🔒 Rapport-hold",
+      "reportLegalHoldDisable": "🔓 Opphev rapport-hold",
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
-      "orderNumber": "Ordrenummer tilknyttet oppdrag"
+      "orderNumber": "Ordrenummer tilknyttet oppdrag",
+      "revisions": "Revisjoner ({count})"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -246,6 +285,7 @@
       "notFoundText": "Det kan ha blitt slettet, eller så er lenken feil.",
       "backToOverview": "Gå tilbake til oversikten",
       "noCustomer": "Uten kunde",
+      "internalOrder": "Internt oppdrag",
       "department": "🏷️ Avdeling: {name}",
       "back": "← Tilbake",
       "statusTitle": "Oppdragsstatus",
@@ -297,7 +337,8 @@
       "selectTemplate": "-- Velg sjekklistemal --",
       "auditLog": "📋 Aktivitetslogg",
       "statusPlanned": "Planlagt",
-      "statusWaiting": "Venter"
+      "statusWaiting": "Venter",
+      "reportNumber": "Rapportnr. {number}"
     },
     "fieldNew": {
       "noDepartmentTitle": "Du mangler avdeling",
@@ -347,7 +388,8 @@
       "noCustomer": "Uten kunde",
       "lockedTitle": "🔒 Rapporten er låst",
       "lockedText": "Denne sjekklisten er allerede fylt ut og låst, og kan ikke endres herfra. Er det behov for rettinger må en administrator låse den opp først.",
-      "openPdf": "📄 Se rapporten (PDF)"
+      "openPdf": "📄 Se rapporten (PDF)",
+      "revisions": "Revisjoner ({count})"
     },
     "fieldInput": {
       "commentRequired": "💬 Kommentar til «{value}» – påkrevd",
@@ -427,7 +469,9 @@
       "technicianHelper": "Den som utførte jobben.",
       "customerSignature": "✍️ Kunde",
       "customerHelper": "Kundens representant på stedet.",
-      "draftOffline": "Lagret lokalt – sendes når nettet er tilbake"
+      "draftOffline": "Lagret lokalt – sendes når nettet er tilbake",
+      "reportNoUnitsTitle": "Sjekkpunkter",
+      "reportNoUnitsHint": "Denne rapporten er ikke knyttet til enheter. Sjekkpunktene fylles ut for oppdraget samlet."
     },
     "attachments": {
       "title": "📎 Vedlegg",
@@ -483,7 +527,10 @@
       "invalidData": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.",
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
       "workOrderLocked": "🔒 Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det.",
-      "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen."
+      "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen.",
+      "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt.",
+      "legalHoldFrozen": "⛔ Rapporten er fryst av bevaringsplikt. En administrator må frigjøre holdet med en grunn før den kan endres eller låses opp.",
+      "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer."
     },
     "reportsPage": {
       "title": "Servicerapporter",
@@ -498,8 +545,11 @@
       "emptyTitle": "Ingen rapporter {range}.",
       "emptyDescription": "Rapporter vises her så snart montørene har fylt ut og lagret et skjema.",
       "defaultTitle": "Servicerapport",
+      "filterLabel": "Type",
+      "filterAll": "Alle",
       "noDate": "Ingen dato",
-      "noCustomer": "Uten kunde",
+      "noCustomer": "Internt oppdrag",
+      "internalOrder": "Internt oppdrag",
       "unknownWorkOrder": "Ukjent oppdrag",
       "deviations": "❌ {count} avvik",
       "units": "{count, plural, one {# enhet} other {# enheter}}",
@@ -508,7 +558,37 @@
       "unsigned": "Ikke signert",
       "viewPdf": "📄 Se rapport (PDF)",
       "openWorkOrder": "📂 Åpne oppdraget",
-      "showing": "Viser de {shown} nyeste av {total} rapporter."
+      "showing": "Viser de {shown} nyeste av {total} rapporter.",
+      "noUnits": "Uten enheter",
+      "revisions": "Revisjoner ({count})",
+      "previousPage": "Forrige",
+      "nextPage": "Neste",
+      "showingPage": "Side {page} av {totalPages} · {total} rapporter",
+      "reportNumber": "Rapportnr. {number}"
+    },
+    "revisions": {
+      "title": "Revisjoner",
+      "back": "Tilbake",
+      "openCurrentPdf": "📄 Åpne gjeldende rapport",
+      "notFound": "Fant ikke oppdraget eller revisjonene.",
+      "noReports": "Oppdraget har ingen rapporter ennå.",
+      "noRevisions": "Ingen revisjoner",
+      "noReason": "Ingen årsak oppgitt",
+      "unknownActor": "Ukjent bruker",
+      "defaultName": "Servicerapport",
+      "reason": "Årsak",
+      "actor": "Endret av",
+      "createdAt": "Tidspunkt",
+      "status": "Resultat i denne versjonen",
+      "currentRevision": "Gjeldende revisjon: {revision}",
+      "revisionLabel": "Revisjon {revision}",
+      "snapshotTitle": "Innhold i revisjon {revision}",
+      "snapshotMissing": "Fant ikke innholdet i denne revisjonen.",
+      "downloadPdf": "⬇ Last ned revisjonen (PDF)",
+      "unitSummary": "{count, plural, one {# enhet} other {# enheter}} · {deviations} avvik",
+      "noUnits": "Rapporten bruker ikke enheter",
+      "noUnitLabel": "Uten navn",
+      "reportNumber": "Rapportnummer"
     },
     "reportViewer": {
       "notFoundWorkOrder": "Fant ikke oppdraget.",
@@ -519,7 +599,7 @@
       "reportFor": "Rapport for: {title}",
       "download": "⬇ Last ned PDF",
       "iframeTitle": "Servicerapport – {title}",
-      "noCustomer": "Uten kunde"
+      "noCustomer": "Internt oppdrag"
     }
   }
 }

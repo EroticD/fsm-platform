@@ -10,6 +10,33 @@ const execFile = promisify(execFileCallback);
 /** Store PDF-er kan gi mye tekst; standardgrensen på 1 MB er for lav. */
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/** OCR er dyrt: begrens sidetall, oppløsning og total tid. */
+export const MAX_OCR_PAGES = clamp(
+  positiveInt(process.env.OCR_MAX_PAGES, 40),
+  1,
+  200,
+);
+export const OCR_DPI = clamp(positiveInt(process.env.OCR_DPI, 150), 72, 300);
+export const OCR_TOTAL_TIMEOUT_MS = clamp(
+  positiveInt(process.env.OCR_TIMEOUT_SECONDS, 120),
+  10,
+  900,
+) * 1_000;
+export const PDFTOPPM_TIMEOUT_MS = clamp(
+  positiveInt(process.env.OCR_RENDER_TIMEOUT_SECONDS, 90),
+  5,
+  900,
+) * 1_000;
+
 /**
  * Bare filer i opplastingsmappen skal leses. Dokumentrader kan i prinsippet
  * inneholde en hvilken som helst sti (eldre data eller en kompromittert rad),
@@ -97,26 +124,51 @@ export async function extractPdfText(filePath: string): Promise<{ text: string; 
  * OCR av en PDF ved å rendre sidene til bilder med pdftoppm og kjøre
  * tesseract.js på hver side.
  */
+type OcrWorker = {
+  recognize(image: string): Promise<{ data: { text?: string } }>;
+  terminate(): Promise<unknown>;
+};
+
 async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[]> {
   // mkdtemp gir en unik, privat mappe under systemets temp-område.
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "fsm-ocr-"));
+  const deadline = Date.now() + OCR_TOTAL_TIMEOUT_MS;
+  let worker: OcrWorker | null = null;
 
   try {
     // Render sider til PNG. Dette er asynkront, slik at resten av appen kan
-    // svare på forespørsler mens OCR-jobben står på.
+    // svare på forespørsler mens OCR-jobben står på. `-f`/`-l` gjør at
+    // pdftoppm aldri skriver flere sider enn vi faktisk OCR-er – det holder
+    // både CPU-bruk og tmpfs-forbruk nede.
     await execFile(
       "pdftoppm",
-      ["-png", "-r", "200", fullPath, path.join(tmpDir, "page")],
-      { timeout: 120000, killSignal: "SIGKILL" },
+      [
+        "-png",
+        "-r",
+        String(OCR_DPI),
+        "-f",
+        "1",
+        "-l",
+        String(MAX_OCR_PAGES),
+        fullPath,
+        path.join(tmpDir, "page"),
+      ],
+      { timeout: PDFTOPPM_TIMEOUT_MS, killSignal: "SIGKILL" },
     );
 
-    const files = fs.readdirSync(tmpDir).filter((f) => f.endsWith(".png")).sort();
+    const files = fs
+      .readdirSync(tmpDir)
+      .filter((f) => f.endsWith(".png"))
+      .sort()
+      .slice(0, MAX_OCR_PAGES);
+    if (files.length === 0) return [];
+
     const { createWorker } = await import("tesseract.js");
 
     // I Docker ligger språkdata ferdig i TESSDATA_DIR (uten nettverkstilgang).
     // Uten den henter tesseract.js dem fra nett og cacher i temp-mappen.
     const tessdataDir = process.env.TESSDATA_DIR;
-    const worker = await createWorker(
+    worker = await createWorker(
       "nor+eng",
       undefined,
       tessdataDir
@@ -126,6 +178,12 @@ async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[
 
     const results: { page: number; text: string }[] = [];
     for (let i = 0; i < files.length; i++) {
+      if (Date.now() >= deadline) {
+        console.warn(
+          `OCR: tidsgrensen (${OCR_TOTAL_TIMEOUT_MS / 1000}s) er nådd etter ${i} sider.`,
+        );
+        break;
+      }
       const imgPath = path.join(tmpDir, files[i]);
       const { data } = await worker.recognize(imgPath);
       const text = (data.text || "").trim();
@@ -133,9 +191,17 @@ async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[
         results.push({ page: i + 1, text });
       }
     }
-    await worker.terminate();
     return results;
   } finally {
+    // Tesseract-workerens egne tråder og WASM-minne må alltid frigis, også når
+    // en side feiler eller tidsgrensen bryter løkken.
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch {
+        // Terminering er best effort; temp-mappen ryddes uansett.
+      }
+    }
     // Rydd opp temp-filer
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });

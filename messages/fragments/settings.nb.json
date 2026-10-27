@@ -32,7 +32,32 @@
       "available": "Tilgjengelige Maler ({count})",
       "empty": "Du har ikke opprettet noen sjekklistemaler ennå.",
       "edit": "Rediger",
-      "delete": "Slett"
+      "delete": "Slett",
+      "reportNamePlaceholder": "F.eks. Årlig vaktmesterrapport",
+      "createRequiresUnits": "Rapporten skal knyttes til enheter",
+      "inUse": "I bruk ({count})",
+      "deleteConfirm": "Slette sjekklisten «{title}»?",
+      "deleteUsageWarning": "Sjekklisten «{title}» er i bruk ({reports} rapporter, {workOrders} oppdrag, {contracts} avtaler). Er du sikker på at du vil slette den?",
+      "category": "Kategori",
+      "hmsType": "HMS-type",
+      "hmsTypePlaceholder": "Velg HMS-type",
+      "descriptionPlaceholder": "Kort beskrivelse til malbiblioteket (valgfritt)",
+      "filterLabel": "Filtrer",
+      "filterAll": "Alle",
+      "hmsTemplatesLink": "HMS-skjema maler",
+      "categories": {
+        "SERVICE": "Service",
+        "HMS": "HMS-skjema"
+      },
+      "hmsTypes": {
+        "GENERAL": "Generelt HMS-skjema",
+        "SJA": "Sikker jobb analyse (SJA)",
+        "HOT_WORK": "Varmt arbeid",
+        "INTERNAL_CONTROL": "Internkontroll og risikovurdering",
+        "DEVIATION": "Avviksmelding",
+        "SAFETY_ROUND": "Vernerunde",
+        "WRITTEN_INSTRUCTION": "Skriftlig instruks"
+      }
     },
     "tags": {
       "workOrdersTitle": "Tags for oppdrag",
@@ -183,6 +208,11 @@
     },
     "templateBuilder": {
       "name": "Navn på sjekkliste",
+      "description": "Beskrivelse",
+      "descriptionHint": "Vises i malbiblioteket og hjelper andre med å velge riktig mal.",
+      "category": "Kategori",
+      "hmsType": "HMS-type",
+      "hmsTypeHint": "Styrer hvilken gruppe skjemaet vises i HMS-biblioteket.",
       "sectionTitle": "Skjemafelt & Logikk (IFTTT)",
       "emptyTitle": "Denne malen har ingen felt ennå.",
       "emptyDesc": "Bruk knappene under for å bygge opp skjemaet med ønskede felttyper.",
@@ -230,7 +260,11 @@
       "options": {
         "one": "Alternativ 1",
         "two": "Alternativ 2"
-      }
+      },
+      "reportName": "Rapportnavn",
+      "reportNameHint": "Navnet som vises i PDF og rapportlister. Tomt felt bruker navnet på sjekklisten.",
+      "requiresUnits": "Knytt rapporten til enheter",
+      "requiresUnitsHint": "Slå av når rapporten ikke gjelder bestemte enheter. Da fylles sjekkpunktene ut én gang for hele oppdraget."
     }
   },
   "users": {
@@ -308,6 +342,7 @@
       "missingContact": "Kundeportalbrukere må kobles til en kontaktperson på kundekortet.",
       "duplicateEmail": "Det finnes allerede en bruker med denne e-postadressen.",
       "missingField": "Fyll ut navn, e-post og velg en kontaktperson.",
+      "templateInUse": "Sjekklisten er i bruk av rapporter, oppdrag eller aktive serviceavtaler og kan ikke slettes. Fjern bruken først.",
       "unknown": "Noe gikk galt. Prøv igjen."
     }
   }

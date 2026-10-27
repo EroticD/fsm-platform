@@ -13,6 +13,8 @@ import {
 } from "@/lib/session-token";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { clientIpFrom } from "@/lib/client-ip";
+import { logger } from "@/lib/logger";
 
 /**
  * Logger inn uten JavaScript. Passordet sendes i selve forespørselen via en
@@ -35,13 +37,17 @@ export async function loginAction(formData: FormData): Promise<never> {
   };
 
   const requestHeaders = await headers();
-  const ip =
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    requestHeaders.get("x-real-ip") ||
-    undefined;
+  // Bruk den felles, proxy-bevisste hjelperen. Uten TRUST_PROXY ignoreres
+  // X-Forwarded-For, slik at en klient ikke kan omgå IP-sperren.
+  const ip = clientIpFrom(requestHeaders);
 
   const result = await verifyCredentials(email, password, ip);
   if (result.status !== "ok") {
+    // Strukturert hendelse for drift: ingen e-post eller passord logges.
+    logger.warn("Innlogging avvist", {
+      reason: result.status,
+      ipKnown: Boolean(ip),
+    });
     if (result.status === "locked") {
       redirect(fail("TooManyAttempts"));
     }
@@ -81,8 +87,10 @@ export async function loginAction(formData: FormData): Promise<never> {
         actorId: result.user.id,
       },
     });
-  } catch (error) {
-    console.error("Kunne ikke logge innloggingen:", error);
+  } catch {
+    // Revisjonsraden kan inneholde brukerens e-post som userName. Logg derfor
+    // aldri den rå feilen.
+    console.error("Kunne ikke logge innloggingen");
   }
 
   await createSessionCookie(result.user);

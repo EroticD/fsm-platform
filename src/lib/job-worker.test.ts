@@ -339,7 +339,7 @@ describe("cleanupRetainedWorkOrders", () => {
         where: {
           deletedAt: { lt: cutoff },
           legalHold: false,
-          reports: { none: { legalHold: true } },
+          reports: { none: {} },
         },
       }),
     );
@@ -368,5 +368,50 @@ describe("cleanupRetainedWorkOrders", () => {
     expect(mocked.$transaction).not.toHaveBeenCalled();
     expect(mocked.workOrder.delete).not.toHaveBeenCalled();
     expect(uploadCleanup.releaseUpload).not.toHaveBeenCalled();
+  });
+
+  it("hopper over oppdraget hvis det har fått rapport eller bevaringsplikt før slettingen", async () => {
+    mocked.workOrder.findMany.mockResolvedValue([
+      { id: "wo-1", title: "Gammelt oppdrag" },
+    ]);
+    // Transaksjonen ser at oppdraget ikke lenger er slettbart.
+    mocked.workOrder.findFirst.mockResolvedValue(null);
+
+    const deleted = await cleanupRetainedWorkOrders();
+
+    expect(deleted).toBe(0);
+    expect(mocked.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "wo-1",
+          deletedAt: { lt: expect.any(Date) },
+          legalHold: false,
+          reports: { none: {} },
+        },
+      }),
+    );
+    expect(mocked.workOrder.delete).not.toHaveBeenCalled();
+    expect(uploadCleanup.releaseUpload).not.toHaveBeenCalled();
+  });
+
+  it("frigjør filer først etter at oppdraget er slettet i databasen", async () => {
+    mocked.workOrder.findMany.mockResolvedValue([
+      { id: "wo-1", title: "Gammelt oppdrag" },
+    ]);
+    mocked.upload.findMany.mockResolvedValue([
+      { ownerId: "wo-1", storedName: "bilde.png" },
+    ]);
+    const order: string[] = [];
+    mocked.workOrder.delete.mockImplementation(async () => {
+      order.push("db");
+    });
+    uploadCleanup.releaseUpload.mockImplementation(async () => {
+      order.push("file");
+    });
+
+    const deleted = await cleanupRetainedWorkOrders();
+
+    expect(deleted).toBe(1);
+    expect(order).toEqual(["db", "file"]);
   });
 });

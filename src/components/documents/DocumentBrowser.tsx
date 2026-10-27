@@ -15,9 +15,11 @@ type DocumentBrowserProps = {
   page: number;
   office: boolean;
   isAdmin: boolean;
+  showDeleted: boolean;
   createFolderAction: (formData: FormData) => Promise<void>;
   restoreVersionAction: (formData: FormData) => Promise<void>;
   deleteDocumentAction: (formData: FormData) => Promise<void>;
+  restoreDocumentAction: (formData: FormData) => Promise<void>;
   updateDocumentAction: (formData: FormData) => Promise<void>;
   createDocumentAction: (formData: FormData) => Promise<void>;
   bulkCreateDocumentsAction: (formData: FormData) => Promise<void>;
@@ -32,9 +34,11 @@ export default async function DocumentBrowser({
   page,
   office,
   isAdmin,
+  showDeleted,
   createFolderAction,
   restoreVersionAction,
   deleteDocumentAction,
+  restoreDocumentAction,
   updateDocumentAction,
   createDocumentAction,
   bulkCreateDocumentsAction,
@@ -92,6 +96,25 @@ export default async function DocumentBrowser({
 
   return (
     <>
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Link
+            href={showDeleted ? "/dokumenter" : "/dokumenter?slettet=1"}
+            className="text-xs font-bold text-gray-700 bg-white border-2 border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
+          >
+            {showDeleted
+              ? t("documents.browser.showActive")
+              : t("documents.browser.showDeleted")}
+          </Link>
+        </div>
+      )}
+
+      {showDeleted && (
+        <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 p-4 rounded-2xl text-sm font-bold">
+          {t("documents.browser.deletedTitle")}
+        </div>
+      )}
+
       {/* SØK + TAG-FILTER */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
         <form method="GET" action="/dokumenter" className="flex flex-wrap gap-2">
@@ -185,7 +208,7 @@ export default async function DocumentBrowser({
             >
               📖 {t("documents.browser.openPdf")}
             </a>
-            {office && (
+            {office && !showDeleted && (
               <EditDocumentForm
                 doc={detailDocument}
                 allFolders={folderOptions}
@@ -269,46 +292,60 @@ export default async function DocumentBrowser({
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                    <a
-                      href={doc.filePath}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-                    >
-                      📖 {t("documents.browser.openPdf")}
-                    </a>
-                    {office && (
-                      <Link
-                        href={docLink(doc.id)}
-                        className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
-                      >
-                        🗂️ {t("documents.browser.versions")}
-                      </Link>
-                    )}
-                    {office && (
-                      <EditDocumentForm
-                        doc={doc}
-                        allFolders={folderOptions}
-                        allTags={allTags}
-                        updateDocument={updateDocumentAction}
-                        restoreVersion={restoreVersionAction}
-                      />
-                    )}
-                    {isAdmin && (
-                      <ConfirmSubmitForm
-                        action={deleteDocumentAction}
-                        confirmMessage={t("documents.browser.deleteConfirm", {
-                          title: doc.title,
-                        })}
-                      >
+                    {showDeleted ? (
+                      <form action={restoreDocumentAction}>
                         <input type="hidden" name="id" value={doc.id} />
                         <button
                           type="submit"
-                          className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition whitespace-nowrap"
+                          className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 transition whitespace-nowrap"
                         >
-                          🗑️ {t("documents.browser.delete")}
+                          ♻️ {t("documents.browser.restore")}
                         </button>
-                      </ConfirmSubmitForm>
+                      </form>
+                    ) : (
+                      <>
+                        <a
+                          href={doc.filePath}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                        >
+                          📖 {t("documents.browser.openPdf")}
+                        </a>
+                        {office && (
+                          <Link
+                            href={docLink(doc.id)}
+                            className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
+                          >
+                            🗂️ {t("documents.browser.versions")}
+                          </Link>
+                        )}
+                        {office && (
+                          <EditDocumentForm
+                            doc={doc}
+                            allFolders={folderOptions}
+                            allTags={allTags}
+                            updateDocument={updateDocumentAction}
+                            restoreVersion={restoreVersionAction}
+                          />
+                        )}
+                        {isAdmin && (
+                          <ConfirmSubmitForm
+                            action={deleteDocumentAction}
+                            confirmMessage={t("documents.browser.deleteConfirm", {
+                              title: doc.title,
+                            })}
+                          >
+                            <input type="hidden" name="id" value={doc.id} />
+                            <button
+                              type="submit"
+                              className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition whitespace-nowrap"
+                            >
+                              🗑️ {t("documents.browser.delete")}
+                            </button>
+                          </ConfirmSubmitForm>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

@@ -33,6 +33,9 @@ export default async function ActivateAccountPage({
       where: {
         resetToken: hashToken(formToken),
         resetTokenExpiry: { gt: new Date() },
+        // Bare invitasjoner til kontoer som ennå ikke er aktivert. En aktiv
+        // bruker skal bruke «glemt passord», aldri en invitasjonslenke.
+        isActive: false,
       },
     });
 
@@ -43,15 +46,24 @@ export default async function ActivateAccountPage({
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Passordet lagres, men kontoen er fortsatt inaktiv til en administrator
-    // aktiverer den. Nøkkelen kan bare brukes én gang.
-    await prisma.user.update({
-      where: { id: user.id },
+    // aktiverer den. Nøkkelen kan bare brukes én gang. Sjekken gjentas i
+    // UPDATE-en, slik at en samtidig aktivering ikke kan omgås.
+    const updated = await prisma.user.updateMany({
+      where: {
+        id: user.id,
+        resetToken: hashToken(formToken),
+        resetTokenExpiry: { gt: new Date() },
+        isActive: false,
+      },
       data: {
         password: hashedPassword,
         resetToken: null,
         resetTokenExpiry: null,
       },
     });
+    if (updated.count !== 1) {
+      redirect(`/aktiver-konto?error=ugyldig`);
+    }
     await bumpSessionVersion(user.id);
     await clearCalendarToken(user.id);
 

@@ -166,11 +166,52 @@ export async function cloneWorkOrder(formData: FormData) {
 }
 
 /**
+ * Slår bevaringsplikt på eller av. Bare administrator slipper gjennom; regelen
+ * håndheves i tjenestelaget, ikke bare ved å skjule knappen.
+ */
+export async function setWorkOrderLegalHold(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+
+  const user = await getCurrentUser();
+  const result = await workOrderService.setWorkOrderLegalHold(
+    user,
+    workOrderId,
+    formData.get("hold"),
+    formData.get("reason"),
+  );
+  if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
+
+  revalidatePath(`/oppdrag/${workOrderId}`);
+  revalidatePath("/oppdrag");
+}
+
+/** Bevaringsplikt på en enkelt rapport. Bare administrator. */
+export async function setReportLegalHold(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const reportId = cleanText(formData.get("reportId"), { maxLength: LIMITS.line });
+  if (!workOrderId || !reportId) redirect("/oppdrag?error=ugyldig-data");
+
+  const user = await getCurrentUser();
+  const result = await workOrderService.setReportLegalHold(
+    user,
+    workOrderId,
+    reportId,
+    formData.get("hold"),
+    formData.get("reason"),
+  );
+  if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
+
+  revalidatePath(`/oppdrag/${workOrderId}`);
+  revalidatePath("/rapporter");
+}
+
+/**
  * Sletter et oppdrag med rapporter, kommentarer og vedlegg.
  *
- * Krever `workorders.delete`, og tjenestelaget kontrollerer avdelingsgrensen og
- * regelen om kansellerte oppdrag. Slettingen og revisjonsloggen skrives i
- * samme transaksjon.
+ * Krever `workorders.delete`, og tjenestelaget kontrollerer avdelingsgrensen,
+ * bevaringsplikt og regelen om lukkede oppdrag. Slettingen og revisjonsloggen
+ * skrives i samme transaksjon.
  */
 export async function deleteWorkOrder(formData: FormData) {
   const workOrderId = workOrderIdFrom(formData);

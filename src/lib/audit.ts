@@ -1,4 +1,9 @@
 import type { Prisma } from "@prisma/client";
+import {
+  publishRealtime,
+  realtimeKindForEntity,
+  type RealtimeSqlClient,
+} from "@/lib/realtime";
 
 export type AuditActor = {
   id: string;
@@ -35,4 +40,12 @@ export async function audit(
       metadata: entry.metadata,
     },
   });
+
+  // Varselet sendes i samme transaksjon. PostgreSQL leverer det først ved
+  // commit, så en tilbake rullet endring gir ingen oppdatering i klientene.
+  // Testmocker uten `$executeRaw` hoppes over inne i `publishRealtime`.
+  await publishRealtime(
+    realtimeKindForEntity(entry.entityType),
+    tx as RealtimeSqlClient,
+  );
 }

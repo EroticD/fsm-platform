@@ -69,6 +69,38 @@ const ACTIVE_STATUSES: WorkStatus[] = [
 /** Kundekortet viser 25 oppdrag om gangen, ikke hele historikken. */
 export const CUSTOMER_ORDER_PAGE_SIZE = 25;
 
+/**
+ * Valgfri avdeling og ansvarlig montør må peke på en aktiv avdeling og en
+ * aktiv intern bruker. Ukjente eller slettede id-er avvises i stedet for å
+ * lagres som en død referanse på kundekortet.
+ */
+async function validCustomerReferences(
+  departmentId: string | undefined,
+  responsibleTechnicianId: string | undefined,
+): Promise<boolean> {
+  if (departmentId) {
+    const department = await prisma.department.findFirst({
+      where: { id: departmentId, isActive: true },
+      select: { id: true },
+    });
+    if (!department) return false;
+  }
+
+  if (responsibleTechnicianId) {
+    const technician = await prisma.user.findFirst({
+      where: {
+        id: responsibleTechnicianId,
+        isActive: true,
+        role: { not: "CUSTOMER" },
+      },
+      select: { id: true },
+    });
+    if (!technician) return false;
+  }
+
+  return true;
+}
+
 export type CustomerDetailParams = {
   tab: string;
   orderPage: number;
@@ -84,8 +116,22 @@ export async function getCustomerDetail(
 
   const office = can(actor, "customers.manage");
   const isAdmin = isAdminActor(actor);
+  const canViewReports = can(actor, "reports.view");
+  const canViewEquipment = can(actor, "equipment.view");
   const currentTab = params.tab;
   const orderPage = Math.max(1, params.orderPage);
+
+  // Rapportsvarene på enhetene er bare synlige med reports.view. Uten den
+  // returnerer spørringen null rader i stedet for å fjerne feltene, slik at
+  // formen på kundekortet er stabil.
+  const reportUnitWhere: Prisma.ReportUnitWhereInput = canViewReports
+    ? {
+        report: {
+          deletedAt: null,
+          workOrder: workOrderScopeFor(actor),
+        },
+      }
+    : { id: { in: [] } };
 
   // Kunder, kontakter, enheter, avtaler, dokumenter og rapporter er felles for
   // alle avdelinger. Oppdragene på kundekortet er derimot avdelingssperret.
@@ -123,6 +169,8 @@ export async function getCustomerDetail(
   if (!customer) return fail("not_found");
 
   const [customerAuditLogs, customerComments, portalUsers] = await Promise.all([
+    // Bare kundens egne revisjonsrader. Oppdragsrevisjonen kan inneholde
+    // handlinger fra andre avdelinger, og skal ikke lekke inn på kundekortet.
     prisma.auditLog.findMany({
       where: { entityType: "Customer", entityId: customerId },
       orderBy: { createdAt: "desc" },
@@ -158,17 +206,17 @@ export async function getCustomerDetail(
 
   // Enhetsfanen lastes først når den åpnes. Servicehistorikken per enhet er
   // begrenset til de 25 nyeste kontrollene; totalen kommer fra _count.
+  // Enheter og servicehistorikk krever equipment.view. Historikken er i
+  // tillegg begrenset til oppdrag aktøren kan se, og til reports.view.
   const products =
-    currentTab === "enheter"
+    currentTab === "enheter" && canViewEquipment
       ? await prisma.product.findMany({
           where: { customerId },
           orderBy: { model: "asc" },
           take: 100,
           include: {
             reportUnits: {
-              where: {
-                report: { deletedAt: null, workOrder: { deletedAt: null } },
-              },
+              where: reportUnitWhere,
               orderBy: { createdAt: "desc" },
               take: 25,
               include: {
@@ -186,13 +234,7 @@ export async function getCustomerDetail(
               },
             },
             _count: {
-              select: {
-                reportUnits: {
-                  where: {
-                    report: { deletedAt: null, workOrder: { deletedAt: null } },
-                  },
-                },
-              },
+              select: { reportUnits: { where: reportUnitWhere } },
             },
           },
         })
@@ -332,6 +374,8 @@ export async function getCustomerEditOptions(
 export type CustomerInput = {
   name?: unknown;
   orgNumber?: unknown;
+  departmentId?: unknown;
+  responsibleTechnicianId?: unknown;
 };
 
 /** Registrerer en ny kunde i katalogen. */
@@ -344,14 +388,30 @@ export async function createCustomer(
   const parsed = customerCreateSchema.safeParse({
     name: cleanText(input.name, { maxLength: LIMITS.title }),
     orgNumber: cleanText(input.orgNumber, { maxLength: LIMITS.line }),
+    departmentId: cleanText(input.departmentId, { maxLength: LIMITS.line }),
+    responsibleTechnicianId: cleanText(input.responsibleTechnicianId, {
+      maxLength: LIMITS.line,
+    }),
   });
   if (!parsed.success) return fail("invalid");
-  const { name, orgNumber } = parsed.data;
+  const { name, orgNumber, departmentId, responsibleTechnicianId } =
+    parsed.data;
+
+  if (
+    !(await validCustomerReferences(departmentId, responsibleTechnicianId))
+  ) {
+    return fail("invalid");
+  }
 
   try {
     const customer = await prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
-        data: { name, orgNumber: orgNumber || null },
+        data: {
+          name,
+          orgNumber: orgNumber || null,
+          departmentId: departmentId || null,
+          responsibleTechnicianId: responsibleTechnicianId || null,
+        },
       });
       await audit(tx, {
         entityType: "Customer",
@@ -425,6 +485,12 @@ export async function updateCustomer(
     departmentId,
     responsibleTechnicianId,
   } = parsed.data;
+
+  if (
+    !(await validCustomerReferences(departmentId, responsibleTechnicianId))
+  ) {
+    return fail("invalid");
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -1054,6 +1120,84 @@ export async function removeCustomerAttachment(
   });
 
   await releaseUpload(attachment.dataUrl);
+
+  return ok(undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Sletting og gjenoppretting
+// ---------------------------------------------------------------------------
+
+/**
+ * Myksletter en kunde. Bare administrator kan slette. Kunden og alle
+ * tilknyttede rader beholdes, slik at historikken kan gjenopprettes uten at
+ * filer eller revisjoner går tapt.
+ */
+export async function deleteCustomer(
+  actor: ServiceActor,
+  customerId: string,
+): Promise<ServiceResult> {
+  if (!isAdminActor(actor) || !actor.isActive) return fail("forbidden");
+
+  const id = cleanText(customerId, { maxLength: LIMITS.line });
+  if (!id) return fail("invalid");
+
+  const customer = await prisma.customer.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  if (!customer) return fail("not_found");
+
+  const actorId = actor.id;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({
+      where: { id: customer.id },
+      data: { deletedAt: new Date(), deletedBy: actor.name || actorId },
+    });
+    await audit(tx, {
+      entityType: "Customer",
+      entityId: customer.id,
+      action: `Slettet kunden «${customer.name}» (myk sletting – kan gjenopprettes)`,
+      actor: toAuditActor({ ...actor, id: actorId }),
+      metadata: { softDeleted: true },
+    });
+  });
+
+  return ok(undefined);
+}
+
+/** Gjenoppretter en mykt slettet kunde. Bare administrator. */
+export async function restoreCustomer(
+  actor: ServiceActor,
+  customerId: string,
+): Promise<ServiceResult> {
+  if (!isAdminActor(actor) || !actor.isActive) return fail("forbidden");
+
+  const id = cleanText(customerId, { maxLength: LIMITS.line });
+  if (!id) return fail("invalid");
+
+  const customer = await prisma.customer.findUnique({
+    where: { id },
+    select: { id: true, name: true, deletedAt: true },
+  });
+  if (!customer) return fail("not_found");
+  if (!customer.deletedAt) return fail("invalid");
+
+  const actorId = actor.id;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({
+      where: { id: customer.id },
+      data: { deletedAt: null, deletedBy: null },
+    });
+    await audit(tx, {
+      entityType: "Customer",
+      entityId: customer.id,
+      action: `Gjenopprettet kunden «${customer.name}»`,
+      actor: toAuditActor({ ...actor, id: actorId }),
+    });
+  });
 
   return ok(undefined);
 }

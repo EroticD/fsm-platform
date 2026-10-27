@@ -109,9 +109,70 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
    oppdrag eller rapport blokkerer automatisk hard sletting.
 4. **Rapportrevisjoner lagres i databasen, men har foreløpig ingen egen
    leservisning.** En admin kan gjenopprette og inspisere via databasen; en
-   read-only revisjonsside/PDF er anbefalt neste steg.
-5. **Ordrenummer er valgfritt og ikke unikt.** Det er et eksternt nummer fra
-   kundens system, og kan derfor variere mellom avdelinger.
+   read-only revisjonsside/PDF er anbefalt neste steg. Revisjonen fryser navn,
+   enhetskrav, kvittering, signaturer og enhetene. Siden skjemaet ikke har egne
+   kolonner for mal-id, låsemetadata eller PDF-hash, legges disse i
+   `ReportRevision.dataJson` under `_revisionMeta` sammen med rapportens
+   opprinnelige data.
+5. **Ordrenummer er valgfritt, men unikt per avdeling.** Visningsfeltet
+   `orderNumber` bevares slik kunden skrev det. `orderNumberNormalized` er
+   trimmet, store bokstaver og uten mellomrom/tegnsetting, og brukes til
+   duplikatkontroll (`@@unique([departmentId, orderNumberNormalized])`). Ved
+   kloning tømmes ordrenummeret bevisst, fordi nummeret hører til det
+   opprinnelige oppdraget; kontoret setter et nytt hvis klonen trenger det.
+   Endringer logges med før/etter-verdi.
+6. **Automatisk utbedringsoppdrag.** Når en rapport inneholder minst ett avvik,
+   opprettes nøyaktig ett udatert `OPEN`-oppdrag med `deviationSourceKey =
+   report:<rapport-id>`. Oppdraget arver kunde, avdeling og kontaktperson, får
+   innsenderen som montør, og beskriver alle avviksenhetene med sjekkpunkter,
+   svar og kommentarer. Den unike nøkkelen gjør gjentatt innsending idempotent;
+   `submitReport` returnerer `remediationWorkOrderId` slik at UI kan lenke til
+   oppdraget.
+
+### HMS-skjemaer
+
+- **HMS er en egen malkategori.** `Template.category` er `SERVICE` eller `HMS`,
+  og HMS-maler har `hmsType` (`SJA`, `HOT_WORK`, `INTERNAL_CONTROL`,
+  `DEVIATION`, `SAFETY_ROUND`, `WRITTEN_INSTRUCTION` eller `GENERAL`).
+  Rapportens kategori og HMS-type fryses ved signering, slik at lister og PDF
+  viser riktig historikk selv om malen endres senere.
+- **Standardmaler installeres av migrasjonen.** Seks HMS-skjemaer fra
+  `/HMS-skjemaer` er lagt inn med stabile id-er og `requiresUnits = false`.
+  Migrasjonen overskriver ikke maler som allerede finnes. De kan redigeres i
+  maladministrasjonen som vanlige maler.
+- **HMS-skjemaer knyttes til oppdrag, ikke til en egen rapporttabell.** Dermed
+  gjelder samme låsing, signatur, revisjon, bevaringsplikt, PDF og
+  tilgangskontroll som for servicerapporter. Både kundeoppdrag og interne
+  oppdrag (`customerId = null`) kan bruke HMS-skjemaer.
+- **Egen HMS-inngang.** `/hms` samler malbibliotek, dokumentasjon og en
+  koblingsflate. Kobling går gjennom `addTemplate` i oppdragstjenesten, slik at
+  avdelingssperre, låste oppdrag og revisjonslogg ikke kan omgås.
+- **Internkontroll og øvrige HMS-skjemaer følger samme malmotor.** Risikovurdering,
+  avvik, vernerunde og skriftlig instruks er egne `hmsType`-verdier, ikke
+  hardkodede tabeller. Skjemaene kan derfor tilpasses uten kodeendringer.
+
+### Bevaringsplikt, retensjon og eksport
+
+- **Bevaringsplikt (legal hold) er en frysebryter, ikke bare en slettesperre.**
+  Nye rapporter på et oppdrag med bevaringsplikt arver flagget. Innsending,
+  opplåsing, kladd og vedleggssletting avvises når oppdraget eller rapporten er
+  under hold.
+- **Avslag krever grunn.** Å slå av bevaringsplikt på et oppdrag krever en
+  eksplisitt administratorhandling med grunn, og frigjør **ikke** rapportenes
+  egne hold i det stille. Rapporter frigjøres enkeltvis med
+  `setReportLegalHold(..., false, grunn)`, og hver frigjøring logges med
+  rapport-id. Å slå på hold synkroniseres fortsatt til alle rapportene.
+- **Retensjon.** `cleanupRetainedWorkOrders` hard-sletter bare mykt slettede
+  oppdrag som er eldre enn `RETENTION_DAYS` (standard 365) **og** som ikke har
+  noen rapporter. Så snart et oppdrag har en rapport – signert eller ikke –
+  beholdes oppdraget, rapporten, revisjonene, kommentarene og filene på ubestemt
+  tid. Bevaringsplikt på oppdrag eller rapport stopper også sletting.
+- **Eksport.** Det finnes ingen automatisk eksportjobb. Bevis eksporteres trygt
+  ved å bruke databasebackupen eller en adminstyrt spørring mot `WorkOrder`,
+  `Report`, `ReportRevision` og `AuditLog` for ett oppdrag om gangen. En egen
+  admin-eksport med signert pakke og hash-kjede er anbefalt neste steg; den må
+  kreve administratorrettighet og logges i `AuditLog`. Rapporter skal ikke
+  eksporteres fra klienten eller gjennom en offentlig rute.
 
 ### Åpne spørsmål / neste steg
 

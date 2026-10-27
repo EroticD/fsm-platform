@@ -6,6 +6,7 @@ import TemplateBuilder from "./TemplateBuilder";
 import { saveTemplate } from "./actions";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { HMS_FORM_GROUPS } from "@/lib/hms";
 
 export default async function EditTemplatePage({ 
   params 
@@ -43,6 +44,15 @@ export default async function EditTemplatePage({
         {/* DEN VISUELLE BYGGEREN */}
         <TemplateBuilder 
           initialTitle={template.title} 
+          initialReportName={template.reportName ?? ""}
+          initialDescription={template.description ?? ""}
+          initialCategory={template.category}
+          initialHmsType={template.hmsType ?? ""}
+          initialRequiresUnits={template.requiresUnits}
+          hmsTypes={HMS_FORM_GROUPS.map((group) => ({
+            value: group.type,
+            label: t(`settings.templates.hmsTypes.${group.type}`),
+          }))}
           initialFieldsJson={template.fieldsJson || "[]"} 
           saveAction={saveTemplate}
           templateId={template.id}
