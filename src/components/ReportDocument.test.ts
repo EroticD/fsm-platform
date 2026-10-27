@@ -27,6 +27,7 @@ async function renderText({
   requiresUnits,
   label = "",
   orderNumber,
+  reportNumber,
   templateCategory,
   hmsType,
 }: {
@@ -34,6 +35,7 @@ async function renderText({
   requiresUnits: boolean;
   label?: string;
   orderNumber?: string | null;
+  reportNumber?: string | null;
   templateCategory?: "SERVICE" | "HMS";
   hmsType?: "SJA" | "DEVIATION" | null;
 }) {
@@ -52,6 +54,7 @@ async function renderText({
         templateId: "tpl1",
         templateTitle: "Maltittel",
         name,
+        reportNumber,
         requiresUnits,
         templateCategory,
         hmsType,
@@ -259,6 +262,18 @@ describe("ReportDocument", () => {
     const text = await renderText({ name: null, requiresUnits: true, label: "Pumpe" });
 
     expect(text).toContain("Maltittel");
+  });
+
+  it("viser rapportnummeret for HMS-rapporten", async () => {
+    const text = await renderText({
+      name: "Sikker Jobb Analyse",
+      requiresUnits: false,
+      reportNumber: "abc1234",
+      templateCategory: "HMS",
+      hmsType: "SJA",
+    });
+
+    expect(text).toContain("Rapportnr. abc1234");
   });
 
   it("viser ordrenummeret i toppen av PDF-en", async () => {
