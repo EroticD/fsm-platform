@@ -201,7 +201,7 @@
         "generalNotes": "Generelle notater fra montør:",
         "customerAcknowledged": "Kunden kvitterte {date}",
         "customerAcknowledgementComment": "Kundens kommentar til kvitteringen",
-        "reportNumber": "Rapportnummer"
+        "reportNumber": "Rapportnummer: {number}"
       },
       "unlockReason": "Årsak til opplåsing",
       "unlockReasonPlaceholder": "Beskriv hva som skal rettes",
@@ -337,7 +337,8 @@
       "selectTemplate": "-- Velg sjekklistemal --",
       "auditLog": "📋 Aktivitetslogg",
       "statusPlanned": "Planlagt",
-      "statusWaiting": "Venter"
+      "statusWaiting": "Venter",
+      "reportNumber": "Rapportnr. {number}"
     },
     "fieldNew": {
       "noDepartmentTitle": "Du mangler avdeling",

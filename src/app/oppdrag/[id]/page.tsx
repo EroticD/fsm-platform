@@ -208,7 +208,9 @@ async function ReportContent({ report, template }: { report: any; template: any 
       <div className="flex flex-wrap gap-2 items-center">
         {report?.reportNumber && (
           <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-black tracking-wide text-gray-700">
-            {t("orders.detail.report.reportNumber")}: {report.reportNumber}
+            {t("orders.detail.report.reportNumber", {
+              number: report.reportNumber,
+            })}
           </span>
         )}
         {summary.usesUnits && (

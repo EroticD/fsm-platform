@@ -201,7 +201,7 @@
         "generalNotes": "General notes from the technician:",
         "customerAcknowledged": "Customer acknowledged {date}",
         "customerAcknowledgementComment": "Customer's acknowledgement comment",
-        "reportNumber": "Report number"
+        "reportNumber": "Report number: {number}"
       },
       "unlockReason": "Reason for unlocking",
       "unlockReasonPlaceholder": "Describe what needs to be corrected",
@@ -337,7 +337,8 @@
       "selectTemplate": "-- Select checklist template --",
       "auditLog": "📋 Activity log",
       "statusPlanned": "Planned",
-      "statusWaiting": "Waiting"
+      "statusWaiting": "Waiting",
+      "reportNumber": "Report no. {number}"
     },
     "fieldNew": {
       "noDepartmentTitle": "You are missing a department",
