@@ -37,7 +37,27 @@
       "createRequiresUnits": "The report should be linked to equipment units",
       "inUse": "In use ({count})",
       "deleteConfirm": "Delete the checklist \"{title}\"?",
-      "deleteUsageWarning": "The checklist \"{title}\" is in use ({reports} reports, {workOrders} work orders, {contracts} contracts). Are you sure you want to delete it?"
+      "deleteUsageWarning": "The checklist \"{title}\" is in use ({reports} reports, {workOrders} work orders, {contracts} contracts). Are you sure you want to delete it?",
+      "category": "Category",
+      "hmsType": "HMS type",
+      "hmsTypePlaceholder": "Choose HMS type",
+      "descriptionPlaceholder": "Short description for the template library (optional)",
+      "filterLabel": "Filter",
+      "filterAll": "All",
+      "hmsTemplatesLink": "HMS form templates",
+      "categories": {
+        "SERVICE": "Service",
+        "HMS": "HMS form"
+      },
+      "hmsTypes": {
+        "GENERAL": "General HMS form",
+        "SJA": "Safe job analysis (SJA)",
+        "HOT_WORK": "Hot work",
+        "INTERNAL_CONTROL": "Internal control and risk assessment",
+        "DEVIATION": "Deviation report",
+        "SAFETY_ROUND": "Safety round",
+        "WRITTEN_INSTRUCTION": "Written instruction"
+      }
     },
     "tags": {
       "workOrdersTitle": "Work order tags",
@@ -188,6 +208,11 @@
     },
     "templateBuilder": {
       "name": "Checklist name",
+      "description": "Description",
+      "descriptionHint": "Shown in the template library to help others choose the right template.",
+      "category": "Category",
+      "hmsType": "HMS type",
+      "hmsTypeHint": "Controls which group the form appears in under the HMS library.",
       "sectionTitle": "Form fields & logic (IFTTT)",
       "emptyTitle": "This template has no fields yet.",
       "emptyDesc": "Use the buttons below to build the form with the field types you need.",

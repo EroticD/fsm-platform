@@ -48,14 +48,22 @@ function createFieldId(): string {
 export default function TemplateBuilder({ 
   initialTitle, 
   initialReportName = "",
+  initialDescription = "",
+  initialCategory = "SERVICE",
+  initialHmsType = "",
   initialRequiresUnits = true,
+  hmsTypes = [],
   initialFieldsJson, 
   saveAction,
   templateId,
 }: { 
   initialTitle: string; 
   initialReportName?: string;
+  initialDescription?: string;
+  initialCategory?: "SERVICE" | "HMS";
+  initialHmsType?: string;
   initialRequiresUnits?: boolean;
+  hmsTypes?: Array<{ value: string; label: string }>;
   initialFieldsJson: string; 
   saveAction: (formData: FormData) => Promise<void> | void;
   templateId: string;
@@ -63,6 +71,9 @@ export default function TemplateBuilder({
   const t = useTranslations("common");
   const [title, setTitle] = useState(initialTitle);
   const [reportName, setReportName] = useState(initialReportName);
+  const [description, setDescription] = useState(initialDescription);
+  const [category, setCategory] = useState<"SERVICE" | "HMS">(initialCategory);
+  const [hmsType, setHmsType] = useState(initialHmsType);
   const [requiresUnits, setRequiresUnits] = useState(initialRequiresUnits);
   
   const [fields, setFields] = useState<FormField[]>(() => {
@@ -133,6 +144,71 @@ export default function TemplateBuilder({
           required 
           className="w-full border-2 border-gray-300 p-3 rounded-xl text-lg text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400" 
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-black text-gray-900 mb-1">
+          {t("settings.templateBuilder.description")}
+        </label>
+        <textarea
+          name="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder={t("settings.templates.descriptionPlaceholder")}
+          className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          {t("settings.templateBuilder.descriptionHint")}
+        </p>
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <div>
+          <label className="block text-sm font-black text-gray-900 mb-1">
+            {t("settings.templateBuilder.category")}
+          </label>
+          <select
+            name="category"
+            value={category}
+            onChange={(e) => {
+              const next = e.target.value as "SERVICE" | "HMS";
+              setCategory(next);
+              if (next === "SERVICE") setHmsType("");
+            }}
+            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm"
+          >
+            <option value="SERVICE">{t("settings.templates.categories.SERVICE")}</option>
+            <option value="HMS">{t("settings.templates.categories.HMS")}</option>
+          </select>
+        </div>
+
+        {category === "HMS" && (
+          <div>
+            <label className="block text-sm font-black text-gray-900 mb-1">
+              {t("settings.templateBuilder.hmsType")}
+            </label>
+            <select
+              name="hmsType"
+              value={hmsType}
+              onChange={(e) => setHmsType(e.target.value)}
+              required
+              className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm"
+            >
+              <option value="" disabled>
+                {t("settings.templates.hmsTypePlaceholder")}
+              </option>
+              {hmsTypes.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {t("settings.templateBuilder.hmsTypeHint")}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-5 md:grid-cols-2">

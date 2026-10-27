@@ -12,6 +12,7 @@ import TemplatesTab from "@/components/settings/TemplatesTab";
 import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
+import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { getCurrentUser } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import {
@@ -50,6 +51,7 @@ export default async function SettingsPage({
     role?: string;
     setup?: string;
     ok?: string;
+    category?: string;
   }>;
 }) {
   const user = await getCurrentUser();
@@ -100,6 +102,7 @@ export default async function SettingsPage({
   const customerFilter = resolvedParams.customer || "";
   const technicianFilter = resolvedParams.technician || "";
   const page = Math.max(1, parseInt(resolvedParams.page?.toString() || "1", 10) || 1);
+  const templateCategory = parseTemplateCategoryFilter(resolvedParams.category);
 
   const overview = canUseSettings ? await getSettingsOverview(user) : null;
   if (overview && !overview.ok) redirect("/");
@@ -191,6 +194,7 @@ export default async function SettingsPage({
           <TemplatesTab
             templates={templates}
             isAdmin={isAdmin}
+            categoryFilter={templateCategory}
             createTemplate={createTemplateAction}
             deleteTemplate={deleteTemplateAction}
           />
