@@ -52,6 +52,8 @@ function report(overrides: Partial<ReportPdfHashInput> = {}): ReportPdfHashInput
     technicianSignatureUrl: "/uploads/tekniker.png",
     customerSignatureUrl: "/uploads/kunde.png",
     templateId: "template-1",
+    name: "Egen rapport",
+    requiresUnits: true,
     templateSnapshotJson: '{"title":"Sjekkliste"}',
     units: [
       {
@@ -85,6 +87,14 @@ describe("pdfHash", () => {
     expect(
       computeReportPdfHash(report({ units: [] })),
     ).not.toBe(base);
+  });
+
+  it("endres når rapportnavn eller enhetsvalg endres", () => {
+    const base = computeReportPdfHash(report());
+
+    expect(computeReportPdfHash(report({ name: "Nytt navn" }))).not.toBe(base);
+    expect(computeReportPdfHash(report({ requiresUnits: false }))).not.toBe(base);
+    expect(computeReportPdfHash(report({ name: null }))).not.toBe(base);
   });
 
   it("tar med alle rapportene når PDF-en består av flere", () => {

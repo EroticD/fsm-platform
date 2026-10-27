@@ -79,6 +79,7 @@ describe("kundeportaltjenesten", () => {
         select: expect.objectContaining({
           reports: expect.objectContaining({
             where: { deletedAt: null },
+            select: expect.objectContaining({ name: true }),
           }),
         }),
       }),

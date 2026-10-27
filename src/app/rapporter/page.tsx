@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder } from "@/lib/access";
 import { reportWhereFor } from "@/lib/report-filters";
+import { reportDisplayName } from "@/lib/report-display";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
@@ -161,7 +162,10 @@ export default async function ReportsPage({
         ) : (
           <div className="space-y-2">
             {reports.map((report) => {
-              const deviations = report.units.filter((u) => u.status === "AVVIK").length;
+              const unitCount = report.requiresUnits ? report.units.length : 0;
+              const deviations = report.requiresUnits
+                ? report.units.filter((u) => u.status === "AVVIK").length
+                : 0;
               const canOpenWorkOrder =
                 Boolean(report.workOrder) &&
                 canAccessWorkOrder(user, report.workOrder!) &&
@@ -174,7 +178,7 @@ export default async function ReportsPage({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-black text-gray-900 truncate">
-                        {report.template?.title || t("orders.reportsPage.defaultTitle")}
+                        {reportDisplayName(report, t("orders.reportsPage.defaultTitle"))}
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
                         📅 {formatDate(report.completedAt, t("orders.reportsPage.noDate"))}
@@ -185,7 +189,7 @@ export default async function ReportsPage({
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {report.units.length > 0 ? (
+                      {unitCount > 0 ? (
                         <span
                           className={`text-[11px] font-bold px-2 py-1 rounded-full border ${
                             deviations > 0
@@ -195,7 +199,7 @@ export default async function ReportsPage({
                         >
                           {deviations > 0
                             ? t("orders.reportsPage.deviations", { count: deviations })
-                            : `✅ ${t("orders.reportsPage.units", { count: report.units.length })}`}
+                            : `✅ ${t("orders.reportsPage.units", { count: unitCount })}`}
                         </span>
                       ) : null}
                       <span

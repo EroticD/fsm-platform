@@ -4,9 +4,11 @@ import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { getPortalReportHistory } from "@/server/portal";
 import { acknowledgeReportAction } from "@/app/kundeportal/report-actions";
+import { reportDisplayName } from "@/lib/report-display";
 
 type ReportView = {
   id: string;
+  name: string | null;
   completedAt: Date;
   isLocked: boolean;
   pdfUrl: string | null;
@@ -54,7 +56,9 @@ export default async function ReportHistory() {
               <li key={workOrder.id} className="space-y-3 py-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-bold text-gray-900">{workOrder.title}</p>
+                    <p className="font-bold text-gray-900">
+                      {reportDisplayName(report, workOrder.title)}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {t("p3.portalReports.performed", { date: formatDate(workOrder.scheduledFor || report.completedAt) })}
                       {report.isLocked ? ` · ${t("p3.portalReports.signed")}` : ""}
