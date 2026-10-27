@@ -56,7 +56,7 @@ function canonicalReport(report: ReportPdfHashInput) {
   return {
     // Økes når PDF-renderingen endres, slik at gamle, ufullstendige
     // PDF-er (for eksempel uten signaturbilder) ikke gjenbrukes fra cachen.
-    rendererVersion: 4,
+    rendererVersion: 5,
     id: report.id,
     updatedAt,
     comments: report.comments ?? null,

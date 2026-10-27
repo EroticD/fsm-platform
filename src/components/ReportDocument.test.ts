@@ -264,6 +264,46 @@ describe("ReportDocument", () => {
     expect(text).toContain("Maltittel");
   });
 
+  it("viser dato- og tallverdier i PDF-en", async () => {
+    const dateNumberFields = JSON.stringify([
+      { id: "dato", type: "DATE", label: "Kontrollato" },
+      { id: "antall", type: "NUMBER", label: "Antall" },
+    ]);
+    const text = await renderDocument({
+      workOrder: {
+        title: "Dato- og talltest",
+        status: "OPEN",
+        scheduledFor: new Date("2026-01-02T00:00:00.000Z"),
+        customer: { name: "Kunde AS" },
+        templates: [{ id: "tpl-date", title: "Datomål", fieldsJson: dateNumberFields }],
+      },
+      reports: [
+        {
+          id: "r-date",
+          templateId: "tpl-date",
+          templateTitle: "Datomål",
+          name: "Datomål",
+          requiresUnits: true,
+          templateCategory: "SERVICE",
+          dataJson: JSON.stringify({ status: "GODKJENT" }),
+          createdAt: new Date("2026-01-02T00:00:00.000Z"),
+          units: [
+            {
+              id: "u-date",
+              label: "Pumpe",
+              status: "GODKJENT",
+              answersJson: JSON.stringify({ dato: "2026-10-27", antall: "42" }),
+              comment: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(text).toContain("Kontrollato: 2026-10-27");
+    expect(text).toContain("Antall: 42");
+  });
+
   it("viser rapportnummeret for HMS-rapporten", async () => {
     const text = await renderText({
       name: "Sikker Jobb Analyse",
