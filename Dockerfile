@@ -11,7 +11,11 @@ ARG PRISMA_VERSION=7.10.1
 # ---------------------------------------------------------------------------
 FROM node:22-bookworm-slim AS base
 ENV NEXT_TELEMETRY_DISABLED=1
+# Node-imaget kan være bygget med eldre Debian-pakker enn det som ligger i
+# security-repoet. Oppgrader først, slik at f.eks. libssl3 får sikkerhetsfikser
+# før Trivy skanner det ferdige imaget.
 RUN apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends openssl ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
 # Node 22-imaget leveres med en eldre npm som har kjente HIGH-sårbarheter.
