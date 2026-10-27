@@ -117,6 +117,8 @@ model User {
   @@index([role])
   @@index([resetToken])
   @@index([customerId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_name_trgm")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_email_trgm")
 }
 
 model Customer {
@@ -185,6 +187,9 @@ model Contact {
   contracts Contract[]
 
   @@index([customerId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_email_trgm")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_phone_trgm")
 }
 
 // En enhet er en maskin/utstyr som står hos kunden, f.eks. en port, en pumpe
@@ -203,6 +208,8 @@ model Product {
   @@index([customerId])
   @@index([customerId, serialNumber])
   @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm")
+  @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_serialNumber_trgm")
+  @@index([location(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_location_trgm")
 }
 
 // En serviceavtale beskriver en gjentagende service for en kunde. Hver gang
@@ -371,6 +378,7 @@ model DocumentFolder {
   documents Document[]
 
   @@index([parentId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "DocumentFolder_name_trgm")
 }
 
 model Document {
@@ -498,6 +506,9 @@ model Report {
   @@index([completedAt])
   @@index([workOrderId, createdAt])
   @@index([deletedAt])
+  @@index([reportNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Report_reportNumber_trgm")
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Report_name_trgm")
+  @@index([templateTitle(ops: raw("gin_trgm_ops"))], type: Gin, map: "Report_templateTitle_trgm")
 }
 
 /// Uforanderlig øyeblikksbilde av en rapport før en endring. Signerte rapporter
@@ -602,6 +613,7 @@ model Template {
   contracts     Contract[]
 
   @@index([category, hmsType])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Template_title_trgm")
 }
 
 model Attachment {
