@@ -34,7 +34,10 @@
       "edit": "Rediger",
       "delete": "Slett",
       "reportNamePlaceholder": "F.eks. Årlig vaktmesterrapport",
-      "createRequiresUnits": "Rapporten skal knyttes til enheter"
+      "createRequiresUnits": "Rapporten skal knyttes til enheter",
+      "inUse": "I bruk ({count})",
+      "deleteConfirm": "Slette sjekklisten «{title}»?",
+      "deleteUsageWarning": "Sjekklisten «{title}» er i bruk ({reports} rapporter, {workOrders} oppdrag, {contracts} avtaler). Er du sikker på at du vil slette den?"
     },
     "tags": {
       "workOrdersTitle": "Tags for oppdrag",

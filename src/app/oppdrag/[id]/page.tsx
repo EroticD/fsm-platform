@@ -29,6 +29,11 @@ import {
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
+import { formatDate } from "@/lib/dates";
+import {
+  reportAcknowledgement,
+  reportUnitSummary,
+} from "@/lib/report-display";
 
 type ReportField = {
   id: string;
@@ -73,6 +78,20 @@ async function ReportContent({ report, template }: { report: any; template: any 
   }
 
   const units: ReportUnitView[] = report?.units ?? [];
+  const summary = reportUnitSummary(report ?? {});
+  const acknowledgement = reportAcknowledgement(report ?? {});
+  // Rapporter uten enheter lagrer svarene på én anonym rad. Den raden skal
+  // vises som vanlige sjekkpunkter, ikke som et enhetskort.
+  const anonymousUnit = !summary.usesUnits ? units[0] : undefined;
+  let anonymousAnswers: Record<string, unknown> = parsedAnswers;
+  if (anonymousUnit) {
+    try {
+      const parsed = JSON.parse(anonymousUnit.answersJson || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        anonymousAnswers = parsed as Record<string, unknown>;
+      }
+    } catch {}
+  }
 
   // Viser svaret på ett sjekkpunkt. Brukes både for enheter og for eldre rapporter.
   const renderAnswer = (field: ReportField, answer: unknown) => {
@@ -179,15 +198,37 @@ async function ReportContent({ report, template }: { report: any; template: any 
 
   return (
     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm text-sm space-y-4">
-      <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center">
         <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>
         <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
           {reportStatus === "GODKJENT" ? t("orders.detail.report.approved") : t("orders.detail.report.deviation")}
         </span>
+        {report?.legalHold && (
+          <span className="rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900">
+            🔒 {t("orders.detail.legalHoldBadge")}
+          </span>
+        )}
+        {acknowledgement.acknowledged && (
+          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
+            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDate(acknowledgement.at) })}
+          </span>
+        )}
       </div>
 
+      {acknowledgement.acknowledged && acknowledgement.comment && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
+          <p className="text-[10px] font-black uppercase tracking-wider text-green-700">
+            {t("orders.detail.report.customerAcknowledgementComment")}
+          </p>
+          <p className="mt-1 whitespace-pre-wrap">{acknowledgement.comment}</p>
+          {acknowledgement.by && (
+            <p className="mt-1 text-[11px] text-green-700">{acknowledgement.by}</p>
+          )}
+        </div>
+      )}
+
       {/* ENHETER */}
-      {units.length > 0 && (
+      {summary.usesUnits && units.length > 0 && (
         <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-3">
           <p className="text-xs font-black text-gray-600 uppercase tracking-wider">
             {t("orders.detail.report.unitsChecked", { count: units.length })}
@@ -231,8 +272,22 @@ async function ReportContent({ report, template }: { report: any; template: any 
         </div>
       )}
 
-      {/* SJEKKPUNKTER (eldre rapporter som ikke har enheter) */}
-      {units.length === 0 && fields.length > 0 && (
+      {/* SJEKKPUNKTER (rapporter uten enheter, eller eldre rapporter) */}
+      {!summary.usesUnits && fields.length > 0 && (
+        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
+          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">{t("orders.detail.report.answersTitle")}</p>
+          <div className="bg-gray-50 p-3 rounded-xl space-y-2 border-2 border-gray-200">
+            {fields.map((field) => fieldRow(field, anonymousAnswers, field.id))}
+          </div>
+          {anonymousUnit?.comment && (
+            <div className="bg-gray-50 px-3 py-2 rounded-xl border-2 border-gray-200 text-sm italic">
+              <MarkdownView value={anonymousUnit.comment} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {summary.usesUnits && units.length === 0 && fields.length > 0 && (
         <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
           <p className="text-xs font-black text-gray-600 uppercase tracking-wider">{t("orders.detail.report.answersTitle")}</p>
           <div className="bg-gray-50 p-3 rounded-xl space-y-2 border-2 border-gray-200">
@@ -401,6 +456,15 @@ export default async function AdminWorkOrderPage({
                   🔒 {t("orders.detail.legalHoldBadge")}
                 </span>
               )}
+              {!workOrder.legalHold &&
+                workOrder.reports.some((report) => report.legalHold) && (
+                  <span
+                    className="bg-red-50 border-2 border-red-300 text-red-900 px-3 py-1 rounded-full text-xs font-bold"
+                    title={t("orders.detail.legalHoldReportHint")}
+                  >
+                    🔒 {t("orders.detail.legalHoldReportBadge")}
+                  </span>
+                )}
             </div>
             {/* Tags */}
             {canEdit ? (
@@ -467,6 +531,18 @@ export default async function AdminWorkOrderPage({
                   name="hold"
                   value={workOrder.legalHold ? "false" : "true"}
                 />
+                {workOrder.legalHold && (
+                  <input
+                    type="text"
+                    name="reason"
+                    required
+                    maxLength={1000}
+                    placeholder={t("orders.detail.legalHoldReleaseReason")}
+                    aria-label={t("orders.detail.legalHoldReleaseReason")}
+                    title={t("orders.detail.legalHoldReleaseReasonHint")}
+                    className="min-w-[12rem] rounded-xl border-2 border-red-300 bg-white px-3 py-2 text-xs font-medium text-gray-900 outline-none focus:border-red-500"
+                  />
+                )}
                 <button
                   type="submit"
                   title={t("orders.detail.legalHoldHint")}
@@ -580,6 +656,12 @@ export default async function AdminWorkOrderPage({
                                     className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
                                   >
                                     {t("orders.detail.openPdf")}
+                                  </Link>
+                                  <Link
+                                    href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
+                                    className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                                  >
+                                    🕘 {t("orders.detail.revisions", { count: report.revision })}
                                   </Link>
                                   {canWriteReports && canModify && !report.isLocked && (
                                     <Link

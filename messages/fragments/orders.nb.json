@@ -183,7 +183,9 @@
         "deviationShort": "❌ Avvik",
         "approvedShort": "✅ Godkjent",
         "answersTitle": "Svar på sjekkpunkter:",
-        "generalNotes": "Generelle notater fra montør:"
+        "generalNotes": "Generelle notater fra montør:",
+        "customerAcknowledged": "Kunden kvitterte {date}",
+        "customerAcknowledgementComment": "Kundens kommentar til kvitteringen"
       },
       "unlockReason": "Årsak til opplåsing",
       "unlockReasonPlaceholder": "Beskriv hva som skal rettes",
@@ -202,6 +204,10 @@
       "legalHoldHint": "Bevaringsplikt hindrer automatisk sletting av oppdraget og rapportene. Bare administrator kan slå den av.",
       "legalHoldEnable": "🔒 Slå på bevaringsplikt",
       "legalHoldDisable": "🔓 Slå av bevaringsplikt",
+      "legalHoldReleaseReason": "Årsak til å oppheve bevaringsplikten",
+      "legalHoldReleaseReasonHint": "Årsaken logges i aktivitetsloggen.",
+      "legalHoldReportBadge": "Bevaringsplikt på rapport",
+      "legalHoldReportHint": "En eller flere rapporter på oppdraget har bevaringsplikt.",
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
       "orderNumber": "Ordrenummer tilknyttet oppdrag"
@@ -361,7 +367,8 @@
       "noCustomer": "Uten kunde",
       "lockedTitle": "🔒 Rapporten er låst",
       "lockedText": "Denne sjekklisten er allerede fylt ut og låst, og kan ikke endres herfra. Er det behov for rettinger må en administrator låse den opp først.",
-      "openPdf": "📄 Se rapporten (PDF)"
+      "openPdf": "📄 Se rapporten (PDF)",
+      "revisions": "Revisjoner ({count})"
     },
     "fieldInput": {
       "commentRequired": "💬 Kommentar til «{value}» – påkrevd",
@@ -525,7 +532,35 @@
       "unsigned": "Ikke signert",
       "viewPdf": "📄 Se rapport (PDF)",
       "openWorkOrder": "📂 Åpne oppdraget",
-      "showing": "Viser de {shown} nyeste av {total} rapporter."
+      "showing": "Viser de {shown} nyeste av {total} rapporter.",
+      "noUnits": "Uten enheter",
+      "revisions": "Revisjoner ({count})",
+      "previousPage": "Forrige",
+      "nextPage": "Neste",
+      "showingPage": "Side {page} av {totalPages} · {total} rapporter"
+    },
+    "revisions": {
+      "title": "Revisjoner",
+      "back": "Tilbake",
+      "openCurrentPdf": "📄 Åpne gjeldende rapport",
+      "notFound": "Fant ikke oppdraget eller revisjonene.",
+      "noReports": "Oppdraget har ingen rapporter ennå.",
+      "noRevisions": "Ingen revisjoner",
+      "noReason": "Ingen årsak oppgitt",
+      "unknownActor": "Ukjent bruker",
+      "defaultName": "Servicerapport",
+      "reason": "Årsak",
+      "actor": "Endret av",
+      "createdAt": "Tidspunkt",
+      "status": "Resultat i denne versjonen",
+      "currentRevision": "Gjeldende revisjon: {revision}",
+      "revisionLabel": "Revisjon {revision}",
+      "snapshotTitle": "Innhold i revisjon {revision}",
+      "snapshotMissing": "Fant ikke innholdet i denne revisjonen.",
+      "downloadPdf": "⬇ Last ned revisjonen (PDF)",
+      "unitSummary": "{count, plural, one {# enhet} other {# enheter}} · {deviations} avvik",
+      "noUnits": "Rapporten bruker ikke enheter",
+      "noUnitLabel": "Uten navn"
     },
     "reportViewer": {
       "notFoundWorkOrder": "Fant ikke oppdraget.",

@@ -14,6 +14,7 @@ import {
   buildPdfImages,
   collectReportImageUrls,
   PDF_IMAGE_MAX_WIDTH,
+  resolvePdfImageSource,
 } from "./report-images";
 import {
   BRANDING_LOGO_OWNER_TYPES,
@@ -71,6 +72,59 @@ describe("collectReportImageUrls", () => {
     ]);
 
     expect(urls).toEqual(["/uploads/tekniker.png"]);
+  });
+});
+
+describe("resolvePdfImageSource – feiler lukket", () => {
+  const upload = "/uploads/11111111-1111-4111-8111-111111111111.png";
+
+  it("bruker et ferdig innbakt bilde når det finnes", () => {
+    const embedded = { src: "data:image/jpeg;base64,abc", width: 100, height: 50 };
+    expect(
+      resolvePdfImageSource(upload, { [upload]: embedded }, "https://fsm.example"),
+    ).toEqual(embedded);
+  });
+
+  it("gjør en lokal opplasting absolutt mot appens egen adresse", () => {
+    expect(
+      resolvePdfImageSource(upload, {}, "https://fsm.example/"),
+    ).toEqual({ src: `https://fsm.example${upload}` });
+  });
+
+  it("avviser eksterne http(s)-adresser", () => {
+    expect(
+      resolvePdfImageSource(
+        "https://intern.tjeneste/hemmelig.png",
+        {},
+        "https://fsm.example",
+      ),
+    ).toBeNull();
+    expect(
+      resolvePdfImageSource(
+        "http://169.254.169.254/latest/meta-data",
+        {},
+        "https://fsm.example",
+      ),
+    ).toBeNull();
+  });
+
+  it("avviser lokale stier uten kjent base-URL og andre stier", () => {
+    expect(resolvePdfImageSource(upload, {}, null)).toBeNull();
+    expect(
+      resolvePdfImageSource("/uploads/../hemmelig.png", {}, "https://fsm.example"),
+    ).toBeNull();
+    expect(
+      resolvePdfImageSource("//evil.example/x.png", {}, "https://fsm.example"),
+    ).toBeNull();
+  });
+
+  it("godtar bare data-URL-er med bildeformat", () => {
+    expect(
+      resolvePdfImageSource("data:image/png;base64,abc", {}, null),
+    ).toEqual({ src: "data:image/png;base64,abc" });
+    expect(
+      resolvePdfImageSource("data:text/html;base64,abc", {}, null),
+    ).toBeNull();
   });
 });
 

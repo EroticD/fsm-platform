@@ -9,15 +9,21 @@ import { reportDisplayName } from "@/lib/report-display";
 type ReportView = {
   id: string;
   name: string | null;
-  completedAt: Date;
+  templateTitle: string | null;
+  requiresUnits: boolean;
+  completedAt: Date | null;
   isLocked: boolean;
+  revision: number;
   pdfUrl: string | null;
   customerAcknowledgedAt: Date | null;
+  customerAcknowledgedBy: string | null;
+  customerAcknowledgedComment: string | null;
 };
 
 type WorkOrderView = {
   id: string;
   title: string;
+  orderNumber: string | null;
   scheduledFor: Date | null;
   reports: ReportView[];
 };
@@ -85,8 +91,16 @@ export default async function ReportHistory({
                 <p className="font-bold text-gray-900">{workOrder.title}</p>
                 <p className="text-xs text-gray-500">
                   {t("p3.portalReports.workOrderPerformed", {
-                    date: formatDate(workOrder.scheduledFor, t("p3.portalReports.unknownDate")),
+                    date: formatDate(
+                      workOrder.scheduledFor,
+                      t("p3.portalReports.unknownDate"),
+                    ),
                   })}
+                  {workOrder.orderNumber
+                    ? ` · ${t("p3.portalReports.orderNumber", {
+                        number: workOrder.orderNumber,
+                      })}`
+                    : ""}
                 </p>
               </div>
 
@@ -110,38 +124,76 @@ export default async function ReportHistory({
                             {t("p3.portalReports.performed", {
                               date: formatDate(
                                 report.completedAt || workOrder.scheduledFor,
+                                t("p3.portalReports.unknownDate"),
                               ),
                             })}
                             {report.isLocked
                               ? ` · ${t("p3.portalReports.signed")}`
                               : ""}
+                            {report.revision > 0
+                              ? ` · ${t("p3.portalReports.revision", {
+                                  revision: report.revision,
+                                })}`
+                              : ""}
                           </p>
                         </div>
-                        <Link
-                          href={`/api/rapporter/${workOrder.id}/pdf`}
-                          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
-                        >
-                          {t("p3.portalReports.download")}
-                        </Link>
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href={`/api/rapporter/${workOrder.id}/pdf`}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                          >
+                            {t("p3.portalReports.download")}
+                          </Link>
+                          {report.revision > 0 && (
+                            <Link
+                              href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
+                              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                            >
+                              {t("p3.portalReports.history")}
+                            </Link>
+                          )}
+                        </div>
                       </div>
 
                       {report.customerAcknowledgedAt ? (
-                        <p className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-800">
-                          {t("p3.portalReports.acknowledged", {
-                            date: formatDate(report.customerAcknowledgedAt),
-                          })}
-                        </p>
+                        <div className="rounded-xl bg-green-50 px-3 py-2 text-xs text-green-900">
+                          <p className="font-bold">
+                            {t("p3.portalReports.acknowledged", {
+                              date: formatDate(report.customerAcknowledgedAt),
+                            })}
+                            {report.customerAcknowledgedBy
+                              ? ` · ${report.customerAcknowledgedBy}`
+                              : ""}
+                          </p>
+                          {report.customerAcknowledgedComment && (
+                            <p className="mt-1 whitespace-pre-wrap">
+                              {report.customerAcknowledgedComment}
+                            </p>
+                          )}
+                        </div>
                       ) : (
                         <form
                           action={acknowledgeReportAction}
                           className="flex flex-col gap-2 sm:flex-row"
                         >
-                          <input type="hidden" name="workOrderId" value={workOrder.id} />
-                          <input type="hidden" name="reportId" value={report.id} />
+                          <input
+                            type="hidden"
+                            name="workOrderId"
+                            value={workOrder.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="reportId"
+                            value={report.id}
+                          />
                           <input
                             name="comment"
-                            aria-label={t("p3.portalReports.commentPlaceholder")}
-                            placeholder={t("p3.portalReports.commentPlaceholder")}
+                            aria-label={t(
+                              "p3.portalReports.commentPlaceholder",
+                            )}
+                            placeholder={t(
+                              "p3.portalReports.commentPlaceholder",
+                            )}
                             className="min-h-11 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900"
                           />
                           <button

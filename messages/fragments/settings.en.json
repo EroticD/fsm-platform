@@ -34,7 +34,10 @@
       "edit": "Edit",
       "delete": "Delete",
       "reportNamePlaceholder": "E.g. Annual caretaker report",
-      "createRequiresUnits": "The report should be linked to equipment units"
+      "createRequiresUnits": "The report should be linked to equipment units",
+      "inUse": "In use ({count})",
+      "deleteConfirm": "Delete the checklist \"{title}\"?",
+      "deleteUsageWarning": "The checklist \"{title}\" is in use ({reports} reports, {workOrders} work orders, {contracts} contracts). Are you sure you want to delete it?"
     },
     "tags": {
       "workOrdersTitle": "Work order tags",

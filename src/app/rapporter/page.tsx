@@ -7,7 +7,14 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder } from "@/lib/access";
 import { reportWhereFor } from "@/lib/report-filters";
-import { reportDisplayName } from "@/lib/report-display";
+import {
+  reportDisplayName,
+  reportUnitSummary,
+} from "@/lib/report-display";
+import { pageWindow, parsePage } from "@/lib/pagination";
+
+/** Rapporter per side. Listen kan bla gjennom hele historikken. */
+const PAGE_SIZE = 50;
 
 // ---------------------------------------------------------------------------
 // Hjelpere
@@ -32,7 +39,7 @@ function isRangeKey(value: string): value is RangeKey {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vis?: string }>;
+  searchParams: Promise<{ vis?: string; side?: string }>;
 }) {
   const t = await getTranslations("common");
   const user = await getCurrentUser();
@@ -43,24 +50,30 @@ export default async function ReportsPage({
   if (user.role === "CUSTOMER") redirect("/kundeportal");
   if (!hasPermission(user, "reports.view")) redirect("/");
 
-  const { vis } = await searchParams;
+  const { vis, side } = await searchParams;
   const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
   const excludeCancelled = user.role === "TECHNICIAN";
+  const where = reportWhereFor(range, excludeCancelled);
 
   // Rapporter er delbare på tvers av avdelinger for ansatte med reports.view.
   // Oppdragslistene er fortsatt avdelingsavgrensede, og oppdragslenken under
   // vises bare når brukeren faktisk har tilgang til oppdraget.
-  const [reports, total, thisMonth, lastMonth, allReports] = await Promise.all([
+  const total = await prisma.report.count({ where });
+  const window = pageWindow(parsePage(side, undefined), total, PAGE_SIZE);
+
+  const [reports, thisMonth, lastMonth, allReports] = await Promise.all([
     prisma.report.findMany({
-      where: reportWhereFor(range, excludeCancelled),
+      where,
       orderBy: { completedAt: "desc" },
-      take: 100,
+      skip: window.skip,
+      take: window.take,
       include: {
         template: { select: { title: true } },
         workOrder: {
           select: {
             id: true,
             title: true,
+            orderNumber: true,
             status: true,
             departmentId: true,
             customerId: true,
@@ -70,7 +83,6 @@ export default async function ReportsPage({
         units: { select: { id: true, status: true } },
       },
     }),
-    prisma.report.count({ where: reportWhereFor(range, excludeCancelled) }),
     prisma.report.count({ where: reportWhereFor("denne-maneden", excludeCancelled) }),
     prisma.report.count({ where: reportWhereFor("forrige-maned", excludeCancelled) }),
     prisma.report.count({ where: reportWhereFor("alle", excludeCancelled) }),
@@ -87,6 +99,14 @@ export default async function ReportsPage({
     "denne-maneden": thisMonth,
     "forrige-maned": lastMonth,
     alle: allReports,
+  };
+
+  const pageHref = (page: number) => {
+    const params = new URLSearchParams();
+    if (range !== "denne-maneden") params.set("vis", range);
+    if (page > 1) params.set("side", String(page));
+    const query = params.toString();
+    return `/rapporter${query ? `?${query}` : ""}`;
   };
 
   return (
@@ -162,10 +182,9 @@ export default async function ReportsPage({
         ) : (
           <div className="space-y-2">
             {reports.map((report) => {
-              const unitCount = report.requiresUnits ? report.units.length : 0;
-              const deviations = report.requiresUnits
-                ? report.units.filter((u) => u.status === "AVVIK").length
-                : 0;
+              const summary = reportUnitSummary(report);
+              const unitCount = summary.unitCount;
+              const deviations = summary.deviationCount;
               const canOpenWorkOrder =
                 Boolean(report.workOrder) &&
                 canAccessWorkOrder(user, report.workOrder!) &&
@@ -186,10 +205,13 @@ export default async function ReportsPage({
                         {report.workOrder?.customer?.name || t("orders.reportsPage.noCustomer")}
                         {" • 📂 "}
                         {report.workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
+                        {report.workOrder?.orderNumber
+                          ? ` • #${report.workOrder.orderNumber}`
+                          : ""}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {unitCount > 0 ? (
+                      {summary.usesUnits && unitCount > 0 ? (
                         <span
                           className={`text-[11px] font-bold px-2 py-1 rounded-full border ${
                             deviations > 0
@@ -200,6 +222,10 @@ export default async function ReportsPage({
                           {deviations > 0
                             ? t("orders.reportsPage.deviations", { count: deviations })
                             : `✅ ${t("orders.reportsPage.units", { count: unitCount })}`}
+                        </span>
+                      ) : !summary.usesUnits ? (
+                        <span className="text-[11px] font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
+                          {t("orders.reportsPage.noUnits")}
                         </span>
                       ) : null}
                       <span
@@ -224,6 +250,12 @@ export default async function ReportsPage({
                     >
                       📄 {t("orders.reportsPage.viewPdf")}
                     </Link>
+                    <Link
+                      href={`/rapporter/${report.workOrderId}/revisjoner?rapport=${report.id}`}
+                      className="font-bold text-gray-600 hover:underline"
+                    >
+                      🕘 {t("orders.reportsPage.revisions", { count: report.revision })}
+                    </Link>
                     {canOpenWorkOrder && (
                       <Link
                         href={`/oppdrag/${report.workOrderId}`}
@@ -239,10 +271,26 @@ export default async function ReportsPage({
           </div>
         )}
 
-        {total > reports.length && (
-          <p className="text-center text-xs text-gray-500">
-            {t("orders.reportsPage.showing", { shown: reports.length, total })}
-          </p>
+        {total > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-bold">
+            {window.page > 1 && (
+              <Link href={pageHref(window.page - 1)} className="text-blue-700 hover:underline">
+                ← {t("orders.reportsPage.previousPage")}
+              </Link>
+            )}
+            <span className="text-gray-500">
+              {t("orders.reportsPage.showingPage", {
+                page: window.page,
+                totalPages: window.totalPages,
+                total,
+              })}
+            </span>
+            {window.page < window.totalPages && (
+              <Link href={pageHref(window.page + 1)} className="text-blue-700 hover:underline">
+                {t("orders.reportsPage.nextPage")} →
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </div>

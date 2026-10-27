@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { SettingsOverviewData } from "@/server/settings";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
 type TemplatesTabProps = {
   templates: SettingsOverviewData["templates"];
@@ -65,7 +66,23 @@ export default async function TemplatesTab({
           <p className="text-sm text-gray-500 italic">{t("settings.templates.empty")}</p>
         ) : (
           <div className="space-y-3">
-            {templates.map((template) => (
+            {templates.map((template) => {
+              const usage =
+                template._count.reports +
+                template._count.workOrder +
+                template._count.contracts;
+              const deleteMessage =
+                usage > 0
+                  ? t("settings.templates.deleteUsageWarning", {
+                      title: template.title,
+                      reports: template._count.reports,
+                      workOrders: template._count.workOrder,
+                      contracts: template._count.contracts,
+                    })
+                  : t("settings.templates.deleteConfirm", {
+                      title: template.title,
+                    });
+              return (
               <div key={template.id} className="flex justify-between items-center gap-3 p-4 bg-gray-50 border border-gray-100 rounded-xl">
                 <div className="min-w-0">
                   <span className="font-bold text-gray-800">{template.title}</span>
@@ -82,6 +99,11 @@ export default async function TemplatesTab({
                     >
                       {template.requiresUnits ? "✓" : "✕"} {t("settings.templateBuilder.requiresUnits")}
                     </span>
+                    {usage > 0 && (
+                      <span className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                        ⚠ {t("settings.templates.inUse", { count: usage })}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -94,16 +116,20 @@ export default async function TemplatesTab({
                   </Link>
 
                   {isAdmin && (
-                    <form action={deleteTemplate}>
+                    <ConfirmSubmitForm
+                      action={deleteTemplate}
+                      confirmMessage={deleteMessage}
+                    >
                       <input type="hidden" name="id" value={template.id} />
                       <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
                         {t("settings.templates.delete")}
                       </button>
-                    </form>
+                    </ConfirmSubmitForm>
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

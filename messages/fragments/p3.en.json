@@ -68,6 +68,9 @@
       "acknowledged": "✓ Acknowledged {date}",
       "commentPlaceholder": "Comment (optional)",
       "acknowledge": "Acknowledge receipt",
+      "orderNumber": "Order no. {number}",
+      "revision": "revision {revision}",
+      "history": "🕘 Revisions",
       "requestUpdate": "Request a contact information update",
       "requestUpdatePlaceholder": "What should be updated?",
       "requestUpdateButton": "Send request"

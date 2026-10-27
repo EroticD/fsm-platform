@@ -178,6 +178,7 @@ export async function getPortalReportHistory(
       select: {
         id: true,
         title: true,
+        orderNumber: true,
         scheduledFor: true,
         reports: {
           where: { deletedAt: null },
@@ -187,10 +188,15 @@ export async function getPortalReportHistory(
           select: {
             id: true,
             name: true,
+            templateTitle: true,
+            requiresUnits: true,
             completedAt: true,
             isLocked: true,
+            revision: true,
             pdfUrl: true,
             customerAcknowledgedAt: true,
+            customerAcknowledgedBy: true,
+            customerAcknowledgedComment: true,
           },
         },
       },

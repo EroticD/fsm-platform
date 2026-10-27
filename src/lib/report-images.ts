@@ -28,6 +28,38 @@ export type PdfImage = {
   height?: number;
 };
 
+/** En data-URL med et bildeformat PDF-motoren kan lese. */
+const EMBEDDED_IMAGE = /^data:image\/(png|jpe?g|webp|gif);base64,/i;
+/** Kun filer i appens egen opplastingsmappe. */
+const LOCAL_UPLOAD = /^\/uploads\/[A-Za-z0-9._-]+$/;
+
+/**
+ * Velger hvilken kilde PDF-motoren får lov å hente bildet fra.
+ *
+ * PDF-generering skal aldri hente vilkårlige http(s)-adresser: det ville både
+ * være en SSRF-vei og kunne vise innhold fra andre tjenere i en signert
+ * rapport. Bare ferdig innbakte data-URL-er og filer under `/uploads` godtas.
+ * En ukjent eller ekstern URL gir `null`, og da tegnes ikke bildet.
+ */
+export function resolvePdfImageSource(
+  url: string | null | undefined,
+  pdfImages: Record<string, PdfImage> | undefined,
+  baseUrl?: string | null,
+): PdfImage | null {
+  const source = (url ?? "").trim();
+  if (!source) return null;
+
+  const embedded = pdfImages?.[source];
+  if (embedded && EMBEDDED_IMAGE.test(embedded.src)) return embedded;
+  if (EMBEDDED_IMAGE.test(source)) return { src: source };
+
+  if (!LOCAL_UPLOAD.test(source)) return null;
+  const origin = (baseUrl ?? "").trim().replace(/\/+$/, "");
+  if (!/^https?:\/\/[^/]+/i.test(origin)) return null;
+
+  return { src: `${origin}${source}` };
+}
+
 /**
  * Et bilde som skal gjøres klart for PDF-en, med hvilke opplastingseiere som
  * er lov for akkurat dette bildet. Rapporter bruker `WORK_ORDER`, logoen
