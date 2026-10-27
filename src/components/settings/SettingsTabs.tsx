@@ -61,6 +61,11 @@ export default async function SettingsTabs({
           📋 {t("settings.tabs.auditLog")}
         </Link>
       )}
+      {canAudit && (
+        <Link href="/sok/analyse" className={linkClass(false)}>
+          📈 {t("searchAdmin.linkLabel")}
+        </Link>
+      )}
       {canStats && (
         <Link href="?tab=statistikk" className={linkClass(currentTab === "statistikk")} aria-current={currentTab === "statistikk" ? "page" : undefined}>
           📊 {t("settings.tabs.statistics")}
