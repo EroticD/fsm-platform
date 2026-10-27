@@ -75,7 +75,15 @@
       "clear": "Clear search",
       "searching": "Searching …",
       "noResults": "No results for “{query}”",
-      "seeAll": "See all {count} results"
+      "noResultsHint": "Try another search term, or check the spelling.",
+      "errorTitle": "Search failed",
+      "errorHint": "Could not fetch search results. Check your connection and try again.",
+      "retrySearch": "Try again",
+      "groupTotal": "{count} results",
+      "seeAll": "See all ({count})",
+      "recentTitle": "Recent searches",
+      "clearRecent": "Clear history",
+      "recentAnnouncement": "Recent search: {query}"
     },
     "markdown": {
       "bold": "Bold (Ctrl+B)",

@@ -75,7 +75,15 @@
       "clear": "Tøm søk",
       "searching": "Søker …",
       "noResults": "Ingen treff for «{query}»",
-      "seeAll": "Se alle {count} treff"
+      "noResultsHint": "Prøv et annet søkeord, eller sjekk stavemåten.",
+      "errorTitle": "Søket feilet",
+      "errorHint": "Kunne ikke hente søkeresultater. Sjekk tilkoblingen og prøv igjen.",
+      "retrySearch": "Prøv igjen",
+      "groupTotal": "{count} treff",
+      "seeAll": "Se alle ({count})",
+      "recentTitle": "Nylige søk",
+      "clearRecent": "Tøm historikk",
+      "recentAnnouncement": "Nylig søk: {query}"
     },
     "markdown": {
       "bold": "Fet (Ctrl+B)",
