@@ -301,7 +301,7 @@ export default async function TechnicianWorkOrderPage({
                       <form action={removeTechnician} className="flex-shrink-0">
                         <input type="hidden" name="workOrderId" value={workOrderId} />
                         <input type="hidden" name="userId" value={tech.id} />
-                        <button type="submit" className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
+                        <button type="submit" className="min-h-11 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg border border-red-300 transition whitespace-nowrap">
                           {tech.id === user.id ? t("orders.fieldDetail.removeMe") : t("orders.fieldDetail.remove")}
                         </button>
                       </form>
@@ -423,14 +423,14 @@ export default async function TechnicianWorkOrderPage({
                           href={`/rapporter/${workOrderId}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                          className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                         >
                           {t("orders.fieldDetail.openReport")}
                         </Link>
                         {canWriteReports && canUpdate && !report.isLocked && (
                           <Link
                             href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
-                            className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
+                            className="inline-flex min-h-11 items-center bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-amber-800 shadow-sm transition whitespace-nowrap"
                           >
                             {t("orders.fieldDetail.edit")}
                           </Link>
@@ -439,7 +439,7 @@ export default async function TechnicianWorkOrderPage({
                     ) : canWriteReports && canUpdate ? (
                       <Link
                         href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
-                        className="bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                        className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
                       >
                         {t("orders.fieldDetail.fillForm")}
                       </Link>

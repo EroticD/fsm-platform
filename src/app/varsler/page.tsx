@@ -4,7 +4,12 @@ import { getTranslations } from "next-intl/server";
 import { formatDateTime } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { listNotifications } from "@/server/notifications";
-import { markAllReadAction, markReadAction } from "./actions";
+import { notificationHrefForUser } from "@/lib/notification-links";
+import {
+  markAllReadAction,
+  markReadAction,
+  openNotificationAction,
+} from "./actions";
 
 type NotificationItem = {
   id: string;
@@ -39,6 +44,14 @@ export default async function NotificationsPage({
     page: number;
     totalPages: number;
   };
+
+  // Kundeportalbrukere skal ikke sendes til kontorets oppdragssider.
+  const hrefFor = (notification: NotificationItem): string | null =>
+    notificationHrefForUser(
+      user.role,
+      notification.type,
+      notification.href,
+    );
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-5 p-4 sm:p-6">
@@ -105,13 +118,21 @@ export default async function NotificationsPage({
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  {notification.href && (
-                    <Link
-                      href={notification.href}
-                      className="text-xs font-bold text-blue-700 hover:underline"
-                    >
-                      {t("p3.notifications.open")}
-                    </Link>
+                  {hrefFor(notification) && (
+                    <form action={openNotificationAction}>
+                      <input type="hidden" name="id" value={notification.id} />
+                      <input
+                        type="hidden"
+                        name="href"
+                        value={hrefFor(notification) ?? ""}
+                      />
+                      <button
+                        type="submit"
+                        className="text-xs font-bold text-blue-700 hover:underline"
+                      >
+                        {t("p3.notifications.open")}
+                      </button>
+                    </form>
                   )}
                   {!notification.readAt && (
                     <form action={markReadAction}>

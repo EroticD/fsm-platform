@@ -1,11 +1,8 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import MarkdownEditor from "@/components/MarkdownEditor";
 import { markdownToPlainText } from "@/lib/markdown";
 import {
   addDaysUtc,
@@ -17,15 +14,14 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
-import { createBooking } from "@/server/portal";
 import { parsePage } from "@/lib/pagination";
 import ReportHistory from "@/components/portal/ReportHistory";
 import StatusBadge from "@/components/StatusBadge";
+import BookingForm from "./BookingForm";
 import { requestContactUpdateAction } from "./report-actions";
 
 /** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
 const UPCOMING_PAGE_SIZE = 20;
-const HISTORY_PAGE_SIZE = 20;
 
 const WORK_ORDER_LIST_SELECT = {
   id: true,
@@ -34,12 +30,6 @@ const WORK_ORDER_LIST_SELECT = {
   scheduledFor: true,
   description: true,
   technicians: { select: { name: true }, take: 10 },
-  reports: {
-    where: { deletedAt: null },
-    select: { id: true, completedAt: true, isLocked: true },
-    orderBy: { completedAt: "desc" as const },
-    take: 1,
-  },
 } as const;
 
 // Formaterer en dato til YYYY-MM-DD. Kalenderdatoer er UTC-midnatt i
@@ -51,7 +41,7 @@ function dateKey(d: Date) {
 export default async function KundeportalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ u?: string; h?: string }>;
+  searchParams: Promise<{ u?: string; h?: string; r?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -60,6 +50,7 @@ export default async function KundeportalPage({
   const listParams = await searchParams;
   const upcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
+  const reportPage = parsePage(listParams.r);
 
   if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return (
@@ -95,42 +86,26 @@ export default async function KundeportalPage({
 
   const defaultDepartmentId = await getDefaultDepartmentId();
 
-  // Kommende og utførte oppdrag hentes hver for seg med et fast tak. Slik
-  // slipper kundeportalen å laste hele oppdragshistorikken (og alle rapportene)
-  // hver gang siden åpnes.
+  // Kommende oppdrag hentes med et fast tak. Avsluttede oppdrag og alle
+  // rapportene deres ligger i den samlede rapporthistorikken lenger ned.
   const upcomingWhere: Prisma.WorkOrderWhereInput = {
     customerId: customer.id,
     deletedAt: null,
     status: { notIn: ["COMPLETED", "CANCELLED"] },
   };
-  const historyWhere: Prisma.WorkOrderWhereInput = {
-    customerId: customer.id,
-    deletedAt: null,
-    status: { in: ["COMPLETED", "CANCELLED"] },
-  };
 
-  const [upcomingWorkOrders, upcomingTotal, completedWorkOrders, completedTotal] =
-    await Promise.all([
-      prisma.workOrder.findMany({
-        where: upcomingWhere,
-        orderBy: { scheduledFor: "desc" },
-        take: UPCOMING_PAGE_SIZE,
-        skip: (upcomingPage - 1) * UPCOMING_PAGE_SIZE,
-        select: WORK_ORDER_LIST_SELECT,
-      }),
-      prisma.workOrder.count({ where: upcomingWhere }),
-      prisma.workOrder.findMany({
-        where: historyWhere,
-        orderBy: { scheduledFor: "desc" },
-        take: HISTORY_PAGE_SIZE,
-        skip: (historyPage - 1) * HISTORY_PAGE_SIZE,
-        select: WORK_ORDER_LIST_SELECT,
-      }),
-      prisma.workOrder.count({ where: historyWhere }),
-    ]);
+  const [upcomingWorkOrders, upcomingTotal] = await Promise.all([
+    prisma.workOrder.findMany({
+      where: upcomingWhere,
+      orderBy: { scheduledFor: "desc" },
+      take: UPCOMING_PAGE_SIZE,
+      skip: (upcomingPage - 1) * UPCOMING_PAGE_SIZE,
+      select: WORK_ORDER_LIST_SELECT,
+    }),
+    prisma.workOrder.count({ where: upcomingWhere }),
+  ]);
 
   const upcomingTotalPages = Math.max(1, Math.ceil(upcomingTotal / UPCOMING_PAGE_SIZE));
-  const historyTotalPages = Math.max(1, Math.ceil(completedTotal / HISTORY_PAGE_SIZE));
 
   // Beholder motpartens side når man blar i én av listene.
   const listLink = (next: { u?: number; h?: number }, hash: string) => {
@@ -139,35 +114,10 @@ export default async function KundeportalPage({
     const h = next.h ?? historyPage;
     if (u > 1) params.set("u", String(u));
     if (h > 1) params.set("h", String(h));
+    if (reportPage > 1) params.set("r", String(reportPage));
     const qs = params.toString();
     return `/kundeportal${qs ? `?${qs}` : ""}${hash}`;
   };
-
-  // --- SERVER ACTION: BOOK NYTT OPPDRAG ---
-  async function bookWorkOrder(formData: FormData) {
-    "use server";
-
-    // Selve autorisasjonen og alle reglene ligger i tjenestelaget. Her hentes
-    // bare aktøren og klient-IP-en som tjenesten trenger.
-    const current = await getCurrentUser();
-    if (!current) return;
-
-    const requestHeaders = await headers();
-    const ip =
-      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      requestHeaders.get("x-real-ip") ||
-      undefined;
-
-    const result = await createBooking(current, {
-      title: String(formData.get("title") ?? ""),
-      description: String(formData.get("description") ?? ""),
-      ip,
-    });
-
-    // Suksess og avvisning håndteres likt i UI-en: vellykkede bestillinger
-    // vises etter revalidering, mens avviste ikke endrer listen.
-    if (result.ok) revalidatePath("/kundeportal");
-  }
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
   // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
@@ -414,19 +364,7 @@ export default async function KundeportalPage({
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
               <p className="text-gray-500 text-sm mb-4">{t("portal.booking.desc")}</p>
-              <form action={bookWorkOrder} className="space-y-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">{t("portal.booking.titleLabel")}</label>
-                  <input type="text" name="title" required placeholder={t("portal.booking.titlePlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wider">{t("portal.booking.descriptionLabel")}</label>
-                  <MarkdownEditor name="description" rows={2} placeholder={t("portal.booking.descriptionPlaceholder")} />
-                </div>
-                <button type="submit" className="w-full bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition whitespace-nowrap">
-                  {t("portal.booking.submit")}
-                </button>
-              </form>
+              <BookingForm />
             </div>
 
             {/* KOMMENDE OPPDRAG */}
@@ -500,68 +438,15 @@ export default async function KundeportalPage({
               )}
             </div>
 
-            {/* SERVICEHISTORIKK */}
-            <div id="historikk" className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-4 border-b pb-2">
-                <div>
-                  <h2 className="font-bold text-lg text-gray-900">📋 {t("portal.history.title")}</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">{t("portal.history.desc")}</p>
-                </div>
-              </div>
-
-              {completedTotal === 0 ? (
-                <p className="text-gray-500 italic text-sm">{t("portal.history.empty")}</p>
-              ) : (
-                <div className="space-y-3">
-                  {completedWorkOrders.map(wo => (
-                    <div key={wo.id} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
-                          <p className="text-[10px] text-gray-500">{formatDate(wo.scheduledFor, t("portal.upcoming.noDate"))}</p>
-                        </div>
-                        <StatusBadge status={wo.status} />
-                      </div>
-                      {wo.reports.length > 0 ? (
-                        <Link href={`/rapporter/${wo.id}`} className="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm whitespace-nowrap">
-                          {t("portal.history.download")}
-                        </Link>
-                      ) : (
-                        <span className="text-[10px] text-gray-400 italic bg-gray-200 px-1.5 py-0.5 rounded">{t("portal.history.noReport")}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {historyTotalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
-                  {historyPage > 1 && (
-                    <Link href={listLink({ h: historyPage - 1 }, "#historikk")} className="text-blue-600 hover:underline">
-                      &larr; {t("portal.pagination.newest")}
-                    </Link>
-                  )}
-                  <span className="text-gray-500">
-                    {t("portal.pagination.showing", {
-                      from: (historyPage - 1) * HISTORY_PAGE_SIZE + 1,
-                      to: Math.min(historyPage * HISTORY_PAGE_SIZE, completedTotal),
-                      total: completedTotal,
-                    })}
-                  </span>
-                  {historyPage < historyTotalPages && (
-                    <Link href={listLink({ h: historyPage + 1 }, "#historikk")} className="text-blue-600 hover:underline">
-                      {t("portal.pagination.showMore")} &rarr;
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
-
           </div>
         </div>
 
         <div className="mt-6">
-          <ReportHistory />
+          <ReportHistory
+            page={reportPage}
+            upcomingPage={upcomingPage}
+            historyPage={historyPage}
+          />
         </div>
 
         {/* TEKNIKERTILGJENGELIGHET – neste 7 dager */}

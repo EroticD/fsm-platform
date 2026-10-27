@@ -74,7 +74,7 @@ describe("kundeportaltjenesten", () => {
         where: {
           customerId: "cust-1",
           deletedAt: null,
-          reports: { some: { deletedAt: null } },
+          status: { in: ["COMPLETED", "CANCELLED"] },
         },
         select: expect.objectContaining({
           reports: expect.objectContaining({
@@ -84,6 +84,21 @@ describe("kundeportaltjenesten", () => {
         }),
       }),
     );
+  });
+
+  it("henter alle rapporter per oppdrag og paginerer historikken", async () => {
+    mocks.prisma.workOrder.findMany.mockResolvedValue([]);
+    mocks.prisma.workOrder.count.mockResolvedValue(45);
+
+    const result = await getPortalReportHistory(customer(), { page: 2 });
+    expect(result).toMatchObject({
+      ok: true,
+      data: { page: 2, totalPages: 3 },
+    });
+
+    const query = mocks.prisma.workOrder.findMany.mock.calls[0]?.[0];
+    expect(query?.skip).toBe(20);
+    expect(query?.select?.reports?.take).toBeUndefined();
   });
 
   it("avviser kvittering for en annen kundes oppdrag", async () => {

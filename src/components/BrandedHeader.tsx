@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import LanguageSwitcher from "./LanguageSwitcher";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
+import NotificationSoundToggle from "./NotificationSoundToggle";
 import { clearOfflineCaches } from "@/lib/offline/cache";
 
 type NavItem = {
@@ -163,19 +164,6 @@ export default function BrandedHeader({
           </div>
         </Link>
 
-        {/* Mobile hamburger menu button */}
-        {showNav && (
-          <button
-            type="button"
-            onClick={() => setOpenMenuForPath(isMobileMenuOpen ? null : pathname)}
-            className="lg:hidden flex items-center justify-center p-2.5 text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl transition"
-            aria-label={t("components.header.openMenu")}
-            aria-expanded={isMobileMenuOpen}
-          >
-            {isMobileMenuOpen ? "✕" : "☰"}
-          </button>
-        )}
-
         {/* Desktop navigation */}
         {showNav && (
           <div className="hidden lg:flex gap-1">
@@ -183,10 +171,25 @@ export default function BrandedHeader({
           </div>
         )}
 
-        {/* Varsler og språk */}
-        <div className="hidden lg:flex items-center gap-2">
-          {role !== "CUSTOMER" && <NotificationBell />}
-          <LanguageSwitcher />
+        {/* Varsler, lyd og språk. Bjellen er alltid synlig, også på mobil,
+            slik at nye varsler ikke bare kan oppdages i menyen. */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <NotificationBell />
+          <div className="hidden sm:flex items-center gap-2">
+            <NotificationSoundToggle compact />
+            <LanguageSwitcher />
+          </div>
+          {showNav && (
+            <button
+              type="button"
+              onClick={() => setOpenMenuForPath(isMobileMenuOpen ? null : pathname)}
+              className="lg:hidden flex min-h-11 min-w-11 items-center justify-center p-2.5 text-2xl leading-none text-gray-700 hover:bg-gray-100 rounded-xl transition"
+              aria-label={t("components.header.openMenu")}
+              aria-expanded={isMobileMenuOpen}
+            >
+              {isMobileMenuOpen ? "✕" : "☰"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -212,7 +215,24 @@ export default function BrandedHeader({
             </button>
           </div>
           <GlobalNavMobile primaryColor={pc} onNavigate={closeMobileMenu} role={role} />
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              href="/varsler"
+              onClick={closeMobileMenu}
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-100"
+            >
+              🔔 {t("p3.notifications.title")}
+            </Link>
+            <Link
+              href={role === "CUSTOMER" ? "/varsler/innstillinger" : "/innstillinger"}
+              onClick={closeMobileMenu}
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-100"
+            >
+              ⚙️ {t("settings.title")}
+            </Link>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
+            <NotificationSoundToggle />
             <LanguageSwitcher />
           </div>
         </div>

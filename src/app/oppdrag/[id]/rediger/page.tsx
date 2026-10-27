@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments } from "@/lib/departments";
 import { staffForDepartment, staffWhere, workOrderScope } from "@/lib/access";
+import CustomerSelect from "../../ny/CustomerSelect";
 import { updateWorkOrder } from "./actions";
 
 export default async function EditWorkOrderPage({
@@ -49,51 +50,31 @@ export default async function EditWorkOrderPage({
   const isAdmin = user.role === "ADMIN";
   const departments = isAdmin ? await getActiveDepartments() : [];
 
-  // Avgrensede lister – skjemaet er ikke en katalog over alle kunder.
+  // Startutvalg for det søkbare kundevalget. Den valgte kunden sendes
+  // eksplisitt, så et lagre uten endringer aldri nullstiller den.
   const customers = await prisma.customer.findMany({
     where: { deletedAt: null },
-    orderBy: { name: 'asc' },
-    take: 100,
-    select: { id: true, name: true, city: true },
+    orderBy: { name: "asc" },
+    take: 20,
+    select: { id: true, name: true, city: true, customerNumber: true },
   });
   const technicians = await prisma.user.findMany({
     where: isAdmin ? staffWhere() : staffForDepartment(workOrder.departmentId),
     include: { department: true },
-    orderBy: { name: 'asc' },
+    orderBy: { name: "asc" },
     take: 100,
   });
-  const contacts = await prisma.contact.findMany({
-    orderBy: { name: 'asc' },
-    take: 200,
-    select: { id: true, name: true, role: true, customerId: true },
-  });
-  const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
-
-  // Den valgte kunden, kontakten og montørene må alltid være med i listene,
-  // ellers ville et lagre uten endringer kunne nullstille dem.
-  const customerOptions = [...customers];
-  if (
-    workOrder.customerId &&
-    !customerOptions.some((customer) => customer.id === workOrder.customerId)
-  ) {
-    const currentCustomer = await prisma.customer.findUnique({
-      where: { id: workOrder.customerId },
-      select: { id: true, name: true, city: true },
-    });
-    if (currentCustomer) customerOptions.unshift(currentCustomer);
-  }
-
-  const contactOptions = [...contacts];
-  if (
-    workOrder.contactId &&
-    !contactOptions.some((contact) => contact.id === workOrder.contactId)
-  ) {
-    const currentContact = await prisma.contact.findUnique({
-      where: { id: workOrder.contactId },
-      select: { id: true, name: true, role: true, customerId: true },
-    });
-    if (currentContact) contactOptions.unshift(currentContact);
-  }
+  const tags = await prisma.tag.findMany({ orderBy: { name: "asc" } });
+  // Kontaktene til den valgte kunden, slik at valgt kontakt vises umiddelbart
+  // og overlever en feil i det etterfølgende kontakt-søket.
+  const selectedCustomerContacts = workOrder.customerId
+    ? await prisma.contact.findMany({
+        where: { customerId: workOrder.customerId },
+        orderBy: { name: "asc" },
+        take: 200,
+        select: { id: true, name: true, role: true, customerId: true },
+      })
+    : [];
 
   const technicianOptions = [...technicians];
   for (const assigned of workOrder.technicians) {
@@ -172,41 +153,22 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.customer")} <span className="text-red-500">*</span></label>
-            <select 
-              name="customerId" 
-              defaultValue={workOrder.customerId || undefined}
-              required 
-              className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-            >
-              {customerOptions.map(c => (
-                <option key={c.id} value={c.id}>{c.name} {c.city ? `(${c.city})` : ""}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.contact")}</label>
-            <select
-              name="contactId"
-              defaultValue={workOrder.contactId || ""}
-              className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-            >
-              <option value="">{t("orders.edit.noContact")}</option>
-              {customerOptions.map(c => {
-                const customerContacts = contactOptions.filter((k) => k.customerId === c.id);
-                if (customerContacts.length === 0) return null;
-                return (
-                  <optgroup key={c.id} label={c.name}>
-                    {customerContacts.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.name}{k.role ? ` (${k.role})` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
+            <CustomerSelect
+              customers={customers}
+              selectedCustomer={
+                workOrder.customer
+                  ? {
+                      id: workOrder.customer.id,
+                      name: workOrder.customer.name,
+                      city: workOrder.customer.city,
+                      customerNumber: workOrder.customer.customerNumber,
+                    }
+                  : null
+              }
+              selectedContactId={workOrder.contactId}
+              contacts={selectedCustomerContacts}
+              hideLabel
+            />
             <p className="text-xs text-gray-500 mt-1">
               {t("orders.edit.contactHint")}
             </p>

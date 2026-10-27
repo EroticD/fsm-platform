@@ -54,6 +54,7 @@ export default async function StatisticsTab({
       {/* FILTER */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
         <form method="GET" className="flex flex-col sm:flex-row gap-3 flex-wrap">
+          <input type="hidden" name="tab" value="statistikk" />
           <input
             type="date"
             name="dateFrom"

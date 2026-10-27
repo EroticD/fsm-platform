@@ -153,6 +153,30 @@ describe("varseltjenesten", () => {
     });
   });
 
+  it("sender kundeportalbrukere til portalen i e-postlenken", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n2",
+        type: "REPORT_READY",
+        title: "Rapport klar",
+        body: "En signert rapport er klar.",
+        href: "/mine-oppdrag/wo1",
+        emailAttempts: 0,
+        user: { email: "kunde@example.test", role: "CUSTOMER" },
+      },
+    ]);
+
+    const result = await processPendingNotificationEmails();
+
+    expect(result).toEqual({ processed: 1, sent: 1 });
+    expect(mocks.sendNotificationEmail).toHaveBeenCalledWith(
+      "kunde@example.test",
+      "Rapport klar",
+      "En signert rapport er klar.",
+      "/kundeportal#rapporter",
+    );
+  });
+
   it("prøver på nytt med backoff når e-post feiler", async () => {
     mocks.prisma.notification.findMany.mockResolvedValue([
       {

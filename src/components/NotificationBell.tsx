@@ -11,6 +11,7 @@ import {
   resumeAudioContext,
   shouldPlayNotificationSound,
 } from "@/lib/notification-sound";
+import { isNotificationSoundEnabled } from "@/lib/notification-sound-preference";
 
 /**
  * Bjelle i headeren med antall uleste varsler. Poller hvert minutt som
@@ -38,7 +39,10 @@ export default function NotificationBell() {
         if (!active || request !== latestRequest) return;
         const next = Number(data.count) || 0;
         setCount(next);
-        if (shouldPlayNotificationSound(previousCountRef.current, next)) {
+        if (
+          shouldPlayNotificationSound(previousCountRef.current, next) &&
+          isNotificationSoundEnabled()
+        ) {
           playNotificationSound(audioContextRef.current);
         }
         previousCountRef.current = next;

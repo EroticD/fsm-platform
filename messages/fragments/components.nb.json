@@ -139,14 +139,22 @@
     "language": {
       "change": "Endre språk"
     },
+    "sound": {
+      "on": "Lyd på",
+      "off": "Lyd av",
+      "turnOn": "Slå på varsellyd",
+      "turnOff": "Slå av varsellyd"
+    },
     "skeleton": {
       "loading": "Laster innhold"
     },
     "loading": "Laster …",
     "error": {
       "title": "Noe gikk galt",
-      "fallback": "En feil oppstod",
-      "retry": "Prøv igjen"
+      "fallback": "En uventet feil oppstod",
+      "description": "Vi fikk ikke vist denne siden. Prøv igjen om et øyeblikk. Hvis problemet vedvarer, kan du gå tilbake til forsiden eller kontakte oss.",
+      "retry": "Prøv igjen",
+      "home": "Til forsiden"
     },
     "toast": {
       "uploaded": "Fil(er) lastet opp",

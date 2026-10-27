@@ -23,6 +23,8 @@
       "email": "Email",
       "save": "Save notification settings",
       "toNotifications": "Back to notifications",
+      "soundTitle": "Notification sound",
+      "soundDescription": "Play a short sound when new notifications arrive while the app is open.",
       "labels": {
         "ASSIGNMENT": "You are assigned a work order",
         "DATE_CHANGED": "Work order rescheduled",
@@ -30,7 +32,8 @@
         "REPORT_READY": "Report ready",
         "BOOKING": "New booking from the customer portal",
         "CONTRACT_DUE": "Service agreement due",
-        "OVERDUE": "Work order overdue"
+        "OVERDUE": "Work order overdue",
+        "CONTACT_UPDATE": "Customer requests updated contact information"
       },
       "inAppAria": "{label} in app",
       "emailAria": "{label} by email"
@@ -51,8 +54,14 @@
     },
     "portalReports": {
       "title": "📄 Reports",
-      "count": "{count} reports",
+      "count": "{count} work orders in history",
       "empty": "No reports have been published yet.",
+      "workOrderPerformed": "Work order completed {date}",
+      "unknownDate": "no date",
+      "noReport": "No report has been published for this work order.",
+      "previous": "Previous page",
+      "next": "Next page",
+      "pageOf": "Page {page} of {pages}",
       "performed": "Completed {date}",
       "signed": "signed",
       "download": "Download PDF",
