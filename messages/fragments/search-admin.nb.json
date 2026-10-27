@@ -1,0 +1,44 @@
+{
+  "searchAdmin": {
+    "linkLabel": "Søkeanalyse",
+    "title": "Søkeanalyse",
+    "subtitle": "Søk som er gjort i den interne søkemotoren.",
+    "backToSearch": "Til søk",
+    "period": "Tidsrom",
+    "days": "{days} dager",
+    "privacyTitle": "Bare for revisjon og administrator",
+    "privacyBody": "Søketermer kan inneholde kundedata, navn og annen personinformasjon. Analysen er derfor bare tilgjengelig for brukere med revisjons- eller administratorrettigheter. Rå bruker-ID-er vises ikke.",
+    "stats": {
+      "total": "Søk totalt",
+      "zeroResults": "Nulltreff",
+      "zeroResultRate": "Nulltreffrate",
+      "averageLatency": "Gjennomsnittlig svartid"
+    },
+    "topQueries": {
+      "title": "Mest brukte søk",
+      "description": "Søketermer med flest søk i perioden.",
+      "query": "Søketerm",
+      "count": "Antall",
+      "empty": "Ingen søk i perioden."
+    },
+    "topZeroQueries": {
+      "title": "Søk uten treff",
+      "description": "Termer brukerne søkte etter, men ikke fikk treff på.",
+      "empty": "Ingen søk uten treff i perioden."
+    },
+    "daily": {
+      "title": "Daglig utvikling",
+      "description": "Antall søk og nulltreff per dag.",
+      "caption": "Daglig oversikt over søk og nulltreff",
+      "date": "Dato",
+      "count": "Søk",
+      "zeroResults": "Nulltreff",
+      "bar": "Fordeling",
+      "barLabel": "{count} søk"
+    },
+    "empty": {
+      "title": "Ingen søkedata ennå",
+      "body": "Det er ikke logget noen søk i denne perioden. Analysen fylles ut når noen bruker den interne søkemotoren."
+    }
+  }
+}
