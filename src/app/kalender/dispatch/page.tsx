@@ -4,7 +4,6 @@ import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { audit } from "@/lib/audit";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { markdownToPlainText } from "@/lib/markdown";
 import { formatAddress } from "@/lib/address";
@@ -14,12 +13,23 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import {
   requireWorkOrderAccess,
-  staffForDepartment,
   staffScope,
   workOrderScope,
 } from "@/lib/access";
 import { workOrderStatusSchema } from "@/lib/schemas/workOrder";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
+import {
+  assignTechnician as assignTechnicianService,
+  unassignTechnician as unassignTechnicianService,
+} from "@/server/work-orders";
+import { notifyWorkOrderEvent } from "@/server/notifications";
+
+/** Oversetter tjenestens feilkode til dispatch-sidens query-parameter. */
+function dispatchErrorFor(error: string): string {
+  if (error === "ikke-tilgang" || error === "forbidden") return "ikke-tilgang";
+  if (error === "ugyldig-data") return "ugyldig-data";
+  return "ukjent";
+}
 
 const auditActor = (user?: {
   id: string;
@@ -49,9 +59,9 @@ async function DispatchStatusBadge({ status }: { status: string }) {
 export default async function DispatchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; workOrderId?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, workOrderId: errorWorkOrderId } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.assign")) redirect("/");
@@ -85,6 +95,8 @@ export default async function DispatchPage({
   });
 
   // --- SERVER ACTION: TILDEL MONTØR ---
+  // Går via den delte tjenesten, slik at tildelingen også sender
+  // ASSIGNMENT-varselet til montøren på samme måte som ellers i appen.
   async function assignTechnician(formData: FormData) {
     "use server";
     const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
@@ -96,47 +108,19 @@ export default async function DispatchPage({
     const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
     if (!access) redirect("/kalender/dispatch?error=ikke-tilgang");
 
-    // Bare ansatte i oppdragets avdeling kan tildeles.
-    const target = await prisma.user.findFirst({
-      where: { id: technicianId, ...staffForDepartment(access.workOrder.departmentId) },
-      select: { id: true },
-    });
-    if (!target) redirect("/kalender/dispatch?error=ugyldig-data");
-
     try {
-      // Sjekk om montøren allerede er tildelt
-      const existing = await prisma.workOrder.findUnique({
-        where: { id: workOrderId },
-        include: { technicians: true }
-      });
-
-      const alreadyAssigned = existing?.technicians.some(t => t.id === technicianId);
-
-      if (!alreadyAssigned) {
-        await prisma.$transaction(async (tx) => {
-          await tx.workOrder.update({
-            where: { id: workOrderId },
-            data: {
-              technicians: {
-                connect: { id: technicianId }
-              }
-            }
-          });
-
-          await audit(tx, {
-            entityType: "WorkOrder",
-            entityId: workOrderId,
-            action: `Kontoret tildelte montør til oppdraget`,
-            actor: auditActor(access.user),
-            metadata: { technicianId },
-          });
-        });
+      const result = await assignTechnicianService(access.user, workOrderId, technicianId);
+      if (!result.ok) {
+        redirect(
+          `/kalender/dispatch?error=${dispatchErrorFor(result.error)}&workOrderId=${encodeURIComponent(workOrderId)}`,
+        );
       }
-
       revalidatePath("/kalender/dispatch");
     } catch (error) {
       console.error("Feil ved tildeling av montør:", error);
-      redirect("/kalender/dispatch?error=ukjent");
+      redirect(
+        `/kalender/dispatch?error=ukjent&workOrderId=${encodeURIComponent(workOrderId)}`,
+      );
     }
   }
 
@@ -153,29 +137,18 @@ export default async function DispatchPage({
     if (!access) redirect("/kalender/dispatch?error=ikke-tilgang");
 
     try {
-      await prisma.$transaction(async (tx) => {
-        await tx.workOrder.update({
-          where: { id: workOrderId },
-          data: {
-            technicians: {
-              disconnect: { id: technicianId }
-            }
-          }
-        });
-
-        await audit(tx, {
-          entityType: "WorkOrder",
-          entityId: workOrderId,
-          action: `Kontoret fjernet montør fra oppdraget`,
-          actor: auditActor(access.user),
-          metadata: { technicianId },
-        });
-      });
-
+      const result = await unassignTechnicianService(access.user, workOrderId, technicianId);
+      if (!result.ok) {
+        redirect(
+          `/kalender/dispatch?error=${dispatchErrorFor(result.error)}&workOrderId=${encodeURIComponent(workOrderId)}`,
+        );
+      }
       revalidatePath("/kalender/dispatch");
     } catch (error) {
       console.error("Feil ved fjerning av montør:", error);
-      redirect("/kalender/dispatch?error=ukjent");
+      redirect(
+        `/kalender/dispatch?error=ukjent&workOrderId=${encodeURIComponent(workOrderId)}`,
+      );
     }
   }
 
@@ -193,22 +166,51 @@ export default async function DispatchPage({
     const access = await requireWorkOrderAccess("workorders.update", workOrderId);
     if (!access) redirect("/kalender/dispatch?error=ikke-tilgang");
 
+    const nextStatus = parsed.data.status as WorkStatus;
+    // Kansellering er en kontorhandling. Dispatch skal ikke kunne omgå
+    // workorders.edit ved å velge CANCELLED i statusfeltet.
+    if (nextStatus === "CANCELLED" && !hasPermission(access.user, "workorders.edit")) {
+      redirect(
+        `/kalender/dispatch?error=ikke-tilgang&workOrderId=${encodeURIComponent(workOrderId)}`,
+      );
+    }
+
     let result;
     try {
       result = await transitionWorkOrderStatus({
         workOrderId,
         from: access.workOrder.status as WorkStatus,
-        to: parsed.data.status as WorkStatus,
+        to: nextStatus,
         isAdmin: access.user.role === "ADMIN",
         actor: auditActor(access.user),
-        action: `Kontoret endret status til: ${parsed.data.status}`,
+        action: `Kontoret endret status til: ${nextStatus}`,
       });
     } catch (error) {
       console.error("Feil ved oppdatering av status:", error);
-      redirect("/kalender/dispatch?error=ukjent");
+      redirect(
+        `/kalender/dispatch?error=ukjent&workOrderId=${encodeURIComponent(workOrderId)}`,
+      );
     }
     if (!result.ok) {
-      redirect(`/kalender/dispatch?error=${result.error}`);
+      redirect(
+        `/kalender/dispatch?error=${result.error}&workOrderId=${encodeURIComponent(workOrderId)}`,
+      );
+    }
+
+    // Samme varsel som den vanlige statusflyten sender ved kansellering.
+    if (nextStatus === "CANCELLED") {
+      try {
+        await notifyWorkOrderEvent(
+          workOrderId,
+          "CANCELLED",
+          "Oppdraget er kansellert",
+          "Oppdraget er kansellert.",
+          `/oppdrag/${workOrderId}`,
+          `cancelled:${workOrderId}`,
+        );
+      } catch (error) {
+        console.error("Kunne ikke sende kanselleringsvarsel:", error);
+      }
     }
 
     revalidatePath("/kalender/dispatch");
@@ -314,7 +316,14 @@ export default async function DispatchPage({
             </div>
             <div className="divide-y divide-gray-100">
               {unassigned.map(wo => (
-                <div key={wo.id} className="p-4 hover:bg-gray-50 transition">
+                <div
+                  key={wo.id}
+                  className={`p-4 hover:bg-gray-50 transition ${
+                    error && errorWorkOrderId === wo.id
+                      ? "bg-red-50 ring-2 ring-inset ring-red-300"
+                      : ""
+                  }`}
+                >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -381,7 +390,14 @@ export default async function DispatchPage({
             </div>
             <div className="divide-y divide-gray-100">
               {assigned.map(wo => (
-                <div key={wo.id} className="p-4 hover:bg-gray-50 transition">
+                <div
+                  key={wo.id}
+                  className={`p-4 hover:bg-gray-50 transition ${
+                    error && errorWorkOrderId === wo.id
+                      ? "bg-red-50 ring-2 ring-inset ring-red-300"
+                      : ""
+                  }`}
+                >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">

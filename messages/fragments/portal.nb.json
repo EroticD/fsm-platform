@@ -36,7 +36,17 @@
       "titlePlaceholder": "F.eks. Årlig service",
       "descriptionLabel": "Beskrivelse",
       "descriptionPlaceholder": "Hva trenger du hjelp med?",
-      "submit": "Book oppdrag"
+      "submit": "Book oppdrag",
+      "submitting": "Sender …",
+      "success": "Takk! Bestillingen er sendt, og kontoret tar kontakt for å avtale tid.",
+      "successDuplicate": "Bestillingen er allerede mottatt. Vi tar kontakt for å avtale tid.",
+      "errors": {
+        "forbidden": "Du har ikke tilgang til å bestille fra denne kontoen.",
+        "missingFields": "Fyll ut en tittel før du sender bestillingen.",
+        "rateLimited": "Du har sendt mange bestillinger på kort tid. Prøv igjen om litt.",
+        "conflict": "Du har allerede flere åpne bestillinger. Kontakt oss hvis du trenger mer hjelp.",
+        "generic": "Bestillingen kunne ikke sendes akkurat nå. Prøv igjen om litt."
+      }
     },
     "upcoming": {
       "title": "Kommende oppdrag",

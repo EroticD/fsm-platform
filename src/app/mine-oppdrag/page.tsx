@@ -17,6 +17,7 @@ const LIST_LIMIT = 50;
 const LIST_SELECT = {
   id: true,
   title: true,
+  orderNumber: true,
   status: true,
   scheduledFor: true,
   scheduledTo: true,
@@ -49,6 +50,7 @@ export default async function TechnicianDashboard({
     ? {
         OR: [
           { title: { contains: searchQuery, mode: 'insensitive' } },
+          { orderNumber: { contains: searchQuery, mode: 'insensitive' } },
           { description: { contains: searchQuery, mode: 'insensitive' } },
           { customer: { name: { contains: searchQuery, mode: 'insensitive' } } },
           { customer: { city: { contains: searchQuery, mode: 'insensitive' } } },
@@ -160,6 +162,11 @@ export default async function TechnicianDashboard({
 
                   <p className="text-[10px] text-gray-600 font-medium">
                     🏢 {wo.customer.name}
+                    {wo.orderNumber && (
+                      <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 font-bold text-gray-700">
+                        {t("orders.list.orderNumber")} {wo.orderNumber}
+                      </span>
+                    )}
                   </p>
                   {formatAddress(wo.customer) && (
                     <p className="text-[10px] text-gray-500 font-medium mt-0.5">
@@ -217,6 +224,11 @@ export default async function TechnicianDashboard({
 
                   <p className="text-[10px] text-gray-600 font-medium">
                     🏢 {wo.customer.name}
+                    {wo.orderNumber && (
+                      <span className="ml-2 rounded bg-white px-1.5 py-0.5 font-bold text-gray-700">
+                        {t("orders.list.orderNumber")} {wo.orderNumber}
+                      </span>
+                    )}
                   </p>
                   {formatAddress(wo.customer) && (
                     <p className="text-[10px] text-gray-500 font-medium mt-0.5">

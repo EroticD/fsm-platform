@@ -6,7 +6,12 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { formatAddress } from "@/lib/address";
-import { formatDateRange } from "@/lib/dates";
+import {
+  addDaysUtc,
+  formatDateRange,
+  parseDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
@@ -26,10 +31,11 @@ const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING"
 const CLOSED_STATUSES: WorkStatus[] = ["COMPLETED", "CANCELLED"];
 const PAGE_SIZE = 20;
 
+// Samme datogrenser som dashbordet: rene kalenderdatoer i Oslo, ikke
+// serverens lokale tidssone. Ellers kan «i dag» bli feil rundt midnatt.
 function getDateContext() {
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const startOfToday = parseDateOnly(todayInOslo()) ?? new Date();
+  const endOfToday = addDaysUtc(startOfToday, 1);
   return { startOfToday, endOfToday };
 }
 

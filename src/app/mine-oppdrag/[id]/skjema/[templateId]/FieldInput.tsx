@@ -18,6 +18,9 @@ export type TemplateField = {
   options?: string[];
   /** For tilstandsfelt: valgene som krever kommentar. */
   commentOptions?: string[];
+  /** Vis feltet bare når et annet felt i samme enhet har denne verdien. */
+  conditionalFieldId?: string;
+  conditionalValue?: string;
 };
 
 const inputClass =
@@ -42,6 +45,7 @@ function StatusInput({
   defaultValue,
   defaultComment,
   onNeedsComment,
+  onValueChange,
 }: {
   field: TemplateField;
   name: string;
@@ -50,6 +54,7 @@ function StatusInput({
   defaultComment?: string;
   /** Sier fra til skjemaet når denne linjen krever en kommentar (brukes til advarsler). */
   onNeedsComment?: (needs: boolean) => void;
+  onValueChange?: (value: string) => void;
 }) {
   const options = fieldOptions(field);
   const triggers = commentTriggerOptions(field);
@@ -90,7 +95,10 @@ function StatusInput({
                 checked={selected}
                 // Påkrevd gruppe: én av radioene i gruppen må velges.
                 required={field.required && index === 0}
-                onChange={() => setValue(option)}
+                onChange={() => {
+                  setValue(option);
+                  onValueChange?.(option);
+                }}
                 className="w-5 h-5 text-blue-700"
               />
               <span className="font-bold text-gray-900 text-sm">{option}</span>
@@ -131,6 +139,7 @@ export default function FieldInput({
   defaultValue,
   defaultComment,
   onNeedsComment,
+  onValueChange,
   workOrderId,
 }: {
   field: TemplateField;
@@ -141,6 +150,8 @@ export default function FieldInput({
   defaultComment?: string;
   /** Varsler skjemaet når linjen krever kommentar (bare for tilstandsfelt). */
   onNeedsComment?: (needs: boolean) => void;
+  /** Varsler skjemaet om svaret, slik at betingede felt kan vises/skjules. */
+  onValueChange?: (value: string) => void;
   /** Knytter opplastede bilder til oppdraget, slik at tilgangen kan styres. */
   workOrderId?: string;
 }) {
@@ -155,6 +166,9 @@ export default function FieldInput({
             value="on"
             defaultChecked={defaultValue === true || defaultValue === "true"}
             required={field.required}
+            onChange={(event) =>
+              onValueChange?.(event.target.checked ? "true" : "false")
+            }
             className="w-6 h-6 text-blue-700 rounded border-gray-300 focus:ring-blue-700"
           />
           <span className="font-bold text-gray-900">
@@ -172,6 +186,7 @@ export default function FieldInput({
           defaultValue={defaultValue}
           defaultComment={defaultComment}
           onNeedsComment={onNeedsComment}
+          onValueChange={onValueChange}
         />
       );
 
@@ -187,6 +202,7 @@ export default function FieldInput({
             required={field.required}
             defaultValue={asText(defaultValue)}
             placeholder={t("orders.fieldInput.textareaPlaceholder")}
+            onChange={onValueChange}
           />
         </div>
       );
@@ -204,6 +220,7 @@ export default function FieldInput({
             required={field.required}
             defaultValue={asText(defaultValue)}
             placeholder={t("orders.fieldInput.numberPlaceholder")}
+            onChange={(event) => onValueChange?.(event.target.value)}
             className={inputClass}
           />
         </div>
@@ -215,7 +232,14 @@ export default function FieldInput({
           <label className="block text-sm font-black text-gray-900 mb-2">
             📅 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
-          <input type="date" name={name} required={field.required} defaultValue={asText(defaultValue)} className={inputClass} />
+          <input
+            type="date"
+            name={name}
+            required={field.required}
+            defaultValue={asText(defaultValue)}
+            onChange={(event) => onValueChange?.(event.target.value)}
+            className={inputClass}
+          />
         </div>
       );
 
@@ -225,7 +249,13 @@ export default function FieldInput({
           <label className="block text-sm font-black text-gray-900 mb-2">
             📂 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
-          <select name={name} required={field.required} defaultValue={asText(defaultValue)} className={inputClass}>
+          <select
+            name={name}
+            required={field.required}
+            defaultValue={asText(defaultValue)}
+            onChange={(event) => onValueChange?.(event.target.value)}
+            className={inputClass}
+          >
             <option value="" disabled>
               {t("orders.fieldInput.selectPlaceholder")}
             </option>
@@ -261,6 +291,7 @@ export default function FieldInput({
             required={field.required}
             defaultValue={asText(defaultValue)}
             placeholder={t("orders.fieldInput.signaturePlaceholder")}
+            onChange={(event) => onValueChange?.(event.target.value)}
             className="w-full border-2 border-dashed border-blue-400 p-4 rounded-xl text-sm font-bold text-gray-900 bg-blue-50/50 outline-none focus:border-blue-700"
           />
         </div>
@@ -278,6 +309,7 @@ export default function FieldInput({
             required={field.required}
             defaultValue={asText(defaultValue)}
             placeholder={t("orders.fieldInput.textPlaceholder")}
+            onChange={(event) => onValueChange?.(event.target.value)}
             className={inputClass}
           />
         </div>

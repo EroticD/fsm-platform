@@ -44,6 +44,36 @@ export type InitialReport = {
 /** Fast nøkkel for den anonyme oppføringen når malen ikke bruker enheter. */
 const REPORT_WITHOUT_UNITS_KEY = "report";
 
+/** Sammenligner et svar med malens betingelsesverdi, uten hensyn til case. */
+function answerMatches(value: unknown, expected: string | undefined): boolean {
+  if (expected === undefined) return true;
+  const raw = (value === undefined || value === null ? "" : String(value))
+    .trim()
+    .toLowerCase();
+  const wanted = expected.trim().toLowerCase();
+  if (raw === wanted) return true;
+  // Avkrysningsfelt lagres som «true»/«false», men malbyggeren kan ha skrevet
+  // «Ja»/«Nei» som betingelse. Godta begge skrivemåtene.
+  const truthy = ["true", "ja", "yes", "1"];
+  const falsy = ["false", "nei", "no", "0"];
+  return (
+    (truthy.includes(raw) && truthy.includes(wanted)) ||
+    (falsy.includes(raw) && falsy.includes(wanted))
+  );
+}
+
+/**
+ * Er feltet synlig ut fra svarene i samme enhet? Betingede felt blir først
+ * vist når kildefeltet har verdien malen krever.
+ */
+function isFieldVisible(
+  field: TemplateField,
+  answers: Record<string, unknown>,
+): boolean {
+  if (!field.conditionalFieldId) return true;
+  return answerMatches(answers[field.conditionalFieldId], field.conditionalValue);
+}
+
 function makeUnit(key: string, from?: Partial<UnitEntry> | null): UnitEntry {
   return {
     key,
@@ -575,18 +605,27 @@ export default function ReportForm({
                 {requiresUnits && (
                   <h4 className={statusLabel}>{t("orders.reportForm.checkpoints")}</h4>
                 )}
-                {fields.map((field) => (
-                  <FieldInput
-                    key={field.id}
-                    field={field}
-                    name={`answer__${unit.key}__${field.id}`}
-                    commentName={`linecomment__${unit.key}__${field.id}`}
-                    defaultValue={unit.answers[field.id]}
-                    defaultComment={readLineComment(unit.answers, field.id)}
-                    onNeedsComment={(needs) => setFieldNeedsComment(unit.key, field.id, needs)}
-                    workOrderId={workOrderId}
-                  />
-                ))}
+                {fields
+                  .filter((field) => isFieldVisible(field, unit.answers))
+                  .map((field) => (
+                    <FieldInput
+                      key={field.id}
+                      field={field}
+                      name={`answer__${unit.key}__${field.id}`}
+                      commentName={`linecomment__${unit.key}__${field.id}`}
+                      defaultValue={unit.answers[field.id]}
+                      defaultComment={readLineComment(unit.answers, field.id)}
+                      onNeedsComment={(needs) =>
+                        setFieldNeedsComment(unit.key, field.id, needs)
+                      }
+                      onValueChange={(value) =>
+                        patchUnit(unit.key, {
+                          answers: { ...unit.answers, [field.id]: value },
+                        })
+                      }
+                      workOrderId={workOrderId}
+                    />
+                  ))}
               </div>
             )}
 

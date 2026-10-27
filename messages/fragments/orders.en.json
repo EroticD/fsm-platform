@@ -94,6 +94,12 @@
       "noMatch": "No customers matched the search.",
       "customerNumber": "Cust. no: {number}",
       "noCustomers": "No customers found in the system.",
+      "change": "Change customer",
+      "searchForAnother": "Search for another customer …",
+      "searching": "Searching …",
+      "searchFailed": "The customer search failed. Try again.",
+      "listLabel": "Customers",
+      "loadingContacts": "Loading contacts …",
       "contactLabel": "Contact person (optional)",
       "noContacts": "The customer has no registered contact persons. You can add one once the work order is created.",
       "noContactOption": "— No contact person —"

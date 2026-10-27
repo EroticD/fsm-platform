@@ -94,6 +94,12 @@
       "noMatch": "Ingen kunder matchet søket.",
       "customerNumber": "Knr: {number}",
       "noCustomers": "Ingen kunder funnet i systemet.",
+      "change": "Bytt kunde",
+      "searchForAnother": "Søk etter en annen kunde …",
+      "searching": "Søker …",
+      "searchFailed": "Kundesøket feilet. Prøv igjen.",
+      "listLabel": "Kunder",
+      "loadingContacts": "Henter kontaktpersoner …",
       "contactLabel": "Kontaktperson (valgfritt)",
       "noContacts": "Kunden har ingen registrerte kontaktpersoner. Du kan legge til én når oppdraget er opprettet.",
       "noContactOption": "— Ingen kontaktperson —"

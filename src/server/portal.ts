@@ -161,10 +161,12 @@ export async function getPortalReportHistory(
   }
 
   const page = Math.max(1, options.page ?? 1);
+  // Alle avsluttede oppdrag, også de uten rapport, slik at kundeportalen har
+  // én samlet historikk i stedet for to nesten like lister.
   const where = {
     customerId: actor.customerId,
     deletedAt: null,
-    reports: { some: { deletedAt: null } },
+    status: { in: ["COMPLETED", "CANCELLED"] as ("COMPLETED" | "CANCELLED")[] },
   };
 
   const [items, total] = await Promise.all([
@@ -180,7 +182,8 @@ export async function getPortalReportHistory(
         reports: {
           where: { deletedAt: null },
           orderBy: { completedAt: "desc" },
-          take: 1,
+          // Alle rapporter for oppdraget, ikke bare den nyeste. Kunden skal
+          // kunne se og kvittere for hver enkelt rapport.
           select: {
             id: true,
             name: true,

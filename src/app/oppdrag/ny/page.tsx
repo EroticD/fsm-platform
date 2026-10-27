@@ -31,18 +31,13 @@ export default async function AdminCreateWorkOrderPage({
     ? (user.departmentId ?? defaultDepartmentId)
     : user.departmentId;
 
-  // Skjemaet trenger bare et avgrenset utvalg; søk i listen dekker resten.
+  // Startutvalg for kundevelgeren. Resten av registeret søkes det i på
+  // serveren, så listen er ikke begrenset til de første kundene.
   const customers = await prisma.customer.findMany({
     where: { deletedAt: null },
     orderBy: { name: 'asc' },
-    take: 100,
+    take: 20,
     select: { id: true, name: true, city: true, customerNumber: true },
-  });
-  const contacts = await prisma.contact.findMany({
-    where: { customer: { deletedAt: null } },
-    orderBy: { name: 'asc' },
-    take: 200,
-    select: { id: true, name: true, role: true, customerId: true },
   });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const technicians = await prisma.user.findMany({
@@ -128,7 +123,7 @@ export default async function AdminCreateWorkOrderPage({
             />
           </div>
 
-          <CustomerSelect customers={customers} contacts={contacts} optional={true} />
+          <CustomerSelect customers={customers} optional={true} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

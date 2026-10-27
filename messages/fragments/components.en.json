@@ -139,14 +139,22 @@
     "language": {
       "change": "Change language"
     },
+    "sound": {
+      "on": "Sound on",
+      "off": "Sound off",
+      "turnOn": "Turn on notification sound",
+      "turnOff": "Turn off notification sound"
+    },
     "skeleton": {
       "loading": "Loading content"
     },
     "loading": "Loading …",
     "error": {
       "title": "Something went wrong",
-      "fallback": "An error occurred",
-      "retry": "Try again"
+      "fallback": "An unexpected error occurred",
+      "description": "We could not show this page. Try again in a moment. If the problem continues, go back to the home page or contact us.",
+      "retry": "Try again",
+      "home": "Go to home page"
     },
     "toast": {
       "uploaded": "File(s) uploaded",

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/email";
 import { toDateOnly } from "@/lib/dates";
+import { notificationHrefForUser } from "@/lib/notification-links";
 import { publishRealtime } from "@/lib/realtime";
 import {
   fail,
@@ -377,7 +378,7 @@ export async function processPendingNotificationEmails(
       },
       orderBy: { createdAt: "asc" },
       take: limit,
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, role: true } } },
     });
 
     let sent = 0;
@@ -416,11 +417,18 @@ export async function processPendingNotificationEmails(
       const attempts = notification.emailAttempts + 1;
 
       try {
+        // Samme trygge lenke som i varselvisningen: kundeportalbrukere skal
+        // ikke få en e-postlenke til kontorets oppdragssider.
+        const emailHref = notificationHrefForUser(
+          notification.user.role,
+          notification.type,
+          notification.href,
+        );
         const okSent = await sendNotificationEmail(
           email,
           notification.title,
           notification.body ?? "",
-          notification.href ?? undefined,
+          emailHref ?? undefined,
         );
         if (!okSent) throw new Error("SMTP er ikke konfigurert");
 

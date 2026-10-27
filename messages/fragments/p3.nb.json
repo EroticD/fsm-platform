@@ -23,6 +23,8 @@
       "email": "E-post",
       "save": "Lagre varselinnstillinger",
       "toNotifications": "Til varsler",
+      "soundTitle": "Varsellyd",
+      "soundDescription": "Spill en kort lyd når nye varsler kommer mens appen er åpen.",
       "labels": {
         "ASSIGNMENT": "Du blir tildelt et oppdrag",
         "DATE_CHANGED": "Oppdraget flyttes",
@@ -30,7 +32,8 @@
         "REPORT_READY": "Rapport er klar",
         "BOOKING": "Ny booking fra kundeportalen",
         "CONTRACT_DUE": "Serviceavtale forfaller",
-        "OVERDUE": "Oppdrag er forfalt"
+        "OVERDUE": "Oppdrag er forfalt",
+        "CONTACT_UPDATE": "Kunde ber om oppdatert kontaktinformasjon"
       },
       "inAppAria": "{label} i appen",
       "emailAria": "{label} på e-post"
@@ -51,8 +54,14 @@
     },
     "portalReports": {
       "title": "📄 Rapporter",
-      "count": "{count} rapporter",
+      "count": "{count} oppdrag i historikken",
       "empty": "Ingen rapporter er publisert ennå.",
+      "workOrderPerformed": "Oppdrag utført {date}",
+      "unknownDate": "uten dato",
+      "noReport": "Ingen rapport er publisert for dette oppdraget.",
+      "previous": "Forrige side",
+      "next": "Neste side",
+      "pageOf": "Side {page} av {pages}",
       "performed": "Utført {date}",
       "signed": "signert",
       "download": "Last ned PDF",
