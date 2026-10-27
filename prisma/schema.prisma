@@ -19,10 +19,10 @@ model Department {
   isDefault   Boolean @default(false)
 
   // Kontaktinfo for avdelingen/lokasjonen. Vises i kundeportalen.
-  phone   String?
-  email   String?
-  address String?
-  city    String?
+  phone      String?
+  email      String?
+  address    String?
+  city       String?
   postalCode String?
 
   createdAt DateTime @default(now())
@@ -118,7 +118,7 @@ model User {
 }
 
 model Customer {
-  id             String  @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
   customerNumber String?
   createdAt      DateTime @default(now())
@@ -145,7 +145,7 @@ model Customer {
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   responsibleTechnicianId String?
-  responsibleTechnician   User? @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
+  responsibleTechnician   User?   @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
 
   products    Product[]
   contracts   Contract[]
@@ -158,7 +158,6 @@ model Customer {
 
   @@index([departmentId])
   @@index([responsibleTechnicianId])
-
   @@index([email])
   @@index([orgNumber])
   @@index([name])
@@ -217,8 +216,8 @@ model Contract {
   /// Neste dato det skal opprettes et oppdrag for.
   nextServiceDate DateTime @db.Date
   isActive        Boolean  @default(true)
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
 
   // Avtalen eier avdelingen som de genererte oppdragene havner i.
   departmentId String
@@ -253,6 +252,24 @@ model CustomerAttachment {
   @@index([customerId])
 }
 
+/// Overordnet kategori for en mal. HMS-maler vises i HMS-flaten og på
+/// oppdragets HMS-dokumentasjon, service-maler i den vanlige sjekklisten.
+enum TemplateCategory {
+  SERVICE
+  HMS
+}
+
+/// Undertype for HMS-skjemaer. Styrer gruppering i HMS-biblioteket.
+enum HmsFormType {
+  GENERAL
+  SJA
+  HOT_WORK
+  INTERNAL_CONTROL
+  DEVIATION
+  SAFETY_ROUND
+  WRITTEN_INSTRUCTION
+}
+
 enum WorkStatus {
   PLANNED
   IN_PROGRESS
@@ -264,27 +281,27 @@ enum WorkStatus {
 }
 
 model WorkOrder {
-  id           String     @id @default(cuid())
-  title        String
+  id                    String     @id @default(cuid())
+  title                 String
   /// Eksternt ordrenummer fra kundens system.
-  orderNumber  String?
+  orderNumber           String?
   /// Normalisert ordrenummer for duplikatkontroll/søk.
   orderNumberNormalized String?
   /// Unik nøkkel for automatisk opprettet utbedringsoppdrag.
-  deviationSourceKey String? @unique
-  description  String?
-  scheduledFor DateTime? @db.Date
+  deviationSourceKey    String?    @unique
+  description           String?
+  scheduledFor          DateTime?  @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
-  scheduledTo  DateTime? @db.Date
-  status       WorkStatus @default(PLANNED)
-  creatorName  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @default(now()) @updatedAt
+  scheduledTo           DateTime?  @db.Date
+  status                WorkStatus @default(PLANNED)
+  creatorName           String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @default(now()) @updatedAt
   /// Myk sletting: oppdraget skjules fra lister, men kan gjenopprettes.
-  deletedAt    DateTime?
-  deletedBy    String?
+  deletedAt             DateTime?
+  deletedBy             String?
   /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
-  legalHold    Boolean  @default(false)
+  legalHold             Boolean    @default(false)
 
   technicians User[] @relation("WorkOrderTechnicians")
 
@@ -307,12 +324,15 @@ model WorkOrder {
   contractId String?
   contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
 
-  templates    Template[] @relation("WorkOrderTemplates")
+  templates    Template[]    @relation("WorkOrderTemplates")
   reports      Report[]
-  workComments Comment[]  @relation("WorkOrderComments")
-  tags         Tag[]      @relation("WorkOrderTags")
+  workComments Comment[]     @relation("WorkOrderComments")
+  tags         Tag[]         @relation("WorkOrderTags")
   reportDrafts ReportDraft[]
 
+  @@unique([departmentId, orderNumberNormalized])
+  // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
+  @@unique([contractId, scheduledFor])
   @@index([departmentId])
   @@index([customerId])
   @@index([status])
@@ -320,12 +340,8 @@ model WorkOrder {
   @@index([contractId])
   @@index([orderNumber])
   @@index([orderNumberNormalized])
-  @@unique([departmentId, orderNumberNormalized])
   @@index([scheduledTo])
   @@index([deletedAt])
-
-  // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
-  @@unique([contractId, scheduledFor])
   @@index([departmentId, status, scheduledFor])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
 }
@@ -379,8 +395,8 @@ model Document {
   tags DocumentTag[] @relation("DocumentTagRelation")
 
   uploadedBy String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
   deletedBy  String?
 
@@ -401,8 +417,8 @@ model DocumentVersion {
 
   fileName String
   filePath String
-  fileSize Int      @default(0)
-  mimeType String   @default("application/pdf")
+  fileSize Int    @default(0)
+  mimeType String @default("application/pdf")
 
   createdBy String?
   createdAt DateTime @default(now())
@@ -435,11 +451,14 @@ model Report {
   /// Rapportens visningsnavn, kopiert fra malen da rapporten ble laget.
   name                 String?
   /// Om rapporten har enheter. Snapshot fra malen.
-  requiresUnits        Boolean @default(true)
+  requiresUnits        Boolean          @default(true)
+  /// Kategori og HMS-type frosset ved signering.
+  templateCategory     TemplateCategory @default(SERVICE)
+  hmsType              HmsFormType?
   templateSnapshotJson String?
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Rapporten låses automatisk når den er fylt ut, og kan ikke endres igjen før
   // en administrator låser den opp. Det hindrer at en signert rapport endres i
@@ -465,9 +484,9 @@ model Report {
   deletedAt DateTime?
   deletedBy String?
   /// Bevaringsplikt: hindrer automatisk hard sletting etter fristen.
-  legalHold Boolean @default(false)
+  legalHold Boolean   @default(false)
 
-  units ReportUnit[]
+  units     ReportUnit[]
   revisions ReportRevision[]
 
   @@unique([workOrderId, templateId])
@@ -480,28 +499,30 @@ model Report {
 /// Uforanderlig øyeblikksbilde av en rapport før en endring. Signerte rapporter
 /// skal alltid kunne rekonstrueres, selv om de låses opp og endres senere.
 model ReportRevision {
-  id                   String   @id @default(cuid())
-  reportId             String
-  report               Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  revision             Int
-  dataJson             String
-  unitsJson            String
-  comments             String?
-  templateTitle        String?
-  name                 String?
-  requiresUnits        Boolean @default(true)
-  completedAt          DateTime?
-  templateSnapshotJson String?
-  technicianSignatureUrl String?
-  customerSignatureUrl   String?
-  technicianName       String?
-  customerName         String?
+  id                          String           @id @default(cuid())
+  reportId                    String
+  report                      Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  revision                    Int
+  dataJson                    String
+  unitsJson                   String
+  comments                    String?
+  templateTitle               String?
+  name                        String?
+  requiresUnits               Boolean          @default(true)
+  templateCategory            TemplateCategory @default(SERVICE)
+  hmsType                     HmsFormType?
+  completedAt                 DateTime?
+  templateSnapshotJson        String?
+  technicianSignatureUrl      String?
+  customerSignatureUrl        String?
+  technicianName              String?
+  customerName                String?
   customerAcknowledgedAt      DateTime?
   customerAcknowledgedBy      String?
   customerAcknowledgedComment String?
-  reason               String?
-  createdById          String?
-  createdAt            DateTime @default(now())
+  reason                      String?
+  createdById                 String?
+  createdAt                   DateTime         @default(now())
 
   @@unique([reportId, revision])
   @@index([reportId, createdAt])
@@ -538,12 +559,12 @@ model ReportUnit {
 // mal, slik at flere teknikere kan fylle ut samme sjekkliste uten å overskrive
 // hverandre. Kladden slettes når rapporten lagres.
 model ReportDraft {
-  id         String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workOrderId String
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   templateId  String
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   dataJson      String
   updatedByName String?
@@ -557,16 +578,24 @@ model ReportDraft {
 }
 
 model Template {
-  id         String      @id @default(cuid())
-  title      String
+  id            String           @id @default(cuid())
+  title         String
   /// Navnet som vises på produserte rapporter/PDF. Tomt = bruk title.
-  reportName String?
+  reportName    String?
+  /// Kort beskrivelse til malbiblioteket.
+  description   String?
+  /// SERVICE = vanlig sjekkliste, HMS = HMS-dokumentasjon.
+  category      TemplateCategory @default(SERVICE)
+  /// Undertype når category = HMS.
+  hmsType       HmsFormType?
   /// Om rapporten skal knyttes til enheter. Kan slås av per mal.
-  requiresUnits Boolean @default(true)
-  fieldsJson String
-  reports    Report[]
-  workOrder  WorkOrder[] @relation("WorkOrderTemplates")
-  contracts  Contract[]
+  requiresUnits Boolean          @default(true)
+  fieldsJson    String
+  reports       Report[]
+  workOrder     WorkOrder[]      @relation("WorkOrderTemplates")
+  contracts     Contract[]
+
+  @@index([category, hmsType])
 }
 
 model Attachment {
@@ -583,11 +612,11 @@ model Attachment {
 // Metadata for opplastede filer, slik at /uploads kan kreve tilgang per fil.
 // Selve filen ligger på disk med et tilfeldig navn (storedName).
 model Upload {
-  id           String   @id @default(cuid())
-  storedName   String   @unique
+  id           String @id @default(cuid())
+  storedName   String @unique
   originalName String
   mimeType     String
-  size         Int      @default(0)
+  size         Int    @default(0)
 
   // WORK_ORDER | CUSTOMER | DOCUMENT | USER
   ownerType    String
@@ -658,27 +687,27 @@ model AuditLog {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// ASSIGNMENT | DATE_CHANGED | CANCELLED | REPORT_READY | BOOKING | CONTRACT_DUE | OVERDUE
-  type      String
-  title     String
-  body      String?
-  href      String?
-  readAt    DateTime?
+  type               String
+  title              String
+  body               String?
+  href               String?
+  readAt             DateTime?
   /// Unik nøkkel per hendelse, slik at samme varsel ikke lages to ganger.
-  dedupeKey String?  @unique
+  dedupeKey          String?   @unique
   /// E-postkvittering: null betyr at varselet fortsatt venter på utsending.
-  emailSentAt       DateTime?
-  emailError        String?
-  emailAttempts     Int      @default(0)
-  emailNextAttemptAt DateTime @default(now())
+  emailSentAt        DateTime?
+  emailError         String?
+  emailAttempts      Int       @default(0)
+  emailNextAttemptAt DateTime  @default(now())
   /// Kort lease mens en instans sender e-posten, slik at flere instanser
   /// ikke sender samme varsel samtidig.
-  emailLockedAt     DateTime?
-  emailLockedBy     String?
-  createdAt         DateTime @default(now())
+  emailLockedAt      DateTime?
+  emailLockedBy      String?
+  createdAt          DateTime  @default(now())
 
   @@index([userId, readAt, createdAt])
   @@index([createdAt])
