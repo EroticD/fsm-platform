@@ -104,6 +104,49 @@ describe("varseltjenesten", () => {
     });
   });
 
+  it("lager ikke ulest varsel når bare e-post er slått på", async () => {
+    mocks.prisma.notificationPreference.findUnique.mockResolvedValue({
+      inApp: false,
+      email: true,
+    });
+
+    await notifyUser({
+      userId: "u1",
+      type: "ASSIGNMENT",
+      title: "Nytt oppdrag",
+      dedupeKey: "assign:wo1:u1",
+    });
+
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        readAt: expect.any(Date),
+        emailSentAt: null,
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("lar in-app-varsel være ulest når in-app er slått på", async () => {
+    mocks.prisma.notificationPreference.findUnique.mockResolvedValue({
+      inApp: true,
+      email: false,
+    });
+
+    await notifyUser({
+      userId: "u1",
+      type: "ASSIGNMENT",
+      title: "Nytt oppdrag",
+    });
+
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        readAt: null,
+        emailSentAt: expect.any(Date),
+      }),
+      select: { id: true },
+    });
+  });
+
   it("lager ingenting når både in-app og e-post er av", async () => {
     mocks.prisma.notificationPreference.findUnique.mockResolvedValue({
       inApp: false,
@@ -385,5 +428,13 @@ describe("varseltjenesten", () => {
 
     expect(count).toBe(2);
     expect(mocks.prisma.notification.create).toHaveBeenCalledTimes(2);
+    // Inaktive montører skal aldri varsles, selv om de står på oppdraget.
+    expect(mocks.prisma.workOrder.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          technicians: { where: { isActive: true }, select: { id: true } },
+        }),
+      }),
+    );
   });
 });

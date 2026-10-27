@@ -21,7 +21,12 @@
       "previous": "Previous",
       "next": "Next",
       "pagination": "Page {page} of {totalPages}",
-      "total": "{total, plural, one {# customer} other {# customers}}"
+      "total": "{total, plural, one {# customer} other {# customers}}",
+      "showDeleted": "🗑️ Recycle bin",
+      "showActive": "← Active customers",
+      "deletedTitle": "Recycle bin: deleted customers can be restored by an administrator.",
+      "restore": "Restore",
+      "delete": "Delete"
     },
     "detail": {
       "notFound": "Customer not found",
@@ -31,6 +36,7 @@
       "newWorkOrder": "New work order",
       "edit": "Edit",
       "backToCustomers": "Customers",
+      "delete": "Delete customer",
       "editError": "The change could not be saved. Check the fields and try again.",
       "tabs": {
         "overview": "📊 Overview",

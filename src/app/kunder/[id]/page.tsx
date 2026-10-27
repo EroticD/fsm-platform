@@ -22,6 +22,7 @@ import {
   createContractAction,
   deleteContactAction,
   deleteContractAction,
+  deleteCustomerAction,
   toggleContractAction,
   updateContactAction,
 } from "./actions";
@@ -59,6 +60,8 @@ export default async function CustomerDetailPage({
   const canManageCustomers = hasPermission(user, "customers.manage");
   const canManageEquipment = hasPermission(user, "equipment.manage");
   const canCreateWorkOrders = hasPermission(user, "workorders.create");
+  const canViewEquipment = hasPermission(user, "equipment.view");
+  const canViewReports = hasPermission(user, "reports.view");
   const isAdmin = user.role === "ADMIN";
   const office = canManageCustomers;
   const ownDepartmentId = user.departmentId;
@@ -68,7 +71,9 @@ export default async function CustomerDetailPage({
     { key: "oppdrag", label: t("customers.detail.tabs.orders") },
     { key: "avtaler", label: t("customers.detail.tabs.contracts") },
     { key: "vedlegg", label: t("customers.detail.tabs.attachments") },
-    { key: "enheter", label: t("customers.detail.tabs.units") },
+    ...(canViewEquipment
+      ? [{ key: "enheter", label: t("customers.detail.tabs.units") }]
+      : []),
     { key: "kontakter", label: t("customers.detail.tabs.contacts") },
     ...(office
       ? [{ key: "portal", label: t("customers.detail.tabs.portal") }]
@@ -147,6 +152,16 @@ export default async function CustomerDetailPage({
               <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
                 ✏️ {t("customers.detail.edit")}
               </Link>
+            )}
+            {isAdmin && (
+              <form action={deleteCustomerAction.bind(null, customerId)}>
+                <button
+                  type="submit"
+                  className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition whitespace-nowrap"
+                >
+                  🗑️ {t("customers.detail.delete")}
+                </button>
+              </form>
             )}
             <Link href="/kunder" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
               &larr; {t("customers.detail.backToCustomers")}
@@ -240,6 +255,7 @@ export default async function CustomerDetailPage({
             customerId={customerId}
             products={data.products}
             canManageEquipment={canManageEquipment}
+            canViewReports={canViewReports}
             isAdmin={isAdmin}
             createUnit={createUnit}
             updateUnit={updateUnit}

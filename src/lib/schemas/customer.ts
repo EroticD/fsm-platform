@@ -8,6 +8,8 @@ const optionalLine = limitedText(LIMITS.line);
 export const customerCreateSchema = z.object({
   name: requiredText(LIMITS.title),
   orgNumber: optionalLine.default(""),
+  departmentId: optionalIdSchema,
+  responsibleTechnicianId: optionalIdSchema,
 });
 
 /** Redigering av kundekortet. */

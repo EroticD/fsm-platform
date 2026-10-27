@@ -5,14 +5,23 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
-import { addCustomer } from "./actions";
+import {
+  addCustomer,
+  deleteCustomerAction,
+  restoreCustomerAction,
+} from "./actions";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 export default async function KunderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ side?: string; q?: string; error?: string }>;
+  searchParams: Promise<{
+    side?: string;
+    q?: string;
+    error?: string;
+    slettet?: string;
+  }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -27,10 +36,12 @@ export default async function KunderPage({
   const error = resolved.error;
   const search = resolved.q?.trim() || "";
   const page = parsePage(resolved.side);
+  const showDeleted = resolved.slettet === "1" && user.role === "ADMIN";
+  const deletedFilter = showDeleted ? { not: null } : null;
 
   const where = search
     ? {
-        deletedAt: null,
+        deletedAt: deletedFilter,
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
           { orgNumber: { contains: search, mode: "insensitive" as const } },
@@ -38,7 +49,7 @@ export default async function KunderPage({
           { email: { contains: search, mode: "insensitive" as const } },
         ],
       }
-    : { deletedAt: null };
+    : { deletedAt: deletedFilter };
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
@@ -55,6 +66,7 @@ export default async function KunderPage({
   const linkFor = (p: number) => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
+    if (showDeleted) params.set("slettet", "1");
     if (p > 1) params.set("side", String(p));
     const qs = params.toString();
     return `/kunder${qs ? `?${qs}` : ""}`;
@@ -67,10 +79,28 @@ export default async function KunderPage({
         {/* Navigasjon på toppen */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">{t("customers.list.title")}</h1>
-          <Link href="/" className="text-blue-600 hover:underline font-medium">
-            &larr; {t("customers.list.backToDashboard")}
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {user.role === "ADMIN" && (
+              <Link
+                href={showDeleted ? "/kunder" : "/kunder?slettet=1"}
+                className="text-sm font-bold text-gray-700 bg-white border-2 border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
+              >
+                {showDeleted
+                  ? t("customers.list.showActive")
+                  : t("customers.list.showDeleted")}
+              </Link>
+            )}
+            <Link href="/" className="text-blue-600 hover:underline font-medium">
+              &larr; {t("customers.list.backToDashboard")}
+            </Link>
+          </div>
         </div>
+
+        {showDeleted && (
+          <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 p-4 rounded-xl mb-4 text-sm font-bold">
+            {t("customers.list.deletedTitle")}
+          </div>
+        )}
 
         {error === "ugyldig-data" && (
           <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl mb-4 text-sm font-bold">
@@ -79,7 +109,7 @@ export default async function KunderPage({
         )}
 
         {/* Skjema for å legge til ny kunde – kun kontor/admin */}
-        {office && (
+        {office && !showDeleted && (
           <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">{t("customers.list.addTitle")}</h2>
             <form action={addCustomer} className="flex flex-col sm:flex-row gap-4">
@@ -148,10 +178,35 @@ export default async function KunderPage({
                   <tr key={customer.id} className="hover:bg-gray-50 transition border-b last:border-0">
                     <td className="p-4 font-medium text-gray-800">{customer.name}</td>
                     <td className="p-4 text-gray-600">{customer.orgNumber || "-"}</td>
-                    <td className="p-4">
-                      <Link href={`/kunder/${customer.id}`} className="text-blue-600 hover:underline text-sm font-medium block">{t("customers.list.viewDetails")}</Link>
-                      {office && (
-                        <Link href={`/kunder/${customer.id}/rediger`} className="text-gray-600 hover:underline text-sm font-medium">{t("customers.list.edit")}</Link>
+                    <td className="p-4 space-y-1">
+                      {showDeleted ? (
+                        <form action={restoreCustomerAction}>
+                          <input type="hidden" name="id" value={customer.id} />
+                          <button
+                            type="submit"
+                            className="text-emerald-700 hover:underline text-sm font-bold"
+                          >
+                            {t("customers.list.restore")}
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <Link href={`/kunder/${customer.id}`} className="text-blue-600 hover:underline text-sm font-medium block">{t("customers.list.viewDetails")}</Link>
+                          {office && (
+                            <Link href={`/kunder/${customer.id}/rediger`} className="text-gray-600 hover:underline text-sm font-medium">{t("customers.list.edit")}</Link>
+                          )}
+                          {user.role === "ADMIN" && (
+                            <form action={deleteCustomerAction}>
+                              <input type="hidden" name="id" value={customer.id} />
+                              <button
+                                type="submit"
+                                className="text-red-600 hover:underline text-sm font-medium"
+                              >
+                                {t("customers.list.delete")}
+                              </button>
+                            </form>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>

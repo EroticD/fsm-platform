@@ -12,6 +12,7 @@ import {
   createFolder,
   deleteDocument,
   reindexDocuments,
+  restoreDocument,
   restoreVersion,
   updateDocument,
 } from "./actions";
@@ -26,6 +27,7 @@ export default async function DocumentsPage({
     page?: string;
     doc?: string;
     error?: string;
+    slettet?: string;
   }>;
 }) {
   const user = await getCurrentUser();
@@ -43,6 +45,7 @@ export default async function DocumentsPage({
   const tagFilter = resolved.tag || "";
   const error = resolved.error;
   const page = parsePage(resolved.page);
+  const showDeleted = resolved.slettet === "1" && isAdmin;
 
   const result = await getDocumentLibrary(user, {
     folderId,
@@ -50,6 +53,7 @@ export default async function DocumentsPage({
     tag: tagFilter,
     page,
     documentId: resolved.doc || null,
+    deleted: showDeleted,
   });
   if (!result.ok) redirect("/");
 
@@ -83,9 +87,11 @@ export default async function DocumentsPage({
           page={page}
           office={office}
           isAdmin={isAdmin}
+          showDeleted={showDeleted}
           createFolderAction={createFolder.bind(null, folderId)}
           restoreVersionAction={restoreVersion}
           deleteDocumentAction={deleteDocument}
+          restoreDocumentAction={restoreDocument}
           updateDocumentAction={updateDocument}
           createDocumentAction={createDocument}
           bulkCreateDocumentsAction={bulkCreateDocuments}

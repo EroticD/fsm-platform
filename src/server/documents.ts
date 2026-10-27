@@ -2,7 +2,6 @@ import path from "path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { releaseUpload } from "@/lib/upload-cleanup";
 import {
   documentCreateSchema,
   documentFolderCreateSchema,
@@ -43,6 +42,8 @@ export type DocumentLibraryParams = {
   tag: string;
   page: number;
   documentId: string | null;
+  /** Administrator kan vise papirkurven. Vanlige brukere ser den aldri. */
+  deleted?: boolean;
 };
 
 /** Alt dokumentbiblioteket trenger for én sidevisning. */
@@ -56,6 +57,9 @@ export async function getDocumentLibrary(
   const searchQuery = params.search.trim();
   const tagFilter = params.tag;
   const page = Math.max(1, params.page);
+  // Papirkurven er forbeholdt administrator, uavhengig av hva URL-en ber om.
+  const showDeleted = Boolean(params.deleted) && isAdminActor(actor);
+  const deletedFilter = showDeleted ? { not: null } : null;
 
   let currentFolder: {
     id: string;
@@ -92,7 +96,10 @@ export async function getDocumentLibrary(
     }),
   ]);
 
-  const docWhere: Prisma.DocumentWhereInput = { folderId, deletedAt: null };
+  const docWhere: Prisma.DocumentWhereInput = {
+    folderId,
+    deletedAt: deletedFilter,
+  };
   if (searchQuery) {
     docWhere.OR = [
       { title: { contains: searchQuery, mode: "insensitive" } },
@@ -132,7 +139,7 @@ export async function getDocumentLibrary(
       prisma.document.count({ where: docWhere }),
       params.documentId
         ? prisma.document.findFirst({
-            where: { id: params.documentId, deletedAt: null },
+            where: { id: params.documentId, deletedAt: deletedFilter },
             select: {
               id: true,
               title: true,
@@ -343,27 +350,64 @@ export async function deleteDocument(
 
   const doc = await prisma.document.findFirst({
     where: { id, deletedAt: null },
-    include: { versions: { select: { filePath: true } } },
+    select: { id: true, title: true },
   });
   if (!doc) return fail("not_found");
 
-  const fileUrls = [doc.filePath, ...doc.versions.map((version) => version.filePath)];
+  const actorId = actor.id;
 
   await prisma.$transaction(async (tx) => {
-    await tx.document.delete({ where: { id } });
+    await tx.document.update({
+      where: { id: doc.id },
+      data: { deletedAt: new Date(), deletedBy: actor.name || actorId },
+    });
     await audit(tx, {
       entityType: "Document",
-      entityId: id,
-      action: `Slettet dokument: ${doc.title}`,
-      actor: toAuditActor(actor),
+      entityId: doc.id,
+      action: `Slettet dokumentet «${doc.title}» (myk sletting – kan gjenopprettes)`,
+      actor: toAuditActor({ ...actor, id: actorId }),
+      metadata: { softDeleted: true },
     });
   });
 
-  // Frigjør filene etter at dokumentet og versjonene er borte. Filer som
-  // fortsatt er referert fra en annen rad blir liggende.
-  for (const fileUrl of new Set(fileUrls)) {
-    await releaseUpload(fileUrl);
-  }
+  // Filen og versjonene beholdes, slik at dokumentet kan gjenopprettes.
+  return ok(undefined);
+}
+
+/** Gjenoppretter et mykt slettet dokument. Bare administrator. */
+export async function restoreDocument(
+  actor: ServiceActor,
+  input: { id?: unknown },
+): Promise<ServiceResult> {
+  if (!isAdminActor(actor) || !actor.isActive) return fail("forbidden");
+
+  const parsed = documentIdSchema.safeParse({
+    id: cleanText(input.id, { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) return fail("invalid");
+  const id = parsed.data.id;
+
+  const doc = await prisma.document.findUnique({
+    where: { id },
+    select: { id: true, title: true, deletedAt: true },
+  });
+  if (!doc) return fail("not_found");
+  if (!doc.deletedAt) return fail("invalid");
+
+  const actorId = actor.id;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.document.update({
+      where: { id: doc.id },
+      data: { deletedAt: null, deletedBy: null },
+    });
+    await audit(tx, {
+      entityType: "Document",
+      entityId: doc.id,
+      action: `Gjenopprettet dokumentet «${doc.title}»`,
+      actor: toAuditActor({ ...actor, id: actorId }),
+    });
+  });
 
   return ok(undefined);
 }

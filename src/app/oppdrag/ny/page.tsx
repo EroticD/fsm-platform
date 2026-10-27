@@ -39,6 +39,7 @@ export default async function AdminCreateWorkOrderPage({
     select: { id: true, name: true, city: true, customerNumber: true },
   });
   const contacts = await prisma.contact.findMany({
+    where: { customer: { deletedAt: null } },
     orderBy: { name: 'asc' },
     take: 200,
     select: { id: true, name: true, role: true, customerId: true },

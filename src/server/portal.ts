@@ -120,7 +120,12 @@ export async function createBooking(
     });
   } catch (error) {
     // Transaksjonen ruller tilbake både oppdraget og revisjonsloggen.
-    console.error("Databasefeil ved booking av oppdrag:", error);
+    // creatorName kan være brukerens e-post, så rå Prisma-feil logges ikke.
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "ukjent";
+    console.error(`Databasefeil ved booking av oppdrag (Prisma ${code})`);
     return fail("error");
   }
 

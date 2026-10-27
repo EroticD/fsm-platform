@@ -223,6 +223,10 @@ export async function notifyUser(
         body: input.body?.slice(0, 4000) ?? null,
         href: input.href?.slice(0, 500) ?? null,
         dedupeKey: input.dedupeKey ?? null,
+        // Er bare e-post slått på, skal raden ikke gi ulest-merke eller badge.
+        // Den markeres derfor som lest med en gang, men e-postkøen bruker den
+        // fortsatt som historikk og utgangspunkt for utsending.
+        readAt: inApp ? null : new Date(),
         // Uten e-postpreferanse markeres varselet som «sendt», slik at køen
         // hopper over det. In-app-raden beholdes for historikken.
         emailSentAt: email ? null : new Date(),
@@ -262,7 +266,9 @@ export async function notifyWorkOrderEvent(
       id: true,
       departmentId: true,
       customerId: true,
-      technicians: { select: { id: true } },
+      // Inaktive kontoer skal aldri få varsler, selv om de fortsatt står
+      // oppført på et gammelt oppdrag.
+      technicians: { where: { isActive: true }, select: { id: true } },
     },
   });
   if (!workOrder) return 0;

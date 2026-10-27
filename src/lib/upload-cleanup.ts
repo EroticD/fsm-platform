@@ -15,46 +15,74 @@ const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
  */
 export async function releaseUpload(
   fileUrl: string | null | undefined,
-): Promise<void> {
-  if (!fileUrl || !UPLOAD_URL.test(fileUrl)) return;
+): Promise<boolean> {
+  if (!fileUrl || !UPLOAD_URL.test(fileUrl)) return false;
   const storedName = fileUrl.slice("/uploads/".length);
 
-  const [attachment, customerAttachment, document, version, signature, unit, legacy] =
-    await Promise.all([
-      prisma.attachment.findFirst({
-        where: { dataUrl: fileUrl },
-        select: { id: true },
-      }),
-      prisma.customerAttachment.findFirst({
-        where: { dataUrl: fileUrl },
-        select: { id: true },
-      }),
-      prisma.document.findFirst({
-        where: { filePath: fileUrl },
-        select: { id: true },
-      }),
-      prisma.documentVersion.findFirst({
-        where: { filePath: fileUrl },
-        select: { id: true },
-      }),
-      prisma.report.findFirst({
-        where: {
-          OR: [
-            { technicianSignatureUrl: fileUrl },
-            { customerSignatureUrl: fileUrl },
-          ],
-        },
-        select: { id: true },
-      }),
-      prisma.reportUnit.findFirst({
-        where: { answersJson: { contains: fileUrl } },
-        select: { id: true },
-      }),
-      prisma.report.findFirst({
-        where: { dataJson: { contains: fileUrl } },
-        select: { id: true },
-      }),
-    ]);
+  const [
+    attachment,
+    customerAttachment,
+    document,
+    version,
+    signature,
+    unit,
+    legacy,
+    revision,
+    draft,
+  ] = await Promise.all([
+    prisma.attachment.findFirst({
+      where: { dataUrl: fileUrl },
+      select: { id: true },
+    }),
+    prisma.customerAttachment.findFirst({
+      where: { dataUrl: fileUrl },
+      select: { id: true },
+    }),
+    prisma.document.findFirst({
+      where: { filePath: fileUrl },
+      select: { id: true },
+    }),
+    prisma.documentVersion.findFirst({
+      where: { filePath: fileUrl },
+      select: { id: true },
+    }),
+    prisma.report.findFirst({
+      where: {
+        OR: [
+          { technicianSignatureUrl: fileUrl },
+          { customerSignatureUrl: fileUrl },
+          // Mellomlagret PDF peker også på en opplastingsfil.
+          { pdfUrl: fileUrl },
+        ],
+      },
+      select: { id: true },
+    }),
+    prisma.reportUnit.findFirst({
+      where: { answersJson: { contains: fileUrl } },
+      select: { id: true },
+    }),
+    prisma.report.findFirst({
+      where: { dataJson: { contains: fileUrl } },
+      select: { id: true },
+    }),
+    // Historiske revisjoner beholder signaturene og svarene fra da de ble
+    // laget. En fil som bare brukes der, må ikke slettes.
+    prisma.reportRevision.findFirst({
+      where: {
+        OR: [
+          { technicianSignatureUrl: fileUrl },
+          { customerSignatureUrl: fileUrl },
+          { dataJson: { contains: fileUrl } },
+          { unitsJson: { contains: fileUrl } },
+        ],
+      },
+      select: { id: true },
+    }),
+    prisma.reportDraft.findFirst({
+      where: { dataJson: { contains: fileUrl } },
+      select: { id: true },
+    }),
+  ]);
 
   if (
     attachment ||
@@ -63,13 +91,51 @@ export async function releaseUpload(
     version ||
     signature ||
     unit ||
-    legacy
+    legacy ||
+    revision ||
+    draft
   ) {
-    return;
+    return false;
   }
 
   const deleted = await prisma.upload.deleteMany({ where: { storedName } });
   if (deleted.count > 0) {
     await fs.unlink(path.join(uploadDir(), storedName)).catch(() => undefined);
+    return true;
   }
+  return false;
+}
+
+/**
+ * Rydder opplastinger som aldri ble knyttet til et vedlegg, dokument eller en
+ * rapport. En fil regnes som forlatt først etter en karanteneperiode, slik at
+ * et skjema som fortsatt er åpent ikke mister filen sin. `releaseUpload`
+ * kontrollerer alle referanser på nytt, også revisjoner og kladder.
+ */
+export async function cleanupAbandonedUploads(options?: {
+  olderThanHours?: number;
+  limit?: number;
+}): Promise<{ checked: number; released: number }> {
+  const olderThanHours = Math.max(1, options?.olderThanHours ?? 24);
+  const limit = Math.min(Math.max(1, options?.limit ?? 500), 2000);
+  const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+  const candidates = await prisma.upload.findMany({
+    where: {
+      createdAt: { lt: cutoff },
+      ownerType: { in: ["USER", "DOCUMENT"] },
+    },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: { storedName: true },
+  });
+
+  let released = 0;
+  for (const candidate of candidates) {
+    if (await releaseUpload(`/uploads/${candidate.storedName}`)) {
+      released += 1;
+    }
+  }
+
+  return { checked: candidates.length, released };
 }

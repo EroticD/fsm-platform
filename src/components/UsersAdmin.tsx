@@ -114,6 +114,7 @@ export default async function UsersAdmin({
 
   const customers = canManageCustomers
     ? await prisma.customer.findMany({
+        where: { deletedAt: null },
         orderBy: { name: "asc" },
         include: { contacts: { orderBy: { name: "asc" } } },
       })

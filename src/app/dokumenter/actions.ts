@@ -10,6 +10,7 @@ import {
   deleteDocument as deleteDocumentService,
   deleteFolder as deleteFolderService,
   reindexDocuments as reindexDocumentsService,
+  restoreDocument as restoreDocumentService,
   restoreDocumentVersion,
   updateDocument as updateDocumentService,
 } from "@/server/documents";
@@ -71,6 +72,21 @@ export async function deleteDocument(formData: FormData) {
   if (!actor) return;
 
   const result = await deleteDocumentService(actor, {
+    id: formData.get("id"),
+  });
+  if (!result.ok) {
+    if (result.reason === "invalid") invalidDocument();
+    return;
+  }
+
+  revalidatePath(DOCUMENTS_PATH);
+}
+
+export async function restoreDocument(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
+  const result = await restoreDocumentService(actor, {
     id: formData.get("id"),
   });
   if (!result.ok) {

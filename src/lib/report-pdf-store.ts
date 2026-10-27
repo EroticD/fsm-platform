@@ -9,6 +9,7 @@ import {
 } from "@/lib/report-pdf";
 import { withRenderSlot } from "@/lib/render-queue";
 import { uploadDir } from "@/lib/uploads";
+import { releaseUpload } from "@/lib/upload-cleanup";
 
 /**
  * Mellomlagring av genererte rapport-PDF-er.
@@ -239,6 +240,7 @@ export async function getOrRenderReportPdf(
   );
   if (!pdf) return null;
 
+  const previousPdfUrl = latest.pdfUrl;
   const url = await storeReportPdf({
     workOrderId,
     reportId: latest.id,
@@ -247,6 +249,13 @@ export async function getOrRenderReportPdf(
     pdfHash,
     pdf,
   });
+
+  // Den forrige PDF-cachen er ikke lenger referert fra rapporten. Frigjør den
+  // når den nye er lagret; filen blir liggende hvis den også brukes andre
+  // steder (for eksempel av en revisjon).
+  if (url && previousPdfUrl && previousPdfUrl !== url) {
+    await releaseUpload(previousPdfUrl);
+  }
 
   return url ? { ...pdf, url } : pdf;
 }

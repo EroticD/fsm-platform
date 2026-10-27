@@ -176,7 +176,18 @@ export async function performSearch(
                 },
               ]
             : []),
-          ...(canCustomers ? [{ workOrderId: null }] : []),
+          ...(canCustomers
+            ? [
+                {
+                  workOrderId: null,
+                  OR: [
+                    { customer: { deletedAt: null } },
+                    { contact: { customer: { deletedAt: null } } },
+                    { customerId: null, contactId: null },
+                  ],
+                },
+              ]
+            : []),
         ],
       }
     : noRows;
@@ -312,7 +323,23 @@ export async function performSearch(
         take: CANDIDATES,
       }),
       prisma.tag.findMany({
-        where: canWorkOrders ? { id: { in: tagHitIds.ids } } : noRows,
+        // En tag kan bare vises når den faktisk brukes på et oppdrag aktøren
+        // kan se. Ellers ville tag-navn fra andre avdelinger lekke ut.
+        where: canWorkOrders
+          ? {
+              id: { in: tagHitIds.ids },
+              workOrders: {
+                some: {
+                  AND: [
+                    workOrderScope(user),
+                    ...(includeCancelled
+                      ? []
+                      : [{ status: { not: WorkStatus.CANCELLED } }]),
+                  ],
+                },
+              },
+            }
+          : noRows,
         select: { id: true, name: true, color: true },
         orderBy: { name: "asc" },
         take: CANDIDATES,
