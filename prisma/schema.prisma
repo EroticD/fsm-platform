@@ -110,6 +110,8 @@ model User {
 
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  savedSearches           SavedSearch[]
+  searchLogs              SearchLog[]
 
   @@index([departmentId])
   @@index([role])
@@ -731,6 +733,40 @@ model NotificationPreference {
   email  Boolean @default(true)
 
   @@unique([userId, type])
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  query     String
+  /// Søkefiltre som JSON, slik at et lagret søk kan gjenopprettes eksakt.
+  filters   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt])
+}
+
+/// Anonymisert nok for intern analyse, men beholder søketeksten slik at
+/// nulltreff og populære søk kan forbedres. Slettes sammen med brukeren.
+model SearchLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  query           String
+  normalizedQuery String
+  resultCount     Int
+  latencyMs       Int
+  filters         Json?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([resultCount, createdAt])
+  @@index([normalizedQuery, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Branding {
