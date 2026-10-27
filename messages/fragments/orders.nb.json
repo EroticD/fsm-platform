@@ -494,7 +494,9 @@
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
       "workOrderLocked": "🔒 Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det.",
       "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen.",
-      "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt."
+      "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt.",
+      "legalHoldFrozen": "⛔ Rapporten er fryst av bevaringsplikt. En administrator må frigjøre holdet med en grunn før den kan endres eller låses opp.",
+      "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer."
     },
     "reportsPage": {
       "title": "Servicerapporter",

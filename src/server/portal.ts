@@ -278,11 +278,14 @@ export async function acknowledgeReport(
       id: true,
       customerId: true,
       reports: {
+        // Alle rapportene hentes, ikke bare den nyeste: en kunde kan kvittere
+        // for en bestemt rapport i historikken. Slettede rapporter filtreres
+        // bort og kan derfor aldri kvitteres.
         where: { deletedAt: null },
         orderBy: { completedAt: "desc" },
-        take: 1,
         select: {
           id: true,
+          isLocked: true,
           customerAcknowledgedAt: true,
         },
       },
@@ -294,11 +297,14 @@ export async function acknowledgeReport(
   }
 
   const requestedReportId = idFrom(input.reportId);
-  const report =
-    (requestedReportId
-      ? workOrder.reports.find((row) => row.id === requestedReportId)
-      : workOrder.reports[0]) ?? null;
-  if (!report) return fail("not_found");
+  const report = requestedReportId
+    ? (workOrder.reports.find((row) => row.id === requestedReportId) ?? null)
+    : (workOrder.reports.find((row) => row.isLocked) ?? null);
+
+  // Bare en signert (låst) rapport er et ferdig dokument kunden kan kvittere
+  // for. En opplåst rapport er under retting, og en slettet rapport finnes
+  // ikke i listen.
+  if (!report || !report.isLocked) return fail("not_found");
   if (report.customerAcknowledgedAt) return ok(undefined);
 
   const comment =
@@ -321,7 +327,7 @@ export async function acknowledgeReport(
       entityId: report.id,
       action: "Kunden kvitterte for rapporten",
       actor: toAuditActor(actor),
-      metadata: { workOrderId },
+      metadata: { workOrderId, reportId: report.id },
     });
   });
 

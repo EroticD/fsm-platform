@@ -314,6 +314,7 @@
       "missingContact": "Kundeportalbrukere må kobles til en kontaktperson på kundekortet.",
       "duplicateEmail": "Det finnes allerede en bruker med denne e-postadressen.",
       "missingField": "Fyll ut navn, e-post og velg en kontaktperson.",
+      "templateInUse": "Sjekklisten er i bruk av rapporter, oppdrag eller aktive serviceavtaler og kan ikke slettes. Fjern bruken først.",
       "unknown": "Noe gikk galt. Prøv igjen."
     }
   }
