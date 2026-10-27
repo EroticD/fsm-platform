@@ -208,9 +208,12 @@
       "legalHoldReleaseReasonHint": "The reason is recorded in the audit log.",
       "legalHoldReportBadge": "Legal hold on report",
       "legalHoldReportHint": "One or more reports on this work order are under legal hold.",
+      "reportLegalHoldEnable": "🔒 Report hold",
+      "reportLegalHoldDisable": "🔓 Release report hold",
       "statusPlanned": "Planned",
       "statusWaiting": "Waiting",
-      "orderNumber": "Order number associated with work order"
+      "orderNumber": "Order number associated with work order",
+      "revisions": "Revisions ({count})"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",

@@ -178,11 +178,32 @@ export async function setWorkOrderLegalHold(formData: FormData) {
     user,
     workOrderId,
     formData.get("hold"),
+    formData.get("reason"),
   );
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
   revalidatePath("/oppdrag");
+}
+
+/** Bevaringsplikt på en enkelt rapport. Bare administrator. */
+export async function setReportLegalHold(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const reportId = cleanText(formData.get("reportId"), { maxLength: LIMITS.line });
+  if (!workOrderId || !reportId) redirect("/oppdrag?error=ugyldig-data");
+
+  const user = await getCurrentUser();
+  const result = await workOrderService.setReportLegalHold(
+    user,
+    workOrderId,
+    reportId,
+    formData.get("hold"),
+    formData.get("reason"),
+  );
+  if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
+
+  revalidatePath(`/oppdrag/${workOrderId}`);
+  revalidatePath("/rapporter");
 }
 
 /**

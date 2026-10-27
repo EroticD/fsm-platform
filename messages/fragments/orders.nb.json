@@ -208,9 +208,12 @@
       "legalHoldReleaseReasonHint": "Årsaken logges i aktivitetsloggen.",
       "legalHoldReportBadge": "Bevaringsplikt på rapport",
       "legalHoldReportHint": "En eller flere rapporter på oppdraget har bevaringsplikt.",
+      "reportLegalHoldEnable": "🔒 Rapport-hold",
+      "reportLegalHoldDisable": "🔓 Opphev rapport-hold",
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
-      "orderNumber": "Ordrenummer tilknyttet oppdrag"
+      "orderNumber": "Ordrenummer tilknyttet oppdrag",
+      "revisions": "Revisjoner ({count})"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",

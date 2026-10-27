@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { allowRequestDb } from "@/lib/rate-limit-db";
 
 const MAX_RESULTS = 20;
 
@@ -22,6 +23,17 @@ export async function GET(request: Request) {
     )
   ) {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+  }
+
+  const limit = await allowRequestDb(`customer-search:${user.id}`, 60, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "For mange søk. Prøv igjen om litt." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
   }
 
   const q = new URL(request.url).searchParams.get("q")?.trim().slice(0, 100) ?? "";

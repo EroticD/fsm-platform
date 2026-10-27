@@ -21,6 +21,7 @@ import {
   cloneWorkOrder,
   deleteWorkOrder,
   setContact,
+  setReportLegalHold,
   setReportLock,
   setTags,
   setTemplate,
@@ -697,6 +698,37 @@ export default async function AdminWorkOrderPage({
                                         }`}
                                       >
                                         {report.isLocked ? t("orders.detail.unlockForEdit") : t("orders.detail.lockAgain")}
+                                      </button>
+                                    </form>
+                                  )}
+                                  {isAdmin && (
+                                    <form action={setReportLegalHold} className="flex items-center gap-2 flex-wrap">
+                                      <input type="hidden" name="workOrderId" value={workOrder.id} />
+                                      <input type="hidden" name="reportId" value={report.id} />
+                                      <input type="hidden" name="hold" value={report.legalHold ? "false" : "true"} />
+                                      {report.legalHold && (
+                                        <input
+                                          type="text"
+                                          name="reason"
+                                          required
+                                          maxLength={1000}
+                                          aria-label={t("orders.detail.legalHoldReleaseReason")}
+                                          placeholder={t("orders.detail.legalHoldReleaseReason")}
+                                          title={t("orders.detail.legalHoldReleaseReasonHint")}
+                                          className="border-2 border-red-300 bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-full outline-none focus:border-red-500 min-w-[12rem]"
+                                        />
+                                      )}
+                                      <button
+                                        type="submit"
+                                        className={`text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm whitespace-nowrap ${
+                                          report.legalHold
+                                            ? "bg-red-100 border-2 border-red-300 text-red-900 hover:bg-red-200"
+                                            : "bg-white border-2 border-amber-300 text-amber-900 hover:bg-amber-50"
+                                        }`}
+                                      >
+                                        {report.legalHold
+                                          ? t("orders.detail.reportLegalHoldDisable")
+                                          : t("orders.detail.reportLegalHoldEnable")}
                                       </button>
                                     </form>
                                   )}
