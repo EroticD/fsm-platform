@@ -32,7 +32,9 @@
       "available": "Available templates ({count})",
       "empty": "You haven't created any checklist templates yet.",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "reportNamePlaceholder": "E.g. Annual caretaker report",
+      "createRequiresUnits": "The report should be linked to equipment units"
     },
     "tags": {
       "workOrdersTitle": "Work order tags",
@@ -230,7 +232,11 @@
       "options": {
         "one": "Option 1",
         "two": "Option 2"
-      }
+      },
+      "reportName": "Report name",
+      "reportNameHint": "The name shown in the PDF and report lists. Empty uses the checklist name.",
+      "requiresUnits": "Link the report to equipment units",
+      "requiresUnitsHint": "Turn off when the report does not concern specific units. The checkpoints are then completed once for the whole work order."
     }
   },
   "users": {

@@ -435,7 +435,9 @@
       "technicianHelper": "Den som utførte jobben.",
       "customerSignature": "✍️ Kunde",
       "customerHelper": "Kundens representant på stedet.",
-      "draftOffline": "Lagret lokalt – sendes når nettet er tilbake"
+      "draftOffline": "Lagret lokalt – sendes når nettet er tilbake",
+      "reportNoUnitsTitle": "Sjekkpunkter",
+      "reportNoUnitsHint": "Denne rapporten er ikke knyttet til enheter. Sjekkpunktene fylles ut for oppdraget samlet."
     },
     "attachments": {
       "title": "📎 Vedlegg",

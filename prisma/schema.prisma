@@ -426,6 +426,10 @@ model Report {
   // Øyeblikksbilde av malen da rapporten ble signert, slik at senere endringer
   // i malen ikke endrer en allerede signert rapport.
   templateTitle        String?
+  /// Rapportens visningsnavn, kopiert fra malen da rapporten ble laget.
+  name                 String?
+  /// Om rapporten har enheter. Snapshot fra malen.
+  requiresUnits        Boolean @default(true)
   templateSnapshotJson String?
 
   createdAt  DateTime  @default(now())
@@ -478,6 +482,8 @@ model ReportRevision {
   unitsJson            String
   comments             String?
   templateTitle        String?
+  name                 String?
+  requiresUnits        Boolean @default(true)
   completedAt          DateTime?
   templateSnapshotJson String?
   technicianSignatureUrl String?
@@ -547,6 +553,10 @@ model ReportDraft {
 model Template {
   id         String      @id @default(cuid())
   title      String
+  /// Navnet som vises på produserte rapporter/PDF. Tomt = bruk title.
+  reportName String?
+  /// Om rapporten skal knyttes til enheter. Kan slås av per mal.
+  requiresUnits Boolean @default(true)
   fieldsJson String
   reports    Report[]
   workOrder  WorkOrder[] @relation("WorkOrderTemplates")

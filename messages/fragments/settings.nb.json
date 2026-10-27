@@ -32,7 +32,9 @@
       "available": "Tilgjengelige Maler ({count})",
       "empty": "Du har ikke opprettet noen sjekklistemaler ennå.",
       "edit": "Rediger",
-      "delete": "Slett"
+      "delete": "Slett",
+      "reportNamePlaceholder": "F.eks. Årlig vaktmesterrapport",
+      "createRequiresUnits": "Rapporten skal knyttes til enheter"
     },
     "tags": {
       "workOrdersTitle": "Tags for oppdrag",
@@ -230,7 +232,11 @@
       "options": {
         "one": "Alternativ 1",
         "two": "Alternativ 2"
-      }
+      },
+      "reportName": "Rapportnavn",
+      "reportNameHint": "Navnet som vises i PDF og rapportlister. Tomt felt bruker navnet på sjekklisten.",
+      "requiresUnits": "Knytt rapporten til enheter",
+      "requiresUnitsHint": "Slå av når rapporten ikke gjelder bestemte enheter. Da fylles sjekkpunktene ut én gang for hele oppdraget."
     }
   },
   "users": {

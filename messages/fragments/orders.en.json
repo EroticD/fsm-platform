@@ -435,7 +435,9 @@
       "technicianHelper": "The person who performed the job.",
       "customerSignature": "✍️ Customer",
       "customerHelper": "The customer representative on site.",
-      "draftOffline": "Saved locally – will sync when back online"
+      "draftOffline": "Saved locally – will sync when back online",
+      "reportNoUnitsTitle": "Checkpoints",
+      "reportNoUnitsHint": "This report is not linked to equipment units. The checkpoints are completed for the work order as a whole."
     },
     "attachments": {
       "title": "📎 Attachments",
