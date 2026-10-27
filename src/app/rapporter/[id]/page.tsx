@@ -25,7 +25,7 @@ export default async function ReportViewerPage({ params }: { params: Promise<{ i
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
         <p className="text-gray-600 font-medium">{(t("orders.reportViewer.notFoundWorkOrder"))}</p>
         <Link href="/" className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold">
-          Tilbake
+          {t("orders.reportViewer.back")}
         </Link>
       </div>
     );
@@ -53,7 +53,7 @@ export default async function ReportViewerPage({ params }: { params: Promise<{ i
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
         <p className="text-gray-600 font-medium">{(t("orders.reportViewer.noReport"))}</p>
         <Link href="/" className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold">
-          Tilbake
+          {t("orders.reportViewer.back")}
         </Link>
       </div>
     );

@@ -432,6 +432,9 @@ export default async function ReportRevisionsPage({
                     {t("orders.revisions.currentRevision", {
                       revision: report.revision,
                     })}
+                    {report.reportNumber
+                      ? ` · ${t("orders.revisions.reportNumber")}: ${report.reportNumber}`
+                      : ""}
                     {report.legalHold
                       ? ` · ${t("orders.detail.legalHoldBadge")}`
                       : ""}
