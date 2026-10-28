@@ -19,6 +19,7 @@ import {
   workOrderListSearchWhere,
   workOrderTagWhere,
 } from "@/lib/search-filters";
+import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import { searchWorkOrderIds } from "@/lib/search-sql";
 
 // ---------------------------------------------------------------------------
@@ -115,13 +116,11 @@ function whereFor(
       return { status: "IN_PROGRESS" };
     case "idag":
       // Tar med flerdagersoppdrag som er i gang i dag, men ikke avsluttede.
+      // Streng `lt` mot neste dags midnatt – ellers teller morgendagens
+      // oppdrag med når de starter kl. 00:00.
       return {
         status: { notIn: CLOSED_STATUSES },
-        scheduledFor: { lte: endOfToday },
-        OR: [
-          { scheduledTo: { gte: startOfToday } },
-          { scheduledTo: null, scheduledFor: { gte: startOfToday } },
-        ],
+        ...scheduledTodayWhere(startOfToday, endOfToday),
       };
     case "forfalte":
       return {

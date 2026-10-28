@@ -242,6 +242,74 @@ describe("dokumenttjenesten – myk sletting og gjenoppretting", () => {
     };
     expect(args.where.deletedAt).toBeNull();
   });
+
+  it("søker i hele biblioteket når søkefeltet er brukt", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue({
+      id: "folder-a",
+      name: "Pumper",
+      parentId: null,
+    });
+    mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+    mocks.prisma.document.count.mockResolvedValue(0);
+    mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+
+    await getDocumentLibrary(office(), {
+      folderId: "folder-a",
+      search: "pumpe",
+      tag: "manual",
+      page: 1,
+      documentId: null,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: {
+        folderId?: unknown;
+        OR?: unknown[];
+        tags?: unknown;
+        deletedAt?: unknown;
+      };
+    };
+
+    // Mappen skal ikke begrense treffene når brukeren søker.
+    expect(args.where.folderId).toBeUndefined();
+    expect(args.where.OR).toEqual(
+      expect.arrayContaining([
+        { title: { contains: "pumpe", mode: "insensitive" } },
+      ]),
+    );
+    // Tag-filteret komponeres med søket.
+    expect(args.where.tags).toEqual({ some: { name: "manual" } });
+    expect(args.where.deletedAt).toBeNull();
+    expect(mocks.prisma.document.count).toHaveBeenCalledWith({
+      where: args.where,
+    });
+  });
+
+  it("begrenser blaing til mappen når det ikke søkes", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue({
+      id: "folder-a",
+      name: "Pumper",
+      parentId: null,
+    });
+    mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+    mocks.prisma.document.count.mockResolvedValue(0);
+    mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+
+    await getDocumentLibrary(office(), {
+      folderId: "folder-a",
+      search: "",
+      tag: "",
+      page: 1,
+      documentId: null,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { folderId?: unknown };
+    };
+    expect(args.where.folderId).toBe("folder-a");
+  });
 });
 
 describe("dokumenttjenesten – filstier", () => {

@@ -556,6 +556,8 @@
       "invalidStatusField": "⛔ The status change is not allowed from the current state of the work order.",
       "department": "The work order must belong to a department. Ask an administrator to add you to an active department, or create a department first.",
       "invalidData": "⛔ The work order could not be saved. Check the title, date and department.",
+      "invalidEndDate": "The end date is invalid. Choose a valid date.",
+      "endBeforeStart": "The end date cannot be before the start date.",
       "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date.",
       "workOrderLocked": "🔒 This work order is completed or cancelled and locked. You can add comments or clone it.",
       "reasonRequired": "You must provide a reason for reopening or changing the status.",

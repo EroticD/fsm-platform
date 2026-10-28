@@ -29,6 +29,7 @@ import {
   workOrderTemplateSchema,
   workOrderUpdateSchema,
 } from "@/lib/schemas";
+import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
@@ -52,6 +53,8 @@ export type WorkOrderError =
   | "ikke-funnet"
   | "ugyldig-data"
   | "ugyldig-status"
+  | "ugyldig-sluttdato"
+  | "sluttdato-for-startdato"
   | "workorder-locked"
   | "legal-hold"
   | "reason-required"
@@ -179,6 +182,27 @@ function cleanTagNames(values: unknown[]): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Kontrollerer datoperioden før hovedskjemaet. Da får brukeren en presis
+ * melding om sluttdatoen i stedet for at en ugyldig periode blir stille
+ * forkastet (eller oversatt til en generell «ugyldig data»).
+ */
+function dateRangeError(
+  scheduledFor: string,
+  scheduledTo: string,
+): WorkOrderError | null {
+  if (!scheduledTo) return null;
+
+  const end = dateOnlySchema.safeParse(scheduledTo);
+  if (!end.success) return "ugyldig-sluttdato";
+
+  const start = scheduledFor ? dateOnlySchema.safeParse(scheduledFor) : null;
+  if (start?.success && end.data < start.data) {
+    return "sluttdato-for-startdato";
+  }
+  return null;
+}
+
 export type CreateWorkOrderInput = {
   title: unknown;
   orderNumber?: unknown;
@@ -254,6 +278,11 @@ export async function createWorkOrder(
     : [];
   const technicianIds = allowedTechnicians.map((technician) => technician.id);
 
+  const scheduledForInput = rawId(input.scheduledFor);
+  const scheduledToInput = rawId(input.scheduledTo);
+  const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
+  if (rangeError) return { ok: false, error: rangeError };
+
   const parsed = workOrderCreateSchema.safeParse({
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
@@ -264,8 +293,8 @@ export async function createWorkOrder(
     departmentId,
     customerId,
     contactId: validContactId,
-    scheduledFor: rawId(input.scheduledFor),
-    scheduledTo: rawId(input.scheduledTo),
+    scheduledFor: scheduledForInput,
+    scheduledTo: scheduledToInput,
     technicianIds,
     templateIds: input.templateIds.map(rawId).filter(Boolean),
     tagNames: cleanTagNames(input.tagNames),
@@ -443,6 +472,11 @@ export async function updateWorkOrder(
     : [];
   const validTechnicianIds = allowedTechnicians.map((technician) => technician.id);
 
+  const scheduledForInput = rawId(input.scheduledFor);
+  const scheduledToInput = rawId(input.scheduledTo);
+  const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
+  if (rangeError) return { ok: false, error: rangeError };
+
   const parsed = workOrderUpdateSchema.safeParse({
     id: workOrderId,
     title: cleanText(input.title, { maxLength: LIMITS.title }),
@@ -454,8 +488,8 @@ export async function updateWorkOrder(
     departmentId,
     customerId: rawId(input.customerId),
     contactId: rawId(input.contactId),
-    scheduledFor: rawId(input.scheduledFor),
-    scheduledTo: rawId(input.scheduledTo),
+    scheduledFor: scheduledForInput,
+    scheduledTo: scheduledToInput,
     technicianIds: validTechnicianIds,
     tagNames,
   });
@@ -585,10 +619,11 @@ export async function updateWorkOrder(
 export type StatusContext = "office" | "field";
 
 /**
- * Bytter status. Alle åpne statuser kan velges fritt av brukere med
- * `workorders.update`. Bare når oppdraget er fullført eller kansellert kreves
- * en grunn, og bare administrator kan gjenåpne det. Kansellering krever
- * fortsatt `workorders.edit`.
+ * Bytter status. Overgangen må være lovlig i tilstandsmaskinen, slik at
+ * kontoret og feltportalen følger samme regler som dispatch. Bare når
+ * oppdraget er fullført eller kansellert kreves en grunn, og bare
+ * administrator kan gjenåpne det. Kansellering krever fortsatt
+ * `workorders.edit`.
  */
 export async function changeWorkOrderStatus(
   user: Actor,
@@ -633,8 +668,10 @@ export async function changeWorkOrderStatus(
     from,
     to: status,
     isAdmin: user.role === "ADMIN",
-    // Åpne statuser er frie; lukkede gjenåpnes bevisst av administrator.
-    force: true,
+    // Åpne statuser må følge tilstandsmaskinen, akkurat som i dispatch.
+    // Bare den bevisste administratorgjenåpningen av et lukket oppdrag
+    // overstyrer maskinen – den krever allerede en grunn over.
+    force: fromClosed,
     actor: auditActor(user),
     action,
     ...(fromClosed

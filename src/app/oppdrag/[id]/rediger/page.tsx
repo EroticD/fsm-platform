@@ -91,6 +91,8 @@ export default async function EditWorkOrderPage({
 
   const errorMessages: Record<string, string> = {
     "ugyldig-data": t("orders.errors.invalidData"),
+    "ugyldig-sluttdato": t("orders.errors.invalidEndDate"),
+    "sluttdato-for-startdato": t("orders.errors.endBeforeStart"),
     "duplikat-ordrenummer": t("orders.errors.duplicateOrderNumber"),
     avdeling: t("orders.errors.department"),
     "workorder-locked": t("orders.errors.workOrderLocked"),
@@ -100,6 +102,12 @@ export default async function EditWorkOrderPage({
   const errorMessage = error
     ? (errorMessages[error] ?? t("orders.errors.saveFailed"))
     : undefined;
+  const dateError =
+    error === "sluttdato-for-startdato"
+      ? t("orders.errors.endBeforeStart")
+      : error === "ugyldig-sluttdato"
+        ? t("orders.errors.invalidEndDate")
+        : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
@@ -233,11 +241,17 @@ export default async function EditWorkOrderPage({
                 id="office-edit-scheduled-to"
                 type="date"
                 name="scheduledTo"
-                aria-describedby="office-edit-scheduled-to-hint"
+                aria-describedby={dateError ? "office-edit-scheduled-to-hint office-edit-scheduled-to-error" : "office-edit-scheduled-to-hint"}
+                aria-invalid={dateError ? true : undefined}
                 defaultValue={workOrder.scheduledTo ? new Date(workOrder.scheduledTo).toISOString().split('T')[0] : ""}
                 className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
               />
               <p id="office-edit-scheduled-to-hint" className="text-xs text-gray-500 mt-1">{t("orders.edit.endDateHint")}</p>
+              {dateError && (
+                <p id="office-edit-scheduled-to-error" role="alert" className="text-xs font-bold text-red-700 mt-1">
+                  {dateError}
+                </p>
+              )}
             </div>
           </div>
 

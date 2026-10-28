@@ -61,6 +61,8 @@ export default async function AdminCreateWorkOrderPage({
   const errorMessages: Record<string, string> = {
     avdeling: t("orders.errors.department"),
     "ugyldig-data": t("orders.errors.invalidData"),
+    "ugyldig-sluttdato": t("orders.errors.invalidEndDate"),
+    "sluttdato-for-startdato": t("orders.errors.endBeforeStart"),
     "duplikat-ordrenummer": t("orders.errors.duplicateOrderNumber"),
     "workorder-locked": t("orders.errors.workOrderLocked"),
     "ikke-tilgang": t("orders.errors.generic"),
@@ -69,6 +71,12 @@ export default async function AdminCreateWorkOrderPage({
   const errorMessage = error
     ? (errorMessages[error] ?? t("orders.errors.generic"))
     : undefined;
+  const dateError =
+    error === "sluttdato-for-startdato"
+      ? t("orders.errors.endBeforeStart")
+      : error === "ugyldig-sluttdato"
+        ? t("orders.errors.invalidEndDate")
+        : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -182,8 +190,13 @@ export default async function AdminCreateWorkOrderPage({
             </div>
             <div>
               <label htmlFor="office-new-scheduled-to" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.endDate")}</label>
-              <input id="office-new-scheduled-to" type="date" name="scheduledTo" aria-describedby="office-new-scheduled-to-hint" className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <input id="office-new-scheduled-to" type="date" name="scheduledTo" aria-describedby={dateError ? "office-new-scheduled-to-hint office-new-scheduled-to-error" : "office-new-scheduled-to-hint"} aria-invalid={dateError ? true : undefined} className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
               <p id="office-new-scheduled-to-hint" className="text-xs text-gray-500 mt-1">{t("orders.new.endDateHint")}</p>
+              {dateError && (
+                <p id="office-new-scheduled-to-error" role="alert" className="text-xs font-bold text-red-700 mt-1">
+                  {dateError}
+                </p>
+              )}
             </div>
           </div>
 

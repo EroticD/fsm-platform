@@ -556,6 +556,8 @@
       "invalidStatusField": "⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand.",
       "department": "Oppdraget må tilhøre en avdeling. Be en administrator legge deg til i en aktiv avdeling, eller opprett en avdeling først.",
       "invalidData": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, dato og avdeling.",
+      "invalidEndDate": "Sluttdatoen er ugyldig. Velg en gyldig dato.",
+      "endBeforeStart": "Sluttdato kan ikke være før startdato.",
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
       "workOrderLocked": "🔒 Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det.",
       "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen.",

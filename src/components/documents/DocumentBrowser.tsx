@@ -140,6 +140,12 @@ export default async function DocumentBrowser({
           )}
         </form>
 
+        {searchQuery && (
+          <p className="bg-blue-50 border-2 border-blue-200 text-blue-900 px-4 py-2.5 rounded-xl text-xs font-bold">
+            🔎 {t("documents.browser.globalSearchNotice")}
+          </p>
+        )}
+
         {/* Tag-filter chips */}
         {allTags.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
