@@ -72,14 +72,19 @@ export default async function CustomerDetailPage({
     ...(canViewEquipment
       ? [{ key: "enheter", label: t("customers.detail.tabs.units") }]
       : []),
-    { key: "kontakter", label: t("customers.detail.tabs.contacts") },
-    ...(office
-      ? [{ key: "portal", label: t("customers.detail.tabs.portal") }]
-      : []),
+    {
+      key: "kontakter",
+      label: office
+        ? t("customers.detail.tabs.contactsPortal")
+        : t("customers.detail.tabs.contacts"),
+    },
     { key: "aktivitet", label: t("customers.detail.tabs.activity") },
   ];
-  const currentTab = tabs.some((entry) => entry.key === tab)
-    ? (tab as string)
+  // Den gamle portal-fanen er slått sammen med kontaktene. Behold ?tab=portal
+  // som alias, slik at gamle lenker og handlinger fortsatt lander riktig.
+  const requestedTab = tab === "portal" ? "kontakter" : tab;
+  const currentTab = tabs.some((entry) => entry.key === requestedTab)
+    ? (requestedTab as string)
     : "oversikt";
 
   const result = await getCustomerDetail(user, customerId, {
@@ -262,28 +267,29 @@ export default async function CustomerDetailPage({
         )}
 
         {currentTab === "kontakter" && (
-          <CustomerContactsTab
-            customerId={customerId}
-            contacts={customer.contacts}
-            office={office}
-            isAdmin={isAdmin}
-            addContact={addContact}
-            updateContact={updateContact}
-            deleteContact={deleteContact}
-          />
-        )}
-
-        {currentTab === "portal" && (
-          <CustomerPortalTab
-            customerId={customerId}
-            contacts={customer.contacts}
-            portalUsers={data.portalUsers}
-            office={office}
-            portalError={portalError}
-            createPortalUser={createPortalUser}
-            setPortalUserActive={setPortalUserActive}
-            resendPortalInvite={resendPortalInvite}
-          />
+          <div className="space-y-6">
+            <CustomerContactsTab
+              customerId={customerId}
+              contacts={customer.contacts}
+              office={office}
+              isAdmin={isAdmin}
+              addContact={addContact}
+              updateContact={updateContact}
+              deleteContact={deleteContact}
+            />
+            {office && (
+              <CustomerPortalTab
+                customerId={customerId}
+                contacts={customer.contacts}
+                portalUsers={data.portalUsers}
+                office={office}
+                portalError={portalError}
+                createPortalUser={createPortalUser}
+                setPortalUserActive={setPortalUserActive}
+                resendPortalInvite={resendPortalInvite}
+              />
+            )}
+          </div>
         )}
 
         {currentTab === "aktivitet" && (
@@ -291,8 +297,11 @@ export default async function CustomerDetailPage({
             customerId={customerId}
             auditLogs={data.customerAuditLogs}
             comments={data.customerComments}
+            workOrders={data.activityWorkOrders}
+            reports={data.activityReports}
             currentUserName={user.name || null}
             canManageCustomers={canManageCustomers}
+            canViewReports={canViewReports}
           />
         )}
       </div>

@@ -47,6 +47,7 @@
         "attachments": "📎 Attachments",
         "units": "🔧 Equipment",
         "contacts": "👤 Contacts",
+        "contactsPortal": "👤 Contacts and portal",
         "portal": "🔐 Customer portal",
         "activity": "📋 Activity"
       },
@@ -229,7 +230,15 @@
       "errorDuplicateEmail": "A user with this email address already exists."
     },
     "activity": {
-      "title": "Activity log"
+      "title": "Activity log",
+      "recentOrders": "Recent work orders",
+      "noRecentOrders": "No work orders registered for this customer yet.",
+      "orderUpdated": "Updated {date}",
+      "recentReports": "Recent reports",
+      "noRecentReports": "No reports submitted for this customer yet.",
+      "reportFallback": "Report",
+      "reportFor": "Work order: {order}",
+      "viewReport": "View report"
     },
     "attachments": {
       "title": "Attachments",

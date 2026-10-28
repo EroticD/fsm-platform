@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import CalendarTabs from "@/app/kalender/CalendarTabs";
 import { markdownToPlainText } from "@/lib/markdown";
 import { formatAddress } from "@/lib/address";
 import { formatDateRange } from "@/lib/dates";
@@ -66,6 +67,7 @@ export default async function DispatchPage({
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.assign")) redirect("/");
 
+  const canReports = hasPermission(user, "reports.view");
   const t = await getTranslations("common");
 
   // Hent alle åpne oppdrag som ikke er fullført eller kansellert, i egen avdeling.
@@ -271,25 +273,11 @@ export default async function DispatchPage({
         )}
 
         {/* FANER (TABS) FOR Å BYTTE VISNING */}
-        <div className="overflow-x-auto pb-2" tabIndex={0}>
-          <div className="flex gap-1 bg-gray-200 p-1 rounded-xl min-w-max">
-            <Link href="/kalender" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.resources")}
-            </Link>
-            <Link href="/kalender/maned" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.month")}
-            </Link>
-            <Link href="/kalender/uke" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.week")}
-            </Link>
-            <Link href="/kalender/uke-2" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.biweekly")}
-            </Link>
-            <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-gray-900 pointer-events-none whitespace-nowrap">
-              {t("calendar.common.dispatch")}
-            </Link>
-          </div>
-        </div>
+        <CalendarTabs
+          active="dispatch"
+          canDispatch
+          canReports={canReports}
+        />
 
         {/* ANTALL UTASSIGNERTE */}
         {unassigned.length > 0 && (

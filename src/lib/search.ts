@@ -963,7 +963,7 @@ export async function performSearch(
         id: u.id,
         title: u.name || u.email || "Uten navn",
         subtitle: joinInfo([u.roleDefinition?.label ?? ROLE_LABELS[u.role] ?? u.role, u.email]),
-        href: u.customerId ? `/kunder/${u.customerId}?tab=portal` : "/innstillinger?tab=ansatte",
+        href: u.customerId ? `/kunder/${u.customerId}?tab=kontakter` : "/innstillinger?tab=ansatte",
         score,
       })),
     },
