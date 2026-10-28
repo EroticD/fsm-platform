@@ -242,3 +242,94 @@ export function formatDateRange(
   if (!endText || endText <= startText) return startText;
   return `${startText} – ${endText}`;
 }
+
+// ---------------------------------------------------------------------------
+// Lokalisert visning
+// ---------------------------------------------------------------------------
+//
+// ISO-funksjonene over brukes til maskinlesbare attributter, sortering og
+// API-kall. Disse hjelperne gir menneskelig, språktilpasset visning uten å
+// endre lagringsformatet. Datoer uten klokkeslett tolkes som UTC-midnatt (slik
+// de lagres i databasen), så visningen aldri havner på feil dag.
+
+export type DateDisplayOptions = Intl.DateTimeFormatOptions;
+
+function intlLocale(locale?: string | null): string {
+  if (locale?.toLowerCase().startsWith("en")) return "en-GB";
+  return "nb-NO";
+}
+
+function isPureDate(value: Date | string): boolean {
+  if (typeof value === "string") {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+  }
+  return (
+    value.getUTCHours() === 0 &&
+    value.getUTCMinutes() === 0 &&
+    value.getUTCSeconds() === 0 &&
+    value.getUTCMilliseconds() === 0
+  );
+}
+
+function dateFromValue(value: Date | string): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return parseDateOnly(value);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Lokalisert dato, f.eks. «19. okt. 2026» eller «19 Oct 2026». */
+export function formatDateLocalized(
+  value: Date | string | null | undefined,
+  locale?: string | null,
+  options: DateDisplayOptions = { dateStyle: "medium" },
+  fallback = "",
+): string {
+  if (!value) return fallback;
+  const date = dateFromValue(value);
+  if (!date) return fallback;
+
+  const pureDate = isPureDate(value);
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    ...options,
+    timeZone: pureDate ? "UTC" : OSLO_TZ,
+  }).format(date);
+}
+
+/** Lokalisert dato og klokkeslett, f.eks. «19. okt. 2026, 14:30». */
+export function formatDateTimeLocalized(
+  value: Date | string | null | undefined,
+  locale?: string | null,
+  fallback = "",
+): string {
+  return formatDateLocalized(
+    value,
+    locale,
+    { dateStyle: "medium", timeStyle: "short" },
+    fallback,
+  );
+}
+
+/** Lokalisert periode. Éndagsoppdrag viser bare én dato. */
+export function formatDateRangeLocalized(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined,
+  locale?: string | null,
+  fallback = "",
+): string {
+  if (!start) return fallback;
+  const startText = formatDateLocalized(start, locale, undefined, fallback);
+  if (!startText) return fallback;
+
+  const startIso = toDateOnly(start);
+  const endIso = toDateOnly(end);
+  if (!endIso || endIso <= startIso) return startText;
+
+  const endText = formatDateLocalized(end, locale, undefined, fallback);
+  if (!endText) return startText;
+  return `${startText} – ${endText}`;
+}

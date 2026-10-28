@@ -4,6 +4,9 @@ import {
   defaultPermissionsForRole,
   effectivePermissions,
   hasPermission,
+  PERMISSIONS,
+  roleLabel,
+  ROLE_LABEL_KEYS,
 } from "@/lib/permissions";
 
 describe("rettigheter", () => {
@@ -77,5 +80,24 @@ describe("rettigheter", () => {
     expect(
       cleanPermissions(["customers.manage", "customers.manage", "slett.alt"]),
     ).toEqual(["customers.manage"]);
+  });
+
+  it("gir alle rettigheter i18n-nøkler for etikett og beskrivelse", () => {
+    for (const permission of PERMISSIONS) {
+      expect(permission.labelKey).toMatch(/^settings\.permissions\.items\./);
+      expect(permission.descriptionKey).toMatch(
+        /^settings\.permissions\.items\..+\.description$/,
+      );
+      expect(permission.groupKey).toMatch(/^settings\.permissions\.groups\./);
+    }
+  });
+
+  it("oversetter innebygde roller og faller tilbake til norsk", () => {
+    expect(ROLE_LABEL_KEYS.ADMIN).toBe("settings.roles.builtIn.admin");
+    expect(roleLabel("ADMIN")).toBe("Administrator");
+    expect(roleLabel("TECHNICIAN", (key) => `t:${key}`)).toBe(
+      "t:settings.roles.builtIn.technician",
+    );
+    expect(roleLabel("SERVICELEDER")).toBe("SERVICELEDER");
   });
 });

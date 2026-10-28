@@ -146,6 +146,13 @@
         "created": "Rollen ble opprettet.",
         "updated": "Rollen ble oppdatert.",
         "deleted": "Rollen ble slettet."
+      },
+      "builtIn": {
+        "admin": "Administrator",
+        "office": "Kontor",
+        "technician": "Montør",
+        "customer": "Kunde",
+        "user": "Bruker"
       }
     },
     "departments": {
@@ -265,6 +272,96 @@
       "reportNameHint": "Navnet som vises i PDF og rapportlister. Tomt felt bruker navnet på sjekklisten.",
       "requiresUnits": "Knytt rapporten til enheter",
       "requiresUnitsHint": "Slå av når rapporten ikke gjelder bestemte enheter. Da fylles sjekkpunktene ut én gang for hele oppdraget."
+    },
+    "permissions": {
+      "groups": {
+        "workOrders": "Oppdrag",
+        "customersEquipment": "Kunder og utstyr",
+        "reportsDocuments": "Rapporter og dokumenter",
+        "administration": "Administrasjon"
+      },
+      "items": {
+        "workorders_view": {
+          "label": "Se oppdrag",
+          "description": "Se oppdrag som tilhører egen avdeling."
+        },
+        "workorders_create": {
+          "label": "Opprette oppdrag",
+          "description": "Opprette nye oppdrag i egen avdeling."
+        },
+        "workorders_update": {
+          "label": "Oppdatere oppdrag",
+          "description": "Endre status, kommentarer, vedlegg og sjekklister på oppdrag i egen avdeling."
+        },
+        "workorders_edit": {
+          "label": "Redigere oppdrag",
+          "description": "Endre tittel, kunde, dato, kontaktperson, tags, maler og kansellere oppdrag."
+        },
+        "workorders_assign": {
+          "label": "Tildele montører",
+          "description": "Tildele og fjerne montører på oppdrag i egen avdeling."
+        },
+        "workorders_delete": {
+          "label": "Slette oppdrag",
+          "description": "Slette oppdrag og alt tilhørende (rapporter, kommentarer, vedlegg). Forbeholdt administrator som standard."
+        },
+        "customers_view": {
+          "label": "Se kunder",
+          "description": "Se kundekort, kontakter, avtaler og kundehistorikk."
+        },
+        "customers_manage": {
+          "label": "Administrere kunder",
+          "description": "Opprette og endre kunder, kontakter, serviceavtaler og kundeportalbrukere."
+        },
+        "equipment_view": {
+          "label": "Se enheter",
+          "description": "Se utstyr og servicehistorikk."
+        },
+        "equipment_manage": {
+          "label": "Administrere enheter",
+          "description": "Legge til og endre utstyr på kundekort."
+        },
+        "reports_view": {
+          "label": "Se rapporter",
+          "description": "Se og laste ned servicerapporter fra alle avdelinger."
+        },
+        "reports_write": {
+          "label": "Fylle ut rapporter",
+          "description": "Fylle ut og lagre sjekklister på oppdrag i egen avdeling."
+        },
+        "documents_view": {
+          "label": "Se dokumenter",
+          "description": "Bruke dokumentbiblioteket og se genererte dokumenter."
+        },
+        "documents_manage": {
+          "label": "Administrere dokumenter",
+          "description": "Laste opp, redigere og organisere dokumenter og mapper."
+        },
+        "templates_view": {
+          "label": "Se sjekklister",
+          "description": "Se tilgjengelige sjekklister og maler."
+        },
+        "templates_manage": {
+          "label": "Administrere sjekklister",
+          "description": "Opprette og redigere sjekklister, maler og tags."
+        },
+        "users_view": {
+          "label": "Se ansatte",
+          "description": "Se ansatte, roller og avdelingstilhørighet i egen avdeling."
+        },
+        "users_manage": {
+          "label": "Administrere ansatte",
+          "description": "Opprette brukere, endre roller og sende invitasjoner i egen avdeling. Bare administrator kan flytte ansatte mellom avdelinger."
+        },
+        "settings_manage": {
+          "label": "Administrere innstillinger",
+          "description": "Endre merkevare og systeminnstillinger."
+        },
+        "audit_view": {
+          "label": "Se aktivitetslogg",
+          "description": "Se systemets aktivitetslogg."
+        }
+      }
     }
   },
   "users": {

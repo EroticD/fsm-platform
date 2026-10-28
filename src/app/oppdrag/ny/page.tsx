@@ -17,6 +17,7 @@ import {
   splitTemplatesByCategory,
 } from "@/lib/template-categories";
 import { createWorkOrder } from "./actions";
+import { todayInOslo } from "@/lib/dates";
 
 export default async function AdminCreateWorkOrderPage({
   searchParams,
@@ -157,7 +158,8 @@ export default async function AdminCreateWorkOrderPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="office-new-scheduled-for" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.executionDate")}</label>
-              <input id="office-new-scheduled-for" type="date" name="scheduledFor" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <input id="office-new-scheduled-for" type="date" name="scheduledFor" defaultValue={todayInOslo()} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+
             </div>
             <div>
               <label htmlFor="office-new-scheduled-to" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.endDate")}</label>

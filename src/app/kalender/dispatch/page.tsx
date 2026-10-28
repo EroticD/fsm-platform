@@ -337,18 +337,18 @@ export default async function DispatchPage({
                         </h3>
                         <DispatchStatusBadge status={wo.status} />
                       </div>
-                      <p className="text-[10px] text-gray-600">
+                      <p className="text-xs text-gray-600">
                         🏢 {wo.customer?.name || t("calendar.common.noCustomer")}
-                        {wo.product && <span className="text-gray-400 ml-1">• {wo.product.model}</span>}
+                        {wo.product && <span className="text-gray-600 ml-1">• {wo.product.model}</span>}
                         {wo.scheduledFor && (
-                          <span className="text-gray-400 ml-2">📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo)}</span>
+                          <span className="text-gray-600 ml-2">📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo)}</span>
                         )}
                       </p>
                       {formatAddress(wo.customer) && (
-                        <p className="text-[10px] text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
                       )}
                       {wo.description && (
-                        <p className="text-[10px] text-gray-700 italic mt-1">
+                        <p className="text-xs text-gray-700 italic mt-1">
                           {markdownToPlainText(wo.description)}
                         </p>
                       )}
@@ -411,17 +411,17 @@ export default async function DispatchPage({
                         </h3>
                         <DispatchStatusBadge status={wo.status} />
                       </div>
-                      <p className="text-[10px] text-gray-600">
+                      <p className="text-xs text-gray-600">
                         🏢 {wo.customer?.name || t("calendar.common.noCustomer")}
                         {wo.technicians.length > 0
                           ? ` • 👷 ${wo.technicians.map(t => t.name).join(", ")}`
                           : ""}
                       </p>
                       {formatAddress(wo.customer) && (
-                        <p className="text-[10px] text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
                       )}
                       {wo.scheduledFor && (
-                        <p className="text-[10px] text-gray-500">
+                        <p className="text-xs text-gray-500">
                           📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo)}
                         </p>
                       )}

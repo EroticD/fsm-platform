@@ -17,7 +17,8 @@
       "myWorkOrders": "My work orders",
       "allWorkOrders": "All work orders",
       "equipment": "Equipment",
-      "reports": "Reports"
+      "reports": "Reports",
+      "map": "Map"
     },
     "kpi": {
       "open": "Open work orders",

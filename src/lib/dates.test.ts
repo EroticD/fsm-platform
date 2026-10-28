@@ -4,8 +4,11 @@ import {
   addMonthsUtc,
   firstOccurrenceOnOrAfter,
   formatDate,
+  formatDateLocalized,
   formatDateRange,
+  formatDateRangeLocalized,
   formatDateTime,
+  formatDateTimeLocalized,
   inclusiveLastDay,
   latestOccurrenceOnOrBefore,
   osloDayEnd,
@@ -174,5 +177,55 @@ describe("formatDateRange", () => {
   it("viser et ISO-intervall på tvers av dager", () => {
     const text = formatDateRange("2026-10-19", "2026-10-22");
     expect(text).toBe("2026-10-19 – 2026-10-22");
+  });
+});
+
+describe("lokalisert visning", () => {
+  it("formaterer rene datoer på norsk uten å flytte dagen", () => {
+    const text = formatDateLocalized("2026-10-19", "nb");
+    expect(text).toContain("19");
+    expect(text.toLowerCase()).toContain("okt");
+    expect(text).toContain("2026");
+  });
+
+  it("formaterer samme dato på engelsk", () => {
+    const text = formatDateLocalized("2026-10-19", "en");
+    expect(text).toContain("19");
+    expect(text.toLowerCase()).toContain("oct");
+    expect(text).toContain("2026");
+  });
+
+  it("behandler UTC-midnatt som ren dato, ikke som tidspunkt", () => {
+    const date = new Date("2026-10-19T00:00:00.000Z");
+    expect(formatDateLocalized(date, "nb")).toBe(
+      formatDateLocalized("2026-10-19", "nb"),
+    );
+  });
+
+  it("viser klokkeslett for tidsstempler", () => {
+    const text = formatDateTimeLocalized("2026-10-19T12:05:00.000Z", "nb");
+    expect(text).toContain("14:05");
+  });
+
+  it("viser én dato når perioden er samme dag", () => {
+    expect(
+      formatDateRangeLocalized("2026-10-19", "2026-10-19", "nb"),
+    ).toBe(formatDateLocalized("2026-10-19", "nb"));
+  });
+
+  it("viser begge datoene i en flerdagersperiode", () => {
+    const text = formatDateRangeLocalized("2026-10-19", "2026-10-22", "nb");
+    expect(text).toContain("19");
+    expect(text).toContain("22");
+    expect(text).toContain("–");
+  });
+
+  it("bruker fallback for tomme verdier", () => {
+    expect(formatDateLocalized(null, "nb", undefined, "Ingen dato")).toBe(
+      "Ingen dato",
+    );
+    expect(formatDateRangeLocalized(null, null, "nb", "Ingen dato")).toBe(
+      "Ingen dato",
+    );
   });
 });

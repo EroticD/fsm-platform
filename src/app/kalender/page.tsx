@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
-import { formatDateRange } from "@/lib/dates";
+import { formatDateRangeLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope, workOrderScope } from "@/lib/access";
@@ -14,6 +14,7 @@ export default async function CalendarPage() {
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   // Montører får se kalenderen, men ikke kontorets verktøy (dispatch-tavla og
   // oppretting av oppdrag fra kontoret er egne, sperrede sider).
@@ -112,17 +113,17 @@ export default async function CalendarPage() {
               {unassignedJobs.map(wo => (
                 <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group bg-white p-3 sm:p-4 rounded-xl border border-red-100 hover:border-red-400 shadow-sm transition">
                   <div className="flex justify-between items-start mb-1">
-                    <span className="text-[10px] font-bold text-red-500 uppercase">
-                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("calendar.common.noDate")}
+                    <span className="text-xs font-bold text-red-500 uppercase">
+                      {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("calendar.common.noDate")}
                     </span>
                   </div>
                   <p className="font-bold text-gray-900 text-sm group-hover:text-red-700">{wo.title}</p>
-                  <p className="text-[10px] text-gray-600 mt-1 truncate">🏢 {wo.customer?.name || t("calendar.common.noCustomer")}</p>
+                  <p className="text-xs text-gray-600 mt-1 truncate">🏢 {wo.customer?.name || t("calendar.common.noCustomer")}</p>
                   {formatAddress(wo.customer) && (
-                    <p className="text-[10px] text-gray-500 mt-0.5">📍 {formatAddress(wo.customer)}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">📍 {formatAddress(wo.customer)}</p>
                   )}
                   <div className="mt-3">
-                    <span className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-sm">{t("calendar.page.assignTechnician")}</span>
+                    <span className="bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">{t("calendar.page.assignTechnician")}</span>
                   </div>
                 </Link>
               ))}
@@ -146,7 +147,7 @@ export default async function CalendarPage() {
                     <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
                       👷 {tech.name}
                     </h3>
-                    <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-lg">
+                    <span className="bg-blue-100 text-blue-950 text-xs font-bold px-2 py-1 rounded-lg">
                       {t("calendar.page.activeCount", { count: activeJobs.length })}
                     </span>
                   </div>
@@ -154,31 +155,31 @@ export default async function CalendarPage() {
                   <div className="flex-1 space-y-3">
                     {activeJobs.length === 0 ? (
                       <div className="bg-gray-50 border border-dashed rounded-xl p-4 sm:p-6 text-center">
-                        <p className="text-[10px] text-gray-400 italic font-medium">{t("calendar.page.noActive")}</p>
+                        <p className="text-xs text-gray-600 italic font-medium">{t("calendar.page.noActive")}</p>
                       </div>
                     ) : (
                       activeJobs.map(wo => {
-                        let badgeColor = "bg-gray-100 text-gray-700";
+                        let badgeColor = "bg-gray-100 text-gray-900";
                         let badgeText = t("calendar.page.statusPlanned");
-                        if (wo.status === "IN_PROGRESS") { badgeColor = "bg-blue-100 text-blue-800"; badgeText = t("calendar.page.statusInProgress"); }
-                        else if (wo.status === "WAITING") { badgeColor = "bg-orange-100 text-orange-800"; badgeText = t("calendar.page.statusWaiting"); }
-                        else if (wo.status === "PENDING") { badgeColor = "bg-yellow-100 text-yellow-800"; badgeText = t("calendar.page.statusPending"); }
+                        if (wo.status === "IN_PROGRESS") { badgeColor = "bg-blue-100 text-blue-950"; badgeText = t("calendar.page.statusInProgress"); }
+                        else if (wo.status === "WAITING") { badgeColor = "bg-orange-100 text-orange-950"; badgeText = t("calendar.page.statusWaiting"); }
+                        else if (wo.status === "PENDING") { badgeColor = "bg-yellow-100 text-yellow-950"; badgeText = t("calendar.page.statusPending"); }
 
                         return (
                           <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group">
                             <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 group-hover:border-blue-400 hover:shadow-sm transition">
                               <div className="flex justify-between items-start mb-2">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                  {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("calendar.common.noDate")}
+                                <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                  {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("calendar.common.noDate")}
                                 </span>
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${badgeColor}`}>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${badgeColor}`}>
                                   {badgeText}
                                 </span>
                               </div>
                               <p className="font-bold text-gray-900 text-sm group-hover:text-blue-700 leading-tight mb-1">{wo.title}</p>
-                              <p className="text-[10px] text-gray-600 truncate">🏢 {wo.customer?.name || t("calendar.common.noCustomer")}</p>
+                              <p className="text-xs text-gray-600 truncate">🏢 {wo.customer?.name || t("calendar.common.noCustomer")}</p>
                               {formatAddress(wo.customer) && (
-                                <p className="text-[10px] text-gray-500">📍 {formatAddress(wo.customer)}</p>
+                                <p className="text-xs text-gray-600">📍 {formatAddress(wo.customer)}</p>
                               )}
                             </div>
                           </Link>
@@ -189,14 +190,14 @@ export default async function CalendarPage() {
 
                   {completedJobs.length > 0 && (
                     <div className="mt-4 pt-3 border-t">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
                         {t("calendar.page.recentlyCompleted", { count: completedJobs.length })}
                       </p>
                       <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
                         {completedJobs.map(wo => (
                           <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="flex justify-between items-center bg-green-50/50 p-2 rounded-lg border border-green-100 hover:bg-green-50 transition">
-                            <span className="text-[10px] font-medium text-gray-700 truncate max-w-[200px]">{wo.title}</span>
-                            <span className="text-[9px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded font-bold">{t("calendar.page.completed")}</span>
+                            <span className="text-xs font-medium text-gray-700 truncate max-w-[200px]">{wo.title}</span>
+                            <span className="text-xs bg-green-100 text-green-950 px-1.5 py-0.5 rounded font-bold">{t("calendar.page.completed")}</span>
                           </Link>
                         ))}
                       </div>

@@ -36,9 +36,42 @@ export type PermissionDefinition = {
   group: string;
   label: string;
   description: string;
+  /** i18n-nøkkel for gruppen, f.eks. «settings.permissions.groups.workOrders». */
+  groupKey: string;
+  /** i18n-nøkkel for menneskelig etikett. */
+  labelKey: string;
+  /** i18n-nøkkel for beskrivelsen. */
+  descriptionKey: string;
 };
 
-export const PERMISSIONS: PermissionDefinition[] = [
+/** Norsk tekst er fallback når en komponent ikke har oversettelser tilgjengelig. */
+const PERMISSION_GROUP_KEYS: Record<string, string> = {
+  Oppdrag: "settings.permissions.groups.workOrders",
+  "Kunder og utstyr": "settings.permissions.groups.customersEquipment",
+  "Rapporter og dokumenter": "settings.permissions.groups.reportsDocuments",
+  Administrasjon: "settings.permissions.groups.administration",
+};
+
+function permissionMessageKey(key: Permission): string {
+  return `settings.permissions.items.${key.replace(/\./g, "_")}`;
+}
+
+function withMessageKeys(definition: Omit<PermissionDefinition, "groupKey" | "labelKey" | "descriptionKey">): PermissionDefinition {
+  const messageKey = permissionMessageKey(definition.key);
+  return {
+    ...definition,
+    groupKey:
+      PERMISSION_GROUP_KEYS[definition.group] ??
+      "settings.permissions.groups.administration",
+    labelKey: `${messageKey}.label`,
+    descriptionKey: `${messageKey}.description`,
+  };
+}
+
+const PERMISSION_DEFINITIONS: Omit<
+  PermissionDefinition,
+  "groupKey" | "labelKey" | "descriptionKey"
+>[] = [
   {
     key: "workorders.view",
     group: "Oppdrag",
@@ -161,6 +194,9 @@ export const PERMISSIONS: PermissionDefinition[] = [
   },
 ];
 
+export const PERMISSIONS: PermissionDefinition[] =
+  PERMISSION_DEFINITIONS.map(withMessageKeys);
+
 const ALL_PERMISSIONS: Permission[] = PERMISSION_KEYS.slice();
 
 const OFFICE_PERMISSIONS: Permission[] = [
@@ -203,6 +239,38 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   USER: [],
   CUSTOMER: [],
 };
+
+/**
+ * i18n-nøkler for de innebygde rollene. Roller som er opprettet av
+ * administrator har egne, lagrede etiketter og skal ikke oversettes her.
+ */
+export const ROLE_LABEL_KEYS: Record<string, string> = {
+  ADMIN: "settings.roles.builtIn.admin",
+  OFFICE: "settings.roles.builtIn.office",
+  TECHNICIAN: "settings.roles.builtIn.technician",
+  CUSTOMER: "settings.roles.builtIn.customer",
+  USER: "settings.roles.builtIn.user",
+};
+
+/** Norsk standardetikett for en innebygd rolle. */
+export const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Administrator",
+  OFFICE: "Kontor",
+  TECHNICIAN: "Montør",
+  CUSTOMER: "Kunde",
+  USER: "Bruker",
+};
+
+/** Oversatt etikett for en innebygd rolle, med norsk fallback. */
+export function roleLabel(
+  role: string | null | undefined,
+  translate?: (key: string) => string,
+): string {
+  if (!role) return "";
+  const key = ROLE_LABEL_KEYS[role];
+  if (key && translate) return translate(key);
+  return ROLE_LABELS[role] ?? role;
+}
 
 type PermissionUser = {
   role?: string | null;

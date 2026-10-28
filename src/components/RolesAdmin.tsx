@@ -4,7 +4,7 @@ import {
   deleteRole,
   updateRole,
 } from "@/app/innstillinger/role-actions";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, roleLabel } from "@/lib/permissions";
 
 type RoleRow = {
   key: string;
@@ -39,6 +39,9 @@ export default async function RolesAdmin({
     new Set(PERMISSIONS.map((permission) => permission.group)),
   ).map((group) => ({
     group,
+    groupKey:
+      PERMISSIONS.find((permission) => permission.group === group)?.groupKey ??
+      "settings.permissions.groups.administration",
     permissions: PERMISSIONS.filter((permission) => permission.group === group),
   }));
 
@@ -88,15 +91,15 @@ export default async function RolesAdmin({
                   key={group.group}
                   className="border border-gray-200 rounded-xl p-3"
                 >
-                  <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
-                    {group.group}
+                  <legend className="px-1 text-[11px] font-bold text-gray-600 uppercase">
+                    {t(group.groupKey)}
                   </legend>
                   <div className="space-y-2">
                     {group.permissions.map((permission) => (
                       <label
                         key={permission.key}
                         className="flex items-start gap-2 text-xs text-gray-700"
-                        title={permission.description}
+                        title={t(permission.descriptionKey)}
                       >
                         <input
                           type="checkbox"
@@ -105,9 +108,9 @@ export default async function RolesAdmin({
                           className="mt-0.5"
                         />
                         <span>
-                          <span className="font-semibold">{permission.label}</span>
-                          <span className="block text-[11px] text-gray-500">
-                            {permission.description}
+                          <span className="font-semibold">{t(permission.labelKey)}</span>
+                          <span className="block text-[11px] text-gray-600">
+                            {t(permission.descriptionKey)}
                           </span>
                         </span>
                       </label>
@@ -153,7 +156,7 @@ export default async function RolesAdmin({
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-gray-900 flex flex-wrap items-center gap-2">
-                    {role.label}
+                    {role.isSystem ? roleLabel(role.key, t) : role.label}
                     {role.isSystem && (
                       <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">
                         {t("settings.roles.system")}
@@ -240,15 +243,15 @@ export default async function RolesAdmin({
                           key={group.group}
                           className="border border-gray-200 rounded-xl p-3"
                         >
-                          <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
-                            {group.group}
+                          <legend className="px-1 text-[11px] font-bold text-gray-600 uppercase">
+                            {t(group.groupKey)}
                           </legend>
                           <div className="space-y-2">
                             {group.permissions.map((permission) => (
                               <label
                                 key={permission.key}
                                 className="flex items-start gap-2 text-xs text-gray-700"
-                                title={permission.description}
+                                title={t(permission.descriptionKey)}
                               >
                                 <input
                                   type="checkbox"
@@ -261,10 +264,10 @@ export default async function RolesAdmin({
                                 />
                                 <span>
                                   <span className="font-semibold">
-                                    {permission.label}
+                                    {t(permission.labelKey)}
                                   </span>
-                                  <span className="block text-[11px] text-gray-500">
-                                    {permission.description}
+                                  <span className="block text-[11px] text-gray-600">
+                                    {t(permission.descriptionKey)}
                                   </span>
                                 </span>
                               </label>
