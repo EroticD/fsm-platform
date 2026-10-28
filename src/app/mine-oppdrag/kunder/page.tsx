@@ -67,6 +67,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
           <input
             type="text"
             name="q"
+            aria-label={t("orders.fieldCustomers.search")}
             defaultValue={searchQuery}
             placeholder={t("orders.fieldCustomers.searchPlaceholder")}
             className="w-full border border-gray-300 bg-white px-4 py-3 rounded-xl text-sm text-gray-900 font-medium shadow-sm outline-none focus:border-blue-500"

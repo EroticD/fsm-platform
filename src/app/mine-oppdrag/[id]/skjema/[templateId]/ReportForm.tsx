@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import FieldInput, { type TemplateField } from "./FieldInput";
@@ -135,6 +135,7 @@ export default function ReportForm({
   const [localDraftRestored, setLocalDraftRestored] = useState(false);
   const t = useTranslations("common");
   const locale = useLocale();
+  const formId = useId();
 
   const [state, setState] = useState(() => {
     // Rapport uten enheter: én anonym oppføring med fast nøkkel. Svarene
@@ -679,8 +680,9 @@ export default function ReportForm({
 
                 {customerUnits.length > 0 && (
                   <div>
-                    <label className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
+                    <label htmlFor={`${formId}-${unit.key}-product`} className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
                     <select
+                      id={`${formId}-${unit.key}-product`}
                       value={unit.productId}
                       onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
                       className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
@@ -699,8 +701,9 @@ export default function ReportForm({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className={statusLabel}>{t("orders.reportForm.labelField")}</label>
+                    <label htmlFor={`${formId}-${unit.key}-label`} className={statusLabel}>{t("orders.reportForm.labelField")}</label>
                     <input
+                      id={`${formId}-${unit.key}-label`}
                       type="text"
                       required
                       value={unit.label}
@@ -710,8 +713,9 @@ export default function ReportForm({
                     />
                   </div>
                   <div>
-                    <label className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
+                    <label htmlFor={`${formId}-${unit.key}-serial`} className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
                     <input
+                      id={`${formId}-${unit.key}-serial`}
                       type="text"
                       value={unit.serialNumber}
                       onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
@@ -720,8 +724,9 @@ export default function ReportForm({
                     />
                   </div>
                   <div>
-                    <label className={statusLabel}>{t("orders.reportForm.location")}</label>
+                    <label htmlFor={`${formId}-${unit.key}-location`} className={statusLabel}>{t("orders.reportForm.location")}</label>
                     <input
+                      id={`${formId}-${unit.key}-location`}
                       type="text"
                       value={unit.location}
                       onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
@@ -841,8 +846,9 @@ export default function ReportForm({
                 notater under dekker rapporter uten enheter. */}
             {visibility.showUnitComment && (
               <div>
-                <label className={statusLabel}>{t("orders.reportForm.unitComment")}</label>
+                <label htmlFor={`${formId}-${unit.key}-comment`} className={statusLabel}>{t("orders.reportForm.unitComment")}</label>
                 <MarkdownEditor
+                  id={`${formId}-${unit.key}-comment`}
                   name={`comment__${unit.key}`}
                   defaultValue={unit.comment}
                   rows={2}
@@ -856,10 +862,11 @@ export default function ReportForm({
 
       {/* GENERELLE NOTATER */}
       <div>
-        <label className="block text-sm font-black text-gray-900 mb-2 uppercase tracking-wider">
+        <label htmlFor={`${formId}-notes`} className="block text-sm font-black text-gray-900 mb-2 uppercase tracking-wider">
           {t("orders.reportForm.generalNotes")}
         </label>
         <MarkdownEditor
+          id={`${formId}-notes`}
           name="notes"
           rows={4}
           defaultValue={seed?.notes ?? ""}

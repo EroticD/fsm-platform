@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 
 /**
  * Merkevaretilpasset 404-side. Den ligger i app-roten, så både innloggede og
@@ -9,8 +12,20 @@ import { getTranslations } from "next-intl/server";
  */
 export default async function NotFound() {
   const t = await getTranslations("common");
-  const companyName = "FSM";
+
+  const branding = await prisma.branding.findFirst().catch(() => null);
+  const companyName = branding?.companyName?.trim() || "FSM System";
   const initial = companyName.charAt(0).toUpperCase();
+
+  // 404-siden skal ikke krasje selv om sesjonen eller databasen er midlertidig
+  // utilgjengelig. Da viser vi bare de nøytrale lenkene.
+  let canViewWorkOrders = false;
+  try {
+    const user = await getCurrentUser();
+    canViewWorkOrders = hasPermission(user, "workorders.view");
+  } catch {
+    canViewWorkOrders = false;
+  }
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-4 sm:p-8">
@@ -36,14 +51,22 @@ export default async function NotFound() {
             href="/"
             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--primary-color)] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
-            {t("notFound.home")}
+            {t("notFound.dashboard")}
           </Link>
           <Link
-            href="/oppdrag"
+            href="/sok"
             className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
-            {t("notFound.workOrders")}
+            {t("notFound.search")}
           </Link>
+          {canViewWorkOrders && (
+            <Link
+              href="/oppdrag"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            >
+              {t("notFound.workOrders")}
+            </Link>
+          )}
         </div>
       </div>
     </div>

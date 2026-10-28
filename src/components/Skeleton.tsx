@@ -1,5 +1,3 @@
-import { getTranslations } from "next-intl/server";
-
 /** Enkel pulserende plassholder for lasting. */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
@@ -27,11 +25,13 @@ export function SkeletonCard({ lines = 3 }: { lines?: number }) {
   );
 }
 
-export default async function SkeletonList({ count = 5 }: { count?: number }) {
-  const t = await getTranslations("common");
-
+/**
+ * Presentasjonell liste med skjeletter. Live-regionen eies av siden eller
+ * `loading.tsx` rundt, slik at skjermlesere bare får én annonsering.
+ */
+export default function SkeletonList({ count = 5 }: { count?: number }) {
   return (
-    <div className="space-y-3" role="status" aria-label={t("components.skeleton.loading")}>
+    <div className="space-y-3" aria-hidden="true">
       {Array.from({ length: count }).map((_, index) => (
         <SkeletonCard key={index} lines={2} />
       ))}

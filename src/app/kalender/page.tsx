@@ -5,14 +5,61 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
 import { formatDateRangeLocalized } from "@/lib/dates";
 import CalendarTabs from "@/app/kalender/CalendarTabs";
+import CalendarViewPage from "@/app/kalender/CalendarViewPage";
+import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope, workOrderScope } from "@/lib/access";
+import type { CalendarTabKey } from "@/lib/calendar-tabs";
+import {
+  WORK_ORDER_STATUS_LABEL_KEYS,
+  WORK_ORDER_STATUS_ORDER,
+} from "@/lib/work-order-status-colors";
 
-export default async function CalendarPage() {
+type CalendarViewParam = {
+  view: string;
+  active: CalendarTabKey;
+  titleKey: string;
+  subtitleKey: string;
+};
+
+// Én kalenderrute, tre visninger. De gamle rutene redirecter hit.
+const CALENDAR_VIEWS: Record<string, CalendarViewParam> = {
+  maned: {
+    view: "dayGridMonth",
+    active: "month",
+    titleKey: "calendar.month.title",
+    subtitleKey: "calendar.month.subtitle",
+  },
+  uke: {
+    view: "dayGridWeek",
+    active: "week",
+    titleKey: "calendar.week.title",
+    subtitleKey: "calendar.week.subtitle",
+  },
+  "2uker": {
+    view: "biweekly",
+    active: "biweekly",
+    titleKey: "calendar.biweekly.title",
+    subtitleKey: "calendar.biweekly.subtitle",
+  },
+};
+
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vis?: string | string[] }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
+
+  const params = await searchParams;
+  const vis = Array.isArray(params.vis) ? params.vis[0] : params.vis;
+  const calendarView = vis ? CALENDAR_VIEWS[vis] : undefined;
+  if (calendarView) {
+    return <CalendarViewPage {...calendarView} />;
+  }
 
   const t = await getTranslations("common");
   const locale = await getLocale();
@@ -56,7 +103,26 @@ export default async function CalendarPage() {
     take: 500,
   });
 
-  const unassignedJobs = workOrders.filter(wo => wo.technicians.length === 0 && wo.status !== "COMPLETED");
+  // Ufordelte oppdrag er en kontooppgave. Montører skal ikke møtes av en rød
+  // «tildel montør»-vegg de ikke har rettighet til å handle på.
+  const unassignedJobs = office
+    ? workOrders.filter(wo => wo.technicians.length === 0 && wo.status !== "COMPLETED")
+    : [];
+
+  const statusCounts = new Map<string, number>();
+  for (const workOrder of workOrders) {
+    statusCounts.set(
+      workOrder.status,
+      (statusCounts.get(workOrder.status) ?? 0) + 1,
+    );
+  }
+  const legendItems = WORK_ORDER_STATUS_ORDER.filter(
+    (status) => status !== "CANCELLED",
+  ).map((status) => ({
+    status,
+    label: t(WORK_ORDER_STATUS_LABEL_KEYS[status]),
+    count: statusCounts.get(status) ?? 0,
+  }));
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
@@ -87,8 +153,13 @@ export default async function CalendarPage() {
           canReports={canReports}
         />
 
+        <WorkOrderStatusLegend
+          title={t("calendar.legend.title")}
+          items={legendItems}
+        />
+
         {/* VARSEL: UFORDELTE OPPDRAG */}
-        {unassignedJobs.length > 0 && (
+        {office && unassignedJobs.length > 0 && (
           <div className="bg-red-50 border-2 border-red-200 p-4 sm:p-6 rounded-2xl shadow-sm">
             <h2 className="font-bold text-red-800 text-lg flex items-center gap-2 mb-2">
               {t("calendar.page.unassignedTitle", { count: unassignedJobs.length })}
@@ -147,7 +218,8 @@ export default async function CalendarPage() {
                       activeJobs.map(wo => {
                         let badgeColor = "bg-gray-100 text-gray-900";
                         let badgeText = t("calendar.page.statusPlanned");
-                        if (wo.status === "IN_PROGRESS") { badgeColor = "bg-blue-100 text-blue-950"; badgeText = t("calendar.page.statusInProgress"); }
+                        if (wo.status === "OPEN") { badgeColor = "bg-purple-100 text-purple-950"; badgeText = t("calendar.page.statusOpen"); }
+                        else if (wo.status === "IN_PROGRESS") { badgeColor = "bg-blue-100 text-blue-950"; badgeText = t("calendar.page.statusInProgress"); }
                         else if (wo.status === "WAITING") { badgeColor = "bg-orange-100 text-orange-950"; badgeText = t("calendar.page.statusWaiting"); }
                         else if (wo.status === "PENDING") { badgeColor = "bg-yellow-100 text-yellow-950"; badgeText = t("calendar.page.statusPending"); }
 

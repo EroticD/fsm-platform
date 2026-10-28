@@ -1,11 +1,12 @@
-import { getTranslations } from "next-intl/server";
-import { formatDateTime } from "@/lib/dates";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formatDateTimeLocalized } from "@/lib/dates";
+import { relativeTimeLabel } from "@/lib/notification-time";
 import {
   notificationSourceText,
   notificationTypePresentation,
   type NotificationTone,
 } from "@/lib/notification-display";
-import { markReadAction, openNotificationAction } from "./actions";
+import { markReadFormAction } from "./actions";
 
 export type NotificationCardItem = {
   id: string;
@@ -27,18 +28,18 @@ const TONE_CLASSES: Record<NotificationTone, string> = {
 };
 
 /**
- * Ett varsel som ett stort klikkflate. Kortet er et eget skjema som POST-er
- * bare id-en til openNotificationAction – serveren slår opp lagret href.
- * «Merk som lest» ligger i en egen form utenfor, slik at skjemaene ikke nøstes.
+ * Ett varsel med en vanlig lenke rundt kortet. Lenken går via
+ * `/varsler/apne/[id]`, som markerer varselet som lest og videresender til
+ * den lagrede, rolle-trygge adressen. Midtklikk og «åpne i ny fane» virker
+ * derfor uten JavaScript. «Merk som lest» er en egen form utenfor lenken.
  */
 export default async function NotificationCard({
   notification,
-  href,
 }: {
   notification: NotificationCardItem;
-  href: string | null;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const presentation = notificationTypePresentation(notification.type);
   const typeLabel = presentation
     ? t(presentation.labelKey)
@@ -51,6 +52,8 @@ export default async function NotificationCard({
   const toneClass = presentation
     ? TONE_CLASSES[presentation.tone]
     : TONE_CLASSES.gray;
+  const absolute = formatDateTimeLocalized(notification.createdAt, locale);
+  const relative = relativeTimeLabel(notification.createdAt, locale);
 
   const content = (
     <>
@@ -62,16 +65,17 @@ export default async function NotificationCard({
           {typeLabel}
         </span>
         {unread && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
             <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
             {t("p3.notifications.unread")}
           </span>
         )}
         <time
           dateTime={notification.createdAt.toISOString()}
-          className="ml-auto text-xs font-medium text-gray-500"
+          title={absolute}
+          className="ml-auto text-xs font-medium text-gray-600"
         >
-          {formatDateTime(notification.createdAt)}
+          {relative ?? absolute}
         </time>
       </span>
 
@@ -96,12 +100,10 @@ export default async function NotificationCard({
         {source}
       </span>
 
-      {href && (
-        <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-blue-700 group-hover:underline">
-          {t("p3.notifications.open")}
-          <span aria-hidden="true">→</span>
-        </span>
-      )}
+      <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-blue-700 group-hover:underline">
+        {t("p3.notifications.open")}
+        <span aria-hidden="true">→</span>
+      </span>
     </>
   );
 
@@ -113,33 +115,26 @@ export default async function NotificationCard({
           : "border-gray-200 hover:shadow"
       }`}
     >
-      {href ? (
-        <form action={openNotificationAction}>
-          <input type="hidden" name="id" value={notification.id} />
-          <button
-            type="submit"
-            aria-label={t("p3.notifications.openAria", {
-              title: notification.title,
-            })}
-            className="group block w-full cursor-pointer p-4 text-left transition-colors hover:bg-blue-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-inset"
-          >
-            {content}
-          </button>
-        </form>
-      ) : (
-        <div className="p-4">{content}</div>
-      )}
+      <a
+        href={`/varsler/apne/${notification.id}`}
+        aria-label={t("p3.notifications.openAria", {
+          title: notification.title,
+        })}
+        className="group block cursor-pointer p-4 text-left transition-colors hover:bg-blue-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-inset"
+      >
+        {content}
+      </a>
 
       {unread && (
         <div className="border-t border-gray-100 bg-gray-50 px-4 py-2">
-          <form action={markReadAction}>
+          <form action={markReadFormAction}>
             <input type="hidden" name="id" value={notification.id} />
             <button
               type="submit"
               aria-label={t("p3.notifications.markReadAria", {
                 title: notification.title,
               })}
-              className="cursor-pointer rounded-lg px-1 py-1 text-xs font-bold text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="cursor-pointer rounded-lg px-1 py-1 text-xs font-bold text-gray-700 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             >
               {t("p3.notifications.markRead")}
             </button>

@@ -101,6 +101,8 @@
       "bestHitsHint": "Top 5 across categories.",
       "groupInfo": "Showing {from}–{to} of {total}",
       "groupEmptyPage": "No results in this category on this page.",
+      "openFile": "📄 Open file",
+      "openPdf": "📄 Open PDF",
       "errorBody": "Something went wrong on the server. Please try again.",
       "retryAction": "Try again",
       "emptyTitle": "Search the whole platform",

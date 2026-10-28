@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/dates";
 import UnitHistory from "@/components/UnitHistory";
@@ -20,6 +21,8 @@ function lastServiceDate(entries: ReportUnit[]) {
 type UnitsTabProps = {
   customerId: string;
   products: CustomerDetailData["products"];
+  unitQuery: string;
+  unitTotal: number;
   canManageEquipment: boolean;
   canViewReports: boolean;
   isAdmin: boolean;
@@ -31,6 +34,8 @@ type UnitsTabProps = {
 export default async function CustomerUnitsTab({
   customerId,
   products,
+  unitQuery,
+  unitTotal,
   canManageEquipment,
   canViewReports,
   isAdmin,
@@ -45,6 +50,40 @@ export default async function CustomerUnitsTab({
       title={`🔧 ${t("customers.units.title")}`}
       description={t("customers.units.description")}
     >
+      {/* Filtrering skjer på serveren, slik at en kunde med mange enheter
+          fortsatt får en kort og rask side. */}
+      <form method="GET" action="" className="flex flex-wrap gap-2">
+        <input type="hidden" name="tab" value="utstyr" />
+        <input
+          type="search"
+          name="enhet"
+          defaultValue={unitQuery}
+          aria-label={t("customers.units.searchLabel")}
+          placeholder={t("customers.units.searchPlaceholder")}
+          className="min-w-[12rem] flex-1 rounded-xl border border-gray-300 p-2.5 text-sm text-gray-900"
+        />
+        <button
+          type="submit"
+          className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-gray-800"
+        >
+          {t("customers.units.search")}
+        </button>
+        {unitQuery && (
+          <Link
+            href="?tab=utstyr"
+            className="rounded-xl bg-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
+          >
+            {t("customers.units.resetSearch")}
+          </Link>
+        )}
+        <span className="self-center text-xs font-bold text-gray-500">
+          {t("customers.units.showing", {
+            shown: products.length,
+            total: unitTotal,
+          })}
+        </span>
+      </form>
+
       {/* Skjema for ny enhet – krever equipment.manage */}
       {canManageEquipment && (
         <form action={createUnit} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
@@ -70,11 +109,19 @@ export default async function CustomerUnitsTab({
       )}
 
       {products.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">{t("customers.units.empty")}</p>
+        <p className="text-xs text-gray-500 italic">
+          {unitQuery
+            ? t("customers.units.noMatches", { query: unitQuery })
+            : t("customers.units.empty")}
+        </p>
       ) : (
         <div className="space-y-2">
           {products.map((unit) => (
-            <div key={unit.id} className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+            <div
+              key={unit.id}
+              id={`unit-${unit.id}`}
+              className="bg-gray-50 rounded-xl border border-gray-200 p-3 scroll-mt-24"
+            >
               <div className="flex items-start justify-between gap-3">
                 <details className="flex-1 min-w-0">
                   <summary className="cursor-pointer list-none">
@@ -155,6 +202,13 @@ export default async function CustomerUnitsTab({
                   )}
                 </details>
 
+                <Link
+                  href={`/enheter/${unit.id}`}
+                  className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
+                >
+                  {t("customers.units.openUnit")} &rarr;
+                </Link>
+
                 {isAdmin && (
                   <ConfirmSubmitForm
                     action={deleteUnit}
@@ -166,7 +220,7 @@ export default async function CustomerUnitsTab({
                   >
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={unit.id} />
-                    <button type="submit" title={t("customers.units.delete")} className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
+                    <button type="submit" aria-label={`${t("customers.units.delete")}: ${unit.model}`} title={t("customers.units.delete")} className="inline-flex min-h-11 min-w-11 items-center justify-center text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
                       🗑️
                     </button>
                   </ConfirmSubmitForm>

@@ -12,13 +12,23 @@ type CalendarTabDefinition = {
   labelKey: string;
 };
 
+// Kalendervisningene er én rute med `?vis=`-parameter. De gamle rutene
+// (/kalender/maned, /uke og /uke-2) redirecter hit, slik at bokmerker virker.
 const BASE_TABS: CalendarTabDefinition[] = [
   { key: "resources", href: "/kalender", labelKey: "calendar.common.resources" },
-  { key: "month", href: "/kalender/maned", labelKey: "calendar.common.month" },
-  { key: "week", href: "/kalender/uke", labelKey: "calendar.common.week" },
+  {
+    key: "month",
+    href: "/kalender?vis=maned",
+    labelKey: "calendar.common.month",
+  },
+  {
+    key: "week",
+    href: "/kalender?vis=uke",
+    labelKey: "calendar.common.week",
+  },
   {
     key: "biweekly",
-    href: "/kalender/uke-2",
+    href: "/kalender?vis=2uker",
     labelKey: "calendar.common.biweekly",
   },
 ];

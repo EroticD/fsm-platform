@@ -1670,6 +1670,38 @@ describe("getReportPdfForViewer", () => {
 
     expect(result).toMatchObject({ ok: false, status: 403 });
   });
+
+  it("rendrer bare den valgte rapporten når den tilhører oppdraget", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      reports: [{ id: "r1" }, { id: "r2" }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1", "r2");
+
+    expect(result).toMatchObject({ ok: true });
+    expect(mocks.getOrRenderReportPdf).toHaveBeenCalledWith(
+      "wo1",
+      undefined,
+      "r2",
+    );
+  });
+
+  it("avviser en rapport-id som ikke tilhører oppdraget", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1", "fremmed");
+
+    expect(result).toMatchObject({ ok: false, status: 404 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
 });
 
 describe("betingede felt og bevaringsplikt", () => {

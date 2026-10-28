@@ -1527,10 +1527,14 @@ export type ReportPdfResult =
  * Tilgangskontrollen ligger her, ikke bare i ruten: kundeportalbrukere ser
  * bare egne oppdrag, montører ser ikke kansellerte oppdrag, og andre må ha
  * `reports.view`. Meldingene er de samme som ruten har brukt.
+ *
+ * Med `reportId` må rapporten faktisk tilhøre oppdraget. Da rendres bare den
+ * ene sjekklisten i stedet for den kombinerte oppdrags-PDF-en.
  */
 export async function getReportPdfForViewer(
   viewer: Actor,
   workOrderId: string,
+  reportId?: string,
 ): Promise<ReportPdfResult> {
   if (!viewer?.isActive) {
     return { ok: false, status: 403, message: "Ingen tilgang" };
@@ -1572,14 +1576,25 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 404, message: "Oppdraget har ingen rapport ennå" };
   }
 
+  // En rapport-id fra URL-en må tilhøre oppdraget. Uten denne kontrollen
+  // kunne en gyldig oppdrags-id kombinert med en fremmed rapport-id brukt
+  // PDF-cachen til å rendre feil dokument.
+  if (reportId && !workOrder.reports.some((report) => report.id === reportId)) {
+    return { ok: false, status: 404, message: "Fant ikke rapporten" };
+  }
+
   // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
   // Bare konfigurert adresse brukes – aldri Host/X-Forwarded-Host, som en
   // klient kan sette for å styre PDF-motoren mot en annen origin.
   const baseUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL;
 
-  const pdf = await (
-    await import("@/lib/report-pdf-store")
-  ).getOrRenderReportPdf(workOrderId, baseUrl);
+  const pdf = reportId
+    ? await (
+        await import("@/lib/report-pdf-store")
+      ).getOrRenderReportPdf(workOrderId, baseUrl, reportId)
+    : await (
+        await import("@/lib/report-pdf-store")
+      ).getOrRenderReportPdf(workOrderId, baseUrl);
   if (!pdf) {
     return { ok: false, status: 404, message: "Oppdraget har ingen rapport ennå" };
   }

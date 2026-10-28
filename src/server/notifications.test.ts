@@ -35,6 +35,7 @@ vi.mock("@/lib/email", async (importOriginal) => {
 
 import {
   listNotifications,
+  listRecentNotifications,
   markNotificationRead,
   notifyUser,
   notifyWorkOrderEvent,
@@ -688,6 +689,23 @@ describe("varseltjenesten", () => {
         page: 1,
         totalPages: 1,
       },
+    });
+  });
+
+  it("henter bare egne nyeste varsler til bjella", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([{ id: "n1" }]);
+    mocks.prisma.notification.count.mockResolvedValue(2);
+
+    const result = await listRecentNotifications(actor, 5);
+
+    expect(result).toEqual({
+      ok: true,
+      data: { items: [{ id: "n1" }], unread: 2 },
+    });
+    expect(mocks.prisma.notification.findMany).toHaveBeenCalledWith({
+      where: { userId: "u1" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
     });
   });
 

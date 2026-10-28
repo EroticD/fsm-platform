@@ -1,5 +1,6 @@
 import { formatAddress } from "@/lib/address";
 import { addDaysUtc, parseDateOnly, toDateOnly } from "@/lib/dates";
+import { workOrderStatusColor } from "@/lib/work-order-status-colors";
 
 export type CalendarEventData = {
   id: string;
@@ -10,19 +11,24 @@ export type CalendarEventData = {
   allDay: boolean;
   /** Statusfarge, slik at måneds- og ukevisning viser samme informasjon. */
   color: string;
+  /** Lukkede oppdrag kan ikke flyttes, selv om kalenderen ellers er redigerbar. */
+  editable: boolean;
+  startEditable: boolean;
+  durationEditable: boolean;
   extendedProps: { address: string };
 };
 
-/** Farge per oppdragsstatus. Faller tilbake til blå for ukjente statuser. */
-const STATUS_COLORS: Record<string, string> = {
-  OPEN: "#9333ea",
-  PENDING: "#d97706",
-  PLANNED: "#ca8a04",
-  WAITING: "#ea580c",
-  IN_PROGRESS: "#2563eb",
-  COMPLETED: "#16a34a",
-  CANCELLED: "#dc2626",
-};
+/**
+ * FullCalendar-innstillinger for redigering. Kalenderen skal aldri tilby
+ * dra-og-slipp eller resize til en bruker som ikke kan lagre endringen.
+ */
+export function calendarEditingOptions(canEdit: boolean) {
+  return {
+    editable: canEdit,
+    droppable: canEdit,
+    eventDurationEditable: canEdit,
+  };
+}
 
 type WorkOrderForCalendar = {
   id: string;
@@ -57,13 +63,20 @@ export function toCalendarEvent(wo: WorkOrderForCalendar): CalendarEventData | n
     if (lastDayDate) end = toDateOnly(addDaysUtc(lastDayDate, 1));
   }
 
+  // Samme sperre som updateWorkOrderDate: fullførte og kansellerte oppdrag
+  // kan ikke flyttes. FullCalendar får derfor redigering av per hendelse.
+  const movable = wo.status !== "COMPLETED" && wo.status !== "CANCELLED";
+
   return {
     id: wo.id,
     title: wo.title,
     start,
     end,
     allDay: true,
-    color: STATUS_COLORS[wo.status] ?? "#2563eb",
+    color: workOrderStatusColor(wo.status),
+    editable: movable,
+    startEditable: movable,
+    durationEditable: movable,
     extendedProps: { address: formatAddress(wo.customer) },
   };
 }

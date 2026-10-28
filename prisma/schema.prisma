@@ -165,12 +165,13 @@ model Customer {
   responsibleTechnicianId String?
   responsibleTechnician   User?   @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
 
-  products    Product[]
-  contracts   Contract[]
-  workOrder   WorkOrder[]
-  contacts    Contact[]
-  comments    Comment[]
-  attachments CustomerAttachment[]
+  products        Product[]
+  contracts       Contract[]
+  workOrder       WorkOrder[]
+  bookingRequests BookingRequest[]
+  contacts        Contact[]
+  comments        Comment[]
+  attachments     CustomerAttachment[]
 
   users User[]
 
@@ -303,6 +304,19 @@ enum WorkStatus {
   OPEN
 }
 
+/// Kundens bestilling fra kundeportalen. Én bestilling hører til nøyaktig ett
+/// oppdrag, og beholder ønsket tid, utstyr og kontaktperson som et snapshot.
+enum BookingRequestStatus {
+  PENDING
+  CANCELLED
+}
+
+enum BookingEventType {
+  CREATED
+  RESCHEDULED
+  CANCELLED
+}
+
 model WorkOrder {
   id                    String     @id @default(cuid())
   title                 String
@@ -355,11 +369,12 @@ model WorkOrder {
   contractId String?
   contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
 
-  templates    Template[]    @relation("WorkOrderTemplates")
-  reports      Report[]
-  workComments Comment[]     @relation("WorkOrderComments")
-  tags         Tag[]         @relation("WorkOrderTags")
-  reportDrafts ReportDraft[]
+  templates      Template[]      @relation("WorkOrderTemplates")
+  reports        Report[]
+  workComments   Comment[]       @relation("WorkOrderComments")
+  tags           Tag[]           @relation("WorkOrderTags")
+  reportDrafts   ReportDraft[]
+  bookingRequest BookingRequest?
 
   @@unique([departmentId, orderNumberNormalized])
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
@@ -375,6 +390,65 @@ model WorkOrder {
   @@index([deletedAt])
   @@index([departmentId, status, scheduledFor])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
+}
+
+/// Kundens bestillingsforespørsel. Oppdraget er den operative saken; denne
+/// raden bevarer det kunden faktisk ba om, slik at ønsket tid og historikk
+/// ikke endres når kontoret planlegger.
+model BookingRequest {
+  id          String    @id @default(cuid())
+  /// Kort, menneskelig referanse kunden kan oppgi til kontoret.
+  reference   String    @unique
+  workOrderId String    @unique
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  /// Ønsket startdato (kalenderdato) og tidsvindu, lagret som HH:mm.
+  requestedDate DateTime @db.Date
+  requestedFrom String
+  requestedTo   String
+
+  /// Utstyr og tekniker er snapshots fra bestillingstidspunktet. Id-ene er
+  /// validert mot kundens egne enheter og avdelingens aktive ansatte.
+  equipmentId             String?
+  equipmentLabel          String?
+  preferredTechnicianId   String?
+  preferredTechnicianName String?
+
+  contactName  String
+  contactPhone String
+
+  status      BookingRequestStatus @default(PENDING)
+  cancelledAt DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  events BookingRequestEvent[]
+
+  @@index([customerId, createdAt])
+}
+
+/// Synlig endringshistorikk for en bestilling. Hver rad er et uforanderlig
+/// hendelsesøyeblikk; selve bestillingen viser alltid gjeldende ønsket tid.
+model BookingRequestEvent {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+
+  type    BookingEventType
+  /// Kort forklaring til kunden, f.eks. «Ny tid forespurt».
+  message String?
+
+  requestedDate DateTime? @db.Date
+  requestedFrom String?
+  requestedTo   String?
+
+  actorName String?
+  createdAt DateTime @default(now())
+
+  @@index([bookingRequestId, createdAt])
 }
 
 model Tag {

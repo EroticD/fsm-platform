@@ -28,6 +28,13 @@ export type SearchItem = {
   title: string;
   subtitle?: string;
   href: string;
+  /**
+   * Direkte fil-/PDF-lenke når hovedtreffet peker på en visningsside. Vises
+   * som en sekundær handling og åpnes i ny fane.
+   */
+  directHref?: string;
+  /** i18n-nøkkel for den sekundære handlingen. */
+  directLabelKey?: string;
   /** Relevans 0–1. Høyere er bedre. */
   score?: number;
 };
@@ -65,6 +72,8 @@ export type SearchOptions = {
   /** Antall treff per gruppe. Nedtrekket bruker 5, /sok bruker 20. */
   pageSize?: number;
   filters?: SearchFilters;
+  /** Intern sti som treffene kan bruke som «tilbake»-mål. */
+  returnTo?: string;
 };
 
 const DEFAULT_PAGE_SIZE = 5;
@@ -107,6 +116,20 @@ const GROUP_ORDER = [
 
 function joinInfo(parts: (string | null | undefined | false)[]) {
   return parts.filter(Boolean).join(" • ");
+}
+
+/** Bare interne stier kan brukes som returmål; aldri en ekstern URL. */
+function safeReturnTo(value: string | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw.length > 1000) return null;
+  if (raw.includes("\\") || /[\u0000-\u001f]/.test(raw)) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function withReturnTo(href: string, returnTo: string | null): string {
+  if (!returnTo) return href;
+  return `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(returnTo)}`;
 }
 
 /** Fjerner ts_headline-markeringene (<b> … </b>) før teksten vises som ren tekst. */
@@ -200,6 +223,7 @@ export async function performSearch(
 
   const includeCancelled = options.includeCancelled ?? false;
   const user = options.user;
+  const returnTo = safeReturnTo(options.returnTo);
   const selectedTypes = filters.types ? new Set(filters.types) : null;
   const wants = (kind: string) => !selectedTypes || selectedTypes.has(kind);
 
@@ -619,7 +643,18 @@ export async function performSearch(
           include: {
             template: { select: { title: true } },
             workOrder: {
-              select: { id: true, title: true, customer: { select: { name: true } } },
+              select: {
+                id: true,
+                title: true,
+                customer: { select: { name: true } },
+                reports: {
+                  where: { deletedAt: null },
+                  select: { id: true },
+                  // Nok til å avgjøre om oppdraget har én eller flere
+                  // sjekklister; selve PDF-en rendres avgrenset senere.
+                  take: 50,
+                },
+              },
             },
           },
           orderBy: { completedAt: "desc" },
@@ -926,6 +961,15 @@ export async function performSearch(
       items: rankedReports.map(({ item: r, score }) => {
         const reportHit = reportHits.find((hit) => hit.id === r.id);
         const snippet = snippetText(reportHit?.snippet);
+        // Når oppdraget bare har én rapport, er den kombinerte PDF-en og
+        // enkeltrapporten samme dokument. Da beholder vi den korte URL-en.
+        const singleReport = r.workOrder.reports.length === 1;
+        const reportHref = singleReport
+          ? `/rapporter/${r.workOrderId}`
+          : `/rapporter/${r.workOrderId}?rapport=${encodeURIComponent(r.id)}`;
+        const directHref = singleReport
+          ? `/api/rapporter/${r.workOrderId}/pdf`
+          : `/api/rapporter/${r.workOrderId}/pdf?rapport=${encodeURIComponent(r.id)}`;
         return {
           id: r.id,
           title: joinInfo([
@@ -939,7 +983,9 @@ export async function performSearch(
             r.hmsType ? `HMS: ${r.hmsType}` : null,
             formatDate(r.completedAt),
           ]),
-          href: `/rapporter/${r.workOrderId}`,
+          href: withReturnTo(reportHref, returnTo),
+          directHref,
+          directLabelKey: "components.search.openPdf",
           score,
         };
       }),
@@ -1026,6 +1072,11 @@ export async function performSearch(
       capped: totals.document.capped,
       items: rankedDocuments.map(({ item: d, score }) => {
         const hit = documentById.get(d.id);
+        // Bare filer i opplastingsmappen kan åpnes direkte. Dokumenttreffet
+        // skal ellers gå til dokumentbiblioteket, ikke til råfilen.
+        const directHref = d.filePath.startsWith("/uploads/")
+          ? d.filePath
+          : undefined;
         return {
           id: d.id,
           title: d.title,
@@ -1033,7 +1084,16 @@ export async function performSearch(
             d.tags.map((tag) => tag.name).join(", "),
             d.description?.slice(0, 60) ?? snippetText(hit?.snippet)?.slice(0, 80),
           ]),
-          href: d.filePath,
+          href: withReturnTo(
+            `/dokumenter?doc=${encodeURIComponent(d.id)}`,
+            returnTo,
+          ),
+          ...(directHref
+            ? {
+                directHref,
+                directLabelKey: "components.search.openFile",
+              }
+            : {}),
           score,
         };
       }),

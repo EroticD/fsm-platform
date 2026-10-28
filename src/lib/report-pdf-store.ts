@@ -272,17 +272,25 @@ async function storeReportPdf({
 /**
  * Henter rapport-PDF-en for et oppdrag, og lager den bare når den mangler
  * eller rapporten er endret siden forrige gang.
+ *
+ * Uten `reportId` inneholder PDF-en alle rapportene på oppdraget (slik den
+ * alltid har gjort). Med `reportId` rendres bare den valgte sjekklisten, og
+ * PDF-cachen lagres på nettopp den rapporten.
  */
 export async function getOrRenderReportPdf(
   workOrderId: string,
   baseUrl?: string,
+  reportId?: string,
 ): Promise<ReportPdfResult | null> {
+  const reportsWhere = reportId
+    ? { deletedAt: null, id: reportId }
+    : { deletedAt: null };
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, deletedAt: null },
     include: {
       customer: true,
       reports: {
-        where: { deletedAt: null },
+        where: reportsWhere,
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "asc" },
       },
@@ -335,7 +343,7 @@ export async function getOrRenderReportPdf(
   }
 
   const pdf = await withRenderSlot(() =>
-    loadReportPdf(workOrderId, baseUrl || defaultBaseUrl()),
+    loadReportPdf(workOrderId, baseUrl || defaultBaseUrl(), reportId),
   );
   if (!pdf) return null;
 

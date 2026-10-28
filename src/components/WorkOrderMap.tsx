@@ -10,6 +10,9 @@ export type WorkOrderMapPoint = {
   address: string;
   date: string;
   status: string;
+  /** Statusfarge fra den felles statuspaletten. */
+  color: string;
+  technicians: string;
   lat: number;
   lng: number;
 };
@@ -20,12 +23,17 @@ export type WorkOrderMapPoint = {
  * Selve kartbiblioteket lastes først i nettleseren, slik at serverrendringen
  * ikke trenger DOM/window. Popupen bygges med DOM-noder og textContent, ikke
  * HTML-strenger, slik at kunde- og oppdragstekst aldri kan bli HTML.
+ *
+ * Kartet er en visuell hjelp. Alle punktene finnes også som vanlige lenker i
+ * listen på siden, og kartregionen er knyttet til listen med aria-controls.
  */
 export default function WorkOrderMap({
   points,
   ariaLabel,
   noPointsLabel,
   openLabel,
+  listId,
+  listHint,
   layerLabels,
   settings,
 }: {
@@ -33,6 +41,10 @@ export default function WorkOrderMap({
   ariaLabel: string;
   noPointsLabel: string;
   openLabel: string;
+  /** id-en til listen som inneholder de samme oppdragene som lenker. */
+  listId: string;
+  /** Kort skjermleserhint om forholdet mellom kartet og listen. */
+  listHint: string;
   layerLabels: {
     osm: string;
     topo: string;
@@ -54,6 +66,7 @@ export default function WorkOrderMap({
   useEffect(() => {
     let cancelled = false;
     let map: import("leaflet").Map | null = null;
+    let currentMapZoomHandler: (() => void) | null = null;
 
     const init = async () => {
       const L = await import("leaflet");
@@ -158,26 +171,9 @@ export default function WorkOrderMap({
       selectedLayer.addTo(map);
       L.control.layers(baseLayers, undefined, { collapsed: true }).addTo(map);
 
-      const bounds = L.latLngBounds([]);
+      const markerLayer = L.layerGroup().addTo(map);
 
-      for (const point of points) {
-        const latLng = L.latLng(point.lat, point.lng);
-        bounds.extend(latLng);
-
-        const icon = L.divIcon({
-          className: "work-order-map-marker",
-          html: '<span aria-hidden="true">📍</span>',
-          iconSize: [34, 34],
-          iconAnchor: [17, 32],
-          popupAnchor: [0, -28],
-        });
-
-        const marker = L.marker(latLng, {
-          icon,
-          title: point.title,
-          keyboard: true,
-        }).addTo(map);
-
+      const buildPopup = (point: WorkOrderMapPoint) => {
         const popup = document.createElement("div");
         popup.className = "work-order-map-popup";
 
@@ -197,6 +193,13 @@ export default function WorkOrderMap({
           popup.appendChild(address);
         }
 
+        if (point.technicians) {
+          const technicians = document.createElement("div");
+          technicians.className = "work-order-map-popup-meta";
+          technicians.textContent = `👷 ${point.technicians}`;
+          popup.appendChild(technicians);
+        }
+
         const date = document.createElement("div");
         date.className = "work-order-map-popup-meta";
         date.textContent = `${point.date} · ${point.status}`;
@@ -208,8 +211,101 @@ export default function WorkOrderMap({
         link.textContent = `${openLabel} →`;
         popup.appendChild(link);
 
-        marker.bindPopup(popup);
-      }
+        return popup;
+      };
+
+      const addIndividualMarker = (point: WorkOrderMapPoint) => {
+        const dot = document.createElement("span");
+        dot.className = "work-order-map-marker-dot";
+        dot.style.backgroundColor = point.color;
+        dot.setAttribute("aria-hidden", "true");
+
+        const icon = L.divIcon({
+          className: "work-order-map-marker",
+          html: dot,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -16],
+        });
+
+        const marker = L.marker([point.lat, point.lng], {
+          icon,
+          title: `${point.title} · ${point.status}`,
+          keyboard: true,
+        });
+        marker.bindPopup(buildPopup(point));
+        markerLayer.addLayer(marker);
+      };
+
+      const addClusterMarker = (
+        group: WorkOrderMapPoint[],
+        currentMap: import("leaflet").Map,
+      ) => {
+        const groupBounds = L.latLngBounds(
+          group.map((point) => [point.lat, point.lng] as [number, number]),
+        );
+        const badge = document.createElement("span");
+        badge.className = "work-order-map-cluster";
+        badge.textContent = String(group.length);
+        badge.setAttribute("aria-hidden", "true");
+
+        const icon = L.divIcon({
+          className: "work-order-map-cluster-icon",
+          html: badge,
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
+        });
+
+        const marker = L.marker(groupBounds.getCenter(), {
+          icon,
+          title: String(group.length),
+          keyboard: true,
+        });
+        marker.on("click", () => {
+          currentMap.fitBounds(groupBounds, {
+            padding: [48, 48],
+            maxZoom: 15,
+          });
+        });
+        markerLayer.addLayer(marker);
+      };
+
+      const renderMarkers = () => {
+        const currentMap = map;
+        if (!currentMap) return;
+
+        markerLayer.clearLayers();
+        const zoom = currentMap.getZoom();
+        // Over zoom 14 er det plass til enkeltmarkører. Under det grupperes
+        // punkter i rutenett, slik at tette bydeler ikke blir en vegg av prikker.
+        const cellSize = zoom >= 14 ? 0 : 180 / 2 ** zoom;
+        const groups = new Map<string, WorkOrderMapPoint[]>();
+
+        for (const point of points) {
+          const key = cellSize
+            ? `${Math.round(point.lat / cellSize)}:${Math.round(point.lng / cellSize)}`
+            : `id:${point.id}`;
+          const group = groups.get(key) ?? [];
+          group.push(point);
+          groups.set(key, group);
+        }
+
+        for (const group of groups.values()) {
+          if (group.length === 1) {
+            addIndividualMarker(group[0]);
+          } else {
+            addClusterMarker(group, currentMap);
+          }
+        }
+      };
+
+      currentMapZoomHandler = renderMarkers;
+      map.on("zoomend", renderMarkers);
+      renderMarkers();
+
+      const bounds = L.latLngBounds(
+        points.map((point) => [point.lat, point.lng] as [number, number]),
+      );
 
       if (points.length === 1) {
         map.setView([points[0].lat, points[0].lng], 11);
@@ -217,10 +313,7 @@ export default function WorkOrderMap({
         map.fitBounds(bounds, { padding: [32, 32], maxZoom: 12 });
       } else {
         map.setView(
-          [
-            settings.centerLat ?? 64.5,
-            settings.centerLng ?? 12,
-          ],
+          [settings.centerLat ?? 64.5, settings.centerLng ?? 12],
           settings.defaultZoom,
         );
       }
@@ -232,6 +325,9 @@ export default function WorkOrderMap({
 
     return () => {
       cancelled = true;
+      if (map && currentMapZoomHandler) {
+        map.off("zoomend", currentMapZoomHandler);
+      }
       map?.remove();
       map = null;
     };
@@ -239,10 +335,16 @@ export default function WorkOrderMap({
 
   return (
     <div className="space-y-2">
+      <p id={`${listId}-hint`} className="sr-only">
+        {listHint}
+      </p>
       <div
         ref={containerRef}
-        role="application"
+        role="region"
         aria-label={ariaLabel}
+        aria-describedby={`${listId}-hint`}
+        aria-controls={listId}
+        tabIndex={0}
         className="z-0 h-[420px] w-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-gray-100 sm:h-[520px]"
       />
       {points.length === 0 && (
@@ -250,6 +352,50 @@ export default function WorkOrderMap({
           {noPointsLabel}
         </p>
       )}
+      <style jsx global>{`
+        .work-order-map-marker {
+          background: transparent;
+          border: none;
+        }
+        .work-order-map-marker-dot {
+          display: flex;
+          height: 26px;
+          width: 26px;
+          border: 3px solid #fff;
+          border-radius: 9999px;
+          box-shadow: 0 1px 5px rgb(0 0 0 / 0.35);
+        }
+        .work-order-map-cluster-icon {
+          background: transparent;
+          border: none;
+        }
+        .work-order-map-cluster {
+          display: flex;
+          height: 38px;
+          width: 38px;
+          align-items: center;
+          justify-content: center;
+          border: 3px solid #fff;
+          border-radius: 9999px;
+          background: #1d4ed8;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 800;
+          box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+        }
+        .work-order-map-popup-meta {
+          margin-top: 2px;
+          font-size: 12px;
+          color: #4b5563;
+        }
+        .work-order-map-popup-link {
+          display: inline-block;
+          margin-top: 6px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #1d4ed8;
+        }
+      `}</style>
     </div>
   );
 }

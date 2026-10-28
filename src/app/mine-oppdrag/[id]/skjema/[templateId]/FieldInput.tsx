@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import ImageUploadField from "@/components/ImageUploadField";
 import MarkdownEditor from "@/components/MarkdownEditor";
@@ -157,6 +157,7 @@ export default function FieldInput({
   workOrderId?: string;
 }) {
   const t = useTranslations("common");
+  const fieldId = useId();
   switch (field.type) {
     case "CHECKBOX":
       return (
@@ -200,10 +201,11 @@ export default function FieldInput({
     case "TEXTAREA":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-textarea`} className="block text-sm font-black text-gray-900 mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <MarkdownEditor
+            id={`${fieldId}-textarea`}
             name={name}
             rows={3}
             required={field.required}
@@ -217,10 +219,11 @@ export default function FieldInput({
     case "NUMBER":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-number`} className="block text-sm font-black text-gray-900 mb-2">
             🔢 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-number`}
             type="number"
             step="any"
             name={name}
@@ -236,10 +239,11 @@ export default function FieldInput({
     case "DATE":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-date`} className="block text-sm font-black text-gray-900 mb-2">
             📅 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-date`}
             type="date"
             name={name}
             required={field.required}
@@ -253,10 +257,11 @@ export default function FieldInput({
     case "SELECT":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-select`} className="block text-sm font-black text-gray-900 mb-2">
             📂 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
+            id={`${fieldId}-select`}
             name={name}
             required={field.required}
             defaultValue={asText(defaultValue)}
@@ -289,10 +294,11 @@ export default function FieldInput({
     case "SIGNATURE":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-signature`} className="block text-sm font-black text-gray-900 mb-2">
             ✍️ {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-signature`}
             type="text"
             name={name}
             required={field.required}
@@ -307,10 +313,11 @@ export default function FieldInput({
     default:
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-text`} className="block text-sm font-black text-gray-900 mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-text`}
             type="text"
             name={name}
             required={field.required}

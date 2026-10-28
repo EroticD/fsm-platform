@@ -67,7 +67,7 @@ export default function CreateWorkOrderForm({
             restoreSelection={Boolean(error)}
           />
 
-          <fieldset className="rounded-xl border-2 border-gray-200 p-4">
+          <fieldset className="rounded-xl border-2 border-gray-200 p-4" aria-describedby="field-new-location-hint">
             <legend className="px-1 text-sm font-bold text-gray-700">{t("orders.new.locationTitle")}</legend>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="sm:col-span-3">
@@ -83,7 +83,7 @@ export default function CreateWorkOrderForm({
                 <input id="field-new-city" name="city" maxLength={100} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
               </div>
             </div>
-            <p className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
+            <p id="field-new-location-hint" className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
           </fieldset>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

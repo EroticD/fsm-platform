@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -16,9 +16,12 @@ import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
 import { parsePage } from "@/lib/pagination";
 import ReportHistory from "@/components/portal/ReportHistory";
+import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
+import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
 import StatusBadge from "@/components/StatusBadge";
+import { getPortalBookingRequests } from "@/server/portal";
 import BookingForm from "./BookingForm";
-import { requestContactUpdateAction } from "./report-actions";
+import BookingRequests from "./BookingRequests";
 
 /** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
 const UPCOMING_PAGE_SIZE = 20;
@@ -46,7 +49,6 @@ export default async function KundeportalPage({
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const t = await getTranslations("common");
-  const locale = await getLocale();
   const listParams = await searchParams;
   const upcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
@@ -85,6 +87,10 @@ export default async function KundeportalPage({
   }
 
   const defaultDepartmentId = await getDefaultDepartmentId();
+  const todayText = todayInOslo();
+
+  const bookingsResult = await getPortalBookingRequests(user);
+  const bookings = bookingsResult.ok ? bookingsResult.data : [];
 
   // Kommende oppdrag hentes med et fast tak. Avsluttede oppdrag og alle
   // rapportene deres ligger i den samlede rapporthistorikken lenger ned.
@@ -121,7 +127,7 @@ export default async function KundeportalPage({
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
   // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
-  const today = parseDateOnly(todayInOslo()) ?? new Date();
+  const today = parseDateOnly(todayText) ?? new Date();
   const horizon = addDaysUtc(today, 7);
 
   const days = Array.from({ length: 7 }, (_, i) => addDaysUtc(today, i));
@@ -280,24 +286,7 @@ export default async function KundeportalPage({
             </div>
           </div>
 
-          <form action={requestContactUpdateAction} className="mt-4 space-y-2 border-t border-gray-200 pt-4">
-            <label htmlFor="contact-update-message" className="block text-sm font-bold text-gray-700">
-              {t("p3.portalReports.requestUpdate")}
-            </label>
-            <textarea
-              id="contact-update-message"
-              name="message"
-              rows={2}
-              placeholder={t("p3.portalReports.requestUpdatePlaceholder")}
-              className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900"
-            />
-            <button
-              type="submit"
-              className="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
-            >
-              {t("p3.portalReports.requestUpdateButton")}
-            </button>
-          </form>
+          <ContactUpdateForm />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -363,8 +352,19 @@ export default async function KundeportalPage({
             {/* BOOK NYTT OPPDRAG */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
-              <p className="text-gray-500 text-sm mb-4">{t("portal.booking.desc")}</p>
-              <BookingForm />
+              <p className="text-gray-600 text-sm mb-4">{t("portal.booking.desc")}</p>
+              <BookingForm
+                minDate={todayText}
+                defaultContactName={user.name ?? ""}
+                defaultContactPhone={customer.phone ?? ""}
+                equipment={customer.products.map((product) => ({
+                  id: product.id,
+                  label: product.serialNumber
+                    ? `${product.model} · SN ${product.serialNumber}`
+                    : product.model,
+                }))}
+              />
+              <BookingRequests bookings={bookings} minDate={todayText} />
             </div>
 
             {/* KOMMENDE OPPDRAG */}
@@ -459,59 +459,20 @@ export default async function KundeportalPage({
           </div>
 
           {technicians.length === 0 ? (
-            <p className="text-gray-500 italic text-sm">{t("portal.availability.empty")}</p>
+            <p className="text-gray-600 italic text-sm">{t("portal.availability.empty")}</p>
           ) : (
-            <div className="overflow-x-auto" tabIndex={0}>
-              <table className="w-full text-xs border-collapse min-w-[560px]">
-                <thead>
-                  <tr>
-                    <th className="text-left font-bold text-gray-500 uppercase tracking-wider p-2 border-b">
-                      {t("portal.availability.technician")}
-                    </th>
-                    {days.map((d) => (
-                      <th
-                        key={dateKey(d)}
-                        className="text-center font-bold text-gray-500 uppercase tracking-wider p-2 border-b"
-                      >
-                        <span className="block">
-                          {d.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", { weekday: "short" })}
-                        </span>
-                        <span className="block text-xs font-medium text-gray-400">
-                          {toDateOnly(d)}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {technicians.map((tech) => (
-                    <tr key={tech.id} className="border-b last:border-0">
-                      <td className="p-2 font-bold text-gray-800 whitespace-nowrap">
-                        {tech.name || t("portal.availability.unknownName")}
-                      </td>
-                      {days.map((d) => {
-                        const isBusy = busyByTechnician.get(tech.id)?.has(dateKey(d));
-                        return (
-                          <td key={dateKey(d)} className="p-2 text-center">
-                            {isBusy ? (
-                              <span className="inline-block bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-xs font-bold">
-                                {t("portal.availability.busy")}
-                              </span>
-                            ) : (
-                              <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-bold">
-                                {t("portal.availability.free")}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AvailabilityBoard
+              technicians={technicians.map((tech) => ({
+                id: tech.id,
+                name: tech.name ?? "",
+                days: days.map((day) => ({
+                  date: dateKey(day),
+                  busy: busyByTechnician.get(tech.id)?.has(dateKey(day)) ?? false,
+                })),
+              }))}
+            />
           )}
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="mt-3 text-sm text-gray-700">
             {t("portal.availability.note")}
           </p>
         </div>

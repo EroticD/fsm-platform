@@ -151,6 +151,7 @@ export async function renderReportPdf(
 export async function loadReportPdf(
   workOrderId: string,
   baseUrl?: string,
+  reportId?: string,
 ): Promise<ReportPdfResult | null> {
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, deletedAt: null },
@@ -159,7 +160,9 @@ export async function loadReportPdf(
       templates: true,
       technicians: true,
       reports: {
-        where: { deletedAt: null },
+        where: reportId
+          ? { deletedAt: null, id: reportId }
+          : { deletedAt: null },
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "asc" },
       },

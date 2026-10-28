@@ -23,6 +23,8 @@ type SearchItem = {
   title: string;
   subtitle?: string;
   href: string;
+  directHref?: string;
+  directLabelKey?: string;
   score?: number;
 };
 
@@ -299,11 +301,18 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
 
   const navigate = useCallback(
     (href: string) => {
+      // Rapportviseren kan ta med seg opphavssiden som «tilbake»-mål. Det gjør
+      // at hurtigsøket fra en oppdragsside kommer tilbake dit, ikke til kunden.
+      let target = href;
+      if (href.startsWith("/rapporter/") && !href.includes("returnTo=")) {
+        const origin = `${window.location.pathname}${window.location.search}`;
+        target = `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(origin)}`;
+      }
       setOpen(false);
       setQuery("");
       setResults(null);
       setStatus("idle");
-      router.push(href);
+      router.push(target);
     },
     [router],
   );
@@ -565,36 +574,59 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                           "-",
                         );
                         return (
-                          <button
+                          <div
                             key={`${group.kind}-${item.id}`}
-                            id={optionId}
-                            type="button"
-                            role="option"
-                            aria-selected={isActive}
-                            onMouseEnter={() => setActive(index)}
-                            onClick={() => {
-                              rememberQuery(trimmed);
-                              navigate(item.href);
-                            }}
-                            className={`flex w-full min-w-0 flex-col px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
-                              isActive ? "bg-blue-50" : "hover:bg-gray-50"
-                            }`}
+                            role="presentation"
+                            className="flex w-full min-w-0 items-stretch"
                           >
-                            <span className="block w-full truncate text-sm font-bold text-gray-900">
-                              <HighlightedText
-                                text={item.title}
-                                query={trimmed}
-                              />
-                            </span>
-                            {item.subtitle && (
-                              <span className="block w-full truncate text-xs text-gray-500">
+                            <button
+                              id={optionId}
+                              type="button"
+                              role="option"
+                              aria-selected={isActive}
+                              onMouseEnter={() => setActive(index)}
+                              onClick={() => {
+                                rememberQuery(trimmed);
+                                navigate(item.href);
+                              }}
+                              className={`flex min-w-0 flex-1 flex-col px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
+                                isActive ? "bg-blue-50" : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span className="block w-full truncate text-sm font-bold text-gray-900">
                                 <HighlightedText
-                                  text={item.subtitle}
+                                  text={item.title}
                                   query={trimmed}
                                 />
                               </span>
+                              {item.subtitle && (
+                                <span className="block w-full truncate text-xs text-gray-500">
+                                  <HighlightedText
+                                    text={item.subtitle}
+                                    query={trimmed}
+                                  />
+                                </span>
+                              )}
+                            </button>
+                            {item.directHref && (
+                              // Sekundær handling: åpne den underliggende filen
+                              // direkte i ny fane, uten å forlate søket.
+                              <a
+                                href={item.directHref}
+                                target="_blank"
+                                rel="noopener"
+                                className="flex shrink-0 items-center border-l border-gray-100 px-3 text-base text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                              >
+                                <span aria-hidden>📄</span>
+                                <span className="sr-only">
+                                  {t(
+                                    item.directLabelKey ??
+                                      "components.search.openFile",
+                                  )}
+                                </span>
+                              </a>
                             )}
-                          </button>
+                          </div>
                         );
                       })}
                     </div>

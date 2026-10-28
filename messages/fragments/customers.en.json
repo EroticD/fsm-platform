@@ -28,7 +28,17 @@
       "restore": "Restore",
       "delete": "Delete",
       "saving": "Saving …",
-      "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator."
+      "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator.",
+      "newCustomer": "New customer",
+      "city": "City",
+      "contact": "Contact",
+      "openOrders": "Open work orders",
+      "lastService": "Last service",
+      "sortBy": "Sort by {column}",
+      "openCustomer": "Open the customer card for {name}",
+      "noContact": "No contact person",
+      "neverServiced": "No completed work orders",
+      "unitsNotice": "Equipment and units live on the customer card. Choose a customer and open the Equipment tab to see the machines."
     },
     "detail": {
       "notFound": "Customer not found",
@@ -43,13 +53,15 @@
       "tabs": {
         "overview": "📊 Overview",
         "orders": "📂 Work orders",
-        "contracts": "📄 Service agreements",
+        "contracts": "📄 Agreements",
         "attachments": "📎 Attachments",
         "units": "🔧 Equipment",
         "contacts": "👤 Contacts",
         "contactsPortal": "👤 Contacts and portal",
         "portal": "🔐 Customer portal",
-        "activity": "📋 Activity"
+        "activity": "📋 Activity",
+        "more": "➕ More",
+        "label": "Customer card tabs"
       },
       "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator."
     },
@@ -185,7 +197,20 @@
       "editUnit": "Edit unit",
       "save": "Save changes",
       "delete": "Delete unit",
-      "deleteConfirm": "Delete the unit “{model}”? Service history is kept on the reports."
+      "deleteConfirm": "Delete the unit “{model}”? Service history is kept on the reports.",
+      "searchLabel": "Filter units",
+      "searchPlaceholder": "Search by model, serial number or location...",
+      "search": "Filter",
+      "resetSearch": "Reset",
+      "noMatches": "No units match \"{query}\".",
+      "showing": "Showing {shown} of {total} units.",
+      "openUnit": "Open",
+      "detailSubtitle": "Unit at {customer}",
+      "backToCustomer": "Back to the customer card",
+      "backToCustomers": "To customers",
+      "customerLabel": "Customer",
+      "notFound": "The unit does not exist",
+      "historyHidden": "You do not have access to reports, so the service history is hidden."
     },
     "contacts": {
       "title": "Contacts",
@@ -238,7 +263,17 @@
       "noRecentReports": "No reports submitted for this customer yet.",
       "reportFallback": "Report",
       "reportFor": "Work order: {order}",
-      "viewReport": "View report"
+      "viewReport": "View report",
+      "feedTitle": "Activity feed",
+      "noActivity": "No activity registered for the customer yet.",
+      "types": {
+        "customer": "Customer",
+        "workOrder": "Work order",
+        "report": "Report",
+        "contact": "Contact"
+      },
+      "auditOnlyTitle": "Show the full audit log",
+      "auditOnlyHint": "The audit log only shows rows attached directly to the customer card. Work orders and reports have their own pages."
     },
     "attachments": {
       "title": "Attachments",
@@ -255,6 +290,30 @@
       "uploadingProgress": "{done} of {total}",
       "deleteTitle": "Delete attachment",
       "deleteConfirm": "Delete the attachment \"{name}\"?"
+    },
+    "feedback": {
+      "status": {
+        "customerCreated": "The customer was created.",
+        "customerUpdated": "The customer information was saved.",
+        "customerDeleted": "The customer was deleted and can be restored from the recycle bin.",
+        "customerRestored": "The customer was restored.",
+        "unitCreated": "The unit was added.",
+        "unitUpdated": "The unit was updated.",
+        "unitDeleted": "The unit was deleted.",
+        "contactCreated": "The contact person was added.",
+        "contactUpdated": "The contact person was updated.",
+        "contactDeleted": "The contact person was deleted.",
+        "contractCreated": "The service agreement was created.",
+        "contractActivated": "The service agreement was activated.",
+        "contractPaused": "The service agreement was paused.",
+        "contractDeleted": "The service agreement was deleted."
+      },
+      "error": {
+        "invalid": "The form contains invalid or missing fields.",
+        "forbidden": "You do not have access to this action.",
+        "notFound": "Could not find what you tried to change. It may have been deleted.",
+        "unknown": "Something went wrong. Try again."
+      }
     }
   }
 }

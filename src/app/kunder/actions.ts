@@ -9,11 +9,12 @@ import {
   restoreCustomer,
   updateCustomer,
 } from "@/server/customers";
+import { customerErrorParam } from "./feedback";
 
 /** Registrerer en ny kunde. Tynn wrapper rundt kundetjenesten. */
 export async function addCustomer(formData: FormData) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await createCustomer(actor, {
     name: formData.get("name"),
@@ -21,13 +22,11 @@ export async function addCustomer(formData: FormData) {
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect("/kunder?error=ugyldig-data");
-    }
-    return;
+    redirect(`/kunder?error=${customerErrorParam(result.reason)}`);
   }
 
   revalidatePath("/kunder");
+  redirect(`/kunder/${result.data.id}?status=kunde-opprettet`);
 }
 
 /** Lagrer endringene på kundekortet. */
@@ -36,7 +35,7 @@ export async function updateCustomerAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await updateCustomer(actor, customerId, {
     name: formData.get("name"),
@@ -54,42 +53,45 @@ export async function updateCustomerAction(
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(`/kunder/${customerId}/rediger?error=ugyldig-data`);
-    }
-    if (result.reason === "error") {
-      redirect(`/kunder/${customerId}/rediger?error=ukjent`);
-    }
-    return;
+    redirect(
+      `/kunder/${customerId}/rediger?error=${customerErrorParam(result.reason)}`,
+    );
   }
 
   revalidatePath(`/kunder/${customerId}`);
   revalidatePath("/kunder");
+  redirect(`/kunder/${customerId}?status=kunde-oppdatert`);
 }
 
 /** Myksletter en kunde. Bare administrator kommer gjennom i tjenesten. */
 export async function deleteCustomerAction(formData: FormData) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const id = String(formData.get("id") ?? "");
   const result = await deleteCustomer(actor, id);
-  if (!result.ok) return;
+  if (!result.ok) {
+    redirect(`/kunder?error=${customerErrorParam(result.reason)}`);
+  }
 
   revalidatePath("/kunder");
   revalidatePath("/");
-  redirect("/kunder");
+  redirect("/kunder?status=kunde-slettet");
 }
 
 /** Gjenoppretter en mykt slettet kunde. Bare administrator. */
 export async function restoreCustomerAction(formData: FormData) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const id = String(formData.get("id") ?? "");
   const result = await restoreCustomer(actor, id);
-  if (!result.ok) return;
+  if (!result.ok) {
+    redirect(
+      `/kunder?slettet=1&error=${customerErrorParam(result.reason)}`,
+    );
+  }
 
   revalidatePath("/kunder");
-  redirect("/kunder?slettet=1");
+  redirect("/kunder?slettet=1&status=kunde-gjenopprettet");
 }

@@ -11,8 +11,8 @@ vi.mock("next/navigation", () => ({ redirect }));
 import LegacyUnitsPage from "./page";
 
 describe("/enheter", () => {
-  it("omdirigerer til kundeoversikten der enhetene faktisk bor", () => {
-    expect(() => LegacyUnitsPage()).toThrow("REDIRECT:/kunder");
-    expect(redirect).toHaveBeenCalledWith("/kunder");
+  it("omdirigerer til kundeoversikten med en forklarende melding", () => {
+    expect(() => LegacyUnitsPage()).toThrow("REDIRECT:/kunder?varsel=enheter");
+    expect(redirect).toHaveBeenCalledWith("/kunder?varsel=enheter");
   });
 });

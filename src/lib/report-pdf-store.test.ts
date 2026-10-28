@@ -274,6 +274,41 @@ describe("getOrRenderReportPdf", () => {
     );
   });
 
+  it("begrenser oppslaget og cachen til én rapport når reportId er oppgitt", async () => {
+    const selected = {
+      ...report({ id: "report-2" }),
+      pdfUrl: null,
+      pdfHash: null,
+    };
+    mocked.workOrder.findFirst.mockResolvedValue({
+      ...workOrderWithCache(null),
+      reports: [selected],
+    });
+    mockedLoadReportPdf.mockResolvedValue({
+      buffer: Buffer.from("%PDF-report-2"),
+      fileName: "kunde-egen-rapport",
+    });
+
+    const result = await getOrRenderReportPdf("wo-1", undefined, "report-2");
+
+    expect(mocked.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          reports: expect.objectContaining({
+            where: { deletedAt: null, id: "report-2" },
+          }),
+        }),
+      }),
+    );
+    expect(mockedLoadReportPdf.mock.calls[0][2]).toBe("report-2");
+    expect(mocked.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "report-2" },
+        data: expect.objectContaining({ pdfUrl: result?.url }),
+      }),
+    );
+  });
+
   it("lager ingen PDF for et slettet oppdrag", async () => {
     mocked.workOrder.findFirst.mockResolvedValue(null);
 

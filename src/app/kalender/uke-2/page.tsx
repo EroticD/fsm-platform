@@ -1,12 +1,6 @@
-import CalendarViewPage from "@/app/kalender/CalendarViewPage";
+import { redirect } from "next/navigation";
 
+/** Gammel rute. Beholdes slik at bokmerker og eksterne lenker virker. */
 export default function BiweeklyCalendarPage() {
-  return (
-    <CalendarViewPage
-      view="biweekly"
-      active="biweekly"
-      titleKey="calendar.biweekly.title"
-      subtitleKey="calendar.biweekly.subtitle"
-    />
-  );
+  redirect("/kalender?vis=2uker");
 }

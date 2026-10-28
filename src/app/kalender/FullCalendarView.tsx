@@ -2,11 +2,13 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Calendar, type EventDropArg } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { type EventResizeDoneArg } from '@fullcalendar/interaction';
 import { formatDateLocalized, inclusiveLastDay } from '@/lib/dates';
+import { calendarEditingOptions } from '@/lib/calendar-events';
 import { readableTextColor } from '@/lib/colors';
 import { useToast } from '@/components/ToastProvider';
 
@@ -17,6 +19,9 @@ type EventData = {
   /** Eksklusiv sluttdato for heldagshendelser. */
   end?: string;
   allDay: boolean;
+  editable?: boolean;
+  startEditable?: boolean;
+  durationEditable?: boolean;
   extendedProps?: { address?: string };
 };
 
@@ -25,13 +30,18 @@ export default function FullCalendarView({
   view = 'dayGridWeek',
   weekNumbers = true,
   canEdit = false,
+  canOpenEditor = canEdit,
 }: { 
   events: EventData[];
   view?: string;
   weekNumbers?: boolean;
+  /** Kan brukeren lagre ny dato? Må samsvare med API-ets rettighet. */
   canEdit?: boolean;
+  /** Kan brukeren åpne den fulle redigeringssiden? */
+  canOpenEditor?: boolean;
 }) {
   const calendarEl = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const t = useTranslations("common");
   const locale = useLocale();
   const { toast } = useToast();
@@ -42,7 +52,11 @@ export default function FullCalendarView({
     // Lagrer ny start- og sluttdato etter drag eller resize. FullCalendar
     // bruker eksklusiv sluttdato, mens databasen lagrer siste inkluderte dag.
     async function saveDates(info: EventDropArg | EventResizeDoneArg) {
-      if (!info.event.start) return;
+      // Ekstra vakt: hendelsen skal aldri kunne flyttes uten lagringsrett.
+      if (!canEdit || !info.event.startEditable || !info.event.start) {
+        info.revert();
+        return;
+      }
 
       const newDate = info.event.startStr.slice(0, 10);
       const lastDay = info.event.endStr ? inclusiveLastDay(info.event.endStr) : "";
@@ -73,7 +87,9 @@ export default function FullCalendarView({
       headerToolbar: {
         left: 'prev,next today',
         center: 'title',
-        right: view === 'biweekly' ? 'biweekly' : 'dayGridWeek,dayGridMonth',
+        // Visningsbyttet ligger i fanene over kalenderen, som oppdaterer
+        // URL-en. FullCalendar skal ikke ha egne knapper som desynker den.
+        right: '',
       },
       views: {
         biweekly: {
@@ -125,14 +141,16 @@ export default function FullCalendarView({
         next: t("calendar.a11y.next"),
         today: t("calendar.a11y.today"),
       },
-      editable: true,
-      droppable: true,
-      eventDurationEditable: true,
+      // R2-08: dra, slipp og resize styres av samme rettighet som
+      // dato-API-et krever. Lukkede oppdrag sperres per hendelse.
+      ...calendarEditingOptions(canEdit),
+      eventClassNames: (arg) =>
+        arg.event.startEditable ? [] : ["fc-event-locked"],
       eventClick: function(info) {
-        window.location.href = `/oppdrag/${info.event.id}`;
+        router.push(`/oppdrag/${info.event.id}`);
       },
-      eventDrop: saveDates,
-      eventResize: saveDates,
+      eventDrop: canEdit ? saveDates : undefined,
+      eventResize: canEdit ? saveDates : undefined,
     });
 
     calendar.render();
@@ -156,24 +174,29 @@ export default function FullCalendarView({
     return () => {
       calendar.destroy();
     };
-  }, [events, view, weekNumbers, t, locale, toast]);
+  }, [events, view, weekNumbers, canEdit, t, locale, toast, router]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border text-gray-800">
-      <div ref={calendarEl} className="kalender-container"></div>
+      <div
+        ref={calendarEl}
+        className={`kalender-container${canEdit ? " kalender-editable" : ""}`}
+      ></div>
       <details className="mt-4 rounded-xl border border-gray-300 bg-gray-50 p-3 text-sm">
         <summary className="cursor-pointer font-bold text-gray-900">
           {t("calendar.a11y.keyboardTitle")}
         </summary>
         <p className="mt-2 text-xs text-gray-700">
-          {t("calendar.a11y.keyboardAlternative")}
+          {canEdit
+            ? t("calendar.a11y.keyboardAlternative")
+            : t("calendar.a11y.keyboardAlternativeReadOnly")}
         </p>
         <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
           {events.slice(0, 100).map((event) => (
             <li key={event.id}>
               <Link
                 href={
-                  canEdit
+                  canOpenEditor
                     ? `/oppdrag/${event.id}/rediger`
                     : `/oppdrag/${event.id}`
                 }
@@ -181,7 +204,7 @@ export default function FullCalendarView({
               >
                 <span className="truncate">{event.title}</span>
                 <span className="shrink-0 text-xs text-gray-700">
-                  {canEdit
+                  {canOpenEditor
                     ? t("calendar.a11y.openInEditor")
                     : t("calendar.a11y.openWorkOrder")}{" "}
                   · {formatDateLocalized(event.start, locale)}
@@ -192,8 +215,10 @@ export default function FullCalendarView({
         </ul>
       </details>
       <style jsx global>{`
-        .fc-event { cursor: grab !important; padding: 2px 4px; border-radius: 4px; border: none; background-color: #2563eb; font-weight: 500;}
-        .fc-event:active { cursor: grabbing !important; opacity: 0.8;}
+        .fc-event { padding: 2px 4px; border-radius: 4px; border: none; background-color: #2563eb; font-weight: 500;}
+        .kalender-editable .fc-event { cursor: grab !important; }
+        .kalender-editable .fc-event:active { cursor: grabbing !important; opacity: 0.8;}
+        .kalender-editable .fc-event-locked { cursor: default !important; }
         .fc-event-content { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
         .fc-event-title-line { font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
         .fc-event-address { font-size: 0.72em; font-weight: 400; opacity: 0.9; line-height: 1.1; overflow-wrap: anywhere; }

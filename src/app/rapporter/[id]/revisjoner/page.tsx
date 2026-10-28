@@ -327,7 +327,7 @@ export default async function ReportRevisionsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ rapport?: string; revisjon?: string }>;
+  searchParams: Promise<{ rapport?: string; revisjon?: string; returnTo?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user?.isActive) redirect("/logg-inn");
@@ -335,6 +335,19 @@ export default async function ReportRevisionsPage({
   const t = await getTranslations("common");
   const { id } = await params;
   const query = await searchParams;
+  const returnTo = (() => {
+    const raw = String(query.returnTo ?? "").trim();
+    if (!raw || raw.length > 1000) return null;
+    if (raw.includes("\\") || /[\u0000-\u001f]/.test(raw)) return null;
+    if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+    return raw;
+  })();
+  const backHref =
+    returnTo ?? (user.role === "CUSTOMER" ? "/kundeportal" : "/rapporter");
+  const withReturnTo = (href: string) =>
+    returnTo
+      ? `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(returnTo)}`
+      : href;
 
   const overview = await getWorkOrderRevisionOverview(user, id);
   if (!overview.ok) {
@@ -394,13 +407,17 @@ export default async function ReportRevisionsPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/rapporter/${workOrder.id}`}
+              href={withReturnTo(
+                selectedReport
+                  ? `/rapporter/${workOrder.id}?rapport=${selectedReport.report.id}`
+                  : `/rapporter/${workOrder.id}`,
+              )}
               className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
             >
               {t("orders.revisions.openCurrentPdf")}
             </Link>
             <Link
-              href={user.role === "CUSTOMER" ? "/kundeportal" : "/rapporter"}
+              href={backHref}
               className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
             >
               ← {t("orders.revisions.back")}
@@ -455,7 +472,9 @@ export default async function ReportRevisionsPage({
                     return (
                       <li key={revision.id}>
                         <Link
-                          href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}&revisjon=${revision.id}`}
+                          href={withReturnTo(
+                            `/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}&revisjon=${revision.id}`,
+                          )}
                           className={`block rounded-xl border-2 p-3 transition ${
                             selected
                               ? "border-blue-400 bg-blue-50"

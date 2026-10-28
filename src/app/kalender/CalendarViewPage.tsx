@@ -4,17 +4,21 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import FullCalendarClient from "@/app/kalender/FullCalendarClient";
 import CalendarTabs from "@/app/kalender/CalendarTabs";
+import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
 import { toCalendarEvent } from "@/lib/calendar-events";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { addMonthsUtc, parseDateOnly, todayInOslo } from "@/lib/dates";
 import type { CalendarTabKey } from "@/lib/calendar-tabs";
+import {
+  WORK_ORDER_STATUS_LABEL_KEYS,
+  WORK_ORDER_STATUS_ORDER,
+} from "@/lib/work-order-status-colors";
 
 /**
- * Felles implementasjon for måned-, uke- og to-ukersvisningen. De tre rutene
- * er egne URL-er fordi de er egne faner, men de skal ikke vedlikeholde hver
- * sin kopi av spørring, tilgangskontroll og header.
+ * Felles implementasjon for måned-, uke- og to-ukersvisningen. Alle tre nås
+ * via `/kalender?vis=...`, slik at visningsbyttet og URL-en alltid stemmer.
  */
 export default async function CalendarViewPage({
   view,
@@ -31,6 +35,11 @@ export default async function CalendarViewPage({
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
   const canCreate = hasPermission(user, "workorders.create");
+  // Dato-API-et krever workorders.update, ikke workorders.edit. Montørene skal
+  // kunne flytte feltjobber i egen avdeling, så kalenderen tilbyr dra-og-slipp
+  // til alle som faktisk kan lagre datoen. Den fulle redigeringssiden krever
+  // fortsatt workorders.edit og styres separat.
+  const canReschedule = hasPermission(user, "workorders.update");
   const canEdit = hasPermission(user, "workorders.edit");
   const canDispatch = hasPermission(user, "workorders.assign");
   const canReports = hasPermission(user, "reports.view");
@@ -72,6 +81,21 @@ export default async function CalendarViewPage({
     return event ? [event] : [];
   });
 
+  const statusCounts = new Map<string, number>();
+  for (const workOrder of workOrders) {
+    statusCounts.set(
+      workOrder.status,
+      (statusCounts.get(workOrder.status) ?? 0) + 1,
+    );
+  }
+  const legendItems = WORK_ORDER_STATUS_ORDER.filter(
+    (status) => status !== "CANCELLED",
+  ).map((status) => ({
+    status,
+    label: t(WORK_ORDER_STATUS_LABEL_KEYS[status]),
+    count: statusCounts.get(status) ?? 0,
+  }));
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -81,7 +105,11 @@ export default async function CalendarViewPage({
             <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
               {t(titleKey)}
             </h1>
-            <p className="mt-1 text-sm text-gray-600">{t(subtitleKey)}</p>
+            <p className="mt-1 text-sm text-gray-600">
+              {canReschedule
+                ? t(subtitleKey)
+                : t("calendar.a11y.readOnlySubtitle")}
+            </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -107,11 +135,17 @@ export default async function CalendarViewPage({
           canReports={canReports}
         />
 
+        <WorkOrderStatusLegend
+          title={t("calendar.legend.title")}
+          items={legendItems}
+        />
+
         <FullCalendarClient
           events={events}
           view={view}
           weekNumbers={true}
-          canEdit={canEdit}
+          canEdit={canReschedule}
+          canOpenEditor={canEdit}
         />
       </div>
     </div>

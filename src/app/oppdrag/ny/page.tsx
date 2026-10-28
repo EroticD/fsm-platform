@@ -110,6 +110,7 @@ export default async function AdminCreateWorkOrderPage({
               <select
                 id="office-new-department"
                 name="departmentId"
+                aria-describedby="office-new-department-hint"
                 defaultValue={ownDepartmentId ?? ""}
                 required
                 className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
@@ -127,7 +128,7 @@ export default async function AdminCreateWorkOrderPage({
                 {user.department?.name || departments.find((d) => d.id === ownDepartmentId)?.name || t("orders.new.noDepartment")}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            <p id="office-new-department-hint" className="text-xs text-gray-500 mt-1">
               {t("orders.new.departmentHint")}
             </p>
           </div>
@@ -163,7 +164,7 @@ export default async function AdminCreateWorkOrderPage({
             restoreSelection={Boolean(error)}
           />
 
-          <fieldset className="rounded-xl border-2 border-gray-200 p-4">
+          <fieldset className="rounded-xl border-2 border-gray-200 p-4" aria-describedby="office-new-location-hint">
             <legend className="px-1 text-sm font-bold text-gray-700">{t("orders.new.locationTitle")}</legend>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="sm:col-span-3">
@@ -179,7 +180,7 @@ export default async function AdminCreateWorkOrderPage({
                 <input id="office-new-city" name="city" maxLength={100} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
               </div>
             </div>
-            <p className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
+            <p id="office-new-location-hint" className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
           </fieldset>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -215,10 +216,10 @@ export default async function AdminCreateWorkOrderPage({
             </div>
           </fieldset>
 
-          <fieldset>
+          <fieldset aria-describedby="office-new-templates-hint">
             <legend className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.templates")}</legend>
             <p id="office-new-templates-hint" className="text-xs text-gray-500 mb-2">{t("orders.new.templatesHint")}</p>
-            <div aria-describedby="office-new-templates-hint" className="max-h-64 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-3">
+            <div className="max-h-64 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-3">
               {templates.length === 0 && (
                 <p className="text-sm text-gray-500 p-2">{t("orders.new.noTemplates")}</p>
               )}
@@ -258,10 +259,10 @@ export default async function AdminCreateWorkOrderPage({
             </div>
           </fieldset>
 
-          <fieldset>
+          <fieldset aria-describedby="office-new-tags-hint">
             <legend className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.tags")}</legend>
             <TagSelector allTags={tags} />
-            <p className="text-xs text-gray-500 mt-1">{t("orders.new.tagsHint")}</p>
+            <p id="office-new-tags-hint" className="text-xs text-gray-500 mt-1">{t("orders.new.tagsHint")}</p>
           </fieldset>
 
           <div>

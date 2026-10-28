@@ -58,6 +58,7 @@ export default async function StatisticsTab({
           <input
             type="date"
             name="dateFrom"
+            aria-label={t("settings.statistics.fromDate")}
             placeholder={t("settings.statistics.fromDate")}
             defaultValue={dateFrom}
             className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
@@ -65,12 +66,14 @@ export default async function StatisticsTab({
           <input
             type="date"
             name="dateTo"
+            aria-label={t("settings.statistics.toDate")}
             placeholder={t("settings.statistics.toDate")}
             defaultValue={dateTo}
             className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
           />
           <select
             name="status"
+            aria-label={t("status")}
             defaultValue={statusFilter || ""}
             className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
           >
@@ -84,6 +87,7 @@ export default async function StatisticsTab({
           </select>
           <select
             name="customer"
+            aria-label={t("customer")}
             defaultValue={customerFilter || ""}
             className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
           >
@@ -94,6 +98,7 @@ export default async function StatisticsTab({
           </select>
           <select
             name="technician"
+            aria-label={t("technician")}
             defaultValue={technicianFilter || ""}
             className="border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white"
           >

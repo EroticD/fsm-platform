@@ -344,6 +344,7 @@ export default async function WorkOrdersPage({
             <input
               type="search"
               name="q"
+              aria-label={t("orders.list.search")}
               defaultValue={search}
               placeholder={t("orders.list.searchPlaceholder")}
               className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"

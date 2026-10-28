@@ -36,21 +36,41 @@ const SAVED_MESSAGES: Record<
   feil: { key: "components.search.saved.error", tone: "error" },
 };
 
-function ResultLink({ item, query }: { item: SearchItem; query: string }) {
+function ResultLink({
+  item,
+  query,
+  directLabel,
+}: {
+  item: SearchItem;
+  query: string;
+  directLabel: string;
+}) {
   return (
-    <Link
-      href={item.href}
-      className="block min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
-    >
-      <p className="break-words text-sm font-bold text-gray-900">
-        <HighlightedText text={item.title} query={query} />
-      </p>
-      {item.subtitle && (
-        <p className="mt-1 break-words text-xs text-gray-500">
-          <HighlightedText text={item.subtitle} query={query} />
+    <div className="flex min-w-0 items-stretch gap-2">
+      <Link
+        href={item.href}
+        className="block min-w-0 flex-1 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+      >
+        <p className="break-words text-sm font-bold text-gray-900">
+          <HighlightedText text={item.title} query={query} />
         </p>
+        {item.subtitle && (
+          <p className="mt-1 break-words text-xs text-gray-500">
+            <HighlightedText text={item.subtitle} query={query} />
+          </p>
+        )}
+      </Link>
+      {item.directHref && (
+        <a
+          href={item.directHref}
+          target="_blank"
+          rel="noopener"
+          className="flex shrink-0 items-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-600 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+        >
+          {directLabel}
+        </a>
       )}
-    </Link>
+    </div>
   );
 }
 
@@ -79,6 +99,10 @@ export default async function SearchResultsPage({
 
   const groupLabel = (kind: string) =>
     GROUP_KEYS[kind] ? tl(GROUP_KEYS[kind]) : kind;
+  const directLabelFor = (item: SearchItem) =>
+    item.directLabelKey
+      ? tl(item.directLabelKey)
+      : t("components.search.openFile");
 
   const hasQuery = query.length >= 2;
   const includeCancelled = user.role === "ADMIN" || user.role === "OFFICE";
@@ -101,6 +125,9 @@ export default async function SearchResultsPage({
         page,
         pageSize: SEARCH_PAGE_SIZE,
         filters,
+        // Bevar det filtrerte søket som «tilbake»-mål fra dokument- og
+        // rapportviserne.
+        returnTo: buildSearchHref({ q: query, page, filters }),
       });
     } catch (error) {
       // Skill serverfeil fra «ingen treff», slik at brukeren får prøve igjen.
@@ -467,7 +494,11 @@ export default async function SearchResultsPage({
                               <p className="mb-1 truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">
                                 {hit.icon} {groupLabel(hit.kind)}
                               </p>
-                              <ResultLink item={hit} query={query} />
+                              <ResultLink
+                                item={hit}
+                                query={query}
+                                directLabel={directLabelFor(hit)}
+                              />
                             </div>
                           ))}
                         </div>
@@ -517,6 +548,7 @@ export default async function SearchResultsPage({
                                   key={`${group.kind}-${item.id}`}
                                   item={item}
                                   query={query}
+                                  directLabel={directLabelFor(item)}
                                 />
                               ))}
                             </div>

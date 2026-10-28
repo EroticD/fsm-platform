@@ -1,20 +1,36 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-import { formatDate, parseDateOnly } from "@/lib/dates";
+import type { Prisma } from "@prisma/client";
+import { getLocale, getTranslations } from "next-intl/server";
+import {
+  addDaysUtc,
+  formatDateLocalized,
+  parseDateOnly,
+  toDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
+import { resolveDateRange, scheduledOverlapFilters } from "@/lib/date-range";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { staffWhere, workOrderScope } from "@/lib/access";
+import { staffScope, workOrderScope } from "@/lib/access";
 import prisma from "@/lib/prisma";
 import WorkOrderMap from "@/components/WorkOrderMap";
+import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
+import GoogleMapsLink from "@/components/GoogleMapsLink";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 import { effectiveAddress } from "@/lib/geocode";
 import { getMapSettings } from "@/server/map-settings";
+import {
+  WORK_ORDER_STATUS_LABEL_KEYS,
+  WORK_ORDER_STATUS_ORDER,
+  workOrderStatusColor,
+} from "@/lib/work-order-status-colors";
 
 type MapWorkOrder = {
   id: string;
   title: string;
   scheduledFor: Date | null;
+  scheduledTo: Date | null;
   status: string;
   address: string | null;
   postalCode: string | null;
@@ -27,74 +43,113 @@ type MapWorkOrder = {
     postalCode: string | null;
     city: string | null;
   } | null;
+  technicians: { id: string; name: string | null }[];
 };
+
+const MAP_LIMIT = 500;
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function MapPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    technician?: string;
-    dateFrom?: string;
-    dateTo?: string;
+    technician?: string | string[];
+    dateFrom?: string | string[];
+    dateTo?: string | string[];
   }>;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const mapSettings = await getMapSettings();
   const params = await searchParams;
-  const technicianId = params.technician?.trim() ?? "";
-  const dateFrom = parseDateOnly(params.dateFrom ?? "");
-  const dateTo = parseDateOnly(params.dateTo ?? "");
+  const technicianId = (firstParam(params.technician) ?? "").trim();
+
+  const today = parseDateOnly(todayInOslo());
+  const defaultFrom = today ? toDateOnly(today) : todayInOslo();
+  const defaultTo = today ? toDateOnly(addDaysUtc(today, 7)) : todayInOslo();
+  const range = resolveDateRange({
+    params: {
+      from: firstParam(params.dateFrom),
+      to: firstParam(params.dateTo),
+    },
+    defaultFrom,
+    defaultTo,
+  });
+
   const technicians = await prisma.user.findMany({
-    where: staffWhere(user.role === "ADMIN" ? undefined : user.departmentId),
+    where: staffScope(user),
     orderBy: { name: "asc" },
     take: 200,
     select: { id: true, name: true },
   });
 
-  const workOrders = (await prisma.workOrder.findMany({
-    where: {
-      AND: [
-        workOrderScope(user),
-        { status: { notIn: ["COMPLETED", "CANCELLED"] } },
-        ...(technicianId ? [{ technicians: { some: { id: technicianId } } }] : []),
-        ...(dateFrom ? [{ scheduledFor: { gte: dateFrom } }] : []),
-        ...(dateTo ? [{ scheduledFor: { lte: dateTo } }] : []),
-      ],
-    },
-    select: {
-      id: true,
-      title: true,
-      scheduledFor: true,
-      status: true,
-      address: true,
-      postalCode: true,
-      city: true,
-      latitude: true,
-      longitude: true,
-      customer: {
-        select: { name: true, address: true, postalCode: true, city: true },
+  const filters: Prisma.WorkOrderWhereInput[] = [
+    workOrderScope(user),
+    { status: { not: "COMPLETED" } },
+    { status: { not: "CANCELLED" } },
+  ];
+  if (technicianId) {
+    filters.push({ technicians: { some: { id: technicianId } } });
+  }
+  if (range.invalid) {
+    filters.push({ id: { in: [] } });
+  } else {
+    filters.push(...scheduledOverlapFilters(range.from, range.to));
+  }
+
+  const where: Prisma.WorkOrderWhereInput = { AND: filters };
+
+  const [totalCount, workOrders] = await Promise.all([
+    prisma.workOrder.count({ where }),
+    prisma.workOrder.findMany({
+      where,
+      select: {
+        id: true,
+        title: true,
+        scheduledFor: true,
+        scheduledTo: true,
+        status: true,
+        address: true,
+        postalCode: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+        customer: {
+          select: { name: true, address: true, postalCode: true, city: true },
+        },
+        technicians: { select: { id: true, name: true } },
       },
-    },
-    orderBy: [{ scheduledFor: "asc" }, { createdAt: "desc" }],
-    take: 1000,
-  })) as MapWorkOrder[];
+      orderBy: [{ scheduledFor: "asc" }, { createdAt: "desc" }],
+      take: MAP_LIMIT,
+    }),
+  ]);
 
   const statusLabel = (status: string) => {
-    const keys: Record<string, string> = {
-      OPEN: "orders.detail.statusOpen",
-      PENDING: "orders.detail.statusPending",
-      PLANNED: "orders.detail.statusPlanned",
-      WAITING: "orders.detail.statusWaiting",
-      IN_PROGRESS: "orders.detail.statusInProgress",
-      COMPLETED: "orders.detail.statusCompleted",
-      CANCELLED: "orders.detail.statusCancelled",
-    };
-    return keys[status] ? t(keys[status]) : status;
+    const key = WORK_ORDER_STATUS_LABEL_KEYS[status as keyof typeof WORK_ORDER_STATUS_LABEL_KEYS];
+    return key ? t(key) : status;
   };
+
+  const statusCounts = new Map<string, number>();
+  for (const workOrder of workOrders) {
+    statusCounts.set(
+      workOrder.status,
+      (statusCounts.get(workOrder.status) ?? 0) + 1,
+    );
+  }
+  const legendItems = WORK_ORDER_STATUS_ORDER.filter(
+    (status) => status !== "COMPLETED" && status !== "CANCELLED",
+  ).map((status) => ({
+    status,
+    label: statusLabel(status),
+    count: statusCounts.get(status) ?? 0,
+  }));
 
   const cityIndexes = new Map<string, number>();
   const mapPoints = workOrders.flatMap((workOrder) => {
@@ -122,9 +177,15 @@ export default async function MapPage({
       customerName: workOrder.customer?.name || t("p3.map.noCustomer"),
       address: location.query ?? "",
       date: workOrder.scheduledFor
-        ? formatDate(workOrder.scheduledFor)
+        ? formatDateLocalized(workOrder.scheduledFor, locale)
         : t("p3.map.noDate"),
       status: statusLabel(workOrder.status),
+      color: workOrderStatusColor(workOrder.status),
+      technicians:
+        workOrder.technicians
+          .map((technician) => technician.name)
+          .filter(Boolean)
+          .join(", ") || t("p3.map.noTechnician"),
       lat: point.lat,
       lng: point.lng,
     }];
@@ -181,7 +242,7 @@ export default async function MapPage({
           <input
             type="date"
             name="dateFrom"
-            defaultValue={params.dateFrom ?? ""}
+            defaultValue={range.fromText}
             className="min-h-11 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
           />
         </label>
@@ -190,7 +251,7 @@ export default async function MapPage({
           <input
             type="date"
             name="dateTo"
-            defaultValue={params.dateTo ?? ""}
+            defaultValue={range.toText}
             className="min-h-11 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
           />
         </label>
@@ -208,9 +269,39 @@ export default async function MapPage({
         </Link>
       </form>
 
+      {range.invalid && (
+        <div
+          role="alert"
+          className="rounded-xl border-2 border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800"
+        >
+          {range.invalidOrder
+            ? t("p3.map.filters.dateRangeError")
+            : t("p3.map.filters.dateError")}
+        </div>
+      )}
+
+      <p className="text-sm font-medium text-gray-700">
+        {t("p3.map.resultRange", {
+          count: workOrders.length,
+          total: totalCount,
+        })}
+      </p>
+      {totalCount > workOrders.length && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {t("p3.map.truncated", { limit: MAP_LIMIT })}
+        </p>
+      )}
+
+      <WorkOrderStatusLegend
+        title={t("p3.map.legendTitle")}
+        items={legendItems}
+      />
+
       <section className="space-y-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
         <WorkOrderMap
           points={mapPoints}
+          listId="map-order-list"
+          listHint={t("p3.map.regionHint")}
           ariaLabel={t("p3.map.mapAria")}
           noPointsLabel={t("p3.map.noMapPoints")}
           openLabel={t("p3.map.openWorkOrder")}
@@ -222,60 +313,89 @@ export default async function MapPage({
           }}
           settings={mapSettings}
         />
+        <p className="px-1 text-xs text-gray-600">{t("p3.map.mapHint")}</p>
       </section>
 
-      {groups.size === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-          <p className="text-sm text-gray-600">{t("p3.map.empty")}</p>
-        </div>
-      ) : (
-        Array.from(groups.entries()).map(([city, items]) => (
-          <section key={city} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-3 border-b border-gray-100 pb-2 text-lg font-bold text-gray-900">
-              📍 {city} ({items.length})
-            </h2>
-            <ul className="divide-y divide-gray-100">
-              {items.map((workOrder) => {
-                const customer = workOrder.customer;
-                const location = effectiveAddress({
-                  address: workOrder.address,
-                  postalCode: workOrder.postalCode,
-                  city: workOrder.city,
-                  customer,
-                });
-                const address = location.query ?? "";
-                const mapsUrl = address
-                  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-                  : null;
-                return (
-                  <li key={workOrder.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <div>
-                      <Link href={`/oppdrag/${workOrder.id}`} className="font-bold text-gray-900 hover:underline">
-                        {workOrder.title}
-                      </Link>
-                      <p className="text-xs text-gray-500">
-                        {customer?.name || t("p3.map.noCustomer")}
-                        {workOrder.scheduledFor ? ` · ${formatDate(workOrder.scheduledFor)}` : ""}
-                      </p>
-                      {address && <p className="text-xs text-gray-500">{address}</p>}
-                    </div>
-                    {mapsUrl && (
-                      <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
-                      >
-                        {t("p3.map.openMaps")}
-                      </a>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))
-      )}
+      <div id="map-order-list" className="space-y-5">
+        {groups.size === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+            <p className="text-sm text-gray-600">{t("p3.map.empty")}</p>
+          </div>
+        ) : (
+          Array.from(groups.entries()).map(([city, items]) => (
+            <section
+              key={city}
+              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+            >
+              <h2 className="mb-3 border-b border-gray-100 pb-2 text-lg font-bold text-gray-900">
+                📍 {city} ({items.length})
+              </h2>
+              <ul className="divide-y divide-gray-100">
+                {items.map((workOrder) => {
+                  const customer = workOrder.customer;
+                  const location = effectiveAddress({
+                    address: workOrder.address,
+                    postalCode: workOrder.postalCode,
+                    city: workOrder.city,
+                    customer,
+                  });
+                  const address = location.query ?? "";
+                  return (
+                    <li
+                      key={workOrder.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3"
+                    >
+                      <div>
+                        <Link
+                          href={`/oppdrag/${workOrder.id}`}
+                          className="font-bold text-gray-900 hover:underline"
+                        >
+                          {workOrder.title}
+                        </Link>
+                        <p className="text-xs text-gray-500">
+                          {customer?.name || t("p3.map.noCustomer")}
+                          {workOrder.scheduledFor
+                            ? ` · ${formatDateLocalized(workOrder.scheduledFor, locale)}`
+                            : ""}
+                          <span className="ml-2 inline-flex items-center gap-1">
+                            <span
+                              aria-hidden="true"
+                              className="h-2 w-2 rounded-full"
+                              style={{
+                                backgroundColor: workOrderStatusColor(
+                                  workOrder.status,
+                                ),
+                              }}
+                            />
+                            {statusLabel(workOrder.status)}
+                          </span>
+                        </p>
+                        {workOrder.technicians.length > 0 && (
+                          <p className="text-xs text-gray-500">
+                            👷{" "}
+                            {workOrder.technicians
+                              .map((technician) => technician.name)
+                              .filter(Boolean)
+                              .join(", ")}
+                          </p>
+                        )}
+                        {address && (
+                          <p className="text-xs text-gray-500">{address}</p>
+                        )}
+                      </div>
+                      <GoogleMapsLink
+                        address={address}
+                        label={t("p3.map.openMaps")}
+                        newTabLabel={t("p3.map.opensInNewTab")}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))
+        )}
+      </div>
     </div>
   );
 }

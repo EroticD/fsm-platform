@@ -1,1 +1,22 @@
-{}
+{
+  "errors": {
+    "title": "Something went wrong",
+    "description": "We could not show this page. Try again in a moment. If the problem continues, contact support and quote the error ID.",
+    "reference": "Error ID",
+    "referenceMissing": "The error ID is not available.",
+    "copyId": "Copy error ID",
+    "copied": "Error ID copied",
+    "copyFailed": "Could not copy the error ID. Copy it manually.",
+    "retry": "Try again",
+    "back": "Back",
+    "support": "Contact support",
+    "global": {
+      "title": "Something went wrong",
+      "description": "We could not load the app. Try again in a moment. If the problem continues, contact support and quote the error ID."
+    }
+  },
+  "notFound": {
+    "dashboard": "Go to dashboard",
+    "search": "Search"
+  }
+}

@@ -1,1 +1,22 @@
-{}
+{
+  "errors": {
+    "title": "Noe gikk galt",
+    "description": "Vi fikk ikke vist denne siden. Prøv igjen om et øyeblikk. Hvis problemet fortsetter, kan du kontakte support og oppgi feil-ID-en.",
+    "reference": "Feil-ID",
+    "referenceMissing": "Feil-ID er ikke tilgjengelig.",
+    "copyId": "Kopier feil-ID",
+    "copied": "Feil-ID kopiert",
+    "copyFailed": "Kunne ikke kopiere feil-ID. Kopier den manuelt.",
+    "retry": "Prøv igjen",
+    "back": "Tilbake",
+    "support": "Kontakt support",
+    "global": {
+      "title": "Noe gikk galt",
+      "description": "Vi fikk ikke lastet appen. Prøv igjen om et øyeblikk. Hvis problemet fortsetter, kan du kontakte support og oppgi feil-ID-en."
+    }
+  },
+  "notFound": {
+    "dashboard": "Til dashbord",
+    "search": "Søk"
+  }
+}

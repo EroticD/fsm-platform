@@ -67,7 +67,8 @@ export default function ContactCard({
             <input type="hidden" name="id" value={contact.id} />
             <button
               type="submit"
-              className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
+              aria-label={`${t("components.contact.deleteTitle")}: ${contact.name}`}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
               title={t("components.contact.deleteTitle")}
             >
               🗑️

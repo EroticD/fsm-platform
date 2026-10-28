@@ -155,30 +155,52 @@ export async function listNotifications(
 ): Promise<ServiceResult<unknown>> {
   if (!actor.isActive) return fail("forbidden");
 
-  const page = Math.max(1, options.page ?? 1);
+  const requestedPage = Math.max(1, options.page ?? 1);
   const where: Prisma.NotificationWhereInput = {
     userId: actor.id,
     ...(options.unreadOnly ? { readAt: null } : {}),
   };
 
-  const [items, total, unread] = await Promise.all([
-    prisma.notification.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
+  const [total, unread] = await Promise.all([
     prisma.notification.count({ where }),
     prisma.notification.count({ where: { userId: actor.id, readAt: null } }),
   ]);
 
-  return ok({
-    items,
-    total,
-    unread,
-    page,
-    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  // En side utenfor det som finnes skal vise siste side, ikke en tom liste.
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const items = await prisma.notification.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
+
+  return ok({ items, total, unread, page, totalPages });
+}
+
+/**
+ * De nyeste varslene til bjelle-popoveren. Samme eierskapsfilter som
+ * `listNotifications`: bare aktørens egne rader.
+ */
+export async function listRecentNotifications(
+  actor: ServiceActor,
+  limit = 5,
+): Promise<ServiceResult<{ items: unknown[]; unread: number }>> {
+  if (!actor.isActive) return fail("forbidden");
+
+  const take = Math.min(10, Math.max(1, Math.floor(limit)));
+  const [items, unread] = await Promise.all([
+    prisma.notification.findMany({
+      where: { userId: actor.id },
+      orderBy: { createdAt: "desc" },
+      take,
+    }),
+    prisma.notification.count({ where: { userId: actor.id, readAt: null } }),
+  ]);
+
+  return ok({ items, unread });
 }
 
 export async function countUnreadNotifications(

@@ -3,8 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { getPortalReportHistory } from "@/server/portal";
-import { acknowledgeReportAction } from "@/app/kundeportal/report-actions";
 import { reportDisplayName } from "@/lib/report-display";
+import AcknowledgeReportForm from "./AcknowledgeReportForm";
 
 type ReportView = {
   id: string;
@@ -75,10 +75,17 @@ export default async function ReportHistory({
         <h2 className="text-lg font-bold text-gray-900">
           {t("p3.portalReports.title")}
         </h2>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-600">
           {t("p3.portalReports.count", { count: data.total })}
         </span>
       </div>
+
+      <p
+        id="kvittering-hjelp"
+        className="mb-4 rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-900"
+      >
+        {t("p3.portalReports.acknowledgeExplain")}
+      </p>
 
       {data.items.length === 0 ? (
         <p className="text-sm italic text-gray-500">
@@ -178,37 +185,10 @@ export default async function ReportHistory({
                           )}
                         </div>
                       ) : (
-                        <form
-                          action={acknowledgeReportAction}
-                          className="flex flex-col gap-2 sm:flex-row"
-                        >
-                          <input
-                            type="hidden"
-                            name="workOrderId"
-                            value={workOrder.id}
-                          />
-                          <input
-                            type="hidden"
-                            name="reportId"
-                            value={report.id}
-                          />
-                          <input
-                            name="comment"
-                            aria-label={t(
-                              "p3.portalReports.commentPlaceholder",
-                            )}
-                            placeholder={t(
-                              "p3.portalReports.commentPlaceholder",
-                            )}
-                            className="min-h-11 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900"
-                          />
-                          <button
-                            type="submit"
-                            className="min-h-11 rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
-                          >
-                            {t("p3.portalReports.acknowledge")}
-                          </button>
-                        </form>
+                        <AcknowledgeReportForm
+                          workOrderId={workOrder.id}
+                          reportId={report.id}
+                        />
                       )}
                     </li>
                   ))}

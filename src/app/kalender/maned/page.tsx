@@ -1,12 +1,6 @@
-import CalendarViewPage from "@/app/kalender/CalendarViewPage";
+import { redirect } from "next/navigation";
 
+/** Gammel rute. Beholdes slik at bokmerker og eksterne lenker virker. */
 export default function MonthCalendarPage() {
-  return (
-    <CalendarViewPage
-      view="dayGridMonth"
-      active="month"
-      titleKey="calendar.month.title"
-      subtitleKey="calendar.month.subtitle"
-    />
-  );
+  redirect("/kalender?vis=maned");
 }

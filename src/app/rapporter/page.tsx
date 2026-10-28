@@ -5,8 +5,7 @@ import prisma from "@/lib/prisma";
 import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { canAccessWorkOrder } from "@/lib/access";
-import { reportWhereFor } from "@/lib/report-filters";
+import { canAccessWorkOrder, staffWhere } from "@/lib/access";
 import {
   reportDisplayName,
   reportUnitSummary,
@@ -18,34 +17,47 @@ import {
   HMS_TYPE_MESSAGE_KEYS,
   isHmsReport,
 } from "@/lib/template-categories";
+import {
+  parseReportListParams,
+  reportListHref,
+  reportListOrderBy,
+  reportListWhere,
+  REPORTS_PAGE_SIZE,
+  type ReportListFilters,
+  type ReportRangeKey,
+  type ReportSortKey,
+} from "./search-params";
 
-/** Rapporter per side. Listen kan bla gjennom hele historikken. */
-const PAGE_SIZE = 50;
+/** Rapporter per side. */
+const PAGE_SIZE = REPORTS_PAGE_SIZE;
 
-// ---------------------------------------------------------------------------
-// Hjelpere
-// ---------------------------------------------------------------------------
+/** Et begrenset antall filtervalg – lister skal aldri hente hele tabellen. */
+const FILTER_OPTION_LIMIT = 300;
 
-/**
- * Tidsrom for rapportlisten. «denne-maneden» er standard, slik at listen viser
- * nøyaktig det samme som «Rapporter i mnd.» på dashbordet.
- */
 const RANGES = [
   { key: "denne-maneden", labelKey: "orders.reportsPage.thisMonth", icon: "📆" },
   { key: "forrige-maned", labelKey: "orders.reportsPage.lastMonth", icon: "🗓️" },
   { key: "alle", labelKey: "orders.reportsPage.all", icon: "📂" },
-] as const;
+] as const satisfies ReadonlyArray<{
+  key: ReportRangeKey;
+  labelKey: string;
+  icon: string;
+}>;
 
-type RangeKey = (typeof RANGES)[number]["key"];
-
-function isRangeKey(value: string): value is RangeKey {
-  return RANGES.some((r) => r.key === value);
-}
+const SORTS = [
+  { key: "dato-desc", labelKey: "orders.reportsPage.sortNewest" },
+  { key: "dato-asc", labelKey: "orders.reportsPage.sortOldest" },
+  { key: "kunde", labelKey: "orders.reportsPage.sortCustomer" },
+  { key: "montor", labelKey: "orders.reportsPage.sortTechnician" },
+] as const satisfies ReadonlyArray<{
+  key: ReportSortKey;
+  labelKey: string;
+}>;
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vis?: string; side?: string; type?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const t = await getTranslations("common");
   const user = await getCurrentUser();
@@ -56,24 +68,24 @@ export default async function ReportsPage({
   if (user.role === "CUSTOMER") redirect("/kundeportal");
   if (!hasPermission(user, "reports.view")) redirect("/");
 
-  const { vis, side, type } = await searchParams;
-  const range: RangeKey = vis && isRangeKey(vis) ? vis : "denne-maneden";
-  // Bare den ene, eksplisitte kategorien støttes. Ukjente verdier ignoreres,
-  // slik at en gammel lenke fortsatt viser alle rapporter.
-  const category = type === "HMS" ? ("HMS" as const) : undefined;
+  const rawParams = await searchParams;
+  const filters = parseReportListParams(rawParams);
   const excludeCancelled = user.role === "TECHNICIAN";
-  const where = reportWhereFor(range, excludeCancelled, category);
+  const where = reportListWhere(filters, excludeCancelled);
 
   // Rapporter er delbare på tvers av avdelinger for ansatte med reports.view.
   // Oppdragslistene er fortsatt avdelingsavgrensede, og oppdragslenken under
   // vises bare når brukeren faktisk har tilgang til oppdraget.
   const total = await prisma.report.count({ where });
-  const window = pageWindow(parsePage(side, undefined), total, PAGE_SIZE);
+  const pageParam = Array.isArray(rawParams.side)
+    ? rawParams.side[0]
+    : rawParams.side;
+  const window = pageWindow(parsePage(pageParam), total, PAGE_SIZE);
 
   const [reports, thisMonth, lastMonth, allReports] = await Promise.all([
     prisma.report.findMany({
       where,
-      orderBy: { completedAt: "desc" },
+      orderBy: reportListOrderBy(filters.sort),
       skip: window.skip,
       take: window.take,
       include: {
@@ -86,6 +98,7 @@ export default async function ReportsPage({
             status: true,
             departmentId: true,
             customerId: true,
+            department: { select: { isActive: true } },
             customer: { select: { name: true } },
           },
         },
@@ -93,61 +106,109 @@ export default async function ReportsPage({
       },
     }),
     prisma.report.count({
-      where: reportWhereFor("denne-maneden", excludeCancelled, category),
+      where: reportListWhere(
+        { ...filters, range: "denne-maneden" },
+        excludeCancelled,
+      ),
     }),
     prisma.report.count({
-      where: reportWhereFor("forrige-maned", excludeCancelled, category),
+      where: reportListWhere(
+        { ...filters, range: "forrige-maned" },
+        excludeCancelled,
+      ),
     }),
     prisma.report.count({
-      where: reportWhereFor("alle", excludeCancelled, category),
+      where: reportListWhere({ ...filters, range: "alle" }, excludeCancelled),
     }),
   ]);
 
-  const rangeLabel = (key: RangeKey) =>
+  const showCustomers = hasPermission(user, "customers.view");
+  const showTechnicians = hasPermission(user, "workorders.view");
+  const canWriteReports = hasPermission(user, "reports.write");
+
+  // Filtervalgene er begrenset og bare en bekvemmelighet; selve filteret
+  // valideres på nytt mot id-formatet i `parseReportListParams`.
+  let customers: Array<{ id: string; name: string }> = [];
+  let technicians: Array<{
+    id: string;
+    name: string | null;
+    email: string | null;
+  }> = [];
+  try {
+    [customers, technicians] = await Promise.all([
+      showCustomers
+        ? prisma.customer.findMany({
+            where: { deletedAt: null },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+            take: FILTER_OPTION_LIMIT,
+          })
+        : Promise.resolve([]),
+      showTechnicians
+        ? prisma.user.findMany({
+            where: staffWhere(),
+            select: { id: true, name: true, email: true },
+            orderBy: { name: "asc" },
+            take: FILTER_OPTION_LIMIT,
+          })
+        : Promise.resolve([]),
+    ]);
+  } catch (error) {
+    console.error("Kunne ikke hente filtervalg for rapportlisten", error);
+  }
+
+  const technicianOptions = technicians
+    .map((technician) => ({
+      id: technician.id,
+      name: technician.name || technician.email || "",
+    }))
+    .filter((technician) => technician.name.length > 0);
+
+  const listHref = (
+    overrides: Partial<ReportListFilters> = {},
+    page?: number,
+  ) => reportListHref({ filters, overrides, page });
+
+  const rangeLabel = (key: ReportRangeKey) =>
     key === "denne-maneden"
       ? t("orders.reportsPage.thisMonth")
       : key === "forrige-maned"
         ? t("orders.reportsPage.lastMonth")
         : t("orders.reportsPage.allHistory");
 
-  const rangeCounts: Record<RangeKey, number> = {
+  const rangeCounts: Record<ReportRangeKey, number> = {
     "denne-maneden": thisMonth,
     "forrige-maned": lastMonth,
     alle: allReports,
   };
 
-  const pageHref = (page: number) => {
-    const params = new URLSearchParams();
-    if (range !== "denne-maneden") params.set("vis", range);
-    if (category) params.set("type", category);
-    if (page > 1) params.set("side", String(page));
-    const query = params.toString();
-    return `/rapporter${query ? `?${query}` : ""}`;
-  };
-
-  // Tidsromslenkene beholder et eventuelt kategorifilter.
-  const rangeHref = (key: RangeKey) => {
-    const params = new URLSearchParams();
-    if (key !== "denne-maneden") params.set("vis", key);
-    if (category) params.set("type", category);
-    const query = params.toString();
-    return `/rapporter${query ? `?${query}` : ""}`;
-  };
-
-  const categoryHref = (next?: "HMS") => {
-    const params = new URLSearchParams();
-    if (range !== "denne-maneden") params.set("vis", range);
-    if (next) params.set("type", next);
-    const query = params.toString();
-    return `/rapporter${query ? `?${query}` : ""}`;
-  };
+  const hasActiveFilters = Boolean(
+    filters.customer ||
+      filters.technician ||
+      filters.deviationOnly ||
+      filters.q ||
+      filters.category,
+  );
+  const resetHref = listHref({
+    customer: undefined,
+    technician: undefined,
+    deviationOnly: false,
+    q: "",
+    sort: "dato-desc",
+    category: undefined,
+  });
+  const currentPageHref = listHref({}, window.page);
+  const reportHref = (workOrderId: string, reportId: string) =>
+    `/rapporter/${workOrderId}?rapport=${encodeURIComponent(reportId)}&returnTo=${encodeURIComponent(currentPageHref)}`;
+  const revisionsHref = (workOrderId: string, reportId: string) =>
+    `/rapporter/${workOrderId}/revisjoner?rapport=${encodeURIComponent(reportId)}&returnTo=${encodeURIComponent(currentPageHref)}`;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-5">
         <PageHeader
           title={t("orders.reportsPage.title")}
-          subtitle={`${t("orders.reportsPage.subtitle")} • ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(range)})`}
+          subtitle={`${t("orders.reportsPage.subtitle")} • ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(filters.range)})`}
           icon="📋"
           actions={
             <>
@@ -170,26 +231,27 @@ export default async function ReportsPage({
         {/* TIDSROM */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200">
           <div className="flex gap-2 flex-wrap">
-            {RANGES.map((r) => {
-              const active = r.key === range;
+            {RANGES.map((range) => {
+              const active = range.key === filters.range;
               return (
                 <Link
-                  key={r.key}
-                  href={rangeHref(r.key)}
+                  key={range.key}
+                  href={listHref({ range: range.key })}
+                  aria-current={active ? "page" : undefined}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
                     active
                       ? "bg-blue-700 border-blue-700 text-white shadow-sm"
                       : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
                   }`}
                 >
-                  <span className="leading-none">{r.icon}</span>
-                  <span>{t(r.labelKey)}</span>
+                  <span className="leading-none">{range.icon}</span>
+                  <span>{t(range.labelKey)}</span>
                   <span
                     className={`text-xs px-1.5 py-0.5 rounded-full ${
                       active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
                     }`}
                   >
-                    {rangeCounts[r.key]}
+                    {rangeCounts[range.key]}
                   </span>
                 </Link>
               );
@@ -201,9 +263,9 @@ export default async function ReportsPage({
               {t("orders.reportsPage.filterLabel")}
             </span>
             <Link
-              href={categoryHref()}
+              href={listHref({ category: undefined })}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                !category
+                !filters.category
                   ? "bg-blue-700 border-blue-700 text-white"
                   : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
               }`}
@@ -211,9 +273,9 @@ export default async function ReportsPage({
               {t("orders.reportsPage.filterAll")}
             </Link>
             <Link
-              href={categoryHref("HMS")}
+              href={listHref({ category: "HMS" })}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                category === "HMS"
+                filters.category === "HMS"
                   ? "bg-blue-700 border-blue-700 text-white"
                   : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
               }`}
@@ -221,14 +283,172 @@ export default async function ReportsPage({
               🛡️ {t("orders.templateGroups.hms")}
             </Link>
           </div>
+
+          {/* FILTRE OG SORTERING */}
+          <form
+            action="/rapporter"
+            method="get"
+            className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {filters.range !== "denne-maneden" && (
+              <input type="hidden" name="vis" value={filters.range} />
+            )}
+            {filters.category && (
+              <input type="hidden" name="type" value={filters.category} />
+            )}
+
+            <div className="sm:col-span-2 lg:col-span-4">
+              <label
+                htmlFor="report-filter-q"
+                className="text-xs font-bold uppercase tracking-wide text-gray-500"
+              >
+                {t("orders.reportsPage.freeText")}
+              </label>
+              <input
+                id="report-filter-q"
+                type="search"
+                name="q"
+                defaultValue={filters.q}
+                maxLength={100}
+                placeholder={t("orders.reportsPage.freeTextPlaceholder")}
+                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              />
+            </div>
+
+            {showCustomers && (
+              <div>
+                <label
+                  htmlFor="report-filter-customer"
+                  className="text-xs font-bold uppercase tracking-wide text-gray-500"
+                >
+                  {t("orders.reportsPage.customer")}
+                </label>
+                <select
+                  id="report-filter-customer"
+                  name="kunde"
+                  defaultValue={filters.customer ?? ""}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                >
+                  <option value="">{t("orders.reportsPage.allCustomers")}</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {showTechnicians && technicianOptions.length > 0 && (
+              <div>
+                <label
+                  htmlFor="report-filter-technician"
+                  className="text-xs font-bold uppercase tracking-wide text-gray-500"
+                >
+                  {t("orders.reportsPage.technician")}
+                </label>
+                <select
+                  id="report-filter-technician"
+                  name="montor"
+                  defaultValue={filters.technician ?? ""}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                >
+                  <option value="">{t("orders.reportsPage.allTechnicians")}</option>
+                  {technicianOptions.map((technician) => (
+                    <option key={technician.id} value={technician.id}>
+                      {technician.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label
+                htmlFor="report-filter-sort"
+                className="text-xs font-bold uppercase tracking-wide text-gray-500"
+              >
+                {t("orders.reportsPage.sort")}
+              </label>
+              <select
+                id="report-filter-sort"
+                name="sorter"
+                defaultValue={filters.sort}
+                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+              >
+                {SORTS.map((sort) => (
+                  <option key={sort.key} value={sort.key}>
+                    {t(sort.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col justify-end">
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-1 text-sm font-bold text-gray-700">
+                <input
+                  type="checkbox"
+                  name="avvik"
+                  value="1"
+                  defaultChecked={filters.deviationOnly}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                />
+                <span>❌ {t("orders.reportsPage.deviationOnly")}</span>
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+              <button
+                type="submit"
+                className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+              >
+                {t("orders.reportsPage.applyFilters")}
+              </button>
+              {hasActiveFilters && (
+                <Link
+                  href={resetHref}
+                  className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+                >
+                  {t("orders.reportsPage.resetFilters")}
+                </Link>
+              )}
+            </div>
+          </form>
         </div>
 
         {/* LISTE */}
         {reports.length === 0 ? (
           <EmptyState
             icon="📋"
-            title={t("orders.reportsPage.emptyTitle", { range: rangeLabel(range) })}
-            description={t("orders.reportsPage.emptyDescription")}
+            title={
+              hasActiveFilters
+                ? t("orders.reportsPage.emptyFilteredTitle")
+                : t("orders.reportsPage.emptyTitle", {
+                    range: rangeLabel(filters.range),
+                  })
+            }
+            description={
+              hasActiveFilters
+                ? t("orders.reportsPage.emptyFilteredDescription")
+                : t("orders.reportsPage.emptyDescription")
+            }
+            action={
+              hasActiveFilters ? (
+                <Link
+                  href={resetHref}
+                  className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                >
+                  {t("orders.reportsPage.resetFilters")}
+                </Link>
+              ) : filters.range !== "alle" ? (
+                <Link
+                  href={listHref({ range: "alle" })}
+                  className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                >
+                  {t("orders.reportsPage.all")}
+                </Link>
+              ) : undefined
+            }
           />
         ) : (
           <div className="space-y-2">
@@ -237,10 +457,27 @@ export default async function ReportsPage({
               const unitCount = summary.unitCount;
               const deviations = summary.deviationCount;
               const hms = isHmsReport(report);
+              const workOrder = report.workOrder;
               const canOpenWorkOrder =
-                Boolean(report.workOrder) &&
-                canAccessWorkOrder(user, report.workOrder!) &&
-                (user.role !== "TECHNICIAN" || report.workOrder!.status !== "CANCELLED");
+                Boolean(workOrder) &&
+                canAccessWorkOrder(user, {
+                  departmentId: workOrder!.departmentId,
+                  customerId: workOrder!.customerId,
+                  departmentIsActive: workOrder!.department?.isActive,
+                }) &&
+                (user.role !== "TECHNICIAN" || workOrder!.status !== "CANCELLED");
+              // Skjemaet kan bare åpnes av brukere som faktisk har skrivetilgang
+              // til oppdraget. Rapporten må fortsatt være ulåst.
+              const canOpenForm =
+                canWriteReports &&
+                canOpenWorkOrder &&
+                !report.isLocked &&
+                Boolean(report.templateId);
+              const formReturnTo =
+                user.role === "ADMIN" || user.role === "OFFICE"
+                  ? `/oppdrag/${report.workOrderId}`
+                  : `/mine-oppdrag/${report.workOrderId}`;
+
               return (
                 <div
                   key={report.id}
@@ -259,12 +496,12 @@ export default async function ReportsPage({
                       <p className="text-xs text-gray-500 mt-1">
                         📅 {formatDate(report.completedAt, t("orders.reportsPage.noDate"))}
                         {" • 🏢 "}
-                        {report.workOrder?.customer?.name ||
+                        {workOrder?.customer?.name ||
                           t("orders.reportsPage.internalOrder")}
                         {" • 📂 "}
-                        {report.workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
-                        {report.workOrder?.orderNumber
-                          ? ` • #${report.workOrder.orderNumber}`
+                        {workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
+                        {workOrder?.orderNumber
+                          ? ` • #${workOrder.orderNumber}`
                           : ""}
                         {hms && report.hmsType
                           ? ` • ${t(HMS_TYPE_MESSAGE_KEYS[report.hmsType])}`
@@ -311,17 +548,25 @@ export default async function ReportsPage({
                       ✍️ {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
                     </span>
                     <Link
-                      href={`/rapporter/${report.workOrderId}`}
+                      href={reportHref(report.workOrderId, report.id)}
                       className="font-bold text-blue-700 hover:underline"
                     >
                       📄 {t("orders.reportsPage.viewPdf")}
                     </Link>
                     <Link
-                      href={`/rapporter/${report.workOrderId}/revisjoner?rapport=${report.id}`}
+                      href={revisionsHref(report.workOrderId, report.id)}
                       className="font-bold text-gray-600 hover:underline"
                     >
                       🕘 {t("orders.reportsPage.revisions", { count: report.revision })}
                     </Link>
+                    {canOpenForm && (
+                      <Link
+                        href={`/mine-oppdrag/${report.workOrderId}/skjema/${report.templateId}?returnTo=${encodeURIComponent(formReturnTo)}`}
+                        className="font-bold text-amber-800 hover:underline"
+                      >
+                        ✍️ {t("orders.reportsPage.openForm")}
+                      </Link>
+                    )}
                     {canOpenWorkOrder && (
                       <Link
                         href={`/oppdrag/${report.workOrderId}`}
@@ -340,7 +585,10 @@ export default async function ReportsPage({
         {total > 0 && (
           <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-bold">
             {window.page > 1 && (
-              <Link href={pageHref(window.page - 1)} className="text-blue-700 hover:underline">
+              <Link
+                href={listHref({}, window.page - 1)}
+                className="text-blue-700 hover:underline"
+              >
                 ← {t("orders.reportsPage.previousPage")}
               </Link>
             )}
@@ -352,7 +600,10 @@ export default async function ReportsPage({
               })}
             </span>
             {window.page < window.totalPages && (
-              <Link href={pageHref(window.page + 1)} className="text-blue-700 hover:underline">
+              <Link
+                href={listHref({}, window.page + 1)}
+                className="text-blue-700 hover:underline"
+              >
                 {t("orders.reportsPage.nextPage")} →
               </Link>
             )}

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
+import {
+  addDaysUtc,
+  parseDateOnly,
+  toDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -9,6 +15,10 @@ const mocks = vi.hoisted(() => ({
       create: vi.fn(),
     },
     customer: { findFirst: vi.fn() },
+    product: { findFirst: vi.fn() },
+    user: { findFirst: vi.fn() },
+    bookingRequest: { create: vi.fn() },
+    bookingRequestEvent: { create: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -48,9 +58,18 @@ const customer = (overrides: Partial<ServiceActor> = {}): ServiceActor => ({
   ...overrides,
 });
 
+const requestedDate = toDateOnly(
+  addDaysUtc(parseDateOnly(todayInOslo())!, 7),
+);
+
 const booking = {
   title: "Årlig service",
   description: "Trenger service på anlegget.",
+  requestedDate,
+  requestedFrom: "08:00",
+  requestedTo: "12:00",
+  contactName: "Kari Kunde",
+  contactPhone: "12345678",
 };
 
 beforeEach(() => {
@@ -63,7 +82,17 @@ beforeEach(() => {
   mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
   mocks.prisma.workOrder.count.mockResolvedValue(0);
   mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-1" });
-  mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+  mocks.prisma.customer.findFirst.mockResolvedValue({
+    id: "cust-1",
+    departmentId: null,
+  });
+  mocks.prisma.product.findFirst.mockResolvedValue(null);
+  mocks.prisma.user.findFirst.mockResolvedValue({ name: "Tekniker" });
+  mocks.prisma.bookingRequest.create.mockResolvedValue({
+    id: "br-1",
+    reference: "B-TEST-1",
+  });
+  mocks.prisma.bookingRequestEvent.create.mockResolvedValue({ id: "ev-1" });
   mocks.audit.mockResolvedValue(undefined);
   mocks.getDefaultDepartmentId.mockResolvedValue("dep-1");
   mocks.notifyWorkOrderEvent.mockResolvedValue(1);
@@ -96,7 +125,7 @@ describe("createBooking", () => {
 
     expect(mocks.prisma.customer.findFirst).toHaveBeenCalledWith({
       where: { id: "cust-1", deletedAt: null },
-      select: { id: true },
+      select: { id: true, departmentId: true },
     });
     expect(mocks.allowRequestDb).not.toHaveBeenCalled();
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
@@ -125,7 +154,10 @@ describe("createBooking", () => {
           title: `Bestilling ${attempt}`,
           ip: "10.0.0.1",
         }),
-      ).resolves.toEqual({ ok: true, data: { id: `wo-${attempt}` } });
+      ).resolves.toEqual({
+        ok: true,
+        data: { id: `wo-${attempt}`, reference: "B-TEST-1" },
+      });
     }
 
     const sixth = await createBooking(customer(), {
@@ -178,13 +210,16 @@ describe("createBooking", () => {
   });
 
   it("returnerer eksisterende sak for lik bestilling og varsler ikke på nytt", async () => {
-    mocks.prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-existing" });
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-existing",
+      bookingRequest: { reference: "B-EXISTING" },
+    });
 
     const result = await createBooking(customer(), booking);
 
     expect(result).toEqual({
       ok: true,
-      data: { id: "wo-existing", duplicate: true },
+      data: { id: "wo-existing", reference: "B-EXISTING", duplicate: true },
     });
     expect(mocks.prisma.workOrder.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -206,7 +241,10 @@ describe("createBooking", () => {
       ip: "10.0.0.2",
     });
 
-    expect(result).toEqual({ ok: true, data: { id: "wo-1" } });
+    expect(result).toEqual({
+      ok: true,
+      data: { id: "wo-1", reference: "B-TEST-1" },
+    });
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({

@@ -61,10 +61,11 @@ export default async function RolesAdmin({
           </h2>
           <form action={createRole} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
+              <label htmlFor="role-new-label" className="block text-sm font-bold text-gray-700 mb-1">
                 {t("settings.roles.name")}
               </label>
               <input
+                id="role-new-label"
                 type="text"
                 name="label"
                 required
@@ -73,11 +74,12 @@ export default async function RolesAdmin({
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
+              <label htmlFor="role-new-description" className="block text-sm font-bold text-gray-700 mb-1">
                 {t("settings.roles.descriptionLabel")}{" "}
                 <span className="font-normal text-gray-600">{t("settings.roles.optional")}</span>
               </label>
               <input
+                id="role-new-description"
                 type="text"
                 name="description"
                 placeholder={t("settings.roles.descriptionPlaceholder")}
@@ -214,10 +216,11 @@ export default async function RolesAdmin({
                   <input type="hidden" name="key" value={role.key} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                      <label htmlFor={`role-${role.key}-label`} className="block text-xs font-bold text-gray-700 mb-1">
                         {t("settings.roles.displayName")}
                       </label>
                       <input
+                        id={`role-${role.key}-label`}
                         type="text"
                         name="label"
                         required
@@ -226,10 +229,11 @@ export default async function RolesAdmin({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                      <label htmlFor={`role-${role.key}-description`} className="block text-xs font-bold text-gray-700 mb-1">
                         {t("settings.roles.descriptionLabel")}
                       </label>
                       <input
+                        id={`role-${role.key}-description`}
                         type="text"
                         name="description"
                         defaultValue={role.description ?? ""}

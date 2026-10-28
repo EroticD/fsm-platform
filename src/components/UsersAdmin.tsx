@@ -425,6 +425,7 @@ export default async function UsersAdmin({
                           <input
                             type="tel"
                             name="phone"
+                            aria-label={`${t("users.add.phone")}: ${u.name || u.email || u.id}`}
                             defaultValue={u.phone ?? ""}
                             placeholder={t("users.list.phonePlaceholder")}
                             className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900 w-32"
@@ -516,7 +517,8 @@ export default async function UsersAdmin({
                           <input type="hidden" name="id" value={u.id} />
                           <button
                             type="submit"
-                            className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
+                            aria-label={`${t("users.list.deleteUser")}: ${u.name || u.email || u.id}`}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
                             title={t("users.list.deleteUser")}
                           >
                             🗑️

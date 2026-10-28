@@ -19,6 +19,13 @@ export async function GET(
   }
 
   const { id } = await params;
+  const url = new URL(request.url);
+  const reportId = url.searchParams.get("rapport")?.trim() || undefined;
+
+  // Rapport-id-en brukes direkte i oppslaget og må derfor være en trygg id.
+  if (reportId && !/^[A-Za-z0-9_-]{1,64}$/.test(reportId)) {
+    return new NextResponse("Ugyldig rapport-id", { status: 400 });
+  }
 
   // Maks 10 PDF-visninger per minutt per bruker. Rendering er CPU-tungt, og
   // cachen gjør at gjentatte visninger normalt er billige.
@@ -30,12 +37,14 @@ export async function GET(
     );
   }
 
-  const result = await getReportPdfForViewer(viewer, id);
+  // `getReportPdfForViewer` kontrollerer at rapporten tilhører oppdraget,
+  // kunden og brukerens tilgang før PDF-en leses fra cachen eller rendres.
+  const result = await getReportPdfForViewer(viewer, id, reportId);
   if (!result.ok) {
     return new NextResponse(result.message, { status: result.status });
   }
 
-  const asDownload = new URL(request.url).searchParams.get("download") === "1";
+  const asDownload = url.searchParams.get("download") === "1";
 
   return new NextResponse(new Uint8Array(result.buffer), {
     headers: {

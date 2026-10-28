@@ -1,12 +1,6 @@
-import CalendarViewPage from "@/app/kalender/CalendarViewPage";
+import { redirect } from "next/navigation";
 
+/** Gammel rute. Beholdes slik at bokmerker og eksterne lenker virker. */
 export default function WeekCalendarPage() {
-  return (
-    <CalendarViewPage
-      view="dayGridWeek"
-      active="week"
-      titleKey="calendar.week.title"
-      subtitleKey="calendar.week.subtitle"
-    />
-  );
+  redirect("/kalender?vis=uke");
 }

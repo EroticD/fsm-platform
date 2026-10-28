@@ -101,6 +101,8 @@
       "bestHitsHint": "Topp 5 på tvers av kategoriene.",
       "groupInfo": "Viser {from}–{to} av {total}",
       "groupEmptyPage": "Ingen treff i denne kategorien på denne siden.",
+      "openFile": "📄 Åpne fil",
+      "openPdf": "📄 Åpne PDF",
       "errorBody": "Noe gikk galt på serveren. Prøv igjen om litt.",
       "retryAction": "Prøv igjen",
       "emptyTitle": "Søk i hele plattformen",

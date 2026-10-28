@@ -39,7 +39,8 @@ export type ServiceError =
   | "duplicate_email"
   | "invalid_logo"
   | "file_not_found"
-  | "customer_not_found";
+  | "customer_not_found"
+  | "deadline_passed";
 
 export type ServiceFailure = {
   ok: false;

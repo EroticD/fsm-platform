@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     },
     product: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -73,6 +74,8 @@ import {
   deleteContact,
   deleteCustomer,
   getCustomerDetail,
+  getUnitDetail,
+  resolveCustomerTab,
   restoreCustomer,
   toggleContract,
   updateContact,
@@ -321,19 +324,120 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
     const orderArgs = mocks.prisma.workOrder.findMany.mock.calls[0][0] as {
       where: unknown;
       take: number;
+      select: unknown;
     };
     expect(JSON.stringify(orderArgs.where)).toContain('"customerId":"kunde-1"');
     expect(JSON.stringify(orderArgs.where)).toContain('"departmentId":"dep-a"');
-    expect(orderArgs.take).toBe(15);
+    expect(orderArgs.take).toBe(100);
+    expect(orderArgs.select).toEqual({ id: true });
 
     const reportArgs = mocks.prisma.report.findMany.mock.calls[0][0] as {
       where: unknown;
       take: number;
+      select: unknown;
     };
     expect(JSON.stringify(reportArgs.where)).toContain(
       '"customerId":"kunde-1"',
     );
-    expect(reportArgs.take).toBe(15);
+    expect(reportArgs.take).toBe(100);
+    expect(reportArgs.select).toEqual({ id: true, workOrderId: true });
+  });
+
+  it("merger kunde-, oppdrags- og rapportrevisjon til én kronologisk strøm", async () => {
+    mocks.prisma.workOrder.findMany.mockResolvedValue([{ id: "wo-1" }]);
+    mocks.prisma.report.findMany.mockResolvedValue([
+      { id: "report-1", workOrderId: "wo-1" },
+    ]);
+    mocks.prisma.auditLog.findMany.mockImplementation(
+      async (args: { where?: { OR?: unknown } }) => {
+        if (!args.where?.OR) return [];
+        return [
+          {
+            id: "log-1",
+            entityType: "Customer",
+            entityId: "kunde-1",
+            action: "Endret kunde",
+            userName: "Kari",
+            createdAt: new Date("2026-01-03T10:00:00Z"),
+          },
+          {
+            id: "log-2",
+            entityType: "WorkOrder",
+            entityId: "wo-1",
+            action: "Fullførte oppdrag",
+            userName: "Ola",
+            createdAt: new Date("2026-01-02T10:00:00Z"),
+          },
+          {
+            id: "log-3",
+            entityType: "Report",
+            entityId: "report-1",
+            action: "Signerte rapport",
+            userName: "Kari",
+            createdAt: new Date("2026-01-01T10:00:00Z"),
+          },
+        ];
+      },
+    );
+
+    const result = await getCustomerDetail(office(), "kunde-1", {
+      tab: "mer",
+      orderPage: 1,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.data.activityFeed.map((item) => item.href)).toEqual([
+      "/kunder/kunde-1?tab=mer#aktivitet",
+      "/oppdrag/wo-1",
+      "/rapporter/wo-1",
+    ]);
+    expect(result.data.recentActivity).toHaveLength(3);
+
+    const args = mocks.prisma.auditLog.findMany.mock.calls[0][0] as {
+      where: { OR: unknown[] };
+      take: number;
+    };
+    expect(args.take).toBe(25);
+    expect(args.where.OR).toEqual(
+      expect.arrayContaining([
+        { entityType: "Customer", entityId: "kunde-1" },
+        { entityType: "WorkOrder", entityId: { in: ["wo-1"] } },
+        { entityType: "Report", entityId: { in: ["report-1"] } },
+      ]),
+    );
+  });
+
+  it("løser gamle faneadresser til de nye toppnivåfanene", () => {
+    expect(resolveCustomerTab("vedlegg")).toEqual({
+      tab: "mer",
+      section: "vedlegg",
+    });
+    expect(resolveCustomerTab("dokumenter")).toEqual({
+      tab: "mer",
+      section: "vedlegg",
+    });
+    expect(resolveCustomerTab("kontakter")).toEqual({
+      tab: "mer",
+      section: "kontakter",
+    });
+    expect(resolveCustomerTab("portal")).toEqual({
+      tab: "mer",
+      section: "portal",
+    });
+    expect(resolveCustomerTab("aktivitet")).toEqual({
+      tab: "mer",
+      section: "aktivitet",
+    });
+    expect(resolveCustomerTab("enheter")).toEqual({
+      tab: "utstyr",
+      section: null,
+    });
+    expect(resolveCustomerTab("ukjent")).toEqual({
+      tab: "oversikt",
+      section: null,
+    });
   });
 
   it("skjuler rapporter i aktiviteten uten reports.view", async () => {
@@ -344,6 +448,56 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
 
     expect(mocks.prisma.workOrder.findMany).toHaveBeenCalled();
     expect(mocks.prisma.report.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("kundetjenesten – enhetsdetaljer", () => {
+  beforeEach(() => {
+    mocks.prisma.product.findFirst.mockResolvedValue({
+      id: "enhet-1",
+      model: "Port Nord",
+      serialNumber: "12-3456",
+      location: "Bygg A",
+      customer: { id: "kunde-1", name: "Kunde AS" },
+      reportUnits: [],
+      _count: { reportUnits: 0 },
+    });
+  });
+
+  it("avgrenser servicehistorikken til aktørens oppdrag", async () => {
+    const result = await getUnitDetail(office(), "enhet-1");
+
+    expect(result.ok).toBe(true);
+    const args = mocks.prisma.product.findFirst.mock.calls[0][0] as {
+      include: { reportUnits: { where: unknown; take: number } };
+    };
+    expect(args.include.reportUnits.take).toBe(25);
+    expect(JSON.stringify(args.include.reportUnits.where)).toContain(
+      '"departmentId":"dep-a"',
+    );
+    expect(JSON.stringify(args.include.reportUnits.where)).toContain(
+      '"deletedAt":null',
+    );
+  });
+
+  it("gir ingen servicehistorikk uten reports.view", async () => {
+    await getUnitDetail(technician(), "enhet-1");
+
+    const args = mocks.prisma.product.findFirst.mock.calls[0][0] as {
+      include: { reportUnits: { where: unknown } };
+    };
+    expect(args.include.reportUnits.where).toEqual({ id: { in: [] } });
+  });
+
+  it("krever equipment.view", async () => {
+    const noEquipment = actor({
+      roleDefinition: { permissions: ["customers.view"] },
+    });
+
+    const result = await getUnitDetail(noEquipment, "enhet-1");
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.product.findFirst).not.toHaveBeenCalled();
   });
 });
 

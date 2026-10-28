@@ -5,12 +5,15 @@ export default function GoogleMapsLink({
   postalCode,
   city,
   label,
+  newTabLabel,
   className,
 }: {
   address?: string | null;
   postalCode?: string | null;
   city?: string | null;
   label?: string;
+  /** Skjermlesertekst som forklarer at lenken åpnes i ny fane. */
+  newTabLabel?: string;
   className?: string;
 }) {
   const parts = [address, postalCode, city].filter(Boolean);
@@ -28,6 +31,7 @@ export default function GoogleMapsLink({
       className={`text-blue-600 font-bold hover:underline transition ${className || ""}`}
     >
       {label || query}
+      {newTabLabel ? <span className="sr-only"> ({newTabLabel})</span> : null}
     </a>
   );
 }

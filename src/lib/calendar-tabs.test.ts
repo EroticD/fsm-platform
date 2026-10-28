@@ -26,9 +26,18 @@ describe("kalenderfaner", () => {
     ]);
   });
 
-  it("beholder ressursfanen og rapportlenken", () => {
+  it("bruker én kalenderrute med vis-parameter", () => {
     const tabs = calendarTabsFor({ canDispatch: true, canReports: true });
     expect(tabs.find((tab) => tab.key === "resources")?.href).toBe("/kalender");
+    expect(tabs.find((tab) => tab.key === "month")?.href).toBe(
+      "/kalender?vis=maned",
+    );
+    expect(tabs.find((tab) => tab.key === "week")?.href).toBe(
+      "/kalender?vis=uke",
+    );
+    expect(tabs.find((tab) => tab.key === "biweekly")?.href).toBe(
+      "/kalender?vis=2uker",
+    );
     expect(tabs.find((tab) => tab.key === "reports")?.href).toBe("/rapporter");
     expect(tabs.find((tab) => tab.key === "dispatch")?.href).toBe(
       "/kalender/dispatch",

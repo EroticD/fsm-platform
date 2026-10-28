@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { toCalendarEvent } from "@/lib/calendar-events";
+import {
+  calendarEditingOptions,
+  toCalendarEvent,
+} from "@/lib/calendar-events";
 
 const customer = {
   address: "Storgata 1",
@@ -67,6 +70,23 @@ describe("toCalendarEvent", () => {
 
     expect(event?.color).toBe("#16a34a");
     expect(event?.extendedProps.address).toBe("");
+    // Fullførte oppdrag kan ikke flyttes, selv om kalenderen er redigerbar.
+    expect(event?.editable).toBe(false);
+    expect(event?.startEditable).toBe(false);
+  });
+
+  it("gjør åpne oppdrag flyttbare når kalenderen er redigerbar", () => {
+    const event = toCalendarEvent({
+      id: "wo-6",
+      title: "Åpen",
+      status: "OPEN",
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: null,
+      customer,
+    });
+
+    expect(event?.editable).toBe(true);
+    expect(event?.durationEditable).toBe(true);
   });
 
   it("returnerer null uten startdato", () => {
@@ -80,5 +100,23 @@ describe("toCalendarEvent", () => {
         customer: null,
       }),
     ).toBeNull();
+  });
+});
+
+describe("calendarEditingOptions", () => {
+  it("slår av all redigering uten lagringsrettighet", () => {
+    expect(calendarEditingOptions(false)).toEqual({
+      editable: false,
+      droppable: false,
+      eventDurationEditable: false,
+    });
+  });
+
+  it("slår på dra, slipp og varighet bare med lagringsrettighet", () => {
+    expect(calendarEditingOptions(true)).toEqual({
+      editable: true,
+      droppable: true,
+      eventDurationEditable: true,
+    });
   });
 });

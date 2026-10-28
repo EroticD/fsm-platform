@@ -6,8 +6,10 @@ import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ErrorBanner from "@/components/ErrorBanner";
 import SubmitButton from "@/components/SubmitButton";
+import BrandColorField from "@/components/customer/BrandColorField";
 import { getCustomerEditOptions } from "@/server/customers";
 import { updateCustomerAction } from "../../actions";
+import { customerErrorMessageKey } from "../../feedback";
 
 export default async function EditCustomerPage({ 
   params,
@@ -42,13 +44,14 @@ export default async function EditCustomerPage({
 
   const { customer, departments, technicianOptions } = options.data;
   const updateCustomer = updateCustomerAction.bind(null, customerId);
+  const errorKey = customerErrorMessageKey(error);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto space-y-6">
         
         <ErrorBanner
-          message={error ? `⛔ ${t("customers.edit.saveError")}` : undefined}
+          message={errorKey ? `⛔ ${t(errorKey)}` : undefined}
         />
 
         {/* HEADER */}
@@ -111,23 +114,11 @@ export default async function EditCustomerPage({
             {/* Merkevarefarge */}
             <div>
               <label htmlFor="customer-edit-brand-color" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.brandColor")}</label>
-              <div className="flex gap-3 items-center">
-                <input 
-                  id="customer-edit-brand-color"
-                  type="color" 
-                  name="brandColor" 
-                  defaultValue={customer.brandColor || "#2563eb"} 
-                  className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
-                />
-                <input 
-                  type="text" 
-                  name="brandColorText" 
-                  aria-label={t("customers.edit.brandColor")}
-                  defaultValue={customer.brandColor || "#2563eb"} 
-                  className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium bg-gray-50" 
-                  readOnly 
-                />
-              </div>
+              <BrandColorField
+                id="customer-edit-brand-color"
+                label={t("customers.edit.brandColor")}
+                defaultValue={customer.brandColor}
+              />
             </div>
 
           </div>

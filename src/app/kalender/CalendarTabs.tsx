@@ -22,7 +22,11 @@ export default async function CalendarTabs({
   const tabs = calendarTabsFor({ canDispatch, canReports });
 
   return (
-    <div className="overflow-x-auto pb-2" tabIndex={0}>
+    <nav
+      aria-label={t("calendar.common.viewSwitcher")}
+      className="overflow-x-auto pb-2"
+      tabIndex={0}
+    >
       <div className="flex min-w-max gap-1 rounded-xl bg-gray-200 p-1">
         {tabs.map((tab) => {
           const isActive = tab.key === active;
@@ -42,6 +46,6 @@ export default async function CalendarTabs({
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

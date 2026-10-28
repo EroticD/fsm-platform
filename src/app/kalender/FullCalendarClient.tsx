@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
+import type { CalendarEventData } from "@/lib/calendar-events";
 
 function CalendarLoading() {
   const t = useTranslations("common");
@@ -24,11 +25,21 @@ export default function FullCalendarClient({
   view = 'dayGridWeek',
   weekNumbers = true,
   canEdit = false,
+  canOpenEditor = canEdit,
 }: { 
-  events: any[];
+  events: CalendarEventData[];
   view?: string;
   weekNumbers?: boolean;
   canEdit?: boolean;
+  canOpenEditor?: boolean;
 }) {
-  return <FullCalendarView events={events} view={view} weekNumbers={weekNumbers} canEdit={canEdit} />;
+  return (
+    <FullCalendarView
+      events={events}
+      view={view}
+      weekNumbers={weekNumbers}
+      canEdit={canEdit}
+      canOpenEditor={canOpenEditor}
+    />
+  );
 }

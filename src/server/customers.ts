@@ -58,7 +58,7 @@ function attachmentPath(fileUrl: string): string | null {
   return path.join(uploadDir(), path.basename(fileUrl));
 }
 
-const ACTIVE_STATUSES: WorkStatus[] = [
+export const CUSTOMER_ACTIVE_STATUSES: WorkStatus[] = [
   WorkStatus.PLANNED,
   WorkStatus.IN_PROGRESS,
   WorkStatus.PENDING,
@@ -66,8 +66,83 @@ const ACTIVE_STATUSES: WorkStatus[] = [
   WorkStatus.WAITING,
 ];
 
+const ACTIVE_STATUSES = CUSTOMER_ACTIVE_STATUSES;
+
 /** Kundekortet viser 25 oppdrag om gangen, ikke hele historikken. */
 export const CUSTOMER_ORDER_PAGE_SIZE = 25;
+
+/** Antall rader i den sammenslåtte aktivitetsstrømmen. */
+export const CUSTOMER_ACTIVITY_LIMIT = 25;
+
+/**
+ * Hvor mange oppdrag og rapporter vi henter id-er for når aktivitetsstrømmen
+ * bygges. Revisjonsloggen har ingen relasjon til kunden, så vi må begrense
+ * id-utvalget. Grensen holder strømmen rask også for store kunder.
+ */
+const CUSTOMER_ACTIVITY_ENTITY_LIMIT = 100;
+
+export type CustomerTab =
+  | "oversikt"
+  | "oppdrag"
+  | "utstyr"
+  | "avtaler"
+  | "mer";
+
+export type CustomerTabSection =
+  | "vedlegg"
+  | "kontakter"
+  | "portal"
+  | "aktivitet"
+  | null;
+
+export type ResolvedCustomerTab = {
+  tab: CustomerTab;
+  section: CustomerTabSection;
+};
+
+/**
+ * Nye faner har fem toppnivåer. De gamle fane-adressene beholdes som alias,
+ * slik at bokmerker, varsler og handlinger som redirecter med ?tab= fortsatt
+ * lander på riktig innhold.
+ */
+const CUSTOMER_TAB_ALIASES: Record<string, ResolvedCustomerTab> = {
+  oversikt: { tab: "oversikt", section: null },
+  oppdrag: { tab: "oppdrag", section: null },
+  utstyr: { tab: "utstyr", section: null },
+  avtaler: { tab: "avtaler", section: null },
+  mer: { tab: "mer", section: null },
+  // Eldre navn på Utstyr-fanen.
+  enheter: { tab: "utstyr", section: null },
+  // Fanene som nå bor under «Mer».
+  vedlegg: { tab: "mer", section: "vedlegg" },
+  dokumenter: { tab: "mer", section: "vedlegg" },
+  kontakter: { tab: "mer", section: "kontakter" },
+  kontakt: { tab: "mer", section: "kontakter" },
+  portal: { tab: "mer", section: "portal" },
+  aktivitet: { tab: "mer", section: "aktivitet" },
+};
+
+export function resolveCustomerTab(tab?: string | null): ResolvedCustomerTab {
+  const key = (tab ?? "").trim().toLowerCase();
+  return CUSTOMER_TAB_ALIASES[key] ?? CUSTOMER_TAB_ALIASES.oversikt;
+}
+
+export type CustomerActivityKind =
+  | "customer"
+  | "workOrder"
+  | "report"
+  | "contact";
+
+export type CustomerActivityItem = {
+  id: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  userName: string;
+  createdAt: Date;
+  kind: CustomerActivityKind;
+  href: string | null;
+};
 
 /**
  * Valgfri avdeling og ansvarlig montør må peke på en aktiv avdeling og en
@@ -104,6 +179,8 @@ async function validCustomerReferences(
 export type CustomerDetailParams = {
   tab: string;
   orderPage: number;
+  /** Fritekstsøk i Utstyr-fanen (modell, serienummer eller plassering). */
+  unitQuery?: string;
 };
 
 /** Grunndataene og de avgrensede listene kundekortet trenger. */
@@ -118,8 +195,10 @@ export async function getCustomerDetail(
   const isAdmin = isAdminActor(actor);
   const canViewReports = can(actor, "reports.view");
   const canViewEquipment = can(actor, "equipment.view");
-  const currentTab = params.tab;
+  const { tab: currentTab } = resolveCustomerTab(params.tab);
   const orderPage = Math.max(1, params.orderPage);
+  const unitQuery = cleanText(params.unitQuery, { maxLength: LIMITS.short });
+  const loadMerTab = currentTab === "mer";
 
   // Rapportsvarene på enhetene er bare synlige med reports.view. Uten den
   // returnerer spørringen null rader i stedet for å fjerne feltene, slik at
@@ -168,27 +247,6 @@ export async function getCustomerDetail(
   });
   if (!customer) return fail("not_found");
 
-  const [customerAuditLogs, customerComments, portalUsers] = await Promise.all([
-    // Bare kundens egne revisjonsrader. Oppdragsrevisjonen kan inneholde
-    // handlinger fra andre avdelinger, og skal ikke lekke inn på kundekortet.
-    prisma.auditLog.findMany({
-      where: { entityType: "Customer", entityId: customerId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    prisma.comment.findMany({
-      where: { customerId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    prisma.user.findMany({
-      where: { customerId, role: "CUSTOMER" },
-      orderBy: { name: "asc" },
-      include: { contact: true },
-      take: 100,
-    }),
-  ]);
-
   const templates = office
     ? await prisma.template.findMany({ orderBy: { title: "asc" } })
     : [];
@@ -204,56 +262,163 @@ export async function getCustomerDetail(
     AND: [workOrderScopeFor(actor), ...statusFilter],
   };
 
-  // Aktivitetsfanen viser kundens egne revisjonsrader i tillegg til de siste
-  // oppdragene og rapportene som faktisk hører til kunden. Begge listene er
-  // begrenset til oppdrag aktøren har tilgang til, og rapportene krever i
-  // tillegg reports.view.
-  const loadActivity = currentTab === "aktivitet";
-  const [activityWorkOrders, activityReports] = await Promise.all([
+  // Aktivitetsstrømmen skal vise alt som faktisk har skjedd med kunden:
+  // kundekortet, oppdragene, rapportene og kontaktpersonene. Revisjonsloggen
+  // har ingen kunde-relasjon, så vi henter et begrenset utvalg id-er først.
+  // Oppdragene er avdelingssperret, og rapportene krever i tillegg
+  // reports.view. Dermed lekker ikke andre avdelingers historikk inn.
+  const loadActivity = currentTab === "oversikt" || loadMerTab;
+  let activityWorkOrderIds: string[] = [];
+  let activityReportWorkOrders = new Map<string, string>();
+
+  if (loadActivity) {
+    const [activityWorkOrderRows, activityReportRows] = await Promise.all([
+      prisma.workOrder.findMany({
+        where: orderWhere,
+        orderBy: { updatedAt: "desc" },
+        take: CUSTOMER_ACTIVITY_ENTITY_LIMIT,
+        select: { id: true },
+      }),
+      canViewReports
+        ? prisma.report.findMany({
+            where: { deletedAt: null, workOrder: orderWhere },
+            orderBy: { completedAt: "desc" },
+            take: CUSTOMER_ACTIVITY_ENTITY_LIMIT,
+            select: { id: true, workOrderId: true },
+          })
+        : Promise.resolve([] as Array<{ id: string; workOrderId: string }>),
+    ]);
+
+    activityWorkOrderIds = activityWorkOrderRows.map((row) => row.id);
+    activityReportWorkOrders = new Map(
+      activityReportRows.map((row) => [row.id, row.workOrderId]),
+    );
+  }
+
+  const contactIds = customer.contacts.map((contact) => contact.id);
+  const activityAuditFilters: Prisma.AuditLogWhereInput[] = [
+    { entityType: "Customer", entityId: customerId },
+  ];
+  if (contactIds.length > 0) {
+    activityAuditFilters.push({
+      entityType: "Contact",
+      entityId: { in: contactIds },
+    });
+  }
+  if (activityWorkOrderIds.length > 0) {
+    activityAuditFilters.push({
+      entityType: "WorkOrder",
+      entityId: { in: activityWorkOrderIds },
+    });
+  }
+  if (activityReportWorkOrders.size > 0) {
+    activityAuditFilters.push({
+      entityType: "Report",
+      entityId: { in: [...activityReportWorkOrders.keys()] },
+    });
+  }
+
+  const [
+    activityLogs,
+    customerAuditLogs,
+    customerComments,
+    portalUsers,
+  ] = await Promise.all([
     loadActivity
-      ? prisma.workOrder.findMany({
-          where: orderWhere,
-          orderBy: { updatedAt: "desc" },
-          take: 15,
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            scheduledFor: true,
-            updatedAt: true,
-            technicians: { select: { name: true }, take: 3 },
-          },
+      ? prisma.auditLog.findMany({
+          where: { OR: activityAuditFilters },
+          orderBy: { createdAt: "desc" },
+          take: CUSTOMER_ACTIVITY_LIMIT,
         })
       : Promise.resolve([]),
-    loadActivity && canViewReports
-      ? prisma.report.findMany({
-          where: {
-            deletedAt: null,
-            workOrder: orderWhere,
-          },
-          orderBy: { completedAt: "desc" },
-          take: 15,
-          select: {
-            id: true,
-            completedAt: true,
-            name: true,
-            templateTitle: true,
-            technicianName: true,
-            workOrderId: true,
-            workOrder: { select: { id: true, title: true } },
-          },
+    // Revisjonsloggen under «Mer» viser bare kundens egne rader. Den er en
+    // fallback for hendelser som ikke har en egen side å lenke til.
+    loadMerTab
+      ? prisma.auditLog.findMany({
+          where: { entityType: "Customer", entityId: customerId },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        })
+      : Promise.resolve([]),
+    loadMerTab
+      ? prisma.comment.findMany({
+          where: { customerId },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        })
+      : Promise.resolve([]),
+    (loadMerTab || currentTab === "oversikt") && office
+      ? prisma.user.findMany({
+          where: { customerId, role: "CUSTOMER" },
+          orderBy: { name: "asc" },
+          include: { contact: true },
+          take: 100,
         })
       : Promise.resolve([]),
   ]);
+
+  const activityWorkOrderIdSet = new Set(activityWorkOrderIds);
+  const activityFeed: CustomerActivityItem[] = activityLogs.flatMap((log) => {
+    let kind: CustomerActivityKind;
+    let href: string | null;
+
+    switch (log.entityType) {
+      case "WorkOrder":
+        if (!activityWorkOrderIdSet.has(log.entityId)) return [];
+        kind = "workOrder";
+        href = `/oppdrag/${log.entityId}`;
+        break;
+      case "Report": {
+        const workOrderId = activityReportWorkOrders.get(log.entityId);
+        if (!workOrderId) return [];
+        kind = "report";
+        href = `/rapporter/${workOrderId}`;
+        break;
+      }
+      case "Contact":
+        kind = "contact";
+        href = `/kunder/${customerId}?tab=mer#kontakter`;
+        break;
+      case "Customer":
+        kind = "customer";
+        href = `/kunder/${customerId}?tab=mer#aktivitet`;
+        break;
+      default:
+        return [];
+    }
+
+    return [
+      {
+        id: log.id,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        action: log.action,
+        userName: log.userName,
+        createdAt: log.createdAt,
+        kind,
+        href,
+      },
+    ];
+  });
 
   // Enhetsfanen lastes først når den åpnes. Servicehistorikken per enhet er
   // begrenset til de 25 nyeste kontrollene; totalen kommer fra _count.
   // Enheter og servicehistorikk krever equipment.view. Historikken er i
   // tillegg begrenset til oppdrag aktøren kan se, og til reports.view.
+  const unitSearch: Prisma.ProductWhereInput = unitQuery
+    ? {
+        OR: [
+          { model: { contains: unitQuery, mode: "insensitive" } },
+          { serialNumber: { contains: unitQuery, mode: "insensitive" } },
+          { location: { contains: unitQuery, mode: "insensitive" } },
+        ],
+      }
+    : {};
+
   const products =
-    currentTab === "enheter" && canViewEquipment
+    currentTab === "utstyr" && canViewEquipment
       ? await prisma.product.findMany({
-          where: { customerId },
+          where: { customerId, ...unitSearch },
           orderBy: { model: "asc" },
           take: 100,
           include: {
@@ -300,7 +465,9 @@ export async function getCustomerDetail(
     prisma.workOrder.count({
       where: { AND: [orderWhere, { status: "COMPLETED" }] },
     }),
-    prisma.report.count({ where: { workOrder: orderWhere } }),
+    prisma.report.count({
+      where: { deletedAt: null, workOrder: orderWhere },
+    }),
     prisma.workOrder.findFirst({
       where: {
         AND: [
@@ -339,8 +506,8 @@ export async function getCustomerDetail(
     customer,
     customerAuditLogs,
     customerComments,
-    activityWorkOrders,
-    activityReports,
+    activityFeed,
+    recentActivity: activityFeed.slice(0, 5),
     portalUsers,
     templates,
     departments,
@@ -358,7 +525,6 @@ export async function getCustomerDetail(
     ),
     recentOrders:
       currentTab === "oppdrag" ? [] : orderRows.slice(0, 3),
-    recentLogs: customerAuditLogs.slice(0, 5),
   });
 }
 
@@ -367,6 +533,67 @@ export type CustomerDetailResult = Awaited<
 >;
 export type CustomerDetailData = Extract<
   CustomerDetailResult,
+  { ok: true }
+>["data"];
+
+/**
+ * Én enhet med kunden den hører til og den avgrensede servicehistorikken.
+ * Enheter er felles for alle avdelinger, men historikken følger oppdragene
+ * aktøren kan se og krever reports.view.
+ */
+export async function getUnitDetail(actor: ServiceActor, unitId: string) {
+  if (!can(actor, "customers.view") || !can(actor, "equipment.view")) {
+    return fail("forbidden");
+  }
+
+  const canViewReports = can(actor, "reports.view");
+  const reportUnitWhere: Prisma.ReportUnitWhereInput = canViewReports
+    ? {
+        report: {
+          deletedAt: null,
+          workOrder: workOrderScopeFor(actor),
+        },
+      }
+    : { id: { in: [] } };
+
+  const id = cleanText(unitId, { maxLength: LIMITS.line });
+  if (!id) return fail("not_found");
+
+  const unit = await prisma.product.findFirst({
+    where: { id, customer: { deletedAt: null } },
+    include: {
+      customer: { select: { id: true, name: true } },
+      reportUnits: {
+        where: reportUnitWhere,
+        orderBy: { createdAt: "desc" },
+        take: 25,
+        include: {
+          report: {
+            select: {
+              id: true,
+              createdAt: true,
+              workOrderId: true,
+              template: { select: { title: true, fieldsJson: true } },
+              workOrder: {
+                select: { id: true, title: true, scheduledFor: true },
+              },
+            },
+          },
+        },
+      },
+      _count: {
+        select: { reportUnits: { where: reportUnitWhere } },
+      },
+    },
+  });
+  if (!unit) return fail("not_found");
+
+  return ok({ unit, canViewReports });
+}
+
+export type UnitDetailResult = Awaited<ReturnType<typeof getUnitDetail>>;
+export type UnitDetailData = Extract<
+  UnitDetailResult,
   { ok: true }
 >["data"];
 
