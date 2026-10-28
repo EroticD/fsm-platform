@@ -5,6 +5,8 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
+import { searchNormalizedIds } from "@/lib/search-sql";
+import { customerSearchOr } from "@/lib/customer-search";
 import {
   addCustomer,
   deleteCustomerAction,
@@ -45,16 +47,18 @@ export default async function KunderPage({
   const showDeleted = resolved.slettet === "1" && user.role === "ADMIN";
   const deletedFilter = showDeleted ? { not: null } : null;
 
+  // Aktive kunder søkes med den normaliserte SQL-hjelperen. Den matcher alle
+  // feltene på kundekortet, også telefon/org.nr/kundenummer med tegnsetting,
+  // og filtrerer bort slettede kunder. Slettede kunder (kun admin) har ingen
+  // slik hjelper, så de får et direkte OR-filter over de samme feltene.
+  const activeMatches = search && !showDeleted
+    ? await searchNormalizedIds("Customer", search, 500)
+    : null;
+
   const where = search
-    ? {
-        deletedAt: deletedFilter,
-        OR: [
-          { name: { contains: search, mode: "insensitive" as const } },
-          { orgNumber: { contains: search, mode: "insensitive" as const } },
-          { city: { contains: search, mode: "insensitive" as const } },
-          { email: { contains: search, mode: "insensitive" as const } },
-        ],
-      }
+    ? showDeleted
+      ? { deletedAt: deletedFilter, ...customerSearchOr(search) }
+      : { deletedAt: null, id: { in: activeMatches?.map((hit) => hit.id) ?? [] } }
     : { deletedAt: deletedFilter };
 
   const [customers, total] = await Promise.all([
