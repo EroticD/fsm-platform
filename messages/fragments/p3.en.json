@@ -66,7 +66,7 @@
     },
     "offline": {
       "pending": "📤 {count} draft(s) waiting to sync",
-      "offline": "📴 You are offline – drafts are stored locally and sent when the network returns"
+      "offline": "📴 You are offline – drafts are stored on this device and sent when the app is open and the network returns"
     },
     "portalReports": {
       "title": "📄 Reports",

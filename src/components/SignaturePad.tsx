@@ -20,6 +20,7 @@ export default function SignaturePad({
   defaultName,
   helperText,
   existingUrl,
+  initialDataUrl,
 }: {
   name: string;
   label: string;
@@ -29,10 +30,20 @@ export default function SignaturePad({
   helperText?: string;
   /** Signatur som allerede ligger på rapporten (fra en tidligere utfylling). */
   existingUrl?: string | null;
+  /**
+   * Signatur som allerede er tegnet, men som ennå bare finnes lokalt (f.eks. i
+   * en gjenopprettet kladd). Legges i skjemaet slik at den ikke går tapt.
+   */
+  initialDataUrl?: string;
 }) {
   const t = useTranslations("common");
   const padRef = useRef<SignatureCanvas>(null);
-  const [dataUrl, setDataUrl] = useState("");
+  const [dataUrl, setDataUrl] = useState(initialDataUrl ?? "");
+  // Den gjenopprettede signaturen vises som «tidligere» helt til montøren
+  // tegner en ny.
+  const [showExisting, setShowExisting] = useState(
+    Boolean(initialDataUrl || existingUrl),
+  );
 
   const handleEnd = () => {
     const pad = padRef.current;
@@ -42,11 +53,13 @@ export default function SignaturePad({
     }
     // Trimmet versjon kutter bort tomrom rundt streken og gir et lite bilde.
     setDataUrl(pad.getTrimmedCanvas().toDataURL("image/png"));
+    setShowExisting(false);
   };
 
   const clear = () => {
     padRef.current?.clear();
     setDataUrl("");
+    setShowExisting(false);
   };
 
   return (
@@ -66,7 +79,7 @@ export default function SignaturePad({
 
       {helperText && <p className="text-[11px] text-gray-500">{helperText}</p>}
 
-      {existingUrl && !dataUrl && (
+      {existingUrl && showExisting && (
         <div className="border-2 border-gray-200 rounded-xl bg-white p-3">
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2">
             {t("components.signature.previous")}

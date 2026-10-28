@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { clearOfflinePageCache } from "@/lib/offline/cache";
 import {
   clearDraftLocally,
   OUTBOX_CHANGED_EVENT,
@@ -29,6 +30,9 @@ export default function ReportSubmissionCleanup({
       try {
         await clearDraftLocally({ userId, workOrderId, templateId });
         await removeOutboxForReport({ workOrderId, templateId });
+        // En cachet, utfylt side skal ikke kunne gjenåpnes offline etter at
+        // rapporten er signert.
+        await clearOfflinePageCache();
       } catch {
         // IndexedDB er utilgjengelig – serveren er uansett autoritativ.
       } finally {

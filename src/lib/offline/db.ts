@@ -5,6 +5,13 @@
  * tilgjengelig (eldre nettlesere, private modus), slik at appen fortsatt
  * fungerer uten offline-lagring.
  */
+import {
+  itemReportIdentity,
+  payloadReportIdentity,
+  sameReport,
+  sortOutboxOldestFirst,
+} from "./outbox-order";
+
 const DB_NAME = "fsm-offline";
 const DB_VERSION = 1;
 const DRAFT_STORE = "drafts";
@@ -26,6 +33,9 @@ export type OutboxItem = {
   payload: string;
   createdAt: number;
   attempts: number;
+  /** Satt på nye oppføringer, så lik rapports kladd kan slås sammen uten parsing. */
+  workOrderId?: string;
+  templateId?: string;
 };
 
 function hasIndexedDb(): boolean {
@@ -104,18 +114,56 @@ export async function deleteOfflineDraft(key: string): Promise<void> {
   });
 }
 
+/**
+ * Legger en kladd i outboxen. Det finnes bare én ventende oppføring per
+ * bruker+oppdrag+mal: en nyere kladd erstatter den eldre i samme transaksjon.
+ * `createdAt` gjøres strengt stigende, slik at «nyeste vinner» også når to
+ * lagringer skjer i samme millisekund.
+ */
 export async function enqueueOutbox(
   payload: string,
   userId: string,
 ): Promise<void> {
+  const identity = payloadReportIdentity(payload);
   const item: OutboxItem = {
     id: crypto.randomUUID(),
     userId,
     payload,
     createdAt: Date.now(),
     attempts: 0,
+    ...(identity ?? {}),
   };
   await withStore(OUTBOX_STORE, "readwrite", async (store) => {
+    if (!identity) {
+      store.put(item);
+      return undefined;
+    }
+
+    let newest = 0;
+    await new Promise<void>((resolve, reject) => {
+      const request = store.openCursor();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        const existing = cursor.value as OutboxItem;
+        if (existing.createdAt > newest) newest = existing.createdAt;
+        const existingIdentity = itemReportIdentity(existing);
+        if (
+          existing.userId === userId &&
+          existingIdentity &&
+          sameReport(existingIdentity, identity)
+        ) {
+          cursor.delete();
+        }
+        cursor.continue();
+      };
+    });
+
+    item.createdAt = Math.max(item.createdAt, newest + 1);
     store.put(item);
     return undefined;
   });
@@ -125,7 +173,9 @@ export async function listOutbox(): Promise<OutboxItem[]> {
   const result = await withStore(OUTBOX_STORE, "readonly", async (store) =>
     requestResult<OutboxItem[]>(store.getAll()),
   );
-  return result ?? [];
+  // IndexedDB sorterer etter primærnøkkel (tilfeldig UUID). Selve outboxen må
+  // sendes i kronologisk rekkefølge, ellers kan en eldre kladd vinne.
+  return sortOutboxOldestFirst(result ?? []);
 }
 
 export async function listOutboxForUser(userId: string): Promise<OutboxItem[]> {
@@ -163,7 +213,8 @@ export async function countOutbox(): Promise<number> {
 
 /**
  * Sletter alle kladder og outbox-oppføringer som tilhører én bruker. Brukes
- * ved utlogging fra en delt enhet, uten å røre en annen brukers data.
+ * bare ved et eksplisitt valg om å forkaste egne kladder, eller av en
+ * administratorstyrt rydding – aldri ved vanlig utlogging.
  */
 export async function clearOfflineDataForUser(userId: string): Promise<void> {
   if (!hasIndexedDb()) return;
@@ -203,7 +254,7 @@ export async function clearOfflineDataForUser(userId: string): Promise<void> {
   });
 }
 
-/** Sletter alle lokale kladder og outbox-oppføringer (brukes ved utlogging). */
+/** Sletter alle lokale kladder og outbox-oppføringer for alle brukere. */
 export async function clearOfflineData(): Promise<void> {
   if (!hasIndexedDb()) return;
   await withStore(DRAFT_STORE, "readwrite", async (store) => {

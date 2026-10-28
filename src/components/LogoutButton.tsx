@@ -8,10 +8,10 @@ import { clearOfflineCaches } from "@/lib/offline/cache";
 /**
  * Logger ut gjennom next-auth sin egen signOut, som henter CSRF-token først.
  *
- * Den gamle headeren postet rett til `/api/auth/signout` uten CSRF-token. Da
- * svarte NextAuth med en feilside i stedet for å avslutte økten, og lokale
- * kladder/cacher ble liggende igjen. Her tømmes offline-data først, og
- * innloggingen sendes alltid til `/logg-inn` etterpå.
+ * Ved utlogging ryddes service-worker-cacher og nylige søk, men ventende
+ * kladder beholdes på enheten under brukerens id. De er uferdig arbeid som
+ * ellers ville gått tapt, og de kan verken leses eller sendes av en annen
+ * bruker. Innloggingen sendes alltid til `/logg-inn` etterpå.
  */
 export default function LogoutButton({
   className,

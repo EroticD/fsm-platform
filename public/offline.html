@@ -6,25 +6,139 @@
     <title>FSM – offline / off net</title>
     <style>
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f4f6; color: #111827; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px; }
-      .card { max-width: 460px; background: white; border: 1px solid #d1d5db; border-radius: 18px; padding: 32px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+      .card { max-width: 520px; width: 100%; background: white; border: 1px solid #d1d5db; border-radius: 18px; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,.06); }
       h1 { font-size: 22px; margin: 0 0 8px; }
+      h2 { font-size: 16px; margin: 24px 0 8px; }
       h1:lang(en) { margin-top: 24px; }
       p { color: #374151; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
       a { display: inline-block; background: #1d4ed8; color: white; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 12px; }
       hr { border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+      li { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #f9fafb; }
+      li a { display: inline-block; margin-top: 8px; padding: 8px 12px; font-size: 13px; }
+      .meta { font-size: 12px; color: #6b7280; }
+      .preview { font-size: 13px; color: #374151; margin-top: 6px; overflow-wrap: anywhere; }
     </style>
   </head>
   <body>
     <main class="card">
       <h1>Du er offline</h1>
-      <p>Kladder du lagrer nå, blir liggende på enheten og sendes automatisk når nettet er tilbake.</p>
+      <p>
+        Kladder lagres på denne enheten mens du fyller ut. De sendes først når
+        du åpner appen igjen med nett – ingenting sendes i bakgrunnen mens
+        appen er lukket. Du kan åpne en lagret kladd nedenfor hvis siden
+        fortsatt ligger på enheten.
+      </p>
       <a href="/mine-oppdrag">Prøv igjen</a>
+
+      <h2>Lagrede kladder på denne enheten</h2>
+      <p class="meta" id="drafts-status">Ser etter lagrede kladder …</p>
+      <ul id="drafts"></ul>
+
       <hr />
       <div lang="en">
         <h1>You are offline</h1>
-        <p>Drafts saved now stay on this device and are sent automatically when the connection returns.</p>
+        <p>
+          Drafts are stored on this device while you fill in the form. They are
+          only sent when you open the app again with a network connection –
+          nothing is sent in the background while the app is closed. You can
+          reopen a saved draft below if the page is still stored on the device.
+        </p>
         <a href="/mine-oppdrag">Try again</a>
+        <h2>Drafts stored on this device</h2>
+        <p class="meta">See the list above.</p>
       </div>
     </main>
+
+    <script>
+      (function () {
+        var status = document.getElementById("drafts-status");
+        var list = document.getElementById("drafts");
+        if (!("indexedDB" in window)) {
+          status.textContent = "Nettleseren støtter ikke lokal lagring.";
+          return;
+        }
+
+        var request = indexedDB.open("fsm-offline", 1);
+        request.onerror = function () {
+          status.textContent = "Kunne ikke lese lagrede kladder.";
+        };
+        request.onupgradeneeded = function () {
+          var db = request.result;
+          if (!db.objectStoreNames.contains("drafts")) {
+            db.createObjectStore("drafts", { keyPath: "key" });
+          }
+          if (!db.objectStoreNames.contains("outbox")) {
+            db.createObjectStore("outbox", { keyPath: "id" });
+          }
+        };
+        request.onsuccess = function () {
+          var db = request.result;
+          if (!db.objectStoreNames.contains("drafts")) {
+            status.textContent = "Ingen lagrede kladder på denne enheten.";
+            db.close();
+            return;
+          }
+          var tx = db.transaction("drafts", "readonly");
+          var all = tx.objectStore("drafts").getAll();
+          all.onerror = function () {
+            status.textContent = "Kunne ikke lese lagrede kladder.";
+          };
+          all.onsuccess = function () {
+            var drafts = (all.result || []).sort(function (a, b) {
+              return (b.updatedAt || 0) - (a.updatedAt || 0);
+            });
+            db.close();
+            if (drafts.length === 0) {
+              status.textContent = "Ingen lagrede kladder på denne enheten.";
+              return;
+            }
+            status.textContent =
+              drafts.length +
+              (drafts.length === 1 ? " kladd er lagret." : " kladder er lagret.");
+            drafts.forEach(function (draft) {
+              var item = document.createElement("li");
+              var title = document.createElement("div");
+              title.className = "meta";
+              var time = draft.updatedAt
+                ? new Date(draft.updatedAt).toLocaleString("nb-NO")
+                : "";
+              title.textContent =
+                "Oppdrag " +
+                String(draft.workOrderId || "") +
+                " · mal " +
+                String(draft.templateId || "") +
+                (time ? " · " + time : "");
+              item.appendChild(title);
+
+              var notes = "";
+              try {
+                var payload = JSON.parse(draft.payload || "{}");
+                notes = (payload.form && payload.form.notes) || payload.notes || "";
+              } catch (error) {
+                notes = "";
+              }
+              if (notes) {
+                var preview = document.createElement("div");
+                preview.className = "preview";
+                preview.textContent =
+                  notes.length > 160 ? notes.slice(0, 160) + " …" : notes;
+                item.appendChild(preview);
+              }
+
+              var link = document.createElement("a");
+              link.href =
+                "/mine-oppdrag/" +
+                encodeURIComponent(String(draft.workOrderId || "")) +
+                "/skjema/" +
+                encodeURIComponent(String(draft.templateId || ""));
+              link.textContent = "Åpne kladden";
+              item.appendChild(link);
+              list.appendChild(item);
+            });
+          };
+        };
+      })();
+    </script>
   </body>
 </html>

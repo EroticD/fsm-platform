@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  clearOfflineData: vi.fn(),
+  forgetOfflineUser: vi.fn(),
 }));
 
-vi.mock("./db", () => ({ clearOfflineData: mocks.clearOfflineData }));
+vi.mock("./draft-outbox", () => ({
+  forgetOfflineUser: mocks.forgetOfflineUser,
+}));
 
 import { clearOfflineCaches } from "./cache";
 
@@ -22,11 +24,10 @@ beforeEach(() => {
 });
 
 describe("clearOfflineCaches", () => {
-  it("fjerner offline-data og nylige søk ved utlogging", async () => {
+  it("fjerner cacher og nylige søk, men beholder ventende kladder", async () => {
     await clearOfflineCaches();
 
-    expect(mocks.clearOfflineData).toHaveBeenCalled();
+    expect(mocks.forgetOfflineUser).toHaveBeenCalled();
     expect(localStorage.getItem("fsm:recent-searches")).toBeNull();
-    expect(localStorage.getItem("fsm:offline-user")).toBeNull();
   });
 });
