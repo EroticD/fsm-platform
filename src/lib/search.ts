@@ -272,6 +272,7 @@ export async function performSearch(
   const [
     customerNameHits,
     customerCityHits,
+    customerNormalizedHits,
     productModelHits,
     productNormalizedHits,
     contactHits,
@@ -291,6 +292,12 @@ export async function performSearch(
       : Promise.resolve([] as NameSearchRow[]),
     wants("customer") && canCustomers
       ? searchByName("Customer", "city", originalQuery, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
+    // Alle feltene på kundekortet: navn, kundenummer, orgnummer, telefon,
+    // e-post, adresse, postnummer, sted og notater. Kontaktpersoner matcher
+    // også kunden via `matchContacts` i search-sql.
+    wants("customer") && canCustomers
+      ? searchNormalizedIds("Customer", q, CANDIDATES)
       : Promise.resolve([] as NameSearchRow[]),
     wants("unit") && canEquipment
       ? searchByName("Product", "model", originalQuery, CANDIDATES)
@@ -366,7 +373,11 @@ export async function performSearch(
     reportTotal = probe[0]?.total ?? 0;
   }
 
-  const customerHits = mergeHits(customerNameHits, customerCityHits);
+  const customerHits = mergeHits(
+    customerNameHits,
+    customerCityHits,
+    customerNormalizedHits,
+  );
   const productHits = mergeHits(productModelHits, productNormalizedHits);
   const workOrderHits = mergeHits(
     workOrderTitleHits,
@@ -547,6 +558,10 @@ export async function performSearch(
         city: true,
         phone: true,
         email: true,
+        address: true,
+        postalCode: true,
+        // Notater brukes bare til rangering og vises aldri i trefflisten.
+        notes: true,
       },
       take: fetchLimit,
     }),
@@ -690,7 +705,11 @@ export async function performSearch(
   const totals = {
     customer: boundedTotal(
       customerTotal,
-      Math.max(rowsTotal(customerNameHits), rowsTotal(customerCityHits)),
+      Math.max(
+        rowsTotal(customerNameHits),
+        rowsTotal(customerCityHits),
+        rowsTotal(customerNormalizedHits),
+      ),
     ),
     contact: boundedTotal(contactTotal, rowsTotal(contactHits)),
     unit: boundedTotal(
@@ -753,7 +772,7 @@ export async function performSearch(
   }
 
   const rankedCustomers = pageItems(
-    rank(customers, (c) => c.id, (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email], customerHits.scores),
+    rank(customers, (c) => c.id, (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email, c.address, c.postalCode, c.notes], customerHits.scores),
   );
   const rankedContacts = pageItems(
     rank(contacts, (c) => c.id, (c) => [c.name, c.email, c.phone, c.role, c.customer?.name], contactHitsMerged.scores),
