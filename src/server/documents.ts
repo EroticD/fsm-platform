@@ -12,6 +12,7 @@ import {
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
 import { claimUpload } from "@/lib/upload-access";
 import { enqueuePdfText } from "@/lib/pdf-queue";
+import { findDocumentIdsBySearch } from "@/lib/document-search";
 import {
   can,
   fail,
@@ -104,16 +105,11 @@ export async function getDocumentLibrary(
     deletedAt: deletedFilter,
   };
   if (searchQuery) {
-    docWhere.OR = [
-      { title: { contains: searchQuery, mode: "insensitive" } },
-      { description: { contains: searchQuery, mode: "insensitive" } },
-      { fileName: { contains: searchQuery, mode: "insensitive" } },
-      {
-        tags: {
-          some: { name: { contains: searchQuery, mode: "insensitive" } },
-        },
-      },
-    ];
+    // Normalisert søk i tittel, beskrivelse, filnavn og tags. Søket gjøres i
+    // databasen og returnerer bare ID-er, slik at store tekstfelt aldri lastes
+    // inn i Node. Sletting, tag-filter og paginering avgjøres fortsatt av
+    // Prisma-spørringene nedenfor.
+    docWhere.id = { in: await findDocumentIdsBySearch(searchQuery) };
   }
   if (tagFilter) {
     docWhere.tags = { some: { name: tagFilter } };
