@@ -1,11 +1,19 @@
 /* FSM feltapp – statisk service worker.
  *
- * Cacher bare statiske ressurser og en offentlig offline-side. HTML-sider,
- * API-svar og /uploads caches aldri, slik at CacheStorage ikke kan inneholde
- * kundedata eller en innlogget side etter utlogging.
+ * Cacher statiske ressurser og den offentlige offline-siden. I tillegg caches
+ * selve rapporteringsskjemaet etter at det er åpnet med nett, slik at montøren
+ * kan åpne samme oppdrag igjen offline og få kladden gjenopprettet fra
+ * IndexedDB. HTML for andre sider caches ikke, og siden-cachen ryddes ved
+ * utlogging og etter innsending.
  */
-const CACHE = "fsm-static-v2";
+const CACHE = "fsm-static-v3";
+const PAGE_CACHE = "fsm-pages-v1";
 const OFFLINE_URL = "/offline.html";
+
+/** Bare rapporteringsskjemaet caches – det er her offline-kladden hører hjemme. */
+function isReportFormPage(pathname) {
+  return /^\/mine-oppdrag\/[^/]+\/skjema\/[^/]+\/?$/.test(pathname);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -20,17 +28,25 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+      Promise.all(
+        keys
+          .filter((key) => key !== CACHE && key !== PAGE_CACHE)
+          .map((key) => caches.delete(key)),
+      ),
     ),
   );
   self.clients.claim();
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "CLEAR_CACHES") {
+  if (!event.data) return;
+  if (event.data.type === "CLEAR_CACHES") {
     event.waitUntil(
       caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
     );
+  }
+  if (event.data.type === "CLEAR_PAGE_CACHE") {
+    event.waitUntil(caches.delete(PAGE_CACHE));
   }
 });
 
@@ -61,13 +77,28 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Sider: network-only, med en offentlig offline-side som fallback.
+  // Sider: network-first. Rapporteringsskjemaet caches, slik at samme oppdrag
+  // kan åpnes offline; alle andre sider faller tilbake til offline-siden.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(async () => {
-        const offline = await caches.match(OFFLINE_URL);
-        return offline || Response.error();
-      }),
+      fetch(request)
+        .then((response) => {
+          if (
+            response.ok &&
+            isReportFormPage(url.pathname) &&
+            !request.headers.get("RSC")
+          ) {
+            const copy = response.clone();
+            caches.open(PAGE_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request, { ignoreSearch: true });
+          if (cached) return cached;
+          const offline = await caches.match(OFFLINE_URL);
+          return offline || Response.error();
+        }),
     );
     return;
   }

@@ -121,6 +121,96 @@ describe("offline outbox – brukerscoping", () => {
   });
 });
 
+describe("offline outbox – rekkefølge og sammenslåing", () => {
+  it("sender bare nyeste kladd per rapport, og eldre duplikater fjernes", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    const older = {
+      id: "old",
+      userId: "u1",
+      payload: JSON.stringify({
+        workOrderId: "wo1",
+        templateId: "tpl1",
+        notes: "gammel",
+      }),
+      createdAt: 1,
+      attempts: 0,
+    };
+    const newer = {
+      id: "new",
+      userId: "u1",
+      payload: JSON.stringify({
+        workOrderId: "wo1",
+        templateId: "tpl1",
+        notes: "ny",
+      }),
+      createdAt: 5,
+      attempts: 0,
+    };
+    const other = {
+      id: "other",
+      userId: "u1",
+      payload: JSON.stringify({
+        workOrderId: "wo2",
+        templateId: "tpl1",
+        notes: "annet",
+      }),
+      createdAt: 3,
+      attempts: 0,
+    };
+    // Listen er bevisst usortert, slik IndexedDB kan levere den.
+    mocks.listOutboxForUser.mockResolvedValue([newer, other, older]);
+    mocks.countOutboxForUser.mockResolvedValue(0);
+    vi.stubGlobal("navigator", { onLine: true });
+    const fetchMock = vi.fn(
+      async (_url: string, init: { body: string }) =>
+        new Response(init.body, { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await flushDraftOutbox();
+
+    expect(result).toEqual({ sent: 2, pending: 0 });
+    const sentBodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse(call[1].body),
+    );
+    // Eldste først, nyeste for rapporten sist.
+    expect(sentBodies.map((body) => body.notes)).toEqual(["annet", "ny"]);
+    expect(mocks.removeOutbox).toHaveBeenCalledWith("old");
+    expect(mocks.removeOutbox).toHaveBeenCalledWith("new");
+    expect(mocks.removeOutbox).toHaveBeenCalledWith("other");
+    expect(mocks.removeOutbox).not.toHaveBeenCalledWith("missing");
+  });
+
+  it("legger nyeste kladd bakerst når mange rapporter venter", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    mocks.listOutboxForUser.mockResolvedValue([
+      {
+        id: "newest",
+        userId: "u1",
+        payload: "{}",
+        createdAt: 10,
+        attempts: 0,
+      },
+      {
+        id: "oldest",
+        userId: "u1",
+        payload: "{}",
+        createdAt: 1,
+        attempts: 0,
+      },
+    ]);
+    mocks.countOutboxForUser.mockResolvedValue(0);
+    vi.stubGlobal("navigator", { onLine: true });
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await flushDraftOutbox();
+
+    const order = mocks.removeOutbox.mock.calls.map((call) => call[0]);
+    expect(order).toEqual(["oldest", "newest"]);
+  });
+});
+
 describe("offline outbox – rapportopprydding", () => {
   it("gjenkjenner en outbox-oppføring for samme oppdrag og mal", () => {
     const payload = JSON.stringify({

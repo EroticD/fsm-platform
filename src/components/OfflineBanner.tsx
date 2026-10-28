@@ -6,6 +6,7 @@ import {
   flushDraftOutbox,
   OUTBOX_CHANGED_EVENT,
   pendingDraftCount,
+  rememberOfflineUser,
 } from "@/lib/offline/draft-outbox";
 
 /**
@@ -14,7 +15,7 @@ import {
  * skifter til online – ikke bare i det siste tilfellet. Ellers ville en kladd
  * som ble liggende fra forrige økt stå fast til neste nettbrudd.
  */
-export default function OfflineBanner() {
+export default function OfflineBanner({ userId }: { userId?: string | null }) {
   const t = useTranslations("common");
   const [pending, setPending] = useState(0);
   const online = useSyncExternalStore(
@@ -29,6 +30,12 @@ export default function OfflineBanner() {
     () => navigator.onLine,
     () => true,
   );
+
+  // Ved innlogging bekrefter vi hvilken bruker som eier de lokale kladdene.
+  // Først da kan outboxen sendes – aldri på vegne av forrige bruker.
+  useEffect(() => {
+    if (userId) rememberOfflineUser(userId);
+  }, [userId]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -69,7 +76,7 @@ export default function OfflineBanner() {
       window.removeEventListener(OUTBOX_CHANGED_EVENT, flushAndRefresh);
       window.clearInterval(interval);
     };
-  }, []);
+  }, [userId]);
 
   if (online && pending === 0) return null;
 

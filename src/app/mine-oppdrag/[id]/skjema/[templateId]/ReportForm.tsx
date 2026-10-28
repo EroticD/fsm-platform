@@ -10,10 +10,19 @@ import ErrorBanner from "@/components/ErrorBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { readLineComment } from "@/lib/report-answers";
 import { reportFormSections } from "./report-form-sections";
+import {
+  makeUnit,
+  REPORT_WITHOUT_UNITS_KEY,
+  restoreLocalDraft,
+  type LocalDraftSnapshot,
+  type ReportSeed,
+  type UnitEntry,
+} from "./draft-restore";
 import { saveDraft, submitReport } from "./actions";
 import {
   loadDraftLocally,
   queueDraftForRetry,
+  removeOutboxForReport,
   saveDraftLocally,
 } from "@/lib/offline/draft-outbox";
 
@@ -24,28 +33,7 @@ export type CustomerUnit = {
   location: string | null;
 };
 
-type UnitEntry = {
-  key: string;
-  productId: string;
-  label: string;
-  serialNumber: string;
-  location: string;
-  status: "GODKJENT" | "AVVIK";
-  comment: string;
-  answers: Record<string, unknown>;
-};
-
-export type InitialReport = {
-  notes: string;
-  technicianSignatureUrl: string | null;
-  technicianName: string | null;
-  customerSignatureUrl: string | null;
-  customerName: string | null;
-  units: Omit<UnitEntry, "key">[];
-};
-
-/** Fast nøkkel for den anonyme oppføringen når malen ikke bruker enheter. */
-const REPORT_WITHOUT_UNITS_KEY = "report";
+export type InitialReport = ReportSeed;
 
 /** Sammenligner et svar med malens betingelsesverdi, uten hensyn til case. */
 function answerMatches(value: unknown, expected: string | undefined): boolean {
@@ -75,19 +63,6 @@ function isFieldVisible(
 ): boolean {
   if (!field.conditionalFieldId) return true;
   return answerMatches(answers[field.conditionalFieldId], field.conditionalValue);
-}
-
-function makeUnit(key: string, from?: Partial<UnitEntry> | null): UnitEntry {
-  return {
-    key,
-    productId: from?.productId ?? "",
-    label: from?.label ?? "",
-    serialNumber: from?.serialNumber ?? "",
-    location: from?.location ?? "",
-    status: from?.status === "AVVIK" ? "AVVIK" : "GODKJENT",
-    comment: from?.comment ?? "",
-    answers: from?.answers ?? {},
-  };
 }
 
 /** Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk. */
@@ -139,7 +114,15 @@ export default function ReportForm({
   submitError?: string;
 }) {
   const isEditing = Boolean(initialReport);
-  const seed = initialDraft ?? initialReport;
+  const initialSeed = initialDraft ?? initialReport;
+  // Startobjektet kan oppdateres når en nyere lokal kladd gjenopprettes.
+  // Skjemaet er delvis ukontrollert, så `formVersion` tvinger feltene til å
+  // rendres på nytt med de gjenopprettede verdiene.
+  const [seed, setSeed] = useState<InitialReport | undefined>(
+    () => initialSeed,
+  );
+  const [formVersion, setFormVersion] = useState(0);
+  const [localDraftRestored, setLocalDraftRestored] = useState(false);
   const t = useTranslations("common");
   const locale = useLocale();
 
@@ -186,11 +169,15 @@ export default function ReportForm({
 
   // --- Autolagring av kladd -------------------------------------------------
   // Skjemaet er i stor grad ukontrollert (defaultValue), så vi leser feltene
-  // med `new FormData(form)` når vi lagrer. Endringer i skjemaet utløser en
-  // debounced lagring, slik at kladden oppdateres etter hvert som enhetene
-  // fylles ut.
+  // med `new FormData(form)` når vi lagrer. Den lokale kladden skrives kort
+  // etter hver endring, uavhengig av om serverlagringen lykkes. Serverkladden
+  // sendes med lengre pause, så vi ikke hamrer på API-et for hvert tastetrykk.
   const formRef = useRef<HTMLFormElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Skriver lokale kladder sekvensielt, så en senere (nyere) snapshot alltid
+  // havner etter en eldre – også om to lagringer skulle overlappe.
+  const localWriteChain = useRef<Promise<void>>(Promise.resolve());
   const [draftStatus, setDraftStatus] = useState<
     "idle" | "saving" | "saved" | "error" | "offline"
   >(initialDraft ? "saved" : "idle");
@@ -205,37 +192,71 @@ export default function ReportForm({
     stateRef.current = state;
   }, [state]);
 
+  /** Leser hele skjemaet som strenger – samme format som serverkladden. */
+  const readFormPayload = (form: HTMLFormElement): Record<string, string> => {
+    const formData = new FormData(form);
+    return Object.fromEntries(
+      [...formData.entries()].filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  };
+
+  /**
+   * Skriver kladden til IndexedDB. Inneholder både React-state (enheter,
+   * svar og betingelser) og hele FormData (notater, navn og signaturer), slik
+   * at alle felter kan gjenopprettes nøyaktig slik de ble vist.
+   */
+  const writeLocalDraft = useCallback(async (): Promise<boolean> => {
+    const form = formRef.current;
+    if (!form) return false;
+    const payload = readFormPayload(form);
+    const snapshot: LocalDraftSnapshot = {
+      state: stateRef.current,
+      form: payload,
+      notes: payload.notes ?? "",
+    };
+    const write = localWriteChain.current
+      .catch(() => undefined)
+      .then(() =>
+        saveDraftLocally({
+          userId,
+          workOrderId,
+          templateId,
+          payload: snapshot,
+        }),
+      )
+      .then(() => true)
+      .catch(() => {
+        // IndexedDB utilgjengelig – serverlagringen kan fortsatt lykkes.
+        return false;
+      });
+    localWriteChain.current = write.then(
+      () => undefined,
+      () => undefined,
+    );
+    return write;
+  }, [templateId, userId, workOrderId]);
+
   const saveDraftNow = useCallback(async () => {
     const form = formRef.current;
     if (!form) return;
 
     const formData = new FormData(form);
-    const payload = Object.fromEntries(
-      [...formData.entries()].filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string",
-      ),
-    );
+    const payload = readFormPayload(form);
 
     setDraftStatus("saving");
 
     // Lokal først: kladden overlever nettbrudd og fanelukkinger.
-    try {
-      await saveDraftLocally({
-        userId,
-        workOrderId,
-        templateId,
-        payload: {
-          state: stateRef.current,
-          notes: payload.notes ?? "",
-        },
-      });
-    } catch {
-      // IndexedDB utilgjengelig – fortsett med serverlagring.
-    }
+    await writeLocalDraft();
 
     try {
       const result = await saveDraft(formData);
       if (result.ok) {
+        // Serverkladden er nå nyere enn alt som måtte ligge i outboxen fra
+        // tidligere nettbrudd. Fjern de gamle oppføringene, så de ikke senere
+        // replayer over den ferske kladden.
+        await removeOutboxForReport({ workOrderId, templateId }, userId);
         setDraftStatus("saved");
         setDraftSavedAt(result.savedAt ? new Date(result.savedAt) : new Date());
       } else {
@@ -246,21 +267,33 @@ export default function ReportForm({
       try {
         await queueDraftForRetry(payload);
       } catch {
-        // Outbox er også utilgjengelig; serverkladden er tapt for denne økten.
+        // Outbox er også utilgjengelig; den lokale kladden er likevel skrevet.
       }
     }
-  }, [templateId, userId, workOrderId]);
+  }, [writeLocalDraft, templateId, userId, workOrderId]);
 
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       void saveDraftNow();
     }, 1200);
-  }, [saveDraftNow]);
+
+    // Lokal kladd lagres raskere enn serverkladden, og uten nettavhengighet.
+    if (localSaveTimer.current) clearTimeout(localSaveTimer.current);
+    localSaveTimer.current = setTimeout(() => {
+      localSaveTimer.current = null;
+      void writeLocalDraft();
+    }, 200);
+  }, [saveDraftNow, writeLocalDraft]);
 
   // Lagre når fanen skjules eller lukkes, så siste endring ikke går tapt.
   useEffect(() => {
     const flush = () => {
+      if (localSaveTimer.current) {
+        clearTimeout(localSaveTimer.current);
+        localSaveTimer.current = null;
+        void writeLocalDraft();
+      }
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
         saveTimer.current = null;
@@ -276,8 +309,9 @@ export default function ReportForm({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flush);
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (localSaveTimer.current) clearTimeout(localSaveTimer.current);
     };
-  }, [saveDraftNow]);
+  }, [saveDraftNow, writeLocalDraft]);
 
   // Gjenopprett en nyere lokal kladd (f.eks. laget offline) når serverkladden
   // er eldre. En signert rapport skal aldri overskrives av en lokal kladd.
@@ -291,36 +325,26 @@ export default function ReportForm({
           ? new Date(draftUpdatedAt).getTime()
           : 0;
         if (local.updatedAt <= serverTime) return;
-        const snapshot = local.payload as {
-          state?: { counter: number; units: UnitEntry[] };
-        };
-        if (snapshot.state && Array.isArray(snapshot.state.units)) {
-          if (requiresUnits) {
-            setState(snapshot.state);
-          } else {
-            // En lokal kladd kan være laget før malen ble uten enheter. Da
-            // beholder vi svarene fra første oppføring i den faste nøkkelen.
-            const first = snapshot.state.units[0];
-            setState({
-              counter: 1,
-              units: [
-                makeUnit(REPORT_WITHOUT_UNITS_KEY, {
-                  status: first?.status,
-                  comment: first?.comment,
-                  answers: first?.answers,
-                }),
-              ],
-            });
-          }
-          setDraftStatus("saved");
-          setDraftSavedAt(new Date(local.updatedAt));
-        }
+        const restored = restoreLocalDraft({
+          snapshot: local.payload as LocalDraftSnapshot,
+          requiresUnits,
+          fallback: initialSeed,
+        });
+        if (!restored) return;
+        // State og startobjekt oppdateres i samme render, og `formVersion`
+        // remonterer de ukontrollerte feltene med de gjenopprettede verdiene.
+        setState(restored.state);
+        setSeed(restored.seed);
+        setFormVersion((version) => version + 1);
+        setLocalDraftRestored(true);
+        setDraftStatus("saved");
+        setDraftSavedAt(new Date(local.updatedAt));
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [draftUpdatedAt, initialReport, requiresUnits, templateId, userId, workOrderId]);
+  }, [draftUpdatedAt, initialReport, requiresUnits, templateId, userId, workOrderId, initialSeed]);
 
   // Sjekkpunkter som krever oppfølging (f.eks. «Utbedres»), gruppert per enhet.
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
@@ -445,7 +469,7 @@ export default function ReportForm({
         </button>
       </div>
 
-      {initialDraft && (
+      {(initialDraft || localDraftRestored) && (
         <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm font-medium">
           {t("orders.reportForm.draftRestored")}
         </div>
@@ -458,6 +482,7 @@ export default function ReportForm({
       )}
 
       {/* SAMLET RESULTAT – bare for maler som bruker enheter. */}
+      <div key={formVersion}>
       {visibility.showOverallResult && (
         <div className={`p-4 rounded-xl border-2 ${overallStatus === "AVVIK" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
@@ -725,6 +750,7 @@ export default function ReportForm({
             label={t("orders.reportForm.technicianSignature")}
             helperText={t("orders.reportForm.technicianHelper")}
             existingUrl={seed?.technicianSignatureUrl}
+            initialDataUrl={seed?.technicianSignatureUrl ?? undefined}
           />
           <SignaturePad
             name="customerSignature"
@@ -733,8 +759,10 @@ export default function ReportForm({
             label={t("orders.reportForm.customerSignature")}
             helperText={t("orders.reportForm.customerHelper")}
             existingUrl={seed?.customerSignatureUrl}
+            initialDataUrl={seed?.customerSignatureUrl ?? undefined}
           />
         </div>
+      </div>
       </div>
 
       {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd. */}

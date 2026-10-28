@@ -76,7 +76,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
             <BrandingColors />
-            <OfflineBanner />
+            <OfflineBanner userId={currentUser?.id} />
             <BrandedHeader
               showNav
               role={currentUser?.role ?? session?.user?.role}
