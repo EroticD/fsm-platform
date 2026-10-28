@@ -26,7 +26,19 @@
       "showActive": "← Active customers",
       "deletedTitle": "Recycle bin: deleted customers can be restored by an administrator.",
       "restore": "Restore",
-      "delete": "Delete"
+      "delete": "Delete",
+      "saving": "Saving …",
+      "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator.",
+      "newCustomer": "New customer",
+      "city": "City",
+      "contact": "Contact",
+      "openOrders": "Open work orders",
+      "lastService": "Last service",
+      "sortBy": "Sort by {column}",
+      "openCustomer": "Open the customer card for {name}",
+      "noContact": "No contact person",
+      "neverServiced": "No completed work orders",
+      "unitsNotice": "Equipment and units live on the customer card. Choose a customer and open the Equipment tab to see the machines."
     },
     "detail": {
       "notFound": "Customer not found",
@@ -41,13 +53,17 @@
       "tabs": {
         "overview": "📊 Overview",
         "orders": "📂 Work orders",
-        "contracts": "📄 Service agreements",
+        "contracts": "📄 Agreements",
         "attachments": "📎 Attachments",
         "units": "🔧 Equipment",
         "contacts": "👤 Contacts",
+        "contactsPortal": "👤 Contacts and portal",
         "portal": "🔐 Customer portal",
-        "activity": "📋 Activity"
-      }
+        "activity": "📋 Activity",
+        "more": "➕ More",
+        "label": "Customer card tabs"
+      },
+      "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator."
     },
     "edit": {
       "title": "Edit customer",
@@ -74,7 +90,8 @@
       "notesPlaceholder": "Notes about the customer...",
       "cancel": "Cancel",
       "save": "Save changes",
-      "saveError": "The customer could not be saved. Check the fields and try again."
+      "saveError": "The customer could not be saved. Check the fields and try again.",
+      "saving": "Saving …"
     },
     "overview": {
       "totalOrders": "Total work orders",
@@ -179,7 +196,21 @@
       "showingRecent": "Showing the {shown} most recent of {total} inspections.",
       "editUnit": "Edit unit",
       "save": "Save changes",
-      "delete": "Delete unit"
+      "delete": "Delete unit",
+      "deleteConfirm": "Delete the unit “{model}”? Service history is kept on the reports.",
+      "searchLabel": "Filter units",
+      "searchPlaceholder": "Search by model, serial number or location...",
+      "search": "Filter",
+      "resetSearch": "Reset",
+      "noMatches": "No units match \"{query}\".",
+      "showing": "Showing {shown} of {total} units.",
+      "openUnit": "Open",
+      "detailSubtitle": "Unit at {customer}",
+      "backToCustomer": "Back to the customer card",
+      "backToCustomers": "To customers",
+      "customerLabel": "Customer",
+      "notFound": "The unit does not exist",
+      "historyHidden": "You do not have access to reports, so the service history is hidden."
     },
     "contacts": {
       "title": "Contacts",
@@ -201,6 +232,7 @@
       "inviteSent": "The invitation email has been sent to the user.",
       "inviteManual": "The email could not be sent (check the SMTP settings in .env) – copy the link and send it to the user manually.",
       "copyLink": "Copy link",
+      "inviteFailed": "Could not create the invitation link. Please try again.",
       "noValidLink": "No valid link. Press \"New link\" to create a new one.",
       "addContactFirst": "Add a contact first – customer portal users must be linked to a contact.",
       "name": "Name",
@@ -223,7 +255,25 @@
       "errorDuplicateEmail": "A user with this email address already exists."
     },
     "activity": {
-      "title": "Activity log"
+      "title": "Activity log",
+      "recentOrders": "Recent work orders",
+      "noRecentOrders": "No work orders registered for this customer yet.",
+      "orderUpdated": "Updated {date}",
+      "recentReports": "Recent reports",
+      "noRecentReports": "No reports submitted for this customer yet.",
+      "reportFallback": "Report",
+      "reportFor": "Work order: {order}",
+      "viewReport": "View report",
+      "feedTitle": "Activity feed",
+      "noActivity": "No activity registered for the customer yet.",
+      "types": {
+        "customer": "Customer",
+        "workOrder": "Work order",
+        "report": "Report",
+        "contact": "Contact"
+      },
+      "auditOnlyTitle": "Show the full audit log",
+      "auditOnlyHint": "The audit log only shows rows attached directly to the customer card. Work orders and reports have their own pages."
     },
     "attachments": {
       "title": "Attachments",
@@ -240,6 +290,30 @@
       "uploadingProgress": "{done} of {total}",
       "deleteTitle": "Delete attachment",
       "deleteConfirm": "Delete the attachment \"{name}\"?"
+    },
+    "feedback": {
+      "status": {
+        "customerCreated": "The customer was created.",
+        "customerUpdated": "The customer information was saved.",
+        "customerDeleted": "The customer was deleted and can be restored from the recycle bin.",
+        "customerRestored": "The customer was restored.",
+        "unitCreated": "The unit was added.",
+        "unitUpdated": "The unit was updated.",
+        "unitDeleted": "The unit was deleted.",
+        "contactCreated": "The contact person was added.",
+        "contactUpdated": "The contact person was updated.",
+        "contactDeleted": "The contact person was deleted.",
+        "contractCreated": "The service agreement was created.",
+        "contractActivated": "The service agreement was activated.",
+        "contractPaused": "The service agreement was paused.",
+        "contractDeleted": "The service agreement was deleted."
+      },
+      "error": {
+        "invalid": "The form contains invalid or missing fields.",
+        "forbidden": "You do not have access to this action.",
+        "notFound": "Could not find what you tried to change. It may have been deleted.",
+        "unknown": "Something went wrong. Try again."
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
@@ -9,6 +10,8 @@ import { staffWhere, type AccessUser } from "@/lib/access";
 import { performSearch, type SearchItem, type SearchResults } from "@/lib/search";
 import { hasActiveFilters } from "@/lib/search-filters";
 import { listSavedSearches, type SavedSearch } from "@/server/saved-searches";
+import PageHeader from "@/components/PageHeader";
+import SectionCard from "@/components/SectionCard";
 import HighlightedText from "@/components/search/HighlightedText";
 import RecentSearches from "@/components/search/RecentSearches";
 import SearchFiltersForm from "./SearchFiltersForm";
@@ -36,21 +39,61 @@ const SAVED_MESSAGES: Record<
   feil: { key: "components.search.saved.error", tone: "error" },
 };
 
-function ResultLink({ item, query }: { item: SearchItem; query: string }) {
+type SearchTranslator = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
+/** Setter sammen en undertittel fra i18n-deler og rå data. */
+function subtitleFor(item: SearchItem, t: SearchTranslator): string | undefined {
+  if (item.subtitleParts?.length) {
+    const text = item.subtitleParts
+      .map((part) => (part.key ? t(part.key, part.params) : part.text))
+      .filter(Boolean)
+      .join(" • ");
+    return text || undefined;
+  }
+  if (item.subtitleKey) return t(item.subtitleKey, item.subtitleParams);
+  return item.subtitle;
+}
+
+function ResultLink({
+  item,
+  query,
+  directLabel,
+  subtitle,
+}: {
+  item: SearchItem;
+  query: string;
+  directLabel: string;
+  subtitle?: string;
+}) {
   return (
-    <Link
-      href={item.href}
-      className="block min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
-    >
-      <p className="break-words text-sm font-bold text-gray-900">
-        <HighlightedText text={item.title} query={query} />
-      </p>
-      {item.subtitle && (
-        <p className="mt-1 break-words text-xs text-gray-500">
-          <HighlightedText text={item.subtitle} query={query} />
+    <div className="flex min-w-0 items-stretch gap-2">
+      <Link
+        href={item.href}
+        className="block min-w-0 flex-1 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+      >
+        <p className="break-words text-sm font-bold text-gray-900">
+          <HighlightedText text={item.title} query={query} />
         </p>
+        {subtitle && (
+          <p className="mt-1 break-words text-xs text-gray-500">
+            <HighlightedText text={subtitle} query={query} />
+          </p>
+        )}
+      </Link>
+      {item.directHref && (
+        <a
+          href={item.directHref}
+          target="_blank"
+          rel="noopener"
+          className="flex shrink-0 items-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-600 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+        >
+          {directLabel}
+        </a>
       )}
-    </Link>
+    </div>
   );
 }
 
@@ -58,6 +101,11 @@ function technicianWhereFor(user: AccessUser) {
   if (user.role === "ADMIN") return staffWhere();
   if (!user.departmentId) return { id: { in: [] } };
   return staffWhere(user.departmentId);
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.sok") };
 }
 
 export default async function SearchResultsPage({
@@ -79,6 +127,10 @@ export default async function SearchResultsPage({
 
   const groupLabel = (kind: string) =>
     GROUP_KEYS[kind] ? tl(GROUP_KEYS[kind]) : kind;
+  const directLabelFor = (item: SearchItem) =>
+    item.directLabelKey
+      ? tl(item.directLabelKey)
+      : t("components.search.openFile");
 
   const hasQuery = query.length >= 2;
   const includeCancelled = user.role === "ADMIN" || user.role === "OFFICE";
@@ -101,6 +153,9 @@ export default async function SearchResultsPage({
         page,
         pageSize: SEARCH_PAGE_SIZE,
         filters,
+        // Bevar det filtrerte søket som «tilbake»-mål fra dokument- og
+        // rapportviserne.
+        returnTo: buildSearchHref({ q: query, page, filters }),
       });
     } catch (error) {
       // Skill serverfeil fra «ingen treff», slik at brukeren får prøve igjen.
@@ -230,7 +285,7 @@ export default async function SearchResultsPage({
               ← {t("components.search.previous")}
             </Link>
           ) : (
-            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-300">
+            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600">
               ← {t("components.search.previous")}
             </span>
           )}
@@ -242,7 +297,7 @@ export default async function SearchResultsPage({
               {t("components.search.next")} →
             </Link>
           ) : (
-            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-300">
+            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600">
               {t("components.search.next")} →
             </span>
           )}
@@ -254,40 +309,62 @@ export default async function SearchResultsPage({
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Link
-            href="/"
-            className="whitespace-nowrap rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50"
-          >
-            ← {t("components.search.home")}
-          </Link>
-          <form
-            action="/sok"
-            method="get"
-            aria-label={t("components.search.title")}
-            className="flex min-w-0 flex-1 gap-2"
-          >
-            <FilterHiddenInputs filters={filters} />
-            <label htmlFor="search-results-q" className="sr-only">
-              {t("components.search.title")}
-            </label>
-            <input
-              id="search-results-q"
-              type="search"
-              name="q"
-              defaultValue={query}
-              maxLength={100}
-              placeholder={t("components.search.placeholder")}
-              className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-            />
-            <button
-              type="submit"
-              className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 sm:px-6"
+        <PageHeader
+          title={t("components.search.title")}
+          icon="🔍"
+          actions={
+            <Link
+              href="/"
+              className="whitespace-nowrap rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50"
             >
-              {t("components.search.title")}
-            </button>
-          </form>
-        </div>
+              ← {t("components.search.home")}
+            </Link>
+          }
+        />
+        <form
+          action="/sok"
+          method="get"
+          aria-label={t("components.search.title")}
+          className="flex min-w-0 flex-1 gap-2"
+        >
+          <FilterHiddenInputs filters={filters} />
+          <label htmlFor="search-results-q" className="sr-only">
+            {t("components.search.title")}
+          </label>
+          <input
+            id="search-results-q"
+            type="search"
+            name="q"
+            defaultValue={query}
+            maxLength={100}
+            placeholder={t("components.search.placeholder")}
+            className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 sm:px-6"
+          >
+            {t("components.search.title")}
+          </button>
+        </form>
+
+        <SearchFiltersForm
+          variant="mobile"
+          query={query}
+          filters={filters}
+          customers={customers}
+          technicians={technicianOptions}
+          showCustomers={showCustomers}
+          showTechnicians={showTechnicians}
+        >
+          <SavedSearchesPanel
+            searches={savedSearches}
+            query={query}
+            filters={filters}
+            page={page}
+            idPrefix="mobile-saved-searches"
+          />
+        </SearchFiltersForm>
 
         {hasQuery && <RecentSearches query={query} visible={false} />}
 
@@ -305,7 +382,7 @@ export default async function SearchResultsPage({
         )}
 
         <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+          <aside className="hidden space-y-4 lg:block">
             <SearchFiltersForm
               query={query}
               filters={filters}
@@ -319,6 +396,7 @@ export default async function SearchResultsPage({
               query={query}
               filters={filters}
               page={page}
+              idPrefix="desktop-saved-searches"
             />
             {hasPermission(user, "audit.view") && (
               <Link
@@ -332,13 +410,11 @@ export default async function SearchResultsPage({
 
           <div className="min-w-0 space-y-5">
             {!hasQuery ? (
-              <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-                <h1 className="text-xl font-black text-gray-900 sm:text-2xl">
-                  {t("components.search.emptyTitle")}
-                </h1>
-                <p className="mt-2 text-sm text-gray-600 sm:text-base">
-                  {t("components.search.emptyBody")}
-                </p>
+              <SectionCard
+                title={t("components.search.emptyTitle")}
+                description={t("components.search.emptyBody")}
+                className="p-6 sm:p-8"
+              >
                 <p className="mt-4 rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
                   {query.length > 0
                     ? t("components.search.queryTooShort")
@@ -366,7 +442,7 @@ export default async function SearchResultsPage({
                 <div className="mt-6 border-t border-gray-100 pt-4">
                   <RecentSearches query="" />
                 </div>
-              </section>
+              </SectionCard>
             ) : rateLimited ? (
               <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-center">
                 <p className="font-bold text-yellow-900">
@@ -398,19 +474,23 @@ export default async function SearchResultsPage({
               </div>
             ) : (
               <>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-                  <h1 className="text-xl font-black text-gray-900 sm:text-2xl">
-                    {t("components.search.resultsFor", { query })}{" "}
-                    <span className="text-base font-bold text-gray-400 sm:text-lg">
-                      ({t("components.search.hits", { count: results.total })})
-                    </span>
-                  </h1>
-                  {canUseFilters && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      {t("components.search.filtersActive")}
-                    </p>
-                  )}
-                </div>
+                <SectionCard
+                  title={
+                    <>
+                      {t("components.search.resultsFor", { query })}{" "}
+                      <span className="text-base font-bold text-gray-600 sm:text-lg">
+                        ({t("components.search.hits", { count: results.total })}
+                        {results.capped ? "+" : ""})
+                      </span>
+                    </>
+                  }
+                  description={
+                    canUseFilters
+                      ? t("components.search.filtersActive")
+                      : undefined
+                  }
+                  className="p-4 sm:p-5"
+                />
 
                 {paginationBar()}
 
@@ -444,10 +524,15 @@ export default async function SearchResultsPage({
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {topHits.map((hit) => (
                             <div key={`${hit.kind}-${hit.id}`} className="min-w-0">
-                              <p className="mb-1 truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                              <p className="mb-1 truncate text-xs font-bold uppercase tracking-wide text-gray-600">
                                 {hit.icon} {groupLabel(hit.kind)}
                               </p>
-                              <ResultLink item={hit} query={query} />
+                              <ResultLink
+                                item={hit}
+                                query={query}
+                                directLabel={directLabelFor(hit)}
+                                subtitle={subtitleFor(hit, tl)}
+                              />
                             </div>
                           ))}
                         </div>
@@ -470,8 +555,9 @@ export default async function SearchResultsPage({
                               className="text-lg font-black text-gray-900"
                             >
                               {group.icon} {groupLabel(group.kind)}{" "}
-                              <span className="text-sm font-bold text-gray-400">
-                                ({group.total})
+                              <span className="text-sm font-bold text-gray-600">
+                                ({group.total}
+                                {group.capped ? "+" : ""})
                               </span>
                             </h2>
                             {range && (
@@ -496,6 +582,8 @@ export default async function SearchResultsPage({
                                   key={`${group.kind}-${item.id}`}
                                   item={item}
                                   query={query}
+                                  directLabel={directLabelFor(item)}
+                                  subtitle={subtitleFor(item, tl)}
                                 />
                               ))}
                             </div>

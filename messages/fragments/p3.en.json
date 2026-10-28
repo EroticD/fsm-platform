@@ -12,8 +12,20 @@
       "markRead": "Mark as read",
       "previous": "Previous",
       "next": "Next",
+      "paginationAria": "Notification pagination",
+      "previousAria": "Go to the previous page of notifications",
+      "nextAria": "Go to the next page of notifications",
       "pageOf": "Page {page} of {pages}",
       "settings": "Settings",
+      "popover": {
+        "title": "Recent notifications",
+        "loading": "Loading notifications …",
+        "error": "Could not load notifications. Please try again.",
+        "empty": "No new notifications.",
+        "close": "Close the notification overview",
+        "markingAll": "Marking …",
+        "seeAll": "See all"
+      },
       "fromLabel": "From:",
       "sourceFallback": "System notification",
       "unread": "Unread",
@@ -51,7 +63,10 @@
         "CONTACT_UPDATE": "Customer requests updated contact information"
       },
       "inAppAria": "{label} in app",
-      "emailAria": "{label} by email"
+      "emailAria": "{label} by email",
+      "saving": "Saving …",
+      "saved": "Notification settings saved.",
+      "saveError": "Notification settings could not be saved. Please try again."
     },
     "calendarFeed": {
       "title": "Calendar subscription",
@@ -65,7 +80,16 @@
     },
     "offline": {
       "pending": "📤 {count} draft(s) waiting to sync",
-      "offline": "📴 You are offline – drafts are stored locally and sent when the network returns"
+      "offline": "📴 You are offline – drafts are stored on this device and sent when the app is open and the network returns",
+      "offlineWithPending": "📴 Offline · {count} draft(s) waiting",
+      "failed": "⚠️ {count} draft(s) could not be sent",
+      "openDrafts": "Open the draft list",
+      "retryNow": "Send now",
+      "retryFailed": "Try again",
+      "retrying": "Sending …",
+      "discardDrafts": "Discard my drafts",
+      "discardConfirm": "Discard all local drafts and pending uploads on this device? This cannot be undone.",
+      "noStorage": "📴 You are offline – this browser cannot store drafts locally"
     },
     "portalReports": {
       "title": "📄 Reports",
@@ -89,6 +113,17 @@
       "requestUpdate": "Request a contact information update",
       "requestUpdatePlaceholder": "What should be updated?",
       "requestUpdateButton": "Send request",
+      "requestUpdateExplain": "The office updates the customer record manually. The change is not automatic.",
+      "requestUpdateSending": "Sending …",
+      "requestUpdateSuccess": "Your request has been sent. The office will contact you.",
+      "requestUpdateError": "The request could not be sent. Please try again.",
+      "updateForbidden": "This account is not allowed to request an update.",
+      "acknowledgeExplain": "“Acknowledge receipt” means that you confirm you have received and read the report. The acknowledgement is shown to the office together with any comment. We can still revise the report if something is wrong – let us know and we will create a new revision.",
+      "acknowledging": "Acknowledging …",
+      "acknowledgeSuccess": "Thank you! The acknowledgement has been registered.",
+      "acknowledgeError": "The acknowledgement could not be registered. Please try again.",
+      "acknowledgeForbidden": "You are not allowed to acknowledge this report.",
+      "acknowledgeNotFound": "The report is not available for acknowledgement. It may be under revision or deleted.",
       "reportNumber": "Report no. {number}"
     },
     "bell": {
@@ -99,10 +134,37 @@
       "title": "Map",
       "description": "Work orders grouped by location. Open in Google Maps for directions.",
       "calendar": "Calendar",
-      "empty": "No work orders with an address yet.",
+      "empty": "No active work orders with an address yet.",
       "noCustomer": "No customer",
+      "noTechnician": "No technician",
       "openMaps": "Open in Maps",
-      "unknownCity": "Unknown location"
+      "unknownCity": "Unknown location",
+      "mapHint": "Markers are placed at the work order address when geocoded. Older work orders without coordinates are shown at the customer city.",
+      "mapAria": "Map of work orders",
+      "regionHint": "The map shows the same work orders as the link list below.",
+      "noMapPoints": "No work orders could be placed on the map because the customer has no known city.",
+      "noDate": "No date",
+      "openWorkOrder": "Open work order",
+      "legendTitle": "Status colours",
+      "opensInNewTab": "opens in a new tab",
+      "resultRange": "Showing {count} of {total} work orders",
+      "truncated": "Showing the first {limit} work orders. Narrow the dates to see more.",
+      "filters": {
+        "technician": "Technician",
+        "allTechnicians": "All technicians",
+        "dateFrom": "From date",
+        "dateTo": "To date",
+        "apply": "Apply filter",
+        "clear": "Clear",
+        "dateError": "One of the dates is invalid. Use the format YYYY-MM-DD.",
+        "dateRangeError": "The from date cannot be after the to date. Correct the dates to see work orders."
+      },
+      "layers": {
+        "osm": "OpenStreetMap",
+        "topo": "Topographic",
+        "light": "Light",
+        "satellite": "Satellite"
+      }
     }
   }
 }

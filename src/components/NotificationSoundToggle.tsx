@@ -30,8 +30,10 @@ function subscribe(onChange: () => void): () => void {
  */
 export default function NotificationSoundToggle({
   compact = false,
+  className = "",
 }: {
   compact?: boolean;
+  className?: string;
 }) {
   const t = useTranslations("common");
   const setting = useSyncExternalStore<NotificationSoundSetting>(
@@ -61,7 +63,7 @@ export default function NotificationSoundToggle({
         enabled
           ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
           : "border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200"
-      }`}
+      } ${className}`}
     >
       <span aria-hidden="true">{enabled ? "🔔" : "🔕"}</span>
       {!compact && (

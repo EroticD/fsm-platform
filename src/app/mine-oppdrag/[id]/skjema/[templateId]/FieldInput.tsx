@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import ImageUploadField from "@/components/ImageUploadField";
 import MarkdownEditor from "@/components/MarkdownEditor";
@@ -69,10 +69,10 @@ function StatusInput({
   }, [value, triggers, onNeedsComment]);
 
   return (
-    <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 space-y-3">
-      <label className="block text-sm font-black text-gray-900">
+    <fieldset className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 space-y-3">
+      <legend className="block text-sm font-black text-gray-900">
         🧭 {field.label} {field.required && <span className="text-red-500">*</span>}
-      </label>
+      </legend>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map((option, index) => {
@@ -109,10 +109,11 @@ function StatusInput({
 
       {mustComment ? (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
-          <label className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
+          <label htmlFor={`${commentName}-comment`} className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
             {t("orders.fieldInput.commentRequired", { value })}
           </label>
           <MarkdownEditor
+            id={`${commentName}-comment`}
             name={commentName}
             required
             rows={3}
@@ -123,7 +124,7 @@ function StatusInput({
       ) : (
         <input type="hidden" name={commentName} value="" />
       )}
-    </div>
+    </fieldset>
   );
 }
 
@@ -156,6 +157,7 @@ export default function FieldInput({
   workOrderId?: string;
 }) {
   const t = useTranslations("common");
+  const fieldId = useId();
   switch (field.type) {
     case "CHECKBOX":
       return (
@@ -164,7 +166,13 @@ export default function FieldInput({
             type="checkbox"
             name={name}
             value="on"
-            defaultChecked={defaultValue === true || defaultValue === "true"}
+            defaultChecked={
+              defaultValue === true ||
+              defaultValue === "true" ||
+              // Skjemaets FormData lagrer avkrysning som «on». Kladder kan
+              // derfor inneholde denne verdien i tillegg til React-state.
+              defaultValue === "on"
+            }
             required={field.required}
             onChange={(event) =>
               onValueChange?.(event.target.checked ? "true" : "false")
@@ -193,10 +201,11 @@ export default function FieldInput({
     case "TEXTAREA":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-textarea`} className="block text-sm font-black text-gray-900 mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <MarkdownEditor
+            id={`${fieldId}-textarea`}
             name={name}
             rows={3}
             required={field.required}
@@ -210,10 +219,11 @@ export default function FieldInput({
     case "NUMBER":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-number`} className="block text-sm font-black text-gray-900 mb-2">
             🔢 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-number`}
             type="number"
             step="any"
             name={name}
@@ -229,10 +239,11 @@ export default function FieldInput({
     case "DATE":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-date`} className="block text-sm font-black text-gray-900 mb-2">
             📅 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-date`}
             type="date"
             name={name}
             required={field.required}
@@ -246,10 +257,11 @@ export default function FieldInput({
     case "SELECT":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-select`} className="block text-sm font-black text-gray-900 mb-2">
             📂 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
+            id={`${fieldId}-select`}
             name={name}
             required={field.required}
             defaultValue={asText(defaultValue)}
@@ -282,10 +294,11 @@ export default function FieldInput({
     case "SIGNATURE":
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-signature`} className="block text-sm font-black text-gray-900 mb-2">
             ✍️ {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-signature`}
             type="text"
             name={name}
             required={field.required}
@@ -300,10 +313,11 @@ export default function FieldInput({
     default:
       return (
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-text`} className="block text-sm font-black text-gray-900 mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
+            id={`${fieldId}-text`}
             type="text"
             name={name}
             required={field.required}

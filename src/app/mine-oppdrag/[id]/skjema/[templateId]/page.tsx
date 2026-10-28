@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import ReportForm, { type CustomerUnit, type InitialReport } from "./ReportForm";
 import { type TemplateField } from "./FieldInput";
+import ErrorBanner from "@/components/ErrorBanner";
 import { parseJsonObject } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -14,14 +15,14 @@ export default async function TechnicianFillFormPage({
   searchParams,
 }: {
   params: Promise<{ id: string; templateId: string }>;
-  searchParams: Promise<{ returnTo?: string }>;
+  searchParams: Promise<{ returnTo?: string; error?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "reports.write")) redirect("/");
 
   const { id: workOrderId, templateId } = await params;
-  const { returnTo: returnToParam } = await searchParams;
+  const { returnTo: returnToParam, error } = await searchParams;
   const t = await getTranslations("common");
 
   // Skjemaet kan åpnes både fra feltportalen og fra kontorets oppdragsside.
@@ -91,6 +92,10 @@ export default async function TechnicianFillFormPage({
               })}
             </p>
           </div>
+
+          <ErrorBanner
+            message={error === "locked" ? t("orders.reportForm.errorLocked") : undefined}
+          />
 
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 space-y-4">
             <h2 className="text-lg font-black text-amber-900">{t("orders.fieldFormPage.lockedTitle")}</h2>
@@ -202,6 +207,7 @@ export default async function TechnicianFillFormPage({
           initialDraft={initialDraft}
           draftUpdatedAt={draft?.updatedAt.toISOString()}
           returnTo={returnTo}
+          submitError={error}
         />
       </div>
     </div>

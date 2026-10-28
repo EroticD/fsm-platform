@@ -7,9 +7,17 @@ import {
   updateNotificationPreferences,
 } from "@/server/notifications";
 
-export async function saveNotificationPreferencesAction(formData: FormData) {
+export type NotificationPreferencesState =
+  | { status: "idle" }
+  | { status: "success" }
+  | { status: "error" };
+
+export async function saveNotificationPreferencesAction(
+  _previous: NotificationPreferencesState,
+  formData: FormData,
+): Promise<NotificationPreferencesState> {
   const user = await getCurrentUser();
-  if (!user) return;
+  if (!user) return { status: "error" };
 
   const preferences = NOTIFICATION_TYPES.map((type) => ({
     type,
@@ -17,6 +25,9 @@ export async function saveNotificationPreferencesAction(formData: FormData) {
     email: formData.get(`email_${type}`) === "on",
   }));
 
-  await updateNotificationPreferences(user, preferences);
+  const result = await updateNotificationPreferences(user, preferences);
+  if (!result.ok) return { status: "error" };
+
   revalidatePath("/varsler/innstillinger");
+  return { status: "success" };
 }

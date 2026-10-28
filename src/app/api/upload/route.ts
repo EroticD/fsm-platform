@@ -17,6 +17,11 @@ import {
   maxBytesForMime,
   withUploadSlot,
 } from "@/lib/upload-slot";
+import {
+  declaredMimeMatches,
+  readRequestBodyWithLimit,
+  sniffFileMime,
+} from "@/lib/upload-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +77,23 @@ export async function POST(request: Request) {
   let filePath: string | null = null;
 
   try {
-    const formData = await request.formData();
+    // Content-Length kan mangle eller lyve. Vi leser derfor strømmen med en
+    // hard grense og avbryter så snart den overskrides, før hele kroppen er
+    // bufret. Multipart-parsingen skjer etterpå på den avgrensede bufferen.
+    const limited = await readRequestBodyWithLimit(request, MAX_REQUEST_BYTES);
+    if (!limited.ok) {
+      if (limited.reason === "too-large") {
+        return jsonError("Filen er for stor", 413);
+      }
+      return jsonError("Ugyldig forespørsel", 400);
+    }
+
+    const contentType = request.headers.get("content-type");
+    if (!contentType) return jsonError("Ugyldig forespørsel", 400);
+
+    const formData = await new Response(new Uint8Array(limited.buffer), {
+      headers: { "content-type": contentType },
+    }).formData();
     const file = formData.get("file") as File;
 
     if (!file) {
@@ -162,6 +183,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Magiske bytes avgjør hva filen faktisk er. En HTML-fil som hevder å være
+    // PNG skal ikke lagres som bilde, og en EXE som hevder PDF skal ikke kunne
+    // leveres med PDF-innholdstype.
+    const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const actualMime = sniffFileMime(headerBytes);
+    if (!declaredMimeMatches(file.type, actualMime)) {
+      return jsonError("Filinnholdet stemmer ikke med filtypen", 415);
+    }
+
     // Daglig lagringskvote per bruker (2 GiB de siste 24 timene). Hindrer at en
     // kompromittert konto fyller opplastingsvolumet.
     const dailyQuota = 2 * 1024 * 1024 * 1024;
@@ -187,6 +217,7 @@ export async function POST(request: Request) {
       // Komprimer bilder før de skrives til disk. Feltbilder kan være store;
       // vi begrenser til 2000 px og reduserer kvaliteten. Sharp er CPU-tungt,
       // så både innlesing og behandling går gjennom den delte opplastingskøen.
+      let imageFailed = false;
       await withUploadSlot(async () => {
         const arrayBuffer = await file.arrayBuffer();
         let buffer = Buffer.from(arrayBuffer);
@@ -216,12 +247,12 @@ export async function POST(request: Request) {
           }
           finalBytes = buffer.length;
         } catch (error) {
-          // Behold originalen hvis Sharp ikke klarer filen.
-          console.error("Bildekomprimering feilet, bruker original:", error);
-          buffer = Buffer.from(arrayBuffer);
-          finalMime = file.type;
-          finalBytes = file.size;
-          extension = fileExtension;
+          // Vi lagrer aldri den ubehandlede originalen under en påstått
+          // bilde-MIME. En fil Sharp ikke kan dekode, er ikke et bilde vi kan
+          // garantere at nettleseren håndterer trygt.
+          console.error("Bildekomprimering feilet:", error);
+          imageFailed = true;
+          return;
         }
 
         // Filene ligger utenfor public/ og leses gjennom /uploads/[...sti].
@@ -233,6 +264,9 @@ export async function POST(request: Request) {
         filePath = finalPath;
         await fs.writeFile(finalPath, buffer);
       });
+      if (imageFailed) {
+        return jsonError("Filen kunne ikke behandles som bilde", 415);
+      }
       // Filnavnet må bygges på nytt hvis endelsen endret seg (png/webp/jpg).
       if (filePath) {
         const actualName = path.basename(filePath);

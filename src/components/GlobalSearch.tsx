@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   addRecentSearch,
@@ -22,15 +22,26 @@ type SearchItem = {
   id: string;
   title: string;
   subtitle?: string;
+  subtitleKey?: string;
+  subtitleParams?: Record<string, string | number>;
+  subtitleParts?: Array<{
+    key?: string;
+    params?: Record<string, string | number>;
+    text?: string;
+  }>;
   href: string;
+  directHref?: string;
+  directLabelKey?: string;
   score?: number;
 };
 
 type SearchGroup = {
   kind: string;
   label: string;
+  labelKey?: string;
   icon: string;
   total: number;
+  capped?: boolean;
   items: SearchItem[];
 };
 
@@ -84,8 +95,30 @@ export default function GlobalSearch({
 }: {
   placeholder?: string;
 }) {
+  const pathname = usePathname();
+
+  // På /sok er søkefeltet i selve resultatsiden autoritativt. Da skjules
+  // headeren sitt søk for å unngå to konkurrerende søkefelt på samme side.
+  if (pathname === "/sok" || pathname === "/sok/") return null;
+
+  return <GlobalSearchInner placeholder={placeholder} />;
+}
+
+function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   const t = useTranslations("common");
   const resolvedPlaceholder = placeholder ?? t("components.search.placeholder");
+  /** Setter sammen en undertittel fra i18n-deler og rå data. */
+  const subtitleFor = (item: SearchItem): string | undefined => {
+    if (item.subtitleParts?.length) {
+      const text = item.subtitleParts
+        .map((part) => (part.key ? t(part.key, part.params) : part.text))
+        .filter(Boolean)
+        .join(" • ");
+      return text || undefined;
+    }
+    if (item.subtitleKey) return t(item.subtitleKey, item.subtitleParams);
+    return item.subtitle;
+  };
   const router = useRouter();
   const baseId = useId().replace(/:/g, "");
   const listboxId = `global-search-${baseId}-listbox`;
@@ -98,12 +131,14 @@ export default function GlobalSearch({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [recent, setRecent] = useState<string[]>([]);
+  const [isMac, setIsMac] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recentRef = useRef<string[]>([]);
 
   const trimmed = query.trim();
   const hasQuery = trimmed.length >= MIN_LENGTH;
+  const tooShort = trimmed.length > 0 && !hasQuery;
 
   const groups = useMemo(
     () =>
@@ -119,6 +154,11 @@ export default function GlobalSearch({
   );
 
   const total = results?.total ?? 0;
+  const groupLabel = (group: SearchGroup) => {
+    const key = group.labelKey ?? `components.search.groups.${group.kind}`;
+    const translated = t(key);
+    return translated === key ? group.label : translated;
+  };
 
   const flat = useMemo<FlatItem[]>(
     () =>
@@ -147,10 +187,11 @@ export default function GlobalSearch({
     return out;
   }, [groups]);
 
-  const optionCount = hasQuery ? flat.length : recent.length;
+  const optionCount = hasQuery ? flat.length : tooShort ? 0 : recent.length;
   const safeActive = Math.min(active, Math.max(optionCount - 1, 0));
   const activeItem = hasQuery ? flat[safeActive] : undefined;
-  const activeRecent = !hasQuery ? recent[safeActive] : undefined;
+  const activeRecent =
+    !hasQuery && !tooShort ? recent[safeActive] : undefined;
   const activeOptionId = !open
     ? undefined
     : hasQuery
@@ -212,6 +253,16 @@ export default function GlobalSearch({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
+  // Vis riktig snarvei i søkefeltet: ⌘K på macOS, Ctrl+K ellers. Plattformen
+  // leses i en effekt, slik at server- og klient-render er identiske.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const platform = `${navigator.platform ?? ""} ${navigator.userAgent ?? ""}`;
+      setIsMac(/mac|iphone|ipad|ipod/i.test(platform));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   // Globalt tastatursnarvei: Ctrl/Cmd+K fokuserer søket, «/» gjør det samme
   // så lenge man ikke står i et annet inntastingsfelt.
   useEffect(() => {
@@ -270,17 +321,24 @@ export default function GlobalSearch({
 
   const navigate = useCallback(
     (href: string) => {
+      // Rapportviseren kan ta med seg opphavssiden som «tilbake»-mål. Det gjør
+      // at hurtigsøket fra en oppdragsside kommer tilbake dit, ikke til kunden.
+      let target = href;
+      if (href.startsWith("/rapporter/") && !href.includes("returnTo=")) {
+        const origin = `${window.location.pathname}${window.location.search}`;
+        target = `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(origin)}`;
+      }
       setOpen(false);
       setQuery("");
       setResults(null);
       setStatus("idle");
-      router.push(href);
+      router.push(target);
     },
     [router],
   );
 
   const navigateToAllResults = useCallback(() => {
-    if (!trimmed) return;
+    if (trimmed.length < MIN_LENGTH) return;
     rememberQuery(trimmed);
     navigate(`/sok?q=${encodeURIComponent(trimmed)}`);
   }, [navigate, rememberQuery, trimmed]);
@@ -329,6 +387,7 @@ export default function GlobalSearch({
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (!hasQuery) {
+        if (tooShort) return;
         if (open && activeRecent) runRecentSearch(activeRecent);
         return;
       }
@@ -347,7 +406,8 @@ export default function GlobalSearch({
   }
 
   const showPanel =
-    open && (hasQuery || (trimmed.length === 0 && recent.length > 0));
+    open &&
+    (hasQuery || tooShort || (trimmed.length === 0 && recent.length > 0));
 
   const announcement = (() => {
     if (!showPanel) return "";
@@ -358,12 +418,14 @@ export default function GlobalSearch({
         return t("components.search.noResults", { query: trimmed });
       }
       if (activeItem) {
-        return activeItem.subtitle
-          ? `${activeItem.title}, ${activeItem.subtitle}`
+        const subtitle = subtitleFor(activeItem);
+        return subtitle
+          ? `${activeItem.title}, ${subtitle}`
           : activeItem.title;
       }
       return "";
     }
+    if (tooShort) return t("components.search.minLengthHint");
     return activeRecent
       ? t("components.search.recentAnnouncement", { query: activeRecent })
       : "";
@@ -401,12 +463,12 @@ export default function GlobalSearch({
           aria-autocomplete="list"
           aria-activedescendant={showPanel ? activeOptionId : undefined}
           aria-label={t("components.search.ariaLabel")}
-          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 placeholder:text-gray-500"
         />
         {status === "loading" && hasQuery && (
           <span
             aria-hidden
-            className="shrink-0 text-[11px] text-gray-400 animate-pulse"
+            className="shrink-0 text-xs text-gray-600 animate-pulse"
           >
             {t("components.search.searchingShort")}
           </span>
@@ -416,17 +478,23 @@ export default function GlobalSearch({
             type="button"
             onClick={reset}
             aria-label={t("components.search.clear")}
-            className="shrink-0 rounded-md px-1 text-lg leading-none text-gray-400 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-lg leading-none text-gray-600 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
           >
-            ×
+            <span aria-hidden>×</span>
           </button>
         )}
         {query.length === 0 && (
           <kbd
             aria-hidden
-            className="hidden shrink-0 items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-600 sm:inline-flex"
           >
-            <span className="text-[11px]">⌘</span>K
+            {isMac ? (
+              <>
+                <span className="text-xs">⌘</span>K
+              </>
+            ) : (
+              "Ctrl+K"
+            )}
           </kbd>
         )}
       </div>
@@ -444,6 +512,14 @@ export default function GlobalSearch({
             aria-busy={status === "loading"}
             className="max-h-[60vh] overflow-y-auto overflow-x-hidden overscroll-contain py-1"
           >
+            {tooShort && (
+              <div className="px-4 py-6">
+                <p className="text-sm font-bold text-gray-800">
+                  {t("components.search.minLengthHint")}
+                </p>
+              </div>
+            )}
+
             {hasQuery && status === "loading" && (
               <div className="flex items-center gap-3 px-4 py-6 text-sm text-gray-600">
                 <span
@@ -477,7 +553,7 @@ export default function GlobalSearch({
                 <p className="text-sm font-bold text-gray-800">
                   {t("components.search.noResults", { query: trimmed })}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-600">
                   {t("components.search.noResultsHint")}
                 </p>
               </div>
@@ -496,16 +572,18 @@ export default function GlobalSearch({
                       <div
                         id={headingId}
                         role="presentation"
-                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-gray-400"
+                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
                       >
                         <span className="min-w-0 truncate">
-                          <span aria-hidden>{group.icon}</span> {group.label}
+                          <span aria-hidden>{group.icon}</span>{" "}
+                          {groupLabel(group)}
                         </span>
                         {group.total > 0 && (
                           <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal">
                             {t("components.search.groupTotal", {
                               count: group.total,
                             })}
+                            {group.capped ? "+" : ""}
                           </span>
                         )}
                       </div>
@@ -517,36 +595,59 @@ export default function GlobalSearch({
                           "-",
                         );
                         return (
-                          <button
+                          <div
                             key={`${group.kind}-${item.id}`}
-                            id={optionId}
-                            type="button"
-                            role="option"
-                            aria-selected={isActive}
-                            onMouseEnter={() => setActive(index)}
-                            onClick={() => {
-                              rememberQuery(trimmed);
-                              navigate(item.href);
-                            }}
-                            className={`flex w-full min-w-0 flex-col px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
-                              isActive ? "bg-blue-50" : "hover:bg-gray-50"
-                            }`}
+                            role="presentation"
+                            className="flex w-full min-w-0 items-stretch"
                           >
-                            <span className="block w-full truncate text-sm font-bold text-gray-900">
-                              <HighlightedText
-                                text={item.title}
-                                query={trimmed}
-                              />
-                            </span>
-                            {item.subtitle && (
-                              <span className="block w-full truncate text-[11px] text-gray-500">
+                            <button
+                              id={optionId}
+                              type="button"
+                              role="option"
+                              aria-selected={isActive}
+                              onMouseEnter={() => setActive(index)}
+                              onClick={() => {
+                                rememberQuery(trimmed);
+                                navigate(item.href);
+                              }}
+                              className={`flex min-w-0 flex-1 flex-col px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
+                                isActive ? "bg-blue-50" : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span className="block w-full truncate text-sm font-bold text-gray-900">
                                 <HighlightedText
-                                  text={item.subtitle}
+                                  text={item.title}
                                   query={trimmed}
                                 />
                               </span>
+                              {subtitleFor(item) && (
+                                <span className="block w-full truncate text-xs text-gray-500">
+                                  <HighlightedText
+                                    text={subtitleFor(item)!}
+                                    query={trimmed}
+                                  />
+                                </span>
+                              )}
+                            </button>
+                            {item.directHref && (
+                              // Sekundær handling: åpne den underliggende filen
+                              // direkte i ny fane, uten å forlate søket.
+                              <a
+                                href={item.directHref}
+                                target="_blank"
+                                rel="noopener"
+                                className="flex min-w-11 shrink-0 items-center justify-center border-l border-gray-100 px-3 text-base text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                              >
+                                <span aria-hidden>📄</span>
+                                <span className="sr-only">
+                                  {t(
+                                    item.directLabelKey ??
+                                      "components.search.openFile",
+                                  )}
+                                </span>
+                              </a>
                             )}
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -555,12 +656,12 @@ export default function GlobalSearch({
               </>
             )}
 
-            {!hasQuery && recent.length > 0 && (
+            {!hasQuery && !tooShort && recent.length > 0 && (
               <div role="group" aria-labelledby={recentHeadingId}>
                 <div
                   id={recentHeadingId}
                   role="presentation"
-                  className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-gray-400"
+                  className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
                 >
                   {t("components.search.recentTitle")}
                 </div>
@@ -580,7 +681,7 @@ export default function GlobalSearch({
                         isActive ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <span aria-hidden className="shrink-0 text-xs text-gray-400">
+                      <span aria-hidden className="shrink-0 text-xs text-gray-500">
                         🕘
                       </span>
                       <span className="min-w-0 truncate text-sm font-medium text-gray-800">
@@ -605,12 +706,12 @@ export default function GlobalSearch({
             </div>
           )}
 
-          {!hasQuery && recent.length > 0 && (
+          {!hasQuery && !tooShort && recent.length > 0 && (
             <div className="border-t border-gray-100">
               <button
                 type="button"
                 onClick={clearRecent}
-                className="w-full px-4 py-3 text-left text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                className="w-full px-4 py-3 text-left text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
               >
                 {t("components.search.clearRecent")}
               </button>

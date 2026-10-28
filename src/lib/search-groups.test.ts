@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => ({
   searchNormalizedIds: vi.fn<
     (table: string, query: string, limit: number, columns?: string[]) => Promise<{ id: string; score: number }[]>
   >(async () => []),
-  searchWorkOrderIds: vi.fn(async () => [] as string[]),
+  searchWorkOrderIdsWithTotal: vi.fn(async () => ({ ids: [] as string[], total: 0 })),
   searchDocuments: vi.fn<(query: string, limit: number) => Promise<unknown[]>>(async () => []),
   searchReports: vi.fn<(query: string, options: unknown) => Promise<unknown[]>>(async () => []),
 }));
@@ -58,7 +58,7 @@ vi.mock("@/lib/search-sql", () => ({
   searchByName: mocks.searchByName,
   searchBySubstring: mocks.searchBySubstring,
   searchNormalizedIds: mocks.searchNormalizedIds,
-  searchWorkOrderIds: mocks.searchWorkOrderIds,
+  searchWorkOrderIdsWithTotal: mocks.searchWorkOrderIdsWithTotal,
   searchDocuments: mocks.searchDocuments,
   searchReports: mocks.searchReports,
 }));
@@ -126,7 +126,7 @@ beforeEach(() => {
   mocks.searchByName.mockResolvedValue([]);
   mocks.searchBySubstring.mockResolvedValue([]);
   mocks.searchNormalizedIds.mockResolvedValue([]);
-  mocks.searchWorkOrderIds.mockResolvedValue([]);
+  mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: [], total: 0 });
   mocks.searchDocuments.mockResolvedValue([]);
   mocks.searchReports.mockResolvedValue([]);
 });
@@ -274,7 +274,7 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
 
 describe("performSearch – filtre, tellinger og rangering", () => {
   it("bruker ekte totaltall og paginerer per gruppe", async () => {
-    mocks.searchWorkOrderIds.mockResolvedValue(["wo-1", "wo-2", "wo-3", "wo-4"]);
+    mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: ["wo-1", "wo-2", "wo-3", "wo-4"], total: 4 });
     mocks.workOrderFindMany.mockResolvedValue([
       workOrderRow({ id: "wo-1", title: "Service 1" }),
       workOrderRow({ id: "wo-2", title: "Service 2" }),
@@ -296,7 +296,7 @@ describe("performSearch – filtre, tellinger og rangering", () => {
   });
 
   it("sender alle oppdragsfiltre videre til databasen", async () => {
-    mocks.searchWorkOrderIds.mockResolvedValue(["wo-1"]);
+    mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: ["wo-1"], total: 1 });
     mocks.workOrderFindMany.mockResolvedValue([workOrderRow()]);
     mocks.workOrderCount.mockResolvedValue(1);
 
@@ -345,7 +345,7 @@ describe("performSearch – filtre, tellinger og rangering", () => {
     });
 
     expect(mocks.searchReports).toHaveBeenCalled();
-    expect(mocks.searchWorkOrderIds).not.toHaveBeenCalled();
+    expect(mocks.searchWorkOrderIdsWithTotal).not.toHaveBeenCalled();
     expect(mocks.searchByName).not.toHaveBeenCalled();
   });
 
@@ -359,7 +359,7 @@ describe("performSearch – filtre, tellinger og rangering", () => {
       { id: "cust-1", name: "Service", customerNumber: null, orgNumber: null, city: null, phone: null, email: null },
     ]);
     mocks.customerCount.mockResolvedValue(1);
-    mocks.searchWorkOrderIds.mockResolvedValue(["wo-1"]);
+    mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: ["wo-1"], total: 1 });
     mocks.workOrderFindMany.mockResolvedValue([workOrderRow({ title: "Service" })]);
     mocks.workOrderCount.mockResolvedValue(1);
 
@@ -426,4 +426,119 @@ describe("performSearch – filtre, tellinger og rangering", () => {
     expect(JSON.stringify(args.where)).toContain('"departmentId":"dept-2"');
   });
 
+});
+
+describe("performSearch – alle feltene på kundekortet", () => {
+  const customerRow = {
+    id: "cust-1",
+    name: "Kunde AS",
+    customerNumber: "K-100",
+    orgNumber: "123456789",
+    city: "Oslo",
+    phone: "+47 123 45 678",
+    email: "post@kunde.no",
+    address: "Storgata 1",
+    postalCode: "0150",
+    notes: "Ring før besøk",
+  };
+
+  function useCustomerHit() {
+    mocks.searchNormalizedIds.mockImplementation(async (table: string) => {
+      if (table === "Customer") return [{ id: "cust-1", score: 1 }];
+      return [];
+    });
+    mocks.customerFindMany.mockResolvedValue([customerRow]);
+    mocks.customerCount.mockResolvedValue(1);
+  }
+
+  it.each([
+    ["orgnummer", "123456789"],
+    ["orgnummer med mellomrom", "123 456 789"],
+    ["kundenummer", "K-100"],
+    ["kundenummer uten bindestrek", "K100"],
+    ["telefon med mellomrom", "+47 123 45 678"],
+    ["telefon uten mellomrom", "4712345678"],
+    ["e-post", "post@kunde.no"],
+    ["adresse", "Storgata 1"],
+    ["postnummer", "0150"],
+  ])("gir kundetreff på %s", async (_label, query) => {
+    useCustomerHit();
+
+    const results = await performSearch(query, { user: admin });
+    const group = results.groups.find((item) => item.kind === "customer");
+
+    expect(group?.items[0]).toMatchObject({
+      id: "cust-1",
+      title: "Kunde AS",
+      href: "/kunder/cust-1",
+    });
+    expect(group?.total).toBe(1);
+  });
+
+  it("søker i alle kundefeltene via normalisert SQL-søk", async () => {
+    useCustomerHit();
+
+    await performSearch("123 456 789", { user: admin });
+
+    expect(mocks.searchNormalizedIds).toHaveBeenCalledWith(
+      "Customer",
+      "123 456 789",
+      expect.any(Number),
+    );
+  });
+
+  it("utelater slettede kunder", async () => {
+    useCustomerHit();
+
+    await performSearch("K-100", { user: admin });
+
+    const args = mocks.customerFindMany.mock.calls[0][0] as {
+      where: unknown;
+    };
+    const json = JSON.stringify(args.where);
+    expect(json).toContain('"deletedAt":null');
+    expect(json).toContain('"id":{"in":["cust-1"]}');
+  });
+});
+
+describe("performSearch – dokumentfilnavn", () => {
+  it("finner PDF med tegnsetting i filnavnet", async () => {
+    mocks.searchDocuments.mockResolvedValue([
+      {
+        id: "doc-1",
+        title: "Faktura 123",
+        description: null,
+        fileName: "Faktura #123 (kunde).pdf",
+        filePath: "/dokumenter/doc-1",
+        snippet: null,
+        score: 1,
+        total: 1,
+      },
+    ]);
+    mocks.documentFindMany.mockResolvedValue([
+      {
+        id: "doc-1",
+        title: "Faktura 123",
+        description: null,
+        fileName: "Faktura #123 (kunde).pdf",
+        filePath: "/dokumenter/doc-1",
+        tags: [],
+      },
+    ]);
+    mocks.documentCount.mockResolvedValue(1);
+
+    const results = await performSearch("faktura 123 kunde", { user: admin });
+    const group = results.groups.find((item) => item.kind === "document");
+
+    expect(group?.items[0]).toMatchObject({
+      id: "doc-1",
+      title: "Faktura 123",
+    });
+    expect(group?.total).toBe(1);
+
+    const args = mocks.documentFindMany.mock.calls[0][0] as {
+      where: unknown;
+    };
+    expect(JSON.stringify(args.where)).toContain('"deletedAt":null');
+  });
 });

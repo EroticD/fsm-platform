@@ -9,9 +9,17 @@
       "backToLogin": "Tilbake til innlogging",
       "errors": {
         "InvalidTwoFactor": "Feil engangskode. Prøv igjen.",
+        "InvalidRecoveryCode": "Ugyldig eller brukt gjenopprettingskode. Prøv en annen kode.",
         "TwoFactorExpired": "Økten er utløpt. Logg inn på nytt.",
         "TooManyAttempts": "For mange forsøk. Vent noen minutter og prøv igjen.",
         "default": "Kunne ikke verifisere koden."
+      },
+      "recovery": {
+        "link": "Logg inn med gjenopprettingskode",
+        "label": "Gjenopprettingskode",
+        "hint": "Bruk en av engangskodene du lagret da du slo på to-trinns verifisering. Hver kode kan bare brukes én gang.",
+        "submit": "Logg inn med kode",
+        "submitting": "Logger inn..."
       }
     },
     "forgot": {

@@ -697,7 +697,7 @@ describe("reports-tjenesten", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: "ugyldig-data",
+      error: "mangler-enhet",
       returnTo: "/oppdrag/wo1",
     });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
@@ -1227,22 +1227,18 @@ describe("reports-tjenesten", () => {
     );
   });
 
-  it("lar nye rapporter på et oppdrag med bevaringsplikt arve holdet", async () => {
+  it("avviser nye rapporter på et oppdrag med bevaringsplikt", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       ...workOrder(),
       legalHold: true,
     });
     mocks.prisma.report.findUnique.mockResolvedValue(null);
-    const tx = withTransaction();
+    withTransaction();
 
     const result = await submitReport(actor(), formData());
 
-    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
-    expect(tx.report.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ legalHold: true }),
-      }),
-    );
+    expect(result).toMatchObject({ ok: false, error: "legal-hold" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("avviser ny innsending når oppdraget har bevaringsplikt", async () => {
@@ -1673,5 +1669,124 @@ describe("getReportPdfForViewer", () => {
     const result = await getReportPdfForViewer(actor(), "wo1");
 
     expect(result).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it("rendrer bare den valgte rapporten når den tilhører oppdraget", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      reports: [{ id: "r1" }, { id: "r2" }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1", "r2");
+
+    expect(result).toMatchObject({ ok: true });
+    expect(mocks.getOrRenderReportPdf).toHaveBeenCalledWith(
+      "wo1",
+      undefined,
+      "r2",
+    );
+  });
+
+  it("avviser en rapport-id som ikke tilhører oppdraget", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1", "fremmed");
+
+    expect(result).toMatchObject({ ok: false, status: 404 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
+});
+
+describe("betingede felt og bevaringsplikt", () => {
+  const conditionalTemplate = {
+    id: "tpl1",
+    title: "Betinget sjekkliste",
+    fieldsJson: JSON.stringify([
+      {
+        id: "f1",
+        type: "SELECT",
+        label: "Avvik?",
+        required: false,
+        options: ["Ja", "Nei"],
+      },
+      {
+        id: "f2",
+        type: "TEXT",
+        label: "Beskriv avviket",
+        required: true,
+        conditionalFieldId: "f1",
+        conditionalValue: "Ja",
+      },
+    ]),
+  };
+
+  function conditionalWorkOrder(overrides: Record<string, unknown> = {}) {
+    return {
+      ...workOrder(),
+      templates: [conditionalTemplate],
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.notifyWorkOrderEvent.mockResolvedValue(1);
+  });
+
+  it("ignorerer påkrevde felt som er skjult av en betingelse", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(conditionalWorkOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    withTransaction();
+
+    const data = formData();
+    data.set("answer__unit-0__f1", "Nei");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+  });
+
+  it("krever synlige betingede felt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(conditionalWorkOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+
+    const data = formData();
+    data.set("answer__unit-0__f1", "Ja");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toMatchObject({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser innsending når oppdraget har bevaringsplikt, også uten rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(
+      conditionalWorkOrder({ legalHold: true }),
+    );
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toMatchObject({ ok: false, error: "legal-hold" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser kladd når oppdraget har bevaringsplikt, også uten rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(
+      conditionalWorkOrder({ legalHold: true }),
+    );
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+
+    const result = await saveDraft(actor(), formData());
+
+    expect(result).toEqual({ ok: false });
+    expect(mocks.prisma.reportDraft.upsert).not.toHaveBeenCalled();
   });
 });

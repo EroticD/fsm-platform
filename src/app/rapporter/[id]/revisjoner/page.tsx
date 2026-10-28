@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
-import { formatDate, formatDateTime } from "@/lib/dates";
+import { formatDateLocalized, formatDateTimeLocalized } from "@/lib/dates";
 import { isLineCommentKey, readLineComment } from "@/lib/report-answers";
 import {
   revisionFields,
@@ -76,7 +76,7 @@ function FieldRows({
                     <MarkdownView value={answer} size="sm" />
                   </div>
                 ) : (
-                  <span className="text-gray-400">{notAnswered}</span>
+                  <span className="text-gray-600">{notAnswered}</span>
                 )
               ) : (
                 <span className="text-gray-800">{rendered}</span>
@@ -102,6 +102,7 @@ async function RevisionSnapshot({
   reportName: string;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const fields = revisionFields(revision);
   const status = revisionStatus(revision);
   const legacyAnswers = revisionLegacyAnswers(revision);
@@ -120,7 +121,7 @@ async function RevisionSnapshot({
           <p className="text-xs text-gray-500">
             {reportName}
             {revision.completedAt
-              ? ` · ${formatDate(revision.completedAt)}`
+              ? ` · ${formatDateLocalized(revision.completedAt, locale)}`
               : ""}
           </p>
         </div>
@@ -134,7 +135,7 @@ async function RevisionSnapshot({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-gray-50 p-3 text-sm">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-600">
             {t("orders.revisions.reason")}
           </p>
           <p className="mt-1 font-bold text-gray-900">
@@ -152,13 +153,13 @@ async function RevisionSnapshot({
           </p>
           <p className="text-xs text-gray-600">
             {t("orders.revisions.createdAt")}:{" "}
-            {formatDateTime(revision.createdAt)}
+            {formatDateTimeLocalized(revision.createdAt, locale)}
           </p>
         </div>
         <div className="rounded-xl bg-gray-50 p-3 text-sm">
           {revision.requiresUnits && (
             <>
-              <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+              <p className="text-xs font-black uppercase tracking-wider text-gray-600">
                 {t("orders.revisions.status")}
               </p>
               <p
@@ -184,7 +185,7 @@ async function RevisionSnapshot({
             <p className="mt-1 text-xs text-green-800">
               ✓{" "}
               {t("p3.portalReports.acknowledged", {
-                date: formatDate(revision.customerAcknowledgedAt),
+                date: formatDateLocalized(revision.customerAcknowledgedAt, locale),
               })}
               {revision.customerAcknowledgedBy
                 ? ` · ${revision.customerAcknowledgedBy}`
@@ -211,13 +212,13 @@ async function RevisionSnapshot({
                     <p className="text-sm font-black text-gray-900">
                       {index + 1}. {unit.label || t("orders.revisions.noUnitLabel")}
                     </p>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-xs text-gray-600">
                       {unit.serialNumber || t("orders.detail.report.noSerialNumber")}
                       {unit.location ? ` · ${unit.location}` : ""}
                     </p>
                   </div>
                   <span
-                    className={`rounded-full border px-3 py-1 text-[11px] font-bold ${
+                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
                       unit.status === "AVVIK"
                         ? "border-red-200 bg-red-100 text-red-800"
                         : "border-green-200 bg-green-100 text-green-800"
@@ -276,7 +277,7 @@ async function RevisionSnapshot({
       {(technicianSignature || customerSignature) && (
         <div className="grid grid-cols-1 gap-3 border-t-2 border-gray-200 pt-3 sm:grid-cols-2">
           <div className="rounded-xl border-2 border-gray-200 bg-gray-50 p-3">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+            <p className="mb-1 text-xs font-black uppercase tracking-wider text-gray-600">
               {t("orders.detail.report.technicianSignature")}
             </p>
             {technicianSignature && (
@@ -292,7 +293,7 @@ async function RevisionSnapshot({
             </p>
           </div>
           <div className="rounded-xl border-2 border-gray-200 bg-gray-50 p-3">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+            <p className="mb-1 text-xs font-black uppercase tracking-wider text-gray-600">
               {t("orders.detail.report.customerSignature")}
             </p>
             {customerSignature && (
@@ -312,7 +313,7 @@ async function RevisionSnapshot({
 
       {revision.comments && (
         <div className="border-t-2 border-gray-200 pt-3">
-          <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+          <p className="mb-1 text-xs font-black uppercase tracking-wider text-gray-600">
             {t("orders.detail.report.generalNotes")}
           </p>
           <MarkdownView value={revision.comments} />
@@ -327,14 +328,28 @@ export default async function ReportRevisionsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ rapport?: string; revisjon?: string }>;
+  searchParams: Promise<{ rapport?: string; revisjon?: string; returnTo?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user?.isActive) redirect("/logg-inn");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const { id } = await params;
   const query = await searchParams;
+  const returnTo = (() => {
+    const raw = String(query.returnTo ?? "").trim();
+    if (!raw || raw.length > 1000) return null;
+    if (raw.includes("\\") || /[\u0000-\u001f]/.test(raw)) return null;
+    if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+    return raw;
+  })();
+  const backHref =
+    returnTo ?? (user.role === "CUSTOMER" ? "/kundeportal" : "/rapporter");
+  const withReturnTo = (href: string) =>
+    returnTo
+      ? `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(returnTo)}`
+      : href;
 
   const overview = await getWorkOrderRevisionOverview(user, id);
   if (!overview.ok) {
@@ -394,13 +409,17 @@ export default async function ReportRevisionsPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={`/rapporter/${workOrder.id}`}
+              href={withReturnTo(
+                selectedReport
+                  ? `/rapporter/${workOrder.id}?rapport=${selectedReport.report.id}`
+                  : `/rapporter/${workOrder.id}`,
+              )}
               className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
             >
               {t("orders.revisions.openCurrentPdf")}
             </Link>
             <Link
-              href={user.role === "CUSTOMER" ? "/kundeportal" : "/rapporter"}
+              href={backHref}
               className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
             >
               ← {t("orders.revisions.back")}
@@ -428,7 +447,7 @@ export default async function ReportRevisionsPage({
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2">
                 <div>
                   <h2 className="font-black text-gray-900">{name}</h2>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-xs text-gray-600">
                     {t("orders.revisions.currentRevision", {
                       revision: report.revision,
                     })}
@@ -441,7 +460,7 @@ export default async function ReportRevisionsPage({
                   </p>
                 </div>
                 {revisions.length === 0 && (
-                  <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-600">
+                  <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-600">
                     {t("orders.revisions.noRevisions")}
                   </span>
                 )}
@@ -455,7 +474,9 @@ export default async function ReportRevisionsPage({
                     return (
                       <li key={revision.id}>
                         <Link
-                          href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}&revisjon=${revision.id}`}
+                          href={withReturnTo(
+                            `/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}&revisjon=${revision.id}`,
+                          )}
                           className={`block rounded-xl border-2 p-3 transition ${
                             selected
                               ? "border-blue-400 bg-blue-50"
@@ -469,11 +490,11 @@ export default async function ReportRevisionsPage({
                               })}
                               {revision.reason ? ` – ${revision.reason}` : ""}
                             </span>
-                            <span className="text-[11px] font-bold text-gray-500">
-                              {formatDateTime(revision.createdAt)}
+                            <span className="text-xs font-bold text-gray-600">
+                              {formatDateTimeLocalized(revision.createdAt, locale)}
                             </span>
                           </div>
-                          <p className="mt-1 text-[11px] text-gray-600">
+                          <p className="mt-1 text-xs text-gray-600">
                             {t("orders.revisions.actor")}:{" "}
                             {revision.actorName ||
                               t("orders.revisions.unknownActor")}

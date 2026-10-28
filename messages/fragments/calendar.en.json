@@ -11,7 +11,12 @@
       "noDate": "No date",
       "noCustomer": "No customer",
       "loading": "Loading calendar...",
-      "loadingInteractive": "Loading interactive calendar..."
+      "loadingInteractive": "Loading interactive calendar...",
+      "reports": "Reports",
+      "viewSwitcher": "Switch calendar view"
+    },
+    "legend": {
+      "title": "Status colours"
     },
     "page": {
       "title": "📅 Planning & Control",
@@ -22,6 +27,7 @@
       "technicianOverview": "Technician overview",
       "activeCount": "{count} active",
       "noActive": "No active work orders.",
+      "statusOpen": "Open",
       "statusPlanned": "Planned",
       "statusInProgress": "In progress",
       "statusWaiting": "Waiting",
@@ -60,6 +66,34 @@
       "update": "Update",
       "viewDetails": "View details →",
       "empty": "No open work orders to assign.",
+      "unassignedLane": "No technician",
+      "laneEmpty": "No work orders",
+      "dropHere": "Drop here to assign {name}",
+      "assignTo": "Assign technician",
+      "removeTechnician": "Remove {name}",
+      "removeTechnicianAria": "Remove {name} from the work order",
+      "statusFor": "Status for {title}",
+      "boardHint": "Drag a work order to a technician column to assign it. Use the dropdown if you are not using a mouse.",
+      "dayCount": "{count, plural, one {# work order} other {# work orders}}",
+      "resultRange": "Showing {from}–{to} of {total} work orders",
+      "pagePrevious": "Previous",
+      "pageNext": "Next",
+      "pageOf": "Page {page} of {total}",
+      "pages": "Pages",
+      "rowErrorNoAccess": "You do not have permission to change this work order.",
+      "rowErrorInvalidData": "The fields are invalid. Select a technician and try again.",
+      "rowErrorNotFound": "The work order no longer exists. Refresh the page.",
+      "rowErrorUnknown": "The action could not be completed. Try again.",
+      "filters": {
+        "dateFrom": "From date",
+        "dateTo": "To date",
+        "search": "Search",
+        "searchPlaceholder": "Title, customer, address or order number",
+        "apply": "Apply filter",
+        "clear": "Reset",
+        "rangeError": "The from date cannot be after the to date. Correct the dates to see work orders.",
+        "dateError": "One of the dates is invalid. Use the format YYYY-MM-DD."
+      },
       "roleAdmin": "Admin",
       "roleOffice": "Office",
       "roleTechnician": "Technician",
@@ -75,14 +109,24 @@
       "badgeOpen": "✨ Open",
       "badgePending": "⏳ Waiting",
       "badgePlanned": "📅 Planned",
-      "badgeWaiting": "⏸️ Waiting",
-      "statusPending": "Waiting"
+      "badgeWaiting": "⏸️ Waiting"
     },
     "client": {
       "today": "Today",
       "month": "Month",
       "week": "Week",
       "saveError": "Could not save the new date."
+    },
+    "a11y": {
+      "previous": "Previous period",
+      "next": "Next period",
+      "today": "Go to today",
+      "keyboardTitle": "Keyboard alternative",
+      "keyboardAlternative": "Using a keyboard? Open the work order in the edit page to change the date.",
+      "keyboardAlternativeReadOnly": "Open the work order in the list to see details. You cannot change the date here.",
+      "readOnlySubtitle": "Calendar view. Open a work order to see details.",
+      "openInEditor": "Edit date",
+      "openWorkOrder": "Open work order"
     }
   }
 }

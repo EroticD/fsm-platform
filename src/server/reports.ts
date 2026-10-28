@@ -1,3 +1,5 @@
+// i18n-ignore-file: revisjonsloggen lagrer stabile, ferdig formaterte norske
+// handlingsstrenger. De oversettes ved visning i `src/lib/audit-actions.ts`.
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
@@ -17,6 +19,7 @@ import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
 import { generateReportNumber } from "@/lib/report-number";
+import { isTemplateFieldVisible } from "@/lib/template-visibility";
 
 /**
  * Tjenestelaget for rapporter.
@@ -309,6 +312,9 @@ type TemplateField = {
   options?: string[];
   /** For tilstandsfelt: valgene som krever kommentar. */
   commentOptions?: string[];
+  /** Betinget visning, samme regel som i skjemaet. */
+  conditionalFieldId?: string;
+  conditionalValue?: string;
 };
 
 type UnitPayload = {
@@ -685,6 +691,7 @@ export async function saveDraft(
     include: { templates: { where: { id: templateId } } },
   });
   if (!workOrder) return { ok: false };
+  if (workOrder.legalHold) return { ok: false };
   if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false };
   }
@@ -829,6 +836,7 @@ export type SubmitReportError =
   | "ikke-autentisert"
   | "ikke-tilgang"
   | "ugyldig-data"
+  | "mangler-enhet"
   | "ikke-funnet"
   | "kansellert"
   | "locked"
@@ -881,6 +889,13 @@ export async function submitReport(
     include: { templates: { where: { id: templateId } } },
   });
   if (!workOrder) return { ok: false, error: "ikke-funnet" };
+  if (workOrder.legalHold) {
+    return {
+      ok: false,
+      error: "legal-hold",
+      returnTo: returnPathFrom(formData, workOrderId),
+    };
+  }
   if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false, error: "kansellert" };
   }
@@ -998,7 +1013,7 @@ export async function submitReport(
   // sjekkpunkter og rapporter uten enheter. Ellers kunne en klient sende inn
   // en «godkjent» rapport med hull i dokumentasjonen.
   if (unitRows.length === 0) {
-    return { ok: false, error: "ugyldig-data", returnTo: returnPathFrom(formData, workOrderId) };
+    return { ok: false, error: "mangler-enhet", returnTo: returnPathFrom(formData, workOrderId) };
   }
 
   const hasMissingRequired = unitRows.some((row) => {
@@ -1011,6 +1026,9 @@ export async function submitReport(
 
     return fields.some((field) => {
       if (!field.required) return false;
+      // Skjulte betingede felt er ikke en del av det montøren ser eller kan
+      // fylle ut. Serveren bruker samme synlighetsregel som skjemaet.
+      if (!isTemplateFieldVisible(field, answers)) return false;
       const value = answers[field.id];
 
       if (field.type === "CHECKBOX") return value !== true;
@@ -1152,7 +1170,7 @@ export async function submitReport(
         select: REVISION_SOURCE_SELECT,
       });
       // Bevaringsplikten kan ha blitt slått på etter at kallet startet.
-      if (current && (current.legalHold || workOrder.legalHold)) {
+      if (workOrder.legalHold || (current && current.legalHold)) {
         return { legalHold: true } as const;
       }
       if (current?.isLocked) return { locked: true } as const;
@@ -1511,10 +1529,14 @@ export type ReportPdfResult =
  * Tilgangskontrollen ligger her, ikke bare i ruten: kundeportalbrukere ser
  * bare egne oppdrag, montører ser ikke kansellerte oppdrag, og andre må ha
  * `reports.view`. Meldingene er de samme som ruten har brukt.
+ *
+ * Med `reportId` må rapporten faktisk tilhøre oppdraget. Da rendres bare den
+ * ene sjekklisten i stedet for den kombinerte oppdrags-PDF-en.
  */
 export async function getReportPdfForViewer(
   viewer: Actor,
   workOrderId: string,
+  reportId?: string,
 ): Promise<ReportPdfResult> {
   if (!viewer?.isActive) {
     return { ok: false, status: 403, message: "Ingen tilgang" };
@@ -1556,14 +1578,25 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 404, message: "Oppdraget har ingen rapport ennå" };
   }
 
+  // En rapport-id fra URL-en må tilhøre oppdraget. Uten denne kontrollen
+  // kunne en gyldig oppdrags-id kombinert med en fremmed rapport-id brukt
+  // PDF-cachen til å rendre feil dokument.
+  if (reportId && !workOrder.reports.some((report) => report.id === reportId)) {
+    return { ok: false, status: 404, message: "Fant ikke rapporten" };
+  }
+
   // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
   // Bare konfigurert adresse brukes – aldri Host/X-Forwarded-Host, som en
   // klient kan sette for å styre PDF-motoren mot en annen origin.
   const baseUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL;
 
-  const pdf = await (
-    await import("@/lib/report-pdf-store")
-  ).getOrRenderReportPdf(workOrderId, baseUrl);
+  const pdf = reportId
+    ? await (
+        await import("@/lib/report-pdf-store")
+      ).getOrRenderReportPdf(workOrderId, baseUrl, reportId)
+    : await (
+        await import("@/lib/report-pdf-store")
+      ).getOrRenderReportPdf(workOrderId, baseUrl);
   if (!pdf) {
     return { ok: false, status: 404, message: "Oppdraget har ingen rapport ennå" };
   }

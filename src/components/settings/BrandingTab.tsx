@@ -25,8 +25,8 @@ export default async function BrandingTab({
       )}
       <form action={saveBranding} className="space-y-5 max-w-md">
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.companyName")}</label>
-          <input type="text" name="companyName" defaultValue={branding?.companyName || ""} placeholder={t("settings.branding.companyNamePlaceholder")} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium" />
+          <label htmlFor="branding-company-name" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.companyName")}</label>
+          <input id="branding-company-name" type="text" name="companyName" defaultValue={branding?.companyName || ""} placeholder={t("settings.branding.companyNamePlaceholder")} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium" />
         </div>
         <div>
           <label htmlFor="primaryColor" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.primaryColor")}</label>
@@ -36,7 +36,7 @@ export default async function BrandingTab({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.logo")}</label>
+          <p className="block text-sm font-bold text-gray-700 mb-1">{t("settings.branding.logo")}</p>
           <BrandingLogoUpload initialUrl={branding?.logoUrl} />
           <p className="text-xs text-gray-500 mt-1">
             {t("settings.branding.logoHelp")}

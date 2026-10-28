@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
-import { buildInviteUrl } from "@/lib/invite";
-import CopyButton from "@/components/CopyButton";
+import InviteActionForm from "@/components/InviteActionForm";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import {
   createUser,
   deleteUser,
@@ -11,11 +11,13 @@ import {
   changePhone,
   changePermissions,
   resetPermissions,
+  resetTwoFactor,
   setActive,
   generateInvite,
 } from "@/app/brukere/actions";
 import { effectivePermissions, PERMISSIONS } from "@/lib/permissions";
-import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
+import { DEFAULT_PAGE_SIZE, pageWindow, parsePage } from "@/lib/pagination";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 
 /**
  * Brukeradministrasjon (ansatte, roller, aktivering og invitasjoner).
@@ -29,10 +31,7 @@ export default async function UsersAdmin({
   departmentId,
   canManageCustomers = false,
   actorPermissions = [],
-  invite,
-  inviteToken,
   error,
-  mail,
   page = 1,
   pageSize = DEFAULT_PAGE_SIZE,
   baseUrl = "/brukere",
@@ -46,10 +45,7 @@ export default async function UsersAdmin({
   canManageCustomers?: boolean;
   /** Rettighetene innlogget bruker har, brukt til å filtrere roller. */
   actorPermissions?: string[];
-  invite?: string;
-  inviteToken?: string;
   error?: string;
-  mail?: string;
   page?: number;
   pageSize?: number;
   baseUrl?: string;
@@ -58,23 +54,23 @@ export default async function UsersAdmin({
   // at brukeradministrasjon ikke blir en vei rundt avdelingssperren.
   const t = await getTranslations("common");
   const where = isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" };
-  const safePage = parsePage(page);
-  const [users, totalUsers] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      orderBy: { name: "asc" },
-      take: pageSize,
-      skip: (safePage - 1) * pageSize,
-      include: {
-        contact: true,
-        customer: true,
-        department: true,
-        roleDefinition: true,
-      },
-    }),
-    prisma.user.count({ where }),
-  ]);
-  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+  // Tell først, slik at en gammel `?side=999` havner på siste side med innhold.
+  const totalUsers = await prisma.user.count({ where });
+  const pageInfo = pageWindow(parsePage(page), totalUsers, pageSize);
+  const users = await prisma.user.findMany({
+    where,
+    orderBy: { name: "asc" },
+    take: pageInfo.take,
+    skip: pageInfo.skip,
+    include: {
+      contact: true,
+      customer: true,
+      department: true,
+      roleDefinition: true,
+    },
+  });
+  const safePage = pageInfo.page;
+  const totalPages = pageInfo.totalPages;
 
   const allRoles = await prisma.role.findMany({
     orderBy: [{ isSystem: "desc" }, { label: "asc" }],
@@ -120,11 +116,6 @@ export default async function UsersAdmin({
       })
     : [];
 
-  // Brukeren vi nettopp lagde invitasjonslenke for (vises i banneret øverst).
-  // Selve nøkkelen lagres bare som hash, så den rå lenken kommer i redirecten.
-  const inviteUser = invite ? users.find((u) => u.id === invite) : undefined;
-  const inviteUrl = inviteToken ? buildInviteUrl(inviteToken) : null;
-
   const errorMessage =
     error === "mangler_kontakt"
       ? t("users.errors.missingContact")
@@ -163,33 +154,6 @@ export default async function UsersAdmin({
         </div>
       )}
 
-      {inviteUser && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
-          <h2 className="font-bold text-green-900 mb-1">
-            ✅ {t("users.invite.ready", { name: inviteUser.name || inviteUser.email || inviteUser.id })}
-          </h2>
-          <p className="text-sm text-green-800 mb-3">
-            {mail === "sent"
-              ? t("users.invite.sent")
-              : t("users.invite.manual")}
-          </p>
-          {inviteUrl ? (
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <input
-                readOnly
-                value={inviteUrl}
-                className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs text-gray-700 font-mono"
-              />
-              <CopyButton value={inviteUrl} label={t("users.invite.copy")} />
-            </div>
-          ) : (
-            <p className="text-sm text-red-700 font-semibold">
-              {t("users.invite.invalid")}
-            </p>
-          )}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-8">
@@ -197,11 +161,24 @@ export default async function UsersAdmin({
               ➕ {t("users.add.title")}
             </h2>
 
-            <form action={createUser} className="space-y-4">
+            <InviteActionForm
+              action={createUser}
+              formClassName="space-y-4"
+              submitLabel={t("users.add.submit")}
+              buttonClassName="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition mt-2"
+              labels={{
+                ready: t("users.invite.ready", { name: "{name}" }),
+                sent: t("users.invite.sent"),
+                manual: t("users.invite.manual"),
+                copy: t("users.invite.copy"),
+                error: t("users.invite.failed"),
+              }}
+            >
               <input type="hidden" name="returnTo" value={returnTo} />
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
+                <label htmlFor="new-user-name" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
                 <input
+                  id="new-user-name"
                   type="text"
                   name="name"
                   required
@@ -210,8 +187,9 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.email")}</label>
+                <label htmlFor="new-user-email" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.email")}</label>
                 <input
+                  id="new-user-email"
                   type="email"
                   name="email"
                   required
@@ -220,8 +198,9 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.phone")} <span className="font-normal text-gray-400">{t("users.add.optional")}</span></label>
+                <label htmlFor="new-user-phone" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.phone")} <span className="font-normal text-gray-600">{t("users.add.optional")}</span></label>
                 <input
+                  id="new-user-phone"
                   type="tel"
                   name="phone"
                   placeholder={t("users.add.phonePlaceholder")}
@@ -229,10 +208,11 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="new-user-role" className="block text-sm font-bold text-gray-700 mb-1">
                   {t("users.add.role")}
                 </label>
                 <select
+                  id="new-user-role"
                   name="role"
                   defaultValue={defaultRole?.key ?? ""}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
@@ -245,16 +225,17 @@ export default async function UsersAdmin({
                   ))}
                 </select>
                 {roles.length === 0 && (
-                  <p className="text-[11px] text-red-600 mt-1">
+                  <p className="text-xs text-red-600 mt-1">
                     {t("users.add.noRoles")}
                   </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="new-user-department" className="block text-sm font-bold text-gray-700 mb-1">
                   {t("users.add.department")}
                 </label>
                 <select
+                  id="new-user-department"
                   name="departmentId"
                   defaultValue={defaultDepartment?.id ?? ""}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
@@ -267,17 +248,18 @@ export default async function UsersAdmin({
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   {t("users.add.departmentHelp")}
                 </p>
               </div>
               {canManageCustomers && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                  <label htmlFor="new-user-contact" className="block text-sm font-bold text-gray-700 mb-1">
                     {t("users.add.contact")}{" "}
-                    <span className="font-normal text-gray-400">{t("users.add.contactRequired")}</span>
+                    <span className="font-normal text-gray-600">{t("users.add.contactRequired")}</span>
                   </label>
                   <select
+                    id="new-user-contact"
                     name="contactId"
                     defaultValue=""
                     className="w-full border border-gray-300 p-2.5 rounded-xl text-xs font-medium bg-white text-gray-900"
@@ -296,23 +278,16 @@ export default async function UsersAdmin({
                         </optgroup>
                       ))}
                   </select>
-                  <p className="text-[11px] text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     {t("users.add.contactHelp")}
                   </p>
                 </div>
               )}
 
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
                 {t("users.add.info")}
               </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition mt-2"
-              >
-                {t("users.add.submit")}
-              </button>
-            </form>
+            </InviteActionForm>
           </div>
         </div>
 
@@ -320,7 +295,7 @@ export default async function UsersAdmin({
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b bg-gray-50/50 flex justify-between items-center">
               <h2 className="font-bold text-lg text-gray-800">{t("users.list.title")}</h2>
-              <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-bold text-gray-800 bg-gray-200 px-2.5 py-1 rounded-full">
                 {t("users.list.count", { count: totalUsers })}
               </span>
             </div>
@@ -346,18 +321,18 @@ export default async function UsersAdmin({
                           <p className="font-bold text-gray-900 flex items-center gap-2">
                             {u.name || t("users.list.noName")}
                             {isMe && (
-                              <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
                                 {t("users.list.thisIsYou")}
                               </span>
                             )}
                           </p>
                           <p className="text-sm text-gray-500">{u.email}</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
+                          <p className="text-xs text-gray-500 mt-0.5">
                             🔐 {roleLabel} • 🏷️{" "}
                             {u.department?.name || t("users.list.noDepartment")}
                           </p>
                           {u.customer && (
-                            <p className="text-[11px] text-gray-500 mt-0.5">
+                            <p className="text-xs text-gray-500 mt-0.5">
                               🏢 {u.customer.name}
                               {u.contact ? ` • ${u.contact.name}` : ""}
                             </p>
@@ -367,19 +342,19 @@ export default async function UsersAdmin({
 
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${
+                          className={`text-xs font-bold px-2 py-1 rounded-full uppercase ${
                             u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
                           }`}
                         >
                           {u.isActive ? t("users.list.active") : t("users.list.inactive")}
                         </span>
                         {!u.password && (
-                          <span className="text-[10px] font-bold px-2 py-1 rounded-full uppercase bg-gray-100 text-gray-600">
+                          <span className="text-xs font-bold px-2 py-1 rounded-full uppercase bg-gray-100 text-gray-600">
                             {t("users.list.missingPassword")}
                           </span>
                         )}
                         {hasPendingInvite && (
-                          <span className="text-[10px] font-bold px-2 py-1 rounded-full uppercase bg-blue-100 text-blue-800">
+                          <span className="text-xs font-bold px-2 py-1 rounded-full uppercase bg-blue-100 text-blue-800">
                             {t("users.list.invited")}
                           </span>
                         )}
@@ -394,9 +369,10 @@ export default async function UsersAdmin({
                         <input type="hidden" name="id" value={u.id} />
                         <select
                           name="role"
+                          aria-label={`${t("users.add.role")}: ${u.name || u.email || u.id}`}
                           defaultValue={u.role}
                           disabled={isMe}
-                          className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
+                          className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900"
                         >
                           {!roles.some((role) => role.key === u.role) && (
                             <option value={u.role}>{roleLabel}</option>
@@ -411,7 +387,7 @@ export default async function UsersAdmin({
                         {!isMe && (
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                            className="text-xs font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
                             {t("users.list.saveRole")}
                           </button>
@@ -423,9 +399,10 @@ export default async function UsersAdmin({
                           <input type="hidden" name="id" value={u.id} />
                           <select
                             name="departmentId"
+                            aria-label={`${t("users.add.department")}: ${u.name || u.email || u.id}`}
                             defaultValue={u.departmentId ?? ""}
                             disabled={u.role === "CUSTOMER"}
-                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
+                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900"
                           >
                             <option value="">{t("users.list.noDepartmentOption")}</option>
                             {departments.map((department) => (
@@ -436,7 +413,7 @@ export default async function UsersAdmin({
                           </select>
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                            className="text-xs font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
                             {t("users.list.saveDepartment")}
                           </button>
@@ -449,13 +426,14 @@ export default async function UsersAdmin({
                           <input
                             type="tel"
                             name="phone"
+                            aria-label={`${t("users.add.phone")}: ${u.name || u.email || u.id}`}
                             defaultValue={u.phone ?? ""}
                             placeholder={t("users.list.phonePlaceholder")}
-                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900 w-32"
+                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900 w-32"
                           />
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                            className="text-xs font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
                             {t("users.list.savePhone")}
                           </button>
@@ -463,16 +441,23 @@ export default async function UsersAdmin({
                       )}
 
                       {!isMe && (
-                        <form action={generateInvite}>
+                        <InviteActionForm
+                          action={generateInvite}
+                          wrapperClassName="contents"
+                          submitLabel={`🔗 ${t("users.list.inviteLink")}`}
+                          buttonClassName="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
+                          bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
+                          labels={{
+                            ready: t("users.invite.ready", { name: "{name}" }),
+                            sent: t("users.invite.sent"),
+                            manual: t("users.invite.manual"),
+                            copy: t("users.invite.copy"),
+                            error: t("users.invite.failed"),
+                          }}
+                        >
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={u.id} />
-                          <button
-                            type="submit"
-                            className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
-                          >
-                            🔗 {t("users.list.inviteLink")}
-                          </button>
-                        </form>
+                        </InviteActionForm>
                       )}
 
                       {!isMe && (
@@ -486,7 +471,7 @@ export default async function UsersAdmin({
                           />
                           <button
                             type="submit"
-                            className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition ${
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
                               u.isActive
                                 ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                                 : "bg-green-600 text-white border-green-600 hover:bg-green-700"
@@ -499,18 +484,47 @@ export default async function UsersAdmin({
                         </form>
                       )}
 
-                      {!isMe && isAdmin && (
-                        <form action={deleteUser}>
+                      {!isMe && isAdmin && u.isTwoFactorEnabled && (
+                        <ConfirmSubmitForm
+                          action={resetTwoFactor}
+                          confirmMessage={t("users.list.resetTwoFactorConfirm", {
+                            name: u.name || u.email || u.id,
+                          })}
+                          confirmLabel={t("users.list.resetTwoFactorLabel")}
+                          danger
+                        >
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={u.id} />
                           <button
                             type="submit"
-                            className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
+                            className="text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition"
+                            title={t("users.list.resetTwoFactorHint")}
+                          >
+                            {t("users.list.resetTwoFactor")}
+                          </button>
+                        </ConfirmSubmitForm>
+                      )}
+
+                      {!isMe && isAdmin && (
+                        <ConfirmSubmitForm
+                          action={deleteUser}
+                          confirmMessage={t("components.confirm.deleteUser", {
+                            name: u.name || u.email || u.id,
+                          })}
+                          confirmLabel={t("components.confirm.deleteUserLabel")}
+                          danger
+                        >
+                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <input type="hidden" name="id" value={u.id} />
+                          <button
+                            type="submit"
+                            aria-label={`${t("users.list.deleteUser")}: ${u.name || u.email || u.id}`}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
                             title={t("users.list.deleteUser")}
                           >
                             🗑️
                           </button>
-                        </form>
+                        </ConfirmSubmitForm>
                       )}
                     </div>
 
@@ -518,7 +532,7 @@ export default async function UsersAdmin({
                       <form action={changePermissions} className="border-t border-gray-100 pt-3 space-y-3">
                         <input type="hidden" name="id" value={u.id} />
                         {u.role === "ADMIN" || u.role === "CUSTOMER" ? (
-                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                             {u.role === "ADMIN"
                               ? t("users.list.adminHint")
                               : t("users.list.customerHint")}
@@ -530,12 +544,12 @@ export default async function UsersAdmin({
                                 <p className="text-xs font-bold text-gray-800">
                                   {t("users.list.permissionsTitle")}
                                 </p>
-                                <p className="text-[11px] text-gray-500">
+                                <p className="text-xs text-gray-500">
                                   {t("users.list.permissionsDesc")}
                                 </p>
                               </div>
                               {u.permissionsCustomized && (
-                                <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
+                                <span className="text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
                                   {t("users.list.customized")}
                                 </span>
                               )}
@@ -546,7 +560,7 @@ export default async function UsersAdmin({
                                   key={group.group}
                                   className="border border-gray-200 rounded-xl p-3"
                                 >
-                                  <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
+                                  <legend className="px-1 text-xs font-bold text-gray-500 uppercase">
                                     {group.group}
                                   </legend>
                                   <div className="space-y-2">
@@ -569,7 +583,7 @@ export default async function UsersAdmin({
                                           <span className="font-semibold">
                                             {permission.label}
                                           </span>
-                                          <span className="block text-[11px] text-gray-500">
+                                          <span className="block text-xs text-gray-500">
                                             {permission.description}
                                           </span>
                                         </span>
@@ -581,7 +595,7 @@ export default async function UsersAdmin({
                             </div>
                             <button
                               type="submit"
-                              className="text-[10px] font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
+                              className="text-xs font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
                             >
                               {t("users.list.savePermissions")}
                             </button>
@@ -596,7 +610,7 @@ export default async function UsersAdmin({
                           <input type="hidden" name="id" value={u.id} />
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
+                            className="text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
                           >
                             {t("users.list.useRolePermissions")}
                           </button>
@@ -610,26 +624,23 @@ export default async function UsersAdmin({
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 p-4 border-t border-gray-100">
-                {safePage > 1 && (
-                  <Link
-                    href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage - 1}`}
-                    className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-                  >
-                    ← {t("users.list.previous")}
-                  </Link>
-                )}
-                <span className="text-sm font-bold text-gray-600">
-                  {t("users.list.page", { page: safePage, totalPages })}
-                </span>
-                {safePage < totalPages && (
-                  <Link
-                    href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage + 1}`}
-                    className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-                  >
-                    {t("users.list.next")} →
-                  </Link>
-                )}
+              <div className="border-t border-gray-100 p-4">
+                <Pagination
+                  page={safePage}
+                  totalPages={totalPages}
+                  hrefFor={(targetPage) => {
+                    const [path, query = ""] = baseUrl.split("?");
+                    const params = new URLSearchParams(query);
+                    params.set("side", String(targetPage));
+                    const qs = params.toString();
+                    return qs ? `${path}?${qs}` : path;
+                  }}
+                  labels={paginationLabels(t)}
+                  summary={t("users.list.page", {
+                    page: safePage,
+                    totalPages,
+                  })}
+                />
               </div>
             )}
           </div>

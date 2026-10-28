@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import TagSelector from "@/components/TagSelector";
+import DocumentContextFields from "./DocumentContextFields";
+import type { DocumentFormContext } from "./action-types";
 
 type Folder = { id: string; name: string };
 type Tag = { id: string; name: string; color: string };
@@ -32,12 +34,14 @@ export default function EditDocumentForm({
   allTags,
   updateDocument,
   restoreVersion,
+  context,
 }: {
   doc: Doc;
   allFolders: Folder[];
   allTags: Tag[];
   updateDocument: (formData: FormData) => Promise<void>;
   restoreVersion: (formData: FormData) => Promise<void>;
+  context: DocumentFormContext;
 }) {
   const t = useTranslations("common");
   const locale = useLocale();
@@ -69,8 +73,10 @@ export default function EditDocumentForm({
       setNewFileName(data.fileName);
       setNewFileSize(data.fileSize);
       setReplacing(true);
-    } catch (err: any) {
-      setError(err.message || t("documents.edit.uploadFailed"));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t("documents.edit.uploadFailed"),
+      );
     } finally {
       setUploading(false);
     }
@@ -105,10 +111,12 @@ export default function EditDocumentForm({
       {open && (
         <div className="mt-3 space-y-3">
         <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+          <DocumentContextFields context={context} />
           <input type="hidden" name="id" value={doc.id} />
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.title")}</label>
+            <label htmlFor={`edit-document-title-${doc.id}`} className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.title")}</label>
             <input
+              id={`edit-document-title-${doc.id}`}
               type="text"
               name="title"
               defaultValue={doc.title}
@@ -117,8 +125,9 @@ export default function EditDocumentForm({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.description")}</label>
+            <label htmlFor={`edit-document-description-${doc.id}`} className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.description")}</label>
             <textarea
+              id={`edit-document-description-${doc.id}`}
               name="description"
               rows={2}
               defaultValue={doc.description || ""}
@@ -126,8 +135,9 @@ export default function EditDocumentForm({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.folder")}</label>
+            <label htmlFor={`edit-document-folder-${doc.id}`} className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.folder")}</label>
             <select
+              id={`edit-document-folder-${doc.id}`}
               name="folderId"
               defaultValue={doc.folderId || ""}
               className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
@@ -161,7 +171,7 @@ export default function EditDocumentForm({
               </p>
             )}
             {!replacing && (
-              <p className="text-[10px] text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {t("documents.edit.currentFile", {
                   name: doc.fileName,
                   size: (doc.fileSize / 1024).toFixed(0),
@@ -183,7 +193,7 @@ export default function EditDocumentForm({
             <p className="text-xs font-bold text-gray-700 mb-2">{t("documents.edit.previousVersions", { count: doc.versions.length })}</p>
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {doc.versions.map((v) => (
-                <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]">
+                <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs">
                   <div className="min-w-0">
                     <p className="text-gray-800 font-medium truncate">{v.fileName}</p>
                     <p className="text-gray-500">
@@ -195,13 +205,13 @@ export default function EditDocumentForm({
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <a
                       href={v.filePath}
-                      target="_blank"
-                      rel="noreferrer"
+                      download={v.fileName}
                       className="text-blue-700 font-bold hover:underline whitespace-nowrap"
                     >
-                      {t("documents.edit.openVersion")}
+                      {t("documents.edit.downloadVersion")}
                     </a>
                     <form action={restoreVersion}>
+                      <DocumentContextFields context={context} />
                       <input type="hidden" name="versionId" value={v.id} />
                       <button
                         type="submit"

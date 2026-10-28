@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
       upsert: vi.fn(),
     },
-    user: { findMany: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn() },
     workOrder: { findUnique: vi.fn() },
     customer: { findUnique: vi.fn() },
     $transaction: vi.fn(),
@@ -25,12 +25,17 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("@/lib/email", () => ({
-  sendNotificationEmail: mocks.sendNotificationEmail,
-}));
+vi.mock("@/lib/email", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/email")>();
+  return {
+    ...actual,
+    sendNotificationEmail: mocks.sendNotificationEmail,
+  };
+});
 
 import {
   listNotifications,
+  listRecentNotifications,
   markNotificationRead,
   notifyUser,
   notifyWorkOrderEvent,
@@ -65,10 +70,25 @@ beforeEach(() => {
   mocks.prisma.notificationPreference.findMany.mockResolvedValue([]);
   mocks.prisma.notificationPreference.upsert.mockResolvedValue({});
   mocks.prisma.user.findMany.mockResolvedValue([]);
+  mocks.prisma.user.findUnique.mockResolvedValue({ isActive: true });
   mocks.sendNotificationEmail.mockResolvedValue(true);
 });
 
 describe("varseltjenesten", () => {
+  it("oppretter ikke varsel for en inaktiv bruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({ isActive: false });
+
+    const result = await notifyUser({
+      userId: "u1",
+      type: "ASSIGNMENT",
+      title: "Nytt oppdrag",
+    });
+
+    expect(result).toBeNull();
+    expect(mocks.prisma.notification.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.notificationPreference.findUnique).not.toHaveBeenCalled();
+  });
+
   it("lager in-app-varsel og e-postko når preferansen er på", async () => {
     const result = await notifyUser({
       userId: "u1",
@@ -274,6 +294,31 @@ describe("varseltjenesten", () => {
     });
   });
 
+  it("sender ikke e-post til en konto som ble deaktivert", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n3",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: "/oppdrag/wo1",
+        emailAttempts: 0,
+        user: { email: "kari@example.test", isActive: false },
+      },
+    ]);
+
+    const result = await processPendingNotificationEmails();
+
+    expect(result).toEqual({ processed: 1, sent: 0 });
+    expect(mocks.sendNotificationEmail).not.toHaveBeenCalled();
+    expect(mocks.prisma.notification.update).toHaveBeenCalledWith({
+      where: { id: "n3" },
+      data: expect.objectContaining({
+        emailSentAt: expect.any(Date),
+        emailError: "Brukeren er deaktivert",
+      }),
+    });
+  });
+
   it("sender kundeportalbrukere til portalen i e-postlenken", async () => {
     mocks.prisma.notification.findMany.mockResolvedValue([
       {
@@ -342,7 +387,7 @@ describe("varseltjenesten", () => {
       data: {
         emailAttempts: 1,
         emailNextAttemptAt: expect.any(Date),
-        emailError: "SMTP nede",
+        emailError: "Error",
         emailLockedAt: null,
         emailLockedBy: null,
       },
@@ -493,11 +538,38 @@ describe("varseltjenesten", () => {
       where: { id: "n1" },
       data: expect.objectContaining({
         emailAttempts: 1,
-        emailError: "SMTP nede",
+        emailError: "Error",
         emailLockedAt: null,
         emailLockedBy: null,
       }),
     });
+  });
+
+  it("lagrer aldri rå SMTP-melding med mottakeradresse", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    const error = Object.assign(
+      new Error("550 kari@example.test avvist av server"),
+      { code: "EENVELOPE" },
+    );
+    mocks.sendNotificationEmail.mockRejectedValue(error);
+
+    await processPendingNotificationEmails();
+
+    const call = mocks.prisma.notification.update.mock.calls[0][0] as {
+      data: { emailError: string };
+    };
+    expect(call.data.emailError).toBe("EENVELOPE");
+    expect(call.data.emailError).not.toContain("kari@example.test");
+    expect(call.data.emailError).not.toContain("550");
   });
 
   it("markerer varselet som lest bare for eieren", async () => {
@@ -617,6 +689,23 @@ describe("varseltjenesten", () => {
         page: 1,
         totalPages: 1,
       },
+    });
+  });
+
+  it("henter bare egne nyeste varsler til bjella", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([{ id: "n1" }]);
+    mocks.prisma.notification.count.mockResolvedValue(2);
+
+    const result = await listRecentNotifications(actor, 5);
+
+    expect(result).toEqual({
+      ok: true,
+      data: { items: [{ id: "n1" }], unread: 2 },
+    });
+    expect(mocks.prisma.notification.findMany).toHaveBeenCalledWith({
+      where: { userId: "u1" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
     });
   });
 

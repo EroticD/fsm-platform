@@ -4,6 +4,9 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
+import ErrorBanner from "@/components/ErrorBanner";
+import FormValuePersistence from "@/components/FormValuePersistence";
+import SubmitButton from "@/components/SubmitButton";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveDepartments } from "@/lib/departments";
@@ -86,15 +89,31 @@ export default async function EditWorkOrderPage({
     }
   }
 
+  const errorMessages: Record<string, string> = {
+    "ugyldig-data": t("orders.errors.invalidData"),
+    "ugyldig-sluttdato": t("orders.errors.invalidEndDate"),
+    "sluttdato-for-startdato": t("orders.errors.endBeforeStart"),
+    "duplikat-ordrenummer": t("orders.errors.duplicateOrderNumber"),
+    avdeling: t("orders.errors.department"),
+    "workorder-locked": t("orders.errors.workOrderLocked"),
+    "ikke-tilgang": t("orders.errors.generic"),
+    ukjent: t("orders.errors.generic"),
+  };
+  const errorMessage = error
+    ? (errorMessages[error] ?? t("orders.errors.saveFailed"))
+    : undefined;
+  const dateError =
+    error === "sluttdato-for-startdato"
+      ? t("orders.errors.endBeforeStart")
+      : error === "ugyldig-sluttdato"
+        ? t("orders.errors.invalidEndDate")
+        : undefined;
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-2xl mx-auto space-y-6">
         
-        {error && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            {t("orders.edit.saveFailed")}
-          </div>
-        )}
+        <ErrorBanner message={errorMessage} />
 
         <div className="flex justify-between items-center border-b pb-6">
           <div>
@@ -106,12 +125,18 @@ export default async function EditWorkOrderPage({
           </Link>
         </div>
 
-        <form action={updateWorkOrder} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-6">
+        <form id="office-edit-work-order" action={updateWorkOrder} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-6">
+          <FormValuePersistence
+            formId="office-edit-work-order"
+            storageKey={`fsm:office-edit-work-order:${workOrderId}`}
+            restore={Boolean(error)}
+          />
           <input type="hidden" name="workOrderId" value={workOrderId} />
           
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.titleLabel")} <span className="text-red-500">*</span></label>
+            <label htmlFor="office-edit-title" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.titleLabel")} <span className="text-red-500">*</span></label>
             <input 
+              id="office-edit-title"
               type="text" 
               name="title" 
               defaultValue={workOrder.title} 
@@ -121,8 +146,9 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.orderNumber")}</label>
+            <label htmlFor="office-edit-order-number" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.orderNumber")}</label>
             <input
+              id="office-edit-order-number"
               type="text"
               name="orderNumber"
               defaultValue={workOrder.orderNumber ?? ""}
@@ -132,11 +158,13 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.department")}</label>
+            <label htmlFor="office-edit-department" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.department")}</label>
             {isAdmin ? (
               <select
+                id="office-edit-department"
                 name="departmentId"
                 defaultValue={workOrder.departmentId}
+                aria-describedby="office-edit-department-hint"
                 className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
               >
                 {departments.map((department) => (
@@ -150,7 +178,7 @@ export default async function EditWorkOrderPage({
                 {workOrder.department.name}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            <p id="office-edit-department-hint" className="text-xs text-gray-500 mt-1">
               {t("orders.edit.departmentHint")}
             </p>
           </div>
@@ -177,10 +205,30 @@ export default async function EditWorkOrderPage({
             </p>
           </div>
 
+          <fieldset className="rounded-xl border-2 border-gray-200 p-4">
+            <legend className="px-1 text-sm font-black text-gray-900">{t("orders.edit.locationTitle")}</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="sm:col-span-3">
+                <label htmlFor="office-edit-address" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.edit.addressLabel")}</label>
+                <input id="office-edit-address" name="address" defaultValue={workOrder.address ?? ""} maxLength={200} className="w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900" />
+              </div>
+              <div>
+                <label htmlFor="office-edit-postal-code" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.edit.postalCodeLabel")}</label>
+                <input id="office-edit-postal-code" name="postalCode" defaultValue={workOrder.postalCode ?? ""} maxLength={20} className="w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900" />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="office-edit-city" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.edit.cityLabel")}</label>
+                <input id="office-edit-city" name="city" defaultValue={workOrder.city ?? ""} maxLength={100} className="w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900" />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">{t("orders.edit.locationHint")}</p>
+          </fieldset>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.scheduledDate")}</label>
+              <label htmlFor="office-edit-scheduled-for" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.scheduledDate")}</label>
               <input
+                id="office-edit-scheduled-for"
                 type="date"
                 name="scheduledFor"
                 defaultValue={workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toISOString().split('T')[0] : ""}
@@ -188,21 +236,29 @@ export default async function EditWorkOrderPage({
               />
             </div>
             <div>
-              <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.endDate")}</label>
+              <label htmlFor="office-edit-scheduled-to" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.endDate")}</label>
               <input
+                id="office-edit-scheduled-to"
                 type="date"
                 name="scheduledTo"
+                aria-describedby={dateError ? "office-edit-scheduled-to-hint office-edit-scheduled-to-error" : "office-edit-scheduled-to-hint"}
+                aria-invalid={dateError ? true : undefined}
                 defaultValue={workOrder.scheduledTo ? new Date(workOrder.scheduledTo).toISOString().split('T')[0] : ""}
                 className="w-full border-2 border-gray-300 p-3.5 rounded-xl text-base font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
               />
-              <p className="text-xs text-gray-500 mt-1">{t("orders.edit.endDateHint")}</p>
+              <p id="office-edit-scheduled-to-hint" className="text-xs text-gray-500 mt-1">{t("orders.edit.endDateHint")}</p>
+              {dateError && (
+                <p id="office-edit-scheduled-to-error" role="alert" className="text-xs font-bold text-red-700 mt-1">
+                  {dateError}
+                </p>
+              )}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.technicians")}</label>
-            <p className="text-xs text-gray-500 mb-2">{t("orders.edit.techniciansHint")}</p>
-            <div className="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-xl border-2 border-gray-200 space-y-1">
+          <fieldset>
+            <legend className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.technicians")}</legend>
+            <p id="office-edit-technicians-hint" className="text-xs text-gray-500 mb-2">{t("orders.edit.techniciansHint")}</p>
+            <div aria-describedby="office-edit-technicians-hint" className="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-xl border-2 border-gray-200 space-y-1">
               {technicianOptions.map(tech => (
                 <label key={tech.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
                   <input
@@ -222,17 +278,18 @@ export default async function EditWorkOrderPage({
                 <p className="text-sm text-gray-500 p-2">{t("orders.edit.noEmployees")}</p>
               )}
             </div>
-          </div>
+          </fieldset>
 
-          <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.tags")}</label>
+          <fieldset>
+            <legend className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.tags")}</legend>
             <TagSelector allTags={tags} selectedTagNames={workOrder.tags.map((tag: any) => tag.name)} />
             <p className="text-xs text-gray-500 mt-1">{t("orders.edit.tagsHint")}</p>
-          </div>
+          </fieldset>
 
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.description")}</label>
+            <label htmlFor="office-edit-description" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.description")}</label>
             <MarkdownEditor
+              id="office-edit-description"
               name="description"
               rows={4}
               defaultValue={workOrder.description || ""}
@@ -241,9 +298,12 @@ export default async function EditWorkOrderPage({
           </div>
 
           <div className="border-t-2 border-gray-200 pt-6">
-            <button type="submit" className="w-full bg-blue-700 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-800 transition shadow-md">
+            <SubmitButton
+              pendingLabel={t("orders.edit.saving")}
+              className="w-full bg-blue-700 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-800 transition shadow-md"
+            >
               {t("orders.edit.submit")}
-            </button>
+            </SubmitButton>
           </div>
 
         </form>

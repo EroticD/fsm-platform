@@ -12,7 +12,8 @@
       "statistics": "Statistikk",
       "roles": "Roller & rettigheter",
       "departments": "Avdelinger",
-      "security": "Sikkerhet"
+      "security": "Sikkerhet",
+      "map": "Kart"
     },
     "branding": {
       "title": "White-label Innstillinger",
@@ -146,6 +147,13 @@
         "created": "Rollen ble opprettet.",
         "updated": "Rollen ble oppdatert.",
         "deleted": "Rollen ble slettet."
+      },
+      "builtIn": {
+        "admin": "Administrator",
+        "office": "Kontor",
+        "technician": "Montør",
+        "customer": "Kunde",
+        "user": "Bruker"
       }
     },
     "departments": {
@@ -191,15 +199,31 @@
       "qrAlt": "QR-kode for to-trinns verifisering",
       "manual": "Kan du ikke skanne? Skriv inn nøkkelen manuelt:",
       "step2": "2. Skriv inn koden fra appen",
+      "codeLabel": "Engangskode fra autentiseringsappen",
       "confirm": "Bekreft og slå på",
       "cancelPlaceholder": "Bekreft med passordet ditt for å avbryte",
       "cancel": "Avbryt oppsett",
+      "passwordLabel": "Passord",
       "passwordConfirm": "Bekreft med passordet ditt",
       "passwordPlaceholder": "Passord",
       "enable": "Slå på to-trinns verifisering",
       "disableDesc": "Skriv inn en gyldig engangskode for å slå av.",
       "disable": "Slå av to-trinns verifisering",
-      "loggedInAs": "Innlogget som {name}."
+      "loggedInAs": "Innlogget som {name}.",
+      "recoveryCodes": {
+        "title": "Gjenopprettingskoder",
+        "desc": "Lagre disse kodene på et trygt sted. De vises bare nå, og hver kode kan brukes én gang hvis du mister autentiseringsappen.",
+        "warning": "Kodene vises bare denne ene gangen. Lagre dem før du lukker boksen.",
+        "copy": "Kopier alle",
+        "download": "Last ned som tekstfil",
+        "saved": "Jeg har lagret kodene",
+        "regenerated": "Nye gjenopprettingskoder er laget. De gamle kodene er ugyldige.",
+        "regenerateTitle": "Lag nye gjenopprettingskoder",
+        "regenerateDesc": "Lager et nytt sett og gjør alle gamle koder ugyldige. Bekreft med passordet ditt.",
+        "regenerate": "Lag nye koder",
+        "fileHeader": "Gjenopprettingskoder for {name}",
+        "fileWarning": "Hver kode kan brukes én gang. Oppbevar filen på et trygt sted."
+      }
     },
     "templateEditor": {
       "title": "Rediger Mal",
@@ -265,6 +289,127 @@
       "reportNameHint": "Navnet som vises i PDF og rapportlister. Tomt felt bruker navnet på sjekklisten.",
       "requiresUnits": "Knytt rapporten til enheter",
       "requiresUnitsHint": "Slå av når rapporten ikke gjelder bestemte enheter. Da fylles sjekkpunktene ut én gang for hele oppdraget."
+    },
+    "permissions": {
+      "groups": {
+        "workOrders": "Oppdrag",
+        "customersEquipment": "Kunder og utstyr",
+        "reportsDocuments": "Rapporter og dokumenter",
+        "administration": "Administrasjon"
+      },
+      "items": {
+        "workorders_view": {
+          "label": "Se oppdrag",
+          "description": "Se oppdrag som tilhører egen avdeling."
+        },
+        "workorders_create": {
+          "label": "Opprette oppdrag",
+          "description": "Opprette nye oppdrag i egen avdeling."
+        },
+        "workorders_update": {
+          "label": "Oppdatere oppdrag",
+          "description": "Endre status, kommentarer, vedlegg og sjekklister på oppdrag i egen avdeling."
+        },
+        "workorders_edit": {
+          "label": "Redigere oppdrag",
+          "description": "Endre tittel, kunde, dato, kontaktperson, tags, maler og kansellere oppdrag."
+        },
+        "workorders_assign": {
+          "label": "Tildele montører",
+          "description": "Tildele og fjerne montører på oppdrag i egen avdeling."
+        },
+        "workorders_delete": {
+          "label": "Slette oppdrag",
+          "description": "Slette oppdrag og alt tilhørende (rapporter, kommentarer, vedlegg). Forbeholdt administrator som standard."
+        },
+        "customers_view": {
+          "label": "Se kunder",
+          "description": "Se kundekort, kontakter, avtaler og kundehistorikk."
+        },
+        "customers_manage": {
+          "label": "Administrere kunder",
+          "description": "Opprette og endre kunder, kontakter, serviceavtaler og kundeportalbrukere."
+        },
+        "equipment_view": {
+          "label": "Se enheter",
+          "description": "Se utstyr og servicehistorikk."
+        },
+        "equipment_manage": {
+          "label": "Administrere enheter",
+          "description": "Legge til og endre utstyr på kundekort."
+        },
+        "reports_view": {
+          "label": "Se rapporter",
+          "description": "Se og laste ned servicerapporter fra alle avdelinger."
+        },
+        "reports_write": {
+          "label": "Fylle ut rapporter",
+          "description": "Fylle ut og lagre sjekklister på oppdrag i egen avdeling."
+        },
+        "documents_view": {
+          "label": "Se dokumenter",
+          "description": "Bruke dokumentbiblioteket og se genererte dokumenter."
+        },
+        "documents_manage": {
+          "label": "Administrere dokumenter",
+          "description": "Laste opp, redigere og organisere dokumenter og mapper."
+        },
+        "templates_view": {
+          "label": "Se sjekklister",
+          "description": "Se tilgjengelige sjekklister og maler."
+        },
+        "templates_manage": {
+          "label": "Administrere sjekklister",
+          "description": "Opprette og redigere sjekklister, maler og tags."
+        },
+        "users_view": {
+          "label": "Se ansatte",
+          "description": "Se ansatte, roller og avdelingstilhørighet i egen avdeling."
+        },
+        "users_manage": {
+          "label": "Administrere ansatte",
+          "description": "Opprette brukere, endre roller og sende invitasjoner i egen avdeling. Bare administrator kan flytte ansatte mellom avdelinger."
+        },
+        "settings_manage": {
+          "label": "Administrere innstillinger",
+          "description": "Endre merkevare og systeminnstillinger."
+        },
+        "audit_view": {
+          "label": "Se aktivitetslogg",
+          "description": "Se systemets aktivitetslogg."
+        }
+      }
+    },
+    "map": {
+      "title": "Kartinnstillinger",
+      "description": "Velg kartleverandør, standardkartlag og hvordan kartet skal oppføre seg.",
+      "provider": "Kartleverandør",
+      "apiKey": "API-nøkkel",
+      "keyStored": "Nøkkel er lagret – la feltet stå tomt for å beholde den",
+      "keyPlaceholder": "Lim inn API-nøkkel",
+      "keyHint": "Nøkkelen lagres på serveren og sendes bare til kartet i nettleseren. Bruk en nøkkel med domenebegrensning der leverandøren støtter det.",
+      "clearKey": "Fjern lagret nøkkel",
+      "defaultLayer": "Standardkartlag",
+      "defaultZoom": "Standard zoom (2–19)",
+      "centerLat": "Senter – breddegrad",
+      "centerLng": "Senter – lengdegrad",
+      "centerHint": "Valgfritt. Brukes når kartet ikke har oppdrag å tilpasse seg etter.",
+      "scrollWheel": "Aktiver zoom med scrollhjulet",
+      "save": "Lagre kartinnstillinger",
+      "saved": "Kartinnstillingene er lagret.",
+      "missingKey": "Du må legge inn en API-nøkkel for denne leverandøren.",
+      "invalid": "Kartinnstillingene er ugyldige. Sjekk feltene.",
+      "providers": {
+        "osm": "OpenStreetMap (ingen nøkkel)",
+        "maptiler": "MapTiler",
+        "mapbox": "Mapbox"
+      },
+      "layers": {
+        "osm": "Standard",
+        "topo": "Topografisk",
+        "light": "Lyst",
+        "satellite": "Satellitt"
+      }
     }
   },
   "users": {
@@ -282,6 +427,7 @@
       "sent": "Invitasjons-e-posten er sendt. Brukeren setter sitt eget passord, og kontoen aktiveres av deg etterpå.",
       "manual": "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env), så send denne lenken til brukeren manuelt. De setter sitt eget passord, og kontoen aktiveres av deg etterpå.",
       "copy": "Kopier lenke",
+      "failed": "Kunne ikke lage invitasjonslenken. Prøv igjen.",
       "invalid": "Ingen gyldig lenke funnet. Trykk «Invitasjonslenke» for å lage en ny."
     },
     "add": {
@@ -325,6 +471,10 @@
       "inviteLink": "Invitasjonslenke",
       "deactivate": "Deaktiver",
       "activate": "Aktiver",
+      "resetTwoFactor": "Tilbakestill 2FA",
+      "resetTwoFactorHint": "Slå av to-trinns verifisering for en bruker som har mistet enheten sin",
+      "resetTwoFactorConfirm": "Slå av to-trinns verifisering for «{name}»? Brukeren må sette opp 2FA på nytt, og alle økter logges ut.",
+      "resetTwoFactorLabel": "Tilbakestill 2FA",
       "deleteUser": "Slett bruker",
       "adminHint": "Administrator har alltid alle rettigheter, uavhengig av rollens liste.",
       "customerHint": "Kundeportalbrukere styres av kundetilknytningen, ikke av interne rettigheter.",

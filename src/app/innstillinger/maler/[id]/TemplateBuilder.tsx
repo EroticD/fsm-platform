@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { STATUS_DEFAULT_COMMENT_OPTIONS, STATUS_DEFAULT_OPTIONS } from "@/lib/report-answers";
 
@@ -69,6 +69,7 @@ export default function TemplateBuilder({
   templateId: string;
 }) {
   const t = useTranslations("common");
+  const idPrefix = useId();
   const [title, setTitle] = useState(initialTitle);
   const [reportName, setReportName] = useState(initialReportName);
   const [description, setDescription] = useState(initialDescription);
@@ -135,40 +136,44 @@ export default function TemplateBuilder({
       <input type="hidden" name="requiresUnits" value={requiresUnits ? "true" : "false"} />
       
       <div>
-        <label className="block text-sm font-black text-gray-900 mb-1">{t("settings.templateBuilder.name")}</label>
+        <label htmlFor="template-builder-name" className="block text-sm font-black text-gray-900 mb-1">{t("settings.templateBuilder.name")}</label>
         <input 
+          id="template-builder-name"
           type="text" 
           name="title" 
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required 
-          className="w-full border-2 border-gray-300 p-3 rounded-xl text-lg text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400" 
+          className="w-full border-2 border-gray-300 p-3 rounded-xl text-lg text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-500"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-black text-gray-900 mb-1">
+        <label htmlFor="template-builder-description" className="block text-sm font-black text-gray-900 mb-1">
           {t("settings.templateBuilder.description")}
         </label>
         <textarea
+          id="template-builder-description"
           name="description"
+          aria-describedby="template-builder-description-hint"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           placeholder={t("settings.templates.descriptionPlaceholder")}
-          className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+          className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-500"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p id="template-builder-description-hint" className="text-xs text-gray-500 mt-1">
           {t("settings.templateBuilder.descriptionHint")}
         </p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-1">
+          <label htmlFor="template-builder-category" className="block text-sm font-black text-gray-900 mb-1">
             {t("settings.templateBuilder.category")}
           </label>
           <select
+            id="template-builder-category"
             name="category"
             value={category}
             onChange={(e) => {
@@ -176,7 +181,7 @@ export default function TemplateBuilder({
               setCategory(next);
               if (next === "SERVICE") setHmsType("");
             }}
-            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm"
+            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm"
           >
             <option value="SERVICE">{t("settings.templates.categories.SERVICE")}</option>
             <option value="HMS">{t("settings.templates.categories.HMS")}</option>
@@ -185,15 +190,17 @@ export default function TemplateBuilder({
 
         {category === "HMS" && (
           <div>
-            <label className="block text-sm font-black text-gray-900 mb-1">
+            <label htmlFor="template-builder-hms-type" className="block text-sm font-black text-gray-900 mb-1">
               {t("settings.templateBuilder.hmsType")}
             </label>
             <select
+              id="template-builder-hms-type"
               name="hmsType"
+              aria-describedby="template-builder-hms-type-hint"
               value={hmsType}
               onChange={(e) => setHmsType(e.target.value)}
               required
-              className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm"
+              className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm"
             >
               <option value="" disabled>
                 {t("settings.templates.hmsTypePlaceholder")}
@@ -204,7 +211,7 @@ export default function TemplateBuilder({
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p id="template-builder-hms-type-hint" className="text-xs text-gray-500 mt-1">
               {t("settings.templateBuilder.hmsTypeHint")}
             </p>
           </div>
@@ -213,18 +220,20 @@ export default function TemplateBuilder({
 
       <div className="grid gap-5 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-black text-gray-900 mb-1">
+          <label htmlFor="template-builder-report-name" className="block text-sm font-black text-gray-900 mb-1">
             {t("settings.templateBuilder.reportName")}
           </label>
           <input
+            id="template-builder-report-name"
             type="text"
             name="reportName"
+            aria-describedby="template-builder-report-name-hint"
             value={reportName}
             onChange={(e) => setReportName(e.target.value)}
             placeholder={t("settings.templates.reportNamePlaceholder")}
-            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-500"
           />
-          <p className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.reportNameHint")}</p>
+          <p id="template-builder-report-name-hint" className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.reportNameHint")}</p>
         </div>
 
         <div>
@@ -233,11 +242,12 @@ export default function TemplateBuilder({
               type="checkbox"
               checked={requiresUnits}
               onChange={(e) => setRequiresUnits(e.target.checked)}
+              aria-describedby="template-builder-requires-units-hint"
               className="w-4 h-4 text-blue-700 rounded border-gray-400 focus:ring-blue-600 cursor-pointer"
             />
             {t("settings.templateBuilder.requiresUnits")}
           </label>
-          <p className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.requiresUnitsHint")}</p>
+          <p id="template-builder-requires-units-hint" className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.requiresUnitsHint")}</p>
         </div>
       </div>
 
@@ -261,7 +271,8 @@ export default function TemplateBuilder({
                       type="button" 
                       onClick={() => moveField(index, "UP")} 
                       disabled={index === 0} 
-                      className="text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded p-1 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white transition"
+                      aria-label={t("settings.templateBuilder.moveUp")}
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-gray-300 bg-white p-1 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-white"
                       title={t("settings.templateBuilder.moveUp")}
                     >
                       ▲
@@ -270,7 +281,8 @@ export default function TemplateBuilder({
                       type="button" 
                       onClick={() => moveField(index, "DOWN")} 
                       disabled={index === fields.length - 1} 
-                      className="text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded p-1 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white transition"
+                      aria-label={t("settings.templateBuilder.moveDown")}
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-gray-300 bg-white p-1 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-white"
                       title={t("settings.templateBuilder.moveDown")}
                     >
                       ▼
@@ -298,14 +310,16 @@ export default function TemplateBuilder({
                       type="text" 
                       value={field.label}
                       onChange={(e) => updateField(field.id, { label: e.target.value })}
+                      aria-label={t("settings.templateBuilder.fieldPlaceholder")}
                       placeholder={t("settings.templateBuilder.fieldPlaceholder")}
-                      className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-700 bg-white placeholder:text-gray-400 shadow-sm"
+                      className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white placeholder:text-gray-500 shadow-sm"
                     />
 
                     {(field.type === "SELECT" || field.type === "STATUS") && (
                       <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.templateBuilder.optionsLabel")}</label>
+                        <label htmlFor={`${idPrefix}-${field.id}-options`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.templateBuilder.optionsLabel")}</label>
                         <input 
+                          id={`${idPrefix}-${field.id}-options`}
                           type="text" 
                           value={field.options?.join(", ") || ""}
                           onChange={(e) => updateOptions(field.id, e.target.value)}
@@ -317,11 +331,13 @@ export default function TemplateBuilder({
 
                     {field.type === "STATUS" && (
                       <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3">
-                        <label className="block text-xs font-black text-amber-900 mb-1">
+                        <label htmlFor={`${idPrefix}-${field.id}-comment-options`} className="block text-xs font-black text-amber-900 mb-1">
                           {t("settings.templateBuilder.commentOptionsLabel")}
                         </label>
                         <input
+                          id={`${idPrefix}-${field.id}-comment-options`}
                           type="text"
+                          aria-describedby={`${idPrefix}-${field.id}-comment-options-help`}
                           value={(field.commentOptions ?? []).join(", ")}
                           onChange={(e) =>
                             updateField(field.id, {
@@ -334,7 +350,7 @@ export default function TemplateBuilder({
                           placeholder={t("settings.templateBuilder.commentOptionsPlaceholder")}
                           className="w-full border border-amber-300 p-2.5 rounded-lg text-xs font-medium bg-white"
                         />
-                        <p className="text-[11px] text-amber-800 mt-1">
+                        <p id={`${idPrefix}-${field.id}-comment-options-help`} className="text-xs text-amber-800 mt-1">
                           {t("settings.templateBuilder.commentOptionsHelp")}
                         </p>
                       </div>
@@ -356,9 +372,10 @@ export default function TemplateBuilder({
                   <span className="font-black text-blue-900 whitespace-nowrap">{t("settings.templateBuilder.condition")}</span>
                   
                   <select 
+                    aria-label={t("settings.templateBuilder.condition")}
                     value={field.conditionalFieldId || ""}
                     onChange={(e) => updateField(field.id, { conditionalFieldId: e.target.value || undefined })}
-                    className="border border-blue-300 p-2 rounded-lg bg-white font-bold text-gray-800 flex-1 outline-none"
+                    className="border border-blue-300 p-2 rounded-lg bg-white font-bold text-gray-800 flex-1"
                   >
                     <option value="">{t("settings.templateBuilder.alwaysVisible")}</option>
                     {fields.filter(f => f.id !== field.id).map(f => (
@@ -373,10 +390,11 @@ export default function TemplateBuilder({
                   {field.conditionalFieldId && (
                     <input 
                       type="text" 
+                      aria-label={t("settings.templateBuilder.conditionPlaceholder")}
                       value={field.conditionalValue || ""}
                       onChange={(e) => updateField(field.id, { conditionalValue: e.target.value })}
                       placeholder={t("settings.templateBuilder.conditionPlaceholder")}
-                      className="border border-blue-300 p-2 rounded-lg bg-white font-bold text-gray-800 outline-none w-48"
+                      className="border border-blue-300 p-2 rounded-lg bg-white font-bold text-gray-800 w-48"
                     />
                   )}
                 </div>

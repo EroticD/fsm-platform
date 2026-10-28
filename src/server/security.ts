@@ -4,6 +4,7 @@ import { audit } from "@/lib/audit";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { cleanText } from "@/lib/sanitize";
 import { createTotpSecret, verifyTotp } from "@/lib/two-factor";
+import { replaceRecoveryCodes } from "@/lib/two-factor-recovery";
 import { clearCalendarToken } from "./calendar-feed";
 import { toAuditActor, type ServiceActor } from "./actor";
 
@@ -186,7 +187,7 @@ export async function confirmTwoFactorSetup(
   actor: ServiceActor,
   input: { code?: unknown },
   ip?: string,
-): Promise<SecurityResult<{ sessionVersion: number }>> {
+): Promise<SecurityResult<{ sessionVersion: number; recoveryCodes: string[] }>> {
   if (!actor.isActive) return securityFail("forbidden");
 
   if (!(await guardRateLimit(actor.id, ip))) {
@@ -213,6 +214,9 @@ export async function confirmTwoFactorSetup(
       },
       select: { sessionVersion: true },
     });
+    // Kodene lages i samme transaksjon: 2FA kan aldri bli stående aktivert
+    // uten at brukeren har fått et komplett sett gjenopprettingskoder.
+    const recoveryCodes = await replaceRecoveryCodes(tx, actor.id);
     await clearCalendarToken(actor.id, tx);
     await audit(tx, {
       entityType: "User",
@@ -220,11 +224,14 @@ export async function confirmTwoFactorSetup(
       action: "Slå på to-trinns verifisering",
       actor: toAuditActor(actor),
     });
-    return user;
+    return { user, recoveryCodes };
   });
 
   await resetRateLimit(actor.id, ip);
-  return securityOk({ sessionVersion: updated.sessionVersion });
+  return securityOk({
+    sessionVersion: updated.user.sessionVersion,
+    recoveryCodes: updated.recoveryCodes,
+  });
 }
 
 /** Avbryter et påbegynt 2FA-oppsett og ugyldiggjør eksisterende økter. */
@@ -313,6 +320,8 @@ export async function disableTwoFactor(
       },
       select: { sessionVersion: true },
     });
+    // Gjenopprettingskoder skal aldri overleve at 2FA slås av.
+    await tx.twoFactorRecoveryCode.deleteMany({ where: { userId: actor.id } });
     await clearCalendarToken(actor.id, tx);
     await audit(tx, {
       entityType: "User",
@@ -325,4 +334,37 @@ export async function disableTwoFactor(
 
   await resetRateLimit(actor.id, ip);
   return securityOk({ sessionVersion: updated.sessionVersion });
+}
+
+/**
+ * Lager et nytt sett gjenopprettingskoder. Krever passord på nytt, og erstatter
+ * alle gamle koder i samme transaksjon, slik at ingen gamle koder blir gyldige.
+ */
+export async function regenerateRecoveryCodes(
+  actor: ServiceActor,
+  input: { password?: unknown },
+  ip?: string,
+): Promise<SecurityResult<{ recoveryCodes: string[] }>> {
+  const verified = await verifyOwnPassword(actor, input.password, ip);
+  if (!verified.ok) return verified;
+
+  const state = await prisma.user.findUnique({
+    where: { id: actor.id },
+    select: { isTwoFactorEnabled: true },
+  });
+  if (!state?.isTwoFactorEnabled) return securityFail("forbidden");
+
+  const recoveryCodes = await prisma.$transaction(async (tx) => {
+    const codes = await replaceRecoveryCodes(tx, actor.id);
+    await audit(tx, {
+      entityType: "User",
+      entityId: actor.id,
+      action: "Genererte nye gjenopprettingskoder for to-trinns verifisering",
+      actor: toAuditActor(actor),
+    });
+    return codes;
+  });
+
+  await resetRateLimit(actor.id, ip);
+  return securityOk({ recoveryCodes });
 }

@@ -1,14 +1,17 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { readableTextColor } from "@/lib/colors";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/EmptyState";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
-  formatDateRange,
+  formatDateRangeLocalized,
   parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
@@ -19,6 +22,7 @@ import {
   workOrderListSearchWhere,
   workOrderTagWhere,
 } from "@/lib/search-filters";
+import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import { searchWorkOrderIds } from "@/lib/search-sql";
 
 // ---------------------------------------------------------------------------
@@ -115,13 +119,11 @@ function whereFor(
       return { status: "IN_PROGRESS" };
     case "idag":
       // Tar med flerdagersoppdrag som er i gang i dag, men ikke avsluttede.
+      // Streng `lt` mot neste dags midnatt – ellers teller morgendagens
+      // oppdrag med når de starter kl. 00:00.
       return {
         status: { notIn: CLOSED_STATUSES },
-        scheduledFor: { lte: endOfToday },
-        OR: [
-          { scheduledTo: { gte: startOfToday } },
-          { scheduledTo: null, scheduledFor: { gte: startOfToday } },
-        ],
+        ...scheduledTodayWhere(startOfToday, endOfToday),
       };
     case "forfalte":
       return {
@@ -148,6 +150,11 @@ function orderByFor(view: ViewKey): Prisma.WorkOrderOrderByWithRelationInput[] {
   return [{ scheduledFor: { sort: "desc", nulls: "last" } }];
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.oppdrag") };
+}
+
 export default async function WorkOrdersPage({
   searchParams,
 }: {
@@ -158,6 +165,7 @@ export default async function WorkOrdersPage({
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
@@ -170,7 +178,7 @@ export default async function WorkOrdersPage({
     !office && requestedView === "kansellerte" ? "alle" : requestedView;
   const search = q?.trim() || "";
   const tagFilter = tag?.trim() || "";
-  const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
+  const requestedPage = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
 
   const dates = getDateContext();
 
@@ -197,11 +205,14 @@ export default async function WorkOrdersPage({
     AND: [visibleStatus, whereFor(view, dates), filters],
   };
 
-  const [statusGroups, todayCount, overdueCount, unassignedCount, total, orders] =
+  const [statusGroups, todayCount, overdueCount, unassignedCount, total] =
     await Promise.all([
+      // Fanetallene må bruke nøyaktig samme filter som listen, ellers viser
+      // f.eks. et søk uten treff fortsatt «Alle 5». `filters` inneholder bare
+      // søk/tag – statusvalget ligger i `whereFor(view)` og skal ikke inn her.
       prisma.workOrder.groupBy({
         by: ["status"],
-        where: visibleStatus,
+        where: { AND: [visibleStatus, filters] },
         _count: { _all: true },
       }),
       prisma.workOrder.count({
@@ -214,20 +225,25 @@ export default async function WorkOrdersPage({
         where: { AND: [visibleStatus, whereFor("ikke-tildelt", dates), filters] },
       }),
       prisma.workOrder.count({ where: activeWhere }),
-      prisma.workOrder.findMany({
-        where: activeWhere,
-        orderBy: orderByFor(view),
-        take: PAGE_SIZE,
-        skip: (page - 1) * PAGE_SIZE,
-        include: {
-          customer: { select: { name: true, address: true, postalCode: true, city: true } },
-          technicians: { select: { name: true } },
-          templates: { select: { id: true } },
-          reports: { select: { id: true } },
-          tags: { select: { id: true, name: true, color: true } },
-        },
-      }),
     ]);
+
+  // En gammel `?side=999` skal lande på siste side, ikke en tom side.
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const orders = await prisma.workOrder.findMany({
+    where: activeWhere,
+    orderBy: orderByFor(view),
+    take: PAGE_SIZE,
+    skip: (page - 1) * PAGE_SIZE,
+    include: {
+      customer: { select: { name: true, address: true, postalCode: true, city: true } },
+      technicians: { select: { name: true } },
+      templates: { select: { id: true } },
+      reports: { select: { id: true } },
+      tags: { select: { id: true, name: true, color: true } },
+    },
+  });
 
   const countByStatus = (s: string) => statusGroups.find((g) => g.status === s)?._count._all ?? 0;
   const sumStatuses = (statuses: string[]) =>
@@ -251,7 +267,6 @@ export default async function WorkOrdersPage({
     ? VIEWS
     : VIEWS.filter((v) => v.key !== "kansellerte");
   const activeView = availableViews.find((v) => v.key === view)!;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const linkFor = (key: ViewKey, includeTag = true) => {
     const params = new URLSearchParams();
@@ -279,25 +294,25 @@ export default async function WorkOrdersPage({
               </span>
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             {user.role === "ADMIN" && (
               <Link
                 href="/oppdrag/slettede"
-                className="bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
+                className="flex-1 md:flex-none text-center bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
               >
                 🗑️ {t("orders.detail.deletedOrders")}
               </Link>
             )}
             <Link
               href="/"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              className="flex-1 md:flex-none text-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
               {t("orders.list.backToDashboard")}
             </Link>
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                className="flex-1 md:flex-none text-center bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
               >
                 {t("orders.list.newWorkOrder")}
               </Link>
@@ -307,33 +322,44 @@ export default async function WorkOrdersPage({
 
         {/* FILTRE */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-          <div className="-mx-1 px-1 overflow-x-auto">
-            <div className="flex gap-2 w-max">
-              {availableViews.map((v) => {
-                const active = v.key === view;
-                return (
-                  <Link
-                    key={v.key}
-                    href={linkFor(v.key)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
-                      active
-                        ? "bg-blue-700 border-blue-700 text-white shadow-sm"
-                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
-                    }`}
-                  >
-                    <span className="leading-none">{v.icon}</span>
-                    <span>{t(v.labelKey)}</span>
-                    <span
-                      className={`text-[11px] px-1.5 py-0.5 rounded-full ${
-                        active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
+          <div className="relative">
+            <div
+              role="region"
+              aria-label={t("orders.list.viewsLabel")}
+              tabIndex={0}
+              className="-mx-1 overflow-x-auto px-1 pb-2 pr-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 [scrollbar-width:thin]"
+            >
+              <div className="flex gap-2 w-max">
+                {availableViews.map((v) => {
+                  const active = v.key === view;
+                  return (
+                    <Link
+                      key={v.key}
+                      href={linkFor(v.key)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
+                        active
+                          ? "bg-blue-700 border-blue-700 text-white shadow-sm"
+                          : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
                       }`}
                     >
-                      {viewCounts[v.key]}
-                    </span>
-                  </Link>
-                );
-              })}
+                      <span className="leading-none" aria-hidden>{v.icon}</span>
+                      <span>{t(v.labelKey)}</span>
+                      <span
+                        className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
+                          active ? "bg-white text-blue-800 ring-1 ring-inset ring-blue-200" : "bg-white border border-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {viewCounts[v.key]}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent"
+            />
           </div>
 
           <form method="GET" action="/oppdrag" className="flex flex-wrap gap-2">
@@ -342,6 +368,7 @@ export default async function WorkOrdersPage({
             <input
               type="search"
               name="q"
+              aria-label={t("orders.list.search")}
               defaultValue={search}
               placeholder={t("orders.list.searchPlaceholder")}
               className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
@@ -379,18 +406,27 @@ export default async function WorkOrdersPage({
 
         {/* LISTE */}
         {orders.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">
-              {t("orders.list.emptyTitle")}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {search
+          <EmptyState
+            icon="📂"
+            title={t("orders.list.emptyTitle")}
+            description={
+              search
                 ? t("orders.list.emptySearch", { query: search })
                 : tagFilter
                   ? t("orders.list.emptyTag", { tag: tagFilter })
-                  : t("orders.list.emptyHint")}
-            </p>
-          </div>
+                  : t("orders.list.emptyHint")
+            }
+            action={
+              search || tagFilter ? (
+                <Link
+                  href={linkFor(view, false)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                >
+                  {t("orders.list.reset")}
+                </Link>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="space-y-2">
             {orders.map((wo) => {
@@ -415,14 +451,14 @@ export default async function WorkOrdersPage({
                       🏢 {wo.customer?.name || t("orders.list.noCustomer")}
                       {address ? ` • 📍 ${address}` : ""}
                       {" • 📅 "}
-                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.list.noDate")}
+                      {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("orders.list.noDate")}
                     </p>
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {wo.tags.map((tag) => (
                           <span
                             key={tag.id}
-                            className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm"
+                            className="text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
                             suppressHydrationWarning
                             style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >
@@ -459,29 +495,18 @@ export default async function WorkOrdersPage({
         )}
 
         {/* SIDEBLADDRING */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-2">
-            {page > 1 && (
-              <Link
-                href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page - 1}`}
-                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-              >
-                {t("orders.list.previous")}
-              </Link>
-            )}
-            <span className="text-sm font-bold text-gray-600">
-              {t("orders.list.page", { page, pages: totalPages })}
-            </span>
-            {page < totalPages && (
-              <Link
-                href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page + 1}`}
-                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-              >
-                {t("orders.list.next")}
-              </Link>
-            )}
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          hrefFor={(targetPage) => {
+            const base = linkFor(view);
+            if (targetPage <= 1) return base;
+            return `${base}${base.includes("?") ? "&" : "?"}side=${targetPage}`;
+          }}
+          labels={paginationLabels(t)}
+          summary={t("orders.list.page", { page, pages: totalPages })}
+          className="pt-2"
+        />
       </div>
     </div>
   );

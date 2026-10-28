@@ -92,6 +92,40 @@ docker compose up -d --build
 - I produksjon bør appen stå bak en reverse proxy med TLS; se
   [SECURITY.md](SECURITY.md).
 
+## E2E og skjermbilder
+
+E2E-testene og skjermbildene kjører mot en egen, isolert database
+(`fsm_ui_e2e`) med fire fiktive demo-kontoer. All data der er syntetisk, og
+seed-skriptet rører aldri utviklings- eller produksjonsdatabasen.
+
+```bash
+# 1. Opprett den isolerte databasen og kjør migrasjonene mot den.
+createdb fsm_ui_e2e
+DATABASE_URL=postgresql://admin:bytt-meg@localhost:5432/fsm_ui_e2e?schema=public \
+  npx prisma migrate deploy
+
+# 2. Last E2E-variablene og opprett de fiktive kontoene og demodataene.
+cp .env.e2e.example .env.e2e.local   # fyll inn riktig DATABASE_URL
+set -a && . ./.env.e2e.local && set +a
+npm run seed:e2e
+
+# 3. Start appen på port 3100.
+npm run dev -- -p 3100
+
+# 4. I en ny terminal: kjør Playwright med rollekontoene.
+set -a && . ./.env.e2e.local && set +a
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
+
+# 5. Med appen kjørende: ta skjermbildene til screenshots/.
+npm run screenshots
+```
+
+Rolle-testene bruker `E2E_ADMIN_*`, `E2E_OFFICE_*`, `E2E_TECHNICIAN_*` og
+`E2E_CUSTOMER_*`. Uten dem hoppes de over; med `.env.e2e.local` lastet kjører
+hele matrisen. Kontoene er `admin@example.test`, `kontor@example.test`,
+`montor@example.test` og `kunde@example.test` – alle med passord som står i
+[`.env.e2e.example`](.env.e2e.example).
+
 ## Teknisk oppbygning
 
 - **Next.js 16** (App Router, React 19) med server components.
@@ -120,7 +154,10 @@ docker compose up -d --build
 ## Drift
 
 - `/api/health` er liveness, og `/api/ready` sjekker database, opplastingsvolum
-  og jobbkø.
+  og jobbkø. Produksjons-Compose bruker readiness som healthcheck uten å
+  restart-loope ved databaseutfall.
+- Produksjon bruker `docker-compose.prod.yml` med `APP_IMAGE` pinnet til en
+  publisert versjon (ikke `latest`) og Postgres pinnet til en 15.x-minor.
 - Migrasjoner kjøres ved oppstart med `prisma migrate deploy`.
 - `SEED_DATABASE` er av som standard; seed bare en tom database eksplisitt.
 - Backup, restore-test, logging og skalering er dokumentert i

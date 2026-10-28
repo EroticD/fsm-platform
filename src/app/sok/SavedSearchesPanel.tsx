@@ -17,20 +17,24 @@ export default async function SavedSearchesPanel({
   query,
   filters,
   page,
+  idPrefix = "saved-searches",
 }: {
   searches: SavedSearch[];
   query: string;
   filters: SearchFilters;
   page: number;
+  idPrefix?: string;
 }) {
   const t = await getTranslations("common");
+  const titleId = `${idPrefix}-title`;
+  const nameId = `${idPrefix}-name`;
 
   return (
     <section
-      aria-labelledby="saved-searches-title"
+      aria-labelledby={titleId}
       className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
     >
-      <h2 id="saved-searches-title" className="text-base font-black text-gray-900">
+      <h2 id={titleId} className="text-base font-black text-gray-900">
         {t("components.search.saved.title")}
       </h2>
 
@@ -97,11 +101,11 @@ export default async function SavedSearchesPanel({
             <input type="hidden" name="q" value={query} />
             <input type="hidden" name="page" value={page} />
             <FilterHiddenInputs filters={filters} />
-            <label htmlFor="saved-search-name" className="sr-only">
+            <label htmlFor={nameId} className="sr-only">
               {t("components.search.saved.name")}
             </label>
             <input
-              id="saved-search-name"
+              id={nameId}
               type="text"
               name="name"
               required

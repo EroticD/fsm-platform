@@ -35,8 +35,15 @@ jobs:
       # Testverdier – brukes bare mot tjenestecontaineren over.
       DATABASE_URL: postgresql://admin:admin@localhost:5432/fsm_test?schema=public
       TEST_DATABASE_URL: postgresql://admin:admin@localhost:5432/fsm_test?schema=public
-      E2E_ADMIN_EMAIL: e2e@example.test
-      E2E_ADMIN_PASSWORD: e2e-password-123
+      # Faste, fiktive demokontoer fra scripts/seed-e2e.mjs.
+      E2E_ADMIN_EMAIL: admin@example.test
+      E2E_ADMIN_PASSWORD: "AdminTest123!"
+      E2E_OFFICE_EMAIL: kontor@example.test
+      E2E_OFFICE_PASSWORD: "OfficeTest123!"
+      E2E_TECHNICIAN_EMAIL: montor@example.test
+      E2E_TECHNICIAN_PASSWORD: "TechTest123!"
+      E2E_CUSTOMER_EMAIL: kunde@example.test
+      E2E_CUSTOMER_PASSWORD: "CustomerTest123!"
       NEXTAUTH_SECRET: ci-secret-brukes-bare-i-test
       AUTH_TRUST_HOST: "true"
 
@@ -72,13 +79,8 @@ jobs:
       - name: Integrasjonstester
         run: npm run test:integration
 
-      - name: Seed E2E-bruker
-        run: node scripts/seed.mjs
-        env:
-          SEED_DATABASE: "true"
-          SEED_ADMIN_EMAIL: e2e@example.test
-          SEED_ADMIN_PASSWORD: e2e-password-123
-          SEED_ADMIN_NAME: E2E Admin
+      - name: Seed E2E-brukere og demodata
+        run: node scripts/seed-e2e.mjs
 
       - name: Installer Playwright-nettleser
         run: npx playwright install --with-deps chromium
@@ -94,6 +96,87 @@ jobs:
 
       - name: Bygg
         run: npm run build
+
+  a11y:
+    name: Tilgjengelighet (axe og Lighthouse)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: fsm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Samme testoppsett som E2E-jobben, men appen kjøres i produksjonsmodus
+      # slik at Lighthouse får samme ytelse som i drift. NEXTAUTH_URL holder
+      # sesjonscookien usikret over http://127.0.0.1 i CI.
+      DATABASE_URL: postgresql://admin:admin@localhost:5432/fsm_test?schema=public
+      # Faste, fiktive demokontoer fra scripts/seed-e2e.mjs. Lighthouse bruker
+      # admin-kontoen og må matche den seedede administratoren.
+      E2E_ADMIN_EMAIL: admin@example.test
+      E2E_ADMIN_PASSWORD: "AdminTest123!"
+      E2E_OFFICE_EMAIL: kontor@example.test
+      E2E_OFFICE_PASSWORD: "OfficeTest123!"
+      E2E_TECHNICIAN_EMAIL: montor@example.test
+      E2E_TECHNICIAN_PASSWORD: "TechTest123!"
+      E2E_CUSTOMER_EMAIL: kunde@example.test
+      E2E_CUSTOMER_PASSWORD: "CustomerTest123!"
+      NEXTAUTH_SECRET: ci-secret-brukes-bare-i-test
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      AUTH_TRUST_HOST: "true"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer avhengigheter
+        run: npm ci
+
+      - name: Bruk migrasjonene på en tom database
+        run: npx prisma migrate deploy
+
+      - name: Seed E2E-brukere og demodata
+        run: node scripts/seed-e2e.mjs
+
+      - name: Bygg appen
+        run: npm run build
+
+      - name: Installer Playwright-nettleser for innlogging
+        run: npx playwright install --with-deps chromium
+
+      - name: Lighthouse-tilgjengelighet
+        run: |
+          npm run start > /tmp/next-start.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/api/ready > /dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -fsS http://127.0.0.1:3000/api/ready > /dev/null; then
+            cat /tmp/next-start.log
+            exit 1
+          fi
+          npm run test:lighthouse
+        env:
+          LIGHTHOUSE_URLS: http://127.0.0.1:3000/logg-inn,http://127.0.0.1:3000/oppdrag,http://127.0.0.1:3000/mine-oppdrag
+          LIGHTHOUSE_AUTH_EMAIL: admin@example.test
+          LIGHTHOUSE_AUTH_PASSWORD: "AdminTest123!"
+          LIGHTHOUSE_A11Y_THRESHOLD: "0.95"
 
   docker:
     name: Docker-bygg

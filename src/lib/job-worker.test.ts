@@ -18,6 +18,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
     },
     workOrder: { findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
+    searchLog: { deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
@@ -40,6 +41,7 @@ import fs from "node:fs/promises";
 import {
   claimNextPdfTextJob,
   cleanupExpiredDrafts,
+  cleanupExpiredSearchLogs,
   cleanupRetainedWorkOrders,
   DRAFT_TTL_MS,
   enqueuePdfText,
@@ -47,6 +49,7 @@ import {
   pdfJobBackoffMs,
   processPdfTextJob,
   RETENTION_DAYS,
+  SEARCH_LOG_RETENTION_DAYS,
   type PdfTextJob,
 } from "./job-worker";
 
@@ -61,6 +64,7 @@ const mocked = prisma as unknown as {
     findMany: Mock;
   };
   workOrder: { findMany: Mock; findFirst: Mock; delete: Mock };
+  searchLog: { deleteMany: Mock };
   auditLog: { create: Mock };
   $transaction: Mock;
   $queryRaw: Mock;
@@ -413,5 +417,24 @@ describe("cleanupRetainedWorkOrders", () => {
 
     expect(deleted).toBe(1);
     expect(order).toEqual(["db", "file"]);
+  });
+});
+
+describe("cleanupExpiredSearchLogs", () => {
+  it("sletter bare søkelogger eldre enn bevaringsfristen", async () => {
+    mocked.searchLog.deleteMany.mockResolvedValue({ count: 4 });
+    const now = new Date("2026-06-01T00:00:00.000Z");
+
+    const deleted = await cleanupExpiredSearchLogs(now);
+
+    expect(deleted).toBe(4);
+    const call = mocked.searchLog.deleteMany.mock.calls[0][0] as {
+      where: { createdAt: { lt: Date } };
+    };
+    const cutoff = call.where.createdAt.lt;
+    const days = Math.round(
+      (now.getTime() - cutoff.getTime()) / (24 * 60 * 60_000),
+    );
+    expect(days).toBe(SEARCH_LOG_RETENTION_DAYS);
   });
 });

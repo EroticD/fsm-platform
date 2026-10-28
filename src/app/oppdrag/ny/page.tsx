@@ -3,7 +3,10 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import CustomerSelect from "./CustomerSelect";
+import ErrorBanner from "@/components/ErrorBanner";
+import FormValuePersistence from "@/components/FormValuePersistence";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import SubmitButton from "@/components/SubmitButton";
 import TagSelector from "@/components/TagSelector";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -14,6 +17,7 @@ import {
   splitTemplatesByCategory,
 } from "@/lib/template-categories";
 import { createWorkOrder } from "./actions";
+import { todayInOslo } from "@/lib/dates";
 
 export default async function AdminCreateWorkOrderPage({
   searchParams,
@@ -54,6 +58,26 @@ export default async function AdminCreateWorkOrderPage({
   });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
 
+  const errorMessages: Record<string, string> = {
+    avdeling: t("orders.errors.department"),
+    "ugyldig-data": t("orders.errors.invalidData"),
+    "ugyldig-sluttdato": t("orders.errors.invalidEndDate"),
+    "sluttdato-for-startdato": t("orders.errors.endBeforeStart"),
+    "duplikat-ordrenummer": t("orders.errors.duplicateOrderNumber"),
+    "workorder-locked": t("orders.errors.workOrderLocked"),
+    "ikke-tilgang": t("orders.errors.generic"),
+    ukjent: t("orders.errors.generic"),
+  };
+  const errorMessage = error
+    ? (errorMessages[error] ?? t("orders.errors.generic"))
+    : undefined;
+  const dateError =
+    error === "sluttdato-for-startdato"
+      ? t("orders.errors.endBeforeStart")
+      : error === "ugyldig-sluttdato"
+        ? t("orders.errors.invalidEndDate")
+        : undefined;
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-xl mx-auto space-y-6">
@@ -67,24 +91,26 @@ export default async function AdminCreateWorkOrderPage({
           </Link>
         </div>
 
-        {error === "avdeling" && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            {t("orders.errors.department")}
-          </div>
-        )}
+        <ErrorBanner message={errorMessage} />
 
-        {error === "ugyldig-data" && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            {t("orders.errors.invalidData")}
-          </div>
-        )}
+        <form
+          id="office-create-work-order"
+          action={createWorkOrder}
+          className="bg-white p-6 rounded-2xl shadow-sm border space-y-5"
+        >
+          <FormValuePersistence
+            formId="office-create-work-order"
+            storageKey="fsm:office-create-work-order"
+            restore={Boolean(error)}
+          />
 
-        <form action={createWorkOrder} className="bg-white p-6 rounded-2xl shadow-sm border space-y-5">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.department")}</label>
+            <label htmlFor="office-new-department" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.department")}</label>
             {isAdmin ? (
               <select
+                id="office-new-department"
                 name="departmentId"
+                aria-describedby="office-new-department-hint"
                 defaultValue={ownDepartmentId ?? ""}
                 required
                 className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
@@ -102,14 +128,15 @@ export default async function AdminCreateWorkOrderPage({
                 {user.department?.name || departments.find((d) => d.id === ownDepartmentId)?.name || t("orders.new.noDepartment")}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            <p id="office-new-department-hint" className="text-xs text-gray-500 mt-1">
               {t("orders.new.departmentHint")}
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.titleLabel")}</label>
+            <label htmlFor="office-new-title" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.titleLabel")}</label>
             <input
+              id="office-new-title"
               type="text"
               name="title"
               placeholder={t("orders.new.titlePlaceholder")}
@@ -119,8 +146,9 @@ export default async function AdminCreateWorkOrderPage({
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.orderNumber")}</label>
+            <label htmlFor="office-new-order-number" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.orderNumber")}</label>
             <input
+              id="office-new-order-number"
               type="text"
               name="orderNumber"
               placeholder={t("orders.new.orderNumberPlaceholder")}
@@ -129,22 +157,52 @@ export default async function AdminCreateWorkOrderPage({
             />
           </div>
 
-          <CustomerSelect customers={customers} optional={true} />
+          <CustomerSelect
+            customers={customers}
+            optional={true}
+            persistenceKey="fsm:office-create-work-order"
+            restoreSelection={Boolean(error)}
+          />
+
+          <fieldset className="rounded-xl border-2 border-gray-200 p-4" aria-describedby="office-new-location-hint">
+            <legend className="px-1 text-sm font-bold text-gray-700">{t("orders.new.locationTitle")}</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="sm:col-span-3">
+                <label htmlFor="office-new-address" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.addressLabel")}</label>
+                <input id="office-new-address" name="address" maxLength={200} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              </div>
+              <div>
+                <label htmlFor="office-new-postal-code" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.postalCodeLabel")}</label>
+                <input id="office-new-postal-code" name="postalCode" maxLength={20} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="office-new-city" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.cityLabel")}</label>
+                <input id="office-new-city" name="city" maxLength={100} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              </div>
+            </div>
+            <p id="office-new-location-hint" className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
+          </fieldset>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.executionDate")}</label>
-              <input type="date" name="scheduledFor" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <label htmlFor="office-new-scheduled-for" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.executionDate")}</label>
+              <input id="office-new-scheduled-for" type="date" name="scheduledFor" defaultValue={todayInOslo()} required className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.endDate")}</label>
-              <input type="date" name="scheduledTo" className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
-              <p className="text-xs text-gray-500 mt-1">{t("orders.new.endDateHint")}</p>
+              <label htmlFor="office-new-scheduled-to" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.endDate")}</label>
+              <input id="office-new-scheduled-to" type="date" name="scheduledTo" aria-describedby={dateError ? "office-new-scheduled-to-hint office-new-scheduled-to-error" : "office-new-scheduled-to-hint"} aria-invalid={dateError ? true : undefined} className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <p id="office-new-scheduled-to-hint" className="text-xs text-gray-500 mt-1">{t("orders.new.endDateHint")}</p>
+              {dateError && (
+                <p id="office-new-scheduled-to-error" role="alert" className="text-xs font-bold text-red-700 mt-1">
+                  {dateError}
+                </p>
+              )}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.assignTechnicians")}</label>
+          <fieldset>
+            <legend className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.assignTechnicians")}</legend>
             <div className="max-h-40 overflow-y-auto bg-gray-50 p-3 rounded-xl border space-y-2">
               {technicians.map(tech => (
                 <label key={tech.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
@@ -156,11 +214,11 @@ export default async function AdminCreateWorkOrderPage({
                 </label>
               ))}
             </div>
-          </div>
+          </fieldset>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.templates")}</label>
-            <p className="text-xs text-gray-500 mb-2">{t("orders.new.templatesHint")}</p>
+          <fieldset aria-describedby="office-new-templates-hint">
+            <legend className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.templates")}</legend>
+            <p id="office-new-templates-hint" className="text-xs text-gray-500 mb-2">{t("orders.new.templatesHint")}</p>
             <div className="max-h-64 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-3">
               {templates.length === 0 && (
                 <p className="text-sm text-gray-500 p-2">{t("orders.new.noTemplates")}</p>
@@ -199,22 +257,25 @@ export default async function AdminCreateWorkOrderPage({
                 </div>
               )}
             </div>
-          </div>
+          </fieldset>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.tags")}</label>
+          <fieldset aria-describedby="office-new-tags-hint">
+            <legend className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.tags")}</legend>
             <TagSelector allTags={tags} />
-            <p className="text-xs text-gray-500 mt-1">{t("orders.new.tagsHint")}</p>
-          </div>
+            <p id="office-new-tags-hint" className="text-xs text-gray-500 mt-1">{t("orders.new.tagsHint")}</p>
+          </fieldset>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.description")}</label>
-            <MarkdownEditor name="description" rows={3} placeholder={t("orders.new.descriptionPlaceholder")} />
+            <label htmlFor="office-new-description" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.description")}</label>
+            <MarkdownEditor id="office-new-description" name="description" rows={3} placeholder={t("orders.new.descriptionPlaceholder")} />
           </div>
 
-          <button type="submit" className="w-full bg-[var(--primary-color)] text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+          <SubmitButton
+            pendingLabel={t("orders.new.submitting")}
+            className="w-full bg-[var(--primary-color)] text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm"
+          >
             {t("orders.new.submit")}
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

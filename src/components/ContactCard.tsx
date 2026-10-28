@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
 export default function ContactCard({
@@ -40,12 +39,14 @@ export default function ContactCard({
           </p>
           {contact.phone && (
             <p className="text-gray-600">
-              📞 <a href={`tel:${contact.phone}`} className="text-blue-600 font-bold hover:underline">{contact.phone}</a>
+              <span aria-hidden>📞</span>{" "}
+              <a href={`tel:${contact.phone}`} className="text-blue-600 font-bold hover:underline">{contact.phone}</a>
             </p>
           )}
           {contact.email && (
             <p className="text-gray-600">
-              ✉️ <a href={`mailto:${contact.email}`} className="text-blue-600 font-bold hover:underline">{contact.email}</a>
+              <span aria-hidden>✉️</span>{" "}
+              <a href={`mailto:${contact.email}`} className="text-blue-600 font-bold hover:underline">{contact.email}</a>
             </p>
           )}
         </div>
@@ -55,20 +56,31 @@ export default function ContactCard({
             onClick={() => setIsEditing(!isEditing)}
             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition p-1"
           >
-            {isEditing ? t("components.contact.hide") : `✏️ ${t("components.contact.edit")}`}
+            {isEditing ? (
+              t("components.contact.hide")
+            ) : (
+              <>
+                <span aria-hidden>✏️</span> {t("components.contact.edit")}
+              </>
+            )}
           </button>
           <ConfirmSubmitForm
             action={onDelete}
-            confirmMessage={t("components.contact.deleteConfirm")}
+            confirmMessage={t("components.contact.deleteConfirm", {
+              name: contact.name,
+            })}
+            confirmLabel={t("delete")}
+            danger
             className={`inline ${canDelete ? "" : "hidden"}`}
           >
             <input type="hidden" name="id" value={contact.id} />
             <button
               type="submit"
-              className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
+              aria-label={`${t("components.contact.deleteTitle")}: ${contact.name}`}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
               title={t("components.contact.deleteTitle")}
             >
-              🗑️
+              <span aria-hidden>🗑️</span>
             </button>
           </ConfirmSubmitForm>
         </div>
@@ -79,8 +91,9 @@ export default function ContactCard({
           <input type="hidden" name="id" value={contact.id} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.name")}</label>
+              <label htmlFor={`contact-${contact.id}-name`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.name")}</label>
               <input
+                id={`contact-${contact.id}-name`}
                 type="text"
                 name="name"
                 defaultValue={contact.name}
@@ -89,8 +102,9 @@ export default function ContactCard({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.role")}</label>
+              <label htmlFor={`contact-${contact.id}-role`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.role")}</label>
               <input
+                id={`contact-${contact.id}-role`}
                 type="text"
                 name="role"
                 defaultValue={contact.role || ""}
@@ -100,8 +114,9 @@ export default function ContactCard({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.email")}</label>
+              <label htmlFor={`contact-${contact.id}-email`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.email")}</label>
               <input
+                id={`contact-${contact.id}-email`}
                 type="email"
                 name="email"
                 defaultValue={contact.email || ""}
@@ -109,8 +124,9 @@ export default function ContactCard({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.phone")}</label>
+              <label htmlFor={`contact-${contact.id}-phone`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.phone")}</label>
               <input
+                id={`contact-${contact.id}-phone`}
                 type="tel"
                 name="phone"
                 defaultValue={contact.phone || ""}

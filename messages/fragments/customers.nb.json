@@ -26,7 +26,19 @@
       "showActive": "← Aktive kunder",
       "deletedTitle": "Papirkurv: slettede kunder kan gjenopprettes av administrator.",
       "restore": "Gjenopprett",
-      "delete": "Slett"
+      "delete": "Slett",
+      "saving": "Lagrer …",
+      "deleteConfirm": "Slette kunden «{name}»? Kunden merkes som slettet og kan gjenopprettes av en administrator.",
+      "newCustomer": "Ny kunde",
+      "city": "Sted",
+      "contact": "Kontaktperson",
+      "openOrders": "Åpne oppdrag",
+      "lastService": "Siste service",
+      "sortBy": "Sorter etter {column}",
+      "openCustomer": "Åpne kundekortet for {name}",
+      "noContact": "Ingen kontaktperson",
+      "neverServiced": "Ingen fullførte oppdrag",
+      "unitsNotice": "Utstyr og enheter ligger på kundekortet. Velg en kunde og åpne fanen «Utstyr» for å se maskinene."
     },
     "detail": {
       "notFound": "Kunden finnes ikke",
@@ -41,13 +53,17 @@
       "tabs": {
         "overview": "📊 Oversikt",
         "orders": "📂 Oppdrag",
-        "contracts": "📄 Serviceavtaler",
+        "contracts": "📄 Avtaler",
         "attachments": "📎 Vedlegg",
-        "units": "🔧 Enheter",
+        "units": "🔧 Utstyr",
         "contacts": "👤 Kontakter",
+        "contactsPortal": "👤 Kontakter og portal",
         "portal": "🔐 Kundeportal",
-        "activity": "📋 Aktivitet"
-      }
+        "activity": "📋 Aktivitet",
+        "more": "➕ Mer",
+        "label": "Kundekortets faner"
+      },
+      "deleteConfirm": "Slette kunden «{name}»? Kunden merkes som slettet og kan gjenopprettes av en administrator."
     },
     "edit": {
       "title": "Rediger kunde",
@@ -74,7 +90,8 @@
       "notesPlaceholder": "Noter om kunden...",
       "cancel": "Avbryt",
       "save": "Lagre endringer",
-      "saveError": "Kunden kunne ikke lagres. Sjekk feltene og prøv igjen."
+      "saveError": "Kunden kunne ikke lagres. Sjekk feltene og prøv igjen.",
+      "saving": "Lagrer …"
     },
     "overview": {
       "totalOrders": "Oppdrag totalt",
@@ -179,7 +196,21 @@
       "showingRecent": "Viser de {shown} nyeste av {total} kontroller.",
       "editUnit": "Endre enhet",
       "save": "Lagre endringer",
-      "delete": "Slett enhet"
+      "delete": "Slett enhet",
+      "deleteConfirm": "Slette enheten «{model}»? Servicehistorikken beholdes på rapportene.",
+      "searchLabel": "Filtrer enheter",
+      "searchPlaceholder": "Søk på modell, serienummer eller plassering...",
+      "search": "Filtrer",
+      "resetSearch": "Nullstill",
+      "noMatches": "Ingen enheter matcher «{query}».",
+      "showing": "Viser {shown} av {total} enheter.",
+      "openUnit": "Åpne",
+      "detailSubtitle": "Enhet hos {customer}",
+      "backToCustomer": "Tilbake til kundekortet",
+      "backToCustomers": "Til kundene",
+      "customerLabel": "Kunde",
+      "notFound": "Enheten finnes ikke",
+      "historyHidden": "Du mangler tilgang til rapporter, så servicehistorikken vises ikke."
     },
     "contacts": {
       "title": "Kontaktpersoner",
@@ -201,6 +232,7 @@
       "inviteSent": "Invitasjons-e-posten er sendt til brukeren.",
       "inviteManual": "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env) – kopier lenken og send den til brukeren manuelt.",
       "copyLink": "Kopier lenke",
+      "inviteFailed": "Kunne ikke lage invitasjonslenken. Prøv igjen.",
       "noValidLink": "Ingen gyldig lenke. Trykk «Ny lenke» for å lage en ny.",
       "addContactFirst": "Legg til en kontaktperson først – kundeportalbrukere må kobles til en kontaktperson.",
       "name": "Navn",
@@ -223,7 +255,25 @@
       "errorDuplicateEmail": "Det finnes allerede en bruker med denne e-postadressen."
     },
     "activity": {
-      "title": "Aktivitetslogg"
+      "title": "Aktivitetslogg",
+      "recentOrders": "Siste oppdrag",
+      "noRecentOrders": "Ingen oppdrag registrert på kunden ennå.",
+      "orderUpdated": "Oppdatert {date}",
+      "recentReports": "Siste rapporter",
+      "noRecentReports": "Ingen rapporter levert for kunden ennå.",
+      "reportFallback": "Rapport",
+      "reportFor": "Oppdrag: {order}",
+      "viewReport": "Vis rapport",
+      "feedTitle": "Aktivitetsstrøm",
+      "noActivity": "Ingen aktivitet registrert for kunden ennå.",
+      "types": {
+        "customer": "Kunde",
+        "workOrder": "Oppdrag",
+        "report": "Rapport",
+        "contact": "Kontakt"
+      },
+      "auditOnlyTitle": "Vis hele revisjonsloggen",
+      "auditOnlyHint": "Revisjonsloggen viser bare rader som er knyttet direkte til kundekortet. Oppdrag og rapporter har egne sider."
     },
     "attachments": {
       "title": "Vedlegg",
@@ -240,6 +290,30 @@
       "uploadingProgress": "{done} av {total}",
       "deleteTitle": "Slett vedlegg",
       "deleteConfirm": "Slette vedlegget «{name}»?"
+    },
+    "feedback": {
+      "status": {
+        "customerCreated": "Kunden er opprettet.",
+        "customerUpdated": "Kundeinformasjonen er lagret.",
+        "customerDeleted": "Kunden er slettet og kan gjenopprettes fra papirkurven.",
+        "customerRestored": "Kunden er gjenopprettet.",
+        "unitCreated": "Enheten er lagt til.",
+        "unitUpdated": "Enheten er oppdatert.",
+        "unitDeleted": "Enheten er slettet.",
+        "contactCreated": "Kontaktpersonen er lagt til.",
+        "contactUpdated": "Kontaktpersonen er oppdatert.",
+        "contactDeleted": "Kontaktpersonen er slettet.",
+        "contractCreated": "Serviceavtalen er opprettet.",
+        "contractActivated": "Serviceavtalen er aktivert.",
+        "contractPaused": "Serviceavtalen er satt på pause.",
+        "contractDeleted": "Serviceavtalen er slettet."
+      },
+      "error": {
+        "invalid": "Skjemaet inneholder ugyldige eller manglende felt.",
+        "forbidden": "Du har ikke tilgang til denne handlingen.",
+        "notFound": "Fant ikke det du prøvde å endre. Det kan være slettet.",
+        "unknown": "Noe gikk galt. Prøv igjen."
+      }
     }
   }
 }

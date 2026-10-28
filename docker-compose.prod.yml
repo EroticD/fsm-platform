@@ -3,17 +3,45 @@
 #
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# Imaget hentes fra ghcr.io/<eier>/<repo>. Sett APP_IMAGE i .env hvis du vil
-# peke på en spesifikk tag (standard: latest).
+# APP_IMAGE er påkrevd og skal peke på en publisert versjon eller et digest –
+# ikke `latest`. Se docs/OPERATIONS.md («Produksjonssett: image-pinning»).
+#
+# Maskinen bør ha minst 1 GB RAM og 2 GB swap. Minnegrensene under er dimensjonert
+# for en 1 GB Droplet; se «Minne og swap» i docs/OPERATIONS.md før du justerer.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   postgres:
-    image: postgres:15
+    # Pinn til en konkret 15.x-minor (eller digest) i produksjon, f.eks.
+    # POSTGRES_IMAGE=postgres:15.13. Standard er bevisst en rullende major-tag
+    # slik at eksisterende oppsett ikke låses uten at det er dokumentert.
+    image: ${POSTGRES_IMAGE:-postgres:15}
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_DB: ${POSTGRES_DB:-fsm_db}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD i .env}
+    # Holder Postgres innenfor 1 GB-dropleten. Verdiene er bevisst små og kan
+    # økes hvis maskinen har mer RAM.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=96MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=50
+    mem_limit: 300m
+    logging: *default-logging
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -25,7 +53,7 @@ services:
       retries: 10
 
   app:
-    image: ${APP_IMAGE:-ghcr.io/eroticd/fsm-platform:latest}
+    image: ${APP_IMAGE:?Sett APP_IMAGE til en publisert versjon, f.eks. ghcr.io/eroticd/fsm-platform:0.7.1}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -50,6 +78,17 @@ services:
       RECURRING_SCHEDULER: ${RECURRING_SCHEDULER:-true}
       CRON_SECRET: ${CRON_SECRET:-}
       READY_SECRET: ${READY_SECRET:-}
+      GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
+      GEOCODE_USER_AGENT: ${GEOCODE_USER_AGENT:-}
+      GEOCODE_TIMEOUT_MS: ${GEOCODE_TIMEOUT_MS:-2500}
+      # Valgfri migrasjonssperre. Se docs/OPERATIONS.md.
+      REQUIRE_BACKUP_BEFORE_MIGRATE: ${REQUIRE_BACKUP_BEFORE_MIGRATE:-false}
+      BACKUP_CONFIRMED: ${BACKUP_CONFIRMED:-false}
+      # V8-heapen holdes godt under mem_limit, slik at native buffere (sharp,
+      # tesseract, PDF) og tmpfs fortsatt får plass. Worst case (full heap +
+      # fulle tmpfs) er 384 + 160 + 96 = 640 MB, og da gjenstår ca. 60 MB til
+      # native minne. Juster /tmp, heapen eller mem_limit bevisst ved behov.
+      NODE_OPTIONS: "--max-old-space-size=384"
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
@@ -58,14 +97,33 @@ services:
     # filsystemet er read-only. /tmp er tmpfs for OCR og Node.
     read_only: true
     tmpfs:
-      - /tmp
-      - /app/.next/cache
+      - /tmp:size=160m,mode=1777
+      - /app/.next/cache:size=96m
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
     pids_limit: 512
-    mem_limit: 2g
+    # Dimensjonert for 1 GB Droplet. Postgres bruker 300 MB, appen 700 MB.
+    # Sammen med OS/dockerd krever dette swap – se docs/OPERATIONS.md.
+    mem_limit: 700m
+    mem_reservation: 256m
+    logging: *default-logging
+    # Readiness, ikke liveness. Imaget har sin egen liveness-healthcheck mot
+    # /api/health; Compose overstyrer den med denne. En utilgjengelig database
+    # gjør containeren «unhealthy», men restart-policyen restarter den ikke –
+    # dermed unngår vi restart-løkke ved DB-utfall.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    stop_grace_period: 30s
 
 volumes:
   fsm_postgres_data:

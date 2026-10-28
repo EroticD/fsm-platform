@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-
-type FileItem = {
-  file: File;
-  relativePath: string;
-};
+import { appendDocumentContext } from "./DocumentContextFields";
+import type {
+  DocumentBulkActionResult,
+  DocumentDiscardUploadsResult,
+  DocumentFormContext,
+} from "./action-types";
 
 type UploadedItem = {
   title: string;
@@ -16,122 +17,494 @@ type UploadedItem = {
   relativePath: string;
 };
 
+type RowStatus =
+  | "pending"
+  | "uploading"
+  | "uploaded"
+  | "created"
+  | "skipped"
+  | "failed";
+
+type ImportRow = {
+  key: string;
+  name: string;
+  relativePath: string;
+  size: number;
+  file: File | null;
+  isPdf: boolean;
+  status: RowStatus;
+  reason?: string;
+  message?: string;
+  fileUrl?: string;
+  title?: string;
+};
+
+const REASON_KEYS: Record<string, string> = {
+  duplicate: "documents.bulk.reasonDuplicate",
+  not_pdf: "documents.bulk.reasonNotPdf",
+  not_owned: "documents.bulk.reasonNotOwned",
+  folder_failed: "documents.bulk.reasonFolderFailed",
+  invalid: "documents.bulk.reasonInvalid",
+  error: "documents.bulk.reasonError",
+  upload: "documents.bulk.reasonUpload",
+  server: "documents.bulk.reasonServer",
+};
+
+const ACTION_ERROR_KEYS: Record<string, string> = {
+  forbidden: "documents.errors.forbidden",
+  invalid: "documents.errors.invalid",
+  not_found: "documents.errors.notFound",
+  error: "documents.errors.generic",
+};
+
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function pdfTitle(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, "");
+}
+
 export default function BulkUploadForm({
-  folderId,
-  allTags,
-  existingFiles = [],
+  context,
   bulkCreateDocuments,
+  discardUploads,
 }: {
-  folderId: string | null;
-  allTags: { id: string; name: string; color: string }[];
-  existingFiles?: { fileName: string; fileSize: number }[];
-  bulkCreateDocuments: (formData: FormData) => Promise<void>;
+  context: DocumentFormContext;
+  bulkCreateDocuments: (
+    formData: FormData,
+  ) => Promise<DocumentBulkActionResult>;
+  discardUploads: (
+    formData: FormData,
+  ) => Promise<DocumentDiscardUploadsResult>;
 }) {
   const t = useTranslations("common");
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [skipped, setSkipped] = useState(0);
-  const [uploading, setUploading] = useState(false);
+  const [rows, setRows] = useState<ImportRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "creating">(
+    "idle",
+  );
   const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const abortRequested = useRef(false);
+  const orphanUrls = useRef<Set<string>>(new Set());
+  const creatingRef = useRef(false);
+  const unmountedRef = useRef(false);
+  const discardRef = useRef(discardUploads);
+  useEffect(() => {
+    discardRef.current = discardUploads;
+  }, [discardUploads]);
+
+  // Ved unmount (f.eks. navigasjon) forsøker vi å rydde opplastinger som aldri
+  // ble knyttet til et dokument. Serveren sletter bare filer brukeren eier.
+  useEffect(() => {
+    // Samme Set-instans muteres gjennom hele komponentens levetid.
+    unmountedRef.current = false;
+    const urlsRef = orphanUrls.current;
+    return () => {
+      unmountedRef.current = true;
+      abortRequested.current = true;
+      // Mens serveren oppretter dokumenter må vi ikke slette filene den er i
+      // ferd med å knytte til seg. Oppryddingen skjer etter at kallet er ferdig.
+      if (creatingRef.current) return;
+      const urls = [...urlsRef];
+      if (urls.length === 0) return;
+      const formData = new FormData();
+      formData.append("urls", JSON.stringify(urls));
+      void discardRef.current(formData).catch(() => undefined);
+    };
+  }, []);
+
+  const counts = useMemo(() => {
+    return rows.reduce(
+      (acc, row) => {
+        if (row.status === "created") acc.created++;
+        else if (row.status === "skipped") acc.skipped++;
+        else if (row.status === "failed") acc.failed++;
+        return acc;
+      },
+      { created: 0, skipped: 0, failed: 0 },
+    );
+  }, [rows]);
+
+  const failedRows = rows.filter(
+    (row) => row.status === "failed" && row.isPdf,
+  );
+  const hasResult = rows.some((row) =>
+    ["created", "skipped", "failed"].includes(row.status),
+  );
+
+  const folders = useMemo(() => {
+    const result = new Set<string>();
+    for (const row of rows) {
+      const parts = row.relativePath.split("/");
+      for (let i = 1; i < parts.length; i++) {
+        result.add(parts.slice(0, i).join("/"));
+      }
+    }
+    return [...result].sort();
+  }, [rows]);
+
+  function updateRow(key: string, patch: Partial<ImportRow>) {
+    setRows((prev) =>
+      prev.map((row) => (row.key === key ? { ...row, ...patch } : row)),
+    );
+  }
+
+  async function discardOrphans(urls: string[]) {
+    if (urls.length === 0) return;
+    const formData = new FormData();
+    formData.append("urls", JSON.stringify([...new Set(urls)]));
+    try {
+      const result = await discardUploads(formData);
+      if (result.ok) {
+        for (const url of urls) orphanUrls.current.delete(url);
+      }
+    } catch {
+      // Opprydding er best-effort; filene kan ryddes ved et nytt forsøk.
+    }
+  }
+
+  function resetRows(nextRows: ImportRow[]) {
+    const previousOrphans = [...orphanUrls.current];
+    if (previousOrphans.length > 0) void discardOrphans(previousOrphans);
+    setRows(nextRows);
+    setError(null);
+    setNotice(null);
+    setProgress("");
+  }
 
   function handleFolderSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files;
     if (!selected) return;
-    const items: FileItem[] = [];
-    let skipCount = 0;
+    let pdfCount = 0;
     for (let i = 0; i < selected.length; i++) {
-      const f = selected[i];
-      if (!f.name.toLowerCase().endsWith(".pdf")) continue;
-      // Hopp over filer som allerede eksisterer med samme størrelse
-      const dup = existingFiles.find((ex) => ex.fileName === f.name && ex.fileSize === f.size);
-      if (dup) {
-        skipCount++;
-        continue;
-      }
-      const rel = (f as any).webkitRelativePath || f.name;
-      items.push({ file: f, relativePath: rel });
+      if (selected[i].name.toLowerCase().endsWith(".pdf")) pdfCount++;
     }
-    setFiles(items);
-    setSkipped(skipCount);
-    setError(null);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (files.length === 0) {
-      setError(t("documents.bulk.chooseFirst"));
+    if (pdfCount > 1000) {
+      setError(t("documents.bulk.tooMany", { max: 1000 }));
       return;
     }
-    setUploading(true);
+    const items: ImportRow[] = [];
+    for (let i = 0; i < selected.length; i++) {
+      const file = selected[i];
+      const relativePath =
+        (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+        file.name;
+      const isPdf = file.name.toLowerCase().endsWith(".pdf");
+      items.push({
+        key: `${i}:${relativePath}`,
+        name: file.name,
+        relativePath: normalizePath(relativePath),
+        size: file.size,
+        file: isPdf ? file : null,
+        isPdf,
+        status: isPdf ? "pending" : "skipped",
+        reason: isPdf ? undefined : "not_pdf",
+      });
+    }
+    resetRows(items);
+  }
+
+  async function runImport(targetRows: ImportRow[]) {
+    if (targetRows.length === 0) return;
+    setBusy(true);
+    setPhase("uploading");
     setError(null);
+    setNotice(null);
+    abortRequested.current = false;
+
+    const uploaded: UploadedItem[] = [];
+    const uploadedRowKeys = new Set<string>();
+    let aborted = false;
+
     try {
-      const uploaded: UploadedItem[] = [];
-      let i = 0;
-      for (const item of files) {
-        i++;
-        setProgress(
-          t("documents.bulk.progressUploading", {
-            current: i,
-            total: files.length,
-            name: item.file.name,
-          }),
-        );
-        // Les filen som ArrayBuffer og lag ny File for å unngå problemer
-        // med webkitdirectory-filer (boundary-feil).
-        const buffer = await item.file.arrayBuffer();
-        const cleanFile = new File([buffer], item.file.name, { type: item.file.type || "application/pdf" });
-        const formData = new FormData();
-        formData.append("file", cleanFile, cleanFile.name);
-        formData.append("purpose", "document");
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (!res.ok) {
-          console.error("Upload failed:", res.status, data);
+      let index = 0;
+      for (const row of targetRows) {
+        if (!row.isPdf) continue;
+        if (abortRequested.current) {
+          aborted = true;
+          break;
         }
-        if (!res.ok) throw new Error(
-          data.error ||
-            t("documents.bulk.fileUploadFailed", { name: item.file.name }),
-        );
-        const ext = item.file.name.substring(item.file.name.lastIndexOf("."));
+        index++;
+        let fileUrl = row.fileUrl;
+        let fileName = row.name;
+        let fileSize = row.size;
+        const title = row.title ?? pdfTitle(row.name);
+
+        if (!fileUrl) {
+          if (!row.file) {
+            updateRow(row.key, {
+              status: "failed",
+              reason: "error",
+              message: t("documents.bulk.reasonMissingFile"),
+            });
+            continue;
+          }
+          updateRow(row.key, {
+            status: "uploading",
+            reason: undefined,
+            message: undefined,
+          });
+          setProgress(
+            t("documents.bulk.progressUploading", {
+              current: index,
+              total: targetRows.filter((item) => item.isPdf).length,
+              name: row.name,
+            }),
+          );
+          try {
+            // Les filen på nytt for å unngå boundary-problemer med
+            // webkitdirectory-filer.
+            const buffer = await row.file.arrayBuffer();
+            const cleanFile = new File([buffer], row.name, {
+              type: "application/pdf",
+            });
+            const formData = new FormData();
+            formData.append("file", cleanFile, cleanFile.name);
+            formData.append("purpose", "document");
+            const res = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(
+                data.error ||
+                  t("documents.bulk.fileUploadFailed", { name: row.name }),
+              );
+            }
+            fileUrl = data.fileUrl;
+            fileName = data.fileName || row.name;
+            fileSize = data.fileSize ?? row.size;
+            orphanUrls.current.add(fileUrl!);
+          } catch (err) {
+            if (abortRequested.current) {
+              aborted = true;
+              break;
+            }
+            updateRow(row.key, {
+              status: "failed",
+              reason: "upload",
+              message: err instanceof Error ? err.message : undefined,
+            });
+            continue;
+          }
+        } else {
+          orphanUrls.current.add(fileUrl);
+        }
+
         uploaded.push({
-          title: item.file.name.replace(/\.[^.]+$/, ""),
-          fileUrl: data.fileUrl,
-          fileName: data.fileName,
-          fileSize: data.fileSize,
-          relativePath: item.relativePath,
+          title,
+          fileUrl: fileUrl!,
+          fileName,
+          fileSize,
+          relativePath: row.relativePath,
+        });
+        uploadedRowKeys.add(row.key);
+        updateRow(row.key, {
+          status: "uploaded",
+          fileUrl,
+          title,
         });
       }
 
+      if (abortRequested.current) {
+        aborted = true;
+      }
+
+      if (aborted) {
+        await discardOrphans([...orphanUrls.current]);
+        setRows((prev) =>
+          prev.map((row) =>
+            row.status === "created" || row.status === "skipped"
+              ? row
+              : {
+                  ...row,
+                  status: row.isPdf ? "pending" : "skipped",
+                  fileUrl: undefined,
+                  reason: row.isPdf ? undefined : "not_pdf",
+                  message: undefined,
+                },
+          ),
+        );
+        setNotice(t("documents.bulk.aborted"));
+        return;
+      }
+
+      if (uploaded.length === 0) {
+        return;
+      }
+
+      setPhase("creating");
+      creatingRef.current = true;
       setProgress(t("documents.bulk.progressCreating"));
-      const fd = new FormData();
-      fd.append("items", JSON.stringify(uploaded));
-      if (folderId) fd.append("folderId", folderId);
-      await bulkCreateDocuments(fd);
+      const formData = new FormData();
+      formData.append("items", JSON.stringify(uploaded));
+      if (context.folderId) formData.append("folderId", context.folderId);
+      appendDocumentContext(formData, context);
 
-      setProgress(
-        t("documents.bulk.progressDone", { count: uploaded.length }),
+      let result: DocumentBulkActionResult;
+      try {
+        result = await bulkCreateDocuments(formData);
+      } catch {
+        setRows((prev) =>
+          prev.map((row) =>
+            uploadedRowKeys.has(row.key)
+              ? { ...row, status: "failed", reason: "server" }
+              : row,
+          ),
+        );
+        setError(t("documents.bulk.serverFailed"));
+        return;
+      }
+
+      if (!result.ok) {
+        setRows((prev) =>
+          prev.map((row) =>
+            uploadedRowKeys.has(row.key)
+              ? { ...row, status: "failed", reason: "server" }
+              : row,
+          ),
+        );
+        setError(
+          t(ACTION_ERROR_KEYS[result.reason] ?? "documents.bulk.serverFailed"),
+        );
+        return;
+      }
+
+      const byPath = new Map(
+        result.results.map((item) => [normalizePath(item.relativePath), item]),
       );
-      setFiles([]);
-    } catch (err: any) {
-      setError(err.message || t("documents.bulk.uploadFailed"));
+      setRows((prev) =>
+        prev.map((row) => {
+          if (!uploadedRowKeys.has(row.key)) return row;
+          const item = byPath.get(row.relativePath);
+          if (!item) {
+            return { ...row, status: "failed", reason: "server" };
+          }
+          if (item.status === "created") {
+            orphanUrls.current.delete(row.fileUrl ?? "");
+            return {
+              ...row,
+              status: "created",
+              file: null,
+              reason: undefined,
+              message: undefined,
+            };
+          }
+          if (item.status === "skipped") {
+            // Serveren rydder duplikatopplastingen. Vi beholder URL-en i
+            // oppryddingssettet, slik at et nytt forsøk kan fjerne den hvis
+            // serveroppryddingen skulle feile.
+            return {
+              ...row,
+              status: "skipped",
+              file: null,
+              reason: item.reason,
+              message: undefined,
+            };
+          }
+          return {
+            ...row,
+            status: "failed",
+            reason: item.reason ?? "error",
+          };
+        }),
+      );
+      setNotice(
+        t("documents.bulk.resultCounts", {
+          created: result.created,
+          skipped: result.skipped,
+          failed: result.failed,
+        }),
+      );
     } finally {
-      setUploading(false);
+      creatingRef.current = false;
+      setBusy(false);
+      setPhase("idle");
+      setProgress("");
+      if (unmountedRef.current && orphanUrls.current.size > 0) {
+        const formData = new FormData();
+        formData.append(
+          "urls",
+          JSON.stringify([...orphanUrls.current]),
+        );
+        void discardRef.current(formData).catch(() => undefined);
+      }
     }
   }
 
-  // Preview folder structure
-  const folders = new Set<string>();
-  for (const item of files) {
-    const parts = item.relativePath.split(/[/\\]/);
-    for (let i = 1; i < parts.length; i++) {
-      folders.add(parts.slice(0, i).join("/"));
+  async function handleSubmit() {
+    if (rows.length === 0) {
+      setError(t("documents.bulk.chooseFirst"));
+      return;
+    }
+    const work = rows.filter(
+      (row) => row.isPdf && row.status !== "created" && row.status !== "skipped",
+    );
+    if (work.length === 0) {
+      setError(t("documents.bulk.chooseFirst"));
+      return;
+    }
+    await runImport(work);
+  }
+
+  function handleRetry() {
+    void runImport(failedRows);
+  }
+
+  async function handleAbort() {
+    abortRequested.current = true;
+    if (!busy) {
+      const urls = [...orphanUrls.current];
+      await discardOrphans(urls);
+      setRows((prev) =>
+        prev.map((row) =>
+          row.status === "uploaded" || row.status === "failed"
+            ? {
+                ...row,
+                status: row.isPdf ? "pending" : "skipped",
+                fileUrl: undefined,
+                reason: row.isPdf ? undefined : "not_pdf",
+                message: undefined,
+              }
+            : row,
+        ),
+      );
+      setNotice(t("documents.bulk.aborted"));
+      setError(null);
     }
   }
+
+  async function handleClear() {
+    abortRequested.current = true;
+    const urls = [...orphanUrls.current];
+    await discardOrphans(urls);
+    setRows([]);
+    setError(null);
+    setNotice(null);
+    setProgress("");
+  }
+
+  const canSubmit =
+    !busy && rows.some((row) => row.file || row.fileUrl) &&
+    rows.some(
+      (row) =>
+        row.isPdf && row.status !== "created" && row.status !== "skipped",
+    );
 
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor="bulk-folder-input" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.bulk.chooseFolder")}</label>
+        <label
+          htmlFor="bulk-folder-input"
+          className="block text-sm font-bold text-gray-700 mb-1"
+        >
+          {t("documents.bulk.chooseFolder")}
+        </label>
         <input
           id="bulk-folder-input"
           type="file"
@@ -139,6 +512,7 @@ export default function BulkUploadForm({
           webkitdirectory=""
           directory=""
           multiple
+          disabled={busy}
           onChange={handleFolderSelect}
           className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
         />
@@ -147,43 +521,122 @@ export default function BulkUploadForm({
         </p>
       </div>
 
-      {skipped > 0 && (
-        <p className="text-xs text-amber-600">
-          {t("documents.bulk.skipped", { count: skipped })}
-        </p>
-      )}
-      {files.length > 0 && (
+      {rows.length > 0 && (
         <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm">
           <p className="font-bold text-gray-700 mb-2">
             {t("documents.bulk.summary", {
-              files: files.length,
-              folders: folders.size,
+              files: rows.filter((row) => row.isPdf).length,
+              folders: folders.length,
             })}
           </p>
-          <div className="max-h-40 overflow-y-auto text-xs text-gray-600 space-y-0.5">
-            {Array.from(folders).sort().map((f) => (
-              <div key={f}>📁 {f}/</div>
+          <div className="max-h-48 overflow-y-auto text-xs text-gray-600 space-y-0.5">
+            {folders.map((folder) => (
+              <div key={folder}>📁 {folder}/</div>
             ))}
-            {files.map((item, i) => (
-              <div key={i} className="pl-4">📄 {item.relativePath}</div>
+            {rows.map((row) => (
+              <div
+                key={row.key}
+                className={`pl-4 ${
+                  row.status === "failed"
+                    ? "text-red-700"
+                    : row.status === "skipped"
+                      ? "text-amber-700"
+                      : "text-gray-600"
+                }`}
+              >
+                {row.status === "created"
+                  ? "✅"
+                  : row.status === "skipped"
+                    ? "⚠️"
+                    : row.status === "failed"
+                      ? "⛔"
+                      : "📄"}{" "}
+                {row.relativePath}
+                {row.status === "failed" && row.reason
+                  ? ` – ${t(REASON_KEYS[row.reason] ?? "documents.bulk.reasonError")}`
+                  : ""}
+                {row.status === "failed" && row.message
+                  ? ` (${row.message})`
+                  : ""}
+                {row.status === "skipped" && row.reason
+                  ? ` – ${t(REASON_KEYS[row.reason] ?? "documents.bulk.reasonError")}`
+                  : ""}
+              </div>
             ))}
           </div>
+          {hasResult && (
+            <p className="mt-2 text-xs font-bold text-gray-700">
+              {t("documents.bulk.resultCounts", counts)}
+            </p>
+          )}
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      {progress && !error && <p className="text-xs text-blue-600">{progress}</p>}
+      {progress && !error && (
+        <p role="status" className="text-xs text-blue-600">
+          {progress}
+        </p>
+      )}
+      {notice && !error && (
+        <p role="status" className="text-xs text-emerald-700">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={files.length === 0 || uploading}
-        className="w-full bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50"
-      >
-        {uploading
-          ? t("documents.bulk.uploading")
-          : t("documents.bulk.uploadButton", { count: files.length })}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="flex-1 min-w-[10rem] bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50"
+        >
+          {busy
+            ? t("documents.bulk.uploading")
+            : t("documents.bulk.uploadButton", {
+                count: rows.filter(
+                  (row) =>
+                    row.isPdf &&
+                    row.status !== "created" &&
+                    row.status !== "skipped",
+                ).length,
+              })}
+        </button>
+
+        {busy && phase === "uploading" && (
+          <button
+            type="button"
+            onClick={handleAbort}
+            className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
+          >
+            {t("documents.bulk.abort")}
+          </button>
+        )}
+
+        {!busy && failedRows.length > 0 && (
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="bg-amber-100 text-amber-900 border border-amber-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-200 transition"
+          >
+            {t("documents.bulk.retryFailed", { count: failedRows.length })}
+          </button>
+        )}
+
+        {!busy && rows.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
+          >
+            {t("documents.bulk.clear")}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

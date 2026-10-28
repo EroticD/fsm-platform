@@ -100,7 +100,7 @@ describe("submitReport", () => {
     mocks.prisma.report.findUnique.mockResolvedValue({ id: "r1", isLocked: true });
 
     await expect(submitReport(formData())).rejects.toThrow(
-      "NEXT_REDIRECT:/oppdrag/wo1?error=locked",
+      "NEXT_REDIRECT:/mine-oppdrag/wo1/skjema/tpl1?returnTo=%2Foppdrag%2Fwo1&error=locked",
     );
 
     expect(mocks.prisma.report.update).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe("submitReport", () => {
     );
 
     await expect(submitReport(formData())).rejects.toThrow(
-      "NEXT_REDIRECT:/oppdrag/wo1?error=locked",
+      "NEXT_REDIRECT:/mine-oppdrag/wo1/skjema/tpl1?returnTo=%2Foppdrag%2Fwo1&error=locked",
     );
   });
 });

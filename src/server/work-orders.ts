@@ -1,3 +1,6 @@
+// i18n-ignore-file: revisjonsloggen lagrer stabile, ferdig formaterte norske
+// handlingsstrenger (med tittel/navn flettet inn). De oversettes ved visning i
+// `src/lib/audit-actions.ts`; lagrede rader endres ikke.
 import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
@@ -5,13 +8,14 @@ import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { normalizeOrderNumber } from "@/lib/order-number";
+import { addressHash, effectiveAddress, geocodeAddress } from "@/lib/geocode";
 import {
   staffForDepartment,
   workOrderScope,
   type AccessUser,
 } from "@/lib/access";
 import { markdownToPlainText } from "@/lib/markdown";
-import { parseDateOnly, toDateOnly } from "@/lib/dates";
+import { addDaysUtc, parseDateOnly, toDateOnly } from "@/lib/dates";
 import {
   LIMITS,
   cleanEmail,
@@ -28,7 +32,12 @@ import {
   workOrderTemplateSchema,
   workOrderUpdateSchema,
 } from "@/lib/schemas";
+import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
+import { isClosedStatus } from "@/lib/work-order-status";
+
+/** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Tjenestelaget for oppdrag.
@@ -48,6 +57,8 @@ export type WorkOrderError =
   | "ikke-funnet"
   | "ugyldig-data"
   | "ugyldig-status"
+  | "ugyldig-sluttdato"
+  | "sluttdato-for-startdato"
   | "workorder-locked"
   | "legal-hold"
   | "reason-required"
@@ -175,10 +186,34 @@ function cleanTagNames(values: unknown[]): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Kontrollerer datoperioden før hovedskjemaet. Da får brukeren en presis
+ * melding om sluttdatoen i stedet for at en ugyldig periode blir stille
+ * forkastet (eller oversatt til en generell «ugyldig data»).
+ */
+function dateRangeError(
+  scheduledFor: string,
+  scheduledTo: string,
+): WorkOrderError | null {
+  if (!scheduledTo) return null;
+
+  const end = dateOnlySchema.safeParse(scheduledTo);
+  if (!end.success) return "ugyldig-sluttdato";
+
+  const start = scheduledFor ? dateOnlySchema.safeParse(scheduledFor) : null;
+  if (start?.success && end.data < start.data) {
+    return "sluttdato-for-startdato";
+  }
+  return null;
+}
+
 export type CreateWorkOrderInput = {
   title: unknown;
   orderNumber?: unknown;
   description: unknown;
+  address?: unknown;
+  postalCode?: unknown;
+  city?: unknown;
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
@@ -247,15 +282,23 @@ export async function createWorkOrder(
     : [];
   const technicianIds = allowedTechnicians.map((technician) => technician.id);
 
+  const scheduledForInput = rawId(input.scheduledFor);
+  const scheduledToInput = rawId(input.scheduledTo);
+  const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
+  if (rangeError) return { ok: false, error: rangeError };
+
   const parsed = workOrderCreateSchema.safeParse({
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
     description,
+    address: cleanText(input.address, { maxLength: LIMITS.line }),
+    postalCode: cleanText(input.postalCode, { maxLength: LIMITS.short }),
+    city: cleanText(input.city, { maxLength: LIMITS.line }),
     departmentId,
     customerId,
     contactId: validContactId,
-    scheduledFor: rawId(input.scheduledFor),
-    scheduledTo: rawId(input.scheduledTo),
+    scheduledFor: scheduledForInput,
+    scheduledTo: scheduledToInput,
     technicianIds,
     templateIds: input.templateIds.map(rawId).filter(Boolean),
     tagNames: cleanTagNames(input.tagNames),
@@ -274,6 +317,21 @@ export async function createWorkOrder(
     return { ok: false, error: "duplikat-ordrenummer" };
   }
 
+  const customerAddress = customerId
+    ? await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { address: true, postalCode: true, city: true },
+      })
+    : null;
+  const address = effectiveAddress({
+    address: parsed.data.address,
+    postalCode: parsed.data.postalCode,
+    city: parsed.data.city,
+    customer: customerAddress,
+  });
+  const geoHash = addressHash(address.query);
+  const coordinates = geoHash ? await geocodeAddress(address.query) : null;
+
   let id: string;
   try {
     id = await prisma.$transaction(async (tx) => {
@@ -283,6 +341,12 @@ export async function createWorkOrder(
           orderNumber,
           orderNumberNormalized,
           description: description || "",
+          address: parsed.data.address || null,
+          postalCode: parsed.data.postalCode || null,
+          city: parsed.data.city || null,
+          geoAddressHash: geoHash,
+          latitude: coordinates?.lat ?? null,
+          longitude: coordinates?.lng ?? null,
           departmentId,
           customerId: customerId || undefined,
           contactId: parsed.data.contactId || undefined,
@@ -338,6 +402,9 @@ export type UpdateWorkOrderInput = {
   title: unknown;
   orderNumber?: unknown;
   description: unknown;
+  address?: unknown;
+  postalCode?: unknown;
+  city?: unknown;
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
@@ -366,6 +433,12 @@ export async function updateWorkOrder(
       status: true,
       orderNumber: true,
       orderNumberNormalized: true,
+      address: true,
+      postalCode: true,
+      city: true,
+      latitude: true,
+      longitude: true,
+      geoAddressHash: true,
     },
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
@@ -403,16 +476,24 @@ export async function updateWorkOrder(
     : [];
   const validTechnicianIds = allowedTechnicians.map((technician) => technician.id);
 
+  const scheduledForInput = rawId(input.scheduledFor);
+  const scheduledToInput = rawId(input.scheduledTo);
+  const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
+  if (rangeError) return { ok: false, error: rangeError };
+
   const parsed = workOrderUpdateSchema.safeParse({
     id: workOrderId,
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
     description: cleanMarkdown(input.description),
+    address: cleanText(input.address, { maxLength: LIMITS.line }),
+    postalCode: cleanText(input.postalCode, { maxLength: LIMITS.short }),
+    city: cleanText(input.city, { maxLength: LIMITS.line }),
     departmentId,
     customerId: rawId(input.customerId),
     contactId: rawId(input.contactId),
-    scheduledFor: rawId(input.scheduledFor),
-    scheduledTo: rawId(input.scheduledTo),
+    scheduledFor: scheduledForInput,
+    scheduledTo: scheduledToInput,
     technicianIds: validTechnicianIds,
     tagNames,
   });
@@ -422,6 +503,9 @@ export async function updateWorkOrder(
     title,
     orderNumber,
     description,
+    address: explicitAddress,
+    postalCode,
+    city,
     customerId,
     contactId,
     scheduledFor,
@@ -449,6 +533,26 @@ export async function updateWorkOrder(
     if (!contact || contact.customerId !== customerId) validContactId = undefined;
   }
 
+  const customerAddress = customerId
+    ? await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { address: true, postalCode: true, city: true },
+      })
+    : null;
+  const effective = effectiveAddress({
+    address: explicitAddress,
+    postalCode,
+    city,
+    customer: customerAddress,
+  });
+  const geoHash = addressHash(effective.query);
+  const coordinates =
+    geoHash && geoHash !== currentWorkOrder.geoAddressHash
+      ? await geocodeAddress(effective.query)
+      : currentWorkOrder.latitude != null && currentWorkOrder.longitude != null
+        ? { lat: currentWorkOrder.latitude, lng: currentWorkOrder.longitude }
+        : null;
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
@@ -458,6 +562,12 @@ export async function updateWorkOrder(
           orderNumber: orderNumberValue,
           orderNumberNormalized,
           description,
+          address: explicitAddress || null,
+          postalCode: postalCode || null,
+          city: city || null,
+          geoAddressHash: geoHash,
+          latitude: coordinates?.lat ?? null,
+          longitude: coordinates?.lng ?? null,
           departmentId,
           // Tom kunde betyr et internt oppdrag, ikke en uendret kunde.
           customerId: customerId || null,
@@ -513,10 +623,14 @@ export async function updateWorkOrder(
 export type StatusContext = "office" | "field";
 
 /**
- * Bytter status. Alle åpne statuser kan velges fritt av brukere med
- * `workorders.update`. Bare når oppdraget er fullført eller kansellert kreves
- * en grunn, og bare administrator kan gjenåpne det. Kansellering krever
- * fortsatt `workorders.edit`.
+ * Bytter status på et oppdrag.
+ *
+ * Bare COMPLETED og CANCELLED er lukkede tilstander. Alle åpne statuser kan
+ * byttes fritt til en annen åpen status, eller lukkes som fullført/kansellert.
+ * En låst rapport (`Report.isLocked`) påvirker ikke oppdragets livssyklus; den
+ * låser bare redigering av selve rapporten. Bare når oppdraget er fullført
+ * eller kansellert kreves en grunn, og bare administrator kan gjenåpne det.
+ * Kansellering krever fortsatt `workorders.edit`.
  */
 export async function changeWorkOrderStatus(
   user: Actor,
@@ -535,10 +649,11 @@ export async function changeWorkOrderStatus(
   const status = parsed.data.status as WorkStatus;
   const from = access.status as WorkStatus;
 
-  const fromClosed = from === "COMPLETED" || from === "CANCELLED";
+  const fromClosed = isClosedStatus(from);
   const reason = cleanText(rawReason, { maxLength: 1000 });
 
-  // Bare lukkede oppdrag krever grunn. Åpne statuser kan velges fritt.
+  // Bare lukkede oppdrag krever grunn. Åpne statuser kan velges fritt,
+  // uavhengig av om oppdraget har en låst rapport.
   if (fromClosed) {
     if (user.role !== "ADMIN") return { ok: false, error: "workorder-locked" };
     if (!reason) return { ok: false, error: "reason-required" };
@@ -561,8 +676,11 @@ export async function changeWorkOrderStatus(
     from,
     to: status,
     isAdmin: user.role === "ADMIN",
-    // Åpne statuser er frie; lukkede gjenåpnes bevisst av administrator.
-    force: true,
+    // Åpne statuser kan byttes fritt, også når en rapport er låst. Rapporten
+    // og oppdraget har hver sin livssyklus. Bare den bevisste
+    // administratorgjenåpningen av et lukket oppdrag overstyrer reglene –
+    // den krever allerede en grunn over.
+    force: fromClosed,
     actor: auditActor(user),
     action,
     ...(fromClosed
@@ -606,7 +724,12 @@ export async function updateWorkOrderDate(
 
   const existing = await prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScope(user) },
-    select: { status: true, title: true },
+    select: {
+      status: true,
+      title: true,
+      scheduledFor: true,
+      scheduledTo: true,
+    },
   });
   if (!existing) return { ok: false, error: "ikke-funnet" };
   if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
@@ -619,8 +742,9 @@ export async function updateWorkOrderDate(
   const scheduledFor = parseDateOnly(parsed.data.newDate);
   if (!scheduledFor) return { ok: false, error: "dato-mangler" };
 
-  // `newEnd` er siste inkluderte dag. Når den mangler eller er lik startdato,
-  // lagres oppdraget som et éndagsoppdrag.
+  // `newEnd` er siste inkluderte dag. Når feltet mangler helt (for eksempel når
+  // kalenderen bare drar i startdatoen) beholder et flerdagsoppdrag lengden sin.
+  // Sendes `newEnd` eksplisitt som tom verdi, blir oppdraget éndags.
   const hasEnd =
     typeof body === "object" &&
     body !== null &&
@@ -650,9 +774,25 @@ export async function updateWorkOrderDate(
       });
       if (!before) return { count: 0 };
 
+      // Mangler `newEnd`, flyttes hele intervallet: samme antall dager som før.
+      // Da kan scheduledTo aldri havne før scheduledFor.
+      let nextScheduledTo = scheduledTo;
+      if (!hasEnd && before.scheduledFor && before.scheduledTo) {
+        const durationDays = Math.max(
+          0,
+          Math.round(
+            (before.scheduledTo.getTime() - before.scheduledFor.getTime()) / DAY_MS,
+          ),
+        );
+        nextScheduledTo = durationDays > 0 ? addDaysUtc(scheduledFor, durationDays) : null;
+      }
+      if (nextScheduledTo && nextScheduledTo < scheduledFor) {
+        return { count: 0, invalidRange: true } as const;
+      }
+
       const result = await tx.workOrder.updateMany({
         where: { id: before.id },
-        data: hasEnd ? { scheduledFor, scheduledTo } : { scheduledFor },
+        data: { scheduledFor, scheduledTo: nextScheduledTo },
       });
 
       if (result.count > 0) {
@@ -660,12 +800,12 @@ export async function updateWorkOrderDate(
           entityType: "WorkOrder",
           entityId: before.id,
           action: `Endret dato til ${toDateOnly(scheduledFor)}${
-            scheduledTo ? `–${toDateOnly(scheduledTo)}` : ""
+            nextScheduledTo ? `–${toDateOnly(nextScheduledTo)}` : ""
           }`,
           actor: auditActor(user),
           metadata: {
             from: toDateOnly(before.scheduledFor),
-            to: toDateOnly(scheduledTo ?? scheduledFor),
+            to: toDateOnly(nextScheduledTo ?? scheduledFor),
           },
         });
       }
@@ -673,6 +813,9 @@ export async function updateWorkOrderDate(
       return result;
     });
 
+    if ("invalidRange" in updated && updated.invalidRange) {
+      return { ok: false, error: "sluttdato-for-startdato" };
+    }
     if (updated.count === 0) return { ok: false, error: "ikke-funnet" };
     try {
       await notifyWorkOrderEvent(

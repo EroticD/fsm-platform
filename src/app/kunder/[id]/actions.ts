@@ -12,18 +12,21 @@ import {
   toggleContract,
   updateContact,
 } from "@/server/customers";
+import { customerErrorParam } from "../feedback";
 
 /** Myksletter kunden fra kundekortet. Bare administrator. */
 export async function deleteCustomerAction(customerId: string) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await deleteCustomer(actor, customerId);
-  if (!result.ok) return;
+  if (!result.ok) {
+    redirect(`/kunder/${customerId}?error=${customerErrorParam(result.reason)}`);
+  }
 
   revalidatePath("/kunder");
   revalidatePath("/");
-  redirect("/kunder");
+  redirect("/kunder?status=kunde-slettet");
 }
 
 function revalidateContracts(customerId: string) {
@@ -34,6 +37,10 @@ function revalidateContracts(customerId: string) {
   revalidatePath("/");
 }
 
+function contactHref(customerId: string, params: URLSearchParams) {
+  return `/kunder/${customerId}?tab=mer&${params.toString()}#kontakter`;
+}
+
 // --- KONTAKTPERSONER ---
 
 export async function addContactAction(
@@ -41,7 +48,7 @@ export async function addContactAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await addContact(actor, customerId, {
     name: formData.get("name"),
@@ -51,13 +58,16 @@ export async function addContactAction(
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(`/kunder/${customerId}?tab=kontakter&error=ugyldig-data`);
-    }
-    return;
+    redirect(
+      contactHref(
+        customerId,
+        new URLSearchParams({ error: customerErrorParam(result.reason) }),
+      ),
+    );
   }
 
   revalidatePath(`/kunder/${customerId}`);
+  redirect(contactHref(customerId, new URLSearchParams({ status: "kontakt-lagt-til" })));
 }
 
 export async function updateContactAction(
@@ -65,7 +75,7 @@ export async function updateContactAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await updateContact(actor, customerId, {
     id: formData.get("id"),
@@ -76,13 +86,16 @@ export async function updateContactAction(
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(`/kunder/${customerId}?tab=kontakter&error=ugyldig-data`);
-    }
-    return;
+    redirect(
+      contactHref(
+        customerId,
+        new URLSearchParams({ error: customerErrorParam(result.reason) }),
+      ),
+    );
   }
 
   revalidatePath(`/kunder/${customerId}`);
+  redirect(contactHref(customerId, new URLSearchParams({ status: "kontakt-oppdatert" })));
 }
 
 export async function deleteContactAction(
@@ -90,10 +103,22 @@ export async function deleteContactAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
-  await deleteContact(actor, customerId, { id: formData.get("id") });
+  const result = await deleteContact(actor, customerId, {
+    id: formData.get("id"),
+  });
+  if (!result.ok) {
+    redirect(
+      contactHref(
+        customerId,
+        new URLSearchParams({ error: customerErrorParam(result.reason) }),
+      ),
+    );
+  }
+
   revalidatePath(`/kunder/${customerId}`);
+  redirect(contactHref(customerId, new URLSearchParams({ status: "kontakt-slettet" })));
 }
 
 // --- SERVICEAVTALER ---
@@ -103,7 +128,7 @@ export async function createContractAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await createContract(actor, customerId, {
     title: formData.get("title"),
@@ -115,13 +140,13 @@ export async function createContractAction(
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
-    }
-    return;
+    redirect(
+      `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
+    );
   }
 
   revalidateContracts(customerId);
+  redirect(`/kunder/${customerId}?tab=avtaler&status=avtale-opprettet`);
 }
 
 export async function toggleContractAction(
@@ -129,21 +154,26 @@ export async function toggleContractAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
+  const active = formData.get("active") === "true";
   const result = await toggleContract(actor, customerId, {
     id: formData.get("id"),
     active: formData.get("active"),
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
-    }
-    return;
+    redirect(
+      `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
+    );
   }
 
   revalidateContracts(customerId);
+  redirect(
+    `/kunder/${customerId}?tab=avtaler&status=${
+      active ? "avtale-aktivert" : "avtale-pauset"
+    }`,
+  );
 }
 
 export async function deleteContractAction(
@@ -151,19 +181,18 @@ export async function deleteContractAction(
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const result = await deleteContract(actor, customerId, {
     id: formData.get("id"),
   });
-
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(`/kunder/${customerId}?tab=avtaler&error=ugyldig-data`);
-    }
-    return;
+    redirect(
+      `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
+    );
   }
 
   revalidatePath(`/kunder/${customerId}`);
   revalidatePath("/kalender");
+  redirect(`/kunder/${customerId}?tab=avtaler&status=avtale-slettet`);
 }

@@ -3,15 +3,19 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import TagSelector from "@/components/TagSelector";
+import DocumentContextFields from "./DocumentContextFields";
+import type { DocumentFormContext } from "./action-types";
 
 export default function UploadDocumentForm({
   folderId,
   allTags,
   createDocument,
+  context,
 }: {
   folderId: string | null;
   allTags: { id: string; name: string; color: string }[];
   createDocument: (formData: FormData) => Promise<void>;
+  context: DocumentFormContext;
 }) {
   const t = useTranslations("common");
   const [uploading, setUploading] = useState(false);
@@ -39,8 +43,10 @@ export default function UploadDocumentForm({
       setFileUrl(data.fileUrl);
       setFileName(data.fileName);
       setFileSize(data.fileSize);
-    } catch (err: any) {
-      setError(err.message || t("documents.upload.uploadFailed"));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t("documents.upload.uploadFailed"),
+      );
       setFileUrl(null);
     } finally {
       setUploading(false);
@@ -69,6 +75,7 @@ export default function UploadDocumentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <DocumentContextFields context={context} />
       <div>
         <label htmlFor="upload-pdf-input" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.pdfFile")}</label>
         <input
@@ -83,8 +90,9 @@ export default function UploadDocumentForm({
         {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.title")}</label>
+        <label htmlFor="upload-document-title" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.title")}</label>
         <input
+          id="upload-document-title"
           type="text"
           name="title"
           required
@@ -93,8 +101,9 @@ export default function UploadDocumentForm({
         />
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.description")}</label>
+        <label htmlFor="upload-document-description" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.description")}</label>
         <textarea
+          id="upload-document-description"
           name="description"
           rows={2}
           placeholder={t("documents.upload.descriptionPlaceholder")}

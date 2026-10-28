@@ -22,6 +22,38 @@ import { releaseUpload } from "@/lib/upload-cleanup";
  * bruke samme tilgangskontroll som alle andre filer.
  */
 
+/**
+ * Metadata utenfor selve rapportraden som PDF-en viser. PDF-en må lages på
+ * nytt når kundenavn/adresse, oppdragets tittel/ordrenummer/datoer eller
+ * merkevaren endres – ellers ville en offisiell PDF fortsatt vist gamle data.
+ */
+export type ReportPdfContext = {
+  workOrder?: {
+    title?: string | null;
+    orderNumber?: string | null;
+    scheduledFor?: Date | string | null;
+    scheduledTo?: Date | string | null;
+    updatedAt?: Date | string | null;
+  } | null;
+  customer?: {
+    name?: string | null;
+    customerNumber?: string | null;
+    orgNumber?: string | null;
+    address?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    updatedAt?: Date | string | null;
+  } | null;
+  branding?: {
+    companyName?: string | null;
+    logoUrl?: string | null;
+    primaryColor?: string | null;
+    updatedAt?: Date | string | null;
+  } | null;
+};
+
 export type ReportPdfHashInput = {
   id: string;
   updatedAt: Date | string;
@@ -46,17 +78,23 @@ export type ReportPdfHashInput = {
   }> | null;
 };
 
+function isoOrNull(value: Date | string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
 /** Kanonisk beskrivelse av det PDF-innholdet faktisk avhenger av. */
-function canonicalReport(report: ReportPdfHashInput) {
+function canonicalReport(report: ReportPdfHashInput, context?: ReportPdfContext) {
   const updatedAt =
     report.updatedAt instanceof Date
       ? report.updatedAt.toISOString()
       : new Date(report.updatedAt).toISOString();
 
   return {
-    // Økes når PDF-renderingen endres, slik at gamle, ufullstendige
-    // PDF-er (for eksempel uten signaturbilder) ikke gjenbrukes fra cachen.
-    rendererVersion: 5,
+    // Økes når PDF-renderingen eller hash-innholdet endres, slik at gamle,
+    // ufullstendige PDF-er ikke gjenbrukes fra cachen.
+    rendererVersion: 6,
     id: report.id,
     updatedAt,
     comments: report.comments ?? null,
@@ -79,14 +117,48 @@ function canonicalReport(report: ReportPdfHashInput) {
       comment: unit.comment ?? null,
       sortOrder: unit.sortOrder ?? null,
     })),
+    // Metadata som PDF-en skriver ut, men som ligger utenfor rapportraden.
+    workOrder: context?.workOrder
+      ? {
+          title: context.workOrder.title ?? null,
+          orderNumber: context.workOrder.orderNumber ?? null,
+          scheduledFor: isoOrNull(context.workOrder.scheduledFor),
+          scheduledTo: isoOrNull(context.workOrder.scheduledTo),
+          updatedAt: isoOrNull(context.workOrder.updatedAt),
+        }
+      : null,
+    customer: context?.customer
+      ? {
+          name: context.customer.name ?? null,
+          customerNumber: context.customer.customerNumber ?? null,
+          orgNumber: context.customer.orgNumber ?? null,
+          address: context.customer.address ?? null,
+          postalCode: context.customer.postalCode ?? null,
+          city: context.customer.city ?? null,
+          phone: context.customer.phone ?? null,
+          email: context.customer.email ?? null,
+          updatedAt: isoOrNull(context.customer.updatedAt),
+        }
+      : null,
+    branding: context?.branding
+      ? {
+          companyName: context.branding.companyName ?? null,
+          logoUrl: context.branding.logoUrl ?? null,
+          primaryColor: context.branding.primaryColor ?? null,
+          updatedAt: isoOrNull(context.branding.updatedAt),
+        }
+      : null,
   };
 }
 
 /** SHA-256 over innholdet i én rapport. */
-export function computeReportPdfHash(report: ReportPdfHashInput): string {
+export function computeReportPdfHash(
+  report: ReportPdfHashInput,
+  context?: ReportPdfContext,
+): string {
   return crypto
     .createHash("sha256")
-    .update(JSON.stringify(canonicalReport(report)))
+    .update(JSON.stringify(canonicalReport(report, context)))
     .digest("hex");
 }
 
@@ -96,11 +168,12 @@ export function computeReportPdfHash(report: ReportPdfHashInput): string {
  */
 export function computeReportPdfHashForReports(
   reports: ReportPdfHashInput[],
+  context?: ReportPdfContext,
 ): string {
-  if (reports.length === 1) return computeReportPdfHash(reports[0]);
+  if (reports.length === 1) return computeReportPdfHash(reports[0], context);
 
   const hash = crypto.createHash("sha256");
-  for (const report of reports) hash.update(computeReportPdfHash(report));
+  for (const report of reports) hash.update(computeReportPdfHash(report, context));
   return hash.digest("hex");
 }
 
@@ -199,17 +272,25 @@ async function storeReportPdf({
 /**
  * Henter rapport-PDF-en for et oppdrag, og lager den bare når den mangler
  * eller rapporten er endret siden forrige gang.
+ *
+ * Uten `reportId` inneholder PDF-en alle rapportene på oppdraget (slik den
+ * alltid har gjort). Med `reportId` rendres bare den valgte sjekklisten, og
+ * PDF-cachen lagres på nettopp den rapporten.
  */
 export async function getOrRenderReportPdf(
   workOrderId: string,
   baseUrl?: string,
+  reportId?: string,
 ): Promise<ReportPdfResult | null> {
+  const reportsWhere = reportId
+    ? { deletedAt: null, id: reportId }
+    : { deletedAt: null };
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, deletedAt: null },
     include: {
       customer: true,
       reports: {
-        where: { deletedAt: null },
+        where: reportsWhere,
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "asc" },
       },
@@ -218,9 +299,30 @@ export async function getOrRenderReportPdf(
 
   if (!workOrder || workOrder.reports.length === 0) return null;
 
+  const branding = await prisma.branding
+    .findFirst({
+      select: {
+        companyName: true,
+        logoUrl: true,
+        primaryColor: true,
+        updatedAt: true,
+      },
+    })
+    .catch(() => null);
+
   const reports = workOrder.reports;
   const latest = reports[reports.length - 1];
-  const pdfHash = computeReportPdfHashForReports(reports);
+  const pdfHash = computeReportPdfHashForReports(reports, {
+    workOrder: {
+      title: workOrder.title,
+      orderNumber: workOrder.orderNumber,
+      scheduledFor: workOrder.scheduledFor,
+      scheduledTo: workOrder.scheduledTo,
+      updatedAt: workOrder.updatedAt,
+    },
+    customer: workOrder.customer,
+    branding,
+  });
   const fileName = reportFileNameForWorkOrder(
     workOrder,
     reports.length === 1 ? latest.name : null,
@@ -241,7 +343,7 @@ export async function getOrRenderReportPdf(
   }
 
   const pdf = await withRenderSlot(() =>
-    loadReportPdf(workOrderId, baseUrl || defaultBaseUrl()),
+    loadReportPdf(workOrderId, baseUrl || defaultBaseUrl(), reportId),
   );
   if (!pdf) return null;
 

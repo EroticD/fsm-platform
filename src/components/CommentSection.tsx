@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
-import { formatDateTime } from "@/lib/dates";
+import { formatDateTimeLocalized } from "@/lib/dates";
 
 type CommentType = {
   id: string;
@@ -29,14 +30,18 @@ export default function CommentSection({
   canWrite = true,
 }: CommentSectionProps) {
   const t = useTranslations("common");
+  const locale = useLocale();
+  const router = useRouter();
   const [content, setContent] = useState("");
   const [editorKey, setEditorKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || submitting) return;
     setSubmitting(true);
+    setError(null);
 
     try {
       const response = await fetch("/api/comments", {
@@ -50,13 +55,27 @@ export default function CommentSection({
         }),
       });
 
-      if (response.ok) {
-        setContent("");
-        setEditorKey((current) => current + 1);
-        window.location.reload();
+      if (!response.ok) {
+        let reason = t("components.comment.error");
+        try {
+          const data = (await response.json()) as { error?: unknown };
+          if (typeof data?.error === "string" && data.error.trim()) {
+            reason = data.error.trim();
+          }
+        } catch {
+          // Serveren svarte uten JSON – vis den lokale feilmeldingen.
+        }
+        setError(reason);
+        return;
       }
-    } catch (error) {
-      console.error("Feil ved lagring av kommentar:", error);
+
+      setContent("");
+      setEditorKey((current) => current + 1);
+      router.refresh();
+    } catch (err) {
+      console.error("Feil ved lagring av kommentar:", err);
+      setError(t("components.comment.error"));
+    } finally {
       setSubmitting(false);
     }
   };
@@ -71,7 +90,7 @@ export default function CommentSection({
               ? `💬 ${t("components.comment.titleCustomer")}`
               : `💬 ${t("components.comment.titleContact")}`}
         </h2>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
           {t("components.comment.count", { count: existingComments.length })}
         </span>
       </div>
@@ -94,6 +113,14 @@ export default function CommentSection({
               </div>
             )}
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800"
+            >
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             disabled={!content.trim() || submitting}
@@ -115,9 +142,9 @@ export default function CommentSection({
         ) : (
           existingComments.map((comment) => (
             <div key={comment.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-              <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 mb-1">
+              <div className="flex justify-between items-center text-xs font-bold text-gray-500 mb-1">
                 <span>{comment.authorName || t("components.comment.unknown")}</span>
-                <span>{formatDateTime(comment.createdAt)}</span>
+                <span>{formatDateTimeLocalized(comment.createdAt, locale)}</span>
               </div>
               <div className="text-sm text-gray-900 font-medium">
                 <MarkdownView value={comment.content} />

@@ -12,8 +12,20 @@
       "markRead": "Merk lest",
       "previous": "Forrige",
       "next": "Neste",
+      "paginationAria": "Sidenavigering for varsler",
+      "previousAria": "Gå til forrige side med varsler",
+      "nextAria": "Gå til neste side med varsler",
       "pageOf": "Side {page} av {pages}",
       "settings": "Innstillinger",
+      "popover": {
+        "title": "Siste varsler",
+        "loading": "Laster varsler …",
+        "error": "Kunne ikke hente varsler. Prøv igjen.",
+        "empty": "Ingen nye varsler.",
+        "close": "Lukk varseloversikten",
+        "markingAll": "Merker …",
+        "seeAll": "Se alle"
+      },
       "fromLabel": "Fra:",
       "sourceFallback": "Systemvarsel",
       "unread": "Ulest",
@@ -51,7 +63,10 @@
         "CONTACT_UPDATE": "Kunde ber om oppdatert kontaktinformasjon"
       },
       "inAppAria": "{label} i appen",
-      "emailAria": "{label} på e-post"
+      "emailAria": "{label} på e-post",
+      "saving": "Lagrer …",
+      "saved": "Varselinnstillingene er lagret.",
+      "saveError": "Varselinnstillingene kunne ikke lagres. Prøv igjen."
     },
     "calendarFeed": {
       "title": "Kalenderabonnement",
@@ -65,7 +80,16 @@
     },
     "offline": {
       "pending": "📤 {count} kladd(er) venter på sending",
-      "offline": "📴 Du er offline – kladder lagres lokalt og sendes når nettet er tilbake"
+      "offline": "📴 Du er offline – kladder lagres på denne enheten og sendes når appen er åpen og nettet er tilbake",
+      "offlineWithPending": "📴 Offline · {count} kladd(er) venter",
+      "failed": "⚠️ {count} kladd(er) kunne ikke sendes",
+      "openDrafts": "Åpne kladdelisten",
+      "retryNow": "Send nå",
+      "retryFailed": "Prøv igjen",
+      "retrying": "Sender …",
+      "discardDrafts": "Forkast mine kladder",
+      "discardConfirm": "Forkaste alle lokale kladder og ventende sendinger på denne enheten? Dette kan ikke angres.",
+      "noStorage": "📴 Du er offline – denne nettleseren kan ikke lagre kladder lokalt"
     },
     "portalReports": {
       "title": "📄 Rapporter",
@@ -89,6 +113,17 @@
       "requestUpdate": "Be om oppdatering av kontaktinformasjon",
       "requestUpdatePlaceholder": "Hva skal oppdateres?",
       "requestUpdateButton": "Send forespørsel",
+      "requestUpdateExplain": "Kontoret oppdaterer kundekortet manuelt. Endringen skjer ikke automatisk.",
+      "requestUpdateSending": "Sender …",
+      "requestUpdateSuccess": "Forespørselen er sendt. Kontoret tar kontakt.",
+      "requestUpdateError": "Forespørselen kunne ikke sendes. Prøv igjen.",
+      "updateForbidden": "Du har ikke tilgang til å be om oppdatering for denne kontoen.",
+      "acknowledgeExplain": "«Kvitter mottatt» betyr at du bekrefter at du har mottatt og lest rapporten. Kvitteringen vises for kontoret sammen med en eventuell kommentar. Rapporten kan fortsatt rettes av oss hvis noe er feil – si fra, så lager vi en ny revisjon.",
+      "acknowledging": "Kvitterer …",
+      "acknowledgeSuccess": "Takk! Kvitteringen er registrert.",
+      "acknowledgeError": "Kvitteringen kunne ikke registreres. Prøv igjen.",
+      "acknowledgeForbidden": "Du har ikke tilgang til å kvittere for denne rapporten.",
+      "acknowledgeNotFound": "Rapporten er ikke tilgjengelig for kvittering. Den kan være under retting eller slettet.",
       "reportNumber": "Rapportnr. {number}"
     },
     "bell": {
@@ -99,10 +134,37 @@
       "title": "Kart",
       "description": "Oppdrag gruppert etter sted. Åpne i Google Maps for veibeskrivelse.",
       "calendar": "Kalender",
-      "empty": "Ingen oppdrag med adresse ennå.",
+      "empty": "Ingen aktive oppdrag med adresse ennå.",
       "noCustomer": "Uten kunde",
+      "noTechnician": "Ingen montør",
       "openMaps": "Åpne i Maps",
-      "unknownCity": "Ukjent sted"
+      "unknownCity": "Ukjent sted",
+      "mapHint": "Markørene plasseres på oppdragets adresse når den er geokodet. Eldre oppdrag uten koordinater vises på kundens by.",
+      "mapAria": "Kart over oppdrag",
+      "regionHint": "Kartet viser de samme oppdragene som lenkelisten under.",
+      "noMapPoints": "Ingen oppdrag kunne plasseres på kartet fordi kunden mangler en kjent by.",
+      "noDate": "Ingen dato",
+      "openWorkOrder": "Åpne oppdrag",
+      "legendTitle": "Statusfarger",
+      "opensInNewTab": "åpnes i ny fane",
+      "resultRange": "Viser {count} av {total} oppdrag",
+      "truncated": "Viser de første {limit} oppdragene. Snevre inn datoene for å se flere.",
+      "filters": {
+        "technician": "Montør",
+        "allTechnicians": "Alle montører",
+        "dateFrom": "Fra dato",
+        "dateTo": "Til dato",
+        "apply": "Bruk filter",
+        "clear": "Nullstill",
+        "dateError": "En av datoene er ugyldig. Bruk formatet ÅÅÅÅ-MM-DD.",
+        "dateRangeError": "Fra-dato kan ikke være etter til-dato. Rett opp datoene for å se oppdrag."
+      },
+      "layers": {
+        "osm": "OpenStreetMap",
+        "topo": "Topografisk",
+        "light": "Lys",
+        "satellite": "Satellitt"
+      }
     }
   }
 }

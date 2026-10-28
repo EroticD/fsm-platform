@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, safeEmailError } from "@/lib/email";
 import { toDateOnly } from "@/lib/dates";
 import {
   isSafeNotificationHref,
@@ -155,30 +155,52 @@ export async function listNotifications(
 ): Promise<ServiceResult<unknown>> {
   if (!actor.isActive) return fail("forbidden");
 
-  const page = Math.max(1, options.page ?? 1);
+  const requestedPage = Math.max(1, options.page ?? 1);
   const where: Prisma.NotificationWhereInput = {
     userId: actor.id,
     ...(options.unreadOnly ? { readAt: null } : {}),
   };
 
-  const [items, total, unread] = await Promise.all([
-    prisma.notification.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
+  const [total, unread] = await Promise.all([
     prisma.notification.count({ where }),
     prisma.notification.count({ where: { userId: actor.id, readAt: null } }),
   ]);
 
-  return ok({
-    items,
-    total,
-    unread,
-    page,
-    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  // En side utenfor det som finnes skal vise siste side, ikke en tom liste.
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const items = await prisma.notification.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
+
+  return ok({ items, total, unread, page, totalPages });
+}
+
+/**
+ * De nyeste varslene til bjelle-popoveren. Samme eierskapsfilter som
+ * `listNotifications`: bare aktørens egne rader.
+ */
+export async function listRecentNotifications(
+  actor: ServiceActor,
+  limit = 5,
+): Promise<ServiceResult<{ items: unknown[]; unread: number }>> {
+  if (!actor.isActive) return fail("forbidden");
+
+  const take = Math.min(10, Math.max(1, Math.floor(limit)));
+  const [items, unread] = await Promise.all([
+    prisma.notification.findMany({
+      where: { userId: actor.id },
+      orderBy: { createdAt: "desc" },
+      take,
+    }),
+    prisma.notification.count({ where: { userId: actor.id, readAt: null } }),
+  ]);
+
+  return ok({ items, unread });
 }
 
 export async function countUnreadNotifications(
@@ -354,6 +376,15 @@ export type NotifyInput = {
 export async function notifyUser(
   input: NotifyInput,
 ): Promise<{ id: string } | null> {
+  // Inaktive kontoer skal ikke få nye varsler – verken in-app eller på e-post.
+  // Sjekken ligger her, slik at alle varsel veier (tildeling, booking, cron)
+  // får samme regel uten å måtte gjenta den.
+  const target = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { isActive: true },
+  });
+  if (!target?.isActive) return null;
+
   const preference = await prisma.notificationPreference.findUnique({
     where: { userId_type: { userId: input.userId, type: input.type } },
     select: { inApp: true, email: true },
@@ -537,6 +568,9 @@ export async function processPendingNotificationEmails(
         emailSentAt: null,
         emailAttempts: { lt: EMAIL_MAX_ATTEMPTS },
         emailNextAttemptAt: { lte: now },
+        // En konto som er deaktivert etter at varselet ble laget, skal ikke
+        // få e-post. Varselet blir liggende i historikken.
+        user: { isActive: true },
         OR: [
           { emailLockedAt: null },
           { emailLockedAt: { lt: leaseCutoff } },
@@ -544,7 +578,7 @@ export async function processPendingNotificationEmails(
       },
       orderBy: { createdAt: "asc" },
       take: limit,
-      include: { user: { select: { email: true, role: true } } },
+      include: { user: { select: { email: true, role: true, isActive: true } } },
     });
 
     let sent = 0;
@@ -565,6 +599,20 @@ export async function processPendingNotificationEmails(
         },
       });
       if (claimed.count !== 1) continue;
+
+      // Kontoen kan ha blitt deaktivert mellom spørringen og claimet.
+      if (notification.user.isActive === false) {
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            emailSentAt: new Date(),
+            emailError: "Brukeren er deaktivert",
+            emailLockedAt: null,
+            emailLockedBy: null,
+          },
+        });
+        continue;
+      }
 
       const email = notification.user.email;
       if (!email) {
@@ -624,9 +672,7 @@ export async function processPendingNotificationEmails(
             emailError:
               attempts >= EMAIL_MAX_ATTEMPTS
                 ? "Gave up"
-                : error instanceof Error
-                  ? error.message.slice(0, 2000)
-                  : "Ukjent feil",
+                : safeEmailError(error),
             emailLockedAt: null,
             emailLockedBy: null,
           },

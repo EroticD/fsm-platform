@@ -4,7 +4,7 @@ import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TagSelector from "@/components/TagSelector";
 import AuditLogTable from "@/components/AuditLogTable";
@@ -12,10 +12,13 @@ import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
+import ReportSubmissionCleanup from "@/components/ReportSubmissionCleanup";
+import SubmitButton from "@/components/SubmitButton";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
+import { statusSelectOptions } from "@/lib/work-order-status";
 import {
   addContactToCustomer,
   assignTechnician,
@@ -31,7 +34,7 @@ import {
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import {
   reportAcknowledgement,
   reportUnitSummary,
@@ -62,6 +65,7 @@ type ReportUnitView = {
 
 async function ReportContent({ report, template }: { report: any; template: any }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   let reportStatus = "UKJENT";
   let parsedAnswers: Record<string, unknown> = {};
 
@@ -115,7 +119,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
           {String(answer)}
         </span>
       ) : (
-        <span className="text-gray-400">{t("orders.detail.report.notAssessed")}</span>
+        <span className="text-gray-600">{t("orders.detail.report.notAssessed")}</span>
       );
     }
     if (field.type === "SIGNATURE") {
@@ -127,7 +131,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     }
     if (field.type === "IMAGE") {
       const urls = parseImageUrls(answer);
-      if (urls.length === 0) return <span className="text-gray-400">{t("orders.detail.report.notAttached")}</span>;
+      if (urls.length === 0) return <span className="text-gray-600">{t("orders.detail.report.notAttached")}</span>;
       return (
         <span className="flex flex-wrap gap-2">
           {urls.map((url, index) => (
@@ -145,7 +149,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     }
     return (
       <span className="text-gray-900 font-medium italic">
-        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-gray-400">{t("orders.detail.report.notAnswered")}</span>}
+        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-gray-600">{t("orders.detail.report.notAnswered")}</span>}
       </span>
     );
   };
@@ -170,7 +174,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
             {typeof answer === "string" && answer.trim() ? (
               <MarkdownView value={answer} />
             ) : (
-              <span className="text-gray-400 font-medium">{t("orders.detail.report.notAnswered")}</span>
+              <span className="text-gray-600 font-medium">{t("orders.detail.report.notAnswered")}</span>
             )}
           </div>
         )}
@@ -190,7 +194,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     if (!url && !name) return null;
     return (
       <div className="bg-gray-50 p-3 rounded-xl border-2 border-gray-200">
-        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+        <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1">{label}</p>
         {url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={label} className="h-20 bg-white border border-gray-200 rounded" />
@@ -228,14 +232,14 @@ async function ReportContent({ report, template }: { report: any; template: any 
         )}
         {acknowledgement.acknowledged && (
           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
-            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDate(acknowledgement.at) })}
+            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDateLocalized(acknowledgement.at, locale) })}
           </span>
         )}
       </div>
 
       {acknowledgement.acknowledged && acknowledgement.comment && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
-          <p className="text-[10px] font-black uppercase tracking-wider text-green-700">
+          <p className="text-xs font-black uppercase tracking-wider text-green-700">
             {t("orders.detail.report.customerAcknowledgementComment")}
           </p>
           <p className="mt-1 whitespace-pre-wrap">{acknowledgement.comment}</p>
@@ -339,11 +343,11 @@ export default async function AdminWorkOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reportSubmitted?: string }>;
 }) {
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
-  const { error } = await searchParams;
+  const { error, reportSubmitted } = await searchParams;
   const t = await getTranslations("common");
 
   const user = await getCurrentUser();
@@ -399,14 +403,18 @@ export default async function AdminWorkOrderPage({
   const isClosed =
     workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED";
   const canUpdate = hasPermission(user, "workorders.update");
+  // Kansellering krever workorders.edit, også når administrator gjenåpner et
+  // lukket oppdrag til en annen lukket status.
+  const canCancel = hasPermission(user, "workorders.edit");
   // Selve oppdraget låses først når det er fullført. En låst rapport skal
   // ikke hindre redigering av et oppdrag som fortsatt er under arbeid.
-  const canEdit = hasPermission(user, "workorders.edit") && !isClosed;
+  const canEdit = canCancel && !isClosed;
   const canModify = canUpdate && !isClosed;
   const canAssign = hasPermission(user, "workorders.assign") && !isClosed;
   const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isClosed;
   const canCreate = hasPermission(user, "workorders.create");
   const canWriteReports = hasPermission(user, "reports.write");
+  const canViewReports = hasPermission(user, "reports.view");
   const canManageCustomers = hasPermission(user, "customers.manage");
 
   const statusLabels: Record<WorkStatus, string> = {
@@ -418,32 +426,19 @@ export default async function AdminWorkOrderPage({
     COMPLETED: t("orders.detail.statusCompleted"),
     CANCELLED: t("orders.detail.statusCancelled"),
   };
-  const statusOrder: WorkStatus[] = [
-    "OPEN",
-    "PENDING",
-    "PLANNED",
-    "WAITING",
-    "IN_PROGRESS",
-    "COMPLETED",
-    "CANCELLED",
-  ];
-  const rawStatusOptions = isClosed
-    ? isAdmin
-      ? statusOrder.filter((status) => status !== workOrder.status)
-      : []
-    : statusOrder.filter(
-        (status) =>
-          status !== workOrder.status &&
-          (status !== "CANCELLED" || canEdit),
-      );
-  // PENDING og WAITING er begge «Venter»; vis bare én valgmulighet.
-  const seenStatusLabels = new Set<string>();
-  const statusOptions = rawStatusOptions.filter((status) => {
-    const label = statusLabels[status];
-    if (seenStatusLabels.has(label)) return false;
-    seenStatusLabels.add(label);
-    return true;
-  });
+  // Alle åpne statuser kan velges fritt, i tillegg til fullført/kansellert.
+  // En låst rapport påvirker ikke valgene – den låser bare rapporten.
+  // PENDING er systemets startstatus og tilbys ikke som manuelt valg.
+  const allowedStatusOptions = statusSelectOptions(workOrder.status, isAdmin);
+  // Kansellering er en egen, avsluttende handling med egen bekreftelse.
+  const canCancelNow =
+    canUpdate &&
+    canCancel &&
+    workOrder.status !== "CANCELLED" &&
+    allowedStatusOptions.includes("CANCELLED");
+  const statusOptions = allowedStatusOptions.filter(
+    (status) => status !== "CANCELLED",
+  );
 
   const allTemplates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const availableTemplates = allTemplates.filter(template => !workOrder.templates.some(wt => wt.id === template.id));
@@ -597,6 +592,8 @@ export default async function AdminWorkOrderPage({
               <ConfirmSubmitForm
                 action={deleteWorkOrder}
                 confirmMessage={t("orders.detail.deleteConfirm", { title: workOrder.title })}
+                confirmLabel={t("delete")}
+                danger
               >
                 <input type="hidden" name="workOrderId" value={workOrder.id} />
                 <button
@@ -637,13 +634,21 @@ export default async function AdminWorkOrderPage({
           </div>
         )}
 
+        {reportSubmitted && (
+          <ReportSubmissionCleanup
+            userId={user.id}
+            workOrderId={workOrder.id}
+            templateId={reportSubmitted}
+          />
+        )}
+
         <div className="space-y-6">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-                <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.detail.descriptionTitle")}</h2>
+                <h2 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.detail.descriptionTitle")}</h2>
                 {workOrder.description ? (
                   <MarkdownView value={workOrder.description} className="text-gray-900 font-medium" />
                 ) : (
@@ -690,7 +695,7 @@ export default async function AdminWorkOrderPage({
                               {template.title}
                               {isHmsTemplate(template) && (
                                 <span
-                                  className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
+                                  className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
                                   title={t("orders.templateGroups.hms")}
                                 >
                                   🛡️ {template.hmsType
@@ -708,20 +713,24 @@ export default async function AdminWorkOrderPage({
                                   ) : (
                                     <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">{t("orders.detail.unlocked")}</span>
                                   )}
-                                  <Link
-                                    href={`/rapporter/${workOrder.id}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-                                  >
-                                    {t("orders.detail.openPdf")}
-                                  </Link>
-                                  <Link
-                                    href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
-                                    className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-                                  >
-                                    🕘 {t("orders.detail.revisions", { count: report.revision })}
-                                  </Link>
+                                  {canViewReports && (
+                                    <>
+                                      <Link
+                                        href={`/rapporter/${workOrder.id}?rapport=${report.id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                                      >
+                                        {t("orders.detail.openPdf")}
+                                      </Link>
+                                      <Link
+                                        href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
+                                        className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                                      >
+                                        🕘 {t("orders.detail.revisions", { count: report.revision })}
+                                      </Link>
+                                    </>
+                                  )}
                                   {canWriteReports && canModify && !report.isLocked && (
                                     <Link
                                       href={fillHref}
@@ -814,7 +823,13 @@ export default async function AdminWorkOrderPage({
                           )}
 
                           {report ? (
-                            <ReportContent report={report} template={template} />
+                            canViewReports ? (
+                              <ReportContent report={report} template={template} />
+                            ) : (
+                              <p className="text-xs text-gray-500 italic">
+                                {t("orders.detail.reportNoAccess")}
+                              </p>
+                            )
                           ) : (
                             <p className="text-xs text-gray-500 italic">{t("orders.detail.waitingForm")}</p>
                           )}
@@ -886,39 +901,102 @@ export default async function AdminWorkOrderPage({
                   </p>
                 )}
                 {canUpdate && (!isClosed || isAdmin) ? (
-                  <form action={updateStatus} className="flex flex-col gap-3">
-                    <input type="hidden" name="workOrderId" value={workOrder.id} />
-                    <select
-                      name="status"
-                      defaultValue={workOrder.status}
-                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
+                  <>
+                    {/*
+                      Uten en egen klientkomponent kan vi ikke lese select-verdien
+                      i React. CSS-en bytter derfor mellom en deaktivert knapp
+                      (gjeldende status valgt) og den aktive knappen (ny status
+                      valgt). Dagens status er dessuten disabled og kan ikke
+                      velges på nytt.
+                    */}
+                    <style>{`
+                      .status-form .status-submit-ready { display: none; }
+                      .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-disabled { display: none; }
+                      .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-ready { display: inline-block; }
+                    `}</style>
+                    <ConfirmSubmitForm
+                      action={updateStatus}
+                      confirmMessage={t("orders.detail.completeConfirm")}
+                      confirmWhenField="status"
+                      confirmWhenValue="COMPLETED"
+                      className="status-form flex flex-col gap-3"
                     >
-                      <option value={workOrder.status} disabled>
-                        {statusLabels[workOrder.status]}
-                      </option>
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {statusLabels[status]}
+                      <input type="hidden" name="workOrderId" value={workOrder.id} />
+                      <select
+                        name="status"
+                        defaultValue={workOrder.status}
+                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
+                      >
+                        <option value={workOrder.status} disabled>
+                          {statusLabels[workOrder.status]} ({t("orders.detail.currentStatus")})
                         </option>
-                      ))}
-                    </select>
-                    {isAdmin && isClosed && (
-                      <label className="text-xs font-bold text-gray-600">
-                        {t("orders.detail.reopenReason")}
-                        <textarea
-                          name="reason"
-                          rows={2}
-                          maxLength={1000}
-                          required={isClosed}
-                          placeholder={t("orders.detail.reopenReasonPlaceholder")}
-                          className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
-                        />
-                      </label>
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {statusLabels[status]}
+                          </option>
+                        ))}
+                      </select>
+                      {isAdmin && isClosed && (
+                        <label className="text-xs font-bold text-gray-600">
+                          {t("orders.detail.reopenReason")}
+                          <textarea
+                            name="reason"
+                            rows={2}
+                            maxLength={1000}
+                            required={isClosed}
+                            placeholder={t("orders.detail.reopenReasonPlaceholder")}
+                            className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
+                          />
+                        </label>
+                      )}
+                      <SubmitButton
+                        disabled
+                        pendingLabel={t("orders.detail.updatingStatus")}
+                        className="status-submit-disabled w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
+                      >
+                        {t("orders.detail.updateStatus")}
+                      </SubmitButton>
+                      <SubmitButton
+                        disabled={statusOptions.length === 0}
+                        pendingLabel={t("orders.detail.updatingStatus")}
+                        className="status-submit-ready w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
+                      >
+                        {t("orders.detail.updateStatus")}
+                      </SubmitButton>
+                    </ConfirmSubmitForm>
+                    {canCancelNow && (
+                      <ConfirmSubmitForm
+                        action={updateStatus}
+                        confirmMessage={t("orders.detail.cancelConfirm")}
+                        confirmWhenField="status"
+                        confirmWhenValue="CANCELLED"
+                        danger
+                        className="mt-3 flex flex-col gap-2"
+                      >
+                        <input type="hidden" name="workOrderId" value={workOrder.id} />
+                        <input type="hidden" name="status" value="CANCELLED" />
+                        {isAdmin && isClosed && (
+                          <label className="text-xs font-bold text-gray-600">
+                            {t("orders.detail.cancelReason")}
+                            <textarea
+                              name="reason"
+                              rows={2}
+                              maxLength={1000}
+                              required
+                              placeholder={t("orders.detail.cancelReasonPlaceholder")}
+                              className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
+                            />
+                          </label>
+                        )}
+                        <SubmitButton
+                          pendingLabel={t("orders.detail.updatingStatus")}
+                          className="w-full border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition shadow-sm whitespace-nowrap"
+                        >
+                          {t("orders.detail.cancelWorkOrder")}
+                        </SubmitButton>
+                      </ConfirmSubmitForm>
                     )}
-                    <button type="submit" className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
-                      {t("orders.detail.updateStatus")}
-                    </button>
-                  </form>
+                  </>
                 ) : (
                   <p className="text-sm text-gray-500 italic">
                     {t("orders.detail.noStatusPermission")}
@@ -932,9 +1010,9 @@ export default async function AdminWorkOrderPage({
                   <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.internalOrder")}</p>
                   <p><strong>{t("orders.detail.address")}</strong>
                     <GoogleMapsLink
-                      address={workOrder.customer?.address}
-                      postalCode={workOrder.customer?.postalCode}
-                      city={workOrder.customer?.city}
+                      address={workOrder.address ?? workOrder.customer?.address}
+                      postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
+                      city={workOrder.city ?? workOrder.customer?.city}
                     />
                   </p>
                 </div>

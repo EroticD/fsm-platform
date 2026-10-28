@@ -61,12 +61,24 @@ export const RETENTION_DAYS = Math.max(
 /** Hvor ofte bevaringsjobben ser etter utløpte oppdrag. */
 export const RETENTION_CLEANUP_INTERVAL_MS = 6 * 60 * 60_000;
 
+/**
+ * Søkeloggen brukes til anonymisert søkeanalyse. Den inneholder søkeord som
+ * kan være personopplysninger, så den skal ikke beholdes for alltid.
+ */
+export const SEARCH_LOG_RETENTION_DAYS = Math.max(
+  1,
+  Number.parseInt(process.env.SEARCH_LOG_RETENTION_DAYS ?? "", 10) || 90,
+);
+
+export const SEARCH_LOG_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000;
+
 const DAY_MS = 24 * 60 * 60_000;
 
 type WorkerGlobal = typeof globalThis & {
   __fsmPdfJobWorkerStarted?: boolean;
   __fsmDraftCleanupStarted?: boolean;
   __fsmWorkOrderRetentionStarted?: boolean;
+  __fsmSearchLogCleanupStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -330,6 +342,50 @@ export function startDraftCleanup(): void {
 }
 
 /**
+ * Sletter søkelogg-rader som er eldre enn bevaringsfristen.
+ *
+ * Loggen brukes bare til aggregert analyse (populære søk og nulltreff), ikke
+ * som revisjonsspor. Søkeord kan inneholde personopplysninger, så radene
+ * slettes etter `SEARCH_LOG_RETENTION_DAYS` (standard 90 dager).
+ */
+export async function cleanupExpiredSearchLogs(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - SEARCH_LOG_RETENTION_DAYS * DAY_MS);
+  const result = await prisma.searchLog.deleteMany({
+    where: { createdAt: { lt: cutoff } },
+  });
+
+  if (result.count > 0) {
+    logger.info("Ryddet utløpte søkelogger", {
+      count: result.count,
+      retentionDays: SEARCH_LOG_RETENTION_DAYS,
+    });
+  }
+  return result.count;
+}
+
+/**
+ * Starter opprydding av utløpte søkelogger. Egen global markør gjør at HMR og
+ * gjentatte kall fra `instrumentation.ts` ikke lager flere intervaller.
+ */
+export function startSearchLogCleanup(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmSearchLogCleanupStarted) return;
+  scope.__fsmSearchLogCleanupStarted = true;
+
+  const run = () => {
+    void cleanupExpiredSearchLogs().catch((error) => {
+      logger.error("Kunne ikke rydde utløpte søkelogger", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
+  run();
+  const timer = setInterval(run, SEARCH_LOG_CLEANUP_INTERVAL_MS);
+  timer.unref?.();
+}
+
+/**
  * Hard-sletter mykt slettede oppdrag når bevaringsperioden er utløpt.
  *
  * Bare oppdrag uten rapporter i det hele tatt hard-slettes automatisk. Har
@@ -495,6 +551,9 @@ export function startJobWorker(): void {
   // Hard-slett mykt slettede oppdrag når bevaringsperioden er utløpt.
   startWorkOrderRetentionCleanup();
 
+  // Søkeloggen er analyse, ikke revisjon: slett gamle søkeord (PII).
+  startSearchLogCleanup();
+
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.
   const pruneRateLimits = () => {
@@ -544,4 +603,5 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmPdfJobWorkerStarted = false;
   scope.__fsmDraftCleanupStarted = false;
   scope.__fsmWorkOrderRetentionStarted = false;
+  scope.__fsmSearchLogCleanupStarted = false;
 }

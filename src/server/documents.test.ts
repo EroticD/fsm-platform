@@ -22,10 +22,12 @@ const mocks = vi.hoisted(() => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn(),
     },
     documentTag: { findMany: vi.fn() },
-    upload: { updateMany: vi.fn() },
+    upload: { updateMany: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   },
   claimUpload: vi.fn(async () => ({ claimed: true })),
@@ -39,11 +41,15 @@ vi.mock("@/lib/upload-access", () => ({
 vi.mock("@/lib/pdf-queue", () => ({
   enqueuePdfText: mocks.enqueuePdfText,
 }));
+vi.mock("node:fs/promises", () => ({
+  default: { unlink: vi.fn(async () => undefined) },
+}));
 
 import {
   bulkCreateDocuments,
   createDocument,
   deleteDocument,
+  deleteFolder,
   getDocumentLibrary,
   restoreDocument,
   restoreDocumentVersion,
@@ -114,8 +120,27 @@ beforeEach(() => {
   mocks.prisma.documentVersion.create.mockResolvedValue({});
   mocks.prisma.document.update.mockResolvedValue({});
   mocks.prisma.upload.updateMany.mockResolvedValue({ count: 1 });
+  mocks.prisma.upload.deleteMany.mockResolvedValue({ count: 0 });
+  mocks.prisma.$queryRaw.mockResolvedValue([]);
   mocks.claimUpload.mockResolvedValue({ claimed: true });
 });
+
+/** Tomme mappe-, dokument- og taglister for bibliotekssøk. */
+function mockEmptyLibrary() {
+  mocks.prisma.documentFolder.findUnique.mockResolvedValue(null);
+  mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+  mocks.prisma.document.findMany.mockResolvedValue([]);
+  mocks.prisma.document.count.mockResolvedValue(0);
+  mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+}
+
+type SqlCall = { text: string; values: unknown[] };
+
+function lastSql(): SqlCall {
+  const call = mocks.prisma.$queryRaw.mock.calls.at(-1);
+  if (!call) throw new Error("Ingen SQL-spørring ble kjørt");
+  return call[0] as SqlCall;
+}
 
 describe("dokumenttjenesten – autorisasjon", () => {
   it("nekter å opprette dokument uten documents.manage", async () => {
@@ -241,6 +266,191 @@ describe("dokumenttjenesten – myk sletting og gjenoppretting", () => {
       where: { deletedAt: unknown };
     };
     expect(args.where.deletedAt).toBeNull();
+  });
+
+  it("søker i hele biblioteket når søkefeltet er brukt", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue({
+      id: "folder-a",
+      name: "Pumper",
+      parentId: null,
+    });
+    mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+    mocks.prisma.document.count.mockResolvedValue(0);
+    mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: "doc-1" }]);
+
+    await getDocumentLibrary(office(), {
+      folderId: "folder-a",
+      search: "pumpe",
+      tag: "manual",
+      page: 1,
+      documentId: null,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: {
+        folderId?: unknown;
+        id?: unknown;
+        OR?: unknown[];
+        tags?: unknown;
+        deletedAt?: unknown;
+      };
+    };
+
+    // Mappen skal ikke begrense treffene når brukeren søker.
+    expect(args.where.folderId).toBeUndefined();
+    expect(args.where.OR).toBeUndefined();
+    expect(args.where.id).toEqual({ in: ["doc-1"] });
+    // Tag-filteret komponeres med søket.
+    expect(args.where.tags).toEqual({ some: { name: "manual" } });
+    expect(args.where.deletedAt).toBeNull();
+    expect(mocks.prisma.document.count).toHaveBeenCalledWith({
+      where: args.where,
+    });
+    expect(mocks.prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["Faktura #123 (Kunde).pdf", "faktura 123 kunde pdf", "faktura123kundepdf"],
+    ["faktura 123 kunde", "faktura 123 kunde", "faktura123kunde"],
+    ["Faktura-123", "faktura 123", "faktura123"],
+    ["faktura#123", "faktura 123", "faktura123"],
+  ])(
+    "ignorerer tegnsetting i filnavnsøket: %s",
+    async (query, expectedTerm, expectedCompact) => {
+      mockEmptyLibrary();
+      mocks.prisma.$queryRaw.mockResolvedValue([{ id: "doc-faktura" }]);
+
+      await getDocumentLibrary(office(), {
+        folderId: null,
+        search: query,
+        tag: "",
+        page: 1,
+        documentId: null,
+      });
+
+      const sql = lastSql();
+      // Både normalisert og kompakt form sendes som parametere.
+      expect(sql.values).toContain(expectedTerm);
+      expect(sql.values).toContain(expectedCompact);
+      // Punctuation blir mellomrom i databasen, og mellomrom fjernes i den
+      // kompakte varianten. Æ/ø/å og aksenter brettes med unaccent.
+      expect(sql.text).toContain("unaccent");
+      expect(sql.text).toContain("regexp_replace");
+      expect(sql.text).toContain("replace(");
+      expect(sql.text).toContain('d."fileName"');
+
+      const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+        where: { id?: unknown };
+      };
+      expect(args.where.id).toEqual({ in: ["doc-faktura"] });
+    },
+  );
+
+  it("matcher tittel og beskrivelse med samme normaliserte søk", async () => {
+    mockEmptyLibrary();
+    mocks.prisma.$queryRaw.mockResolvedValue([
+      { id: "doc-tittel" },
+      { id: "doc-beskrivelse" },
+    ]);
+
+    await getDocumentLibrary(office(), {
+      folderId: null,
+      search: "Årlig-service",
+      tag: "",
+      page: 1,
+      documentId: null,
+    });
+
+    const sql = lastSql();
+    expect(sql.text).toContain('d."title"');
+    expect(sql.text).toContain('d."description"');
+    expect(sql.values).toContain("arlig service");
+    expect(sql.values).toContain("arligservice");
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { id?: unknown };
+    };
+    expect(args.where.id).toEqual({
+      in: ["doc-tittel", "doc-beskrivelse"],
+    });
+  });
+
+  it("utelater mykt slettede dokumenter fra søket", async () => {
+    mockEmptyLibrary();
+    mocks.prisma.$queryRaw.mockResolvedValue([
+      { id: "doc-1" },
+      { id: "doc-slettet" },
+    ]);
+
+    await getDocumentLibrary(office(), {
+      folderId: null,
+      search: "pumpe",
+      tag: "",
+      page: 1,
+      documentId: null,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { deletedAt?: unknown; id?: unknown };
+    };
+    expect(args.where.deletedAt).toBeNull();
+    expect(args.where.id).toEqual({ in: ["doc-1", "doc-slettet"] });
+  });
+
+  it("beholder tag-filteret når det søkes", async () => {
+    mockEmptyLibrary();
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: "doc-1" }]);
+
+    await getDocumentLibrary(office(), {
+      folderId: null,
+      search: "pumpe",
+      tag: "manual",
+      page: 2,
+      documentId: null,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { id?: unknown; tags?: unknown };
+      skip?: number;
+      take?: number;
+    };
+    expect(args.where.id).toEqual({ in: ["doc-1"] });
+    expect(args.where.tags).toEqual({ some: { name: "manual" } });
+    // Pagineringen er uendret.
+    expect(args.skip).toBe(30);
+    expect(args.take).toBe(30);
+    expect(mocks.prisma.document.count).toHaveBeenCalledWith({
+      where: args.where,
+    });
+  });
+
+  it("begrenser blaing til mappen når det ikke søkes", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue({
+      id: "folder-a",
+      name: "Pumper",
+      parentId: null,
+    });
+    mocks.prisma.documentFolder.findMany.mockResolvedValue([]);
+    mocks.prisma.document.findMany.mockResolvedValue([]);
+    mocks.prisma.document.count.mockResolvedValue(0);
+    mocks.prisma.documentTag.findMany.mockResolvedValue([]);
+
+    await getDocumentLibrary(office(), {
+      folderId: "folder-a",
+      search: "",
+      tag: "",
+      page: 1,
+      documentId: null,
+    });
+
+    const args = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { folderId?: unknown };
+    };
+    expect(args.where.folderId).toBe("folder-a");
+    // Blaing uten søk skal ikke kjøre det normaliserte ID-søket.
+    expect(mocks.prisma.$queryRaw).not.toHaveBeenCalled();
   });
 });
 
@@ -433,6 +643,161 @@ describe("dokumenttjenesten – versjoner", () => {
 
     expect(createVersion).not.toHaveBeenCalled();
     expect(committed).toHaveLength(0);
+  });
+});
+
+describe("dokumenttjenesten – masseimport og mapper", () => {
+  it("fortsetter importen og rapporterer per fil når én fil feiler", async () => {
+    mocks.prisma.document.findFirst.mockResolvedValue(null);
+    mocks.prisma.document.create
+      .mockResolvedValueOnce({ id: "doc-2" })
+      .mockRejectedValueOnce(new Error("databasen feilet"))
+      .mockResolvedValueOnce({ id: "doc-3" });
+
+    const result = await bulkCreateDocuments(office(), {
+      folderId: null,
+      itemsJson: JSON.stringify([
+        {
+          fileName: "a.pdf",
+          fileUrl: "/uploads/a.pdf",
+          fileSize: 10,
+          relativePath: "a.pdf",
+        },
+        {
+          fileName: "b.pdf",
+          fileUrl: "/uploads/b.pdf",
+          fileSize: 20,
+          relativePath: "b.pdf",
+        },
+        {
+          fileName: "c.pdf",
+          fileUrl: "/uploads/c.pdf",
+          fileSize: 30,
+          relativePath: "c.pdf",
+        },
+      ]),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({ created: 2, skipped: 0, failed: 1 });
+    expect(result.data.results.map((item) => item.status)).toEqual([
+      "created",
+      "failed",
+      "created",
+    ]);
+  });
+
+  it("holder ikke-PDF-filer synlige som hoppet over", async () => {
+    mocks.prisma.document.findFirst.mockResolvedValue(null);
+
+    const result = await bulkCreateDocuments(office(), {
+      folderId: null,
+      itemsJson: JSON.stringify([
+        {
+          fileName: "notat.txt",
+          fileUrl: "/uploads/notat.pdf",
+          fileSize: 10,
+          relativePath: "notat.txt",
+        },
+      ]),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({ created: 0, skipped: 1, failed: 0 });
+    expect(result.data.results[0]).toMatchObject({
+      status: "skipped",
+      reason: "not_pdf",
+    });
+    expect(mocks.prisma.document.create).not.toHaveBeenCalled();
+  });
+
+  it("sjekker duplikat med filnavn, størrelse og mappe – også forbi 1000 filer", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue({
+      id: "folder-a",
+      name: "Pumper",
+      parentId: null,
+    });
+    mocks.prisma.document.findFirst.mockResolvedValue({ id: "finnes" });
+    mocks.prisma.upload.deleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await bulkCreateDocuments(office(), {
+      folderId: "folder-a",
+      itemsJson: JSON.stringify([
+        {
+          fileName: "stor.pdf",
+          fileUrl: "/uploads/stor.pdf",
+          fileSize: 123,
+          relativePath: "stor.pdf",
+        },
+      ]),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({ created: 0, skipped: 1, failed: 0 });
+    expect(mocks.prisma.document.findFirst).toHaveBeenCalledWith({
+      where: {
+        fileName: "stor.pdf",
+        fileSize: 123,
+        folderId: "folder-a",
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    expect(mocks.prisma.upload.deleteMany).toHaveBeenCalled();
+  });
+
+  it("nektet å slette en mappe som ikke er tom", async () => {
+    mocks.prisma.documentFolder.findUnique.mockResolvedValue({
+      id: "folder-a",
+      name: "Pumper",
+      parentId: null,
+    });
+    mocks.prisma.document.count.mockResolvedValue(2);
+    mocks.prisma.documentFolder.count.mockResolvedValue(0);
+
+    const result = await deleteFolder(admin(), { id: "folder-a" });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "conflict",
+      details: { documents: 2, folders: 0 },
+    });
+    expect(mocks.prisma.documentFolder.delete).not.toHaveBeenCalled();
+  });
+
+  it("begrenser tag-filteret til mappen bare når onlyFolder er satt", async () => {
+    mockEmptyLibrary();
+    await getDocumentLibrary(office(), {
+      folderId: "folder-a",
+      search: "",
+      tag: "manual",
+      page: 1,
+      documentId: null,
+    });
+    const globalArgs = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { folderId?: unknown; tags?: unknown };
+    };
+    expect(globalArgs.where.folderId).toBeUndefined();
+    expect(globalArgs.where.tags).toEqual({ some: { name: "manual" } });
+
+    vi.clearAllMocks();
+    mockEmptyLibrary();
+    await getDocumentLibrary(office(), {
+      folderId: "folder-a",
+      search: "",
+      tag: "manual",
+      page: 1,
+      documentId: null,
+      onlyFolder: true,
+    });
+    const folderArgs = mocks.prisma.document.findMany.mock.calls[0][0] as {
+      where: { folderId?: unknown; tags?: unknown };
+    };
+    expect(folderArgs.where.folderId).toBe("folder-a");
+    expect(folderArgs.where.tags).toEqual({ some: { name: "manual" } });
   });
 });
 

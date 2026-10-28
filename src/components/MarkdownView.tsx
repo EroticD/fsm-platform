@@ -48,7 +48,7 @@ const components: Components = {
   p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
-  del: ({ children }) => <del className="text-gray-500 line-through">{children}</del>,
+  del: ({ children }) => <del className="text-gray-600 line-through">{children}</del>,
   mark: ({ children }) => (
     <mark className="rounded bg-yellow-200 px-0.5 text-gray-900">{children}</mark>
   ),
@@ -85,19 +85,19 @@ const components: Components = {
     </span>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="my-2 border-l-4 border-gray-300 pl-3 text-gray-600 italic">{children}</blockquote>
+    <blockquote className="my-2 border-l-4 border-gray-300 pl-3 text-gray-700 italic">{children}</blockquote>
   ),
   hr: () => <hr className="my-3 border-t border-gray-200" />,
   code: ({ children }) => (
-    <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[0.85em] text-gray-800">{children}</code>
+    <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[0.85em] text-gray-900">{children}</code>
   ),
   pre: ({ children }) => (
-    <pre className="my-2 overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-gray-100 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit">
+    <pre className="my-2 overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-gray-100 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit" tabIndex={0}>
       {children}
     </pre>
   ),
   table: ({ children }) => (
-    <div className="my-2 overflow-x-auto">
+    <div className="my-2 overflow-x-auto" tabIndex={0}>
       <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),

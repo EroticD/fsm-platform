@@ -5,6 +5,7 @@ vi.mock("@/lib/prisma", () => ({
     workOrder: { findFirst: vi.fn() },
     upload: { create: vi.fn() },
     report: { update: vi.fn() },
+    branding: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -36,6 +37,7 @@ import {
   computeReportPdfHash,
   computeReportPdfHashForReports,
   getOrRenderReportPdf,
+  type ReportPdfContext,
   type ReportPdfHashInput,
 } from "./report-pdf-store";
 
@@ -43,6 +45,7 @@ const mocked = prisma as unknown as {
   workOrder: { findFirst: Mock };
   upload: { create: Mock };
   report: { update: Mock };
+  branding: { findFirst: Mock };
   $transaction: Mock;
 };
 const mockedReadFile = vi.mocked(fs.readFile);
@@ -110,18 +113,110 @@ describe("pdfHash", () => {
       computeReportPdfHashForReports([first, second]),
     );
   });
+
+  it("endres når oppdrag, kunde eller merkevare endres", () => {
+    const base = computeReportPdfHash(report(), pdfContext());
+
+    expect(
+      computeReportPdfHash(
+        report(),
+        pdfContext({
+          workOrder: { ...pdfContext().workOrder!, title: "Nytt oppdragsnavn" },
+        }),
+      ),
+    ).not.toBe(base);
+    expect(
+      computeReportPdfHash(
+        report(),
+        pdfContext({
+          workOrder: { ...pdfContext().workOrder!, orderNumber: "NO-2002" },
+        }),
+      ),
+    ).not.toBe(base);
+    expect(
+      computeReportPdfHash(
+        report(),
+        pdfContext({
+          customer: { ...pdfContext().customer!, address: "Ny gate 2" },
+        }),
+      ),
+    ).not.toBe(base);
+    expect(
+      computeReportPdfHash(
+        report(),
+        pdfContext({
+          branding: { ...pdfContext().branding!, primaryColor: "#ff0000" },
+        }),
+      ),
+    ).not.toBe(base);
+    expect(
+      computeReportPdfHash(
+        report(),
+        pdfContext({
+          branding: {
+            ...pdfContext().branding!,
+            updatedAt: new Date("2026-02-01T00:00:00.000Z"),
+          },
+        }),
+      ),
+    ).not.toBe(base);
+  });
 });
 
+function pdfContext(overrides: Partial<ReportPdfContext> = {}): ReportPdfContext {
+  return {
+    workOrder: {
+      title: "Service på pumpe",
+      orderNumber: "NO-1001",
+      scheduledFor: new Date("2026-01-01T00:00:00.000Z"),
+      scheduledTo: null,
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    },
+    customer: {
+      name: "Kunde AS",
+      customerNumber: "K-1",
+      orgNumber: "123456789",
+      address: "Gate 1",
+      postalCode: "0150",
+      city: "Oslo",
+      phone: "12345678",
+      email: "post@kunde.no",
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    },
+    branding: {
+      companyName: "FSM System",
+      logoUrl: null,
+      primaryColor: "#2563eb",
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    },
+    ...overrides,
+  };
+}
+
 describe("getOrRenderReportPdf", () => {
-  const pdfHash = computeReportPdfHashForReports([report()]);
+  const pdfHash = computeReportPdfHashForReports([report()], pdfContext());
 
   function workOrderWithCache(cachedHash: string | null) {
     return {
       id: "wo-1",
       departmentId: "dept-1",
       customerId: "cust-1",
-      customer: { name: "Kunde AS" },
+      title: "Service på pumpe",
+      orderNumber: "NO-1001",
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+      customer: {
+        name: "Kunde AS",
+        customerNumber: "K-1",
+        orgNumber: "123456789",
+        address: "Gate 1",
+        postalCode: "0150",
+        city: "Oslo",
+        phone: "12345678",
+        email: "post@kunde.no",
+        updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+      },
       scheduledFor: new Date("2026-01-01T00:00:00.000Z"),
+      scheduledTo: null,
       reports: [
         {
           ...report(),
@@ -135,6 +230,12 @@ describe("getOrRenderReportPdf", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     releaseUploadMock.mockResolvedValue(true);
+    mocked.branding.findFirst.mockResolvedValue({
+      companyName: "FSM System",
+      logoUrl: null,
+      primaryColor: "#2563eb",
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
     mockedReadFile.mockResolvedValue(Buffer.from("%PDF-cached"));
     mockedWriteFile.mockResolvedValue(undefined);
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
@@ -169,6 +270,41 @@ describe("getOrRenderReportPdf", () => {
             where: { deletedAt: null },
           }),
         }),
+      }),
+    );
+  });
+
+  it("begrenser oppslaget og cachen til én rapport når reportId er oppgitt", async () => {
+    const selected = {
+      ...report({ id: "report-2" }),
+      pdfUrl: null,
+      pdfHash: null,
+    };
+    mocked.workOrder.findFirst.mockResolvedValue({
+      ...workOrderWithCache(null),
+      reports: [selected],
+    });
+    mockedLoadReportPdf.mockResolvedValue({
+      buffer: Buffer.from("%PDF-report-2"),
+      fileName: "kunde-egen-rapport",
+    });
+
+    const result = await getOrRenderReportPdf("wo-1", undefined, "report-2");
+
+    expect(mocked.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          reports: expect.objectContaining({
+            where: { deletedAt: null, id: "report-2" },
+          }),
+        }),
+      }),
+    );
+    expect(mockedLoadReportPdf.mock.calls[0][2]).toBe("report-2");
+    expect(mocked.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "report-2" },
+        data: expect.objectContaining({ pdfUrl: result?.url }),
       }),
     );
   });

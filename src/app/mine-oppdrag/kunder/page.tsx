@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { searchNormalizedIds } from "@/lib/search-sql";
 
 export default async function TechnicianCustomerLookupPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await getCurrentUser();
@@ -18,23 +19,22 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
   let customers: any[] = [];
 
   if (searchQuery.length > 0) {
-    customers = await prisma.customer.findMany({
-      where: {
-        deletedAt: null,
-        OR: [
-          { name: { contains: searchQuery, mode: 'insensitive' } },
-          { customerNumber: { contains: searchQuery, mode: 'insensitive' } },
-          { address: { contains: searchQuery, mode: 'insensitive' } },
-          { city: { contains: searchQuery, mode: 'insensitive' } },
-          { phone: { contains: searchQuery, mode: 'insensitive' } }
-        ]
-      },
-      include: {
-        contacts: true,
-        products: true,
-      },
-      take: 20
-    });
+    // Samme normaliserte kundesøk som kundelisten og kundevelgeren: navn,
+    // kundenummer, org.nr, telefon, e-post, adresse, postnummer, sted og
+    // notater. Det gjør telefon/org.nr med mellomrom og tegnsetting søkbare.
+    const hits = await searchNormalizedIds("Customer", searchQuery, 20);
+    const ids = hits.map((hit) => hit.id);
+
+    customers = ids.length === 0
+      ? []
+      : await prisma.customer.findMany({
+          where: { deletedAt: null, id: { in: ids } },
+          include: {
+            contacts: true,
+            products: true,
+          },
+          take: 20,
+        });
   } else {
     customers = await prisma.customer.findMany({
       where: { deletedAt: null },
@@ -55,9 +55,9 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
         <div className="flex justify-between items-center border-b pb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{t("orders.fieldCustomers.title")}</h1>
-            <p className="text-sm text-gray-500">{t("orders.fieldCustomers.subtitle")}</p>
+            <p className="text-sm text-gray-600">{t("orders.fieldCustomers.subtitle")}</p>
           </div>
-          <Link href="/mine-oppdrag" className="bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-medium border shadow-sm hover:bg-gray-50">
+          <Link href="/mine-oppdrag" className="inline-flex min-h-11 items-center bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-medium border shadow-sm hover:bg-gray-50">
             {t("orders.fieldCustomers.backToMyWorkOrders")}
           </Link>
         </div>
@@ -67,15 +67,16 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
           <input
             type="text"
             name="q"
+            aria-label={t("orders.fieldCustomers.search")}
             defaultValue={searchQuery}
             placeholder={t("orders.fieldCustomers.searchPlaceholder")}
             className="w-full border border-gray-300 bg-white px-4 py-3 rounded-xl text-sm text-gray-900 font-medium shadow-sm outline-none focus:border-blue-500"
           />
-          <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition">
+          <button type="submit" className="min-h-11 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition">
             {t("orders.fieldCustomers.search")}
           </button>
           {searchQuery && (
-            <Link href="/mine-oppdrag/kunder" className="bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-bold text-sm hover:bg-gray-300 transition flex items-center justify-center">
+            <Link href="/mine-oppdrag/kunder" aria-label={t("orders.fieldCustomers.clear")} className="min-h-11 min-w-11 bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-bold text-sm hover:bg-gray-300 transition flex items-center justify-center">
               {t("orders.fieldCustomers.clear")}
             </Link>
           )}
@@ -85,7 +86,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
         <div className="space-y-4">
           {customers.length === 0 ? (
             <div className="bg-white p-8 rounded-2xl text-center border shadow-sm">
-              <p className="text-gray-500 text-sm">{t("orders.fieldCustomers.noCustomers")}</p>
+              <p className="text-gray-600 text-sm">{t("orders.fieldCustomers.noCustomers")}</p>
             </div>
           ) : (
             customers.map((c: any) => (
@@ -94,7 +95,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
                 <div className="flex justify-between items-start border-b pb-3">
                   <div>
                     <h2 className="font-bold text-lg text-gray-900">{c.name}</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-600 mt-0.5">
                         <GoogleMapsLink
                           address={c.address}
                           postalCode={c.postalCode}
@@ -105,7 +106,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
                       </p>
                   </div>
                   {c.phone && (
-                    <a href={`tel:${c.phone}`} className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition">
+                    <a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition">
                       {t("orders.fieldCustomers.call", { phone: c.phone })}
                     </a>
                   )}
@@ -117,12 +118,12 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
                   <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <p className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-2">{t("orders.fieldCustomers.contacts")}</p>
                     {c.contacts.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">{t("orders.fieldCustomers.noContacts")}</p>
+                      <p className="text-xs text-gray-600 italic">{t("orders.fieldCustomers.noContacts")}</p>
                     ) : (
                       c.contacts.map((contact: any) => (
                         <div key={contact.id} className="text-xs py-1">
                           <span className="font-bold text-gray-800">{contact.name}</span> ({contact.role || t("orders.fieldCustomers.contactFallback")})
-                          {contact.phone && <a href={`tel:${contact.phone}`} className="text-blue-600 block mt-0.5">📞 {contact.phone}</a>}
+                          {contact.phone && <a href={`tel:${contact.phone}`} className="inline-flex min-h-11 items-center text-blue-700 mt-0.5">📞 {contact.phone}</a>}
                         </div>
                       ))
                     )}
@@ -132,12 +133,12 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
                   <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <p className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-2">{t("orders.fieldCustomers.equipment")}</p>
                     {c.products.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">{t("orders.fieldCustomers.noEquipment")}</p>
+                      <p className="text-xs text-gray-600 italic">{t("orders.fieldCustomers.noEquipment")}</p>
                     ) : (
                       c.products.map((prod: any) => (
                         <div key={prod.id} className="text-xs py-1">
                           <span className="font-bold text-gray-800">{prod.model}</span>
-                          <span className="text-gray-500 font-mono ml-1">(SN: {prod.serialNumber || "-"})</span>
+                          <span className="text-gray-600 font-mono ml-1">(SN: {prod.serialNumber || "-"})</span>
                         </div>
                       ))
                     )}

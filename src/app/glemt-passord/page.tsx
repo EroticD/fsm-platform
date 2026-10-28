@@ -8,6 +8,7 @@ import Link from "next/link";
 import { hashToken } from "@/lib/invite";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { clientIpFrom } from "@/lib/client-ip";
+import { cleanEmail } from "@/lib/sanitize";
 
 export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -20,11 +21,15 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
     const email = formData.get("email") as string;
     if (!email) return;
 
+    const normalizedEmail = cleanEmail(email);
+    if (!normalizedEmail) {
+      redirect("/glemt-passord?success=true");
+    }
+
     const requestHeaders = await headers();
     // Uten TRUST_PROXY er IP-en ukjent. Da faller vi tilbake til en felles
     // nøkkel, og e-postgrensen over tar fortsatt hånd om misbruk.
     const ip = clientIpFrom(requestHeaders) ?? "ukjent";
-    const normalizedEmail = email.trim().toLowerCase();
     const [emailLimit, ipLimit] = await Promise.all([
       allowRequestDb(`reset:email:${normalizedEmail}`, 5, 15 * 60_000),
       allowRequestDb(`reset:ip:${ip}`, 10, 15 * 60_000),
@@ -33,8 +38,11 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
       redirect("/glemt-passord?error=rate");
     }
 
-    // Sjekker om brukeren finnes
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Sjekker om brukeren finnes. Adressen er allerede normalisert til
+    // små bokstaver, slik at Kari@Firma.no og kari@firma.no er samme konto.
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
     
     if (user) {
       // Lager en 64-tegns tilfeldig og sikker nøkkel
@@ -43,7 +51,7 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
 
       // Lagrer nøkkelen på brukeren i databasen
       await prisma.user.update({
-        where: { email },
+        where: { id: user.id },
         data: { resetToken: hashToken(token), resetTokenExpiry: expiry }
       });
 
@@ -108,8 +116,8 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
             <p className="text-gray-500 text-sm mb-6">{t("auth.forgot.desc")}</p>
             <form action={requestReset} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.forgot.email")}</label>
-                <input type="email" name="email" required placeholder={t("auth.forgot.emailPlaceholder")} className="w-full border p-3 rounded-xl text-gray-800" />
+                <label htmlFor="forgot-email" className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.forgot.email")}</label>
+                <input id="forgot-email" type="email" name="email" required placeholder={t("auth.forgot.emailPlaceholder")} className="w-full border p-3 rounded-xl text-gray-800" />
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">
                 {t("auth.forgot.submit")}

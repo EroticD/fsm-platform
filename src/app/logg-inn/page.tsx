@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
+import ErrorBanner from "@/components/ErrorBanner";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
 
@@ -42,6 +43,9 @@ export default async function LoginPage({
       case "TwoFactorUnavailable":
         error = t("loginErrorTwoFactorUnavailable");
         break;
+      case "TwoFactorExpired":
+        error = t("auth.twoFactor.errors.TwoFactorExpired");
+        break;
       default:
         error = t("loginErrorDefault");
     }
@@ -64,11 +68,7 @@ export default async function LoginPage({
           </p>
         </div>
 
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-            {error}
-          </div>
-        )}
+        <ErrorBanner id="login-error" message={error} className="mb-4 border" />
 
         {/*
           Skjemaet sender e-post og passord i selve forespørselen (POST) via en
@@ -93,7 +93,9 @@ export default async function LoginPage({
               required
               autoComplete="username"
               placeholder={t("emailPlaceholder")}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
             />
           </div>
 
@@ -111,7 +113,9 @@ export default async function LoginPage({
               required
               autoComplete="current-password"
               placeholder="••••••••"
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
             />
           </div>
 

@@ -9,11 +9,26 @@ import {
   deleteUnit as deleteUnitService,
   updateUnit as updateUnitService,
 } from "@/server/customers";
+import { customerErrorParam } from "../feedback";
+
+function unitHref(customerId: string, status?: string, error?: string) {
+  if (!customerId) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (error) params.set("error", error);
+    const query = params.toString();
+    return `/kunder${query ? `?${query}` : ""}`;
+  }
+  const params = new URLSearchParams({ tab: "utstyr" });
+  if (status) params.set("status", status);
+  if (error) params.set("error", error);
+  return `/kunder/${customerId}?${params.toString()}`;
+}
 
 /** Registrerer en ny enhet (maskin/utstyr) på kunden. */
 export async function createUnit(formData: FormData) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const rawCustomerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
@@ -26,23 +41,17 @@ export async function createUnit(formData: FormData) {
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(
-        rawCustomerId
-          ? `/kunder/${rawCustomerId}?tab=enheter&error=ugyldig-data`
-          : "/kunder?error=ugyldig-data",
-      );
-    }
-    return;
+    redirect(unitHref(rawCustomerId, undefined, customerErrorParam(result.reason)));
   }
 
   revalidatePath(`/kunder/${rawCustomerId}`);
+  redirect(unitHref(rawCustomerId, "enhet-lagt-til"));
 }
 
 /** Oppdaterer navn, serienummer og plassering på en enhet. */
 export async function updateUnit(formData: FormData) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const rawCustomerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
@@ -56,17 +65,11 @@ export async function updateUnit(formData: FormData) {
   });
 
   if (!result.ok) {
-    if (result.reason === "invalid") {
-      redirect(
-        rawCustomerId
-          ? `/kunder/${rawCustomerId}?tab=enheter&error=ugyldig-data`
-          : "/kunder?error=ugyldig-data",
-      );
-    }
-    return;
+    redirect(unitHref(rawCustomerId, undefined, customerErrorParam(result.reason)));
   }
 
   revalidatePath(`/kunder/${rawCustomerId}`);
+  redirect(unitHref(rawCustomerId, "enhet-oppdatert"));
 }
 
 /**
@@ -75,7 +78,7 @@ export async function updateUnit(formData: FormData) {
  */
 export async function deleteUnit(formData: FormData) {
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) redirect("/api/auth/signin");
 
   const customerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
@@ -85,7 +88,10 @@ export async function deleteUnit(formData: FormData) {
     id: formData.get("id"),
   });
 
-  if (!result.ok) return;
+  if (!result.ok) {
+    redirect(unitHref(customerId, undefined, customerErrorParam(result.reason)));
+  }
 
   revalidatePath(`/kunder/${customerId}`);
+  redirect(unitHref(customerId, "enhet-slettet"));
 }

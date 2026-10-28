@@ -8,10 +8,10 @@ export default function SectionCard({
   children,
   className = "",
 }: {
-  title?: string;
+  title?: ReactNode;
   description?: string;
   action?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
 }) {
   return (

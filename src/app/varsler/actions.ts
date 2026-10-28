@@ -1,40 +1,43 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
   markAllNotificationsRead,
   markNotificationRead,
-  openNotification,
 } from "@/server/notifications";
 
-export async function markReadAction(formData: FormData) {
+export type NotificationActionState = { ok: boolean };
+
+/** Merker ett varsel som lest. Idempotent og avgrenset til eieren. */
+export async function markReadAction(
+  formData: FormData,
+): Promise<NotificationActionState> {
   const user = await getCurrentUser();
-  if (!user) return;
-  await markNotificationRead(user, formData.get("id"));
+  if (!user) return { ok: false };
+  const result = await markNotificationRead(user, formData.get("id"));
   revalidatePath("/varsler");
+  return { ok: result.ok };
+}
+
+/** Merker alle brukerens uleste varsler som lest. */
+export async function markAllReadAction(): Promise<NotificationActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false };
+  const result = await markAllNotificationsRead(user);
+  revalidatePath("/varsler");
+  return { ok: result.ok };
 }
 
 /**
- * Åpner varselet og markerer det som lest. Skjemaet sender bare id-en; den
- * lagrede lenken slås opp på serveren og valideres som intern, slik at
- * skjemaet aldri kan brukes som en åpen viderekobling.
+ * Skjema-variantene returnerer `void`, slik at de kan brukes direkte som
+ * `action` på et `<form>` i serverkomponenter. Bjelle-popoveren bruker
+ * variantene over og får status tilbake.
  */
-export async function openNotificationAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) return;
-
-  const result = await openNotification(user, formData.get("id"));
-  revalidatePath("/varsler");
-  if (!result.ok || !result.data.href) return;
-
-  redirect(result.data.href);
+export async function markReadFormAction(formData: FormData): Promise<void> {
+  await markReadAction(formData);
 }
 
-export async function markAllReadAction() {
-  const user = await getCurrentUser();
-  if (!user) return;
-  await markAllNotificationsRead(user);
-  revalidatePath("/varsler");
+export async function markAllReadFormAction(): Promise<void> {
+  await markAllReadAction();
 }

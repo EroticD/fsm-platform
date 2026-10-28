@@ -6,7 +6,7 @@ import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
 import {
   addDaysUtc,
-  formatDate,
+  formatDateLocalized,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -14,11 +14,15 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
-import { parsePage } from "@/lib/pagination";
+import { pageWindow, parsePage } from "@/lib/pagination";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 import ReportHistory from "@/components/portal/ReportHistory";
+import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
+import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
 import StatusBadge from "@/components/StatusBadge";
+import { getPortalBookingRequests } from "@/server/portal";
 import BookingForm from "./BookingForm";
-import { requestContactUpdateAction } from "./report-actions";
+import BookingRequests from "./BookingRequests";
 
 /** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
 const UPCOMING_PAGE_SIZE = 20;
@@ -48,7 +52,7 @@ export default async function KundeportalPage({
   const t = await getTranslations("common");
   const locale = await getLocale();
   const listParams = await searchParams;
-  const upcomingPage = parsePage(listParams.u);
+  const requestedUpcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
   const reportPage = parsePage(listParams.r);
 
@@ -63,8 +67,8 @@ export default async function KundeportalPage({
     );
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: user.customerId, deletedAt: null },
     include: {
       department: true,
       responsibleTechnician: true,
@@ -85,6 +89,10 @@ export default async function KundeportalPage({
   }
 
   const defaultDepartmentId = await getDefaultDepartmentId();
+  const todayText = todayInOslo();
+
+  const bookingsResult = await getPortalBookingRequests(user);
+  const bookings = bookingsResult.ok ? bookingsResult.data : [];
 
   // Kommende oppdrag hentes med et fast tak. Avsluttede oppdrag og alle
   // rapportene deres ligger i den samlede rapporthistorikken lenger ned.
@@ -94,18 +102,23 @@ export default async function KundeportalPage({
     status: { notIn: ["COMPLETED", "CANCELLED"] },
   };
 
-  const [upcomingWorkOrders, upcomingTotal] = await Promise.all([
-    prisma.workOrder.findMany({
-      where: upcomingWhere,
-      orderBy: { scheduledFor: "desc" },
-      take: UPCOMING_PAGE_SIZE,
-      skip: (upcomingPage - 1) * UPCOMING_PAGE_SIZE,
-      select: WORK_ORDER_LIST_SELECT,
-    }),
-    prisma.workOrder.count({ where: upcomingWhere }),
-  ]);
+  const upcomingTotal = await prisma.workOrder.count({ where: upcomingWhere });
+  // Klem en gammel `?u=999` til siste side før listen hentes.
+  const upcomingWindow = pageWindow(
+    requestedUpcomingPage,
+    upcomingTotal,
+    UPCOMING_PAGE_SIZE,
+  );
+  const upcomingPage = upcomingWindow.page;
+  const upcomingTotalPages = upcomingWindow.totalPages;
 
-  const upcomingTotalPages = Math.max(1, Math.ceil(upcomingTotal / UPCOMING_PAGE_SIZE));
+  const upcomingWorkOrders = await prisma.workOrder.findMany({
+    where: upcomingWhere,
+    orderBy: { scheduledFor: "desc" },
+    take: upcomingWindow.take,
+    skip: upcomingWindow.skip,
+    select: WORK_ORDER_LIST_SELECT,
+  });
 
   // Beholder motpartens side når man blar i én av listene.
   const listLink = (next: { u?: number; h?: number }, hash: string) => {
@@ -121,7 +134,7 @@ export default async function KundeportalPage({
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
   // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
-  const today = parseDateOnly(todayInOslo()) ?? new Date();
+  const today = parseDateOnly(todayText) ?? new Date();
   const horizon = addDaysUtc(today, 7);
 
   const days = Array.from({ length: 7 }, (_, i) => addDaysUtc(today, i));
@@ -212,7 +225,7 @@ export default async function KundeportalPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Avdeling / lokasjon */}
             <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                 {customer.department ? t("portal.contact.department") : t("portal.contact.company")}
               </p>
               <p className="text-sm text-gray-900 font-bold">
@@ -259,7 +272,7 @@ export default async function KundeportalPage({
 
             {/* Ansvarlig montør */}
             <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
               {customer.responsibleTechnician ? (
                 <>
                   <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
@@ -280,24 +293,7 @@ export default async function KundeportalPage({
             </div>
           </div>
 
-          <form action={requestContactUpdateAction} className="mt-4 space-y-2 border-t border-gray-200 pt-4">
-            <label htmlFor="contact-update-message" className="block text-sm font-bold text-gray-700">
-              {t("p3.portalReports.requestUpdate")}
-            </label>
-            <textarea
-              id="contact-update-message"
-              name="message"
-              rows={2}
-              placeholder={t("p3.portalReports.requestUpdatePlaceholder")}
-              className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900"
-            />
-            <button
-              type="submit"
-              className="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
-            >
-              {t("p3.portalReports.requestUpdateButton")}
-            </button>
-          </form>
+          <ContactUpdateForm />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -318,7 +314,7 @@ export default async function KundeportalPage({
                         <p className="font-bold text-gray-800 text-sm">{product.model}</p>
                         <p className="text-xs text-gray-500">{t("portal.equipment.serial", { serial: product.serialNumber || "–" })}</p>
                       </div>
-                      <span className="text-[10px] bg-white px-2 py-1 rounded text-gray-600 border">{product.location || t("portal.equipment.unknownBuilding")}</span>
+                      <span className="text-xs bg-white px-2 py-1 rounded text-gray-600 border">{product.location || t("portal.equipment.unknownBuilding")}</span>
                     </div>
                   ))
                 )}
@@ -337,17 +333,17 @@ export default async function KundeportalPage({
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-bold text-blue-900 text-sm">{contract.title}</p>
                         {!contract.isActive && (
-                          <span className="text-[9px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
                             {t("portal.contracts.paused")}
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-blue-700">
-                        {t("portal.contracts.start", { date: formatDate(contract.startDate, "–") })} •{" "}
+                      <p className="text-xs text-blue-700">
+                        {t("portal.contracts.start", { date: formatDateLocalized(contract.startDate, locale, undefined, "–") })} •{" "}
                         {t("portal.contracts.interval", { interval: t("portal.contracts.months", { count: contract.intervalMonths }) })}
                       </p>
-                      <p className="text-[10px] text-blue-700">
-                        {t("portal.contracts.next", { date: formatDate(contract.nextServiceDate, "–") })}
+                      <p className="text-xs text-blue-700">
+                        {t("portal.contracts.next", { date: formatDateLocalized(contract.nextServiceDate, locale, undefined, "–") })}
                       </p>
                     </div>
                   ))
@@ -363,8 +359,19 @@ export default async function KundeportalPage({
             {/* BOOK NYTT OPPDRAG */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
-              <p className="text-gray-500 text-sm mb-4">{t("portal.booking.desc")}</p>
-              <BookingForm />
+              <p className="text-gray-600 text-sm mb-4">{t("portal.booking.desc")}</p>
+              <BookingForm
+                minDate={todayText}
+                defaultContactName={user.name ?? ""}
+                defaultContactPhone={customer.phone ?? ""}
+                equipment={customer.products.map((product) => ({
+                  id: product.id,
+                  label: product.serialNumber
+                    ? `${product.model} · SN ${product.serialNumber}`
+                    : product.model,
+                }))}
+              />
+              <BookingRequests bookings={bookings} minDate={todayText} />
             </div>
 
             {/* KOMMENDE OPPDRAG */}
@@ -372,7 +379,7 @@ export default async function KundeportalPage({
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <h2 className="font-bold text-lg text-gray-900">📅 {t("portal.upcoming.title")}</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">{t("portal.upcoming.desc")}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t("portal.upcoming.desc")}</p>
                 </div>
                 <a
                   href="/api/kundeportal/export"
@@ -393,20 +400,20 @@ export default async function KundeportalPage({
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
-                          <p className="text-[10px] text-gray-500">
-                            📅 {formatDate(wo.scheduledFor, t("portal.upcoming.noDate"))}
+                          <p className="text-xs text-gray-500">
+                            📅 {formatDateLocalized(wo.scheduledFor, locale, undefined, t("portal.upcoming.noDate"))}
                           </p>
                         </div>
                         <StatusBadge status={wo.status} />
                       </div>
-                      <p className="text-[10px] text-gray-600">
+                      <p className="text-xs text-gray-600">
                         🏢 {customer.name}
                         {wo.technicians.length > 0 && (
                           <span className="text-blue-600 font-bold ml-1">• {wo.technicians.map(t => t.name).join(", ")}</span>
                         )}
                       </p>
                       {wo.description && (
-                        <p className="text-[10px] text-gray-700 italic mt-1">
+                        <p className="text-xs text-gray-700 italic mt-1">
                           {markdownToPlainText(wo.description)}
                         </p>
                       )}
@@ -415,27 +422,20 @@ export default async function KundeportalPage({
                 </div>
               )}
 
-              {upcomingTotalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
-                  {upcomingPage > 1 && (
-                    <Link href={listLink({ u: upcomingPage - 1 }, "#kommende")} className="text-blue-600 hover:underline">
-                      &larr; {t("portal.pagination.newest")}
-                    </Link>
-                  )}
-                  <span className="text-gray-500">
-                    {t("portal.pagination.showing", {
-                      from: (upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1,
-                      to: Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal),
-                      total: upcomingTotal,
-                    })}
-                  </span>
-                  {upcomingPage < upcomingTotalPages && (
-                    <Link href={listLink({ u: upcomingPage + 1 }, "#kommende")} className="text-blue-600 hover:underline">
-                      {t("portal.pagination.showMore")} &rarr;
-                    </Link>
-                  )}
-                </div>
-              )}
+              <Pagination
+                page={upcomingPage}
+                totalPages={upcomingTotalPages}
+                hrefFor={(targetPage) =>
+                  listLink({ u: targetPage }, "#kommende")
+                }
+                labels={paginationLabels(t)}
+                summary={t("portal.pagination.showing", {
+                  from: (upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1,
+                  to: Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal),
+                  total: upcomingTotal,
+                })}
+                className="pt-3"
+              />
             </div>
 
           </div>
@@ -453,65 +453,26 @@ export default async function KundeportalPage({
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mt-6">
           <div className="mb-4 border-b pb-2">
             <h2 className="font-bold text-lg text-gray-900">🗓️ {t("portal.availability.title")}</h2>
-            <p className="text-[10px] text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               {t("portal.availability.desc")}
             </p>
           </div>
 
           {technicians.length === 0 ? (
-            <p className="text-gray-500 italic text-sm">{t("portal.availability.empty")}</p>
+            <p className="text-gray-600 italic text-sm">{t("portal.availability.empty")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse min-w-[560px]">
-                <thead>
-                  <tr>
-                    <th className="text-left font-bold text-gray-500 uppercase tracking-wider p-2 border-b">
-                      {t("portal.availability.technician")}
-                    </th>
-                    {days.map((d) => (
-                      <th
-                        key={dateKey(d)}
-                        className="text-center font-bold text-gray-500 uppercase tracking-wider p-2 border-b"
-                      >
-                        <span className="block">
-                          {d.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", { weekday: "short" })}
-                        </span>
-                        <span className="block text-[10px] font-medium text-gray-400">
-                          {toDateOnly(d)}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {technicians.map((tech) => (
-                    <tr key={tech.id} className="border-b last:border-0">
-                      <td className="p-2 font-bold text-gray-800 whitespace-nowrap">
-                        {tech.name || t("portal.availability.unknownName")}
-                      </td>
-                      {days.map((d) => {
-                        const isBusy = busyByTechnician.get(tech.id)?.has(dateKey(d));
-                        return (
-                          <td key={dateKey(d)} className="p-2 text-center">
-                            {isBusy ? (
-                              <span className="inline-block bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-[10px] font-bold">
-                                {t("portal.availability.busy")}
-                              </span>
-                            ) : (
-                              <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-[10px] font-bold">
-                                {t("portal.availability.free")}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AvailabilityBoard
+              technicians={technicians.map((tech) => ({
+                id: tech.id,
+                name: tech.name ?? "",
+                days: days.map((day) => ({
+                  date: dateKey(day),
+                  busy: busyByTechnician.get(tech.id)?.has(dateKey(day)) ?? false,
+                })),
+              }))}
+            />
           )}
-          <p className="text-[10px] text-gray-400 mt-3">
+          <p className="mt-3 text-sm text-gray-700">
             {t("portal.availability.note")}
           </p>
         </div>

@@ -1,5 +1,41 @@
 {
   "common": {
+    "metadata": {
+      "title": "FSM-plattformen",
+      "description": "Service- og vedlikeholdssystem for oppdrag, rapporter og utstyr",
+      "applicationName": "FSM",
+      "appleTitle": "FSM",
+      "titleTemplate": "%s · FSM-plattformen",
+      "routes": {
+        "oppdrag": "Oppdrag",
+        "kunder": "Kunder",
+        "kalender": "Kalender",
+        "dokumenter": "Dokumenter",
+        "rapporter": "Rapporter",
+        "sok": "Søk",
+        "varsler": "Varsler",
+        "innstillinger": "Innstillinger",
+        "mineOppdrag": "Mine oppdrag",
+        "kart": "Kart"
+      }
+    },
+    "components": {
+      "search": {
+        "subtitles": {
+          "customerNumber": "#{number}",
+          "orgNumber": "Org.nr {number}",
+          "workOrderNumber": "Ordrenr. {number}",
+          "noCustomer": "Uten kunde",
+          "tags": "🏷️ {tags}",
+          "tagHint": "Vis oppdrag med denne taggen",
+          "serialNumber": "SN {number}",
+          "reportHms": "HMS: {type}",
+          "templateKind": "Sjekkliste / mal",
+          "templateReportName": "Rapportnavn: {name}",
+          "folderHint": "Mappe i dokumentbiblioteket"
+        }
+      }
+    },
     "welcome": "Velkommen",
     "welcomeAdmin": "Velkommen, {{name}}",
     "menu": "Meny",
@@ -110,9 +146,9 @@
     "statusInProgress": "Påbegynt",
     "statusCancelled": "Kansellert",
     "statusOpen": "Åpen / Ny",
-    "statusPending": "Venter",
+    "statusPending": "Venter på planlegging",
     "statusPlanned": "Planlagt",
-    "statusWaiting": "Venter",
+    "statusWaiting": "Venter på kunde",
     "technicians": "Montører",
     "assignedTo": "Tildelt til",
     "unassigned": "Uten montør",
@@ -432,12 +468,17 @@
       "calendar": "Kalender",
       "customers": "Kunder",
       "documents": "Dokumenter",
-      "equipment": "Utstyr",
-      "reports": "Rapporter",
       "newWorkOrder": "Nytt oppdrag",
       "settings": "Innstillinger",
       "customerPortal": "Kundeportal",
-      "map": "Kart"
+      "map": "Kart",
+      "notifications": "Varsler",
+      "hms": "HMS",
+      "reports": "Rapporter",
+      "units": "Enheter",
+      "search": "Søk",
+      "security": "Sikkerhet",
+      "users": "Ansatte"
     },
     "loginErrorTwoFactorUnavailable": "To-trinns verifisering er ikke riktig konfigurert. Kontakt administrator."
   }

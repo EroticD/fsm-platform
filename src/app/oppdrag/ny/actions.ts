@@ -7,6 +7,9 @@ import { createWorkOrder as createWorkOrderService } from "@/server/work-orders"
 /**
  * Tynn action-wrapper for å opprette et oppdrag. Autorisasjon, validering og
  * skriving ligger i `src/server/work-orders.ts`.
+ *
+ * Alle tjenestefeil sendes tilbake til skjemaet som en synlig kode. Spesielt
+ * duplikat ordrenummer skal ikke lenger ende som en stille «ingenting skjedde».
  */
 export async function createWorkOrder(formData: FormData) {
   const user = await getCurrentUser();
@@ -14,6 +17,9 @@ export async function createWorkOrder(formData: FormData) {
     title: formData.get("title"),
     orderNumber: formData.get("orderNumber"),
     description: formData.get("description"),
+    address: formData.get("address"),
+    postalCode: formData.get("postalCode"),
+    city: formData.get("city"),
     departmentId: formData.get("departmentId"),
     customerId: formData.get("customerId"),
     contactId: formData.get("contactId"),
@@ -25,12 +31,7 @@ export async function createWorkOrder(formData: FormData) {
   });
 
   if (!result.ok) {
-    // Samme oppførsel som før: manglende rettighet avslutter stille, mens
-    // manglende avdeling eller ugyldige data gir en synlig feilmelding.
-    if (result.error === "avdeling" || result.error === "ugyldig-data") {
-      redirect(`/oppdrag/ny?error=${result.error}`);
-    }
-    return;
+    redirect(`/oppdrag/ny?error=${encodeURIComponent(result.error)}`);
   }
 
   redirect("/kalender");

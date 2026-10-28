@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { verifyCredentials } from "@/lib/credentials";
 import { verifyTotp } from "@/lib/two-factor";
+import { consumeRecoveryCode } from "@/lib/two-factor-recovery";
 import {
   clearPendingTwoFactor,
   createSessionCookie,
@@ -14,6 +15,7 @@ import {
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
 import { clientIpFrom } from "@/lib/client-ip";
+import { cleanEmail } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 
 /**
@@ -22,7 +24,7 @@ import { logger } from "@/lib/logger";
  * på to-trinns verifisering, sendes man videre til kode-steget.
  */
 export async function loginAction(formData: FormData): Promise<never> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = cleanEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
   const callbackUrl = safeRelativeTarget(
     typeof formData.get("callbackUrl") === "string"
@@ -146,6 +148,91 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
 
   if (!verifyTotp(user.twoFactorSecret, code)) {
     redirect(fail("InvalidTwoFactor"));
+  }
+
+  await resetRateLimitDb(rateLimitKey);
+  await clearPendingTwoFactor();
+  await createSessionCookie({
+    id: user.id,
+    email: user.email ?? "",
+    name: user.name,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
+  });
+
+  redirect(callbackUrl);
+}
+
+/**
+ * Logger inn med en gjenopprettingskode når autentiseringsappen er utilgjengelig.
+ * Koden brukes opp atomisk, og innloggingen fullføres på samme måte som TOTP.
+ */
+export async function verifyRecoveryCodeAction(
+  formData: FormData,
+): Promise<never> {
+  const code = String(formData.get("recoveryCode") ?? "");
+  const callbackUrl = safeRelativeTarget(
+    typeof formData.get("callbackUrl") === "string"
+      ? (formData.get("callbackUrl") as string)
+      : null,
+  );
+
+  const fail = (error: string, recovery = false): string => {
+    const params = new URLSearchParams({ error });
+    if (recovery) params.set("recovery", "1");
+    if (callbackUrl !== "/") params.set("callbackUrl", callbackUrl);
+    return `/logg-inn/2fa?${params.toString()}`;
+  };
+
+  const userId = await readPendingTwoFactor();
+  if (!userId) {
+    redirect(fail("TwoFactorExpired"));
+  }
+
+  const rateLimitKey = `2fa:${userId}`;
+  const limit = await allowRequestDb(rateLimitKey, 5, 15 * 60_000);
+  if (!limit.allowed) {
+    redirect(fail("TooManyAttempts", true));
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      sessionVersion: true,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: true,
+    },
+  });
+
+  if (!user || !user.isActive || !user.isTwoFactorEnabled || !user.twoFactorSecret) {
+    await clearPendingTwoFactor();
+    redirect(fail("TwoFactorExpired"));
+  }
+
+  if (!(await consumeRecoveryCode(user.id, code))) {
+    redirect(fail("InvalidRecoveryCode", true));
+  }
+
+  // Revisjonsloggen er best effort, som for vanlig innlogging. Koden selv
+  // lagres aldri – bare at en gjenopprettingskode ble brukt.
+  try {
+    await prisma.auditLog.create({
+      data: {
+        entityType: "User",
+        entityId: user.id,
+        action: "Logget inn med gjenopprettingskode",
+        userName: user.name || user.email || "Ukjent",
+        actorId: user.id,
+        metadata: { method: "recovery_code" },
+      },
+    });
+  } catch {
+    console.error("Kunne ikke logge bruk av gjenopprettingskode");
   }
 
   await resetRateLimitDb(rateLimitKey);

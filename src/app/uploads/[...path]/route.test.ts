@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   readFile: vi.fn(async () => Buffer.from("%PDF")),
   uploadFindUnique: vi.fn(),
   workOrderFindUnique: vi.fn(),
+  customerFindUnique: vi.fn(),
+  documentFindUnique: vi.fn(),
+  reportFindFirst: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
@@ -14,6 +17,9 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     upload: { findUnique: mocks.uploadFindUnique },
     workOrder: { findUnique: mocks.workOrderFindUnique },
+    customer: { findUnique: mocks.customerFindUnique },
+    document: { findUnique: mocks.documentFindUnique },
+    report: { findFirst: mocks.reportFindFirst },
   },
 }));
 vi.mock("@/lib/uploads", () => ({
@@ -52,6 +58,9 @@ beforeEach(() => {
   mocks.canReadUpload.mockReturnValue(true);
   mocks.uploadFindUnique.mockResolvedValue(workOrderUpload);
   mocks.workOrderFindUnique.mockResolvedValue({ deletedAt: null });
+  mocks.customerFindUnique.mockResolvedValue({ deletedAt: null });
+  mocks.documentFindUnique.mockResolvedValue({ deletedAt: null });
+  mocks.reportFindFirst.mockResolvedValue(null);
 });
 
 describe("/uploads – mykt slettede oppdrag", () => {
@@ -92,5 +101,103 @@ describe("/uploads – mykt slettede oppdrag", () => {
     const response = await GET(request(), params);
     expect(response.status).toBe(403);
     expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it("setter no-store på filer som kan inneholde kundedata", async () => {
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+
+describe("/uploads – slettede eiere", () => {
+  it("nekter filer på en mykt slettet kunde", async () => {
+    mocks.uploadFindUnique.mockResolvedValue({
+      ...workOrderUpload,
+      ownerType: "CUSTOMER",
+      ownerId: "cust-1",
+    });
+    mocks.customerFindUnique.mockResolvedValue({ deletedAt: new Date() });
+
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(404);
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it("nekter filer på et mykt slettet dokument", async () => {
+    mocks.uploadFindUnique.mockResolvedValue({
+      ...workOrderUpload,
+      ownerType: "DOCUMENT",
+      ownerId: "doc-1",
+    });
+    mocks.documentFindUnique.mockResolvedValue({ deletedAt: new Date() });
+
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(404);
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("/uploads – rapport-PDF", () => {
+  const reportPdf = {
+    id: "report-1",
+    deletedAt: null,
+    workOrder: { deletedAt: null },
+  };
+
+  it("krever reports.view for en rapport-PDF", async () => {
+    mocks.reportFindFirst.mockResolvedValue(reportPdf);
+    mocks.getCurrentUser.mockResolvedValue({
+      id: "u3",
+      role: "USER",
+      isActive: true,
+      departmentId: "dep-a",
+      permissions: [],
+      permissionsCustomized: true,
+    });
+
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(403);
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it("lar en bruker med reports.view lese rapport-PDF-en", async () => {
+    mocks.reportFindFirst.mockResolvedValue(reportPdf);
+    mocks.getCurrentUser.mockResolvedValue({
+      id: "u2",
+      role: "OFFICE",
+      isActive: true,
+      departmentId: "dep-a",
+      permissions: ["reports.view"],
+      permissionsCustomized: true,
+    });
+
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(200);
+    expect(mocks.readFile).toHaveBeenCalled();
+  });
+
+  it("nekter en slettet rapport-PDF", async () => {
+    mocks.reportFindFirst.mockResolvedValue({
+      ...reportPdf,
+      deletedAt: new Date(),
+    });
+
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(404);
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it("beholder vanlige oppdragsvedlegg uten reports.view", async () => {
+    const response = await GET(request(), params);
+
+    expect(response.status).toBe(200);
+    expect(mocks.readFile).toHaveBeenCalled();
   });
 });

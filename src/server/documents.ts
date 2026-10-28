@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import path from "path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -12,6 +13,8 @@ import {
 import { LIMITS, cleanText, cleanUrl } from "@/lib/sanitize";
 import { claimUpload } from "@/lib/upload-access";
 import { enqueuePdfText } from "@/lib/pdf-queue";
+import { findDocumentIdsBySearch } from "@/lib/document-search";
+import { uploadDir } from "@/lib/uploads";
 import {
   can,
   fail,
@@ -36,6 +39,11 @@ function isUploadUrl(value: string): boolean {
   return UPLOAD_URL.test(value);
 }
 
+/** Sikkerhetsgrenser for massehandlinger, slik at én forespørsel er avgrenset. */
+const MAX_BULK_ITEMS = 1000;
+const MAX_BULK_SELECTION = 100;
+const MAX_FOLDER_DEPTH = 50;
+
 export type DocumentLibraryParams = {
   folderId: string | null;
   search: string;
@@ -44,6 +52,111 @@ export type DocumentLibraryParams = {
   documentId: string | null;
   /** Administrator kan vise papirkurven. Vanlige brukere ser den aldri. */
   deleted?: boolean;
+  /**
+   * Når dette er satt, begrenses både tekstsøk og tag-filter til mappen.
+   * Uten flagget er søk og tag-filter globale (men mappe-blaing er fortsatt
+   * begrenset til mappen).
+   */
+  onlyFolder?: boolean;
+};
+
+type FolderRow = { id: string; name: string; parentId: string | null };
+
+/**
+ * Bygger visningsstier for dokumentene på siden. Antall mapper er avgrenset av
+ * sidestørrelsen, og hvert nivå hentes med `take` slik at spørringen aldri blir
+ * ubegrenset.
+ */
+async function folderPathMap(
+  folderIds: (string | null)[],
+): Promise<Map<string, string>> {
+  const byId = new Map<string, FolderRow>();
+  let pending = [
+    ...new Set(folderIds.filter((id): id is string => Boolean(id))),
+  ];
+
+  for (let depth = 0; depth < MAX_FOLDER_DEPTH && pending.length > 0; depth++) {
+    const rows = await prisma.documentFolder.findMany({
+      where: { id: { in: pending } },
+      select: { id: true, name: true, parentId: true },
+      take: 200,
+    });
+    const next = new Set<string>();
+    for (const row of rows) {
+      if (byId.has(row.id)) continue;
+      byId.set(row.id, row);
+      if (row.parentId) next.add(row.parentId);
+    }
+    pending = [...next];
+  }
+
+  const paths = new Map<string, string>();
+  for (const id of byId.keys()) {
+    const names: string[] = [];
+    let current: FolderRow | undefined = byId.get(id);
+    let guard = 0;
+    while (current && guard < MAX_FOLDER_DEPTH) {
+      names.unshift(current.name);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+      guard++;
+    }
+    paths.set(id, names.join(" / "));
+  }
+  return paths;
+}
+
+/**
+ * Fjerner en opplasting som fortsatt ikke er knyttet til et dokument. Brukes
+ * når en import hopper over en duplikatfil, slik at disken ikke fylles av
+ * filer ingen dokumentrad peker på.
+ */
+async function removeOrphanedUpload(
+  actorId: string,
+  fileUrl: string,
+): Promise<boolean> {
+  if (!isUploadUrl(fileUrl)) return false;
+  const storedName = fileUrl.slice("/uploads/".length);
+  const removed = await prisma.upload.deleteMany({
+    where: {
+      storedName,
+      ownerType: "DOCUMENT",
+      ownerId: null,
+      uploadedById: actorId,
+    },
+  });
+  if (removed.count === 0) return false;
+  try {
+    await fs.unlink(path.join(uploadDir(), storedName));
+  } catch {
+    // Filen kan allerede være borte, eller ligge på et annet volum.
+  }
+  return true;
+}
+
+/** Leser en liste med dokument-ID-er fra en server action på en avgrenset måte. */
+function parseBulkIds(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const ids: string[] = [];
+  for (const value of raw) {
+    const id = cleanText(value, { maxLength: LIMITS.line });
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  if (ids.length === 0 || ids.length > MAX_BULK_SELECTION) return null;
+  return ids;
+}
+
+/** Per-dokument-resultat fra en massehandling. */
+export type DocumentBulkItemOutcome = {
+  id: string;
+  title: string;
+  status: "ok" | "failed";
+  reason?: string;
+};
+
+export type DocumentBulkMutationResult = {
+  succeeded: number;
+  failed: number;
+  results: DocumentBulkItemOutcome[];
 };
 
 /** Alt dokumentbiblioteket trenger for én sidevisning. */
@@ -72,7 +185,8 @@ export async function getDocumentLibrary(
       where: { id: folderId },
     });
     let current = currentFolder;
-    while (current) {
+    let depth = 0;
+    while (current && depth < MAX_FOLDER_DEPTH) {
       breadcrumb.unshift(current);
       if (current.parentId) {
         current = await prisma.documentFolder.findUnique({
@@ -81,6 +195,7 @@ export async function getDocumentLibrary(
       } else {
         current = null;
       }
+      depth++;
     }
   }
 
@@ -96,85 +211,87 @@ export async function getDocumentLibrary(
     }),
   ]);
 
+  const filtering = Boolean(searchQuery || tagFilter);
+  // Søk og tag-filter er globale som standard. «Kun denne mappen» gjør begge
+  // filterne mappespesifikke. Uten filter er mappen fortsatt rammen for blaing.
+  const useFolderScope = Boolean(params.onlyFolder) || !filtering;
   const docWhere: Prisma.DocumentWhereInput = {
-    folderId,
+    ...(useFolderScope ? { folderId } : {}),
     deletedAt: deletedFilter,
   };
   if (searchQuery) {
-    docWhere.OR = [
-      { title: { contains: searchQuery, mode: "insensitive" } },
-      { description: { contains: searchQuery, mode: "insensitive" } },
-      { fileName: { contains: searchQuery, mode: "insensitive" } },
-      {
-        tags: {
-          some: { name: { contains: searchQuery, mode: "insensitive" } },
-        },
-      },
-    ];
+    // Normalisert søk i tittel, beskrivelse, filnavn og tags. Søket gjøres i
+    // databasen og returnerer bare ID-er, slik at store tekstfelt aldri lastes
+    // inn i Node. Sletting, tag-filter og paginering avgjøres fortsatt av
+    // Prisma-spørringene nedenfor.
+    docWhere.id = { in: await findDocumentIdsBySearch(searchQuery) };
   }
   if (tagFilter) {
     docWhere.tags = { some: { name: tagFilter } };
   }
 
-  const [documents, totalDocuments, detailDocument, existingFiles] =
-    await Promise.all([
-      prisma.document.findMany({
-        where: docWhere,
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          fileName: true,
-          filePath: true,
-          fileSize: true,
-          mimeType: true,
-          folderId: true,
-          uploadedBy: true,
-          tags: { select: { id: true, name: true, color: true } },
-        },
-        orderBy: { title: "asc" },
-        take: DOCUMENT_PAGE_SIZE,
-        skip: (page - 1) * DOCUMENT_PAGE_SIZE,
-      }),
-      prisma.document.count({ where: docWhere }),
-      params.documentId
-        ? prisma.document.findFirst({
-            where: { id: params.documentId, deletedAt: deletedFilter },
-            select: {
-              id: true,
-              title: true,
-              description: true,
-              fileName: true,
-              filePath: true,
-              fileSize: true,
-              mimeType: true,
-              folderId: true,
-              uploadedBy: true,
-              tags: { select: { id: true, name: true, color: true } },
-              // Versjoner lastes bare når dokumentet faktisk åpnes i detalj.
-              versions: {
-                orderBy: { createdAt: "desc" },
-                take: 50,
-                select: {
-                  id: true,
-                  fileName: true,
-                  filePath: true,
-                  fileSize: true,
-                  createdAt: true,
-                  createdBy: true,
-                },
+  const [documentRows, totalDocuments, detailDocument] = await Promise.all([
+    prisma.document.findMany({
+      where: docWhere,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileName: true,
+        filePath: true,
+        fileSize: true,
+        mimeType: true,
+        folderId: true,
+        uploadedBy: true,
+        tags: { select: { id: true, name: true, color: true } },
+      },
+      orderBy: { title: "asc" },
+      take: DOCUMENT_PAGE_SIZE,
+      skip: (page - 1) * DOCUMENT_PAGE_SIZE,
+    }),
+    prisma.document.count({ where: docWhere }),
+    params.documentId
+      ? prisma.document.findFirst({
+          where: { id: params.documentId, deletedAt: deletedFilter },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            fileName: true,
+            filePath: true,
+            fileSize: true,
+            mimeType: true,
+            folderId: true,
+            uploadedBy: true,
+            tags: { select: { id: true, name: true, color: true } },
+            // Versjoner lastes bare når dokumentet faktisk åpnes i detalj.
+            versions: {
+              orderBy: { createdAt: "desc" },
+              take: 50,
+              select: {
+                id: true,
+                fileName: true,
+                filePath: true,
+                fileSize: true,
+                createdAt: true,
+                createdBy: true,
               },
             },
-          })
-        : Promise.resolve(null),
-      // Duplikatkontroll ved mappeopplasting trenger filnavn og størrelse for
-      // hele mappen – men bare disse lette feltene, ikke dokumentinnholdet.
-      prisma.document.findMany({
-        where: { folderId, deletedAt: null },
-        select: { fileName: true, fileSize: true },
-        take: 1000,
-      }),
-    ]);
+          },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  // Når søket går på tvers av mapper, viser hver rad hvor dokumentet ligger.
+  const pathMap =
+    !useFolderScope && filtering
+      ? await folderPathMap(documentRows.map((doc) => doc.folderId))
+      : null;
+  const documents = documentRows.map((doc) => ({
+    ...doc,
+    folderPath:
+      pathMap && doc.folderId ? pathMap.get(doc.folderId) ?? null : null,
+  }));
 
   // Sørg for at mappen som vises (og detaljens mappe) alltid finnes i
   // nedtrekkslisten, ellers kan et lagre uten endringer flytte dokumentet.
@@ -207,7 +324,6 @@ export async function getDocumentLibrary(
     totalDocuments,
     totalPages: Math.max(1, Math.ceil(totalDocuments / DOCUMENT_PAGE_SIZE)),
     detailDocument,
-    existingFiles,
     folderOptions,
     allTags,
   });
@@ -233,6 +349,14 @@ export async function createFolder(
   if (!parsed.success) return fail("invalid");
   const name = parsed.data.name;
 
+  if (input.parentId) {
+    const parent = await prisma.documentFolder.findUnique({
+      where: { id: input.parentId },
+      select: { id: true },
+    });
+    if (!parent) return fail("not_found");
+  }
+
   const created = await prisma.$transaction(async (tx) => {
     const folder = await tx.documentFolder.create({
       data: { name, parentId: input.parentId },
@@ -247,6 +371,112 @@ export async function createFolder(
   });
 
   return ok({ id: created.id });
+}
+
+/** Gir en mappe nytt navn. Krever documents.manage. */
+export async function renameFolder(
+  actor: ServiceActor,
+  input: { id?: unknown; name?: unknown },
+): Promise<ServiceResult> {
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
+
+  const idParsed = documentIdSchema.safeParse({
+    id: cleanText(input.id, { maxLength: LIMITS.line }),
+  });
+  const nameParsed = documentFolderCreateSchema.safeParse({
+    name: cleanText(input.name, { maxLength: LIMITS.title }),
+  });
+  if (!idParsed.success || !nameParsed.success) return fail("invalid");
+  const id = idParsed.data.id;
+  const name = nameParsed.data.name;
+
+  const folder = await prisma.documentFolder.findUnique({
+    where: { id },
+    select: { id: true, name: true },
+  });
+  if (!folder) return fail("not_found");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.documentFolder.update({ where: { id }, data: { name } });
+    await audit(tx, {
+      entityType: "DocumentFolder",
+      entityId: id,
+      action: `Ga mappen nytt navn: ${folder.name} → ${name}`,
+      actor: toAuditActor(actor),
+    });
+  });
+
+  return ok(undefined);
+}
+
+/**
+ * Flytter en mappe. Sjekker at målmappen finnes og at flyttingen ikke lager en
+ * syklus (en mappe kan ikke flyttes inn i seg selv eller en undermappe).
+ */
+export async function moveFolder(
+  actor: ServiceActor,
+  input: { id?: unknown; parentId?: unknown },
+): Promise<ServiceResult> {
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
+
+  const parsed = documentIdSchema.safeParse({
+    id: cleanText(input.id, { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) return fail("invalid");
+  const id = parsed.data.id;
+  const rawParent = cleanText(input.parentId, { maxLength: LIMITS.line });
+  const parentId = rawParent || null;
+
+  const folder = await prisma.documentFolder.findUnique({
+    where: { id },
+    select: { id: true, name: true },
+  });
+  if (!folder) return fail("not_found");
+  if (parentId === id) return fail("invalid");
+
+  if (parentId) {
+    const target = await prisma.documentFolder.findUnique({
+      where: { id: parentId },
+      select: { id: true, name: true },
+    });
+    if (!target) return fail("not_found");
+
+    // Gå oppover fra målmappen. Treffer vi mappen vi flytter, ville den blitt
+    // sin egen forelder og forsvunnet fra treet.
+    let cursor: string | null = parentId;
+    let depth = 0;
+    while (cursor) {
+      if (cursor === id) return fail("invalid");
+      const current: { parentId: string | null } | null =
+        await prisma.documentFolder.findUnique({
+          where: { id: cursor },
+          select: { parentId: true },
+        });
+      if (!current) break;
+      cursor = current.parentId;
+      depth++;
+      if (depth > MAX_FOLDER_DEPTH) return fail("invalid");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.documentFolder.update({
+      where: { id },
+      data: { parentId },
+    });
+    await audit(tx, {
+      entityType: "DocumentFolder",
+      entityId: id,
+      action: `Flyttet mappen: ${folder.name}`,
+      actor: toAuditActor(actor),
+    });
+  });
+
+  return ok(undefined);
 }
 
 export async function deleteFolder(
@@ -264,7 +494,18 @@ export async function deleteFolder(
   const folder = await prisma.documentFolder.findUnique({ where: { id } });
   if (!folder) return fail("not_found");
 
-  await prisma.$transaction(async (tx) => {
+  // En mappe med innhold skal aldri slettes stilltiende: dokumentene ville
+  // blitt liggende uten mappe (onDelete: SetNull). Brukeren må flytte eller
+  // slette innholdet først.
+  const outcome = await prisma.$transaction(async (tx) => {
+    const documents = await tx.document.count({ where: { folderId: id } });
+    const folders = await tx.documentFolder.count({
+      where: { parentId: id },
+    });
+    if (documents > 0 || folders > 0) {
+      return { blocked: true as const, documents, folders };
+    }
+
     await tx.documentFolder.delete({ where: { id } });
     await audit(tx, {
       entityType: "DocumentFolder",
@@ -272,7 +513,15 @@ export async function deleteFolder(
       action: `Slettet mappe: ${folder.name}`,
       actor: toAuditActor(actor),
     });
+    return { blocked: false as const, documents: 0, folders: 0 };
   });
+
+  if (outcome.blocked) {
+    return fail("conflict", {
+      documents: outcome.documents,
+      folders: outcome.folders,
+    });
+  }
 
   return ok(undefined);
 }
@@ -678,29 +927,77 @@ function parseBulkItems(raw: string): BulkItem[] | null {
   return items.length > 0 ? items : null;
 }
 
+export type DocumentBulkItemResult = {
+  fileName: string;
+  relativePath: string;
+  status: "created" | "skipped" | "failed";
+  reason?:
+    | "duplicate"
+    | "not_pdf"
+    | "not_owned"
+    | "invalid"
+    | "folder_failed"
+    | "error";
+  id?: string;
+  title?: string;
+};
+
+export type DocumentBulkResult = {
+  created: number;
+  skipped: number;
+  failed: number;
+  results: DocumentBulkItemResult[];
+};
+
+function normalizeRelativePath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function relativeDir(relativePath: string): string {
+  const normalized = path.posix.normalize(normalizeRelativePath(relativePath));
+  const dir = path.posix.dirname(normalized);
+  if (dir === "." || dir.startsWith("..")) return "";
+  return dir;
+}
+
 export async function bulkCreateDocuments(
   actor: ServiceActor,
   input: { itemsJson?: unknown; folderId: string | null },
-): Promise<ServiceResult<{ created: number; skipped: number }>> {
-  if (!can(actor, "documents.manage")) return fail("forbidden");
+): Promise<ServiceResult<DocumentBulkResult>> {
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
 
-  const itemsJson = cleanText(input.itemsJson, { maxLength: 100000 });
+  // Nok plass til store mappestrukturer uten å gjøre forespørselen ubegrenset.
+  const itemsJson = cleanText(input.itemsJson, { maxLength: 500000 });
   if (!itemsJson) return fail("invalid");
   const items = parseBulkItems(itemsJson);
   if (!items) return fail("invalid");
+  if (items.length > MAX_BULK_ITEMS) return fail("invalid");
   if (items.some((item) => !isUploadUrl(item.fileUrl))) return fail("invalid");
+
+  const baseFolderId = input.folderId
+    ? cleanText(input.folderId, { maxLength: LIMITS.line })
+    : null;
+  if (baseFolderId) {
+    const baseFolder = await prisma.documentFolder.findUnique({
+      where: { id: baseFolderId },
+      select: { id: true },
+    });
+    if (!baseFolder) return fail("invalid");
+  }
 
   // Mappe: relativ sti -> DocumentFolder id
   const folderMap = new Map<string, string | null>();
-  folderMap.set("", input.folderId);
+  folderMap.set("", baseFolderId);
 
   // Samle alle unike mapper
   const dirs = new Set<string>();
   for (const item of items) {
-    const dirRel = path.dirname(item.relativePath || "");
-    if (dirRel && dirRel !== ".") {
+    const dirRel = relativeDir(item.relativePath);
+    if (dirRel) {
       // Legg til alle foreldre-mapper
-      const parts = dirRel.split(/[/\\]/).filter(Boolean);
+      const parts = dirRel.split("/").filter(Boolean);
       let acc = "";
       for (const part of parts) {
         acc = acc ? acc + "/" + part : part;
@@ -709,7 +1006,10 @@ export async function bulkCreateDocuments(
     }
   }
 
-  // Opprett mapper (sorter slik at foreldre kommer først)
+  // Opprett mapper (sortert slik at foreldre kommer først). En enkelt mappe
+  // som ikke kan opprettes skal ikke stoppe hele importen; filene i den
+  // mappen rapporteres som feilet i stedet.
+  const failedDirs = new Set<string>();
   const sortedDirs = Array.from(dirs).sort(
     (a, b) => a.split("/").length - b.split("/").length,
   );
@@ -718,109 +1018,448 @@ export async function bulkCreateDocuments(
     const name = parts[parts.length - 1];
     const parentRel = parts.slice(0, -1).join("/");
     const parentKey = parentRel || "";
-    const parentId = folderMap.get(parentKey) ?? input.folderId;
-    // Sjekk om mappen allerede finnes
-    const existing = await prisma.documentFolder.findFirst({
-      where: { name, parentId: parentId || null },
-    });
-    if (existing) {
-      folderMap.set(dirRel, existing.id);
-    } else {
-      const created = await prisma.documentFolder.create({
-        data: { name, parentId: parentId || null },
+    if (parentKey && failedDirs.has(parentKey)) {
+      failedDirs.add(dirRel);
+      continue;
+    }
+    const parentId = folderMap.get(parentKey) ?? baseFolderId;
+    try {
+      // Sjekk om mappen allerede finnes
+      const existing = await prisma.documentFolder.findFirst({
+        where: { name, parentId: parentId || null },
+        select: { id: true },
       });
-      folderMap.set(dirRel, created.id);
+      if (existing) {
+        folderMap.set(dirRel, existing.id);
+      } else {
+        const created = await prisma.documentFolder.create({
+          data: { name, parentId: parentId || null },
+        });
+        folderMap.set(dirRel, created.id);
+      }
+    } catch (error) {
+      console.error(`Kunne ikke opprette mappen «${dirRel}»:`, error);
+      failedDirs.add(dirRel);
     }
   }
 
-  // Opprett dokumenter
-  let count = 0;
-  let skippedServer = 0;
-  for (const item of items) {
-    const dirRel = path.dirname(item.relativePath || "");
-    const dirKey = dirRel === "." ? "" : dirRel.replace(/\\/g, "/");
-    const targetFolderId = folderMap.get(dirKey) ?? input.folderId;
+  const results: DocumentBulkItemResult[] = [];
+  let createdCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
 
-    // Hopp over hvis filen allerede eksisterer med samme navn og størrelse
-    const existing = await prisma.document.findFirst({
-      where: {
-        fileName: item.fileName || "dokument.pdf",
-        fileSize: item.fileSize || 0,
-        folderId: targetFolderId || null,
-        deletedAt: null,
-      },
-    });
-    if (existing) {
-      skippedServer++;
+  const addResult = (result: DocumentBulkItemResult) => {
+    results.push(result);
+    if (result.status === "created") createdCount++;
+    else if (result.status === "skipped") skippedCount++;
+    else failedCount++;
+  };
+
+  // Opprett dokumenter. Hver fil behandles for seg: én feil skal ikke stoppe
+  // resten av importen.
+  for (const item of items) {
+    const dirKey = relativeDir(item.relativePath);
+    const targetFolderId = folderMap.get(dirKey) ?? baseFolderId;
+    const fileName = cleanText(item.fileName, { maxLength: LIMITS.line }) ||
+      "dokument.pdf";
+    const relativePath = normalizeRelativePath(item.relativePath);
+    const fileSize = Math.max(0, Math.trunc(item.fileSize || 0));
+
+    const failedAncestor = [...failedDirs].some(
+      (dir) => dirKey === dir || dirKey.startsWith(`${dir}/`),
+    );
+    if (failedAncestor) {
+      addResult({
+        fileName,
+        relativePath,
+        status: "failed",
+        reason: "folder_failed",
+      });
       continue;
     }
 
-    const documentTitle =
-      item.title ||
-      path.basename(
-        item.fileName || "dokument",
-        path.extname(item.fileName || ".pdf"),
-      );
-
-    const newDoc = await prisma.$transaction(async (tx) => {
-      const { claimed } = await claimUpload(tx, item.fileUrl, actor.id, {
-        ownerType: "DOCUMENT",
-        ownerId: null,
-        departmentId: actor.departmentId,
-        customerId: null,
+    // Bulkimport er bare for PDF-er. Andre filer holdes synlige i resultatet
+    // som hoppet over, slik at brukeren ser hva som ikke ble importert.
+    if (!fileName.toLowerCase().endsWith(".pdf")) {
+      try {
+        await removeOrphanedUpload(actor.id, item.fileUrl);
+      } catch (error) {
+        console.error("Kunne ikke rydde ikke-PDF-opplasting:", error);
+      }
+      addResult({
+        fileName,
+        relativePath,
+        status: "skipped",
+        reason: "not_pdf",
       });
-      if (!claimed) return null;
+      continue;
+    }
 
-      const created = await tx.document.create({
-        data: {
-          title: documentTitle,
-          fileName: item.fileName || "dokument.pdf",
-          filePath: item.fileUrl,
-          fileSize: item.fileSize || 0,
-          mimeType: "application/pdf",
-          folderId: targetFolderId || null,
-          uploadedBy: actor.name || "Kontor",
-        },
-      });
-
-      await tx.upload.updateMany({
+    try {
+      // Server-side duplikatkontroll i målmappen. Spørringen er avgrenset til
+      // filnavn + størrelse + mappe og avhenger ikke av en forhåndslastet
+      // liste med vilkårlig tak.
+      const existing = await prisma.document.findFirst({
         where: {
-          storedName: item.fileUrl.slice("/uploads/".length),
+          fileName,
+          fileSize,
+          folderId: targetFolderId || null,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        // Den nye opplastingen blir aldri knyttet til dokumentet; fjern den.
+        try {
+          await removeOrphanedUpload(actor.id, item.fileUrl);
+        } catch (error) {
+          console.error("Kunne ikke rydde duplikatopplasting:", error);
+        }
+        addResult({
+          fileName,
+          relativePath,
+          status: "skipped",
+          reason: "duplicate",
+        });
+        continue;
+      }
+
+      const documentTitle =
+        cleanText(item.title, { maxLength: LIMITS.title }) ||
+        path.basename(fileName, path.extname(fileName)) ||
+        "dokument";
+
+      const newDoc = await prisma.$transaction(async (tx) => {
+        const { claimed } = await claimUpload(tx, item.fileUrl, actor.id, {
           ownerType: "DOCUMENT",
           ownerId: null,
-        },
-        data: { ownerId: created.id },
+          departmentId: actor.departmentId,
+          customerId: null,
+        });
+        if (!claimed) return null;
+
+        const created = await tx.document.create({
+          data: {
+            title: documentTitle,
+            fileName,
+            filePath: item.fileUrl,
+            fileSize,
+            mimeType: "application/pdf",
+            folderId: targetFolderId || null,
+            uploadedBy: actor.name || "Kontor",
+          },
+        });
+
+        await tx.upload.updateMany({
+          where: {
+            storedName: item.fileUrl.slice("/uploads/".length),
+            ownerType: "DOCUMENT",
+            ownerId: null,
+          },
+          data: { ownerId: created.id },
+        });
+
+        await audit(tx, {
+          entityType: "Document",
+          entityId: created.id,
+          action: `Lastet opp dokument: ${documentTitle}`,
+          actor: toAuditActor(actor),
+        });
+
+        return created;
       });
 
-      await audit(tx, {
-        entityType: "Document",
-        entityId: created.id,
-        action: `Lastet opp dokument: ${documentTitle}`,
-        actor: toAuditActor(actor),
+      if (!newDoc) {
+        addResult({
+          fileName,
+          relativePath,
+          status: "failed",
+          reason: "not_owned",
+        });
+        continue;
+      }
+
+      // Ekstraher PDF-tekst (best-effort, legges i bakgrunnskø). En feil her
+      // skal ikke gjøre at en allerede opprettet fil rapporteres som feilet.
+      try {
+        enqueuePdfText(newDoc.id, item.fileUrl);
+      } catch (error) {
+        console.error("Kunne ikke legge PDF-tekst i kø:", error);
+      }
+
+      addResult({
+        id: newDoc.id,
+        title: documentTitle,
+        fileName,
+        relativePath,
+        status: "created",
       });
-
-      return created;
-    });
-
-    if (!newDoc) {
-      skippedServer++;
-      continue;
+    } catch (error) {
+      console.error(`Bulk-import feilet for «${relativePath}»:`, error);
+      addResult({
+        fileName,
+        relativePath,
+        status: "failed",
+        reason: "error",
+      });
     }
-
-    // Ekstraher PDF-tekst (best-effort, legges i bakgrunnskø)
-    enqueuePdfText(newDoc.id, item.fileUrl);
-
-    count++;
   }
 
-  if (count > 0 || skippedServer > 0) {
+  if (createdCount > 0 || skippedCount > 0 || failedCount > 0) {
     console.info(
-      `Bulk-opplasting av dokumenter: ${count} nye filer` +
-        (skippedServer > 0 ? `, ${skippedServer} hoppet over` : ""),
+      `Bulk-opplasting av dokumenter: ${createdCount} nye filer` +
+        (skippedCount > 0 ? `, ${skippedCount} hoppet over` : "") +
+        (failedCount > 0 ? `, ${failedCount} feilet` : ""),
     );
   }
 
-  return ok({ created: count, skipped: skippedServer });
+  return ok({
+    created: createdCount,
+    skipped: skippedCount,
+    failed: failedCount,
+    results,
+  });
+}
+
+type SelectedDocument = { id: string; title: string };
+
+async function findSelectedDocuments(
+  ids: string[],
+): Promise<Map<string, SelectedDocument>> {
+  const documents = await prisma.document.findMany({
+    where: { id: { in: ids }, deletedAt: null },
+    select: { id: true, title: true },
+    take: MAX_BULK_SELECTION,
+  });
+  return new Map(documents.map((doc) => [doc.id, doc]));
+}
+
+function outcomeForMissing(id: string): DocumentBulkItemOutcome {
+  return { id, title: "", status: "failed", reason: "not_found" };
+}
+
+/** Flytter flere dokumenter til en mappe (eller til rot med `null`). */
+export async function bulkMoveDocuments(
+  actor: ServiceActor,
+  input: { ids?: unknown; folderId?: unknown },
+): Promise<ServiceResult<DocumentBulkMutationResult>> {
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
+
+  const ids = parseBulkIds(input.ids);
+  if (!ids) return fail("invalid");
+  const rawFolderId = cleanText(input.folderId, { maxLength: LIMITS.line });
+  const folderId = rawFolderId || null;
+
+  let folderName: string | null = null;
+  if (folderId) {
+    const target = await prisma.documentFolder.findUnique({
+      where: { id: folderId },
+      select: { id: true, name: true },
+    });
+    if (!target) return fail("invalid");
+    folderName = target.name;
+  }
+
+  const selected = await findSelectedDocuments(ids);
+  const results: DocumentBulkItemOutcome[] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const id of ids) {
+    const doc = selected.get(id);
+    if (!doc) {
+      results.push(outcomeForMissing(id));
+      failed++;
+      continue;
+    }
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.document.update({
+          where: { id },
+          data: { folderId },
+        });
+        await audit(tx, {
+          entityType: "Document",
+          entityId: id,
+          action: folderName
+            ? `Flyttet dokumentet «${doc.title}» til mappen ${folderName}`
+            : `Flyttet dokumentet «${doc.title}» til rot`,
+          actor: toAuditActor(actor),
+        });
+      });
+      results.push({ id, title: doc.title, status: "ok" });
+      succeeded++;
+    } catch (error) {
+      console.error(`Kunne ikke flytte dokument ${id}:`, error);
+      results.push({
+        id,
+        title: doc.title,
+        status: "failed",
+        reason: "error",
+      });
+      failed++;
+    }
+  }
+
+  return ok({ succeeded, failed, results });
+}
+
+/** Myksletter flere dokumenter. Bare administrator, som enkelt-sletting. */
+export async function bulkDeleteDocuments(
+  actor: ServiceActor,
+  input: { ids?: unknown },
+): Promise<ServiceResult<DocumentBulkMutationResult>> {
+  if (!isAdminActor(actor) || !actor.isActive) return fail("forbidden");
+
+  const ids = parseBulkIds(input.ids);
+  if (!ids) return fail("invalid");
+  const selected = await findSelectedDocuments(ids);
+  const deletedAt = new Date();
+  const deletedBy = actor.name || actor.id;
+  const results: DocumentBulkItemOutcome[] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const id of ids) {
+    const doc = selected.get(id);
+    if (!doc) {
+      results.push(outcomeForMissing(id));
+      failed++;
+      continue;
+    }
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.document.update({
+          where: { id },
+          data: { deletedAt, deletedBy },
+        });
+        await audit(tx, {
+          entityType: "Document",
+          entityId: id,
+          action: `Slettet dokumentet «${doc.title}» (myk sletting – kan gjenopprettes)`,
+          actor: toAuditActor(actor),
+          metadata: { softDeleted: true, bulk: true },
+        });
+      });
+      results.push({ id, title: doc.title, status: "ok" });
+      succeeded++;
+    } catch (error) {
+      console.error(`Kunne ikke slette dokument ${id}:`, error);
+      results.push({
+        id,
+        title: doc.title,
+        status: "failed",
+        reason: "error",
+      });
+      failed++;
+    }
+  }
+
+  return ok({ succeeded, failed, results });
+}
+
+/** Legger til én eller flere tagger på flere dokumenter (legger til, erstatter ikke). */
+export async function bulkTagDocuments(
+  actor: ServiceActor,
+  input: { ids?: unknown; tagNames?: unknown[] },
+): Promise<ServiceResult<DocumentBulkMutationResult>> {
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
+
+  const ids = parseBulkIds(input.ids);
+  if (!ids) return fail("invalid");
+  const tagNames = [
+    ...new Set(
+      (Array.isArray(input.tagNames) ? input.tagNames : [])
+        .map((tag) => cleanText(tag, { maxLength: LIMITS.short }))
+        .filter(Boolean),
+    ),
+  ].slice(0, 20);
+  if (tagNames.length === 0) return fail("invalid");
+
+  const selected = await findSelectedDocuments(ids);
+  const results: DocumentBulkItemOutcome[] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const id of ids) {
+    const doc = selected.get(id);
+    if (!doc) {
+      results.push(outcomeForMissing(id));
+      failed++;
+      continue;
+    }
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.document.update({
+          where: { id },
+          data: {
+            tags: {
+              connectOrCreate: tagNames.map((name) => ({
+                where: { name },
+                create: { name },
+              })),
+            },
+          },
+        });
+        await audit(tx, {
+          entityType: "Document",
+          entityId: id,
+          action: `La til tagger på dokumentet «${doc.title}»: ${tagNames.join(", ")}`,
+          actor: toAuditActor(actor),
+        });
+      });
+      results.push({ id, title: doc.title, status: "ok" });
+      succeeded++;
+    } catch (error) {
+      console.error(`Kunne ikke tagge dokument ${id}:`, error);
+      results.push({
+        id,
+        title: doc.title,
+        status: "failed",
+        reason: "error",
+      });
+      failed++;
+    }
+  }
+
+  return ok({ succeeded, failed, results });
+}
+
+/**
+ * Rydder opp i opplastinger som aldri ble knyttet til et dokument. Kalles når
+ * en import avbrytes, og fjerner bare filer aktøren selv lastet opp.
+ */
+export async function discardDocumentUploads(
+  actor: ServiceActor,
+  input: { fileUrls?: unknown },
+): Promise<ServiceResult<{ deleted: number }>> {
+  if (!actor.isActive || !can(actor, "documents.manage")) {
+    return fail("forbidden");
+  }
+
+  const raw = Array.isArray(input.fileUrls) ? input.fileUrls : [];
+  const fileUrls = [
+    ...new Set(
+      raw
+        .map((value) => cleanUrl(value))
+        .filter((value) => isUploadUrl(value)),
+    ),
+  ].slice(0, MAX_BULK_ITEMS);
+
+  let deleted = 0;
+  for (const fileUrl of fileUrls) {
+    try {
+      if (await removeOrphanedUpload(actor.id, fileUrl)) deleted++;
+    } catch (error) {
+      console.error(`Kunne ikke rydde opplastingen ${fileUrl}:`, error);
+    }
+  }
+
+  return ok({ deleted });
 }
 
 /** Sender manglende PDF-er til fulltekst-indeksering på nytt. */

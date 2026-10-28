@@ -26,5 +26,16 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      // Egen 375px-prosjekt, slik at mobilmeny, tabeller og skjemaer blir
+      // skannet med axe på samme måte som desktop.
+      name: "mobile-375",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 375, height: 812 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
   ],
 });

@@ -82,8 +82,15 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
 
 /** Midlertidig cookie mens brukeren taster 2FA-koden. */
 export const PENDING_2FA_COOKIE = "fsm-2fa-pending";
-/** Hvor lenge 2FA-steget er gyldig (5 minutter). */
-export const PENDING_2FA_MAX_AGE = 5 * 60;
+/** Hvor lenge 2FA-steget er gyldig (15 minutter). */
+export const PENDING_2FA_MAX_AGE = 15 * 60;
+
+/**
+ * Kortlevd, signert cookie som viser de nye gjenopprettingskodene én gang
+ * rett etter at de er generert. Selve kodene lagres bare som hash i databasen.
+ */
+export const RECOVERY_CODES_COOKIE = "fsm-2fa-recovery-codes";
+export const RECOVERY_CODES_DISPLAY_MAX_AGE = 5 * 60;
 
 export type PendingTwoFactor = {
   userId: string;
@@ -137,4 +144,62 @@ export async function readPendingTwoFactor(): Promise<string | null> {
 export async function clearPendingTwoFactor(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(PENDING_2FA_COOKIE);
+}
+
+/** Legger de nye gjenopprettingskodene i en kortlevd visningscookie. */
+export async function setRecoveryCodesForDisplay(
+  codes: string[],
+): Promise<void> {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) throw new Error("NEXTAUTH_SECRET mangler");
+
+  const expires = Date.now() + RECOVERY_CODES_DISPLAY_MAX_AGE * 1000;
+  const token = await encode({
+    token: { codes, expires },
+    secret,
+    maxAge: RECOVERY_CODES_DISPLAY_MAX_AGE,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(RECOVERY_CODES_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: await isSecureRequest(),
+    maxAge: RECOVERY_CODES_DISPLAY_MAX_AGE,
+  });
+}
+
+/** Leser kodene som skal vises én gang etter aktivering. */
+export async function readRecoveryCodesForDisplay(): Promise<string[] | null> {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) return null;
+
+  const { decode } = await import("next-auth/jwt");
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(RECOVERY_CODES_COOKIE)?.value;
+  if (!raw) return null;
+
+  try {
+    const payload = await decode({ token: raw, secret });
+    const expires = Number(payload?.expires ?? 0);
+    if (!expires || expires < Date.now()) return null;
+    const codes = payload?.codes;
+    if (
+      !Array.isArray(codes) ||
+      codes.length === 0 ||
+      !codes.every((code) => typeof code === "string")
+    ) {
+      return null;
+    }
+    return codes;
+  } catch {
+    return null;
+  }
+}
+
+/** Skjuler gjenopprettingskodene med en gang brukeren har lagret dem. */
+export async function clearRecoveryCodesForDisplay(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(RECOVERY_CODES_COOKIE);
 }

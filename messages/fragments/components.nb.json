@@ -6,12 +6,26 @@
     },
     "confirm": {
       "title": "Bekreft handling",
-      "confirm": "Slett",
-      "cancel": "Avbryt"
+      "confirm": "Bekreft",
+      "cancel": "Avbryt",
+      "busy": "Behandler …",
+      "deleteUser": "Slette brukeren «{name}»? Dette kan ikke angres.",
+      "deleteUserLabel": "Slett bruker",
+      "deleteRole": "Slette rollen «{name}»? Dette kan ikke angres.",
+      "deleteRoleLabel": "Slett rolle",
+      "deleteTag": "Slette taggen «{name}»? Den fjernes fra alle oppdrag den er brukt på.",
+      "deleteTagLabel": "Slett tag",
+      "deleteDocumentTag": "Slette dokumenttaggen «{name}»? Den fjernes fra alle dokumenter den er brukt på.",
+      "deleteDocumentTagLabel": "Slett dokument-tag"
     },
-    "autoSave": {
-      "saving": "Lagrer...",
-      "saved": "Lagret! ✅"
+    "pagination": {
+      "label": "Paginering",
+      "first": "Første",
+      "previous": "Forrige",
+      "next": "Neste",
+      "last": "Siste",
+      "stale": "Siden finnes ikke. Gå til siste side.",
+      "page": "Side {page} av {totalPages}"
     },
     "brandingLogo": {
       "alt": "Firmalogo",
@@ -31,13 +45,14 @@
       "placeholder": "Skriv en kommentar eller hendelse...",
       "submit": "Legg til kommentar",
       "saving": "Lagrer...",
+      "error": "Kunne ikke lagre kommentaren. Prøv igjen.",
       "empty": "Ingen kommentarer eller hendelser ennå.",
       "unknown": "Ukjent"
     },
     "contact": {
       "edit": "Rediger",
       "hide": "Skjul",
-      "deleteConfirm": "Er du sikker på at du vil slette denne kontaktpersonen?",
+      "deleteConfirm": "Er du sikker på at du vil slette kontaktpersonen «{name}»?",
       "deleteTitle": "Slett kontaktperson",
       "name": "Navn *",
       "role": "Rolle",
@@ -45,6 +60,12 @@
       "phone": "Telefon",
       "cancel": "Avbryt",
       "save": "Lagre"
+    },
+    "tagSelector": {
+      "remove": "Fjern taggen {name}"
+    },
+    "customerAttachments": {
+      "deleteAria": "Slett vedlegget «{name}»"
     },
     "search": {
       "title": "Søk",
@@ -92,11 +113,14 @@
       "bestHitsHint": "Topp 5 på tvers av kategoriene.",
       "groupInfo": "Viser {from}–{to} av {total}",
       "groupEmptyPage": "Ingen treff i denne kategorien på denne siden.",
+      "openFile": "📄 Åpne fil",
+      "openPdf": "📄 Åpne PDF",
       "errorBody": "Noe gikk galt på serveren. Prøv igjen om litt.",
       "retryAction": "Prøv igjen",
       "emptyTitle": "Søk i hele plattformen",
       "emptyBody": "Finn kunder, oppdrag, utstyr, rapporter, kommentarer og dokumenter på ett sted.",
       "queryTooShort": "Skriv minst to tegn for å søke.",
+      "minLengthHint": "Skriv minst 2 tegn",
       "suggestionsTitle": "Prøv for eksempel",
       "suggestions": {
         "service": "Service",
@@ -126,7 +150,10 @@
         "hmsType": "HMS-type",
         "allHmsTypes": "Alle HMS-typer",
         "apply": "Bruk filtre",
-        "clear": "Fjern filtre"
+        "clear": "Fjern filtre",
+        "mobileTrigger": "Filtre ({count})",
+        "showResults": "Vis resultater",
+        "panelLabel": "Søkefiltre"
       },
       "statuses": {
         "PLANNED": "Planlagt",
@@ -167,6 +194,7 @@
       }
     },
     "markdown": {
+      "toolbar": "Formatering",
       "bold": "Fet (Ctrl+B)",
       "boldPlaceholder": "fet tekst",
       "italic": "Kursiv (Ctrl+I)",
@@ -203,10 +231,15 @@
       "previous": "Signatur fra tidligere",
       "previousAlt": "Tidligere signatur – {label}",
       "keep": "Beholdes hvis du ikke signerer på nytt.",
+      "nameLabel": "Navn på den som signerer",
       "namePlaceholder": "Fullt navn på den som signerer",
       "registered": "✅ Ny signatur registrert",
       "keepHint": "Beholder signaturen over hvis du lar feltet stå tomt.",
-      "notSigned": "Ikke signert – la stå tomt om det ikke er aktuelt."
+      "notSigned": "Ikke signert – la stå tomt om det ikke er aktuelt.",
+      "fullscreen": "⛶ Fullskjerm",
+      "closeFullscreen": "Lukk fullskjerm",
+      "landscapeHint": "Roter telefonen til landskap for en større signaturflate.",
+      "drawHint": "Tegn signaturen med finger eller mus."
     },
     "auditLog": {
       "empty": "Ingen aktivitetslogg funnet.",
@@ -215,15 +248,29 @@
       "action": "Handling",
       "entity": "Enhet",
       "unknownUser": "Ukjent",
+      "caption": "Aktivitetslogg",
+      "tableLabel": "Aktivitetslogg, tabell",
+      "emptyPageTitle": "Denne siden finnes ikke",
+      "emptyPageDescription": "Sidenummeret ligger utenfor listen. Gå til siste side for å se de nyeste oppføringene.",
+      "goToLastPage": "Gå til siste side",
       "page": "Side {page} av {totalPages} ({total} oppføringer)",
       "previous": "Forrige",
       "next": "Neste"
+    },
+    "notificationPreferences": {
+      "caption": "Varsler per hendelse"
     },
     "header": {
       "menu": "Meny",
       "openMenu": "Åpne menyen",
       "closeMenu": "Lukk menyen",
-      "logOut": "Logg ut"
+      "search": "Søk i systemet",
+      "logOut": "Logg ut",
+      "skipToContent": "Hopp til innhold",
+      "breadcrumb": "Brødsmulesti",
+      "details": "Detaljer",
+      "work": "Arbeid",
+      "more": "Mer"
     },
     "language": {
       "change": "Endre språk"
@@ -247,7 +294,18 @@
     },
     "toast": {
       "uploaded": "Fil(er) lastet opp",
-      "deleted": "Vedlegg slettet"
+      "deleted": "Vedlegg slettet",
+      "dismiss": "Lukk varsel"
+    },
+    "realtime": {
+      "paused": "Sanntidsoppdatering er satt på pause.",
+      "retry": "Prøv igjen"
     }
+  },
+  "notFound": {
+    "title": "Siden finnes ikke",
+    "description": "Siden du leter etter er flyttet eller finnes ikke i {companyName}.",
+    "home": "Til forsiden",
+    "workOrders": "Til oppdrag"
   }
 }

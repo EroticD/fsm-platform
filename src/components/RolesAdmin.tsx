@@ -4,7 +4,8 @@ import {
   deleteRole,
   updateRole,
 } from "@/app/innstillinger/role-actions";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, roleLabel } from "@/lib/permissions";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
 type RoleRow = {
   key: string;
@@ -39,6 +40,9 @@ export default async function RolesAdmin({
     new Set(PERMISSIONS.map((permission) => permission.group)),
   ).map((group) => ({
     group,
+    groupKey:
+      PERMISSIONS.find((permission) => permission.group === group)?.groupKey ??
+      "settings.permissions.groups.administration",
     permissions: PERMISSIONS.filter((permission) => permission.group === group),
   }));
 
@@ -57,10 +61,11 @@ export default async function RolesAdmin({
           </h2>
           <form action={createRole} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
+              <label htmlFor="role-new-label" className="block text-sm font-bold text-gray-700 mb-1">
                 {t("settings.roles.name")}
               </label>
               <input
+                id="role-new-label"
                 type="text"
                 name="label"
                 required
@@ -69,11 +74,12 @@ export default async function RolesAdmin({
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
+              <label htmlFor="role-new-description" className="block text-sm font-bold text-gray-700 mb-1">
                 {t("settings.roles.descriptionLabel")}{" "}
-                <span className="font-normal text-gray-400">{t("settings.roles.optional")}</span>
+                <span className="font-normal text-gray-600">{t("settings.roles.optional")}</span>
               </label>
               <input
+                id="role-new-description"
                 type="text"
                 name="description"
                 placeholder={t("settings.roles.descriptionPlaceholder")}
@@ -88,15 +94,15 @@ export default async function RolesAdmin({
                   key={group.group}
                   className="border border-gray-200 rounded-xl p-3"
                 >
-                  <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
-                    {group.group}
+                  <legend className="px-1 text-xs font-bold text-gray-600 uppercase">
+                    {t(group.groupKey)}
                   </legend>
                   <div className="space-y-2">
                     {group.permissions.map((permission) => (
                       <label
                         key={permission.key}
                         className="flex items-start gap-2 text-xs text-gray-700"
-                        title={permission.description}
+                        title={t(permission.descriptionKey)}
                       >
                         <input
                           type="checkbox"
@@ -105,9 +111,9 @@ export default async function RolesAdmin({
                           className="mt-0.5"
                         />
                         <span>
-                          <span className="font-semibold">{permission.label}</span>
-                          <span className="block text-[11px] text-gray-500">
-                            {permission.description}
+                          <span className="font-semibold">{t(permission.labelKey)}</span>
+                          <span className="block text-xs text-gray-600">
+                            {t(permission.descriptionKey)}
                           </span>
                         </span>
                       </label>
@@ -117,7 +123,7 @@ export default async function RolesAdmin({
               ))}
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
               {t("settings.roles.keyInfo")}
             </div>
 
@@ -153,14 +159,14 @@ export default async function RolesAdmin({
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-gray-900 flex flex-wrap items-center gap-2">
-                    {role.label}
+                    {role.isSystem ? roleLabel(role.key, t) : role.label}
                     {role.isSystem && (
-                      <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">
                         {t("settings.roles.system")}
                       </span>
                     )}
                   </h3>
-                  <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">
                     {role.key}
                   </p>
                   {role.description && (
@@ -168,7 +174,7 @@ export default async function RolesAdmin({
                       {role.description}
                     </p>
                   )}
-                  <p className="text-[11px] text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 mt-2">
                     👥 {t("settings.roles.stats", {
                       users: role.users,
                       permissions: role.permissions.length,
@@ -177,12 +183,19 @@ export default async function RolesAdmin({
                 </div>
 
                 {!role.isSystem && (
-                  <form action={deleteRole}>
+                  <ConfirmSubmitForm
+                    action={deleteRole}
+                    confirmMessage={t("components.confirm.deleteRole", {
+                      name: role.label,
+                    })}
+                    confirmLabel={t("components.confirm.deleteRoleLabel")}
+                    danger
+                  >
                     <input type="hidden" name="key" value={role.key} />
                     <button
                       type="submit"
                       disabled={role.users > 0}
-                      className="text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="text-xs font-bold bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
                       title={
                         role.users > 0
                           ? t("settings.roles.deleteBlocked")
@@ -191,7 +204,7 @@ export default async function RolesAdmin({
                     >
                       {t("settings.roles.deleteRole")}
                     </button>
-                  </form>
+                  </ConfirmSubmitForm>
                 )}
               </div>
 
@@ -203,10 +216,11 @@ export default async function RolesAdmin({
                   <input type="hidden" name="key" value={role.key} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                      <label htmlFor={`role-${role.key}-label`} className="block text-xs font-bold text-gray-700 mb-1">
                         {t("settings.roles.displayName")}
                       </label>
                       <input
+                        id={`role-${role.key}-label`}
                         type="text"
                         name="label"
                         required
@@ -215,10 +229,11 @@ export default async function RolesAdmin({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                      <label htmlFor={`role-${role.key}-description`} className="block text-xs font-bold text-gray-700 mb-1">
                         {t("settings.roles.descriptionLabel")}
                       </label>
                       <input
+                        id={`role-${role.key}-description`}
                         type="text"
                         name="description"
                         defaultValue={role.description ?? ""}
@@ -228,7 +243,7 @@ export default async function RolesAdmin({
                   </div>
 
                   {locked ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                       {role.key === "ADMIN"
                         ? t("settings.roles.adminLocked")
                         : t("settings.roles.customerLocked")}
@@ -240,15 +255,15 @@ export default async function RolesAdmin({
                           key={group.group}
                           className="border border-gray-200 rounded-xl p-3"
                         >
-                          <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
-                            {group.group}
+                          <legend className="px-1 text-xs font-bold text-gray-600 uppercase">
+                            {t(group.groupKey)}
                           </legend>
                           <div className="space-y-2">
                             {group.permissions.map((permission) => (
                               <label
                                 key={permission.key}
                                 className="flex items-start gap-2 text-xs text-gray-700"
-                                title={permission.description}
+                                title={t(permission.descriptionKey)}
                               >
                                 <input
                                   type="checkbox"
@@ -261,10 +276,10 @@ export default async function RolesAdmin({
                                 />
                                 <span>
                                   <span className="font-semibold">
-                                    {permission.label}
+                                    {t(permission.labelKey)}
                                   </span>
-                                  <span className="block text-[11px] text-gray-500">
-                                    {permission.description}
+                                  <span className="block text-xs text-gray-600">
+                                    {t(permission.descriptionKey)}
                                   </span>
                                 </span>
                               </label>

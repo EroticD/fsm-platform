@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import StatusBadge from "@/components/StatusBadge";
 import HmsTemplateCard from "@/components/hms/HmsTemplateCard";
 import { getHmsOverview } from "@/server/hms";
@@ -55,6 +55,7 @@ export default async function HmsPage({
   } = overview.data;
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const params = await searchParams;
   const errorKey = params.error ? ERROR_KEYS[params.error] : undefined;
 
@@ -93,7 +94,7 @@ export default async function HmsPage({
         {/* HEADER */}
         <div className="flex flex-col gap-4 border-b border-gray-300 pb-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-wider text-blue-700">
+            <p className="text-xs font-black uppercase tracking-wider text-blue-700">
               {t("hms.badge")}
             </p>
             <h1 className="text-2xl font-black text-gray-900 md:text-3xl">
@@ -129,7 +130,7 @@ export default async function HmsPage({
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800 transition hover:border-blue-300 hover:bg-blue-50"
             >
               {t(group.labelKey)}
-              <span className="rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] text-gray-600">
+              <span className="rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-xs text-gray-600">
                 {countByType.get(group.type) ?? 0}
               </span>
             </a>
@@ -194,7 +195,7 @@ export default async function HmsPage({
                     name="templateId"
                     required
                     defaultValue={params.template || ""}
-                    className="min-h-11 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900 outline-none focus:border-blue-600"
+                    className="min-h-11 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900 focus:border-blue-600"
                   >
                     <option value="" disabled>
                       {t("hms.link.selectTemplate")}
@@ -217,7 +218,7 @@ export default async function HmsPage({
                     name="workOrderId"
                     required
                     defaultValue=""
-                    className="min-h-11 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900 outline-none focus:border-blue-600"
+                    className="min-h-11 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900 focus:border-blue-600"
                   >
                     <option value="" disabled>
                       {t("hms.link.selectWorkOrder")}
@@ -346,11 +347,11 @@ export default async function HmsPage({
                 </p>
               </div>
             ) : (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto" tabIndex={0}>
                 <table className="w-full min-w-[720px] text-left text-sm">
                   <caption className="sr-only">{t("hms.recent.title")}</caption>
                   <thead>
-                    <tr className="border-b border-gray-200 text-[11px] uppercase tracking-wide text-gray-500">
+                    <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
                       <th scope="col" className="px-2 py-2 font-bold">
                         {t("hms.recent.workOrder")}
                       </th>
@@ -378,7 +379,7 @@ export default async function HmsPage({
                           >
                             {report.workOrder.title}
                           </Link>
-                          <p className="mt-0.5 text-[11px] text-gray-600">
+                          <p className="mt-0.5 text-xs text-gray-600">
                             {report.workOrder.customerId
                               ? `🏢 ${report.workOrder.customerName || t("hms.customerWorkOrder")}`
                               : `🏠 ${t("hms.internalWorkOrder")}`}
@@ -391,12 +392,17 @@ export default async function HmsPage({
                           <p className="font-medium text-gray-900">
                             {report.reportName || t("hms.recent.unknownReport")}
                           </p>
-                          <p className="text-[11px] text-gray-600">
+                          <p className="text-xs text-gray-600">
                             {typeLabel(report.hmsType)}
                           </p>
                         </td>
                         <td className="whitespace-nowrap px-2 py-3 text-gray-700">
-                          {formatDate(report.completedAt, t("hms.recent.noDate"))}
+                          {formatDateLocalized(
+                            report.completedAt,
+                            locale,
+                            undefined,
+                            t("hms.recent.noDate"),
+                          )}
                         </td>
                         <td className="px-2 py-3">
                           <StatusBadge status={report.workOrder.status} />
@@ -404,14 +410,14 @@ export default async function HmsPage({
                         <td className="px-2 py-3">
                           <div className="flex flex-col gap-1 text-xs font-bold">
                             <Link
-                              href={`/rapporter/${report.workOrder.id}`}
-                              className="text-blue-800 hover:underline"
+                              href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
+                              className="inline-flex min-h-6 items-center text-blue-800 hover:underline"
                             >
                               📄 {t("hms.recent.viewPdf")}
                             </Link>
                             <Link
                               href={workOrderHref(report.workOrder.id)}
-                              className="text-gray-700 hover:underline"
+                              className="inline-flex min-h-6 items-center text-gray-700 hover:underline"
                             >
                               📂 {t("hms.recent.openWorkOrder")}
                             </Link>

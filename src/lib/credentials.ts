@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
+import { cleanEmail } from "@/lib/sanitize";
 
 export type CredentialUser = {
   id: string;
@@ -37,7 +38,10 @@ export async function verifyCredentials(
   password: string,
   ip?: string
 ): Promise<CredentialResult> {
-  const keys = rateLimitKeys(email, ip);
+  // E-post er ikke case-sensitiv. Normaliser én gang, slik at både
+  // rate-limitnøkkelen, oppslaget og feilsøkingen bruker samme verdi.
+  const normalizedEmail = cleanEmail(email);
+  const keys = rateLimitKeys(normalizedEmail, ip);
 
   // Sperren ligger i databasen, slik at den gjelder på tvers av instanser.
   // Den sjekkes før brukeroppslaget, så gjetting ikke koster en bcrypt-runde.
@@ -55,9 +59,11 @@ export async function verifyCredentials(
     };
   }
 
-  if (!email || !password) return { status: "invalid" };
+  if (!normalizedEmail || !password) return { status: "invalid" };
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
   if (!user?.password) return { status: "invalid" };
 
   const passwordMatches = await bcrypt.compare(password, user.password);

@@ -12,10 +12,15 @@ import {
 
 const tagNamesSchema = z
   .array(z.string().trim().min(1).max(LIMITS.short))
-  .max(100, "For mange tags")
+  // Feilmeldingene er stabile nøkler, ikke ferdige setninger. Tjenestelaget
+  // returnerer egne feilkoder, og UI-en oversetter nøkkelen hvis den vises.
+  .max(100, "orders.errors.tooManyTags")
   .default([]);
 
-const idListSchema = z.array(idSchema).max(200, "For mange valgte rader").default([]);
+const idListSchema = z
+  .array(idSchema)
+  .max(200, "orders.errors.tooManyRows")
+  .default([]);
 
 /** Opprette et oppdrag fra kontoret. */
 export const workOrderCreateSchema = z
@@ -23,6 +28,9 @@ export const workOrderCreateSchema = z
     title: requiredText(LIMITS.title),
     orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
+    address: z.string().trim().max(LIMITS.line).optional().default(""),
+    postalCode: z.string().trim().max(LIMITS.short).optional().default(""),
+    city: z.string().trim().max(LIMITS.line).optional().default(""),
     departmentId: idSchema,
     customerId: optionalIdSchema,
     contactId: optionalIdSchema,
@@ -34,7 +42,10 @@ export const workOrderCreateSchema = z
   })
   .refine(
     (data) => !data.scheduledTo || data.scheduledTo >= data.scheduledFor,
-    { message: "Sluttdato kan ikke være før startdato", path: ["scheduledTo"] },
+    {
+      message: "orders.errors.endBeforeStart",
+      path: ["scheduledTo"],
+    },
   );
 
 /** Redigere et eksisterende oppdrag. */
@@ -44,6 +55,9 @@ export const workOrderUpdateSchema = z
     title: requiredText(LIMITS.title),
     orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
+    address: z.string().trim().max(LIMITS.line).optional().default(""),
+    postalCode: z.string().trim().max(LIMITS.short).optional().default(""),
+    city: z.string().trim().max(LIMITS.line).optional().default(""),
     departmentId: idSchema,
     // Kunden er valgfri også ved redigering, slik at interne oppdrag uten
     // kunde kan lagres uten å måtte knyttes til en kunde.
@@ -59,7 +73,10 @@ export const workOrderUpdateSchema = z
       !data.scheduledFor ||
       !data.scheduledTo ||
       data.scheduledTo >= data.scheduledFor,
-    { message: "Sluttdato kan ikke være før startdato", path: ["scheduledTo"] },
+    {
+      message: "orders.errors.endBeforeStart",
+      path: ["scheduledTo"],
+    },
   );
 
 /** Bytte status på et oppdrag. */
@@ -74,7 +91,7 @@ export const workOrderDateSchema = z
     newEnd: optionalDateOnlySchema,
   })
   .refine((data) => !data.newEnd || data.newEnd >= data.newDate, {
-    message: "Sluttdato kan ikke være før startdato",
+    message: "orders.errors.endBeforeStart",
     path: ["newEnd"],
   });
 

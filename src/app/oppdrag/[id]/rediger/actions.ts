@@ -20,6 +20,9 @@ export async function updateWorkOrder(formData: FormData) {
     title: formData.get("title"),
     orderNumber: formData.get("orderNumber"),
     description: formData.get("description"),
+    address: formData.get("address"),
+    postalCode: formData.get("postalCode"),
+    city: formData.get("city"),
     departmentId: formData.get("departmentId"),
     customerId: formData.get("customerId"),
     contactId: formData.get("contactId"),
@@ -30,15 +33,14 @@ export async function updateWorkOrder(formData: FormData) {
   });
 
   if (!result.ok) {
-    // Samme oppførsel som før: manglende tilgang avslutter stille, mens
-    // ugyldige data gir en synlig feilmelding i skjemaet.
-    if (result.error === "ugyldig-data") {
-      redirect(`/oppdrag/${workOrderId}/rediger?error=ugyldig-data`);
-    }
+    // Alle tjenestefeil skal bli en synlig melding i skjemaet – også
+    // duplikat ordrenummer og låste oppdrag, som før endte stille.
     if (result.error === "workorder-locked") {
       redirect(`/oppdrag/${workOrderId}?error=workorder-locked`);
     }
-    return;
+    redirect(
+      `/oppdrag/${workOrderId}/rediger?error=${encodeURIComponent(result.error)}`,
+    );
   }
 
   revalidatePath(`/oppdrag/${workOrderId}`);

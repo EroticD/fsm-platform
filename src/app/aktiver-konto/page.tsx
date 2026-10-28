@@ -182,8 +182,9 @@ export default async function ActivateAccountPage({
           <input type="hidden" name="token" value={token} />
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.activate.newPassword")}</label>
+            <label htmlFor="activate-password" className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.activate.newPassword")}</label>
             <input
+              id="activate-password"
               type="password"
               name="password"
               required
@@ -195,10 +196,11 @@ export default async function ActivateAccountPage({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
+            <label htmlFor="activate-confirm" className="block text-sm font-semibold text-gray-700 mb-1">
               {t("auth.activate.confirm")}
             </label>
             <input
+              id="activate-confirm"
               type="password"
               name="confirm"
               required

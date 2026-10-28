@@ -221,9 +221,30 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
         where: {
           templateCategory: "HMS",
           deletedAt: null,
-          workOrder: { departmentId: "dep-a", deletedAt: null },
+          workOrder: {
+            departmentId: "dep-a",
+            department: { isActive: true },
+            deletedAt: null,
+          },
         },
         take: 50,
+      }),
+    );
+  });
+
+  it("skjuler HMS-rapporter på kansellerte oppdrag for montører", async () => {
+    const result = await getHmsOverview(
+      actor(["templates.view", "reports.view"], { role: "TECHNICIAN" }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.report.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workOrder: expect.objectContaining({
+            status: { not: "CANCELLED" },
+          }),
+        }),
       }),
     );
   });
@@ -280,6 +301,7 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
       expect.objectContaining({
         where: {
           departmentId: "dep-a",
+          department: { isActive: true },
           deletedAt: null,
           status: { notIn: ["COMPLETED", "CANCELLED"] },
         },

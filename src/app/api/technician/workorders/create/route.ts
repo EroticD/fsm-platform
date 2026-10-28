@@ -11,13 +11,21 @@ import { createWorkOrder as createWorkOrderService } from "@/server/work-orders"
  * Ruten går gjennom den samme tjenesten som kontorets skjema, slik at
  * autorisasjon, validering, avdelingsscope og revisjonslogg aldri kommer ut av
  * sync. Den har i tillegg en egen per-bruker rate limit.
+ *
+ * Alle feil sendes tilbake til skjemaet som en synlig `?error=`-melding. Vi
+ * returnerer aldri rå JSON til en vanlig skjemainnsending – det ville etterlatt
+ * montøren på en hvit side uten vei tilbake.
  */
+function backToForm(request: Request, error: string) {
+  return NextResponse.redirect(
+    new URL(`/mine-oppdrag/ny?error=${encodeURIComponent(error)}`, request.url),
+    { status: 303 },
+  );
+}
+
 export async function POST(request: Request) {
   if (!assertSameOrigin(request)) {
-    return NextResponse.redirect(
-      new URL("/mine-oppdrag/ny?error=origin", request.url),
-      { status: 303 },
-    );
+    return backToForm(request, "origin");
   }
 
   const user = await getCurrentUser();
@@ -28,23 +36,14 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL("/", request.url));
   }
   if (!user.departmentId) {
-    return NextResponse.redirect(
-      new URL("/mine-oppdrag/ny?error=avdeling", request.url),
-      { status: 303 },
-    );
+    return backToForm(request, "avdeling");
   }
 
   // Maks 10 nye oppdrag per minutt per bruker. Skjemaet brukes manuelt, så
   // grensen treffes bare ved hamring eller en kompromittert konto.
   const limit = await allowRequestDb(`workorder-create:${user.id}`, 10, 60_000);
   if (!limit.allowed) {
-    return NextResponse.json(
-      { error: "For mange forespørsler" },
-      {
-        status: 429,
-        headers: { "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+    return backToForm(request, "rate-limit");
   }
 
   const formData = await request.formData();
@@ -53,6 +52,9 @@ export async function POST(request: Request) {
   const result = await createWorkOrderService(user, {
     title: formData.get("title"),
     description: formData.get("description"),
+    address: formData.get("address"),
+    postalCode: formData.get("postalCode"),
+    city: formData.get("city"),
     // Tjenesten bruker brukerens egen avdeling for ikke-administratorer.
     departmentId: user.departmentId,
     customerId: formData.get("customerId"),
@@ -66,16 +68,17 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
-    if (result.error === "avdeling") {
-      return NextResponse.redirect(
-        new URL("/mine-oppdrag/ny?error=avdeling", request.url),
-        { status: 303 },
-      );
-    }
     if (result.error === "ikke-tilgang") {
       return NextResponse.redirect(new URL("/", request.url));
     }
-    return NextResponse.json({ error: "Manglende eller ugyldig data" }, { status: 400 });
+    return backToForm(
+      request,
+      result.error === "avdeling" ||
+        result.error === "duplikat-ordrenummer" ||
+        result.error === "ugyldig-data"
+        ? result.error
+        : "ugyldig-data",
+    );
   }
 
   return NextResponse.redirect(new URL("/mine-oppdrag", request.url), { status: 303 });

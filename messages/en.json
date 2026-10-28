@@ -1,5 +1,41 @@
 {
   "common": {
+    "metadata": {
+      "title": "FSM platform",
+      "description": "Service and maintenance system for work orders, reports and equipment",
+      "applicationName": "FSM",
+      "appleTitle": "FSM",
+      "titleTemplate": "%s · FSM platform",
+      "routes": {
+        "oppdrag": "Work orders",
+        "kunder": "Customers",
+        "kalender": "Calendar",
+        "dokumenter": "Documents",
+        "rapporter": "Reports",
+        "sok": "Search",
+        "varsler": "Notifications",
+        "innstillinger": "Settings",
+        "mineOppdrag": "My work orders",
+        "kart": "Map"
+      }
+    },
+    "components": {
+      "search": {
+        "subtitles": {
+          "customerNumber": "#{number}",
+          "orgNumber": "Org. no. {number}",
+          "workOrderNumber": "Order no. {number}",
+          "noCustomer": "No customer",
+          "tags": "🏷️ {tags}",
+          "tagHint": "Show work orders with this tag",
+          "serialNumber": "SN {number}",
+          "reportHms": "HSE: {type}",
+          "templateKind": "Checklist / template",
+          "templateReportName": "Report name: {name}",
+          "folderHint": "Folder in the document library"
+        }
+      }
+    },
     "welcome": "Welcome",
     "welcomeAdmin": "Welcome, {{name}}",
     "menu": "Menu",
@@ -111,9 +147,9 @@
     "statusInProgress": "In progress",
     "statusCancelled": "Cancelled",
     "statusOpen": "Open / New",
-    "statusPending": "Waiting",
+    "statusPending": "Waiting to be planned",
     "statusPlanned": "Planned",
-    "statusWaiting": "Waiting",
+    "statusWaiting": "Waiting for customer",
     "technicians": "Technicians",
     "assignedTo": "Assigned to",
     "unassigned": "Unassigned",
@@ -432,12 +468,17 @@
       "calendar": "Calendar",
       "customers": "Customers",
       "documents": "Documents",
-      "equipment": "Equipment",
-      "reports": "Reports",
       "newWorkOrder": "New work order",
       "settings": "Settings",
       "customerPortal": "Customer portal",
-      "map": "Map"
+      "map": "Map",
+      "notifications": "Notifications",
+      "hms": "HMS",
+      "reports": "Reports",
+      "units": "Units",
+      "search": "Search",
+      "security": "Security",
+      "users": "Employees"
     },
     "loginErrorTwoFactorUnavailable": "Two-factor authentication is not configured correctly. Contact an administrator."
   }

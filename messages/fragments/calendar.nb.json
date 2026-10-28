@@ -11,7 +11,12 @@
       "noDate": "Ingen dato",
       "noCustomer": "Uten kunde",
       "loading": "Laster kalender...",
-      "loadingInteractive": "Laster interaktiv kalender..."
+      "loadingInteractive": "Laster interaktiv kalender...",
+      "reports": "Rapporter",
+      "viewSwitcher": "Bytt kalendervisning"
+    },
+    "legend": {
+      "title": "Statusfarger"
     },
     "page": {
       "title": "📅 Planlegging & Kontroll",
@@ -22,6 +27,7 @@
       "technicianOverview": "Montøroversikt",
       "activeCount": "{count} aktive",
       "noActive": "Ingen aktive oppdrag.",
+      "statusOpen": "Åpen",
       "statusPlanned": "Planlagt",
       "statusInProgress": "Påbegynt",
       "statusWaiting": "Venter",
@@ -60,6 +66,34 @@
       "update": "Oppdater",
       "viewDetails": "Se detaljer →",
       "empty": "Ingen åpne oppdrag å fordele.",
+      "unassignedLane": "Uten montør",
+      "laneEmpty": "Ingen oppdrag",
+      "dropHere": "Slipp her for å tildele {name}",
+      "assignTo": "Tildel montør",
+      "removeTechnician": "Fjern {name}",
+      "removeTechnicianAria": "Fjern {name} fra oppdraget",
+      "statusFor": "Status for {title}",
+      "boardHint": "Dra et oppdrag til en montørs kolonne for å tildele. Bruk nedtrekkslisten hvis du ikke bruker mus.",
+      "dayCount": "{count, plural, one {# oppdrag} other {# oppdrag}}",
+      "resultRange": "Viser {from}–{to} av {total} oppdrag",
+      "pagePrevious": "Forrige",
+      "pageNext": "Neste",
+      "pageOf": "Side {page} av {total}",
+      "pages": "Sider",
+      "rowErrorNoAccess": "Du har ikke tilgang til å endre dette oppdraget.",
+      "rowErrorInvalidData": "Feltene er ugyldige. Velg en montør og prøv igjen.",
+      "rowErrorNotFound": "Oppdraget finnes ikke lenger. Oppdater siden.",
+      "rowErrorUnknown": "Handlingen kunne ikke utføres. Prøv igjen.",
+      "filters": {
+        "dateFrom": "Fra dato",
+        "dateTo": "Til dato",
+        "search": "Søk",
+        "searchPlaceholder": "Tittel, kunde, adresse eller ordrenummer",
+        "apply": "Bruk filter",
+        "clear": "Nullstill",
+        "rangeError": "Fra-dato kan ikke være etter til-dato. Rett opp datoene for å se oppdrag.",
+        "dateError": "En av datoene er ugyldig. Bruk formatet ÅÅÅÅ-MM-DD."
+      },
       "roleAdmin": "Admin",
       "roleOffice": "Kontor",
       "roleTechnician": "Montør",
@@ -75,14 +109,24 @@
       "badgeOpen": "✨ Åpen",
       "badgePending": "⏳ Venter",
       "badgePlanned": "📅 Planlagt",
-      "badgeWaiting": "⏸️ Venter",
-      "statusPending": "Venter"
+      "badgeWaiting": "⏸️ Venter"
     },
     "client": {
       "today": "I dag",
       "month": "Måned",
       "week": "Uke",
       "saveError": "Kunne ikke lagre den nye datoen."
+    },
+    "a11y": {
+      "previous": "Forrige periode",
+      "next": "Neste periode",
+      "today": "Gå til i dag",
+      "keyboardTitle": "Tastaturalternativ",
+      "keyboardAlternative": "Bruker du tastatur? Åpne oppdraget i redigeringssiden for å endre dato.",
+      "keyboardAlternativeReadOnly": "Åpne oppdraget i listen for å se detaljer. Du kan ikke endre datoen her.",
+      "readOnlySubtitle": "Kalendervisning. Åpne et oppdrag for å se detaljer.",
+      "openInEditor": "Rediger dato",
+      "openWorkOrder": "Åpne oppdrag"
     }
   }
 }

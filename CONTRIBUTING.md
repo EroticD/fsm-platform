@@ -36,6 +36,14 @@ npm run lint             # eslint
 npm run build            # produksjonsbygg
 ```
 
+E2E-testene for de fire rollene krever `E2E_ADMIN_EMAIL/PASSWORD`,
+`E2E_OFFICE_EMAIL/PASSWORD`, `E2E_TECHNICIAN_EMAIL/PASSWORD` og
+`E2E_CUSTOMER_EMAIL/PASSWORD`. Kopier [`.env.e2e.example`](.env.e2e.example) til
+`.env.e2e.local`, opprett den isolerte databasen `fsm_ui_e2e`, kjør
+migrasjonene mot den og deretter `npm run seed:e2e`. Skriptet er destruktivt
+bare for demodataene i E2E-databasen og skal **aldri** kjøres mot produksjon.
+Se «E2E og skjermbilder» i [README.md](README.md) for hele flyten.
+
 Integrasjonstestene hoppes over med mindre `TEST_DATABASE_URL` er satt (eller
 `CI=true`). Lag en egen database og kjør migrasjonene først:
 
@@ -79,6 +87,39 @@ migrasjonene gir samme skjema som `prisma/schema.prisma`.
   autorisasjon, kalenderhendelser). Se `src/lib/*.test.ts`.
 - **Ingen hemmeligheter eller persondata** i kode, tester, logger eller
   skjermbilder. Bruk `.env` og syntetiske testdata.
+
+## Terminologi og oversettelser
+
+UI-teksten er norsk som standard. Engelsk er en fullverdig oversettelse, men
+norske fagbegreper skal ikke «oversettes» til noe annet i den norske kilden.
+
+| Norsk | Engelsk | Betydning |
+| --- | --- | --- |
+| oppdrag | work order | Selve entiteten (ikke «jobb» eller «sak» i UI) |
+| montør | technician | Intern person/ansatt som utfører oppdrag |
+| tekniker | technician (external) | Ekstern person hos kunde/leverandør; ikke det samme som montør |
+| kundens ordrenummer | customer order number | Kundenes egen referanse, lagret i `orderNumber` |
+
+Unntak: **HMS** og **SJA** beholdes som norske forkortelser i begge språk
+(engelsk UI bruker «HSE»/«SJA» der det er etablert). HMS-malene er i tillegg
+seed-data i databasen og redigeres som maler i appen; selve malinnholdet er
+derfor norsk uavhengig av grensesnittspråket.
+
+Når du legger til tekst:
+
+- Legg nøkler i `messages/nb.json`, `messages/en.json` eller riktig fragment,
+  og hold nb/en i par. `npm run check:i18n` feiler ved manglende nøkler.
+- Metadata: bruk `getTranslations("common")` og `metadata.*`-nøklene, ikke
+  hardkodede titler i `layout.tsx` eller `page.tsx`.
+- Revisjonsloggen lagrer stabile norske handlingsstrenger. Nye handlinger skal
+  legges inn i mønsteroversettelsen i `src/lib/audit-actions.ts` og få nb/en-
+  tekster under `auditActions.*`.
+- Valideringsfeil fra zod skal være stabile koder/nøkler (for eksempel
+  `orders.errors.endBeforeStart`), ikke ferdige setninger. Oversett ved
+  visning.
+- `node scripts/check-i18n.mjs --strict` feiler også på hardkodede norske
+  strenger og ubrukte nøkler. Bevisste unntak markeres med
+  `i18n-ignore-file` øverst i filen og en kort begrunnelse.
 
 ## Lisens på bidrag
 

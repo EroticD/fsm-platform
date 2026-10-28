@@ -1,3 +1,4 @@
+@import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
 :root {
@@ -7,12 +8,50 @@
   --background: #ffffff;
   --foreground: #171717;
   --primary-color: #2563eb;
+  /* Lesbar tekst oppå primærfargen. Layout overstyrer denne når kunden har
+     valgt egen merkevarefarge. */
+  --primary-foreground: #ffffff;
+  /* Fast fokusringfarge med god kontrast mot hvite flater. */
+  --focus-ring: #2563eb;
+  /* Minste lesbare tekststørrelse for brukervendt tekst. */
+  --text-min: 0.75rem;
+}
+
+/*
+ * Synlig tastaturfokus for alle interaktive elementer.
+ *
+ * Regelen ligger utenfor Tailwind-laget, slik at den også vinner over
+ * `outline-none`-klasser på komponenter som bare har en svak hover- eller
+ * border-endring. Museklikk gir fortsatt ingen ring, fordi vi bruker
+ * `:focus-visible`.
+ */
+:where(
+  a[href],
+  button:not(:disabled),
+  input:not([type="hidden"]),
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [contenteditable="true"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary-color);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-focus-ring: var(--focus-ring);
+  /* Tailwind-utility for den minste tillatte tekststørrelsen (12 px). */
+  --text-2xs: var(--text-min);
+  --text-2xs--line-height: 1rem;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -20,7 +59,8 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
 }
 
 /* Respekter operativsystemets ønske om mindre bevegelse. */
@@ -35,10 +75,30 @@ body {
   }
 }
 
+/* Horisontalt rullbare fanestriper klipper en ytre fokusring. Hold ringen
+   innenfor kanten på fanelenkene, slik at den alltid er synlig. */
+[data-settings-tabs] a:focus-visible {
+  outline-offset: -2px;
+}
+
 /* Tilstrekkelig store trykkflater på berøringsskjermer. */
 @media (pointer: coarse) {
+  a[href],
   button,
-  [role="button"] {
+  [role="button"],
+  input,
+  select,
+  textarea,
+  summary {
+    /* Bare min-height, ikke fast bredde: da kan lenker i løpende tekst
+       fortsatt brytes over flere linjer uten at layouten ødelegges. */
     min-height: 44px;
+  }
+
+  /* Avkrysningsbokser og radioknapper skal beholde liten visuell størrelse;
+     de ligger normalt inne i en label med større trykkflate. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: auto;
   }
 }

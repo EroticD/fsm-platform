@@ -34,6 +34,8 @@ export default function CustomerSelect({
   contacts = [],
   optional = false,
   hideLabel = false,
+  persistenceKey,
+  restoreSelection = true,
 }: {
   /** Et lite startutvalg, slik at listen har innhold før man søker. */
   customers?: CustomerOption[];
@@ -44,6 +46,13 @@ export default function CustomerSelect({
   optional?: boolean;
   /** Skjul den innebygde etiketten når skjemaet har sin egen. */
   hideLabel?: boolean;
+  /**
+   * Nøkkel for å huske valgt kunde over en redirect etter valideringsfeil.
+   * Uten denne nullstilles visningen selv om skjemaet fortsatt har customerId.
+   */
+  persistenceKey?: string;
+  /** Bare gjenopprett et lagret valg når skjemaet vises etter en feil. */
+  restoreSelection?: boolean;
 }) {
   const t = useTranslations("common");
   const listboxId = useId();
@@ -64,6 +73,39 @@ export default function CustomerSelect({
   const [contactsLoading, setContactsLoading] = useState(false);
   const requestRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const selectionStorageKey = persistenceKey
+    ? `${persistenceKey}:selected-customer`
+    : null;
+
+  // Gjenopprett visningen av valgt kunde etter en feilredirect. Selve
+  // customerId ligger allerede i skjemaet, men uten dette ville panelet sett
+  // tomt ut selv om oppdraget faktisk opprettes på riktig kunde.
+  useEffect(() => {
+    if (!selectionStorageKey) return;
+
+    let restored: CustomerOption | null = null;
+    try {
+      if (!restoreSelection) {
+        sessionStorage.removeItem(selectionStorageKey);
+      } else if (!selectedCustomer) {
+        const saved = sessionStorage.getItem(selectionStorageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved) as CustomerOption;
+          if (parsed?.id && parsed?.name) restored = parsed;
+        }
+      }
+    } catch {
+      // Ugyldig lagring skal ikke hindre kundesøket.
+    }
+
+    if (!restored) return;
+    const customerToRestore = restored;
+    // Utsatt til etter første render, så server- og klientmarkup er like.
+    const timer = window.setTimeout(() => setSelected(customerToRestore), 0);
+    return () => window.clearTimeout(timer);
+    // Bare ved første visning; senere valg styres av komponenten selv.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const query = search.trim();
   // Uten søketekst vises startutvalget med den valgte kunden først.
@@ -161,6 +203,13 @@ export default function CustomerSelect({
     setIsOpen(false);
     setActiveIndex(-1);
     setContactsLoading(true);
+    if (selectionStorageKey) {
+      try {
+        sessionStorage.setItem(selectionStorageKey, JSON.stringify(customer));
+      } catch {
+        // Lagring kan være utilgjengelig; valget fungerer fortsatt i skjemaet.
+      }
+    }
     // Vis kjente kontakter med en gang, og la effekten erstatte dem med
     // det serveren returnerer.
     setContactOptions(
@@ -234,6 +283,13 @@ export default function CustomerSelect({
               setContactOptions([]);
               setContactsLoading(false);
               setIsOpen(true);
+              if (selectionStorageKey) {
+                try {
+                  sessionStorage.removeItem(selectionStorageKey);
+                } catch {
+                  // Ignorer utilgjengelig lagring.
+                }
+              }
             }}
             className="min-h-9 shrink-0 rounded-lg border border-blue-300 bg-white px-3 text-xs font-bold text-blue-800 hover:bg-blue-100"
           >
@@ -270,7 +326,7 @@ export default function CustomerSelect({
         }}
         onFocus={() => setIsOpen(true)}
         onKeyDown={onKeyDown}
-        className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
       />
 
       {isOpen && (
@@ -361,7 +417,7 @@ export default function CustomerSelect({
                   ? (selectedContactId ?? "")
                   : ""
               }
-              className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-blue-600"
+              className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 shadow-sm focus:border-blue-600"
             >
               <option value="">{t("orders.customerSelect.noContactOption")}</option>
               {contactOptions.map((contact) => (

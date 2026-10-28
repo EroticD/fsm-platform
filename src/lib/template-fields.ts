@@ -33,6 +33,9 @@ export type CleanedTemplateField = {
   required: boolean;
   options?: string[];
   commentOptions?: string[];
+  /** Vis feltet bare når et annet felt har en bestemt verdi. */
+  conditionalFieldId?: string;
+  conditionalValue?: string;
 };
 
 const cleanList = (value: unknown): string[] | undefined => {
@@ -59,6 +62,19 @@ export function cleanTemplateField(raw: unknown): CleanedTemplateField | null {
 
   const label = cleanText(field.label, { maxLength: LIMITS.title });
 
+  // Betingede felt må peke på et annet, gyldig felt-id. Selve koblingen
+  // valideres mot hele listen i `cleanTemplateFieldsJson`, slik at et felt
+  // ikke kan bli stående usynlig fordi kildefeltet er slettet.
+  const conditionalFieldId =
+    typeof field.conditionalFieldId === "string" &&
+    FIELD_ID.test(field.conditionalFieldId) &&
+    field.conditionalFieldId !== id
+      ? field.conditionalFieldId
+      : undefined;
+  const conditionalValue = conditionalFieldId
+    ? cleanText(field.conditionalValue, { maxLength: LIMITS.title })
+    : "";
+
   return {
     id,
     type,
@@ -66,6 +82,7 @@ export function cleanTemplateField(raw: unknown): CleanedTemplateField | null {
     required: field.required === true,
     options: cleanList(field.options),
     commentOptions: type === "STATUS" ? cleanList(field.commentOptions) : undefined,
+    ...(conditionalFieldId ? { conditionalFieldId, conditionalValue } : {}),
   };
 }
 
@@ -86,5 +103,18 @@ export function cleanTemplateFieldsJson(raw: unknown): string {
     .filter((field): field is CleanedTemplateField => field !== null)
     .slice(0, 100);
 
-  return JSON.stringify(fields);
+  // Kast betingelser som peker på et felt som ikke finnes i den rensede listen.
+  // Da kan et felt aldri bli permanent skjult på grunn av en slettet trigger.
+  const ids = new Set(fields.map((field) => field.id));
+  const valid = fields.map((field) => {
+    if (!field.conditionalFieldId || ids.has(field.conditionalFieldId)) {
+      return field;
+    }
+    const { conditionalFieldId, conditionalValue, ...rest } = field;
+    void conditionalValue;
+    if (!conditionalFieldId) return field;
+    return rest;
+  });
+
+  return JSON.stringify(valid);
 }

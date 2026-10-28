@@ -105,14 +105,38 @@ export async function toggleDepartment(formData: FormData) {
   // Standardavdelingen kan ikke deaktiveres uten at en annen er valgt først.
   if (!active && department.isDefault) return;
 
-  await prisma.department.update({ where: { id }, data: { isActive: active } });
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Department",
-      entityId: id,
-      action: `${active ? "Aktiverte" : "Deaktiverte"} avdeling: ${department.name}`,
-      userName: await actorName(),
-    },
+  const actor = await actorName();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.department.update({ where: { id }, data: { isActive: active } });
+
+    // Deaktivering skal faktisk stoppe operativ tilgang. Oppdrags- og
+    // montørspørringene krever en aktiv avdeling, og eksisterende økter
+    // ugyldiggjøres slik at en åpen fane ikke fortsetter med gammel tilstand.
+    // Kontoene beholdes, slik at avdelingen kan aktiveres igjen senere.
+    let deactivatedUsers = 0;
+    if (!active) {
+      const result = await tx.user.updateMany({
+        where: { departmentId: id },
+        data: {
+          sessionVersion: { increment: 1 },
+          calendarTokenHash: null,
+          calendarTokenCreatedAt: null,
+          calendarTokenLastUsedAt: null,
+        },
+      });
+      deactivatedUsers = result.count;
+    }
+
+    await tx.auditLog.create({
+      data: {
+        entityType: "Department",
+        entityId: id,
+        action: `${active ? "Aktiverte" : "Deaktiverte"} avdeling: ${department.name}`,
+        userName: actor,
+        metadata: active ? undefined : { deactivatedUsers },
+      },
+    });
   });
   revalidateDepartments();
 }

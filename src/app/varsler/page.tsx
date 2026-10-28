@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
+import { parsePage } from "@/lib/pagination";
 import { listNotifications } from "@/server/notifications";
-import { notificationHrefForUser } from "@/lib/notification-links";
 import NotificationCard from "./NotificationCard";
-import { markAllReadAction } from "./actions";
+import { markAllReadFormAction } from "./actions";
 
 type NotificationItem = {
   id: string;
@@ -13,10 +14,14 @@ type NotificationItem = {
   title: string;
   body: string | null;
   sourceLabel: string | null;
-  href: string | null;
   readAt: Date | null;
   createdAt: Date;
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.varsler") };
+}
 
 export default async function NotificationsPage({
   searchParams,
@@ -28,10 +33,13 @@ export default async function NotificationsPage({
   if (!user) redirect("/api/auth/signin");
 
   const params = await searchParams;
-  const page = Math.max(1, Number(params.p) || 1);
+  const requestedPage = parsePage(params.p);
   const unreadOnly = params.u === "1";
 
-  const result = await listNotifications(user, { page, unreadOnly });
+  const result = await listNotifications(user, {
+    page: requestedPage,
+    unreadOnly,
+  });
   if (!result.ok) redirect("/");
 
   const data = result.data as {
@@ -42,13 +50,14 @@ export default async function NotificationsPage({
     totalPages: number;
   };
 
-  // Kundeportalbrukere skal ikke sendes til kontorets oppdragssider.
-  const hrefFor = (notification: NotificationItem): string | null =>
-    notificationHrefForUser(
-      user.role,
-      notification.type,
-      notification.href,
-    );
+  // Behold filteret når man blar. Første side har ingen `p`-parameter.
+  const pageLink = (target: number) => {
+    const query = new URLSearchParams();
+    if (unreadOnly) query.set("u", "1");
+    if (target > 1) query.set("p", String(target));
+    const qs = query.toString();
+    return `/varsler${qs ? `?${qs}` : ""}`;
+  };
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-5 p-4 sm:p-6">
@@ -73,7 +82,7 @@ export default async function NotificationsPage({
             {unreadOnly ? t("p3.notifications.all") : t("p3.notifications.unreadOnly")}
           </Link>
           {data.unread > 0 && (
-            <form action={markAllReadAction}>
+            <form action={markAllReadFormAction}>
               <button
                 type="submit"
                 className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
@@ -97,36 +106,52 @@ export default async function NotificationsPage({
             <NotificationCard
               key={notification.id}
               notification={notification}
-              href={hrefFor(notification)}
             />
           ))}
         </ul>
       )}
 
       {data.totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <Link
-            href={`/varsler?${new URLSearchParams({
-              ...(unreadOnly ? { u: "1" } : {}),
-              p: String(Math.max(1, data.page - 1)),
-            }).toString()}`}
-            className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
-          >
-            {t("p3.notifications.previous")}
-          </Link>
-          <span className="text-gray-500">
+        <nav
+          aria-label={t("p3.notifications.paginationAria")}
+          className="flex items-center justify-between gap-3 text-sm"
+        >
+          {data.page > 1 ? (
+            <Link
+              href={pageLink(data.page - 1)}
+              aria-label={t("p3.notifications.previousAria")}
+              className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
+            >
+              {t("p3.notifications.previous")}
+            </Link>
+          ) : (
+            <span
+              aria-disabled="true"
+              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-600"
+            >
+              {t("p3.notifications.previous")}
+            </span>
+          )}
+          <span className="text-gray-600">
             {t("p3.notifications.pageOf", { page: data.page, pages: data.totalPages })}
           </span>
-          <Link
-            href={`/varsler?${new URLSearchParams({
-              ...(unreadOnly ? { u: "1" } : {}),
-              p: String(Math.min(data.totalPages, data.page + 1)),
-            }).toString()}`}
-            className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
-          >
-            {t("p3.notifications.next")}
-          </Link>
-        </div>
+          {data.page < data.totalPages ? (
+            <Link
+              href={pageLink(data.page + 1)}
+              aria-label={t("p3.notifications.nextAria")}
+              className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
+            >
+              {t("p3.notifications.next")}
+            </Link>
+          ) : (
+            <span
+              aria-disabled="true"
+              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-600"
+            >
+              {t("p3.notifications.next")}
+            </span>
+          )}
+        </nav>
       )}
     </div>
   );

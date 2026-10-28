@@ -64,9 +64,17 @@ Aktuelle områder:
 - Oppdrag myk-slettes og skjules fra alle lister, søk, portal, kalender og PDF.
   Automatisk hard sletting skjer først etter `RETENTION_DAYS` og aldri når
   oppdraget eller en rapport har `legalHold`.
+- Myk sletting av en kunde deaktiverer alle kundeportalbrukerne, øker
+  `sessionVersion`, fjerner iCal-tokens og stenger booking/eksport. Ved
+  gjenoppretting må hver portalbruker aktiveres bevisst på nytt; de
+  reaktiveres aldri automatisk.
+- Rapport-PDF-er ligger som `WORK_ORDER`-opplastinger, men krever
+  `reports.view` i tillegg til oppdragstilgang. `/uploads` svarer med
+  `private, no-store` slik at tilbakekalt tilgang ikke overlever i en cache.
 - Reverse proxyen må overskrive `Host`, `X-Forwarded-Host`,
   `X-Forwarded-Proto` og `X-Forwarded-For`. Appen stoler bare på
   `x-forwarded-proto` når `TRUST_PROXY=true`.
 - Ta sikkerhetskopier med `scripts/backup.sh`. Bruk `BACKUP_AGE_RECIPIENT` for
   kryptering og `BACKUP_REMOTE` for kopi til ekstern lagring. Kjør
-  `scripts/restore-test.sh` månedlig.
+  `scripts/restore-test.sh` månedlig – den dekrypterer med `AGE_IDENTITY` og
+  verifiserer også opplastingsarkivet. Se `docs/OPERATIONS.md`.

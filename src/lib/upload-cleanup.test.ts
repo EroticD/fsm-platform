@@ -104,9 +104,7 @@ describe("releaseUpload", () => {
       { storedName: "gammel.pdf" },
       { storedName: "brukt.pdf" },
     ]);
-    mocks.prisma.upload.deleteMany
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 });
+    mocks.prisma.upload.deleteMany.mockResolvedValueOnce({ count: 1 });
     mocks.prisma.reportDraft.findFirst
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: "draft-1" });
@@ -117,7 +115,46 @@ describe("releaseUpload", () => {
     expect(mocks.prisma.upload.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          ownerType: { in: ["USER", "DOCUMENT"] },
+          ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER"] },
+        }),
+      }),
+    );
+  });
+
+  it("inkluderer forlatte WORK_ORDER-opplastinger, men beholder refererte filer", async () => {
+    mocks.prisma.upload.findMany.mockResolvedValue([
+      { storedName: "forlatt.jpg" },
+      { storedName: "vedlegg.jpg" },
+    ]);
+    mocks.prisma.attachment.findFirst.mockImplementation(
+      async (args: { where: { dataUrl: string } }) =>
+        args.where.dataUrl.includes("vedlegg") ? { id: "att-1" } : null,
+    );
+    for (const model of [
+      mocks.prisma.customerAttachment,
+      mocks.prisma.document,
+      mocks.prisma.documentVersion,
+      mocks.prisma.report,
+      mocks.prisma.reportUnit,
+      mocks.prisma.reportRevision,
+      mocks.prisma.reportDraft,
+    ]) {
+      model.findFirst.mockResolvedValue(null);
+    }
+    let deletes = 0;
+    mocks.prisma.upload.deleteMany.mockImplementation(async () => {
+      deletes += 1;
+      return { count: deletes === 1 ? 1 : 0 };
+    });
+
+    const result = await cleanupAbandonedUploads({ olderThanHours: 48 });
+
+    expect(mocks.prisma.upload.deleteMany).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ checked: 2, released: 1 });
+    expect(mocks.prisma.upload.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER"] },
         }),
       }),
     );

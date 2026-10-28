@@ -252,34 +252,42 @@ export default function MarkdownEditor({
   };
 
   const inputId = id ?? `markdown-${name}`;
+  const previewId = `${inputId}-preview`;
 
   return (
     <div className={className}>
       <div className="rounded-xl border border-gray-300 bg-white focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-300">
-        <div className="flex flex-wrap items-center gap-0.5 border-b border-gray-200 px-1.5 py-1">
+        <div
+          role="toolbar"
+          aria-label={t("components.markdown.toolbar")}
+          className="flex flex-wrap items-center gap-0.5 border-b border-gray-200 px-1.5 py-1"
+        >
           {buttons.map((button) => (
             <button
               key={button.title}
               type="button"
               title={button.title}
               aria-label={button.title}
+              aria-controls={inputId}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runButton(button)}
               disabled={disabled}
-              className="min-w-7 rounded px-1.5 py-1 font-mono text-xs text-gray-700 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40"
+              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded px-1.5 py-1 font-mono text-xs text-gray-700 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40"
             >
-              {button.label}
+              <span aria-hidden>{button.label}</span>
             </button>
           ))}
           <button
             type="button"
             onClick={() => setPreview((current) => !current)}
             aria-pressed={preview}
-            className={`ml-auto rounded px-2 py-1 text-xs font-semibold ${
+            aria-controls={preview ? previewId : undefined}
+            className={`ml-auto inline-flex min-h-9 items-center rounded px-2 py-1 text-xs font-semibold ${
               preview ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            👁 {t("components.markdown.preview")}
+            <span aria-hidden>👁</span>{" "}
+            {t("components.markdown.preview")}
           </button>
         </div>
 
@@ -295,17 +303,17 @@ export default function MarkdownEditor({
           placeholder={placeholder}
           onChange={(event) => update(event.target.value)}
           onKeyDown={onKeyDown}
-          className="w-full resize-y rounded-b-xl px-3 py-2 font-mono text-sm text-gray-900 outline-none disabled:bg-gray-100 disabled:text-gray-500"
+          className="w-full resize-y rounded-b-xl px-3 py-2 font-mono text-sm text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
         />
       </div>
 
       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span>
           {t("components.markdown.supports")}{" "}
-          <code className="rounded bg-gray-100 px-1">**fet**</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">==utheving==</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">- liste</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">&gt; [!tips]</code>
+          <code className="rounded bg-gray-100 px-1 text-gray-900">**fet**</code>,{" "}
+          <code className="rounded bg-gray-100 px-1 text-gray-900">==utheving==</code>,{" "}
+          <code className="rounded bg-gray-100 px-1 text-gray-900">- liste</code>,{" "}
+          <code className="rounded bg-gray-100 px-1 text-gray-900">&gt; [!tips]</code>
         </span>
         <a
           href="https://obsidian.md/help/syntax"
@@ -318,11 +326,11 @@ export default function MarkdownEditor({
       </div>
 
       {preview && (
-        <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3">
+        <div id={previewId} className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3">
           {value.trim() ? (
             <MarkdownView value={value} />
           ) : (
-            <p className="text-sm text-gray-400">{t("components.markdown.nothingToPreview")}</p>
+            <p className="text-sm text-gray-600">{t("components.markdown.nothingToPreview")}</p>
           )}
         </div>
       )}

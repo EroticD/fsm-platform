@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 /** Slår sammen raske hendelser til én oppdatering. */
 const REFRESH_DEBOUNCE_MS = 300;
@@ -31,6 +32,9 @@ export function reconnectDelayMs(attempt: number): number {
  */
 export default function RealtimeRefresh() {
   const router = useRouter();
+  const t = useTranslations("common");
+  const [paused, setPaused] = useState(false);
+  const retryRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     let source: EventSource | null = null;
@@ -98,6 +102,10 @@ export default function RealtimeRefresh() {
     const connect = () => {
       if (disposed) return;
       clearReconnect();
+      retryRef.current = () => {
+        reconnectAttempts = 0;
+        connect();
+      };
 
       // Vi lukker selv på feil og prøver på nytt med tak. EventSource sin
       // automatiske retry ville ellers fortsatt i det uendelige på 401/403.
@@ -106,6 +114,7 @@ export default function RealtimeRefresh() {
 
       current.addEventListener("open", () => {
         reconnectAttempts = 0;
+        setPaused(false);
       });
       current.addEventListener("refresh", onRefresh);
       current.addEventListener("error", () => {
@@ -113,7 +122,12 @@ export default function RealtimeRefresh() {
         current.close();
         if (source === current) source = null;
 
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          // Etter flere mislykkede forsøk gir vi opp automatisk reconnect.
+          // Brukeren får en synlig status og kan prøve igjen selv.
+          setPaused(true);
+          return;
+        }
         reconnectAttempts += 1;
         reconnectTimer = setTimeout(connect, reconnectDelayMs(reconnectAttempts));
       });
@@ -132,5 +146,26 @@ export default function RealtimeRefresh() {
     };
   }, [router]);
 
-  return null;
+  if (!paused) return null;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-4 left-4 z-[65] flex max-w-[min(92vw,24rem)] items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950 shadow-lg"
+    >
+      <span aria-hidden="true">⏸️</span>
+      <span className="flex-1">{t("components.realtime.paused")}</span>
+      <button
+        type="button"
+        onClick={() => {
+          setPaused(false);
+          retryRef.current();
+        }}
+        className="rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-100"
+      >
+        {t("components.realtime.retry")}
+      </button>
+    </div>
+  );
 }

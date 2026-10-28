@@ -16,7 +16,7 @@ import {
   searchDocuments,
   searchNormalizedIds,
   searchReports,
-  searchWorkOrderIds,
+  searchWorkOrderIdsWithTotal,
   type DocumentSearchRow,
   type NameSearchRow,
 } from "@/lib/search-sql";
@@ -26,18 +26,55 @@ export type { SearchFilters } from "@/lib/search-filters";
 export type SearchItem = {
   id: string;
   title: string;
+  /**
+   * Utdatert reservefelt. Nye kallsteder skal bruke `subtitleParts` (eller
+   * `subtitleKey`) og oversette ved visning. Feltet beholdes bare for eldre
+   * konsumenter i overgangen.
+   */
   subtitle?: string;
+  /** i18n-nøkkel for en enkel undertittel, relativ til `common`. */
+  subtitleKey?: string;
+  /** Parametre til `subtitleKey`. */
+  subtitleParams?: Record<string, string | number>;
+  /**
+   * Sammensatt undertittel. Hver del er enten en i18n-nøkkel med parametre
+   * eller rå data som allerede er på riktig språk (navn, datoer, fritekst).
+   */
+  subtitleParts?: SearchSubtitlePart[];
   href: string;
+  /**
+   * Direkte fil-/PDF-lenke når hovedtreffet peker på en visningsside. Vises
+   * som en sekundær handling og åpnes i ny fane.
+   */
+  directHref?: string;
+  /** i18n-nøkkel for den sekundære handlingen. */
+  directLabelKey?: string;
   /** Relevans 0–1. Høyere er bedre. */
   score?: number;
 };
 
+export type SearchSubtitlePart = {
+  /** i18n-nøkkel relativ til `common`. Utelates for rå data. */
+  key?: string;
+  params?: Record<string, string | number>;
+  /** Rå, allerede formatert data (navn, dato, brukerinnhold). */
+  text?: string;
+};
+
 export type SearchGroup = {
   kind: string;
+  /** Utdatert reserveetikett; bruk `labelKey` og oversett ved visning. */
   label: string;
+  /** i18n-nøkkel for gruppeetiketten, relativ til `common`. */
+  labelKey?: string;
   icon: string;
-  /** Antall treff i gruppen før paginering. */
+  /** Antall treff i gruppen. Se `capped` når kandidatgrensen er nådd. */
   total: number;
+  /**
+   * Sann når det finnes flere treff enn kandidatgrensen. Da er `total` et
+   * eksplisitt tak (ikke et løgnaktig nøyaktig tall), og UI kan vise «N+».
+   */
+  capped?: boolean;
   items: SearchItem[];
 };
 
@@ -45,6 +82,8 @@ export type SearchResults = {
   query: string;
   total: number;
   groups: SearchGroup[];
+  /** Sann når minst én gruppe er begrenset av kandidatgrensen. */
+  capped?: boolean;
   tookMs?: number;
 };
 
@@ -58,6 +97,8 @@ export type SearchOptions = {
   /** Antall treff per gruppe. Nedtrekket bruker 5, /sok bruker 20. */
   pageSize?: number;
   filters?: SearchFilters;
+  /** Intern sti som treffene kan bruke som «tilbake»-mål. */
+  returnTo?: string;
 };
 
 const DEFAULT_PAGE_SIZE = 5;
@@ -65,23 +106,6 @@ const MAX_PAGE_SIZE = 50;
 /** Hvor mange kandidater vi henter per gruppe før fuzzy-rangering. */
 const CANDIDATES = 500;
 const MAX_QUERY_LENGTH = 100;
-
-const STATUS_LABELS: Record<string, string> = {
-  PLANNED: "Planlagt",
-  IN_PROGRESS: "Påbegynt",
-  WAITING: "Venter",
-  COMPLETED: "Fullført",
-  PENDING: "Venter",
-  CANCELLED: "Kansellert",
-  OPEN: "Åpen",
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Administrator",
-  OFFICE: "Kontor",
-  TECHNICIAN: "Montør",
-  CUSTOMER: "Kundeportal",
-};
 
 /** Rekkefølgen gruppene vises i når relevansen er lik. */
 const GROUP_ORDER = [
@@ -100,6 +124,41 @@ const GROUP_ORDER = [
 
 function joinInfo(parts: (string | null | undefined | false)[]) {
   return parts.filter(Boolean).join(" • ");
+}
+
+/** Filtrerer bort tomme undertitteldeler. */
+function subtitleParts(
+  ...entries: Array<SearchSubtitlePart | null | undefined | false>
+): SearchSubtitlePart[] {
+  return entries.filter(
+    (entry): entry is SearchSubtitlePart =>
+      Boolean(entry && (entry.key || entry.text)),
+  );
+}
+
+function statusPart(status: string): SearchSubtitlePart {
+  return { key: `components.search.statuses.${status}` };
+}
+
+const ROLE_KEY: Record<string, string> = {
+  ADMIN: "roleAdmin",
+  OFFICE: "roleOffice",
+  TECHNICIAN: "roleTechnician",
+  CUSTOMER: "roleCustomer",
+};
+
+/** Bare interne stier kan brukes som returmål; aldri en ekstern URL. */
+function safeReturnTo(value: string | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw.length > 1000) return null;
+  if (raw.includes("\\") || /[\u0000-\u001f]/.test(raw)) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function withReturnTo(href: string, returnTo: string | null): string {
+  if (!returnTo) return href;
+  return `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(returnTo)}`;
 }
 
 /** Fjerner ts_headline-markeringene (<b> … </b>) før teksten vises som ren tekst. */
@@ -142,6 +201,29 @@ function mergeHits(...lists: NameSearchRow[][]): MergedHits {
 }
 
 /**
+ * Antall treff før LIMIT. SQL-funksjonene returnerer `COUNT(*) OVER()` på
+ * hver rad, slik at vi får et ekte totaltall uten en ekstra telling.
+ */
+function rowsTotal(rows: Array<{ total?: number | bigint | null }>): number {
+  return Number(rows[0]?.total ?? 0) || 0;
+}
+
+/**
+ * Et gruppetotal som aldri påstår mer enn vi faktisk kan paginere til.
+ * Er det flere treff enn kandidatgrensen, markeres gruppen som `capped`.
+ */
+function boundedTotal(
+  exact: number,
+  sourceTotal = exact,
+): { total: number; capped: boolean } {
+  const available = Math.max(exact, sourceTotal);
+  if (available > CANDIDATES) {
+    return { total: CANDIDATES, capped: true };
+  }
+  return { total: Math.min(exact, CANDIDATES), capped: false };
+}
+
+/**
  * Kjernesøkelogikken — brukes av både det globale hurtigsøket (/api/search)
  * og søkeresultatsiden (/sok).
  *
@@ -170,6 +252,7 @@ export async function performSearch(
 
   const includeCancelled = options.includeCancelled ?? false;
   const user = options.user;
+  const returnTo = safeReturnTo(options.returnTo);
   const selectedTypes = filters.types ? new Set(filters.types) : null;
   const wants = (kind: string) => !selectedTypes || selectedTypes.has(kind);
 
@@ -242,6 +325,7 @@ export async function performSearch(
   const [
     customerNameHits,
     customerCityHits,
+    customerNormalizedHits,
     productModelHits,
     productNormalizedHits,
     contactHits,
@@ -262,6 +346,12 @@ export async function performSearch(
     wants("customer") && canCustomers
       ? searchByName("Customer", "city", originalQuery, CANDIDATES)
       : Promise.resolve([] as NameSearchRow[]),
+    // Alle feltene på kundekortet: navn, kundenummer, orgnummer, telefon,
+    // e-post, adresse, postnummer, sted og notater. Kontaktpersoner matcher
+    // også kunden via `matchContacts` i search-sql.
+    wants("customer") && canCustomers
+      ? searchNormalizedIds("Customer", q, CANDIDATES)
+      : Promise.resolve([] as NameSearchRow[]),
     wants("unit") && canEquipment
       ? searchByName("Product", "model", originalQuery, CANDIDATES)
       : Promise.resolve([] as NameSearchRow[]),
@@ -281,8 +371,12 @@ export async function performSearch(
       ? searchBySubstring("WorkOrder", "orderNumber", q, CANDIDATES)
       : Promise.resolve([] as NameSearchRow[]),
     wants("workOrder") && canWorkOrders
-      ? searchWorkOrderIds(q, CANDIDATES).then((ids) =>
-          ids.map((id, index) => ({ id, score: Math.max(0.3, 1 - index / CANDIDATES) })),
+      ? searchWorkOrderIdsWithTotal(q, CANDIDATES).then(({ ids, total }) =>
+          ids.map((id, index) => ({
+            id,
+            score: Math.max(0.3, 1 - index / CANDIDATES),
+            total,
+          })),
         )
       : Promise.resolve([] as NameSearchRow[]),
     wants("tag") && canWorkOrders
@@ -305,17 +399,38 @@ export async function performSearch(
       : Promise.resolve([] as NameSearchRow[]),
   ]);
 
-  // Rapporter har eget fulltekstsøk som også returnerer ekte totaltall.
+  // Rapporter har eget fulltekstsøk som også returnerer ekte totaltall. Her
+  // pagineres det i databasen med OFFSET, slik at side 30 ikke blir tom selv
+  // om det finnes tusenvis av treff.
   const reportHits =
     wants("report") && canReports
       ? await searchReports(originalQuery, {
-          limit: fetchLimit,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
           includeCancelled,
           filters,
         })
       : [];
 
-  const customerHits = mergeHits(customerNameHits, customerCityHits);
+  // OFFSET forbi siste treff gir ingen rader, og da finnes ikke totalen i
+  // radene. Gjør ett billig probe-kall slik at gruppen fortsatt viser riktig
+  // total i stedet for å forsvinne på en ugyldig sideside.
+  let reportTotal = reportHits[0]?.total ?? 0;
+  if (reportHits.length === 0 && page > 1 && wants("report") && canReports) {
+    const probe = await searchReports(originalQuery, {
+      limit: 1,
+      offset: 0,
+      includeCancelled,
+      filters,
+    });
+    reportTotal = probe[0]?.total ?? 0;
+  }
+
+  const customerHits = mergeHits(
+    customerNameHits,
+    customerCityHits,
+    customerNormalizedHits,
+  );
   const productHits = mergeHits(productModelHits, productNormalizedHits);
   const workOrderHits = mergeHits(
     workOrderTitleHits,
@@ -329,7 +444,6 @@ export async function performSearch(
   const templateHitsMerged = mergeHits(templateHits);
   const folderHitsMerged = mergeHits(folderHits);
   const commentHitsMerged = mergeHits(commentHits);
-  const reportScores = new Map(reportHits.map((hit) => [hit.id, Number(hit.score) || 0]));
 
   const workOrderFilter = workOrderFilterWhere(filters);
   const tagFilter = filters.tag ? { name: filters.tag } : undefined;
@@ -497,6 +611,10 @@ export async function performSearch(
         city: true,
         phone: true,
         email: true,
+        address: true,
+        postalCode: true,
+        // Notater brukes bare til rangering og vises aldri i trefflisten.
+        notes: true,
       },
       take: fetchLimit,
     }),
@@ -548,17 +666,30 @@ export async function performSearch(
       orderBy: { name: "asc" },
       take: fetchLimit,
     }),
-    prisma.report.findMany({
-      where: reportWhere,
-      include: {
-        template: { select: { title: true } },
-        workOrder: {
-          select: { id: true, title: true, customer: { select: { name: true } } },
-        },
-      },
-      orderBy: { completedAt: "desc" },
-      take: fetchLimit,
-    }),
+    canReports && wants("report")
+      ? prisma.report.findMany({
+          where: reportWhere,
+          include: {
+            template: { select: { title: true } },
+            workOrder: {
+              select: {
+                id: true,
+                title: true,
+                customer: { select: { name: true } },
+                reports: {
+                  where: { deletedAt: null },
+                  select: { id: true },
+                  // Nok til å avgjøre om oppdraget har én eller flere
+                  // sjekklister; selve PDF-en rendres avgrenset senere.
+                  take: 50,
+                },
+              },
+            },
+          },
+          orderBy: { completedAt: "desc" },
+          take: fetchLimit,
+        })
+      : Promise.resolve([]),
     prisma.comment.findMany({
       where: commentWhere,
       include: {
@@ -597,19 +728,76 @@ export async function performSearch(
       },
       take: fetchLimit,
     }),
-    prisma.customer.count({ where: customerWhere }),
-    prisma.contact.count({ where: contactWhere }),
-    prisma.product.count({ where: productWhere }),
-    prisma.workOrder.count({ where: workOrderWhere }),
-    prisma.tag.count({ where: tagWhere }),
-    prisma.user.count({ where: userWhere }),
-    prisma.template.count({ where: templateWhere }),
-    prisma.documentFolder.count({ where: folderWhere }),
-    prisma.comment.count({ where: commentWhere }),
-    prisma.document.count({ where: documentWhere }),
+    canCustomers && wants("customer")
+      ? prisma.customer.count({ where: customerWhere })
+      : Promise.resolve(0),
+    canCustomers && wants("contact")
+      ? prisma.contact.count({ where: contactWhere })
+      : Promise.resolve(0),
+    canEquipment && wants("unit")
+      ? prisma.product.count({ where: productWhere })
+      : Promise.resolve(0),
+    canWorkOrders && wants("workOrder")
+      ? prisma.workOrder.count({ where: workOrderWhere })
+      : Promise.resolve(0),
+    canWorkOrders && wants("tag")
+      ? prisma.tag.count({ where: tagWhere })
+      : Promise.resolve(0),
+    canUsers && wants("user")
+      ? prisma.user.count({ where: userWhere })
+      : Promise.resolve(0),
+    canTemplates && wants("template")
+      ? prisma.template.count({ where: templateWhere })
+      : Promise.resolve(0),
+    canDocuments && wants("folder")
+      ? prisma.documentFolder.count({ where: folderWhere })
+      : Promise.resolve(0),
+    (canWorkOrders || canCustomers) && wants("comment")
+      ? prisma.comment.count({ where: commentWhere })
+      : Promise.resolve(0),
+    canDocuments && wants("document")
+      ? prisma.document.count({ where: documentWhere })
+      : Promise.resolve(0),
   ]);
 
   const documentById = new Map(documentRows.map((hit) => [hit.id, hit]));
+
+  // Ekte kandidattall fra SQL (COUNT(*) OVER()). For grupper som slår sammen
+  // flere kilder er unionen aldri større enn summen, men kildetallet er nok
+  // til å vite om vi har nådd kandidatgrensen. Da viser vi et eksplisitt tak i
+  // stedet for et totaltall brukeren aldri kan paginere til.
+  const totals = {
+    customer: boundedTotal(
+      customerTotal,
+      Math.max(
+        rowsTotal(customerNameHits),
+        rowsTotal(customerCityHits),
+        rowsTotal(customerNormalizedHits),
+      ),
+    ),
+    contact: boundedTotal(contactTotal, rowsTotal(contactHits)),
+    unit: boundedTotal(
+      productTotal,
+      Math.max(rowsTotal(productModelHits), rowsTotal(productNormalizedHits)),
+    ),
+    workOrder: boundedTotal(
+      workOrderTotal,
+      Math.max(
+        rowsTotal(workOrderTitleHits),
+        rowsTotal(workOrderTitleSubstringHits),
+        rowsTotal(workOrderNumberHits),
+        rowsTotal(workOrderNormalizedHits),
+      ),
+    ),
+    tag: boundedTotal(tagTotal, rowsTotal(tagHits)),
+    user: boundedTotal(userTotal, rowsTotal(userHits)),
+    template: boundedTotal(templateTotal, rowsTotal(templateHits)),
+    folder: boundedTotal(folderTotal, rowsTotal(folderHits)),
+    comment: boundedTotal(commentTotal, rowsTotal(commentHits)),
+    document: boundedTotal(documentTotal, rowsTotal(documentRows)),
+    // Rapporter pagineres i databasen og har alltid et ekte totaltall.
+    report: { total: reportTotal, capped: false },
+  };
 
   type Scored<T> = { item: T; score: number };
 
@@ -648,7 +836,7 @@ export async function performSearch(
   }
 
   const rankedCustomers = pageItems(
-    rank(customers, (c) => c.id, (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email], customerHits.scores),
+    rank(customers, (c) => c.id, (c) => [c.name, c.customerNumber, c.orgNumber, c.city, c.phone, c.email, c.address, c.postalCode, c.notes], customerHits.scores),
   );
   const rankedContacts = pageItems(
     rank(contacts, (c) => c.id, (c) => [c.name, c.email, c.phone, c.role, c.customer?.name], contactHitsMerged.scores),
@@ -675,22 +863,14 @@ export async function performSearch(
   const rankedTags = pageItems(
     rank(tags, (tag) => tag.id, (tag) => [tag.name], tagHitsMerged.scores),
   );
-  const rankedReports = pageItems(
-    rank(
-      reports,
-      (r) => r.id,
-      (r) => [
-        r.reportNumber,
-        r.name,
-        r.templateTitle,
-        r.template?.title,
-        r.workOrder.title,
-        r.workOrder.customer?.name,
-        r.comments,
-        r.hmsType,
-      ],
-      reportScores,
-    ),
+  const reportById = new Map(reports.map((report) => [report.id, report]));
+  // Reportsøket er allerede paginert i SQL. Behold SQL-rekkefølgen og ikke
+  // paginer på nytt i JS, ellers ville side 2 blitt tom.
+  const rankedReports: Scored<(typeof reports)[number]>[] = reportHits.flatMap(
+    (hit) => {
+      const item = reportById.get(hit.id);
+      return item ? [{ item, score: Number(hit.score) || 0 }] : [];
+    },
   );
   const rankedComments = pageItems(
     rank(
@@ -722,18 +902,30 @@ export async function performSearch(
     {
       kind: "customer",
       label: "Kunder",
+      labelKey: "components.search.groups.customer",
       icon: "🏢",
-      total: customerTotal,
+      total: totals.customer.total,
+      capped: totals.customer.capped,
       items: rankedCustomers.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
-        subtitle: joinInfo([
-          c.customerNumber && `#${c.customerNumber}`,
-          c.orgNumber && `Org.nr ${c.orgNumber}`,
-          c.city,
-          c.phone,
-          c.email,
-        ]),
+        subtitleParts: subtitleParts(
+          c.customerNumber
+            ? {
+                key: "components.search.subtitles.customerNumber",
+                params: { number: c.customerNumber },
+              }
+            : null,
+          c.orgNumber
+            ? {
+                key: "components.search.subtitles.orgNumber",
+                params: { number: c.orgNumber },
+              }
+            : null,
+          c.city ? { text: c.city } : null,
+          c.phone ? { text: c.phone } : null,
+          c.email ? { text: c.email } : null,
+        ),
         href: `/kunder/${c.id}`,
         score,
       })),
@@ -741,18 +933,43 @@ export async function performSearch(
     {
       kind: "workOrder",
       label: "Oppdrag",
+      labelKey: "components.search.groups.workOrder",
       icon: "📂",
-      total: workOrderTotal,
+      total: totals.workOrder.total,
+      capped: totals.workOrder.capped,
       items: rankedWorkOrders.map(({ item: wo, score }) => ({
         id: wo.id,
         title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
+        // Utdatert reservefelt for eldre konsumenter (bl.a. eksisterende
+        // tester). UI-en bruker subtitleParts og oversetter ved visning.
         subtitle: joinInfo([
-          wo.orderNumber ? `Ordrenr. ${wo.orderNumber}` : null,
-          wo.customer?.name ?? "Uten kunde",
-          STATUS_LABELS[wo.status] ?? wo.status,
+          wo.orderNumber,
+          wo.customer?.name,
+          wo.status,
           formatDate(wo.scheduledFor),
-          wo.tags.length > 0 ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}` : null,
+          wo.tags.length > 0
+            ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}`
+            : null,
         ]),
+        subtitleParts: subtitleParts(
+          wo.orderNumber
+            ? {
+                key: "components.search.subtitles.workOrderNumber",
+                params: { number: wo.orderNumber },
+              }
+            : null,
+          wo.customer?.name
+            ? { text: wo.customer.name }
+            : { key: "components.search.subtitles.noCustomer" },
+          statusPart(wo.status),
+          wo.scheduledFor ? { text: formatDate(wo.scheduledFor) } : null,
+          wo.tags.length > 0
+            ? {
+                key: "components.search.subtitles.tags",
+                params: { tags: wo.tags.map((tag) => tag.name).join(", ") },
+              }
+            : null,
+        ),
         href: `/oppdrag/${wo.id}`,
         score,
       })),
@@ -760,12 +977,14 @@ export async function performSearch(
     {
       kind: "tag",
       label: "Tagger",
+      labelKey: "components.search.groups.tag",
       icon: "🏷️",
-      total: tagTotal,
+      total: totals.tag.total,
+      capped: totals.tag.capped,
       items: rankedTags.map(({ item: tag, score }) => ({
         id: tag.id,
         title: tag.name,
-        subtitle: "Vis oppdrag med denne taggen",
+        subtitleKey: "components.search.subtitles.tagHint",
         href: `/oppdrag?tag=${encodeURIComponent(tag.name)}`,
         score,
       })),
@@ -773,12 +992,23 @@ export async function performSearch(
     {
       kind: "unit",
       label: "Enheter",
+      labelKey: "components.search.groups.unit",
       icon: "🔧",
-      total: productTotal,
+      total: totals.unit.total,
+      capped: totals.unit.capped,
       items: rankedUnits.map(({ item: p, score }) => ({
         id: p.id,
         title: p.model,
-        subtitle: joinInfo([p.customer?.name, p.serialNumber && `SN ${p.serialNumber}`, p.location]),
+        subtitleParts: subtitleParts(
+          p.customer?.name ? { text: p.customer.name } : null,
+          p.serialNumber
+            ? {
+                key: "components.search.subtitles.serialNumber",
+                params: { number: p.serialNumber },
+              }
+            : null,
+          p.location ? { text: p.location } : null,
+        ),
         href: `/kunder/${p.customerId}?tab=enheter`,
         score,
       })),
@@ -786,12 +1016,19 @@ export async function performSearch(
     {
       kind: "contact",
       label: "Kontaktpersoner",
+      labelKey: "components.search.groups.contact",
       icon: "👤",
-      total: contactTotal,
+      total: totals.contact.total,
+      capped: totals.contact.capped,
       items: rankedContacts.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
-        subtitle: joinInfo([c.customer?.name, c.role, c.phone, c.email]),
+        subtitleParts: subtitleParts(
+          c.customer?.name ? { text: c.customer.name } : null,
+          c.role ? { text: c.role } : null,
+          c.phone ? { text: c.phone } : null,
+          c.email ? { text: c.email } : null,
+        ),
         href: `/kunder/${c.customerId}?tab=kontakter`,
         score,
       })),
@@ -799,25 +1036,49 @@ export async function performSearch(
     {
       kind: "report",
       label: "Rapporter",
+      labelKey: "components.search.groups.report",
       icon: "📋",
-      total: canReports && wants("report") ? (reportHits[0]?.total ?? 0) : 0,
+      total: totals.report.total,
+      capped: totals.report.capped,
       items: rankedReports.map(({ item: r, score }) => {
         const reportHit = reportHits.find((hit) => hit.id === r.id);
         const snippet = snippetText(reportHit?.snippet);
+        // Når oppdraget bare har én rapport, er den kombinerte PDF-en og
+        // enkeltrapporten samme dokument. Da beholder vi den korte URL-en.
+        const singleReport = r.workOrder.reports.length === 1;
+        const reportHref = singleReport
+          ? `/rapporter/${r.workOrderId}`
+          : `/rapporter/${r.workOrderId}?rapport=${encodeURIComponent(r.id)}`;
+        const directHref = singleReport
+          ? `/api/rapporter/${r.workOrderId}/pdf`
+          : `/api/rapporter/${r.workOrderId}/pdf?rapport=${encodeURIComponent(r.id)}`;
         return {
           id: r.id,
           title: joinInfo([
             r.reportNumber ? `#${r.reportNumber}` : null,
-            r.name ?? r.templateTitle ?? r.template?.title ?? "Rapport",
+            r.name ?? r.templateTitle ?? r.template?.title,
             r.workOrder.title,
           ]),
-          subtitle: joinInfo([
-            r.workOrder.customer?.name,
-            snippet ? snippet.slice(0, 100) : r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null,
-            r.hmsType ? `HMS: ${r.hmsType}` : null,
-            formatDate(r.completedAt),
-          ]),
-          href: `/rapporter/${r.workOrderId}`,
+          subtitleParts: subtitleParts(
+            r.workOrder.customer?.name
+              ? { text: r.workOrder.customer.name }
+              : null,
+            snippet
+              ? { text: snippet.slice(0, 100) }
+              : r.comments
+                ? { text: markdownToPlainText(r.comments).slice(0, 80) }
+                : null,
+            r.hmsType
+              ? {
+                  key: "components.search.subtitles.reportHms",
+                  params: { type: r.hmsType },
+                }
+              : null,
+            { text: formatDate(r.completedAt) },
+          ),
+          href: withReturnTo(reportHref, returnTo),
+          directHref,
+          directLabelKey: "components.search.openPdf",
           score,
         };
       }),
@@ -825,8 +1086,10 @@ export async function performSearch(
     {
       kind: "comment",
       label: "Kommentarer",
+      labelKey: "components.search.groups.comment",
       icon: "💬",
-      total: commentTotal,
+      total: totals.comment.total,
+      capped: totals.comment.capped,
       items: rankedComments.map(({ item: c, score }) => {
         const href = c.workOrderId
           ? `/oppdrag/${c.workOrderId}`
@@ -839,11 +1102,18 @@ export async function performSearch(
         return {
           id: c.id,
           title: text.length > 90 ? `${text.slice(0, 90)}…` : text,
-          subtitle: joinInfo([
-            c.workOrder?.title ?? c.customer?.name ?? c.contact?.name,
-            c.authorName,
-            formatDate(c.createdAt),
-          ]),
+          subtitleParts: subtitleParts(
+            c.workOrder?.title ?? c.customer?.name ?? c.contact?.name
+              ? {
+                  text:
+                    c.workOrder?.title ??
+                    c.customer?.name ??
+                    c.contact?.name,
+                }
+              : null,
+            c.authorName ? { text: c.authorName } : null,
+            { text: formatDate(c.createdAt) },
+          ),
           href,
           score,
         };
@@ -852,29 +1122,52 @@ export async function performSearch(
     {
       kind: "user",
       label: "Brukere",
+      labelKey: "components.search.groups.user",
       icon: "👥",
-      total: userTotal,
+      total: totals.user.total,
+      capped: totals.user.capped,
       items: rankedUsers.map(({ item: u, score }) => ({
         id: u.id,
-        title: u.name || u.email || "Uten navn",
-        subtitle: joinInfo([u.roleDefinition?.label ?? ROLE_LABELS[u.role] ?? u.role, u.email]),
-        href: u.customerId ? `/kunder/${u.customerId}?tab=portal` : "/innstillinger?tab=ansatte",
+        title: u.name || u.email || u.id,
+        subtitleParts: subtitleParts(
+          u.roleDefinition?.label
+            ? { text: u.roleDefinition.label }
+            : ROLE_KEY[u.role]
+              ? { key: ROLE_KEY[u.role] }
+              : { text: u.role },
+          u.email ? { text: u.email } : null,
+        ),
+        href: u.customerId
+          ? `/kunder/${u.customerId}?tab=kontakter`
+          : "/innstillinger?tab=ansatte",
         score,
       })),
     },
     {
       kind: "template",
       label: "Sjekklister",
+      labelKey: "components.search.groups.template",
       icon: "🧾",
-      total: templateTotal,
+      total: totals.template.total,
+      capped: totals.template.capped,
       items: rankedTemplates.map(({ item: t, score }) => ({
         id: t.id,
         title: t.title,
-        subtitle: joinInfo([
-          "Sjekkliste / mal",
-          t.reportName && `Rapportnavn: ${t.reportName}`,
-          t.hmsType && `HMS: ${t.hmsType}`,
-        ]),
+        subtitleParts: subtitleParts(
+          { key: "components.search.subtitles.templateKind" },
+          t.reportName
+            ? {
+                key: "components.search.subtitles.templateReportName",
+                params: { name: t.reportName },
+              }
+            : null,
+          t.hmsType
+            ? {
+                key: "components.search.subtitles.reportHms",
+                params: { type: t.hmsType },
+              }
+            : null,
+        ),
         href: `/innstillinger/maler/${t.id}`,
         score,
       })),
@@ -882,12 +1175,14 @@ export async function performSearch(
     {
       kind: "folder",
       label: "Mapper",
+      labelKey: "components.search.groups.folder",
       icon: "📁",
-      total: folderTotal,
+      total: totals.folder.total,
+      capped: totals.folder.capped,
       items: rankedFolders.map(({ item: f, score }) => ({
         id: f.id,
         title: f.name,
-        subtitle: "Mappe i dokumentbiblioteket",
+        subtitleKey: "components.search.subtitles.folderHint",
         href: `/dokumenter?folder=${f.id}`,
         score,
       })),
@@ -895,18 +1190,42 @@ export async function performSearch(
     {
       kind: "document",
       label: "Dokumenter",
+      labelKey: "components.search.groups.document",
       icon: "📚",
-      total: documentTotal,
+      total: totals.document.total,
+      capped: totals.document.capped,
       items: rankedDocuments.map(({ item: d, score }) => {
         const hit = documentById.get(d.id);
+        // Bare filer i opplastingsmappen kan åpnes direkte. Dokumenttreffet
+        // skal ellers gå til dokumentbiblioteket, ikke til råfilen.
+        const directHref = d.filePath.startsWith("/uploads/")
+          ? d.filePath
+          : undefined;
+        const documentSnippet =
+          d.description?.slice(0, 60) ??
+          snippetText(hit?.snippet)?.slice(0, 80);
         return {
           id: d.id,
           title: d.title,
-          subtitle: joinInfo([
-            d.tags.map((tag) => tag.name).join(", "),
-            d.description?.slice(0, 60) ?? snippetText(hit?.snippet)?.slice(0, 80),
-          ]),
-          href: d.filePath,
+          subtitleParts: subtitleParts(
+            d.tags.length > 0
+              ? {
+                  key: "components.search.subtitles.tags",
+                  params: { tags: d.tags.map((tag) => tag.name).join(", ") },
+                }
+              : null,
+            documentSnippet ? { text: documentSnippet } : null,
+          ),
+          href: withReturnTo(
+            `/dokumenter?doc=${encodeURIComponent(d.id)}`,
+            returnTo,
+          ),
+          ...(directHref
+            ? {
+                directHref,
+                directLabelKey: "components.search.openFile",
+              }
+            : {}),
           score,
         };
       }),
@@ -922,5 +1241,11 @@ export async function performSearch(
   });
 
   const total = groups.reduce((sum, group) => sum + group.total, 0);
-  return { query: originalQuery, total, groups, tookMs: Date.now() - started };
+  return {
+    query: originalQuery,
+    total,
+    groups,
+    capped: groups.some((group) => group.capped),
+    tookMs: Date.now() - started,
+  };
 }

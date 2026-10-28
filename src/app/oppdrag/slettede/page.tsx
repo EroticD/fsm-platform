@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { restoreWorkOrder } from "./actions";
 
@@ -16,6 +16,7 @@ export default async function DeletedWorkOrdersPage() {
   if (user.role !== "ADMIN") redirect("/oppdrag");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   const orders = await prisma.workOrder.findMany({
     where: { deletedAt: { not: null } },
@@ -64,7 +65,7 @@ export default async function DeletedWorkOrdersPage() {
                     🏢 {order.customer?.name || t("orders.list.noCustomer")}
                     {order.deletedAt
                       ? ` • ${t("orders.detail.deletedAt", {
-                          date: formatDate(order.deletedAt),
+                          date: formatDateLocalized(order.deletedAt, locale),
                         })}`
                       : ""}
                   </p>

@@ -1,6 +1,7 @@
-import CopyButton from "@/components/CopyButton";
+import InviteActionForm from "@/components/InviteActionForm";
 import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
+import type { InviteActionState } from "@/lib/invite-action-state";
 import CustomerTabPanel from "./CustomerTabPanel";
 
 type PortalTabProps = {
@@ -9,12 +10,15 @@ type PortalTabProps = {
   portalUsers: CustomerDetailData["portalUsers"];
   office: boolean;
   portalError: string | null;
-  inviteUser?: CustomerDetailData["portalUsers"][number];
-  inviteUrl: string | null;
-  mail?: string;
-  createPortalUser: (formData: FormData) => Promise<void>;
+  createPortalUser: (
+    state: InviteActionState,
+    formData: FormData,
+  ) => Promise<InviteActionState>;
   setPortalUserActive: (formData: FormData) => Promise<void>;
-  resendPortalInvite: (formData: FormData) => Promise<void>;
+  resendPortalInvite: (
+    state: InviteActionState,
+    formData: FormData,
+  ) => Promise<InviteActionState>;
 };
 
 export default async function CustomerPortalTab({
@@ -23,14 +27,18 @@ export default async function CustomerPortalTab({
   portalUsers,
   office,
   portalError,
-  inviteUser,
-  inviteUrl,
-  mail,
   createPortalUser,
   setPortalUserActive,
   resendPortalInvite,
 }: PortalTabProps) {
   const t = await getTranslations("common");
+  const inviteLabels = {
+    ready: t("customers.portal.inviteReady", { name: "{name}" }),
+    sent: t("customers.portal.inviteSent"),
+    manual: t("customers.portal.inviteManual"),
+    copy: t("customers.portal.copyLink"),
+    error: t("customers.portal.inviteFailed"),
+  };
 
   if (!office) return null;
 
@@ -45,49 +53,24 @@ export default async function CustomerPortalTab({
         </div>
       )}
 
-      {inviteUser && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <p className="text-sm font-bold text-green-900 mb-1">
-            ✅ {t("customers.portal.inviteReady", {
-              name:
-                inviteUser.name ||
-                inviteUser.email ||
-                t("customers.portal.noName"),
-            })}
-          </p>
-          <p className="text-xs text-green-800 mb-3">
-            {mail === "sent"
-              ? t("customers.portal.inviteSent")
-              : t("customers.portal.inviteManual")}
-          </p>
-          {inviteUrl ? (
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              <input
-                readOnly
-                value={inviteUrl}
-                className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs text-gray-700 font-mono"
-              />
-              <CopyButton value={inviteUrl} label={t("customers.portal.copyLink")} />
-            </div>
-          ) : (
-            <p className="text-xs text-red-700 font-bold">
-              {t("customers.portal.noValidLink")}
-            </p>
-          )}
-        </div>
-      )}
-
       {contacts.length === 0 ? (
         <p className="text-xs text-gray-500 italic bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3">
           {t("customers.portal.addContactFirst")}
         </p>
       ) : (
-        <form action={createPortalUser} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <InviteActionForm
+          action={createPortalUser}
+          formClassName="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200"
+          submitLabel={t("customers.portal.createAndInvite")}
+          buttonClassName="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
+          labels={inviteLabels}
+        >
           <input type="hidden" name="customerId" value={customerId} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.name")} *</label>
+              <label htmlFor="portal-user-name" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.name")} *</label>
               <input
+                id="portal-user-name"
                 type="text"
                 name="name"
                 required
@@ -96,8 +79,9 @@ export default async function CustomerPortalTab({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.email")} *</label>
+              <label htmlFor="portal-user-email" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.email")} *</label>
               <input
+                id="portal-user-email"
                 type="email"
                 name="email"
                 required
@@ -107,8 +91,9 @@ export default async function CustomerPortalTab({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.contact")} *</label>
+            <label htmlFor="portal-user-contact" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.contact")} *</label>
             <select
+              id="portal-user-contact"
               name="contactId"
               required
               defaultValue=""
@@ -123,13 +108,7 @@ export default async function CustomerPortalTab({
               ))}
             </select>
           </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
-          >
-            {t("customers.portal.createAndInvite")}
-          </button>
-        </form>
+        </InviteActionForm>
       )}
 
       {portalUsers.length > 0 && (
@@ -150,7 +129,7 @@ export default async function CustomerPortalTab({
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${
                         u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
                       }`}
                     >
@@ -159,35 +138,36 @@ export default async function CustomerPortalTab({
                         : t("customers.portal.inactive")}
                     </span>
                     {!u.password && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-200 text-gray-600">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase bg-gray-200 text-gray-600">
                         {t("customers.portal.missingPassword")}
                       </span>
                     )}
                     {hasPendingInvite && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-blue-100 text-blue-800">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase bg-blue-100 text-blue-800">
                         {t("customers.portal.invited")}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <form action={resendPortalInvite}>
+                  <InviteActionForm
+                    action={resendPortalInvite}
+                    wrapperClassName="contents"
+                    submitLabel={`🔗 ${t("customers.portal.newLink")}`}
+                    buttonClassName="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
+                    bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
+                    labels={inviteLabels}
+                  >
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={u.id} />
-                    <button
-                      type="submit"
-                      className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
-                    >
-                      🔗 {t("customers.portal.newLink")}
-                    </button>
-                  </form>
+                  </InviteActionForm>
                   <form action={setPortalUserActive}>
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={u.id} />
                     <input type="hidden" name="active" value={u.isActive ? "false" : "true"} />
                     <button
                       type="submit"
-                      className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition ${
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
                         u.isActive
                           ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                           : "bg-green-600 text-white border-green-600 hover:bg-green-700"
