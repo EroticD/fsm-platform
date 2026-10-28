@@ -210,9 +210,8 @@ export default async function TechnicianWorkOrderPage({
                 <ConfirmSubmitForm
                   action={updateStatus}
                   confirmMessage={t("orders.fieldDetail.cancelConfirm")}
-                  confirmWhen={(formData) =>
-                    formData.get("status") === "CANCELLED"
-                  }
+                  confirmWhenField="status"
+                  confirmWhenValue="CANCELLED"
                   className="flex items-center gap-2 flex-wrap"
                 >
                   <input type="hidden" name="workOrderId" value={workOrderId} />

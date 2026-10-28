@@ -13,7 +13,8 @@ export default function ConfirmSubmitForm({
   action,
   confirmMessage,
   className,
-  confirmWhen,
+  confirmWhenField,
+  confirmWhenValue,
   children,
 }: {
   action: (formData: FormData) => void | Promise<void>;
@@ -22,8 +23,12 @@ export default function ConfirmSubmitForm({
   /**
    * Vurder om skjemaet faktisk krever bekreftelse. Brukes for handlinger der
    * bare noen valg er destruktive, f.eks. statusendring til «Kansellert».
+   *
+   * Feltene er serialiserbare fordi denne komponenten er en klientkomponent;
+   * serverkomponenter kan ikke sende funksjoner som props.
    */
-  confirmWhen?: (formData: FormData) => boolean;
+  confirmWhenField?: string;
+  confirmWhenValue?: string;
   children: ReactNode;
 }) {
   const t = useTranslations("common");
@@ -42,7 +47,12 @@ export default function ConfirmSubmitForm({
             confirmed.current = false;
             return;
           }
-          if (confirmWhen && !confirmWhen(new FormData(event.currentTarget))) {
+          if (
+            confirmWhenField &&
+            confirmWhenValue &&
+            new FormData(event.currentTarget).get(confirmWhenField) !==
+              confirmWhenValue
+          ) {
             return;
           }
           event.preventDefault();
