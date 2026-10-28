@@ -299,6 +299,14 @@ model WorkOrder {
   /// Unik nøkkel for automatisk opprettet utbedringsoppdrag.
   deviationSourceKey    String?    @unique
   description           String?
+  /// Arbeidssted for dette oppdraget. Tomt betyr kundens adresse.
+  address               String?
+  postalCode            String?
+  city                  String?
+  /// Geokodede koordinater for arbeidsstedet, med hash av adressegrunnlaget.
+  latitude              Float?
+  longitude             Float?
+  geoAddressHash        String?
   scheduledFor          DateTime?  @db.Date
   /// Siste dag oppdraget varer (inklusiv). Tom betyr éndagsoppdrag.
   scheduledTo           DateTime?  @db.Date

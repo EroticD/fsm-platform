@@ -11,7 +11,8 @@
       "noDate": "Ingen dato",
       "noCustomer": "Uten kunde",
       "loading": "Laster kalender...",
-      "loadingInteractive": "Laster interaktiv kalender..."
+      "loadingInteractive": "Laster interaktiv kalender...",
+      "reports": "Rapporter"
     },
     "page": {
       "title": "📅 Planlegging & Kontroll",

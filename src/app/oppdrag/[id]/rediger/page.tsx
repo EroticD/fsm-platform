@@ -197,6 +197,25 @@ export default async function EditWorkOrderPage({
             </p>
           </div>
 
+          <fieldset className="rounded-xl border-2 border-gray-200 p-4">
+            <legend className="px-1 text-sm font-black text-gray-900">{t("orders.edit.locationTitle")}</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="sm:col-span-3">
+                <label htmlFor="office-edit-address" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.edit.addressLabel")}</label>
+                <input id="office-edit-address" name="address" defaultValue={workOrder.address ?? ""} maxLength={200} className="w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900" />
+              </div>
+              <div>
+                <label htmlFor="office-edit-postal-code" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.edit.postalCodeLabel")}</label>
+                <input id="office-edit-postal-code" name="postalCode" defaultValue={workOrder.postalCode ?? ""} maxLength={20} className="w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900" />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="office-edit-city" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.edit.cityLabel")}</label>
+                <input id="office-edit-city" name="city" defaultValue={workOrder.city ?? ""} maxLength={100} className="w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900" />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">{t("orders.edit.locationHint")}</p>
+          </fieldset>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="office-edit-scheduled-for" className="block text-sm font-black text-gray-900 mb-2">{t("orders.edit.scheduledDate")}</label>

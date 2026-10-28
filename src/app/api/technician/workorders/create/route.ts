@@ -52,6 +52,9 @@ export async function POST(request: Request) {
   const result = await createWorkOrderService(user, {
     title: formData.get("title"),
     description: formData.get("description"),
+    address: formData.get("address"),
+    postalCode: formData.get("postalCode"),
+    city: formData.get("city"),
     // Tjenesten bruker brukerens egen avdeling for ikke-administratorer.
     departmentId: user.departmentId,
     customerId: formData.get("customerId"),

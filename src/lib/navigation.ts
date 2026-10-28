@@ -22,8 +22,6 @@ export const STAFF_NAV: NavItem[] = [
   { href: "/kalender", labelKey: "calendar", icon: "📅", requires: "workorders.view" },
   { href: "/kart", labelKey: "map", icon: "🗺️", requires: "workorders.view" },
   { href: "/kunder", labelKey: "customers", icon: "🏢", requires: "customers.view" },
-  { href: "/enheter", labelKey: "equipment", icon: "🔧", requires: "equipment.view" },
-  { href: "/rapporter", labelKey: "reports", icon: "📄", requires: "reports.view" },
   { href: "/dokumenter", labelKey: "documents", icon: "📚", requires: "documents.view" },
   { href: "/oppdrag/ny", labelKey: "newWorkOrder", icon: "➕", requires: "workorders.create" },
   { href: "/brukere", labelKey: "users", icon: "👥", requires: "users.view" },

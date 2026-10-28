@@ -8,12 +8,18 @@ import { workOrderScope } from "@/lib/access";
 import prisma from "@/lib/prisma";
 import WorkOrderMap from "@/components/WorkOrderMap";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
+import { effectiveAddress } from "@/lib/geocode";
 
 type MapWorkOrder = {
   id: string;
   title: string;
   scheduledFor: Date | null;
   status: string;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
   customer: {
     name: string;
     address: string | null;
@@ -29,12 +35,22 @@ export default async function MapPage() {
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const workOrders = (await prisma.workOrder.findMany({
-    where: workOrderScope(user),
+    where: {
+      AND: [
+        workOrderScope(user),
+        { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+      ],
+    },
     select: {
       id: true,
       title: true,
       scheduledFor: true,
       status: true,
+      address: true,
+      postalCode: true,
+      city: true,
+      latitude: true,
+      longitude: true,
       customer: {
         select: { name: true, address: true, postalCode: true, city: true },
       },
@@ -58,24 +74,29 @@ export default async function MapPage() {
 
   const cityIndexes = new Map<string, number>();
   const mapPoints = workOrders.flatMap((workOrder) => {
-    const city = workOrder.customer?.city?.trim();
-    const center = cityCoordinates(city);
-    if (!center || !city) return [];
-    const index = cityIndexes.get(city) ?? 0;
-    cityIndexes.set(city, index + 1);
-    const point = offsetCityPoint(center, index);
-    const customer = workOrder.customer;
-    const address = customer
-      ? [customer.address, customer.postalCode, customer.city]
-          .filter(Boolean)
-          .join(", ")
-      : "";
+    const city = workOrder.city?.trim() || workOrder.customer?.city?.trim();
+    const exact =
+      workOrder.latitude != null && workOrder.longitude != null
+        ? { lat: workOrder.latitude, lng: workOrder.longitude }
+        : null;
+    const center = exact ?? cityCoordinates(city);
+    if (!center) return [];
+    const key = exact ? `exact:${workOrder.id}` : (city ?? "unknown");
+    const index = cityIndexes.get(key) ?? 0;
+    cityIndexes.set(key, index + 1);
+    const point = exact ? center : offsetCityPoint(center, index);
+    const location = effectiveAddress({
+      address: workOrder.address,
+      postalCode: workOrder.postalCode,
+      city: workOrder.city,
+      customer: workOrder.customer,
+    });
     return [{
       id: workOrder.id,
       title: workOrder.title,
       href: `/oppdrag/${workOrder.id}`,
-      customerName: customer?.name || t("p3.map.noCustomer"),
-      address,
+      customerName: workOrder.customer?.name || t("p3.map.noCustomer"),
+      address: location.query ?? "",
       date: workOrder.scheduledFor
         ? formatDate(workOrder.scheduledFor)
         : t("p3.map.noDate"),
@@ -87,7 +108,10 @@ export default async function MapPage() {
 
   const groups = new Map<string, MapWorkOrder[]>();
   for (const workOrder of workOrders) {
-    const city = workOrder.customer?.city?.trim() || t("p3.map.unknownCity");
+    const city =
+      workOrder.city?.trim() ||
+      workOrder.customer?.city?.trim() ||
+      t("p3.map.unknownCity");
     const list = groups.get(city) ?? [];
     list.push(workOrder);
     groups.set(city, list);
@@ -131,11 +155,13 @@ export default async function MapPage() {
             <ul className="divide-y divide-gray-100">
               {items.map((workOrder) => {
                 const customer = workOrder.customer;
-                const address = customer
-                  ? [customer.address, customer.postalCode, customer.city]
-                      .filter(Boolean)
-                      .join(", ")
-                  : "";
+                const location = effectiveAddress({
+                  address: workOrder.address,
+                  postalCode: workOrder.postalCode,
+                  city: workOrder.city,
+                  customer,
+                });
+                const address = location.query ?? "";
                 const mapsUrl = address
                   ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
                   : null;

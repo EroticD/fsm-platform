@@ -375,12 +375,13 @@ export default async function TechnicianWorkOrderPage({
               <p className="text-gray-900">
                 <strong>{t("orders.fieldDetail.address")}</strong>
                 <GoogleMapsLink
-                  address={workOrder.customer?.address}
-                  postalCode={workOrder.customer?.postalCode}
-                  city={workOrder.customer?.city}
-                  label={workOrder.customer?.address || t("orders.fieldDetail.addressUnknown")}
+                  address={workOrder.address ?? workOrder.customer?.address}
+                  postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
+                  city={workOrder.city ?? workOrder.customer?.city}
+                  label={workOrder.address || workOrder.customer?.address || t("orders.fieldDetail.addressUnknown")}
                 />
-                {workOrder.customer?.postalCode || ""} {workOrder.customer?.city || ""}
+                {workOrder.postalCode || workOrder.customer?.postalCode || ""}{" "}
+                {workOrder.city || workOrder.customer?.city || ""}
               </p>
               {workOrder.customer?.phone && (
                 <p className="mt-1">

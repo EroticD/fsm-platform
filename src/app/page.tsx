@@ -136,8 +136,6 @@ const FIELD_ACTIONS = [
   { href: "/kalender", icon: "📅", labelKey: "dashboard.quickActions.calendar" },
   { href: "/kart", icon: "🗺️", labelKey: "dashboard.quickActions.map" },
   { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
-  { href: "/enheter", icon: "🔧", labelKey: "dashboard.quickActions.equipment" },
-  { href: "/rapporter", icon: "📄", labelKey: "dashboard.quickActions.reports" },
 ];
 
 const ACTIVE_STATUSES = ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"];
@@ -190,8 +188,6 @@ export default async function AdminDashboard({
   if (hasPermission(user, "templates.manage")) allowedHrefs.add("/innstillinger?tab=maler");
   if (hasPermission(user, "users.view")) allowedHrefs.add("/innstillinger?tab=ansatte");
   if (hasPermission(user, "reports.view")) allowedHrefs.add("/innstillinger?tab=statistikk");
-  if (hasPermission(user, "equipment.view")) allowedHrefs.add("/enheter");
-  if (hasPermission(user, "reports.view")) allowedHrefs.add("/rapporter");
   const quickActions = (office ? OFFICE_ACTIONS : FIELD_ACTIONS).filter((a) =>
     allowedHrefs.has(a.href),
   );
@@ -489,7 +485,7 @@ export default async function AdminDashboard({
             value={reportsThisMonth}
             sub={t("dashboard.kpi.reportsSub")}
             tone="green"
-            href="/rapporter"
+            href="/kalender"
           />
           <KpiCard
             icon="🏢"
@@ -505,7 +501,6 @@ export default async function AdminDashboard({
             value={productCount}
             sub={t("dashboard.kpi.equipmentSub", { count: completedCount })}
             tone="gray"
-            href="/enheter"
           />
         </div>
 

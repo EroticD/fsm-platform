@@ -85,7 +85,12 @@
       "submit": "Lagre oppdrag",
       "orderNumber": "Ordrenummer",
       "orderNumberPlaceholder": "Kundens ordrenummer (valgfritt)",
-      "submitting": "Oppretter …"
+      "submitting": "Oppretter …",
+      "locationTitle": "Arbeidssted",
+      "addressLabel": "Adresse",
+      "postalCodeLabel": "Postnummer",
+      "cityLabel": "By",
+      "locationHint": "La stå tomt for å bruke kundens adresse."
     },
     "customerSelect": {
       "label": "Velg kunde",
@@ -264,7 +269,12 @@
       "roleOffice": "Kontor",
       "roleTechnician": "Montør",
       "orderNumber": "Ordrenummer",
-      "saving": "Lagrer …"
+      "saving": "Lagrer …",
+      "locationTitle": "Arbeidssted",
+      "addressLabel": "Adresse",
+      "postalCodeLabel": "Postnummer",
+      "cityLabel": "By",
+      "locationHint": "La stå tomt for å bruke kundens adresse."
     },
     "fieldList": {
       "greeting": "Hei, {name} 👋",

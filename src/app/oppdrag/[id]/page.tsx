@@ -963,9 +963,9 @@ export default async function AdminWorkOrderPage({
                   <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.internalOrder")}</p>
                   <p><strong>{t("orders.detail.address")}</strong>
                     <GoogleMapsLink
-                      address={workOrder.customer?.address}
-                      postalCode={workOrder.customer?.postalCode}
-                      city={workOrder.customer?.city}
+                      address={workOrder.address ?? workOrder.customer?.address}
+                      postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
+                      city={workOrder.city ?? workOrder.customer?.city}
                     />
                   </p>
                 </div>

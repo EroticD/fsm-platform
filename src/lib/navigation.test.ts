@@ -6,9 +6,9 @@ describe("toppnavigasjon", () => {
   it("gir kontoret de manglende kontorverktøyene", () => {
     const hrefs = navItemsFor("OFFICE").map((item) => item.href);
     expect(hrefs).toContain("/oppdrag");
-    expect(hrefs).toContain("/rapporter");
-    expect(hrefs).toContain("/enheter");
     expect(hrefs).toContain("/kart");
+    expect(hrefs).not.toContain("/rapporter");
+    expect(hrefs).not.toContain("/enheter");
   });
 
   it("filtrerer bort sider en egendefinert rolle ikke har tilgang til", () => {
@@ -16,8 +16,8 @@ describe("toppnavigasjon", () => {
       "documents.view",
       "reports.view",
     ]).map((item) => item.href);
-    expect(hrefs).toContain("/rapporter");
     expect(hrefs).toContain("/dokumenter");
+    expect(hrefs).not.toContain("/rapporter");
     expect(hrefs).not.toContain("/kunder");
     expect(hrefs).not.toContain("/oppdrag");
   });

@@ -5,6 +5,7 @@ import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { normalizeOrderNumber } from "@/lib/order-number";
+import { addressHash, effectiveAddress, geocodeAddress } from "@/lib/geocode";
 import {
   staffForDepartment,
   workOrderScope,
@@ -182,6 +183,9 @@ export type CreateWorkOrderInput = {
   title: unknown;
   orderNumber?: unknown;
   description: unknown;
+  address?: unknown;
+  postalCode?: unknown;
+  city?: unknown;
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
@@ -254,6 +258,9 @@ export async function createWorkOrder(
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
     description,
+    address: cleanText(input.address, { maxLength: LIMITS.line }),
+    postalCode: cleanText(input.postalCode, { maxLength: LIMITS.short }),
+    city: cleanText(input.city, { maxLength: LIMITS.line }),
     departmentId,
     customerId,
     contactId: validContactId,
@@ -277,6 +284,21 @@ export async function createWorkOrder(
     return { ok: false, error: "duplikat-ordrenummer" };
   }
 
+  const customerAddress = customerId
+    ? await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { address: true, postalCode: true, city: true },
+      })
+    : null;
+  const address = effectiveAddress({
+    address: parsed.data.address,
+    postalCode: parsed.data.postalCode,
+    city: parsed.data.city,
+    customer: customerAddress,
+  });
+  const geoHash = addressHash(address.query);
+  const coordinates = geoHash ? await geocodeAddress(address.query) : null;
+
   let id: string;
   try {
     id = await prisma.$transaction(async (tx) => {
@@ -286,6 +308,12 @@ export async function createWorkOrder(
           orderNumber,
           orderNumberNormalized,
           description: description || "",
+          address: parsed.data.address || null,
+          postalCode: parsed.data.postalCode || null,
+          city: parsed.data.city || null,
+          geoAddressHash: geoHash,
+          latitude: coordinates?.lat ?? null,
+          longitude: coordinates?.lng ?? null,
           departmentId,
           customerId: customerId || undefined,
           contactId: parsed.data.contactId || undefined,
@@ -341,6 +369,9 @@ export type UpdateWorkOrderInput = {
   title: unknown;
   orderNumber?: unknown;
   description: unknown;
+  address?: unknown;
+  postalCode?: unknown;
+  city?: unknown;
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
@@ -369,6 +400,12 @@ export async function updateWorkOrder(
       status: true,
       orderNumber: true,
       orderNumberNormalized: true,
+      address: true,
+      postalCode: true,
+      city: true,
+      latitude: true,
+      longitude: true,
+      geoAddressHash: true,
     },
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
@@ -411,6 +448,9 @@ export async function updateWorkOrder(
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
     description: cleanMarkdown(input.description),
+    address: cleanText(input.address, { maxLength: LIMITS.line }),
+    postalCode: cleanText(input.postalCode, { maxLength: LIMITS.short }),
+    city: cleanText(input.city, { maxLength: LIMITS.line }),
     departmentId,
     customerId: rawId(input.customerId),
     contactId: rawId(input.contactId),
@@ -425,6 +465,9 @@ export async function updateWorkOrder(
     title,
     orderNumber,
     description,
+    address: explicitAddress,
+    postalCode,
+    city,
     customerId,
     contactId,
     scheduledFor,
@@ -452,6 +495,26 @@ export async function updateWorkOrder(
     if (!contact || contact.customerId !== customerId) validContactId = undefined;
   }
 
+  const customerAddress = customerId
+    ? await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { address: true, postalCode: true, city: true },
+      })
+    : null;
+  const effective = effectiveAddress({
+    address: explicitAddress,
+    postalCode,
+    city,
+    customer: customerAddress,
+  });
+  const geoHash = addressHash(effective.query);
+  const coordinates =
+    geoHash && geoHash !== currentWorkOrder.geoAddressHash
+      ? await geocodeAddress(effective.query)
+      : currentWorkOrder.latitude != null && currentWorkOrder.longitude != null
+        ? { lat: currentWorkOrder.latitude, lng: currentWorkOrder.longitude }
+        : null;
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
@@ -461,6 +524,12 @@ export async function updateWorkOrder(
           orderNumber: orderNumberValue,
           orderNumberNormalized,
           description,
+          address: explicitAddress || null,
+          postalCode: postalCode || null,
+          city: city || null,
+          geoAddressHash: geoHash,
+          latitude: coordinates?.lat ?? null,
+          longitude: coordinates?.lng ?? null,
           departmentId,
           // Tom kunde betyr et internt oppdrag, ikke en uendret kunde.
           customerId: customerId || null,

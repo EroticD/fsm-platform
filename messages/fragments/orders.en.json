@@ -85,7 +85,12 @@
       "submit": "Save work order",
       "orderNumber": "Order number",
       "orderNumberPlaceholder": "Customer order number (optional)",
-      "submitting": "Creating …"
+      "submitting": "Creating …",
+      "locationTitle": "Work location",
+      "addressLabel": "Address",
+      "postalCodeLabel": "Postal code",
+      "cityLabel": "City",
+      "locationHint": "Leave blank to use the customer address."
     },
     "customerSelect": {
       "label": "Select customer",
@@ -264,7 +269,12 @@
       "roleOffice": "Office",
       "roleTechnician": "Technician",
       "orderNumber": "Order number",
-      "saving": "Saving …"
+      "saving": "Saving …",
+      "locationTitle": "Work location",
+      "addressLabel": "Address",
+      "postalCodeLabel": "Postal code",
+      "cityLabel": "City",
+      "locationHint": "Leave blank to use the customer address."
     },
     "fieldList": {
       "greeting": "Hi, {name} 👋",

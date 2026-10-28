@@ -20,6 +20,7 @@ export default async function CalendarPage() {
   // oppretting av oppdrag fra kontoret er egne, sperrede sider).
   const office = hasPermission(user, "workorders.assign");
   const canCreate = hasPermission(user, "workorders.create");
+  const canReports = hasPermission(user, "reports.view");
 
   // Hent alle ansatte som kan ta oppdrag, innenfor egen avdeling.
   const technicians = await prisma.user.findMany({
@@ -96,6 +97,11 @@ export default async function CalendarPage() {
             {office && (
               <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
                 {t("calendar.common.dispatch")}
+              </Link>
+            )}
+            {canReports && (
+              <Link href="/rapporter" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
+                📄 {t("calendar.common.reports")}
               </Link>
             )}
           </div>

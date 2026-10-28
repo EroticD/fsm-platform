@@ -11,7 +11,8 @@
       "noDate": "No date",
       "noCustomer": "No customer",
       "loading": "Loading calendar...",
-      "loadingInteractive": "Loading interactive calendar..."
+      "loadingInteractive": "Loading interactive calendar...",
+      "reports": "Reports"
     },
     "page": {
       "title": "📅 Planning & Control",

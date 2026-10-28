@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     },
     user: { findFirst: vi.fn(), findMany: vi.fn() },
     contact: { findUnique: vi.fn(), create: vi.fn() },
+    customer: { findUnique: vi.fn(async () => null) },
     department: { findFirst: vi.fn() },
     comment: { create: vi.fn() },
     report: { updateMany: vi.fn(async () => ({ count: 0 })), findFirst: vi.fn(), update: vi.fn() },

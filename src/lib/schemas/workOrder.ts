@@ -23,6 +23,9 @@ export const workOrderCreateSchema = z
     title: requiredText(LIMITS.title),
     orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
+    address: z.string().trim().max(LIMITS.line).optional().default(""),
+    postalCode: z.string().trim().max(LIMITS.short).optional().default(""),
+    city: z.string().trim().max(LIMITS.line).optional().default(""),
     departmentId: idSchema,
     customerId: optionalIdSchema,
     contactId: optionalIdSchema,
@@ -44,6 +47,9 @@ export const workOrderUpdateSchema = z
     title: requiredText(LIMITS.title),
     orderNumber: z.string().trim().max(LIMITS.line).optional().default(""),
     description: markdownSchema.default(""),
+    address: z.string().trim().max(LIMITS.line).optional().default(""),
+    postalCode: z.string().trim().max(LIMITS.short).optional().default(""),
+    city: z.string().trim().max(LIMITS.line).optional().default(""),
     departmentId: idSchema,
     // Kunden er valgfri også ved redigering, slik at interne oppdrag uten
     // kunde kan lagres uten å måtte knyttes til en kunde.

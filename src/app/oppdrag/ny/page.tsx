@@ -155,6 +155,25 @@ export default async function AdminCreateWorkOrderPage({
             restoreSelection={Boolean(error)}
           />
 
+          <fieldset className="rounded-xl border-2 border-gray-200 p-4">
+            <legend className="px-1 text-sm font-bold text-gray-700">{t("orders.new.locationTitle")}</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="sm:col-span-3">
+                <label htmlFor="office-new-address" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.addressLabel")}</label>
+                <input id="office-new-address" name="address" maxLength={200} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              </div>
+              <div>
+                <label htmlFor="office-new-postal-code" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.postalCodeLabel")}</label>
+                <input id="office-new-postal-code" name="postalCode" maxLength={20} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="office-new-city" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.cityLabel")}</label>
+                <input id="office-new-city" name="city" maxLength={100} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
+          </fieldset>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="office-new-scheduled-for" className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.executionDate")}</label>
