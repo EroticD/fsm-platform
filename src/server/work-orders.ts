@@ -1,3 +1,6 @@
+// i18n-ignore-file: revisjonsloggen lagrer stabile, ferdig formaterte norske
+// handlingsstrenger (med tittel/navn flettet inn). De oversettes ved visning i
+// `src/lib/audit-actions.ts`; lagrede rader endres ikke.
 import type { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";

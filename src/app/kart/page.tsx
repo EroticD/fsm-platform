@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
@@ -50,6 +51,11 @@ const MAP_LIMIT = 500;
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.kart") };
 }
 
 export default async function MapPage({

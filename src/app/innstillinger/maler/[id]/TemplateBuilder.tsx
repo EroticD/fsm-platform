@@ -144,7 +144,7 @@ export default function TemplateBuilder({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required 
-          className="w-full border-2 border-gray-300 p-3 rounded-xl text-lg text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+          className="w-full border-2 border-gray-300 p-3 rounded-xl text-lg text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-500"
         />
       </div>
 
@@ -160,7 +160,7 @@ export default function TemplateBuilder({
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           placeholder={t("settings.templates.descriptionPlaceholder")}
-          className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+          className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-500"
         />
         <p id="template-builder-description-hint" className="text-xs text-gray-500 mt-1">
           {t("settings.templateBuilder.descriptionHint")}
@@ -231,7 +231,7 @@ export default function TemplateBuilder({
             value={reportName}
             onChange={(e) => setReportName(e.target.value)}
             placeholder={t("settings.templates.reportNamePlaceholder")}
-            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-400"
+            className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white shadow-sm placeholder:text-gray-500"
           />
           <p id="template-builder-report-name-hint" className="text-xs text-gray-500 mt-1">{t("settings.templateBuilder.reportNameHint")}</p>
         </div>
@@ -312,7 +312,7 @@ export default function TemplateBuilder({
                       onChange={(e) => updateField(field.id, { label: e.target.value })}
                       aria-label={t("settings.templateBuilder.fieldPlaceholder")}
                       placeholder={t("settings.templateBuilder.fieldPlaceholder")}
-                      className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white placeholder:text-gray-400 shadow-sm"
+                      className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-bold focus:border-blue-700 bg-white placeholder:text-gray-500 shadow-sm"
                     />
 
                     {(field.type === "SELECT" || field.type === "STATUS") && (
@@ -350,7 +350,7 @@ export default function TemplateBuilder({
                           placeholder={t("settings.templateBuilder.commentOptionsPlaceholder")}
                           className="w-full border border-amber-300 p-2.5 rounded-lg text-xs font-medium bg-white"
                         />
-                        <p id={`${idPrefix}-${field.id}-comment-options-help`} className="text-[11px] text-amber-800 mt-1">
+                        <p id={`${idPrefix}-${field.id}-comment-options-help`} className="text-xs text-amber-800 mt-1">
                           {t("settings.templateBuilder.commentOptionsHelp")}
                         </p>
                       </div>

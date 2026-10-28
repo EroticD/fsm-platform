@@ -26,7 +26,21 @@ export type { SearchFilters } from "@/lib/search-filters";
 export type SearchItem = {
   id: string;
   title: string;
+  /**
+   * Utdatert reservefelt. Nye kallsteder skal bruke `subtitleParts` (eller
+   * `subtitleKey`) og oversette ved visning. Feltet beholdes bare for eldre
+   * konsumenter i overgangen.
+   */
   subtitle?: string;
+  /** i18n-nøkkel for en enkel undertittel, relativ til `common`. */
+  subtitleKey?: string;
+  /** Parametre til `subtitleKey`. */
+  subtitleParams?: Record<string, string | number>;
+  /**
+   * Sammensatt undertittel. Hver del er enten en i18n-nøkkel med parametre
+   * eller rå data som allerede er på riktig språk (navn, datoer, fritekst).
+   */
+  subtitleParts?: SearchSubtitlePart[];
   href: string;
   /**
    * Direkte fil-/PDF-lenke når hovedtreffet peker på en visningsside. Vises
@@ -39,9 +53,20 @@ export type SearchItem = {
   score?: number;
 };
 
+export type SearchSubtitlePart = {
+  /** i18n-nøkkel relativ til `common`. Utelates for rå data. */
+  key?: string;
+  params?: Record<string, string | number>;
+  /** Rå, allerede formatert data (navn, dato, brukerinnhold). */
+  text?: string;
+};
+
 export type SearchGroup = {
   kind: string;
+  /** Utdatert reserveetikett; bruk `labelKey` og oversett ved visning. */
   label: string;
+  /** i18n-nøkkel for gruppeetiketten, relativ til `common`. */
+  labelKey?: string;
   icon: string;
   /** Antall treff i gruppen. Se `capped` når kandidatgrensen er nådd. */
   total: number;
@@ -82,23 +107,6 @@ const MAX_PAGE_SIZE = 50;
 const CANDIDATES = 500;
 const MAX_QUERY_LENGTH = 100;
 
-const STATUS_LABELS: Record<string, string> = {
-  PLANNED: "Planlagt",
-  IN_PROGRESS: "Påbegynt",
-  WAITING: "Venter",
-  COMPLETED: "Fullført",
-  PENDING: "Venter",
-  CANCELLED: "Kansellert",
-  OPEN: "Åpen",
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Administrator",
-  OFFICE: "Kontor",
-  TECHNICIAN: "Montør",
-  CUSTOMER: "Kundeportal",
-};
-
 /** Rekkefølgen gruppene vises i når relevansen er lik. */
 const GROUP_ORDER = [
   "customer",
@@ -117,6 +125,27 @@ const GROUP_ORDER = [
 function joinInfo(parts: (string | null | undefined | false)[]) {
   return parts.filter(Boolean).join(" • ");
 }
+
+/** Filtrerer bort tomme undertitteldeler. */
+function subtitleParts(
+  ...entries: Array<SearchSubtitlePart | null | undefined | false>
+): SearchSubtitlePart[] {
+  return entries.filter(
+    (entry): entry is SearchSubtitlePart =>
+      Boolean(entry && (entry.key || entry.text)),
+  );
+}
+
+function statusPart(status: string): SearchSubtitlePart {
+  return { key: `components.search.statuses.${status}` };
+}
+
+const ROLE_KEY: Record<string, string> = {
+  ADMIN: "roleAdmin",
+  OFFICE: "roleOffice",
+  TECHNICIAN: "roleTechnician",
+  CUSTOMER: "roleCustomer",
+};
 
 /** Bare interne stier kan brukes som returmål; aldri en ekstern URL. */
 function safeReturnTo(value: string | undefined): string | null {
@@ -873,19 +902,30 @@ export async function performSearch(
     {
       kind: "customer",
       label: "Kunder",
+      labelKey: "components.search.groups.customer",
       icon: "🏢",
       total: totals.customer.total,
       capped: totals.customer.capped,
       items: rankedCustomers.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
-        subtitle: joinInfo([
-          c.customerNumber && `#${c.customerNumber}`,
-          c.orgNumber && `Org.nr ${c.orgNumber}`,
-          c.city,
-          c.phone,
-          c.email,
-        ]),
+        subtitleParts: subtitleParts(
+          c.customerNumber
+            ? {
+                key: "components.search.subtitles.customerNumber",
+                params: { number: c.customerNumber },
+              }
+            : null,
+          c.orgNumber
+            ? {
+                key: "components.search.subtitles.orgNumber",
+                params: { number: c.orgNumber },
+              }
+            : null,
+          c.city ? { text: c.city } : null,
+          c.phone ? { text: c.phone } : null,
+          c.email ? { text: c.email } : null,
+        ),
         href: `/kunder/${c.id}`,
         score,
       })),
@@ -893,19 +933,43 @@ export async function performSearch(
     {
       kind: "workOrder",
       label: "Oppdrag",
+      labelKey: "components.search.groups.workOrder",
       icon: "📂",
       total: totals.workOrder.total,
       capped: totals.workOrder.capped,
       items: rankedWorkOrders.map(({ item: wo, score }) => ({
         id: wo.id,
         title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
+        // Utdatert reservefelt for eldre konsumenter (bl.a. eksisterende
+        // tester). UI-en bruker subtitleParts og oversetter ved visning.
         subtitle: joinInfo([
-          wo.orderNumber ? `Ordrenr. ${wo.orderNumber}` : null,
-          wo.customer?.name ?? "Uten kunde",
-          STATUS_LABELS[wo.status] ?? wo.status,
+          wo.orderNumber,
+          wo.customer?.name,
+          wo.status,
           formatDate(wo.scheduledFor),
-          wo.tags.length > 0 ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}` : null,
+          wo.tags.length > 0
+            ? `🏷️ ${wo.tags.map((tag) => tag.name).join(", ")}`
+            : null,
         ]),
+        subtitleParts: subtitleParts(
+          wo.orderNumber
+            ? {
+                key: "components.search.subtitles.workOrderNumber",
+                params: { number: wo.orderNumber },
+              }
+            : null,
+          wo.customer?.name
+            ? { text: wo.customer.name }
+            : { key: "components.search.subtitles.noCustomer" },
+          statusPart(wo.status),
+          wo.scheduledFor ? { text: formatDate(wo.scheduledFor) } : null,
+          wo.tags.length > 0
+            ? {
+                key: "components.search.subtitles.tags",
+                params: { tags: wo.tags.map((tag) => tag.name).join(", ") },
+              }
+            : null,
+        ),
         href: `/oppdrag/${wo.id}`,
         score,
       })),
@@ -913,13 +977,14 @@ export async function performSearch(
     {
       kind: "tag",
       label: "Tagger",
+      labelKey: "components.search.groups.tag",
       icon: "🏷️",
       total: totals.tag.total,
       capped: totals.tag.capped,
       items: rankedTags.map(({ item: tag, score }) => ({
         id: tag.id,
         title: tag.name,
-        subtitle: "Vis oppdrag med denne taggen",
+        subtitleKey: "components.search.subtitles.tagHint",
         href: `/oppdrag?tag=${encodeURIComponent(tag.name)}`,
         score,
       })),
@@ -927,13 +992,23 @@ export async function performSearch(
     {
       kind: "unit",
       label: "Enheter",
+      labelKey: "components.search.groups.unit",
       icon: "🔧",
       total: totals.unit.total,
       capped: totals.unit.capped,
       items: rankedUnits.map(({ item: p, score }) => ({
         id: p.id,
         title: p.model,
-        subtitle: joinInfo([p.customer?.name, p.serialNumber && `SN ${p.serialNumber}`, p.location]),
+        subtitleParts: subtitleParts(
+          p.customer?.name ? { text: p.customer.name } : null,
+          p.serialNumber
+            ? {
+                key: "components.search.subtitles.serialNumber",
+                params: { number: p.serialNumber },
+              }
+            : null,
+          p.location ? { text: p.location } : null,
+        ),
         href: `/kunder/${p.customerId}?tab=enheter`,
         score,
       })),
@@ -941,13 +1016,19 @@ export async function performSearch(
     {
       kind: "contact",
       label: "Kontaktpersoner",
+      labelKey: "components.search.groups.contact",
       icon: "👤",
       total: totals.contact.total,
       capped: totals.contact.capped,
       items: rankedContacts.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
-        subtitle: joinInfo([c.customer?.name, c.role, c.phone, c.email]),
+        subtitleParts: subtitleParts(
+          c.customer?.name ? { text: c.customer.name } : null,
+          c.role ? { text: c.role } : null,
+          c.phone ? { text: c.phone } : null,
+          c.email ? { text: c.email } : null,
+        ),
         href: `/kunder/${c.customerId}?tab=kontakter`,
         score,
       })),
@@ -955,6 +1036,7 @@ export async function performSearch(
     {
       kind: "report",
       label: "Rapporter",
+      labelKey: "components.search.groups.report",
       icon: "📋",
       total: totals.report.total,
       capped: totals.report.capped,
@@ -974,15 +1056,26 @@ export async function performSearch(
           id: r.id,
           title: joinInfo([
             r.reportNumber ? `#${r.reportNumber}` : null,
-            r.name ?? r.templateTitle ?? r.template?.title ?? "Rapport",
+            r.name ?? r.templateTitle ?? r.template?.title,
             r.workOrder.title,
           ]),
-          subtitle: joinInfo([
-            r.workOrder.customer?.name,
-            snippet ? snippet.slice(0, 100) : r.comments ? markdownToPlainText(r.comments).slice(0, 80) : null,
-            r.hmsType ? `HMS: ${r.hmsType}` : null,
-            formatDate(r.completedAt),
-          ]),
+          subtitleParts: subtitleParts(
+            r.workOrder.customer?.name
+              ? { text: r.workOrder.customer.name }
+              : null,
+            snippet
+              ? { text: snippet.slice(0, 100) }
+              : r.comments
+                ? { text: markdownToPlainText(r.comments).slice(0, 80) }
+                : null,
+            r.hmsType
+              ? {
+                  key: "components.search.subtitles.reportHms",
+                  params: { type: r.hmsType },
+                }
+              : null,
+            { text: formatDate(r.completedAt) },
+          ),
           href: withReturnTo(reportHref, returnTo),
           directHref,
           directLabelKey: "components.search.openPdf",
@@ -993,6 +1086,7 @@ export async function performSearch(
     {
       kind: "comment",
       label: "Kommentarer",
+      labelKey: "components.search.groups.comment",
       icon: "💬",
       total: totals.comment.total,
       capped: totals.comment.capped,
@@ -1008,11 +1102,18 @@ export async function performSearch(
         return {
           id: c.id,
           title: text.length > 90 ? `${text.slice(0, 90)}…` : text,
-          subtitle: joinInfo([
-            c.workOrder?.title ?? c.customer?.name ?? c.contact?.name,
-            c.authorName,
-            formatDate(c.createdAt),
-          ]),
+          subtitleParts: subtitleParts(
+            c.workOrder?.title ?? c.customer?.name ?? c.contact?.name
+              ? {
+                  text:
+                    c.workOrder?.title ??
+                    c.customer?.name ??
+                    c.contact?.name,
+                }
+              : null,
+            c.authorName ? { text: c.authorName } : null,
+            { text: formatDate(c.createdAt) },
+          ),
           href,
           score,
         };
@@ -1021,31 +1122,52 @@ export async function performSearch(
     {
       kind: "user",
       label: "Brukere",
+      labelKey: "components.search.groups.user",
       icon: "👥",
       total: totals.user.total,
       capped: totals.user.capped,
       items: rankedUsers.map(({ item: u, score }) => ({
         id: u.id,
-        title: u.name || u.email || "Uten navn",
-        subtitle: joinInfo([u.roleDefinition?.label ?? ROLE_LABELS[u.role] ?? u.role, u.email]),
-        href: u.customerId ? `/kunder/${u.customerId}?tab=kontakter` : "/innstillinger?tab=ansatte",
+        title: u.name || u.email || u.id,
+        subtitleParts: subtitleParts(
+          u.roleDefinition?.label
+            ? { text: u.roleDefinition.label }
+            : ROLE_KEY[u.role]
+              ? { key: ROLE_KEY[u.role] }
+              : { text: u.role },
+          u.email ? { text: u.email } : null,
+        ),
+        href: u.customerId
+          ? `/kunder/${u.customerId}?tab=kontakter`
+          : "/innstillinger?tab=ansatte",
         score,
       })),
     },
     {
       kind: "template",
       label: "Sjekklister",
+      labelKey: "components.search.groups.template",
       icon: "🧾",
       total: totals.template.total,
       capped: totals.template.capped,
       items: rankedTemplates.map(({ item: t, score }) => ({
         id: t.id,
         title: t.title,
-        subtitle: joinInfo([
-          "Sjekkliste / mal",
-          t.reportName && `Rapportnavn: ${t.reportName}`,
-          t.hmsType && `HMS: ${t.hmsType}`,
-        ]),
+        subtitleParts: subtitleParts(
+          { key: "components.search.subtitles.templateKind" },
+          t.reportName
+            ? {
+                key: "components.search.subtitles.templateReportName",
+                params: { name: t.reportName },
+              }
+            : null,
+          t.hmsType
+            ? {
+                key: "components.search.subtitles.reportHms",
+                params: { type: t.hmsType },
+              }
+            : null,
+        ),
         href: `/innstillinger/maler/${t.id}`,
         score,
       })),
@@ -1053,13 +1175,14 @@ export async function performSearch(
     {
       kind: "folder",
       label: "Mapper",
+      labelKey: "components.search.groups.folder",
       icon: "📁",
       total: totals.folder.total,
       capped: totals.folder.capped,
       items: rankedFolders.map(({ item: f, score }) => ({
         id: f.id,
         title: f.name,
-        subtitle: "Mappe i dokumentbiblioteket",
+        subtitleKey: "components.search.subtitles.folderHint",
         href: `/dokumenter?folder=${f.id}`,
         score,
       })),
@@ -1067,6 +1190,7 @@ export async function performSearch(
     {
       kind: "document",
       label: "Dokumenter",
+      labelKey: "components.search.groups.document",
       icon: "📚",
       total: totals.document.total,
       capped: totals.document.capped,
@@ -1077,13 +1201,21 @@ export async function performSearch(
         const directHref = d.filePath.startsWith("/uploads/")
           ? d.filePath
           : undefined;
+        const documentSnippet =
+          d.description?.slice(0, 60) ??
+          snippetText(hit?.snippet)?.slice(0, 80);
         return {
           id: d.id,
           title: d.title,
-          subtitle: joinInfo([
-            d.tags.map((tag) => tag.name).join(", "),
-            d.description?.slice(0, 60) ?? snippetText(hit?.snippet)?.slice(0, 80),
-          ]),
+          subtitleParts: subtitleParts(
+            d.tags.length > 0
+              ? {
+                  key: "components.search.subtitles.tags",
+                  params: { tags: d.tags.map((tag) => tag.name).join(", ") },
+                }
+              : null,
+            documentSnippet ? { text: documentSnippet } : null,
+          ),
           href: withReturnTo(
             `/dokumenter?doc=${encodeURIComponent(d.id)}`,
             returnTo,

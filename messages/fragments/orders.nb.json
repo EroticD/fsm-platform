@@ -296,7 +296,16 @@
       "openWorkOrder": "Åpne oppdrag →",
       "unassignedTitle": "⚠️ Ledige / Ikke tildelte oppdrag ({count})",
       "requiresAssignment": "Krever tildeling / utførelse",
-      "takeWorkOrder": "Se og ta oppdrag →",
+      "takeWorkOrder": "Ta oppdraget",
+      "takingWorkOrder": "Tar oppdraget …",
+      "claimed": "✅ Oppdraget er tatt og ligger nå under dine oppdrag.",
+      "claimDenied": "⛔ Du har ikke tilgang til å ta dette oppdraget.",
+      "claimLocked": "🔒 Oppdraget er fullført eller kansellert og kan ikke tas.",
+      "claimError": "⛔ Oppdraget kunne ikke tas. Prøv igjen.",
+      "call": "Ring",
+      "callPhone": "Ring {phone}",
+      "showMap": "📍 Kart",
+      "newTab": "åpnes i ny fane",
       "historyTitle": "📂 Fullførte oppdrag / Historikk ({count})",
       "archived": "🏢 {customer} • Fullført / Arkivert",
       "loadMore": "Vis flere ({count})",
@@ -326,6 +335,7 @@
       "descriptionTitle": "Arbeidsbeskrivelse / Instrukser",
       "noDescription": "Ingen beskrivelse lagt til for dette oppdraget.",
       "commentsTitle": "💬 Kommentarer & Oppdateringer",
+      "writeComment": "💬 Skriv kommentar",
       "commentPlaceholder": "Skriv en kommentar eller melding til kontoret/kolleger...",
       "addComment": "💬 Legg til kommentar",
       "noComments": "Ingen kommentarer registrert på oppdraget ennå.",
@@ -335,6 +345,15 @@
       "you": "(Du)",
       "removeMe": "Fjern meg",
       "remove": "Fjern",
+      "removeConfirm": "Fjerne {name} fra oppdraget? Du kan angre rett etterpå.",
+      "removedToast": "Fjernet {name} fra oppdraget.",
+      "undo": "Angre",
+      "undoing": "Angrer …",
+      "dismiss": "Lukk",
+      "restoredToast": "✅ Personen er lagt tilbake på oppdraget.",
+      "stickyStartForm": "Start skjema",
+      "stickyContinueForm": "Fortsett skjema",
+      "stickyComplete": "Fullfør",
       "addPersonnel": "Legg til kollega eller kontor for oppfølging",
       "selectPerson": "-- Velg person --",
       "add": "+ Legg til",
@@ -565,12 +584,21 @@
     "imageUpload": {
       "uploadFailedOne": "Kunne ikke laste opp {name}",
       "uploadFailedMany": "Kunne ikke laste opp {count} bilder: {names}",
-      "hint": "Du kan velge flere bilder samtidig (hold inne Ctrl/Cmd, eller velg flere i kamerarullen).",
+      "hint": "Bildene komprimeres før opplasting. Du kan velge flere bilder samtidig.",
+      "networkRequired": "Bilder lastes opp med en gang og krever nett. Uten nett blir de liggende i listen og kan prøves på nytt når du er tilkoblet.",
+      "offline": "Du er offline. Bilder kan velges, men lastes først opp når du er på nett igjen.",
+      "takePhoto": "📷 Ta bilde",
+      "choosePhoto": "🖼️ Velg bilde",
+      "pendingFile": "Klar til opplasting",
+      "uploadingFile": "Laster opp …",
+      "retry": "Prøv igjen",
+      "retryAll": "Prøv alle på nytt",
       "uploading": "Laster opp {done} av {total} …",
       "uploadingShort": "Laster opp …",
       "uploaded": "{count, plural, one {✅ # bilde lastet opp} other {✅ # bilder lastet opp}}",
       "viewImage": "Se bilde",
       "remove": "✕ Fjern",
+      "removeFile": "Fjern {name}",
       "attachmentAlt": "Vedlegg {number}"
     },
     "errors": {
@@ -588,7 +616,9 @@
       "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen.",
       "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt.",
       "legalHoldFrozen": "⛔ Rapporten er fryst av bevaringsplikt. En administrator må frigjøre holdet med en grunn før den kan endres eller låses opp.",
-      "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer."
+      "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer.",
+      "tooManyTags": "For mange tags.",
+      "tooManyRows": "For mange valgte rader."
     },
     "reportsPage": {
       "title": "Servicerapporter",
@@ -680,6 +710,69 @@
       "download": "⬇ Last ned PDF",
       "iframeTitle": "Servicerapport – {title}",
       "noCustomer": "Internt oppdrag"
+    }
+  },
+  "auditActions": {
+    "workOrder": {
+      "created": "Kontoret opprettet nytt oppdrag: {title}",
+      "updated": "Oppdaterte oppdraget: {title}",
+      "dateChanged": "Endret dato til {range}",
+      "checklistAdded": "La til en sjekkliste på oppdraget",
+      "commentAdded": "La til kommentar: «{snippet}»",
+      "tagsUpdated": "Oppdaterte tags: {tags}",
+      "contactSelected": "Valgte kontaktperson: {name}",
+      "contactRemoved": "Fjernet kontaktpersonen fra oppdraget",
+      "technicianAdded": "La til {name} som montør",
+      "personAdded": "La til {name} på oppdraget",
+      "personRemoved": "Fjernet {name} fra oppdraget",
+      "cloned": "Klonet oppdraget «{title}» til nytt oppdrag",
+      "legalHoldOn": "Slo på bevaringsplikt for oppdraget «{title}»",
+      "legalHoldOff": "Slo av bevaringsplikt for oppdraget «{title}» (rapporter beholder sin egen bevaringsplikt)",
+      "reportLegalHoldOn": "Slo på bevaringsplikt for rapporten «{name}»",
+      "reportLegalHoldOff": "Slo av bevaringsplikt for rapporten «{name}»",
+      "deleted": "Slettet oppdraget «{title}»{customer, select, none {} other { ({customer})}} (myk sletting – kan gjenopprettes)",
+      "restored": "Gjenopprettet oppdraget «{title}»"
+    },
+    "report": {
+      "acknowledgementWithdrawnResubmit": "Kundens kvittering ble trukket tilbake ved ny innsending",
+      "acknowledgementWithdrawnUnlock": "Kundens kvittering ble trukket tilbake ved opplåsing",
+      "numberAssigned": "Tildelte rapportnummer {number}",
+      "remediationCreated": "{count, plural, one {Opprettet automatisk utbedringsoppdrag for # avvik fra rapporten «{name}»} other {Opprettet automatisk utbedringsoppdrag for # avvik fra rapporten «{name}»}}",
+      "locked": "Låste rapporten igjen",
+      "unlocked": "Låste opp rapporten slik at den kan rettes (sporbarhet: endringer logges)",
+      "savedUpdated": "Rapport oppdatert: {title} ({details}) – rapporten låses automatisk",
+      "savedOffice": "Kontoret fylte ut skjema: {title} ({details}) – rapporten låses automatisk",
+      "savedTechnician": "Montør fylte ut skjema: {title} ({details}) – rapporten låses automatisk",
+      "units": "{count, plural, one {# enhet} other {# enheter}}",
+      "noUnits": "uten enheter",
+      "deviation": "avvik",
+      "approved": "godkjent"
+    },
+    "customer": {
+      "created": "Opprettet kunde: {name}",
+      "updated": "Endret kundeinformasjon: {name}",
+      "deleted": "Slettet kunden «{name}» (myk sletting – kan gjenopprettes)",
+      "restored": "Gjenopprettet kunden «{name}»"
+    },
+    "contact": {
+      "created": "La til kontaktperson: {name}",
+      "updated": "Endret kontaktperson: {name}",
+      "deleted": "Slettet kontaktperson: {name}"
+    },
+    "unit": {
+      "added": "La til enhet: {model}{serial, select, none {} other { (SN: {serial})}}",
+      "updated": "Oppdaterte enhet: {model}{serial, select, none {} other { (SN: {serial})}}",
+      "deleted": "Slettet enhet: {model}{serial, select, none {} other { (SN: {serial})}}"
+    },
+    "contract": {
+      "created": "Opprettet serviceavtale: {title} ({interval})",
+      "activated": "Aktiverte serviceavtale: {title}",
+      "paused": "Pauset serviceavtale: {title}",
+      "deleted": "Slettet serviceavtale: {title}"
+    },
+    "attachment": {
+      "added": "La ved fil: {name}",
+      "deleted": "Slettet vedlegg: {name}"
     }
   }
 }

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -44,6 +45,11 @@ const CALENDAR_VIEWS: Record<string, CalendarViewParam> = {
     subtitleKey: "calendar.biweekly.subtitle",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.kalender") };
+}
 
 export default async function CalendarPage({
   searchParams,

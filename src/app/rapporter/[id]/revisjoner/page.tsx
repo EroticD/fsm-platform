@@ -76,7 +76,7 @@ function FieldRows({
                     <MarkdownView value={answer} size="sm" />
                   </div>
                 ) : (
-                  <span className="text-gray-400">{notAnswered}</span>
+                  <span className="text-gray-600">{notAnswered}</span>
                 )
               ) : (
                 <span className="text-gray-800">{rendered}</span>
@@ -134,7 +134,7 @@ async function RevisionSnapshot({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-gray-50 p-3 text-sm">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-600">
             {t("orders.revisions.reason")}
           </p>
           <p className="mt-1 font-bold text-gray-900">
@@ -158,7 +158,7 @@ async function RevisionSnapshot({
         <div className="rounded-xl bg-gray-50 p-3 text-sm">
           {revision.requiresUnits && (
             <>
-              <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+              <p className="text-xs font-black uppercase tracking-wider text-gray-600">
                 {t("orders.revisions.status")}
               </p>
               <p
@@ -211,13 +211,13 @@ async function RevisionSnapshot({
                     <p className="text-sm font-black text-gray-900">
                       {index + 1}. {unit.label || t("orders.revisions.noUnitLabel")}
                     </p>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-xs text-gray-600">
                       {unit.serialNumber || t("orders.detail.report.noSerialNumber")}
                       {unit.location ? ` · ${unit.location}` : ""}
                     </p>
                   </div>
                   <span
-                    className={`rounded-full border px-3 py-1 text-[11px] font-bold ${
+                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
                       unit.status === "AVVIK"
                         ? "border-red-200 bg-red-100 text-red-800"
                         : "border-green-200 bg-green-100 text-green-800"
@@ -276,7 +276,7 @@ async function RevisionSnapshot({
       {(technicianSignature || customerSignature) && (
         <div className="grid grid-cols-1 gap-3 border-t-2 border-gray-200 pt-3 sm:grid-cols-2">
           <div className="rounded-xl border-2 border-gray-200 bg-gray-50 p-3">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+            <p className="mb-1 text-xs font-black uppercase tracking-wider text-gray-600">
               {t("orders.detail.report.technicianSignature")}
             </p>
             {technicianSignature && (
@@ -292,7 +292,7 @@ async function RevisionSnapshot({
             </p>
           </div>
           <div className="rounded-xl border-2 border-gray-200 bg-gray-50 p-3">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+            <p className="mb-1 text-xs font-black uppercase tracking-wider text-gray-600">
               {t("orders.detail.report.customerSignature")}
             </p>
             {customerSignature && (
@@ -312,7 +312,7 @@ async function RevisionSnapshot({
 
       {revision.comments && (
         <div className="border-t-2 border-gray-200 pt-3">
-          <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-gray-500">
+          <p className="mb-1 text-xs font-black uppercase tracking-wider text-gray-600">
             {t("orders.detail.report.generalNotes")}
           </p>
           <MarkdownView value={revision.comments} />
@@ -445,7 +445,7 @@ export default async function ReportRevisionsPage({
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2">
                 <div>
                   <h2 className="font-black text-gray-900">{name}</h2>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-xs text-gray-600">
                     {t("orders.revisions.currentRevision", {
                       revision: report.revision,
                     })}
@@ -458,7 +458,7 @@ export default async function ReportRevisionsPage({
                   </p>
                 </div>
                 {revisions.length === 0 && (
-                  <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-600">
+                  <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-600">
                     {t("orders.revisions.noRevisions")}
                   </span>
                 )}
@@ -488,11 +488,11 @@ export default async function ReportRevisionsPage({
                               })}
                               {revision.reason ? ` – ${revision.reason}` : ""}
                             </span>
-                            <span className="text-[11px] font-bold text-gray-500">
+                            <span className="text-xs font-bold text-gray-600">
                               {formatDateTime(revision.createdAt)}
                             </span>
                           </div>
-                          <p className="mt-1 text-[11px] text-gray-600">
+                          <p className="mt-1 text-xs text-gray-600">
                             {t("orders.revisions.actor")}:{" "}
                             {revision.actorName ||
                               t("orders.revisions.unknownActor")}

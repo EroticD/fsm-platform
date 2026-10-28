@@ -22,6 +22,13 @@ type SearchItem = {
   id: string;
   title: string;
   subtitle?: string;
+  subtitleKey?: string;
+  subtitleParams?: Record<string, string | number>;
+  subtitleParts?: Array<{
+    key?: string;
+    params?: Record<string, string | number>;
+    text?: string;
+  }>;
   href: string;
   directHref?: string;
   directLabelKey?: string;
@@ -31,6 +38,7 @@ type SearchItem = {
 type SearchGroup = {
   kind: string;
   label: string;
+  labelKey?: string;
   icon: string;
   total: number;
   capped?: boolean;
@@ -99,6 +107,18 @@ export default function GlobalSearch({
 function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   const t = useTranslations("common");
   const resolvedPlaceholder = placeholder ?? t("components.search.placeholder");
+  /** Setter sammen en undertittel fra i18n-deler og rå data. */
+  const subtitleFor = (item: SearchItem): string | undefined => {
+    if (item.subtitleParts?.length) {
+      const text = item.subtitleParts
+        .map((part) => (part.key ? t(part.key, part.params) : part.text))
+        .filter(Boolean)
+        .join(" • ");
+      return text || undefined;
+    }
+    if (item.subtitleKey) return t(item.subtitleKey, item.subtitleParams);
+    return item.subtitle;
+  };
   const router = useRouter();
   const baseId = useId().replace(/:/g, "");
   const listboxId = `global-search-${baseId}-listbox`;
@@ -134,10 +154,10 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   );
 
   const total = results?.total ?? 0;
-  const groupLabel = (kind: string, fallback: string) => {
-    const key = `components.search.groups.${kind}`;
+  const groupLabel = (group: SearchGroup) => {
+    const key = group.labelKey ?? `components.search.groups.${group.kind}`;
     const translated = t(key);
-    return translated === key ? fallback : translated;
+    return translated === key ? group.label : translated;
   };
 
   const flat = useMemo<FlatItem[]>(
@@ -398,8 +418,9 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
         return t("components.search.noResults", { query: trimmed });
       }
       if (activeItem) {
-        return activeItem.subtitle
-          ? `${activeItem.title}, ${activeItem.subtitle}`
+        const subtitle = subtitleFor(activeItem);
+        return subtitle
+          ? `${activeItem.title}, ${subtitle}`
           : activeItem.title;
       }
       return "";
@@ -442,12 +463,12 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
           aria-autocomplete="list"
           aria-activedescendant={showPanel ? activeOptionId : undefined}
           aria-label={t("components.search.ariaLabel")}
-          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 placeholder:text-gray-500"
         />
         {status === "loading" && hasQuery && (
           <span
             aria-hidden
-            className="shrink-0 text-xs text-gray-400 animate-pulse"
+            className="shrink-0 text-xs text-gray-600 animate-pulse"
           >
             {t("components.search.searchingShort")}
           </span>
@@ -457,15 +478,15 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
             type="button"
             onClick={reset}
             aria-label={t("components.search.clear")}
-            className="shrink-0 rounded-md px-1 text-lg leading-none text-gray-400 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-lg leading-none text-gray-600 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
           >
-            ×
+            <span aria-hidden>×</span>
           </button>
         )}
         {query.length === 0 && (
           <kbd
             aria-hidden
-            className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-400 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-600 sm:inline-flex"
           >
             {isMac ? (
               <>
@@ -532,7 +553,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                 <p className="text-sm font-bold text-gray-800">
                   {t("components.search.noResults", { query: trimmed })}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-600">
                   {t("components.search.noResultsHint")}
                 </p>
               </div>
@@ -551,11 +572,11 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                       <div
                         id={headingId}
                         role="presentation"
-                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-400"
+                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
                       >
                         <span className="min-w-0 truncate">
                           <span aria-hidden>{group.icon}</span>{" "}
-                          {groupLabel(group.kind, group.label)}
+                          {groupLabel(group)}
                         </span>
                         {group.total > 0 && (
                           <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal">
@@ -599,10 +620,10 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                                   query={trimmed}
                                 />
                               </span>
-                              {item.subtitle && (
+                              {subtitleFor(item) && (
                                 <span className="block w-full truncate text-xs text-gray-500">
                                   <HighlightedText
-                                    text={item.subtitle}
+                                    text={subtitleFor(item)!}
                                     query={trimmed}
                                   />
                                 </span>
@@ -615,7 +636,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                                 href={item.directHref}
                                 target="_blank"
                                 rel="noopener"
-                                className="flex shrink-0 items-center border-l border-gray-100 px-3 text-base text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                                className="flex min-w-11 shrink-0 items-center justify-center border-l border-gray-100 px-3 text-base text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
                               >
                                 <span aria-hidden>📄</span>
                                 <span className="sr-only">
@@ -640,7 +661,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                 <div
                   id={recentHeadingId}
                   role="presentation"
-                  className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-400"
+                  className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
                 >
                   {t("components.search.recentTitle")}
                 </div>
@@ -660,7 +681,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                         isActive ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <span aria-hidden className="shrink-0 text-xs text-gray-400">
+                      <span aria-hidden className="shrink-0 text-xs text-gray-500">
                         🕘
                       </span>
                       <span className="min-w-0 truncate text-sm font-medium text-gray-800">
@@ -690,7 +711,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
               <button
                 type="button"
                 onClick={clearRecent}
-                className="w-full px-4 py-3 text-left text-xs font-bold text-gray-500 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                className="w-full px-4 py-3 text-left text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
               >
                 {t("components.search.clearRecent")}
               </button>

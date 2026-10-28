@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
@@ -25,6 +26,7 @@ import CustomerToast from "@/components/customer/CustomerToast";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import PageHeader from "@/components/PageHeader";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 import SectionCard from "@/components/SectionCard";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -34,6 +36,11 @@ type SortKey = "name" | "city" | "orgNumber";
 
 function isSortKey(value: string | undefined): value is SortKey {
   return value === "name" || value === "city" || value === "orgNumber";
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.kunder") };
 }
 
 export default async function KunderPage({
@@ -71,7 +78,7 @@ export default async function KunderPage({
     dir: rawDir,
   } = resolved;
   const search = q?.trim() || "";
-  const page = parsePage(side);
+  const requestedPage = parsePage(side);
   const showDeleted = slettet === "1" && user.role === "ADMIN";
   const deletedFilter = showDeleted ? { not: null } : null;
 
@@ -106,49 +113,50 @@ export default async function KunderPage({
   // Da viser ikke listen åpne oppdrag fra avdelinger brukeren ikke ser.
   const orderScope = workOrderScopeFor(user);
 
-  const [customers, total] = await Promise.all([
-    prisma.customer.findMany({
-      where,
-      orderBy,
-      take: PAGE_SIZE,
-      skip: (page - 1) * PAGE_SIZE,
-      select: {
-        id: true,
-        name: true,
-        orgNumber: true,
-        city: true,
-        phone: true,
-        contacts: {
-          orderBy: { name: "asc" },
-          take: 1,
-          select: { name: true, phone: true },
-        },
-        _count: {
-          select: {
-            workOrder: {
-              where: {
-                AND: [
-                  orderScope,
-                  { status: { in: CUSTOMER_ACTIVE_STATUSES } },
-                ],
-              },
+  // Tell først, slik at en gammel `?side=999` klemmes til en side som finnes
+  // før listen hentes. Ellers ville brukeren fått en tom side uten treff.
+  const total = await prisma.customer.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const customers = await prisma.customer.findMany({
+    where,
+    orderBy,
+    take: PAGE_SIZE,
+    skip: (page - 1) * PAGE_SIZE,
+    select: {
+      id: true,
+      name: true,
+      orgNumber: true,
+      city: true,
+      phone: true,
+      contacts: {
+        orderBy: { name: "asc" },
+        take: 1,
+        select: { name: true, phone: true },
+      },
+      _count: {
+        select: {
+          workOrder: {
+            where: {
+              AND: [
+                orderScope,
+                { status: { in: CUSTOMER_ACTIVE_STATUSES } },
+              ],
             },
           },
         },
-        workOrder: {
-          where: {
-            AND: [orderScope, { status: "COMPLETED" }],
-          },
-          orderBy: [{ scheduledFor: "desc" }, { updatedAt: "desc" }],
-          take: 1,
-          select: { scheduledFor: true, updatedAt: true },
-        },
       },
-    }),
-    prisma.customer.count({ where }),
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      workOrder: {
+        where: {
+          AND: [orderScope, { status: "COMPLETED" }],
+        },
+        orderBy: [{ scheduledFor: "desc" }, { updatedAt: "desc" }],
+        take: 1,
+        select: { scheduledFor: true, updatedAt: true },
+      },
+    },
+  });
 
   const linkFor = (p: number) => {
     const params = new URLSearchParams();
@@ -302,8 +310,14 @@ export default async function KunderPage({
             Hele raden er klikkbar via en dekkende lenke; handlingene løftes
             over lenken slik at de fortsatt kan brukes. */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto" tabIndex={0}>
+          <div
+            className="overflow-x-auto"
+            role="region"
+            aria-label={t("customers.list.title")}
+            tabIndex={0}
+          >
           <table className="w-full min-w-[56rem] text-left border-collapse">
+            <caption className="sr-only">{t("customers.list.title")}</caption>
             <thead className="bg-gray-100">
               <tr>
                 <th scope="col" aria-sort={ariaSort("name")} className="p-4 font-semibold text-gray-600 border-b">
@@ -337,6 +351,16 @@ export default async function KunderPage({
                         search
                           ? t("customers.list.noMatches", { query: search })
                           : t("customers.list.empty")
+                      }
+                      action={
+                        search ? (
+                          <Link
+                            href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                          >
+                            {t("customers.list.reset")}
+                          </Link>
+                        ) : undefined
                       }
                     />
                   </td>
@@ -429,18 +453,14 @@ export default async function KunderPage({
 
         {/* Sidebladdring */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-4">
-            {page > 1 && (
-              <Link href={linkFor(page - 1)} className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition">
-                ← {t("customers.list.previous")}
-              </Link>
-            )}
-            <span className="text-sm font-bold text-gray-600">{t("customers.list.pagination", { page, totalPages })}</span>
-            {page < totalPages && (
-              <Link href={linkFor(page + 1)} className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition">
-                {t("customers.list.next")} →
-              </Link>
-            )}
+          <div className="pt-4">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              hrefFor={linkFor}
+              labels={paginationLabels(t)}
+              summary={t("customers.list.pagination", { page, totalPages })}
+            />
           </div>
         )}
 

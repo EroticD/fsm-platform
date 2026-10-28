@@ -296,7 +296,16 @@
       "openWorkOrder": "Open work order →",
       "unassignedTitle": "⚠️ Available / Unassigned work orders ({count})",
       "requiresAssignment": "Requires assignment / execution",
-      "takeWorkOrder": "View and take work order →",
+      "takeWorkOrder": "Take work order",
+      "takingWorkOrder": "Taking work order …",
+      "claimed": "✅ Work order claimed and now under your work orders.",
+      "claimDenied": "⛔ You do not have permission to take this work order.",
+      "claimLocked": "🔒 The work order is completed or cancelled and cannot be claimed.",
+      "claimError": "⛔ The work order could not be claimed. Try again.",
+      "call": "Call",
+      "callPhone": "Call {phone}",
+      "showMap": "📍 Map",
+      "newTab": "opens in a new tab",
       "historyTitle": "📂 Completed work orders / History ({count})",
       "archived": "🏢 {customer} • Completed / Archived",
       "loadMore": "Show more ({count})",
@@ -326,6 +335,7 @@
       "descriptionTitle": "Work description / Instructions",
       "noDescription": "No description has been added for this work order.",
       "commentsTitle": "💬 Comments & Updates",
+      "writeComment": "💬 Write comment",
       "commentPlaceholder": "Write a comment or message to the office/colleagues...",
       "addComment": "💬 Add comment",
       "noComments": "No comments have been registered on the work order yet.",
@@ -335,6 +345,15 @@
       "you": "(You)",
       "removeMe": "Remove me",
       "remove": "Remove",
+      "removeConfirm": "Remove {name} from the work order? You can undo right afterwards.",
+      "removedToast": "Removed {name} from the work order.",
+      "undo": "Undo",
+      "undoing": "Undoing …",
+      "dismiss": "Dismiss",
+      "restoredToast": "✅ The person has been added back to the work order.",
+      "stickyStartForm": "Start form",
+      "stickyContinueForm": "Continue form",
+      "stickyComplete": "Complete",
       "addPersonnel": "Add a colleague or office for follow-up",
       "selectPerson": "-- Select person --",
       "add": "+ Add",
@@ -565,12 +584,21 @@
     "imageUpload": {
       "uploadFailedOne": "Could not upload {name}",
       "uploadFailedMany": "Could not upload {count} images: {names}",
-      "hint": "You can select several images at once (hold Ctrl/Cmd, or select several in the camera roll).",
+      "hint": "Images are compressed before upload. You can select several images at once.",
+      "networkRequired": "Images upload immediately and require a network connection. Without a connection they stay in the list and can be retried when you are back online.",
+      "offline": "You are offline. Images can be selected, but upload when you are back online.",
+      "takePhoto": "📷 Take photo",
+      "choosePhoto": "🖼️ Choose image",
+      "pendingFile": "Ready to upload",
+      "uploadingFile": "Uploading …",
+      "retry": "Try again",
+      "retryAll": "Retry all",
       "uploading": "Uploading {done} of {total} …",
       "uploadingShort": "Uploading …",
       "uploaded": "{count, plural, one {✅ # image uploaded} other {✅ # images uploaded}}",
       "viewImage": "View image",
       "remove": "✕ Remove",
+      "removeFile": "Remove {name}",
       "attachmentAlt": "Attachment {number}"
     },
     "errors": {
@@ -588,7 +616,9 @@
       "reasonRequired": "You must provide a reason for reopening or changing the status.",
       "legalHold": "⛔ The work order cannot be deleted because it or one of its reports is under legal hold.",
       "legalHoldFrozen": "⛔ The report is frozen by legal hold. An administrator must release the hold with a reason before it can be changed or unlocked.",
-      "duplicateOrderNumber": "⛔ The order number is already in use in this department. Use a different number."
+      "duplicateOrderNumber": "⛔ The order number is already in use in this department. Use a different number.",
+      "tooManyTags": "Too many tags.",
+      "tooManyRows": "Too many selected rows."
     },
     "reportsPage": {
       "title": "Service reports",
@@ -680,6 +710,69 @@
       "download": "⬇ Download PDF",
       "iframeTitle": "Service report – {title}",
       "noCustomer": "Internal work order"
+    }
+  },
+  "auditActions": {
+    "workOrder": {
+      "created": "Office created a new work order: {title}",
+      "updated": "Updated the work order: {title}",
+      "dateChanged": "Changed the date to {range}",
+      "checklistAdded": "Added a checklist to the work order",
+      "commentAdded": "Added a comment: “{snippet}”",
+      "tagsUpdated": "Updated tags: {tags}",
+      "contactSelected": "Selected contact person: {name}",
+      "contactRemoved": "Removed the contact person from the work order",
+      "technicianAdded": "Added {name} as technician",
+      "personAdded": "Added {name} to the work order",
+      "personRemoved": "Removed {name} from the work order",
+      "cloned": "Cloned the work order «{title}» into a new work order",
+      "legalHoldOn": "Enabled legal hold for the work order «{title}»",
+      "legalHoldOff": "Disabled legal hold for the work order «{title}» (reports keep their own legal hold)",
+      "reportLegalHoldOn": "Enabled legal hold for the report «{name}»",
+      "reportLegalHoldOff": "Disabled legal hold for the report «{name}»",
+      "deleted": "Deleted the work order «{title}»{customer, select, none {} other { ({customer})}} (soft delete – can be restored)",
+      "restored": "Restored the work order «{title}»"
+    },
+    "report": {
+      "acknowledgementWithdrawnResubmit": "The customer acknowledgement was withdrawn on resubmission",
+      "acknowledgementWithdrawnUnlock": "The customer acknowledgement was withdrawn when the report was unlocked",
+      "numberAssigned": "Assigned report number {number}",
+      "remediationCreated": "{count, plural, one {Created an automatic remediation work order for # deviation from the report «{name}»} other {Created an automatic remediation work order for # deviations from the report «{name}»}}",
+      "locked": "Locked the report again",
+      "unlocked": "Unlocked the report for correction (traceability: changes are logged)",
+      "savedUpdated": "Report updated: {title} ({details}) – the report is locked automatically",
+      "savedOffice": "Office filled out the form: {title} ({details}) – the report is locked automatically",
+      "savedTechnician": "Technician filled out the form: {title} ({details}) – the report is locked automatically",
+      "units": "{count, plural, one {# unit} other {# units}}",
+      "noUnits": "no units",
+      "deviation": "deviation",
+      "approved": "approved"
+    },
+    "customer": {
+      "created": "Created customer: {name}",
+      "updated": "Changed customer information: {name}",
+      "deleted": "Deleted the customer «{name}» (soft delete – can be restored)",
+      "restored": "Restored the customer «{name}»"
+    },
+    "contact": {
+      "created": "Added contact person: {name}",
+      "updated": "Changed contact person: {name}",
+      "deleted": "Deleted contact person: {name}"
+    },
+    "unit": {
+      "added": "Added equipment: {model}{serial, select, none {} other { (SN: {serial})}}",
+      "updated": "Updated equipment: {model}{serial, select, none {} other { (SN: {serial})}}",
+      "deleted": "Deleted equipment: {model}{serial, select, none {} other { (SN: {serial})}}"
+    },
+    "contract": {
+      "created": "Created service agreement: {title} ({interval})",
+      "activated": "Activated service agreement: {title}",
+      "paused": "Paused service agreement: {title}",
+      "deleted": "Deleted service agreement: {title}"
+    },
+    "attachment": {
+      "added": "Attached file: {name}",
+      "deleted": "Deleted attachment: {name}"
     }
   }
 }

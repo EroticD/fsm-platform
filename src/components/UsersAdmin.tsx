@@ -16,7 +16,8 @@ import {
   generateInvite,
 } from "@/app/brukere/actions";
 import { effectivePermissions, PERMISSIONS } from "@/lib/permissions";
-import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
+import { DEFAULT_PAGE_SIZE, pageWindow, parsePage } from "@/lib/pagination";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 
 /**
  * Brukeradministrasjon (ansatte, roller, aktivering og invitasjoner).
@@ -53,23 +54,23 @@ export default async function UsersAdmin({
   // at brukeradministrasjon ikke blir en vei rundt avdelingssperren.
   const t = await getTranslations("common");
   const where = isAdmin ? {} : { departmentId: departmentId ?? "__ingen_avdeling__" };
-  const safePage = parsePage(page);
-  const [users, totalUsers] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      orderBy: { name: "asc" },
-      take: pageSize,
-      skip: (safePage - 1) * pageSize,
-      include: {
-        contact: true,
-        customer: true,
-        department: true,
-        roleDefinition: true,
-      },
-    }),
-    prisma.user.count({ where }),
-  ]);
-  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+  // Tell først, slik at en gammel `?side=999` havner på siste side med innhold.
+  const totalUsers = await prisma.user.count({ where });
+  const pageInfo = pageWindow(parsePage(page), totalUsers, pageSize);
+  const users = await prisma.user.findMany({
+    where,
+    orderBy: { name: "asc" },
+    take: pageInfo.take,
+    skip: pageInfo.skip,
+    include: {
+      contact: true,
+      customer: true,
+      department: true,
+      roleDefinition: true,
+    },
+  });
+  const safePage = pageInfo.page;
+  const totalPages = pageInfo.totalPages;
 
   const allRoles = await prisma.role.findMany({
     orderBy: [{ isSystem: "desc" }, { label: "asc" }],
@@ -623,26 +624,23 @@ export default async function UsersAdmin({
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 p-4 border-t border-gray-100">
-                {safePage > 1 && (
-                  <Link
-                    href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage - 1}`}
-                    className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-                  >
-                    ← {t("users.list.previous")}
-                  </Link>
-                )}
-                <span className="text-sm font-bold text-gray-600">
-                  {t("users.list.page", { page: safePage, totalPages })}
-                </span>
-                {safePage < totalPages && (
-                  <Link
-                    href={`${baseUrl}${baseUrl.includes("?") ? "&" : "?"}side=${safePage + 1}`}
-                    className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-                  >
-                    {t("users.list.next")} →
-                  </Link>
-                )}
+              <div className="border-t border-gray-100 p-4">
+                <Pagination
+                  page={safePage}
+                  totalPages={totalPages}
+                  hrefFor={(targetPage) => {
+                    const [path, query = ""] = baseUrl.split("?");
+                    const params = new URLSearchParams(query);
+                    params.set("side", String(targetPage));
+                    const qs = params.toString();
+                    return qs ? `${path}?${qs}` : path;
+                  }}
+                  labels={paginationLabels(t)}
+                  summary={t("users.list.page", {
+                    page: safePage,
+                    totalPages,
+                  })}
+                />
               </div>
             )}
           </div>

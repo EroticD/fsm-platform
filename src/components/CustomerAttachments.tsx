@@ -135,7 +135,7 @@ export default function CustomerAttachments({
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
       <div className="flex items-baseline justify-between gap-2 mb-3 border-b pb-2">
-        <h2 className="font-black text-gray-900">📎 {t("customers.attachments.title")}</h2>
+        <h2 className="font-black text-gray-900"><span aria-hidden>📎</span> {t("customers.attachments.title")}</h2>
         {attachments.length > 0 && (
           <span className="text-xs font-bold text-gray-500">
             {t("customers.attachments.fileCount", { count: attachments.length })}
@@ -177,7 +177,7 @@ export default function CustomerAttachments({
                   rel="noreferrer"
                   className="h-24 flex flex-col items-center justify-center gap-1 bg-white hover:bg-blue-50 transition"
                 >
-                  <span className="text-3xl">📄</span>
+                  <span className="text-3xl" aria-hidden>📄</span>
                   <span className="text-xs font-black text-blue-700 uppercase">PDF</span>
                 </a>
               )}
@@ -197,9 +197,12 @@ export default function CustomerAttachments({
                     type="button"
                     onClick={() => handleRemove(attachment)}
                     disabled={busy}
-                    className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-2 py-0.5 rounded border border-red-200 transition whitespace-nowrap"
+                    aria-label={t("components.customerAttachments.deleteAria", {
+                      name: attachment.fileName,
+                    })}
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-2 py-0.5 rounded border border-red-200 transition whitespace-nowrap"
                   >
-                    ✕
+                    <span aria-hidden>✕</span>
                   </button>
                 )}
               </div>
@@ -238,7 +241,7 @@ export default function CustomerAttachments({
         </p>
       )}
 
-      {error && <p className="text-xs font-bold text-red-600 mt-2">❌ {error}</p>}
+      {error && <p className="text-xs font-bold text-red-600 mt-2"><span aria-hidden>❌</span> {error}</p>}
 
       <ConfirmDialog
         open={pendingDelete !== null}

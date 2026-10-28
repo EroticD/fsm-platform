@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import UsersAdmin from "@/components/UsersAdmin";
@@ -37,6 +38,11 @@ import {
   updateDocumentTagAction,
   updateTagAction,
 } from "./actions";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.innstillinger") };
+}
 
 export default async function SettingsPage({
   searchParams,

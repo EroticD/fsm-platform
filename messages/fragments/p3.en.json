@@ -80,7 +80,16 @@
     },
     "offline": {
       "pending": "📤 {count} draft(s) waiting to sync",
-      "offline": "📴 You are offline – drafts are stored on this device and sent when the app is open and the network returns"
+      "offline": "📴 You are offline – drafts are stored on this device and sent when the app is open and the network returns",
+      "offlineWithPending": "📴 Offline · {count} draft(s) waiting",
+      "failed": "⚠️ {count} draft(s) could not be sent",
+      "openDrafts": "Open the draft list",
+      "retryNow": "Send now",
+      "retryFailed": "Try again",
+      "retrying": "Sending …",
+      "discardDrafts": "Discard my drafts",
+      "discardConfirm": "Discard all local drafts and pending uploads on this device? This cannot be undone.",
+      "noStorage": "📴 You are offline – this browser cannot store drafts locally"
     },
     "portalReports": {
       "title": "📄 Reports",

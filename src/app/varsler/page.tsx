@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { parsePage } from "@/lib/pagination";
@@ -16,6 +17,11 @@ type NotificationItem = {
   readAt: Date | null;
   createdAt: Date;
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.varsler") };
+}
 
 export default async function NotificationsPage({
   searchParams,

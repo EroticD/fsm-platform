@@ -27,26 +27,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "FSM-plattformen",
-  description: "Service- og vedlikeholdssystem for oppdrag, rapporter og utstyr",
-  manifest: "/manifest.webmanifest",
-  applicationName: "FSM",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-    ],
-    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "FSM",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return {
+    title: {
+      default: t("metadata.title"),
+      template: t("metadata.titleTemplate"),
+    },
+    description: t("metadata.description"),
+    manifest: "/manifest.webmanifest",
+    applicationName: t("metadata.applicationName"),
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      ],
+      apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: t("metadata.appleTitle"),
+    },
+  };
+}
 
 export const viewport = {
   themeColor: "#0F2E4C",

@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { enqueueOutbox, listOutbox, listOutboxForUser } from "./db";
+import {
+  enqueueOutbox,
+  listDraftsForUser,
+  listOutbox,
+  listOutboxForUser,
+  putOfflineDraft,
+} from "./db";
+import { MAX_OUTBOX_PAYLOAD_BYTES } from "./outbox-order";
 
 type Row = { id?: string; key?: string };
 
@@ -153,5 +160,46 @@ describe("enqueueOutbox", () => {
     expect(all[1].createdAt).toBeLessThanOrEqual(all[2].createdAt);
     expect(await listOutboxForUser("u1")).toHaveLength(2);
     expect(await listOutboxForUser("u2")).toHaveLength(1);
+  });
+
+  it("køer ikke payload over API-grensen, og fjerner eldre kladd for rapporten", async () => {
+    await enqueueOutbox(
+      JSON.stringify({ workOrderId: "wo1", templateId: "tpl1", notes: "gammel" }),
+      "u1",
+    );
+
+    const tooLarge = JSON.stringify({
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      notes: "x".repeat(MAX_OUTBOX_PAYLOAD_BYTES),
+    });
+    await expect(enqueueOutbox(tooLarge, "u1")).resolves.toBe("too-large");
+
+    expect(await listOutboxForUser("u1")).toHaveLength(0);
+  });
+});
+
+describe("listDraftsForUser", () => {
+  it("returnerer bare brukerens egne kladder", async () => {
+    await putOfflineDraft({
+      key: "u1:wo1:tpl1",
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: JSON.stringify({ notes: "a" }),
+      updatedAt: 1,
+    });
+    await putOfflineDraft({
+      key: "u2:wo1:tpl1",
+      userId: "u2",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: JSON.stringify({ notes: "b" }),
+      updatedAt: 2,
+    });
+
+    const drafts = await listDraftsForUser("u1");
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].key).toBe("u1:wo1:tpl1");
   });
 });

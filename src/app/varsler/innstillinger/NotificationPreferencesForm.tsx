@@ -64,13 +64,21 @@ export default function NotificationPreferencesForm({
         </div>
         <NotificationSoundToggle />
       </div>
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white" tabIndex={0}>
+      <div
+        className="overflow-x-auto rounded-2xl border border-gray-200 bg-white"
+        role="region"
+        aria-label={t("components.notificationPreferences.caption")}
+        tabIndex={0}
+      >
         <table className="w-full text-left text-sm">
+          <caption className="sr-only">
+            {t("components.notificationPreferences.caption")}
+          </caption>
           <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3 font-bold">{t("p3.notificationSettings.event")}</th>
-              <th className="px-4 py-3 font-bold">{t("p3.notificationSettings.inApp")}</th>
-              <th className="px-4 py-3 font-bold">{t("p3.notificationSettings.email")}</th>
+              <th scope="col" className="px-4 py-3 font-bold">{t("p3.notificationSettings.event")}</th>
+              <th scope="col" className="px-4 py-3 font-bold">{t("p3.notificationSettings.inApp")}</th>
+              <th scope="col" className="px-4 py-3 font-bold">{t("p3.notificationSettings.email")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -79,28 +87,34 @@ export default function NotificationPreferencesForm({
               const label = labels[type] ?? type;
               return (
                 <tr key={type}>
-                  <td className="px-4 py-3 font-medium text-gray-900">{label}</td>
+                  <th scope="row" className="px-4 py-3 text-left font-medium text-gray-900">
+                    {label}
+                  </th>
                   <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      name={`inApp_${type}`}
-                      defaultChecked={preference?.inApp ?? true}
-                      aria-label={t("p3.notificationSettings.inAppAria", {
-                        label,
-                      })}
-                      className="h-5 w-5"
-                    />
+                    <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                      <span className="sr-only">
+                        {t("p3.notificationSettings.inAppAria", { label })}
+                      </span>
+                      <input
+                        type="checkbox"
+                        name={`inApp_${type}`}
+                        defaultChecked={preference?.inApp ?? true}
+                        className="h-5 w-5"
+                      />
+                    </label>
                   </td>
                   <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      name={`email_${type}`}
-                      defaultChecked={preference?.email ?? true}
-                      aria-label={t("p3.notificationSettings.emailAria", {
-                        label,
-                      })}
-                      className="h-5 w-5"
-                    />
+                    <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                      <span className="sr-only">
+                        {t("p3.notificationSettings.emailAria", { label })}
+                      </span>
+                      <input
+                        type="checkbox"
+                        name={`email_${type}`}
+                        defaultChecked={preference?.email ?? true}
+                        className="h-5 w-5"
+                      />
+                    </label>
                   </td>
                 </tr>
               );

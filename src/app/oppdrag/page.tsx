@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { readableTextColor } from "@/lib/colors";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/EmptyState";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
@@ -147,6 +150,11 @@ function orderByFor(view: ViewKey): Prisma.WorkOrderOrderByWithRelationInput[] {
   return [{ scheduledFor: { sort: "desc", nulls: "last" } }];
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.oppdrag") };
+}
+
 export default async function WorkOrdersPage({
   searchParams,
 }: {
@@ -169,7 +177,7 @@ export default async function WorkOrdersPage({
     !office && requestedView === "kansellerte" ? "alle" : requestedView;
   const search = q?.trim() || "";
   const tagFilter = tag?.trim() || "";
-  const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
+  const requestedPage = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
 
   const dates = getDateContext();
 
@@ -196,7 +204,7 @@ export default async function WorkOrdersPage({
     AND: [visibleStatus, whereFor(view, dates), filters],
   };
 
-  const [statusGroups, todayCount, overdueCount, unassignedCount, total, orders] =
+  const [statusGroups, todayCount, overdueCount, unassignedCount, total] =
     await Promise.all([
       // Fanetallene må bruke nøyaktig samme filter som listen, ellers viser
       // f.eks. et søk uten treff fortsatt «Alle 5». `filters` inneholder bare
@@ -216,20 +224,25 @@ export default async function WorkOrdersPage({
         where: { AND: [visibleStatus, whereFor("ikke-tildelt", dates), filters] },
       }),
       prisma.workOrder.count({ where: activeWhere }),
-      prisma.workOrder.findMany({
-        where: activeWhere,
-        orderBy: orderByFor(view),
-        take: PAGE_SIZE,
-        skip: (page - 1) * PAGE_SIZE,
-        include: {
-          customer: { select: { name: true, address: true, postalCode: true, city: true } },
-          technicians: { select: { name: true } },
-          templates: { select: { id: true } },
-          reports: { select: { id: true } },
-          tags: { select: { id: true, name: true, color: true } },
-        },
-      }),
     ]);
+
+  // En gammel `?side=999` skal lande på siste side, ikke en tom side.
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+
+  const orders = await prisma.workOrder.findMany({
+    where: activeWhere,
+    orderBy: orderByFor(view),
+    take: PAGE_SIZE,
+    skip: (page - 1) * PAGE_SIZE,
+    include: {
+      customer: { select: { name: true, address: true, postalCode: true, city: true } },
+      technicians: { select: { name: true } },
+      templates: { select: { id: true } },
+      reports: { select: { id: true } },
+      tags: { select: { id: true, name: true, color: true } },
+    },
+  });
 
   const countByStatus = (s: string) => statusGroups.find((g) => g.status === s)?._count._all ?? 0;
   const sumStatuses = (statuses: string[]) =>
@@ -253,7 +266,6 @@ export default async function WorkOrdersPage({
     ? VIEWS
     : VIEWS.filter((v) => v.key !== "kansellerte");
   const activeView = availableViews.find((v) => v.key === view)!;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const linkFor = (key: ViewKey, includeTag = true) => {
     const params = new URLSearchParams();
@@ -382,18 +394,27 @@ export default async function WorkOrdersPage({
 
         {/* LISTE */}
         {orders.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">
-              {t("orders.list.emptyTitle")}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {search
+          <EmptyState
+            icon="📂"
+            title={t("orders.list.emptyTitle")}
+            description={
+              search
                 ? t("orders.list.emptySearch", { query: search })
                 : tagFilter
                   ? t("orders.list.emptyTag", { tag: tagFilter })
-                  : t("orders.list.emptyHint")}
-            </p>
-          </div>
+                  : t("orders.list.emptyHint")
+            }
+            action={
+              search || tagFilter ? (
+                <Link
+                  href={linkFor(view, false)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                >
+                  {t("orders.list.reset")}
+                </Link>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="space-y-2">
             {orders.map((wo) => {
@@ -462,29 +483,18 @@ export default async function WorkOrdersPage({
         )}
 
         {/* SIDEBLADDRING */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-2">
-            {page > 1 && (
-              <Link
-                href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page - 1}`}
-                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-              >
-                {t("orders.list.previous")}
-              </Link>
-            )}
-            <span className="text-sm font-bold text-gray-600">
-              {t("orders.list.page", { page, pages: totalPages })}
-            </span>
-            {page < totalPages && (
-              <Link
-                href={`${linkFor(view)}${linkFor(view).includes("?") ? "&" : "?"}side=${page + 1}`}
-                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition"
-              >
-                {t("orders.list.next")}
-              </Link>
-            )}
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          hrefFor={(targetPage) => {
+            const base = linkFor(view);
+            if (targetPage <= 1) return base;
+            return `${base}${base.includes("?") ? "&" : "?"}side=${targetPage}`;
+          }}
+          labels={paginationLabels(t)}
+          summary={t("orders.list.page", { page, pages: totalPages })}
+          className="pt-2"
+        />
       </div>
     </div>
   );

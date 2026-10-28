@@ -265,12 +265,15 @@ export default function ReportForm({
     if (!form) return;
 
     const formData = new FormData(form);
-    const payload = readFormPayload(form);
 
     setDraftStatus("saving");
 
     // Lokal først: kladden overlever nettbrudd og fanelukkinger.
     await writeLocalDraft();
+
+    // Kladder som er lagret lokalt etter dette tidspunktet kom inn mens
+    // serverkallet pågikk, og skal ikke ryddes bort av svaret.
+    const saveCutoff = Date.now();
 
     try {
       const result = await saveDraft(formData);
@@ -278,7 +281,10 @@ export default function ReportForm({
         // Serverkladden er nå nyere enn alt som måtte ligge i outboxen fra
         // tidligere nettbrudd. Fjern de gamle oppføringene, så de ikke senere
         // replayer over den ferske kladden.
-        await removeOutboxForReport({ workOrderId, templateId }, userId);
+        await removeOutboxForReport(
+          { workOrderId, templateId, before: saveCutoff },
+          userId,
+        );
         setDraftStatus("saved");
         setDraftSavedAt(result.savedAt ? new Date(result.savedAt) : new Date());
       } else {
@@ -287,7 +293,7 @@ export default function ReportForm({
     } catch {
       setDraftStatus("offline");
       try {
-        await queueDraftForRetry(payload);
+        await queueDraftForRetry(readFormPayload(form));
       } catch {
         // Outbox er også utilgjengelig; den lokale kladden er likevel skrevet.
       }

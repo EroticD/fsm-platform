@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
@@ -36,14 +37,34 @@ const SAVED_MESSAGES: Record<
   feil: { key: "components.search.saved.error", tone: "error" },
 };
 
+type SearchTranslator = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
+/** Setter sammen en undertittel fra i18n-deler og rå data. */
+function subtitleFor(item: SearchItem, t: SearchTranslator): string | undefined {
+  if (item.subtitleParts?.length) {
+    const text = item.subtitleParts
+      .map((part) => (part.key ? t(part.key, part.params) : part.text))
+      .filter(Boolean)
+      .join(" • ");
+    return text || undefined;
+  }
+  if (item.subtitleKey) return t(item.subtitleKey, item.subtitleParams);
+  return item.subtitle;
+}
+
 function ResultLink({
   item,
   query,
   directLabel,
+  subtitle,
 }: {
   item: SearchItem;
   query: string;
   directLabel: string;
+  subtitle?: string;
 }) {
   return (
     <div className="flex min-w-0 items-stretch gap-2">
@@ -54,9 +75,9 @@ function ResultLink({
         <p className="break-words text-sm font-bold text-gray-900">
           <HighlightedText text={item.title} query={query} />
         </p>
-        {item.subtitle && (
+        {subtitle && (
           <p className="mt-1 break-words text-xs text-gray-500">
-            <HighlightedText text={item.subtitle} query={query} />
+            <HighlightedText text={subtitle} query={query} />
           </p>
         )}
       </Link>
@@ -78,6 +99,11 @@ function technicianWhereFor(user: AccessUser) {
   if (user.role === "ADMIN") return staffWhere();
   if (!user.departmentId) return { id: { in: [] } };
   return staffWhere(user.departmentId);
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.sok") };
 }
 
 export default async function SearchResultsPage({
@@ -498,6 +524,7 @@ export default async function SearchResultsPage({
                                 item={hit}
                                 query={query}
                                 directLabel={directLabelFor(hit)}
+                                subtitle={subtitleFor(hit, tl)}
                               />
                             </div>
                           ))}
@@ -549,6 +576,7 @@ export default async function SearchResultsPage({
                                   item={item}
                                   query={query}
                                   directLabel={directLabelFor(item)}
+                                  subtitle={subtitleFor(item, tl)}
                                 />
                               ))}
                             </div>

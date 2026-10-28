@@ -1,17 +1,36 @@
 import {
   clearOfflineDataForUser,
-  countOutboxForUser,
   deleteOfflineDraft,
   enqueueOutbox,
   getOfflineDraft,
-  incrementOutboxAttempt,
+  listDraftsForUser,
   listOutboxForUser,
   putOfflineDraft,
+  recordOutboxFailure,
   removeOutbox,
+  resetFailedOutbox,
+  type EnqueueResult,
+  type OfflineDraft,
 } from "./db";
-import { newestPerReport } from "./outbox-order";
+import {
+  isAttemptLimitReached,
+  isOutboxReady,
+  isOutboxTerminal,
+  itemReportIdentity,
+  newestPerReport,
+  reportKey,
+} from "./outbox-order";
 
 export type DraftPayload = Record<string, unknown>;
+
+export type DraftSummary = {
+  /** Kladder som fortsatt kan sendes automatisk. */
+  pending: number;
+  /** Kladder som har fått terminal feil og trenger manuell oppfølging. */
+  failed: number;
+};
+
+export type FlushResult = DraftSummary & { sent: number };
 
 /** Hvilken bruker de lokale kladdene og outboxen tilhører akkurat nå. */
 const OFFLINE_USER_KEY = "fsm:offline-user";
@@ -57,12 +76,66 @@ export function draftKey(
   workOrderId: string,
   templateId: string,
 ): string {
-  return `${userId}:${workOrderId}:${templateId}`;
+  return reportKey(userId, { workOrderId, templateId });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Outboxen skal inneholde skjemaets FormData – ikke hele det lokale
+ * øyeblikksbildet med React-state. Snapshotet har formen
+ * `{ state, form, notes }`, mens et direkte kladdesvar er selve formen.
+ */
+function outboxFormValues(
+  payload: DraftPayload,
+): Record<string, string> | null {
+  const source = isRecord(payload.form) ? payload.form : payload;
+  const values: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === "string") values[key] = value;
+  }
+  return Object.keys(values).length > 0 ? values : null;
+}
+
+function outboxPayload(input: {
+  userId: string;
+  workOrderId: string;
+  templateId: string;
+  payload: DraftPayload;
+}): string | null {
+  const values = outboxFormValues(input.payload);
+  if (!values) return null;
+  return JSON.stringify({
+    ...values,
+    workOrderId: input.workOrderId,
+    templateId: input.templateId,
+  });
+}
+
+function storedDraftOutboxPayload(draft: OfflineDraft): string | null {
+  try {
+    const parsed = JSON.parse(draft.payload) as DraftPayload;
+    return outboxPayload({
+      userId: draft.userId,
+      workOrderId: draft.workOrderId,
+      templateId: draft.templateId,
+      payload: parsed,
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Lagrer kladden lokalt først. Da overlever den nettbrudd, fanelukkinger og
  * restart, uavhengig av om serverkallet lykkes.
+ *
+ * Hver lokale lagring legges også i outboxen (sammenslått per rapport). Dermed
+ * blir en kladd som bare rakk å bli skrevet til IndexedDB – for eksempel fordi
+ * appen ble drept mens montøren skrev – sendt ved neste anledning. Tidligere
+ * ble outboxen bare fylt når et serverlagringsforsøk feilet.
  */
 export async function saveDraftLocally(input: {
   userId: string;
@@ -71,14 +144,29 @@ export async function saveDraftLocally(input: {
   payload: DraftPayload;
 }): Promise<void> {
   rememberOfflineUser(input.userId);
-  await putOfflineDraft({
+  const draft: OfflineDraft = {
     key: draftKey(input.userId, input.workOrderId, input.templateId),
     userId: input.userId,
     workOrderId: input.workOrderId,
     templateId: input.templateId,
     payload: JSON.stringify(input.payload),
     updatedAt: Date.now(),
-  });
+  };
+  await putOfflineDraft(draft);
+
+  const payload = outboxPayload(input);
+  if (payload) {
+    const result = await enqueueOutbox(payload, input.userId);
+    if (result === "too-large") {
+      // Marker bare denne versjonen; en senere lagring kan være mindre og
+      // skriver da et nytt snapshot uten feilmarkeringen.
+      const current = await getOfflineDraft(draft.key);
+      if (current && current.updatedAt === draft.updatedAt) {
+        await putOfflineDraft({ ...current, syncError: "payload-too-large" });
+      }
+    }
+  }
+  notifyOutboxChanged();
 }
 
 export async function loadDraftLocally(input: {
@@ -113,16 +201,19 @@ export async function clearDraftLocally(input: {
 /**
  * Legger et serverkladd-forsøk i outboxen for senere replay. Køen slår sammen
  * kladder for samme bruker+oppdrag+mal, slik at bare den nyeste blir liggende.
+ * Vanlige lokale lagringer går gjennom `saveDraftLocally`; denne brukes når
+ * skjemaet eksplisitt vil sikre siste kjente payload.
  */
 export async function queueDraftForRetry(
   payload: DraftPayload,
   userId = currentOfflineUserId(),
-): Promise<void> {
+): Promise<EnqueueResult> {
   // Uten en kjent eier kan kladden ikke sendes trygt på nytt. Den blir da
   // liggende i skjemaet i stedet for å havne i en annen brukers kø.
   if (!userId) throw new Error("Mangler bruker for offline-kladden");
-  await enqueueOutbox(JSON.stringify(payload), userId);
+  const result = await enqueueOutbox(JSON.stringify(payload), userId);
   notifyOutboxChanged();
+  return result;
 }
 
 function notifyOutboxChanged(): void {
@@ -134,23 +225,131 @@ function notifyOutboxChanged(): void {
   }
 }
 
+/** Markerer en lokal kladd som lagret på serveren, men bare opp til tidspunktet. */
+export async function markDraftSynced(input: {
+  userId: string;
+  workOrderId: string;
+  templateId: string;
+  syncedUpTo: number;
+}): Promise<void> {
+  const key = draftKey(input.userId, input.workOrderId, input.templateId);
+  const draft = await getOfflineDraft(key);
+  if (!draft) return;
+  // En nyere lokal lagring enn det serveren bekreftet skal fortsatt sendes.
+  if (draft.updatedAt > input.syncedUpTo) return;
+  if ((draft.syncedAt ?? 0) >= draft.updatedAt) return;
+  const next = { ...draft, syncedAt: draft.updatedAt };
+  delete next.syncError;
+  await putOfflineDraft(next);
+}
+
+/**
+ * Kladder som ble skrevet lokalt uten å rekke å bli lagt i outboxen (eller som
+ * ble avvist fordi outboxen var utilgjengelig) legges i køen før sending.
+ */
+async function enqueueUnsyncedDrafts(userId: string): Promise<void> {
+  const [drafts, outbox] = await Promise.all([
+    listDraftsForUser(userId),
+    listOutboxForUser(userId),
+  ]);
+  const newestByReport = new Map<string, number>();
+  for (const item of outbox) {
+    const identity = itemReportIdentity(item);
+    if (!identity) continue;
+    const key = reportKey(userId, identity);
+    newestByReport.set(
+      key,
+      Math.max(newestByReport.get(key) ?? 0, item.createdAt),
+    );
+  }
+
+  for (const draft of drafts) {
+    if (draft.syncError) continue;
+    if (draft.updatedAt <= (draft.syncedAt ?? 0)) continue;
+    const key = draftKey(draft.userId, draft.workOrderId, draft.templateId);
+    if ((newestByReport.get(key) ?? 0) >= draft.updatedAt) continue;
+    const payload = storedDraftOutboxPayload(draft);
+    if (!payload) continue;
+    const result = await enqueueOutbox(payload, userId);
+    if (result === "too-large") {
+      await putOfflineDraft({ ...draft, syncError: "payload-too-large" });
+    }
+  }
+}
+
+/**
+ * Regner ut hvor mange rapporter som har usendte endringer. En lokal kladd
+ * telles bare når den er nyere enn siste bekreftede serverlagring, slik at
+ * banneret ikke fortsetter å telle en kladd som allerede er sendt.
+ */
+export async function pendingDraftSummary(
+  userId = currentOfflineUserId(),
+): Promise<DraftSummary> {
+  if (!userId) return { pending: 0, failed: 0 };
+
+  const [drafts, outbox] = await Promise.all([
+    listDraftsForUser(userId),
+    listOutboxForUser(userId),
+  ]);
+  const pendingKeys = new Set<string>();
+  const failedKeys = new Set<string>();
+
+  for (const item of outbox) {
+    const identity = itemReportIdentity(item);
+    const key = identity
+      ? reportKey(userId, identity)
+      : `outbox:${item.id}`;
+    if (isOutboxTerminal(item) || isAttemptLimitReached(item.attempts)) {
+      failedKeys.add(key);
+    } else {
+      pendingKeys.add(key);
+    }
+  }
+
+  for (const draft of drafts) {
+    const key = draftKey(draft.userId, draft.workOrderId, draft.templateId);
+    if (draft.syncError) {
+      failedKeys.add(key);
+      continue;
+    }
+    if (draft.updatedAt > (draft.syncedAt ?? 0)) pendingKeys.add(key);
+  }
+
+  // En terminal feil skal ikke også telles som «venter på sending».
+  for (const key of failedKeys) pendingKeys.delete(key);
+  return { pending: pendingKeys.size, failed: failedKeys.size };
+}
+
+/**
+ * Antall rapporter med usendte endringer, inkludert terminale feil. Beholdes
+ * for kallere som bare trenger ett tall (f.eks. tester og enkel UI).
+ */
+export async function pendingDraftCount(
+  userId = currentOfflineUserId(),
+): Promise<number> {
+  const summary = await pendingDraftSummary(userId);
+  return summary.pending + summary.failed;
+}
+
 /**
  * Prøver å sende ventende kladder for gjeldende bruker til
  * `/api/offline/draft`. Andre brukeres kladder røres aldri.
  *
  * For hver rapport sendes bare den nyeste kladden. Eldre duplikater (fra før
  * sammenslåingen ble innført) fjernes uten sending, slik at de aldri kan
- * overskrive en nyere kladd på serveren.
- * Returnerer antall sendt og hvor mange som fortsatt venter for brukeren.
+ * overskrive en nyere kladd på serveren. Terminale feil hoppes over til
+ * brukeren velger «Prøv igjen» eller sletter kladden.
  */
 export async function flushDraftOutbox(
   userId = currentOfflineUserId(),
-): Promise<{ sent: number; pending: number }> {
-  if (!userId) return { sent: 0, pending: 0 };
+): Promise<FlushResult> {
+  if (!userId) return { sent: 0, pending: 0, failed: 0 };
 
   if (typeof navigator !== "undefined" && !navigator.onLine) {
-    return { sent: 0, pending: await countOutboxForUser(userId) };
+    return { sent: 0, ...(await pendingDraftSummary(userId)) };
   }
+
+  await enqueueUnsyncedDrafts(userId);
 
   const items = await listOutboxForUser(userId);
   const { ordered, stale } = newestPerReport(items, userId);
@@ -160,7 +359,20 @@ export async function flushDraftOutbox(
   }
 
   let sent = 0;
+  const now = Date.now();
   for (const item of ordered) {
+    // Eldre oppføringer kan mangle `failedAt` selv om forsøksbudsjettet er
+    // brukt opp (feltet ble skrevet, men aldri lest). Marker dem terminalt i
+    // stedet for å sende én gang til.
+    if (isAttemptLimitReached(item.attempts)) {
+      await recordOutboxFailure(item, {
+        terminal: true,
+        reason: "attempts-exhausted",
+      });
+      continue;
+    }
+    if (!isOutboxReady(item, now)) continue;
+
     try {
       const response = await fetch("/api/offline/draft", {
         method: "POST",
@@ -168,23 +380,49 @@ export async function flushDraftOutbox(
         body: item.payload,
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const terminal = response.status === 413 || response.status === 400;
+        await recordOutboxFailure(item, {
+          terminal,
+          reason:
+            response.status === 413
+              ? "payload-too-large"
+              : response.status === 400
+                ? "rejected"
+                : `http-${response.status}`,
+        });
+        continue;
       }
       await removeOutbox(item.id);
       sent += 1;
+      const identity = itemReportIdentity(item);
+      if (identity) {
+        await markDraftSynced({
+          userId,
+          workOrderId: identity.workOrderId,
+          templateId: identity.templateId,
+          // Outbox-oppføringen ble laget etter den lokale kladden. En kladd
+          // som er skrevet senere enn dette skal fortsatt sendes.
+          syncedUpTo: item.createdAt,
+        });
+      }
     } catch {
-      await incrementOutboxAttempt(item);
+      await recordOutboxFailure(item, { reason: "network" });
     }
   }
 
-  return { sent, pending: await countOutboxForUser(userId) };
+  return { sent, ...(await pendingDraftSummary(userId)) };
 }
 
-export async function pendingDraftCount(
+/** Nullstiller terminale feil og prøver dem en gang til. */
+export async function retryFailedDrafts(
   userId = currentOfflineUserId(),
-): Promise<number> {
-  if (!userId) return 0;
-  return countOutboxForUser(userId);
+): Promise<FlushResult> {
+  if (!userId) return { sent: 0, pending: 0, failed: 0 };
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return { sent: 0, ...(await pendingDraftSummary(userId)) };
+  }
+  await resetFailedOutbox(userId);
+  return flushDraftOutbox(userId);
 }
 
 /**
@@ -198,9 +436,10 @@ export async function clearOfflineUserData(
 ): Promise<void> {
   if (userId) await clearOfflineDataForUser(userId);
   forgetOfflineUser();
+  notifyOutboxChanged();
 }
 
-/** Hendelse som varsler offline-banneret om at outboxen er endret. */
+/** Hendelse som varsler offline-banneret om at kladdelisten er endret. */
 export const OUTBOX_CHANGED_EVENT = "fsm:outbox-changed";
 
 /**
@@ -226,22 +465,38 @@ export function payloadMatchesReport(
  * Fjerner ventende kladder for en rapport som nettopp ble sendt inn. Uten
  * dette ville outboxen senere replayet en gammel kladd over den signerte
  * rapporten, og banneret ville fortsatt vist et pending-tall.
+ *
+ * `before` gjør at en nyere lokal lagring som kom inn mens serverkallet pågikk
+ * ikke blir slettet. Den skal fortsatt sendes.
  */
 export async function removeOutboxForReport(
   input: {
     workOrderId: string;
     templateId: string;
+    before?: number;
   },
   userId = currentOfflineUserId(),
 ): Promise<number> {
   if (!userId) return 0;
   const items = await listOutboxForUser(userId);
+  const before = input.before ?? Number.POSITIVE_INFINITY;
   let removed = 0;
+  let newestRemoved = 0;
   for (const item of items) {
+    if (item.createdAt > before) continue;
     if (payloadMatchesReport(item.payload, input.workOrderId, input.templateId)) {
       await removeOutbox(item.id);
       removed += 1;
+      newestRemoved = Math.max(newestRemoved, item.createdAt);
     }
+  }
+  if (newestRemoved > 0) {
+    await markDraftSynced({
+      userId,
+      workOrderId: input.workOrderId,
+      templateId: input.templateId,
+      syncedUpTo: newestRemoved,
+    });
   }
   return removed;
 }

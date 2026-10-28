@@ -148,7 +148,7 @@ export default async function ReportViewerPage({
       <div className="bg-gray-900 text-white p-4 flex flex-wrap justify-between items-center gap-3 shadow-md">
         <div>
           <h1 className="font-bold">{heading}</h1>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-300">
             {workOrder.title}
             {workOrder.customer?.name ? ` · ${workOrder.customer.name}` : ""}
           </p>

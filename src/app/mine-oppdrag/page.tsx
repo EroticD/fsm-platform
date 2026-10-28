@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
@@ -9,8 +11,13 @@ import { formatDateRangeLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import { idSchema } from "@/lib/schemas/common";
+import * as workOrderService from "@/server/work-orders";
 import StatusBadge from "@/components/StatusBadge";
 import LogoutButton from "@/components/LogoutButton";
+import GoogleMapsLink from "@/components/GoogleMapsLink";
+import SubmitButton from "@/components/SubmitButton";
+import CustomerToast from "@/components/customer/CustomerToast";
 
 /** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
 const LIST_PAGE_SIZE = 25;
@@ -30,15 +37,41 @@ const LIST_SELECT = {
   scheduledFor: true,
   scheduledTo: true,
   customer: {
-    select: { id: true, name: true, address: true, postalCode: true, city: true },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      address: true,
+      postalCode: true,
+      city: true,
+    },
   },
   tags: { select: { id: true, name: true, color: true } },
 } as const;
 
-export default async function TechnicianDashboard({ 
-  searchParams 
-}: { 
-  searchParams: Promise<{ q?: string; a?: string; u?: string; h?: string }>
+type ListCustomer = {
+  phone?: string | null;
+  address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+};
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.mineOppdrag") };
+}
+
+export default async function TechnicianDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    a?: string;
+    u?: string;
+    h?: string;
+    claimed?: string;
+    error?: string;
+  }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -49,6 +82,7 @@ export default async function TechnicianDashboard({
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q?.trim() || "";
   const accessScope = workOrderScope(user);
+  const canClaim = hasPermission(user, "workorders.update");
   const assignedLimit = listLimit(resolvedParams.a);
   const unassignedLimit = listLimit(resolvedParams.u);
   const historyLimit = listLimit(resolvedParams.h);
@@ -142,9 +176,98 @@ export default async function TechnicianDashboard({
     return `/mine-oppdrag?${params.toString()}`;
   };
 
+  /**
+   * Selvtilmelding. Klienten kan bare sende et oppdrags-id; autorisasjonen
+   * kjøres på nytt her, og tjenestelaget kontrollerer avdeling, aktiv bruker og
+   * at målet faktisk er ansatt i oppdragets avdeling. Fullførte/kansellerte
+   * oppdrag avvises før tildelingen.
+   */
+  async function claimWorkOrder(formData: FormData) {
+    "use server";
+    // Autorisasjonen kjøres på nytt i handlingen, ikke bare ved render.
+    const actor = await getCurrentUser();
+    if (!actor || !actor.isActive) {
+      redirect("/api/auth/signin");
+    }
+    if (!hasPermission(actor, "workorders.update")) {
+      redirect("/mine-oppdrag?error=ikke-tilgang");
+    }
+
+    const parsedId = idSchema.safeParse(formData.get("workOrderId"));
+    if (!parsedId.success) redirect("/mine-oppdrag?error=ugyldig-data");
+
+    const target = await prisma.workOrder.findFirst({
+      where: { id: parsedId.data, ...workOrderScope(actor) },
+      select: { id: true, status: true },
+    });
+    if (!target) redirect("/mine-oppdrag?error=ikke-tilgang");
+    if (target.status === "COMPLETED" || target.status === "CANCELLED") {
+      redirect("/mine-oppdrag?error=workorder-locked");
+    }
+
+    const result = await workOrderService.addTechnician(
+      actor,
+      target.id,
+      actor.id,
+    );
+    if (!result.ok) {
+      redirect(`/mine-oppdrag?error=${encodeURIComponent(result.error)}`);
+    }
+
+    revalidatePath("/mine-oppdrag");
+    revalidatePath(`/mine-oppdrag/${target.id}`);
+    redirect("/mine-oppdrag?claimed=1");
+  }
+
+  /** Ring- og kartsnarveier. Kortet selv er ikke en lenke, så dette er trygt. */
+  const contactShortcuts = (customer: ListCustomer | null) => {
+    if (!customer) return null;
+    const hasAddress = Boolean(formatAddress(customer));
+    if (!customer.phone && !hasAddress) return null;
+
+    return (
+      <div className="mt-2 flex flex-wrap gap-2">
+        {customer.phone && (
+          <a
+            href={`tel:${customer.phone}`}
+            aria-label={t("orders.fieldList.callPhone", {
+              phone: customer.phone,
+            })}
+            className="inline-flex min-h-11 items-center gap-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-800 transition hover:bg-blue-100"
+          >
+            📞 {t("orders.fieldList.call")}
+          </a>
+        )}
+        {hasAddress && (
+          <GoogleMapsLink
+            address={customer.address}
+            postalCode={customer.postalCode}
+            city={customer.city}
+            label={t("orders.fieldList.showMap")}
+            newTabLabel={t("orders.fieldList.newTab")}
+            className="inline-flex min-h-11 items-center gap-1 rounded-xl border-2 border-gray-200 bg-white px-3 text-xs font-bold no-underline hover:bg-gray-50"
+          />
+        )}
+      </div>
+    );
+  };
+
+  const claimError =
+    resolvedParams.error === "ikke-tilgang"
+      ? t("orders.fieldList.claimDenied")
+      : resolvedParams.error === "workorder-locked"
+        ? t("orders.fieldList.claimLocked")
+        : resolvedParams.error
+          ? t("orders.fieldList.claimError")
+          : "";
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 pb-24 sm:p-6">
       <div className="max-w-3xl mx-auto space-y-6">
+
+        {resolvedParams.claimed && (
+          <CustomerToast message={t("orders.fieldList.claimed")} />
+        )}
 
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-300 pb-4">
@@ -155,10 +278,19 @@ export default async function TechnicianDashboard({
               {user.department ? ` • ${t("orders.fieldList.department", { name: user.department.name })}` : ` • ${t("orders.fieldList.noDepartment")}`}
             </p>
           </div>
-          <LogoutButton className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap disabled:opacity-60">
+          <LogoutButton className="min-h-11 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap disabled:opacity-60">
             {t("orders.fieldList.logOut")}
           </LogoutButton>
         </div>
+
+        {claimError && (
+          <div
+            role="alert"
+            className="rounded-2xl border-2 border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800"
+          >
+            {claimError}
+          </div>
+        )}
 
         {/* SØKEFELT */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-200">
@@ -171,11 +303,11 @@ export default async function TechnicianDashboard({
               placeholder={t("orders.fieldList.searchPlaceholder")}
               className="flex-1 min-w-[200px] border-2 border-gray-200 p-3 rounded-xl text-sm text-gray-900 font-bold outline-none focus:border-blue-600 bg-gray-50"
             />
-            <button type="submit" className="bg-blue-700 text-white px-5 py-3 rounded-xl font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap text-sm">
+            <button type="submit" className="min-h-11 bg-blue-700 text-white px-5 py-3 rounded-xl font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap text-sm">
               {t("orders.fieldList.search")}
             </button>
             {searchQuery && (
-              <Link href="/mine-oppdrag" className="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center whitespace-nowrap text-sm">
+              <Link href="/mine-oppdrag" className="min-h-11 bg-gray-100 text-gray-700 px-4 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center whitespace-nowrap text-sm">
                 {t("orders.fieldList.reset")}
               </Link>
             )}
@@ -195,13 +327,14 @@ export default async function TechnicianDashboard({
           ) : (
             <div className="space-y-3">
               {activeAssigned.map(wo => (
-                <Link
+                <article
                   key={wo.id}
-                  href={`/mine-oppdrag/${wo.id}`}
-                  className="block bg-white hover:bg-blue-50/40 border-2 border-gray-200 hover:border-blue-300 p-3 sm:p-4 rounded-2xl transition shadow-sm"
+                  className="bg-white border-2 border-gray-200 p-3 sm:p-4 rounded-2xl transition shadow-sm hover:border-blue-300"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
+                    <Link href={`/mine-oppdrag/${wo.id}`} className="min-w-0 flex-1">
+                      <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
+                    </Link>
                     <StatusBadge status={wo.status} />
                   </div>
 
@@ -223,7 +356,7 @@ export default async function TechnicianDashboard({
                       {wo.tags.map((tag: any) => (
                         <span
                           key={tag.id}
-                          className="px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm"
+                          className="px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
                           suppressHydrationWarning
                           style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                         >
@@ -233,15 +366,17 @@ export default async function TechnicianDashboard({
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center text-xs pt-2 border-t border-gray-100 text-gray-600 font-medium">
+                  {contactShortcuts(wo.customer)}
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2 mt-2 border-t border-gray-100 text-gray-600 font-medium">
                     <span className="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">
                       📅 {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("orders.fieldList.noDate")}
                     </span>
-                    <span className="font-black text-blue-600 hover:underline whitespace-nowrap">
+                    <Link href={`/mine-oppdrag/${wo.id}`} className="inline-flex min-h-11 items-center font-black text-blue-700 hover:underline whitespace-nowrap">
                       {t("orders.fieldList.openWorkOrder")}
-                    </span>
+                    </Link>
                   </div>
-                </Link>
+                </article>
               ))}
             </div>
           )}
@@ -267,18 +402,19 @@ export default async function TechnicianDashboard({
           <div className="space-y-4 pt-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.unassignedTitle", { count: unassignedTotal })}</h2>
-              <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-full">{t("orders.fieldList.requiresAssignment")}</span>
+              <span className="text-xs bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-full">{t("orders.fieldList.requiresAssignment")}</span>
             </div>
 
             <div className="space-y-3">
               {unassignedWorkOrders.map(wo => (
-                <Link
+                <article
                   key={wo.id}
-                  href={`/mine-oppdrag/${wo.id}`}
-                  className="block bg-amber-50/40 hover:bg-amber-50 border-2 border-amber-200 hover:border-amber-300 p-3 sm:p-4 rounded-2xl transition shadow-sm"
+                  className="bg-amber-50/40 border-2 border-amber-200 p-3 sm:p-4 rounded-2xl transition shadow-sm hover:border-amber-300"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
+                    <Link href={`/mine-oppdrag/${wo.id}`} className="min-w-0 flex-1">
+                      <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
+                    </Link>
                     <StatusBadge status={wo.status} />
                   </div>
 
@@ -296,15 +432,32 @@ export default async function TechnicianDashboard({
                     </p>
                   )}
 
-                  <div className="flex justify-between items-center text-xs pt-2 border-t border-amber-200 text-gray-600 font-medium">
+                  {contactShortcuts(wo.customer)}
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs pt-2 mt-2 border-t border-amber-200 text-gray-600 font-medium">
                     <span className="font-bold bg-white px-2 py-1 rounded-lg border border-amber-200">
                       📅 {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("orders.fieldList.noDate")}
                     </span>
-                    <span className="font-black text-amber-800 hover:underline whitespace-nowrap">
-                      {t("orders.fieldList.takeWorkOrder")}
-                    </span>
+                    {canClaim ? (
+                      <form action={claimWorkOrder} className="sm:flex-none">
+                        <input type="hidden" name="workOrderId" value={wo.id} />
+                        <SubmitButton
+                          pendingLabel={t("orders.fieldList.takingWorkOrder")}
+                          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-amber-800 sm:w-auto"
+                        >
+                          {t("orders.fieldList.takeWorkOrder")}
+                        </SubmitButton>
+                      </form>
+                    ) : (
+                      <Link
+                        href={`/mine-oppdrag/${wo.id}`}
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-amber-300 bg-white px-4 py-2 text-sm font-black text-amber-900 transition hover:bg-amber-50"
+                      >
+                        {t("orders.fieldList.openWorkOrder")}
+                      </Link>
+                    )}
                   </div>
-                </Link>
+                </article>
               ))}
             </div>
             {hasMoreUnassigned && (
@@ -325,20 +478,21 @@ export default async function TechnicianDashboard({
           </div>
         )}
 
-        {/* SEKSJON 3: HISTORIKK OVER FULLFØRTE OPPRAG */}
+        {/* SEKSJON 3: HISTORIKK OVER FULLFØRTE OPPDRAG */}
         {completedTotal > 0 && (
           <div className="space-y-4 pt-4 border-t border-gray-200">
             <h2 className="text-lg font-black text-gray-900">{t("orders.fieldList.historyTitle", { count: completedTotal })}</h2>
 
             <div className="space-y-3">
               {completedAssigned.map(wo => (
-                <Link
+                <article
                   key={wo.id}
-                  href={`/mine-oppdrag/${wo.id}`}
-                  className="block bg-white hover:bg-gray-50 border-2 border-gray-200 p-3 sm:p-4 rounded-2xl transition shadow-sm"
+                  className="bg-white border-2 border-gray-200 p-3 sm:p-4 rounded-2xl transition shadow-sm hover:border-gray-300"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1">
-                    <h3 className="font-bold text-gray-800 text-base">{wo.title}</h3>
+                    <Link href={`/mine-oppdrag/${wo.id}`} className="min-w-0 flex-1">
+                      <h3 className="font-bold text-gray-800 text-base">{wo.title}</h3>
+                    </Link>
                     <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-xs text-gray-600 font-medium">
@@ -349,7 +503,15 @@ export default async function TechnicianDashboard({
                       📍 {formatAddress(wo.customer)}
                     </p>
                   )}
-                </Link>
+
+                  {contactShortcuts(wo.customer)}
+
+                  <div className="mt-2 flex justify-end">
+                    <Link href={`/mine-oppdrag/${wo.id}`} className="inline-flex min-h-11 items-center text-xs font-black text-blue-700 hover:underline whitespace-nowrap">
+                      {t("orders.fieldList.openWorkOrder")}
+                    </Link>
+                  </div>
+                </article>
               ))}
             </div>
             {hasMoreHistory && (

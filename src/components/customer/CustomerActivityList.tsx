@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { formatDateTime } from "@/lib/dates";
+import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import type { CustomerDetailData } from "@/server/customers";
 
 type ActivityItem = CustomerDetailData["activityFeed"][number];
@@ -33,6 +34,7 @@ export default async function CustomerActivityList({
   showKind?: boolean;
 }) {
   const t = await getTranslations("common");
+  const translate = t as unknown as AuditTranslator;
 
   if (items.length === 0) {
     return <p className="text-xs text-gray-500 italic">{emptyLabel}</p>;
@@ -49,7 +51,7 @@ export default async function CustomerActivityList({
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-sm font-medium text-gray-800">
-                  {item.action}
+                  {describeAuditAction(item.action, translate) ?? item.action}
                 </span>
                 {showKind && (
                   <span className="rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">

@@ -14,10 +14,10 @@ type SettingsTabsProps = {
 };
 
 const linkClass = (active: boolean) =>
-  `flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors sm:px-5 sm:py-3 sm:text-sm ${
+  `flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors sm:px-5 sm:py-3 sm:text-sm ${
     active
       ? "border-blue-600 text-blue-600"
-      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+      : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
   }`;
 
 export default async function SettingsTabs({
@@ -36,7 +36,8 @@ export default async function SettingsTabs({
   return (
     <nav
       aria-label={t("settings.title")}
-      className="flex flex-wrap gap-x-1 border-b border-gray-200"
+      data-settings-tabs
+      className="-mx-1 flex gap-x-1 overflow-x-auto overscroll-x-contain border-b border-gray-200 px-1 pb-px [scrollbar-width:thin]"
     >
       {canBranding && (
         <Link href="?tab=branding" className={linkClass(currentTab === "branding")} aria-current={currentTab === "branding" ? "page" : undefined}>

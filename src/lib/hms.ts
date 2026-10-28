@@ -1,3 +1,7 @@
+// i18n-ignore-file: HMS-malene er seed-data som installeres i databasen via
+// migrasjonen `hms_seed_templates`. De redigeres som maler i appen og er
+// bevisst norske (HMS/SJA er norske fagbegreper), så malinnholdet er nb-only.
+// UI-rammen rundt HMS-biblioteket er oversatt via `hms.*`-nøklene.
 import type { HmsFormType } from "@prisma/client";
 
 /**

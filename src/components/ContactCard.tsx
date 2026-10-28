@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
 export default function ContactCard({
@@ -40,12 +39,14 @@ export default function ContactCard({
           </p>
           {contact.phone && (
             <p className="text-gray-600">
-              📞 <a href={`tel:${contact.phone}`} className="text-blue-600 font-bold hover:underline">{contact.phone}</a>
+              <span aria-hidden>📞</span>{" "}
+              <a href={`tel:${contact.phone}`} className="text-blue-600 font-bold hover:underline">{contact.phone}</a>
             </p>
           )}
           {contact.email && (
             <p className="text-gray-600">
-              ✉️ <a href={`mailto:${contact.email}`} className="text-blue-600 font-bold hover:underline">{contact.email}</a>
+              <span aria-hidden>✉️</span>{" "}
+              <a href={`mailto:${contact.email}`} className="text-blue-600 font-bold hover:underline">{contact.email}</a>
             </p>
           )}
         </div>
@@ -55,11 +56,19 @@ export default function ContactCard({
             onClick={() => setIsEditing(!isEditing)}
             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline transition p-1"
           >
-            {isEditing ? t("components.contact.hide") : `✏️ ${t("components.contact.edit")}`}
+            {isEditing ? (
+              t("components.contact.hide")
+            ) : (
+              <>
+                <span aria-hidden>✏️</span> {t("components.contact.edit")}
+              </>
+            )}
           </button>
           <ConfirmSubmitForm
             action={onDelete}
-            confirmMessage={t("components.contact.deleteConfirm")}
+            confirmMessage={t("components.contact.deleteConfirm", {
+              name: contact.name,
+            })}
             confirmLabel={t("delete")}
             danger
             className={`inline ${canDelete ? "" : "hidden"}`}
@@ -71,7 +80,7 @@ export default function ContactCard({
               className="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-red-600 hover:text-red-800 hover:underline transition p-1"
               title={t("components.contact.deleteTitle")}
             >
-              🗑️
+              <span aria-hidden>🗑️</span>
             </button>
           </ConfirmSubmitForm>
         </div>

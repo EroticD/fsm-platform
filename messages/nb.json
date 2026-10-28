@@ -1,5 +1,41 @@
 {
   "common": {
+    "metadata": {
+      "title": "FSM-plattformen",
+      "description": "Service- og vedlikeholdssystem for oppdrag, rapporter og utstyr",
+      "applicationName": "FSM",
+      "appleTitle": "FSM",
+      "titleTemplate": "%s · FSM-plattformen",
+      "routes": {
+        "oppdrag": "Oppdrag",
+        "kunder": "Kunder",
+        "kalender": "Kalender",
+        "dokumenter": "Dokumenter",
+        "rapporter": "Rapporter",
+        "sok": "Søk",
+        "varsler": "Varsler",
+        "innstillinger": "Innstillinger",
+        "mineOppdrag": "Mine oppdrag",
+        "kart": "Kart"
+      }
+    },
+    "components": {
+      "search": {
+        "subtitles": {
+          "customerNumber": "#{number}",
+          "orgNumber": "Org.nr {number}",
+          "workOrderNumber": "Ordrenr. {number}",
+          "noCustomer": "Uten kunde",
+          "tags": "🏷️ {tags}",
+          "tagHint": "Vis oppdrag med denne taggen",
+          "serialNumber": "SN {number}",
+          "reportHms": "HMS: {type}",
+          "templateKind": "Sjekkliste / mal",
+          "templateReportName": "Rapportnavn: {name}",
+          "folderHint": "Mappe i dokumentbiblioteket"
+        }
+      }
+    },
     "welcome": "Velkommen",
     "welcomeAdmin": "Velkommen, {{name}}",
     "menu": "Meny",

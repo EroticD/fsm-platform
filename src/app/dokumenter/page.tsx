@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
@@ -24,6 +25,11 @@ import {
   restoreVersion,
   updateDocument,
 } from "./actions";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.dokumenter") };
+}
 
 export default async function DocumentsPage({
   searchParams,

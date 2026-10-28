@@ -11,6 +11,10 @@ import type {
 } from "@/server/documents";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import Pagination, {
+  clampPage,
+  paginationLabels,
+} from "@/components/Pagination";
 import UploadDocumentForm from "@/app/dokumenter/UploadDocumentForm";
 import BulkUploadForm from "@/app/dokumenter/BulkUploadForm";
 import EditDocumentForm from "@/app/dokumenter/EditDocumentForm";
@@ -411,6 +415,7 @@ export default function DocumentBrowser({
 
   const filtering = Boolean(searchQuery || tagFilter);
   const globalSearch = filtering && !onlyFolder;
+  const currentPage = clampPage(page, totalPages);
   const canSelect = !showDeleted && (office || isAdmin);
   const allVisibleSelected =
     documents.length > 0 &&
@@ -1106,24 +1111,19 @@ export default function DocumentBrowser({
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-3 text-sm font-bold">
-            {page > 1 && (
-              <Link href={pageLink(page - 1)} className="text-blue-700 hover:underline">
-                &larr; {t("documents.browser.previous")}
-              </Link>
-            )}
-            <span className="text-gray-500 text-xs">
-              {t("documents.browser.pageOf", { page, totalPages })} •{" "}
-              {t("documents.browser.documentCount", { count: totalDocuments })}
-            </span>
-            {page < totalPages && (
-              <Link href={pageLink(page + 1)} className="text-blue-700 hover:underline">
-                {t("documents.browser.next")} &rarr;
-              </Link>
-            )}
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          hrefFor={pageLink}
+          labels={paginationLabels(t)}
+          summary={`${t("documents.browser.pageOf", {
+            page: currentPage,
+            totalPages,
+          })} • ${t("documents.browser.documentCount", {
+            count: totalDocuments,
+          })}`}
+          className="mt-3"
+        />
       </div>
 
       {/* STICKY HANDLINGSSTOLPE FOR MERKEDE DOKUMENTER */}

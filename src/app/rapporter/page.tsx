@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
@@ -13,6 +14,7 @@ import {
 import { pageWindow, parsePage } from "@/lib/pagination";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 import {
   HMS_TYPE_MESSAGE_KEYS,
   isHmsReport,
@@ -53,6 +55,11 @@ const SORTS = [
   key: ReportSortKey;
   labelKey: string;
 }>;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("metadata.routes.rapporter") };
+}
 
 export default async function ReportsPage({
   searchParams,
@@ -583,31 +590,17 @@ export default async function ReportsPage({
         )}
 
         {total > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-bold">
-            {window.page > 1 && (
-              <Link
-                href={listHref({}, window.page - 1)}
-                className="text-blue-700 hover:underline"
-              >
-                ← {t("orders.reportsPage.previousPage")}
-              </Link>
-            )}
-            <span className="text-gray-500">
-              {t("orders.reportsPage.showingPage", {
-                page: window.page,
-                totalPages: window.totalPages,
-                total,
-              })}
-            </span>
-            {window.page < window.totalPages && (
-              <Link
-                href={listHref({}, window.page + 1)}
-                className="text-blue-700 hover:underline"
-              >
-                {t("orders.reportsPage.nextPage")} →
-              </Link>
-            )}
-          </div>
+          <Pagination
+            page={window.page}
+            totalPages={window.totalPages}
+            hrefFor={(targetPage) => listHref({}, targetPage)}
+            labels={paginationLabels(t)}
+            summary={t("orders.reportsPage.showingPage", {
+              page: window.page,
+              totalPages: window.totalPages,
+              total,
+            })}
+          />
         )}
       </div>
     </div>

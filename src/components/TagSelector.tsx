@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { readableTextColor } from "@/lib/colors";
 
 /** Stabil tom liste, så standardverdien ikke gir ny referanse ved hver render. */
 const EMPTY_TAGS: string[] = [];
@@ -67,14 +68,24 @@ export default function TagSelector({
                 key={tag.id}
                 type="button"
                 onClick={() => toggle(tag.name)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition shadow-sm ${
+                aria-pressed={isSelected}
+                className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition shadow-sm ${
                   isSelected
-                    ? "text-white border-transparent"
+                    ? "border-transparent"
                     : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
                 }`}
-                style={isSelected ? { backgroundColor: tag.color, borderColor: tag.color } : {}}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor: tag.color,
+                        borderColor: tag.color,
+                        color: readableTextColor(tag.color),
+                      }
+                    : {}
+                }
               >
-                🏷️ {tag.name}
+                <span aria-hidden>{isSelected ? "✓" : "🏷️"}</span>
+                <span>{tag.name}</span>
               </button>
             );
           })}
@@ -109,24 +120,26 @@ export default function TagSelector({
       {/* Selected tags preview */}
       {selectedArray.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-100 w-full">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider w-full">{t("documents.tagSelector.selected")}</span>
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider w-full">{t("documents.tagSelector.selected")}</span>
           {selectedArray.map((tagName) => {
             const tag = allTags.find((t) => t.name === tagName);
             const color = tag?.color || "#6b7280";
             return (
               <span
                 key={tagName}
-                className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold"
                 suppressHydrationWarning
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: color, color: readableTextColor(color) }}
               >
-                🏷️ {tagName}
+                <span aria-hidden>🏷️</span>
+                <span>{tagName}</span>
                 <button
                   type="button"
                   onClick={() => toggle(tagName)}
-                  className="ml-1 hover:opacity-70"
+                  aria-label={t("components.tagSelector.remove", { name: tagName })}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full hover:bg-black/10"
                 >
-                  ×
+                  <span aria-hidden>×</span>
                 </button>
               </span>
             );

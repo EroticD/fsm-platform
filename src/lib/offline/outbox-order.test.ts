@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAttemptLimitReached,
+  isOutboxReady,
+  isOutboxTerminal,
+  isPayloadWithinLimit,
   itemReportIdentity,
+  MAX_OUTBOX_ATTEMPTS,
+  MAX_OUTBOX_PAYLOAD_BYTES,
   newestPerReport,
+  payloadByteLength,
   payloadReportIdentity,
+  retryDelayMs,
   sortOutboxOldestFirst,
   type OutboxOrderItem,
 } from "./outbox-order";
@@ -85,5 +93,34 @@ describe("outbox-order", () => {
     );
     expect(result.ordered.map((entry) => entry.id)).toEqual(["mine"]);
     expect(result.stale).toEqual([]);
+  });
+});
+
+describe("outbox retry-policy", () => {
+  it("avviser payload over API-rutens grense", () => {
+    expect(payloadByteLength("æøå")).toBe(6);
+    expect(isPayloadWithinLimit("a".repeat(MAX_OUTBOX_PAYLOAD_BYTES))).toBe(
+      true,
+    );
+    expect(
+      isPayloadWithinLimit("a".repeat(MAX_OUTBOX_PAYLOAD_BYTES + 1)),
+    ).toBe(false);
+  });
+
+  it("øker backoffen og stopper ved maks antall forsøk", () => {
+    expect(retryDelayMs(1)).toBe(15_000);
+    expect(retryDelayMs(2)).toBe(30_000);
+    expect(retryDelayMs(3)).toBe(60_000);
+    expect(retryDelayMs(100)).toBe(30 * 60_000);
+    expect(isAttemptLimitReached(MAX_OUTBOX_ATTEMPTS - 1)).toBe(false);
+    expect(isAttemptLimitReached(MAX_OUTBOX_ATTEMPTS)).toBe(true);
+  });
+
+  it("hopper over terminale og ventende oppføringer", () => {
+    const now = 1_000_000;
+    expect(isOutboxTerminal(item({ failedAt: 1 }))).toBe(true);
+    expect(isOutboxReady(item({ nextAttemptAt: now + 1 }), now)).toBe(false);
+    expect(isOutboxReady(item({ nextAttemptAt: now }), now)).toBe(true);
+    expect(isOutboxReady(item({ failedAt: 1 }), now)).toBe(false);
   });
 });

@@ -14,7 +14,8 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
-import { parsePage } from "@/lib/pagination";
+import { pageWindow, parsePage } from "@/lib/pagination";
+import Pagination, { paginationLabels } from "@/components/Pagination";
 import ReportHistory from "@/components/portal/ReportHistory";
 import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
@@ -50,7 +51,7 @@ export default async function KundeportalPage({
   if (!user) redirect("/api/auth/signin");
   const t = await getTranslations("common");
   const listParams = await searchParams;
-  const upcomingPage = parsePage(listParams.u);
+  const requestedUpcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
   const reportPage = parsePage(listParams.r);
 
@@ -100,18 +101,23 @@ export default async function KundeportalPage({
     status: { notIn: ["COMPLETED", "CANCELLED"] },
   };
 
-  const [upcomingWorkOrders, upcomingTotal] = await Promise.all([
-    prisma.workOrder.findMany({
-      where: upcomingWhere,
-      orderBy: { scheduledFor: "desc" },
-      take: UPCOMING_PAGE_SIZE,
-      skip: (upcomingPage - 1) * UPCOMING_PAGE_SIZE,
-      select: WORK_ORDER_LIST_SELECT,
-    }),
-    prisma.workOrder.count({ where: upcomingWhere }),
-  ]);
+  const upcomingTotal = await prisma.workOrder.count({ where: upcomingWhere });
+  // Klem en gammel `?u=999` til siste side før listen hentes.
+  const upcomingWindow = pageWindow(
+    requestedUpcomingPage,
+    upcomingTotal,
+    UPCOMING_PAGE_SIZE,
+  );
+  const upcomingPage = upcomingWindow.page;
+  const upcomingTotalPages = upcomingWindow.totalPages;
 
-  const upcomingTotalPages = Math.max(1, Math.ceil(upcomingTotal / UPCOMING_PAGE_SIZE));
+  const upcomingWorkOrders = await prisma.workOrder.findMany({
+    where: upcomingWhere,
+    orderBy: { scheduledFor: "desc" },
+    take: upcomingWindow.take,
+    skip: upcomingWindow.skip,
+    select: WORK_ORDER_LIST_SELECT,
+  });
 
   // Beholder motpartens side når man blar i én av listene.
   const listLink = (next: { u?: number; h?: number }, hash: string) => {
@@ -415,27 +421,20 @@ export default async function KundeportalPage({
                 </div>
               )}
 
-              {upcomingTotalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-3 text-xs font-bold">
-                  {upcomingPage > 1 && (
-                    <Link href={listLink({ u: upcomingPage - 1 }, "#kommende")} className="text-blue-600 hover:underline">
-                      &larr; {t("portal.pagination.newest")}
-                    </Link>
-                  )}
-                  <span className="text-gray-500">
-                    {t("portal.pagination.showing", {
-                      from: (upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1,
-                      to: Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal),
-                      total: upcomingTotal,
-                    })}
-                  </span>
-                  {upcomingPage < upcomingTotalPages && (
-                    <Link href={listLink({ u: upcomingPage + 1 }, "#kommende")} className="text-blue-600 hover:underline">
-                      {t("portal.pagination.showMore")} &rarr;
-                    </Link>
-                  )}
-                </div>
-              )}
+              <Pagination
+                page={upcomingPage}
+                totalPages={upcomingTotalPages}
+                hrefFor={(targetPage) =>
+                  listLink({ u: targetPage }, "#kommende")
+                }
+                labels={paginationLabels(t)}
+                summary={t("portal.pagination.showing", {
+                  from: (upcomingPage - 1) * UPCOMING_PAGE_SIZE + 1,
+                  to: Math.min(upcomingPage * UPCOMING_PAGE_SIZE, upcomingTotal),
+                  total: upcomingTotal,
+                })}
+                className="pt-3"
+              />
             </div>
 
           </div>
