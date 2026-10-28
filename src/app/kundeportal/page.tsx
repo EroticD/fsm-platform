@@ -461,7 +461,7 @@ export default async function KundeportalPage({
           {technicians.length === 0 ? (
             <p className="text-gray-500 italic text-sm">{t("portal.availability.empty")}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-xs border-collapse min-w-[560px]">
                 <thead>
                   <tr>

@@ -79,7 +79,7 @@ export default async function CalendarPage() {
         </div>
 
         {/* FANER (TABS) FOR Å BYTTE VISNING - scrollable on mobile */}
-        <div className="overflow-x-auto pb-2">
+        <div className="overflow-x-auto pb-2" tabIndex={0}>
           <div className="flex gap-1 bg-gray-200 p-1 rounded-xl min-w-max">
             <Link href="/kalender" className="px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-gray-900 pointer-events-none whitespace-nowrap">
               {t("calendar.common.resources")}

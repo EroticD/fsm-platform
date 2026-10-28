@@ -271,7 +271,7 @@ export default async function DispatchPage({
         )}
 
         {/* FANER (TABS) FOR Å BYTTE VISNING */}
-        <div className="overflow-x-auto pb-2">
+        <div className="overflow-x-auto pb-2" tabIndex={0}>
           <div className="flex gap-1 bg-gray-200 p-1 rounded-xl min-w-max">
             <Link href="/kalender" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
               {t("calendar.common.resources")}

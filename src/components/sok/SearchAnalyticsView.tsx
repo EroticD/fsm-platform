@@ -135,7 +135,7 @@ export default async function SearchAnalyticsView({
                   {t("searchAdmin.topQueries.empty")}
                 </p>
               ) : (
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-4 overflow-x-auto" tabIndex={0}>
                   <table className="w-full text-left text-sm">
                     <caption className="sr-only">
                       {t("searchAdmin.topQueries.title")}
@@ -182,7 +182,7 @@ export default async function SearchAnalyticsView({
                   {t("searchAdmin.topZeroQueries.empty")}
                 </p>
               ) : (
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-4 overflow-x-auto" tabIndex={0}>
                   <table className="w-full text-left text-sm">
                     <caption className="sr-only">
                       {t("searchAdmin.topZeroQueries.title")}
@@ -225,7 +225,7 @@ export default async function SearchAnalyticsView({
             <p className="mt-1 text-sm text-gray-500">
               {t("searchAdmin.daily.description")}
             </p>
-            <div className="mt-4 overflow-x-auto">
+            <div className="mt-4 overflow-x-auto" tabIndex={0}>
               <table className="w-full min-w-[36rem] text-left text-sm">
                 <caption className="sr-only">
                   {t("searchAdmin.daily.caption")}

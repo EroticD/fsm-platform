@@ -177,7 +177,7 @@ export default async function KunderPage({
         {/* Tabell med eksisterende kunder. På mobil kan tabellen scrolles
             vannrett i stedet for å presse hele siden bredere enn skjermen. */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0}>
           <table className="w-full min-w-[34rem] text-left border-collapse">
             <thead className="bg-gray-100">
               <tr>

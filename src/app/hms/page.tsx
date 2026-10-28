@@ -346,7 +346,7 @@ export default async function HmsPage({
                 </p>
               </div>
             ) : (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto" tabIndex={0}>
                 <table className="w-full min-w-[720px] text-left text-sm">
                   <caption className="sr-only">{t("hms.recent.title")}</caption>
                   <thead>

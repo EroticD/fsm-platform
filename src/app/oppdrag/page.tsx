@@ -307,7 +307,7 @@ export default async function WorkOrdersPage({
 
         {/* FILTRE */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-          <div className="-mx-1 px-1 overflow-x-auto">
+          <div className="-mx-1 px-1 overflow-x-auto" tabIndex={0}>
             <div className="flex gap-2 w-max">
               {availableViews.map((v) => {
                 const active = v.key === view;

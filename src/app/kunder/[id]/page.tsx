@@ -170,7 +170,7 @@ export default async function CustomerDetailPage({
         </div>
 
         {/* FANER (TABS) */}
-        <nav className="flex gap-1 bg-white border-2 border-gray-200 rounded-2xl p-1 shadow-sm overflow-x-auto">
+        <nav className="flex gap-1 bg-white border-2 border-gray-200 rounded-2xl p-1 shadow-sm overflow-x-auto" tabIndex={0}>
           {tabs.map((entry) => (
             <Link
               key={entry.key}
