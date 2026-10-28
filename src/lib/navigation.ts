@@ -24,7 +24,6 @@ export const STAFF_NAV: NavItem[] = [
   { href: "/kunder", labelKey: "customers", icon: "🏢", requires: "customers.view" },
   { href: "/dokumenter", labelKey: "documents", icon: "📚", requires: "documents.view" },
   { href: "/oppdrag/ny", labelKey: "newWorkOrder", icon: "➕", requires: "workorders.create" },
-  { href: "/brukere", labelKey: "users", icon: "👥", requires: "users.view" },
   {
     href: "/innstillinger",
     labelKey: "settings",

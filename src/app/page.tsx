@@ -124,7 +124,6 @@ const OFFICE_ACTIONS = [
   { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
   { href: "/dokumenter", icon: "📚", labelKey: "dashboard.quickActions.documents" },
   { href: "/innstillinger?tab=maler", icon: "📋", labelKey: "dashboard.quickActions.checklists" },
-  { href: "/innstillinger?tab=ansatte", icon: "👥", labelKey: "dashboard.quickActions.employees" },
   { href: "/innstillinger?tab=statistikk", icon: "📊", labelKey: "dashboard.quickActions.statistics" },
 ];
 
@@ -159,7 +158,7 @@ export default async function AdminDashboard({
     if (hasPermission(user, "documents.view")) redirect("/dokumenter");
     if (hasPermission(user, "equipment.view")) redirect("/enheter");
     if (hasPermission(user, "reports.view")) redirect("/rapporter");
-    if (hasPermission(user, "users.view")) redirect("/brukere");
+    if (hasPermission(user, "users.view")) redirect("/innstillinger?tab=ansatte");
     redirect("/kundeportal");
   }
 
@@ -186,7 +185,7 @@ export default async function AdminDashboard({
   if (hasPermission(user, "customers.view")) allowedHrefs.add("/kunder");
   if (hasPermission(user, "documents.view")) allowedHrefs.add("/dokumenter");
   if (hasPermission(user, "templates.manage")) allowedHrefs.add("/innstillinger?tab=maler");
-  if (hasPermission(user, "users.view")) allowedHrefs.add("/innstillinger?tab=ansatte");
+
   if (hasPermission(user, "reports.view")) allowedHrefs.add("/innstillinger?tab=statistikk");
   const quickActions = (office ? OFFICE_ACTIONS : FIELD_ACTIONS).filter((a) =>
     allowedHrefs.has(a.href),
