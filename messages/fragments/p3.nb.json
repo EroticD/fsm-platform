@@ -108,7 +108,21 @@
       "mapAria": "Kart over oppdrag",
       "noMapPoints": "Ingen oppdrag kunne plasseres på kartet fordi kunden mangler en kjent by.",
       "noDate": "Ingen dato",
-      "openWorkOrder": "Åpne oppdrag"
+      "openWorkOrder": "Åpne oppdrag",
+      "filters": {
+        "technician": "Montør",
+        "allTechnicians": "Alle montører",
+        "dateFrom": "Fra dato",
+        "dateTo": "Til dato",
+        "apply": "Bruk filter",
+        "clear": "Nullstill"
+      },
+      "layers": {
+        "osm": "OpenStreetMap",
+        "topo": "Topografisk",
+        "light": "Lys",
+        "satellite": "Satellitt"
+      }
     }
   }
 }

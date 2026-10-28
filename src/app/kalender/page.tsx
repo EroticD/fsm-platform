@@ -113,13 +113,13 @@ export default async function CalendarPage() {
             <h2 className="font-bold text-red-800 text-lg flex items-center gap-2 mb-2">
               {t("calendar.page.unassignedTitle", { count: unassignedJobs.length })}
             </h2>
-            <p className="text-sm text-red-600 mb-4">{t("calendar.page.unassignedWarning")}</p>
+            <p className="text-sm text-red-800 mb-4">{t("calendar.page.unassignedWarning")}</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {unassignedJobs.map(wo => (
                 <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group bg-white p-3 sm:p-4 rounded-xl border border-red-100 hover:border-red-400 shadow-sm transition">
                   <div className="flex justify-between items-start mb-1">
-                    <span className="text-xs font-bold text-red-500 uppercase">
+                    <span className="text-xs font-bold text-red-800 uppercase">
                       {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("calendar.common.noDate")}
                     </span>
                   </div>

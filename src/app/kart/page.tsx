@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { formatDate } from "@/lib/dates";
+import { formatDate, parseDateOnly } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { workOrderScope } from "@/lib/access";
+import { staffWhere, workOrderScope } from "@/lib/access";
 import prisma from "@/lib/prisma";
 import WorkOrderMap from "@/components/WorkOrderMap";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
@@ -28,17 +28,39 @@ type MapWorkOrder = {
   } | null;
 };
 
-export default async function MapPage() {
+export default async function MapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    technician?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }>;
+}) {
   const t = await getTranslations("common");
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
+
+  const params = await searchParams;
+  const technicianId = params.technician?.trim() ?? "";
+  const dateFrom = parseDateOnly(params.dateFrom ?? "");
+  const dateTo = parseDateOnly(params.dateTo ?? "");
+  const technicians = await prisma.user.findMany({
+    where: staffWhere(user.role === "ADMIN" ? undefined : user.departmentId),
+    orderBy: { name: "asc" },
+    take: 200,
+    select: { id: true, name: true },
+  });
 
   const workOrders = (await prisma.workOrder.findMany({
     where: {
       AND: [
         workOrderScope(user),
         { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+        ...(technicianId ? [{ technicians: { some: { id: technicianId } } }] : []),
+        ...(dateFrom ? [{ scheduledFor: { gte: dateFrom } }] : []),
+        ...(dateTo ? [{ scheduledFor: { lte: dateTo } }] : []),
       ],
     },
     select: {
@@ -132,12 +154,70 @@ export default async function MapPage() {
         </Link>
       </div>
 
+      <form
+        action="/kart"
+        method="get"
+        className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5"
+      >
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-700">
+          {t("p3.map.filters.technician")}
+          <select
+            name="technician"
+            defaultValue={technicianId}
+            className="min-h-11 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
+          >
+            <option value="">{t("p3.map.filters.allTechnicians")}</option>
+            {technicians.map((technician) => (
+              <option key={technician.id} value={technician.id}>
+                {technician.name || technician.id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-700">
+          {t("p3.map.filters.dateFrom")}
+          <input
+            type="date"
+            name="dateFrom"
+            defaultValue={params.dateFrom ?? ""}
+            className="min-h-11 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-700">
+          {t("p3.map.filters.dateTo")}
+          <input
+            type="date"
+            name="dateTo"
+            defaultValue={params.dateTo ?? ""}
+            className="min-h-11 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
+          />
+        </label>
+        <button
+          type="submit"
+          className="min-h-11 self-end rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+        >
+          {t("p3.map.filters.apply")}
+        </button>
+        <Link
+          href="/kart"
+          className="inline-flex min-h-11 self-end items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+        >
+          {t("p3.map.filters.clear")}
+        </Link>
+      </form>
+
       <section className="space-y-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
         <WorkOrderMap
           points={mapPoints}
           ariaLabel={t("p3.map.mapAria")}
           noPointsLabel={t("p3.map.noMapPoints")}
           openLabel={t("p3.map.openWorkOrder")}
+          layerLabels={{
+            osm: t("p3.map.layers.osm"),
+            topo: t("p3.map.layers.topo"),
+            light: t("p3.map.layers.light"),
+            satellite: t("p3.map.layers.satellite"),
+          }}
         />
       </section>
 

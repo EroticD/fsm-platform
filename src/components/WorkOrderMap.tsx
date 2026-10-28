@@ -26,11 +26,18 @@ export default function WorkOrderMap({
   ariaLabel,
   noPointsLabel,
   openLabel,
+  layerLabels,
 }: {
   points: WorkOrderMapPoint[];
   ariaLabel: string;
   noPointsLabel: string;
   openLabel: string;
+  layerLabels: {
+    osm: string;
+    topo: string;
+    light: string;
+    satellite: string;
+  };
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -43,16 +50,48 @@ export default function WorkOrderMap({
       if (cancelled || !containerRef.current) return;
 
       map = L.map(containerRef.current, {
-        scrollWheelZoom: false,
+        scrollWheelZoom: true,
+        wheelDebounceTime: 40,
+        wheelPxPerZoomLevel: 90,
         keyboard: true,
         zoomControl: true,
       });
 
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
-      }).addTo(map);
+      const baseLayers = {
+        [layerLabels.osm]: L.tileLayer(
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          {
+            maxZoom: 19,
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+          },
+        ).addTo(map),
+        [layerLabels.topo]: L.tileLayer(
+          "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+          {
+            maxZoom: 17,
+            attribution:
+              'Kartdata &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>, OpenTopoMap',
+          },
+        ),
+        [layerLabels.light]: L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+          {
+            maxZoom: 20,
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>, &copy; CARTO',
+          },
+        ),
+        [layerLabels.satellite]: L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          {
+            maxZoom: 18,
+            attribution:
+              "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+          },
+        ),
+      };
+      L.control.layers(baseLayers, undefined, { collapsed: true }).addTo(map);
 
       const bounds = L.latLngBounds([]);
 
@@ -125,7 +164,7 @@ export default function WorkOrderMap({
       map?.remove();
       map = null;
     };
-  }, [points, openLabel]);
+  }, [points, openLabel, layerLabels]);
 
   return (
     <div className="space-y-2">
