@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { buildInviteUrl } from "@/lib/invite";
 import { parsePage } from "@/lib/pagination";
 import {
   CUSTOMER_ORDER_PAGE_SIZE,
@@ -39,17 +38,14 @@ export default async function CustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
-    invite?: string;
-    inviteToken?: string;
     error?: string;
-    mail?: string;
     tab?: string;
     side?: string;
   }>;
 }) {
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
-  const { invite, inviteToken, error, mail, tab, side } = await searchParams;
+  const { error, tab, side } = await searchParams;
   const orderPage = parsePage(side);
   const t = await getTranslations("common");
 
@@ -104,12 +100,8 @@ export default async function CustomerDetailPage({
   const data = result.data;
   const { customer } = data;
 
-  // Nøkkelen lagres som hash, så den rå invitasjonslenken kommer i redirecten.
-  const inviteUser = invite
-    ? data.portalUsers.find((candidate) => candidate.id === invite)
-    : undefined;
-  const inviteUrl = inviteToken ? buildInviteUrl(inviteToken) : null;
-
+  // Nøkkelen lagres som hash. Den rå invitasjonslenken vises bare i
+  // sideinnholdet rett etter at handlingen er utført.
   const portalError =
     error === "mangler_felt"
       ? t("customers.portal.errorMissingFields")
@@ -282,9 +274,6 @@ export default async function CustomerDetailPage({
             portalUsers={data.portalUsers}
             office={office}
             portalError={portalError}
-            inviteUser={inviteUser}
-            inviteUrl={inviteUrl}
-            mail={mail}
             createPortalUser={createPortalUser}
             setPortalUserActive={setPortalUserActive}
             resendPortalInvite={resendPortalInvite}

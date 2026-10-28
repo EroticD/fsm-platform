@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { buildInviteUrl } from "@/lib/invite";
+import type { InviteActionState } from "@/lib/invite-action-state";
 import {
   changeDepartment as changeDepartmentService,
   changePermissions as changePermissionsService,
@@ -41,10 +43,13 @@ function revalidateUserAdmin() {
   revalidatePath("/innstillinger");
 }
 
-export async function createUser(formData: FormData) {
+export async function createUser(
+  _previous: InviteActionState,
+  formData: FormData,
+): Promise<InviteActionState> {
   const back = returnPath(formData);
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) return { status: "error" };
 
   const result = await createUserService(actor, {
     name: formData.get("name"),
@@ -65,15 +70,20 @@ export async function createUser(formData: FormData) {
     if (result.reason === "duplicate_email") {
       redirect(withParam(back, "error", "epost_finnes"));
     }
-    return;
+    return { status: "error" };
   }
 
-  const { id, mailSent } = result.data;
+  const { name, token, mailSent } = result.data;
   revalidateUserAdmin();
-  // Den rå invitasjonsnøkkelen skal aldri ligge i en URL. Den finnes bare i
-  // e-posten (eller vises én gang i utviklingsmodus), slik at den ikke havner i
-  // logger, referrer-headere eller nettleserhistorikk.
-  redirect(withParam(withParam(back, "invite", id), "mail", mailSent ? "sent" : "manual"));
+  // Den rå invitasjonsnøkkelen returneres til den autentiserte siden og vises
+  // én gang i sideinnholdet. Den legges aldri i en URL, slik at den ikke havner
+  // i logger, referrer-headere eller nettleserhistorikk.
+  return {
+    status: "invite",
+    inviteUrl: mailSent ? "" : buildInviteUrl(token),
+    mailSent,
+    name,
+  };
 }
 
 export async function deleteUser(formData: FormData) {
@@ -205,10 +215,13 @@ export async function resetPermissions(formData: FormData) {
   revalidateUserAdmin();
 }
 
-export async function generateInvite(formData: FormData) {
+export async function generateInvite(
+  _previous: InviteActionState,
+  formData: FormData,
+): Promise<InviteActionState> {
   const back = returnPath(formData);
   const actor = await getCurrentUser();
-  if (!actor) return;
+  if (!actor) return { status: "error" };
 
   const result = await generateInviteService(actor, {
     id: formData.get("id"),
@@ -217,13 +230,17 @@ export async function generateInvite(formData: FormData) {
     if (result.reason === "invalid") {
       redirect(withParam(back, "error", "ugyldig-data"));
     }
-    return;
+    return { status: "error" };
   }
 
-  const { id, mailSent } = result.data;
+  const { token, mailSent } = result.data;
   revalidateUserAdmin();
-  // Den rå invitasjonsnøkkelen skal aldri ligge i en URL. Den finnes bare i
-  // e-posten (eller vises én gang i utviklingsmodus), slik at den ikke havner i
-  // logger, referrer-headere eller nettleserhistorikk.
-  redirect(withParam(withParam(back, "invite", id), "mail", mailSent ? "sent" : "manual"));
+  // Samme regel som ved opprettelse: nøkkelen vises i sideinnholdet, ikke i
+  // adressen. Aktive kontoer får aldri en ny invitasjonslenke.
+  return {
+    status: "invite",
+    inviteUrl: mailSent ? "" : buildInviteUrl(token),
+    mailSent,
+    name: "",
+  };
 }

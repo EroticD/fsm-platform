@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
       count: vi.fn(),
       create: vi.fn(),
     },
+    customer: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -62,6 +63,7 @@ beforeEach(() => {
   mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
   mocks.prisma.workOrder.count.mockResolvedValue(0);
   mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-1" });
+  mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
   mocks.audit.mockResolvedValue(undefined);
   mocks.getDefaultDepartmentId.mockResolvedValue("dep-1");
   mocks.notifyWorkOrderEvent.mockResolvedValue(1);
@@ -82,6 +84,22 @@ describe("createBooking", () => {
 
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
     expect(mocks.allowRequestDb).not.toHaveBeenCalled();
+  });
+
+  it("avviser bestilling når kunden er mykt slettet", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValue(null);
+
+    await expect(createBooking(customer(), booking)).resolves.toEqual({
+      ok: false,
+      reason: "forbidden",
+    });
+
+    expect(mocks.prisma.customer.findFirst).toHaveBeenCalledWith({
+      where: { id: "cust-1", deletedAt: null },
+      select: { id: true },
+    });
+    expect(mocks.allowRequestDb).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
   });
 
   it("avviser den sjette bestillingen innenfor en time", async () => {

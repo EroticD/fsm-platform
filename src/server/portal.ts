@@ -45,6 +45,12 @@ export async function createBooking(
   }
 
   const customerId = actor.customerId;
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!customer) return fail("forbidden");
+
   const title = cleanText(input.title, { maxLength: LIMITS.title });
   if (!title) return fail("missing_fields");
   const description = cleanMarkdown(input.description);
@@ -225,8 +231,8 @@ export async function requestContactUpdate(
     return fail("forbidden");
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: actor.customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: actor.customerId, deletedAt: null },
     select: { id: true, name: true, departmentId: true },
   });
   if (!customer) return fail("not_found");
@@ -328,15 +334,24 @@ export async function acknowledgeReport(
       ? input.comment.trim().slice(0, 2000) || null
       : null;
 
+  // Atomisk kvittering: bare den første samtidige forespørselen får count = 1.
+  // Da kan det aldri skrives to revisjonsrader for samme kvittering.
   await prisma.$transaction(async (tx) => {
-    await tx.report.update({
-      where: { id: report.id },
+    const updated = await tx.report.updateMany({
+      where: {
+        id: report.id,
+        deletedAt: null,
+        isLocked: true,
+        customerAcknowledgedAt: null,
+      },
       data: {
         customerAcknowledgedAt: new Date(),
         customerAcknowledgedBy: actor.name || actor.email || "Kunde",
         customerAcknowledgedComment: comment,
       },
     });
+
+    if (updated.count !== 1) return;
 
     await audit(tx, {
       entityType: "Report",

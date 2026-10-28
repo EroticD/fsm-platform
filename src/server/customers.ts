@@ -1155,19 +1155,44 @@ export async function deleteCustomer(
       where: { id: customer.id },
       data: { deletedAt: new Date(), deletedBy: actor.name || actorId },
     });
+
+    // En slettet kunde skal ikke lenger kunne bruke kundeportalen. Alle
+    // portalbrukere knyttet til kunden deaktiveres, øktene deres ugyldiggjøres
+    // og kalenderabonnementene fjernes. Gjenoppretting aktiverer dem bevisst
+    // ikke igjen – en administrator må vurdere tilgangen på nytt.
+    const portalUsers = await tx.user.updateMany({
+      where: { customerId: customer.id, role: "CUSTOMER" },
+      data: {
+        isActive: false,
+        sessionVersion: { increment: 1 },
+        calendarTokenHash: null,
+        calendarTokenCreatedAt: null,
+        calendarTokenLastUsedAt: null,
+      },
+    });
+
     await audit(tx, {
       entityType: "Customer",
       entityId: customer.id,
       action: `Slettet kunden «${customer.name}» (myk sletting – kan gjenopprettes)`,
       actor: toAuditActor({ ...actor, id: actorId }),
-      metadata: { softDeleted: true },
+      metadata: {
+        softDeleted: true,
+        deactivatedPortalUsers: portalUsers.count,
+      },
     });
   });
 
   return ok(undefined);
 }
 
-/** Gjenoppretter en mykt slettet kunde. Bare administrator. */
+/** Gjenoppretter en mykt slettet kunde. Bare administrator.
+ *
+ * Gjenopprettingen rører ikke kundeportalbrukerne: de ble deaktivert ved
+ * sletting, og en administrator må aktivere hver bruker på nytt etter å ha
+ * vurdert at tilgangen fortsatt er riktig. Da kan en gammel invitasjon eller
+ * økt ikke gi tilbake tilgang uten en bevisst handling.
+ */
 export async function restoreCustomer(
   actor: ServiceActor,
   customerId: string,

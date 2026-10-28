@@ -282,6 +282,7 @@
       "sent": "The invitation email has been sent. The user sets their own password, and you activate the account afterwards.",
       "manual": "The email could not be sent (check the SMTP settings in .env), so send this link to the user manually. They set their own password, and you activate the account afterwards.",
       "copy": "Copy link",
+      "failed": "Could not create the invitation link. Please try again.",
       "invalid": "No valid link found. Click “Invitation link” to create a new one."
     },
     "add": {

@@ -282,6 +282,7 @@
       "sent": "Invitasjons-e-posten er sendt. Brukeren setter sitt eget passord, og kontoen aktiveres av deg etterpå.",
       "manual": "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env), så send denne lenken til brukeren manuelt. De setter sitt eget passord, og kontoen aktiveres av deg etterpå.",
       "copy": "Kopier lenke",
+      "failed": "Kunne ikke lage invitasjonslenken. Prøv igjen.",
       "invalid": "Ingen gyldig lenke funnet. Trykk «Invitasjonslenke» for å lage en ny."
     },
     "add": {

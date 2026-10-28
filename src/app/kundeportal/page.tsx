@@ -63,8 +63,8 @@ export default async function KundeportalPage({
     );
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: user.customerId },
+  const customer = await prisma.customer.findFirst({
+    where: { id: user.customerId, deletedAt: null },
     include: {
       department: true,
       responsibleTechnician: true,

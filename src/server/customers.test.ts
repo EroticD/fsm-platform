@@ -39,7 +39,7 @@ const mocks = vi.hoisted(() => ({
     },
     auditLog: { create: vi.fn(), findMany: vi.fn() },
     comment: { findMany: vi.fn() },
-    user: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
     template: { findMany: vi.fn(), findUnique: vi.fn() },
     department: {
       findMany: vi.fn(),
@@ -117,6 +117,7 @@ beforeEach(() => {
     async (callback: (tx: typeof mocks.prisma) => unknown) => callback(mocks.prisma),
   );
   mocks.prisma.auditLog.create.mockResolvedValue({});
+  mocks.prisma.user.updateMany.mockResolvedValue({ count: 2 });
   mocks.prisma.contact.findFirst.mockResolvedValue(null);
   mocks.prisma.customer.findFirst.mockImplementation(
     async (args: unknown) => mocks.prisma.customer.findUnique(args),
@@ -383,11 +384,27 @@ describe("kundetjenesten – myk sletting og gjenoppretting", () => {
         deletedBy: "Actor",
       },
     });
+    // Portalbrukerne deaktiveres, øktene ugyldiggjøres og kalendertokens
+    // fjernes i samme transaksjon.
+    expect(mocks.prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { customerId: "kunde-1", role: "CUSTOMER" },
+      data: {
+        isActive: false,
+        sessionVersion: { increment: 1 },
+        calendarTokenHash: null,
+        calendarTokenCreatedAt: null,
+        calendarTokenLastUsedAt: null,
+      },
+    });
     expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         entityType: "Customer",
         entityId: "kunde-1",
         actorId: "actor",
+        metadata: {
+          softDeleted: true,
+          deactivatedPortalUsers: 2,
+        },
       }),
     });
   });
@@ -412,6 +429,19 @@ describe("kundetjenesten – myk sletting og gjenoppretting", () => {
     const result = await restoreCustomer(office(), "kunde-1");
 
     expect(result).toEqual({ ok: false, reason: "forbidden" });
+  });
+
+  it("gjenoppretter ikke kundeportalbrukere automatisk", async () => {
+    mocks.prisma.customer.findUnique.mockResolvedValue({
+      id: "kunde-1",
+      name: "Kunde AS",
+      deletedAt: new Date(),
+    });
+
+    const result = await restoreCustomer(admin(), "kunde-1");
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.updateMany).not.toHaveBeenCalled();
   });
 });
 

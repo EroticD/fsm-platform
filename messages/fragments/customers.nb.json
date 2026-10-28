@@ -201,6 +201,7 @@
       "inviteSent": "Invitasjons-e-posten er sendt til brukeren.",
       "inviteManual": "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env) – kopier lenken og send den til brukeren manuelt.",
       "copyLink": "Kopier lenke",
+      "inviteFailed": "Kunne ikke lage invitasjonslenken. Prøv igjen.",
       "noValidLink": "Ingen gyldig lenke. Trykk «Ny lenke» for å lage en ny.",
       "addContactFirst": "Legg til en kontaktperson først – kundeportalbrukere må kobles til en kontaktperson.",
       "name": "Navn",

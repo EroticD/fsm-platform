@@ -1,11 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
 import Link from "next/link";
-import { hashToken } from "@/lib/invite";
-import { bumpSessionVersion } from "@/lib/session";
-import { clearCalendarToken } from "@/server/calendar-feed";
+import { resetPasswordWithToken } from "@/lib/password-reset";
 
 export default async function ResetPasswordPage({ searchParams }: { searchParams: Promise<{ token?: string, error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -32,36 +28,13 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
     const newPassword = formData.get("password") as string;
     const token = formData.get("token") as string;
 
-    if (!newPassword || newPassword.length < 8) {
+    const result = await resetPasswordWithToken(token, newPassword);
+    if (result === "too_short") {
       redirect(`/tilbakestill-passord?token=${token}&error=for_kort`);
     }
-
-    // Finner brukeren som eier denne koden, og sjekker at tiden ikke har gått ut
-    const user = await prisma.user.findFirst({
-      where: {
-        resetToken: hashToken(token),
-        resetTokenExpiry: { gt: new Date() } // Må være i fremtiden
-      }
-    });
-
-    if (!user) {
+    if (result === "invalid") {
       redirect(`/tilbakestill-passord?token=${token}&error=ugyldig`);
     }
-
-    // Krypterer (hasher) det nye passordet for sikker lagring!
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Lagrer passordet og fjerner den brukte sikkerhetskoden (kan bare brukes én gang)
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetToken: null,
-        resetTokenExpiry: null
-      }
-    });
-    await bumpSessionVersion(user.id);
-    await clearCalendarToken(user.id);
 
     // Sender brukeren til innlogging
     redirect("/api/auth/signin");

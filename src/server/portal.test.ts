@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
-    report: { update: vi.fn() },
+    report: { update: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -43,6 +43,7 @@ beforeEach(() => {
   mocks.prisma.workOrder.count.mockResolvedValue(0);
   mocks.prisma.workOrder.findUnique.mockResolvedValue(null);
   mocks.prisma.report.update.mockResolvedValue({});
+  mocks.prisma.report.updateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("kundeportaltjenesten", () => {
@@ -110,7 +111,7 @@ describe("kundeportaltjenesten", () => {
 
     const result = await acknowledgeReport(customer(), { workOrderId: "wo1" });
     expect(result).toEqual({ ok: false, reason: "not_found" });
-    expect(mocks.prisma.report.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.report.updateMany).not.toHaveBeenCalled();
   });
 
   it("kvitterer for egen rapport og logger det", async () => {
@@ -132,8 +133,13 @@ describe("kundeportaltjenesten", () => {
     );
 
     expect(result).toEqual({ ok: true, data: undefined });
-    expect(mocks.prisma.report.update).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(mocks.prisma.report.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "r1",
+        deletedAt: null,
+        isLocked: true,
+        customerAcknowledgedAt: null,
+      },
       data: expect.objectContaining({
         customerAcknowledgedBy: "Kunde",
         customerAcknowledgedComment: "Mottatt",
@@ -166,8 +172,8 @@ describe("kundeportaltjenesten", () => {
     });
 
     expect(result).toEqual({ ok: true, data: undefined });
-    expect(mocks.prisma.report.update).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(mocks.prisma.report.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "r1", customerAcknowledgedAt: null }),
       data: expect.objectContaining({ customerAcknowledgedBy: "Kunde" }),
     });
     expect(mocks.audit).toHaveBeenCalledWith(
@@ -189,7 +195,7 @@ describe("kundeportaltjenesten", () => {
     });
 
     expect(result).toEqual({ ok: false, reason: "not_found" });
-    expect(mocks.prisma.report.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.report.updateMany).not.toHaveBeenCalled();
   });
 
   it("avviser kvittering for en slettet rapport", async () => {
@@ -205,7 +211,7 @@ describe("kundeportaltjenesten", () => {
     });
 
     expect(result).toEqual({ ok: false, reason: "not_found" });
-    expect(mocks.prisma.report.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.report.updateMany).not.toHaveBeenCalled();
   });
 
   it("er idempotent når rapporten allerede er kvittert", async () => {
@@ -217,6 +223,25 @@ describe("kundeportaltjenesten", () => {
 
     const result = await acknowledgeReport(customer(), { workOrderId: "wo1" });
     expect(result).toEqual({ ok: true, data: undefined });
-    expect(mocks.prisma.report.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.report.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("skriver bare én revisjonsrad når to forespørsler kvitterer samtidig", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo1",
+      customerId: "cust-1",
+      reports: [{ id: "r1", isLocked: true, customerAcknowledgedAt: null }],
+    });
+    // Den andre samtidige forespørselen tapte race-en.
+    mocks.prisma.report.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await acknowledgeReport(customer(), {
+      workOrderId: "wo1",
+      reportId: "r1",
+    });
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(mocks.prisma.report.updateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.audit).not.toHaveBeenCalled();
   });
 });

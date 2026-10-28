@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { contentTypeFor, uploadDir } from "@/lib/uploads";
 import { getCurrentUser } from "@/lib/session";
 import { canReadUpload } from "@/lib/upload-access";
+import { hasPermission } from "@/lib/permissions";
 
 // Bilder og vedlegg leses fra disk for hver forespørsel, slik at filer som
 // lastes opp mens appen kjører blir synlige umiddelbart.
@@ -59,6 +60,55 @@ export async function GET(
       if (!workOrder || workOrder.deletedAt) {
         return new NextResponse("Fant ikke filen", { status: 404 });
       }
+
+      // En rapport-PDF lagres som en WORK_ORDER-opplasting, men inneholder
+      // hele rapporten. Den skal derfor kreve reports.view i tillegg til
+      // oppdragstilgangen. Vanlige vedlegg på samme oppdrag er ikke berørt.
+      const reportPdf = await prisma.report.findFirst({
+        where: { pdfUrl: `/uploads/${storedName}` },
+        select: {
+          id: true,
+          deletedAt: true,
+          workOrder: { select: { deletedAt: true } },
+        },
+      });
+      if (reportPdf) {
+        if (reportPdf.deletedAt || reportPdf.workOrder?.deletedAt) {
+          return new NextResponse("Fant ikke filen", { status: 404 });
+        }
+        if (!hasPermission(user, "reports.view")) {
+          return new NextResponse("Ingen tilgang", { status: 403 });
+        }
+      }
+    }
+
+    // Mykt slettede kunder og dokumenter stenger også filene deres. En
+    // administrator beholder tilgangen for gjenoppretting og revisjon.
+    if (upload.ownerType === "CUSTOMER" && user.role !== "ADMIN") {
+      const ownerCustomerId = upload.ownerId ?? upload.customerId;
+      if (ownerCustomerId) {
+        const customer = await prisma.customer.findUnique({
+          where: { id: ownerCustomerId },
+          select: { deletedAt: true },
+        });
+        if (!customer || customer.deletedAt) {
+          return new NextResponse("Fant ikke filen", { status: 404 });
+        }
+      }
+    }
+
+    if (
+      upload.ownerType === "DOCUMENT" &&
+      upload.ownerId &&
+      user.role !== "ADMIN"
+    ) {
+      const document = await prisma.document.findUnique({
+        where: { id: upload.ownerId },
+        select: { deletedAt: true },
+      });
+      if (!document || document.deletedAt) {
+        return new NextResponse("Fant ikke filen", { status: 404 });
+      }
     }
   }
 
@@ -68,9 +118,10 @@ export async function GET(
       headers: {
         "Content-Type": contentTypeFor(filePath),
         "X-Content-Type-Options": "nosniff",
-        // Filnavnet er en tilfeldig UUID, så innholdet endres aldri. private:
-        // filen skal ikke mellomlagres i delte proxyer.
-        "Cache-Control": "private, max-age=31536000, immutable",
+        // Filnavnet er tilfeldig, men innholdet kan være kundedata og
+        // tilgangen kan trekkes tilbake. Derfor skal ingen delt cache eller
+        // nettleser beholde filen etter at den er vist.
+        "Cache-Control": "private, no-store",
       },
     });
   } catch {

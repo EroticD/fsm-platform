@@ -14,6 +14,7 @@ import {
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
 import { clientIpFrom } from "@/lib/client-ip";
+import { cleanEmail } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
 
 /**
@@ -22,7 +23,7 @@ import { logger } from "@/lib/logger";
  * på to-trinns verifisering, sendes man videre til kode-steget.
  */
 export async function loginAction(formData: FormData): Promise<never> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = cleanEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
   const callbackUrl = safeRelativeTarget(
     typeof formData.get("callbackUrl") === "string"

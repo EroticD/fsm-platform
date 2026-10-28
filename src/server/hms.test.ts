@@ -221,7 +221,11 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
         where: {
           templateCategory: "HMS",
           deletedAt: null,
-          workOrder: { departmentId: "dep-a", deletedAt: null },
+          workOrder: {
+            departmentId: "dep-a",
+            department: { isActive: true },
+            deletedAt: null,
+          },
         },
         take: 50,
       }),
@@ -280,6 +284,7 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
       expect.objectContaining({
         where: {
           departmentId: "dep-a",
+          department: { isActive: true },
           deletedAt: null,
           status: { notIn: ["COMPLETED", "CANCELLED"] },
         },
