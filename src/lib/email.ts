@@ -22,7 +22,7 @@ function safeEmailLogoUrl(value: string | null | undefined): string {
  * Kort og PII-fri feilbeskrivelse for logger. Nodemailer og SMTP kan legge
  * mottakeradressen i både melding og konvolutt, så vi logger aldri rå feil.
  */
-function safeEmailError(error: unknown): string {
+export function safeEmailError(error: unknown): string {
   if (error && typeof error === "object") {
     const name = "name" in error ? String((error as { name?: unknown }).name) : "";
     const code = "code" in error ? String((error as { code?: unknown }).code) : "";

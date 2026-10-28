@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => ({
   searchNormalizedIds: vi.fn<
     (table: string, query: string, limit: number, columns?: string[]) => Promise<{ id: string; score: number }[]>
   >(async () => []),
-  searchWorkOrderIds: vi.fn(async () => [] as string[]),
+  searchWorkOrderIdsWithTotal: vi.fn(async () => ({ ids: [] as string[], total: 0 })),
   searchDocuments: vi.fn<(query: string, limit: number) => Promise<unknown[]>>(async () => []),
   searchReports: vi.fn<(query: string, options: unknown) => Promise<unknown[]>>(async () => []),
 }));
@@ -58,7 +58,7 @@ vi.mock("@/lib/search-sql", () => ({
   searchByName: mocks.searchByName,
   searchBySubstring: mocks.searchBySubstring,
   searchNormalizedIds: mocks.searchNormalizedIds,
-  searchWorkOrderIds: mocks.searchWorkOrderIds,
+  searchWorkOrderIdsWithTotal: mocks.searchWorkOrderIdsWithTotal,
   searchDocuments: mocks.searchDocuments,
   searchReports: mocks.searchReports,
 }));
@@ -126,7 +126,7 @@ beforeEach(() => {
   mocks.searchByName.mockResolvedValue([]);
   mocks.searchBySubstring.mockResolvedValue([]);
   mocks.searchNormalizedIds.mockResolvedValue([]);
-  mocks.searchWorkOrderIds.mockResolvedValue([]);
+  mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: [], total: 0 });
   mocks.searchDocuments.mockResolvedValue([]);
   mocks.searchReports.mockResolvedValue([]);
 });
@@ -274,7 +274,7 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
 
 describe("performSearch – filtre, tellinger og rangering", () => {
   it("bruker ekte totaltall og paginerer per gruppe", async () => {
-    mocks.searchWorkOrderIds.mockResolvedValue(["wo-1", "wo-2", "wo-3", "wo-4"]);
+    mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: ["wo-1", "wo-2", "wo-3", "wo-4"], total: 4 });
     mocks.workOrderFindMany.mockResolvedValue([
       workOrderRow({ id: "wo-1", title: "Service 1" }),
       workOrderRow({ id: "wo-2", title: "Service 2" }),
@@ -296,7 +296,7 @@ describe("performSearch – filtre, tellinger og rangering", () => {
   });
 
   it("sender alle oppdragsfiltre videre til databasen", async () => {
-    mocks.searchWorkOrderIds.mockResolvedValue(["wo-1"]);
+    mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: ["wo-1"], total: 1 });
     mocks.workOrderFindMany.mockResolvedValue([workOrderRow()]);
     mocks.workOrderCount.mockResolvedValue(1);
 
@@ -345,7 +345,7 @@ describe("performSearch – filtre, tellinger og rangering", () => {
     });
 
     expect(mocks.searchReports).toHaveBeenCalled();
-    expect(mocks.searchWorkOrderIds).not.toHaveBeenCalled();
+    expect(mocks.searchWorkOrderIdsWithTotal).not.toHaveBeenCalled();
     expect(mocks.searchByName).not.toHaveBeenCalled();
   });
 
@@ -359,7 +359,7 @@ describe("performSearch – filtre, tellinger og rangering", () => {
       { id: "cust-1", name: "Service", customerNumber: null, orgNumber: null, city: null, phone: null, email: null },
     ]);
     mocks.customerCount.mockResolvedValue(1);
-    mocks.searchWorkOrderIds.mockResolvedValue(["wo-1"]);
+    mocks.searchWorkOrderIdsWithTotal.mockResolvedValue({ ids: ["wo-1"], total: 1 });
     mocks.workOrderFindMany.mockResolvedValue([workOrderRow({ title: "Service" })]);
     mocks.workOrderCount.mockResolvedValue(1);
 

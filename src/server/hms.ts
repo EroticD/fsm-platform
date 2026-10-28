@@ -134,13 +134,19 @@ export async function getHmsOverview(
 
   // Rapporter er felles på tvers av avdelinger i rapportlisten, men HMS-siden
   // er en oppdragsoversikt og følger derfor samme avdelingssperre som
-  // oppdragene. Det hindrer at HMS-dokumentasjon lekker på tvers av avdelinger.
+  // oppdragene. Montører skal i tillegg ikke se HMS-dokumentasjon på
+  // kansellerte oppdrag – samme regel som rapportlisten og PDF-visningen.
   const reports = canViewReports
     ? await prisma.report.findMany({
         where: {
           templateCategory: "HMS",
           deletedAt: null,
-          workOrder: workOrderScopeFor(actor),
+          workOrder: {
+            ...workOrderScopeFor(actor),
+            ...(actor.role === "TECHNICIAN"
+              ? { status: { not: "CANCELLED" as const } }
+              : {}),
+          },
         },
         orderBy: { completedAt: "desc" },
         take: 50,

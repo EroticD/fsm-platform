@@ -17,6 +17,7 @@ import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
 import { generateReportNumber } from "@/lib/report-number";
+import { isTemplateFieldVisible } from "@/lib/template-visibility";
 
 /**
  * Tjenestelaget for rapporter.
@@ -309,6 +310,9 @@ type TemplateField = {
   options?: string[];
   /** For tilstandsfelt: valgene som krever kommentar. */
   commentOptions?: string[];
+  /** Betinget visning, samme regel som i skjemaet. */
+  conditionalFieldId?: string;
+  conditionalValue?: string;
 };
 
 type UnitPayload = {
@@ -685,6 +689,7 @@ export async function saveDraft(
     include: { templates: { where: { id: templateId } } },
   });
   if (!workOrder) return { ok: false };
+  if (workOrder.legalHold) return { ok: false };
   if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false };
   }
@@ -881,6 +886,13 @@ export async function submitReport(
     include: { templates: { where: { id: templateId } } },
   });
   if (!workOrder) return { ok: false, error: "ikke-funnet" };
+  if (workOrder.legalHold) {
+    return {
+      ok: false,
+      error: "legal-hold",
+      returnTo: returnPathFrom(formData, workOrderId),
+    };
+  }
   if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false, error: "kansellert" };
   }
@@ -1011,6 +1023,9 @@ export async function submitReport(
 
     return fields.some((field) => {
       if (!field.required) return false;
+      // Skjulte betingede felt er ikke en del av det montøren ser eller kan
+      // fylle ut. Serveren bruker samme synlighetsregel som skjemaet.
+      if (!isTemplateFieldVisible(field, answers)) return false;
       const value = answers[field.id];
 
       if (field.type === "CHECKBOX") return value !== true;
@@ -1152,7 +1167,7 @@ export async function submitReport(
         select: REVISION_SOURCE_SELECT,
       });
       // Bevaringsplikten kan ha blitt slått på etter at kallet startet.
-      if (current && (current.legalHold || workOrder.legalHold)) {
+      if (workOrder.legalHold || (current && current.legalHold)) {
         return { legalHold: true } as const;
       }
       if (current?.isLocked) return { locked: true } as const;

@@ -281,6 +281,31 @@ describe("searchReports", () => {
     );
   });
 
+  it("kombinerer alle treffkilder med OR, ikke AND", async () => {
+    await searchReports("pumpe", { limit: 5, includeCancelled: true });
+    const sql = lastSql().text;
+    const where = sql.slice(sql.indexOf("WHERE r."));
+
+    // En rapport skal komme med hvis *én* kilde matcher. Tidligere ble
+    // trigram-betingelsene AND-et, slik at ingen rapporter kom med.
+    expect(where).toMatch(/@@ q\.tsq\s+OR\s+r\."reportNumber" %/);
+    expect(where).toContain('OR r."name" %');
+    expect(where).toContain('OR r."templateTitle" %');
+  });
+
+  it("paginerer med OFFSET i databasen", async () => {
+    await searchReports("pumpe", {
+      limit: 20,
+      offset: 500,
+      includeCancelled: true,
+    });
+    const sql = lastSql();
+
+    expect(sql.text).toContain("OFFSET");
+    expect(sql.values).toContain(20);
+    expect(sql.values).toContain(500);
+  });
+
   it("utelater kansellerte oppdrag med mindre de er bestilt", async () => {
     await searchReports("pumpe", { limit: 5, includeCancelled: false });
     expect(lastSql().text).toContain("'CANCELLED'");

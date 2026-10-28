@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, safeEmailError } from "@/lib/email";
 import { toDateOnly } from "@/lib/dates";
 import {
   isSafeNotificationHref,
@@ -624,9 +624,7 @@ export async function processPendingNotificationEmails(
             emailError:
               attempts >= EMAIL_MAX_ATTEMPTS
                 ? "Gave up"
-                : error instanceof Error
-                  ? error.message.slice(0, 2000)
-                  : "Ukjent feil",
+                : safeEmailError(error),
             emailLockedAt: null,
             emailLockedBy: null,
           },

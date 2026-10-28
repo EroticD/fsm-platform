@@ -31,6 +31,7 @@ type SearchGroup = {
   label: string;
   icon: string;
   total: number;
+  capped?: boolean;
   items: SearchItem[];
 };
 
@@ -506,6 +507,7 @@ export default function GlobalSearch({
                             {t("components.search.groupTotal", {
                               count: group.total,
                             })}
+                            {group.capped ? "+" : ""}
                           </span>
                         )}
                       </div>

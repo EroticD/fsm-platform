@@ -25,9 +25,13 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
-vi.mock("@/lib/email", () => ({
-  sendNotificationEmail: mocks.sendNotificationEmail,
-}));
+vi.mock("@/lib/email", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/email")>();
+  return {
+    ...actual,
+    sendNotificationEmail: mocks.sendNotificationEmail,
+  };
+});
 
 import {
   listNotifications,
@@ -342,7 +346,7 @@ describe("varseltjenesten", () => {
       data: {
         emailAttempts: 1,
         emailNextAttemptAt: expect.any(Date),
-        emailError: "SMTP nede",
+        emailError: "Error",
         emailLockedAt: null,
         emailLockedBy: null,
       },
@@ -493,11 +497,38 @@ describe("varseltjenesten", () => {
       where: { id: "n1" },
       data: expect.objectContaining({
         emailAttempts: 1,
-        emailError: "SMTP nede",
+        emailError: "Error",
         emailLockedAt: null,
         emailLockedBy: null,
       }),
     });
+  });
+
+  it("lagrer aldri rå SMTP-melding med mottakeradresse", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Nytt oppdrag",
+        body: "Se oppdraget",
+        href: null,
+        emailAttempts: 0,
+        user: { email: "kari@example.test" },
+      },
+    ]);
+    const error = Object.assign(
+      new Error("550 kari@example.test avvist av server"),
+      { code: "EENVELOPE" },
+    );
+    mocks.sendNotificationEmail.mockRejectedValue(error);
+
+    await processPendingNotificationEmails();
+
+    const call = mocks.prisma.notification.update.mock.calls[0][0] as {
+      data: { emailError: string };
+    };
+    expect(call.data.emailError).toBe("EENVELOPE");
+    expect(call.data.emailError).not.toContain("kari@example.test");
+    expect(call.data.emailError).not.toContain("550");
   });
 
   it("markerer varselet som lest bare for eieren", async () => {

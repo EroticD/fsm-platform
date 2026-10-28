@@ -16,7 +16,7 @@ import {
   searchDocuments,
   searchNormalizedIds,
   searchReports,
-  searchWorkOrderIds,
+  searchWorkOrderIdsWithTotal,
   type DocumentSearchRow,
   type NameSearchRow,
 } from "@/lib/search-sql";
@@ -36,8 +36,13 @@ export type SearchGroup = {
   kind: string;
   label: string;
   icon: string;
-  /** Antall treff i gruppen før paginering. */
+  /** Antall treff i gruppen. Se `capped` når kandidatgrensen er nådd. */
   total: number;
+  /**
+   * Sann når det finnes flere treff enn kandidatgrensen. Da er `total` et
+   * eksplisitt tak (ikke et løgnaktig nøyaktig tall), og UI kan vise «N+».
+   */
+  capped?: boolean;
   items: SearchItem[];
 };
 
@@ -45,6 +50,8 @@ export type SearchResults = {
   query: string;
   total: number;
   groups: SearchGroup[];
+  /** Sann når minst én gruppe er begrenset av kandidatgrensen. */
+  capped?: boolean;
   tookMs?: number;
 };
 
@@ -139,6 +146,29 @@ function mergeHits(...lists: NameSearchRow[][]): MergedHits {
     ids: sorted.map(([id]) => id),
     scores: new Map(sorted),
   };
+}
+
+/**
+ * Antall treff før LIMIT. SQL-funksjonene returnerer `COUNT(*) OVER()` på
+ * hver rad, slik at vi får et ekte totaltall uten en ekstra telling.
+ */
+function rowsTotal(rows: Array<{ total?: number | bigint | null }>): number {
+  return Number(rows[0]?.total ?? 0) || 0;
+}
+
+/**
+ * Et gruppetotal som aldri påstår mer enn vi faktisk kan paginere til.
+ * Er det flere treff enn kandidatgrensen, markeres gruppen som `capped`.
+ */
+function boundedTotal(
+  exact: number,
+  sourceTotal = exact,
+): { total: number; capped: boolean } {
+  const available = Math.max(exact, sourceTotal);
+  if (available > CANDIDATES) {
+    return { total: CANDIDATES, capped: true };
+  }
+  return { total: Math.min(exact, CANDIDATES), capped: false };
 }
 
 /**
@@ -281,8 +311,12 @@ export async function performSearch(
       ? searchBySubstring("WorkOrder", "orderNumber", q, CANDIDATES)
       : Promise.resolve([] as NameSearchRow[]),
     wants("workOrder") && canWorkOrders
-      ? searchWorkOrderIds(q, CANDIDATES).then((ids) =>
-          ids.map((id, index) => ({ id, score: Math.max(0.3, 1 - index / CANDIDATES) })),
+      ? searchWorkOrderIdsWithTotal(q, CANDIDATES).then(({ ids, total }) =>
+          ids.map((id, index) => ({
+            id,
+            score: Math.max(0.3, 1 - index / CANDIDATES),
+            total,
+          })),
         )
       : Promise.resolve([] as NameSearchRow[]),
     wants("tag") && canWorkOrders
@@ -305,15 +339,32 @@ export async function performSearch(
       : Promise.resolve([] as NameSearchRow[]),
   ]);
 
-  // Rapporter har eget fulltekstsøk som også returnerer ekte totaltall.
+  // Rapporter har eget fulltekstsøk som også returnerer ekte totaltall. Her
+  // pagineres det i databasen med OFFSET, slik at side 30 ikke blir tom selv
+  // om det finnes tusenvis av treff.
   const reportHits =
     wants("report") && canReports
       ? await searchReports(originalQuery, {
-          limit: fetchLimit,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
           includeCancelled,
           filters,
         })
       : [];
+
+  // OFFSET forbi siste treff gir ingen rader, og da finnes ikke totalen i
+  // radene. Gjør ett billig probe-kall slik at gruppen fortsatt viser riktig
+  // total i stedet for å forsvinne på en ugyldig sideside.
+  let reportTotal = reportHits[0]?.total ?? 0;
+  if (reportHits.length === 0 && page > 1 && wants("report") && canReports) {
+    const probe = await searchReports(originalQuery, {
+      limit: 1,
+      offset: 0,
+      includeCancelled,
+      filters,
+    });
+    reportTotal = probe[0]?.total ?? 0;
+  }
 
   const customerHits = mergeHits(customerNameHits, customerCityHits);
   const productHits = mergeHits(productModelHits, productNormalizedHits);
@@ -329,7 +380,6 @@ export async function performSearch(
   const templateHitsMerged = mergeHits(templateHits);
   const folderHitsMerged = mergeHits(folderHits);
   const commentHitsMerged = mergeHits(commentHits);
-  const reportScores = new Map(reportHits.map((hit) => [hit.id, Number(hit.score) || 0]));
 
   const workOrderFilter = workOrderFilterWhere(filters);
   const tagFilter = filters.tag ? { name: filters.tag } : undefined;
@@ -548,17 +598,19 @@ export async function performSearch(
       orderBy: { name: "asc" },
       take: fetchLimit,
     }),
-    prisma.report.findMany({
-      where: reportWhere,
-      include: {
-        template: { select: { title: true } },
-        workOrder: {
-          select: { id: true, title: true, customer: { select: { name: true } } },
-        },
-      },
-      orderBy: { completedAt: "desc" },
-      take: fetchLimit,
-    }),
+    canReports && wants("report")
+      ? prisma.report.findMany({
+          where: reportWhere,
+          include: {
+            template: { select: { title: true } },
+            workOrder: {
+              select: { id: true, title: true, customer: { select: { name: true } } },
+            },
+          },
+          orderBy: { completedAt: "desc" },
+          take: fetchLimit,
+        })
+      : Promise.resolve([]),
     prisma.comment.findMany({
       where: commentWhere,
       include: {
@@ -597,19 +649,72 @@ export async function performSearch(
       },
       take: fetchLimit,
     }),
-    prisma.customer.count({ where: customerWhere }),
-    prisma.contact.count({ where: contactWhere }),
-    prisma.product.count({ where: productWhere }),
-    prisma.workOrder.count({ where: workOrderWhere }),
-    prisma.tag.count({ where: tagWhere }),
-    prisma.user.count({ where: userWhere }),
-    prisma.template.count({ where: templateWhere }),
-    prisma.documentFolder.count({ where: folderWhere }),
-    prisma.comment.count({ where: commentWhere }),
-    prisma.document.count({ where: documentWhere }),
+    canCustomers && wants("customer")
+      ? prisma.customer.count({ where: customerWhere })
+      : Promise.resolve(0),
+    canCustomers && wants("contact")
+      ? prisma.contact.count({ where: contactWhere })
+      : Promise.resolve(0),
+    canEquipment && wants("unit")
+      ? prisma.product.count({ where: productWhere })
+      : Promise.resolve(0),
+    canWorkOrders && wants("workOrder")
+      ? prisma.workOrder.count({ where: workOrderWhere })
+      : Promise.resolve(0),
+    canWorkOrders && wants("tag")
+      ? prisma.tag.count({ where: tagWhere })
+      : Promise.resolve(0),
+    canUsers && wants("user")
+      ? prisma.user.count({ where: userWhere })
+      : Promise.resolve(0),
+    canTemplates && wants("template")
+      ? prisma.template.count({ where: templateWhere })
+      : Promise.resolve(0),
+    canDocuments && wants("folder")
+      ? prisma.documentFolder.count({ where: folderWhere })
+      : Promise.resolve(0),
+    (canWorkOrders || canCustomers) && wants("comment")
+      ? prisma.comment.count({ where: commentWhere })
+      : Promise.resolve(0),
+    canDocuments && wants("document")
+      ? prisma.document.count({ where: documentWhere })
+      : Promise.resolve(0),
   ]);
 
   const documentById = new Map(documentRows.map((hit) => [hit.id, hit]));
+
+  // Ekte kandidattall fra SQL (COUNT(*) OVER()). For grupper som slår sammen
+  // flere kilder er unionen aldri større enn summen, men kildetallet er nok
+  // til å vite om vi har nådd kandidatgrensen. Da viser vi et eksplisitt tak i
+  // stedet for et totaltall brukeren aldri kan paginere til.
+  const totals = {
+    customer: boundedTotal(
+      customerTotal,
+      Math.max(rowsTotal(customerNameHits), rowsTotal(customerCityHits)),
+    ),
+    contact: boundedTotal(contactTotal, rowsTotal(contactHits)),
+    unit: boundedTotal(
+      productTotal,
+      Math.max(rowsTotal(productModelHits), rowsTotal(productNormalizedHits)),
+    ),
+    workOrder: boundedTotal(
+      workOrderTotal,
+      Math.max(
+        rowsTotal(workOrderTitleHits),
+        rowsTotal(workOrderTitleSubstringHits),
+        rowsTotal(workOrderNumberHits),
+        rowsTotal(workOrderNormalizedHits),
+      ),
+    ),
+    tag: boundedTotal(tagTotal, rowsTotal(tagHits)),
+    user: boundedTotal(userTotal, rowsTotal(userHits)),
+    template: boundedTotal(templateTotal, rowsTotal(templateHits)),
+    folder: boundedTotal(folderTotal, rowsTotal(folderHits)),
+    comment: boundedTotal(commentTotal, rowsTotal(commentHits)),
+    document: boundedTotal(documentTotal, rowsTotal(documentRows)),
+    // Rapporter pagineres i databasen og har alltid et ekte totaltall.
+    report: { total: reportTotal, capped: false },
+  };
 
   type Scored<T> = { item: T; score: number };
 
@@ -675,22 +780,14 @@ export async function performSearch(
   const rankedTags = pageItems(
     rank(tags, (tag) => tag.id, (tag) => [tag.name], tagHitsMerged.scores),
   );
-  const rankedReports = pageItems(
-    rank(
-      reports,
-      (r) => r.id,
-      (r) => [
-        r.reportNumber,
-        r.name,
-        r.templateTitle,
-        r.template?.title,
-        r.workOrder.title,
-        r.workOrder.customer?.name,
-        r.comments,
-        r.hmsType,
-      ],
-      reportScores,
-    ),
+  const reportById = new Map(reports.map((report) => [report.id, report]));
+  // Reportsøket er allerede paginert i SQL. Behold SQL-rekkefølgen og ikke
+  // paginer på nytt i JS, ellers ville side 2 blitt tom.
+  const rankedReports: Scored<(typeof reports)[number]>[] = reportHits.flatMap(
+    (hit) => {
+      const item = reportById.get(hit.id);
+      return item ? [{ item, score: Number(hit.score) || 0 }] : [];
+    },
   );
   const rankedComments = pageItems(
     rank(
@@ -723,7 +820,8 @@ export async function performSearch(
       kind: "customer",
       label: "Kunder",
       icon: "🏢",
-      total: customerTotal,
+      total: totals.customer.total,
+      capped: totals.customer.capped,
       items: rankedCustomers.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
@@ -742,7 +840,8 @@ export async function performSearch(
       kind: "workOrder",
       label: "Oppdrag",
       icon: "📂",
-      total: workOrderTotal,
+      total: totals.workOrder.total,
+      capped: totals.workOrder.capped,
       items: rankedWorkOrders.map(({ item: wo, score }) => ({
         id: wo.id,
         title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
@@ -761,7 +860,8 @@ export async function performSearch(
       kind: "tag",
       label: "Tagger",
       icon: "🏷️",
-      total: tagTotal,
+      total: totals.tag.total,
+      capped: totals.tag.capped,
       items: rankedTags.map(({ item: tag, score }) => ({
         id: tag.id,
         title: tag.name,
@@ -774,7 +874,8 @@ export async function performSearch(
       kind: "unit",
       label: "Enheter",
       icon: "🔧",
-      total: productTotal,
+      total: totals.unit.total,
+      capped: totals.unit.capped,
       items: rankedUnits.map(({ item: p, score }) => ({
         id: p.id,
         title: p.model,
@@ -787,7 +888,8 @@ export async function performSearch(
       kind: "contact",
       label: "Kontaktpersoner",
       icon: "👤",
-      total: contactTotal,
+      total: totals.contact.total,
+      capped: totals.contact.capped,
       items: rankedContacts.map(({ item: c, score }) => ({
         id: c.id,
         title: c.name,
@@ -800,7 +902,8 @@ export async function performSearch(
       kind: "report",
       label: "Rapporter",
       icon: "📋",
-      total: canReports && wants("report") ? (reportHits[0]?.total ?? 0) : 0,
+      total: totals.report.total,
+      capped: totals.report.capped,
       items: rankedReports.map(({ item: r, score }) => {
         const reportHit = reportHits.find((hit) => hit.id === r.id);
         const snippet = snippetText(reportHit?.snippet);
@@ -826,7 +929,8 @@ export async function performSearch(
       kind: "comment",
       label: "Kommentarer",
       icon: "💬",
-      total: commentTotal,
+      total: totals.comment.total,
+      capped: totals.comment.capped,
       items: rankedComments.map(({ item: c, score }) => {
         const href = c.workOrderId
           ? `/oppdrag/${c.workOrderId}`
@@ -853,7 +957,8 @@ export async function performSearch(
       kind: "user",
       label: "Brukere",
       icon: "👥",
-      total: userTotal,
+      total: totals.user.total,
+      capped: totals.user.capped,
       items: rankedUsers.map(({ item: u, score }) => ({
         id: u.id,
         title: u.name || u.email || "Uten navn",
@@ -866,7 +971,8 @@ export async function performSearch(
       kind: "template",
       label: "Sjekklister",
       icon: "🧾",
-      total: templateTotal,
+      total: totals.template.total,
+      capped: totals.template.capped,
       items: rankedTemplates.map(({ item: t, score }) => ({
         id: t.id,
         title: t.title,
@@ -883,7 +989,8 @@ export async function performSearch(
       kind: "folder",
       label: "Mapper",
       icon: "📁",
-      total: folderTotal,
+      total: totals.folder.total,
+      capped: totals.folder.capped,
       items: rankedFolders.map(({ item: f, score }) => ({
         id: f.id,
         title: f.name,
@@ -896,7 +1003,8 @@ export async function performSearch(
       kind: "document",
       label: "Dokumenter",
       icon: "📚",
-      total: documentTotal,
+      total: totals.document.total,
+      capped: totals.document.capped,
       items: rankedDocuments.map(({ item: d, score }) => {
         const hit = documentById.get(d.id);
         return {
@@ -922,5 +1030,11 @@ export async function performSearch(
   });
 
   const total = groups.reduce((sum, group) => sum + group.total, 0);
-  return { query: originalQuery, total, groups, tookMs: Date.now() - started };
+  return {
+    query: originalQuery,
+    total,
+    groups,
+    capped: groups.some((group) => group.capped),
+    tookMs: Date.now() - started,
+  };
 }

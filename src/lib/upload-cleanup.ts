@@ -123,7 +123,11 @@ export async function cleanupAbandonedUploads(options?: {
   const candidates = await prisma.upload.findMany({
     where: {
       createdAt: { lt: cutoff },
-      ownerType: { in: ["USER", "DOCUMENT"] },
+      // WORK_ORDER-filer er også kandidater: en fil som lastes opp i
+      // feltportalen, men aldri knyttes til et vedlegg/rapport/revisjon/kladd,
+      // blir ellers liggende for alltid. `releaseUpload` kontrollerer alle
+      // referansene på nytt, også rapportens mellomlagrede PDF og signaturer.
+      ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER"] },
     },
     orderBy: { createdAt: "asc" },
     take: limit,
