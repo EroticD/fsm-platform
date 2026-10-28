@@ -289,6 +289,7 @@ export default async function SettingsPage({
               name: user.name,
               isTwoFactorEnabled: user.isTwoFactorEnabled,
               twoFactorSecret: user.twoFactorSecret,
+              twoFactorSetupStartedAt: user.twoFactorSetupStartedAt,
             }}
             setup={resolvedParams.setup}
             error={resolvedParams.error}

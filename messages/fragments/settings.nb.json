@@ -191,6 +191,7 @@
       "disabled": "To-trinns verifisering er slått av.",
       "errorCode": "Feil engangskode. Prøv igjen.",
       "errorPassword": "Feil passord. 2FA-innstillingene ble ikke endret.",
+      "errorSetupExpired": "Oppsettet har utløpt. Start oppsettet på nytt.",
       "title": "To-trinns verifisering (TOTP)",
       "desc": "Bruk en autentiseringsapp (Google Authenticator, Microsoft Authenticator, 1Password m.fl.).",
       "on": "På",
@@ -219,7 +220,7 @@
         "saved": "Jeg har lagret kodene",
         "regenerated": "Nye gjenopprettingskoder er laget. De gamle kodene er ugyldige.",
         "regenerateTitle": "Lag nye gjenopprettingskoder",
-        "regenerateDesc": "Lager et nytt sett og gjør alle gamle koder ugyldige. Bekreft med passordet ditt.",
+        "regenerateDesc": "Lager et nytt sett og gjør alle gamle koder ugyldige. Bekreft med passordet ditt og en engangskode fra appen.",
         "regenerate": "Lag nye koder",
         "fileHeader": "Gjenopprettingskoder for {name}",
         "fileWarning": "Hver kode kan brukes én gang. Oppbevar filen på et trygt sted."

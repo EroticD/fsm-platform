@@ -620,6 +620,7 @@
       "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt.",
       "legalHoldFrozen": "⛔ Rapporten er fryst av bevaringsplikt. En administrator må frigjøre holdet med en grunn før den kan endres eller låses opp.",
       "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer.",
+      "customerChangeBlocked": "⛔ Kunden kan ikke endres fordi oppdraget har rapporter eller en bestilling.",
       "tooManyTags": "For mange tags.",
       "tooManyRows": "For mange valgte rader."
     },

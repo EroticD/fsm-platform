@@ -11,6 +11,38 @@ const LEGACY_RECENT_SEARCH_KEY = "fsm:recent-searches";
  */
 export const OFFLINE_PAGE_CACHE = "fsm-pages-v1";
 
+/** Cachen service workeren bruker for offline-markøren (se public/sw.js). */
+export const OFFLINE_META_CACHE = "fsm-offline-meta";
+
+/**
+ * Hvor lenge en side kan serveres fra offline-cachen. Selv om økten teknisk
+ * sett fortsatt er gyldig, skal en mistet/delt enhet ikke kunne vise kundedata
+ * på ubestemt tid. Åtte timer er kortere enn NextAuth-økten (12 timer).
+ */
+export const OFFLINE_CACHE_TTL_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * Avgjør om en cache-oppføring med tidsstempel `cachedAt` kan serveres ved
+ * tidspunktet `now`. Manglende, ugyldig eller fremtidig tidsstempel avvises,
+ * slik at en klokkeendring ikke forlenger levetiden.
+ */
+export function isCacheEntryFresh(
+  cachedAt: number | null | undefined,
+  now: number,
+): boolean {
+  if (
+    typeof cachedAt !== "number" ||
+    !Number.isFinite(cachedAt) ||
+    cachedAt <= 0 ||
+    !Number.isFinite(now)
+  ) {
+    return false;
+  }
+
+  const age = now - cachedAt;
+  return age >= 0 && age <= OFFLINE_CACHE_TTL_MS;
+}
+
 /** Cachenavnet service workeren bruker for én bruker. */
 export function offlinePageCacheName(userId: string): string {
   return `${OFFLINE_PAGE_CACHE}:${userId}`;
@@ -70,6 +102,43 @@ export async function clearOfflineCaches(): Promise<void> {
   } catch {
     // Privat modus eller utilgjengelig localStorage.
   }
+}
+
+/**
+ * Sletter side-cachene og offline-markøren når økten er utløpt eller avvist.
+ *
+ * Ventende kladder og outbox-oppføringer røres bevisst ikke: de er brukerens
+ * uferdige arbeid og skal kunne gjenopprettes etter ny innlogging. Uten
+ * markøren viser offline-siden dem ikke til en annen person på en delt enhet.
+ */
+export async function clearOfflineSessionCaches(): Promise<void> {
+  if (typeof caches !== "undefined") {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter(
+            (key) =>
+              key === OFFLINE_PAGE_CACHE ||
+              key.startsWith(`${OFFLINE_PAGE_CACHE}:`) ||
+              key === OFFLINE_META_CACHE,
+          )
+          .map((key) => caches.delete(key)),
+      );
+    } catch {
+      // CacheStorage kan være utilgjengelig.
+    }
+  }
+
+  if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+    navigator.serviceWorker.controller?.postMessage({
+      type: "CLEAR_SESSION_CACHES",
+    });
+  }
+
+  // Behold kladdene, men glem hvem som eier dem, slik at en annen bruker på
+  // samme enhet ikke får dem listet opp på offline-siden.
+  forgetOfflineUser();
 }
 
 /**

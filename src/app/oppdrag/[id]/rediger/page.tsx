@@ -96,6 +96,7 @@ export default async function EditWorkOrderPage({
     "duplikat-ordrenummer": t("orders.errors.duplicateOrderNumber"),
     avdeling: t("orders.errors.department"),
     "workorder-locked": t("orders.errors.workOrderLocked"),
+    "kunde-last": t("orders.errors.customerChangeBlocked"),
     "ikke-tilgang": t("orders.errors.generic"),
     ukjent: t("orders.errors.generic"),
   };

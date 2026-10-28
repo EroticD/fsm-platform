@@ -95,6 +95,23 @@ export const authOptions: NextAuthOptions = {
     signIn: "/logg-inn",
     error: "/logg-inn",
   },
+  events: {
+    /**
+     * Engangskodene for gjenoppretting skal ikke bli liggende i en cookie etter
+     * utlogging. Ryddingen er best-effort: en feilet cookie-sletting skal ikke
+     * hindre selve utloggingen.
+     */
+    async signOut() {
+      try {
+        const { clearRecoveryCodesForDisplay } = await import(
+          "@/lib/session-token"
+        );
+        await clearRecoveryCodesForDisplay();
+      } catch {
+        // Ignorer – cookien er uansett bundet til brukeren og kortlevd.
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

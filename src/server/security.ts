@@ -3,7 +3,11 @@ import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { cleanText } from "@/lib/sanitize";
-import { createTotpSecret, verifyTotp } from "@/lib/two-factor";
+import {
+  createTotpSecret,
+  TWO_FACTOR_SETUP_TTL_MS,
+  verifyTotp,
+} from "@/lib/two-factor";
 import { replaceRecoveryCodes } from "@/lib/two-factor-recovery";
 import { clearCalendarToken } from "./calendar-feed";
 import { toAuditActor, type ServiceActor } from "./actor";
@@ -18,7 +22,8 @@ export type SecurityError =
   | "forbidden"
   | "rate_limited"
   | "invalid_password"
-  | "invalid_code";
+  | "invalid_code"
+  | "setup-expired";
 
 export type SecurityResult<T = undefined> =
   | { ok: true; data: T }
@@ -160,7 +165,11 @@ export async function startTwoFactorSetup(
       // hele transaksjonen rulles tilbake.
       await tx.user.update({
         where: { id: actor.id, isTwoFactorEnabled: false },
-        data: { twoFactorSecret: secret, isTwoFactorEnabled: false },
+        data: {
+          twoFactorSecret: secret,
+          twoFactorSetupStartedAt: new Date(),
+          isTwoFactorEnabled: false,
+        },
       });
       await audit(tx, {
         entityType: "User",
@@ -179,28 +188,58 @@ export async function startTwoFactorSetup(
 }
 
 /**
- * Aktiverer 2FA når engangskoden stemmer. Øktversjonen økes i samme
- * transaksjon som endringen og revisjonsloggen, slik at alle andre økter blir
- * ugyldige umiddelbart.
+ * Aktiverer 2FA når både passordet og engangskoden stemmer, og oppsettet ikke
+ * er utløpt. Øktversjonen økes i samme transaksjon som endringen og
+ * revisjonsloggen, slik at alle andre økter blir ugyldige umiddelbart.
  */
 export async function confirmTwoFactorSetup(
   actor: ServiceActor,
-  input: { code?: unknown },
+  input: { password?: unknown; code?: unknown },
   ip?: string,
 ): Promise<SecurityResult<{ sessionVersion: number; recoveryCodes: string[] }>> {
-  if (!actor.isActive) return securityFail("forbidden");
-
-  if (!(await guardRateLimit(actor.id, ip))) {
-    return securityFail("rate_limited");
-  }
+  // Passordet kreves på nytt, slik at en kapret økt alene ikke kan fullføre
+  // et oppsett. verifyOwnPassword tar også rate-limit-telleren for forsøket.
+  const verified = await verifyOwnPassword(actor, input.password, ip);
+  if (!verified.ok) return verified;
 
   const code = cleanText(input.code, { maxLength: 10 });
   const dbUser = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { twoFactorSecret: true },
+    select: { twoFactorSecret: true, twoFactorSetupStartedAt: true },
   });
 
-  if (!dbUser?.twoFactorSecret || !verifyTotp(dbUser.twoFactorSecret, code)) {
+  if (!dbUser?.twoFactorSecret) {
+    await auditFailure(actor, "totp_confirm");
+    return securityFail("invalid_code");
+  }
+
+  const startedAt = dbUser.twoFactorSetupStartedAt?.getTime() ?? 0;
+  if (!startedAt || Date.now() - startedAt > TWO_FACTOR_SETUP_TTL_MS) {
+    // Et utløpt oppsett skal ikke kunne fullføres senere. Slett den ventende
+    // hemmeligheten betinget, slik at et samtidig nytt oppsett ikke røres.
+    await prisma.$transaction(async (tx) => {
+      try {
+        await tx.user.update({
+          where: {
+            id: actor.id,
+            twoFactorSetupStartedAt: dbUser.twoFactorSetupStartedAt,
+          },
+          data: { twoFactorSecret: null, twoFactorSetupStartedAt: null },
+        });
+      } catch (error) {
+        if (!isRecordNotFound(error)) throw error;
+      }
+      await audit(tx, {
+        entityType: "User",
+        entityId: actor.id,
+        action: "2FA: oppsett utløpt",
+        actor: toAuditActor(actor),
+      });
+    });
+    return securityFail("setup-expired");
+  }
+
+  if (!verifyTotp(dbUser.twoFactorSecret, code)) {
     await auditFailure(actor, "totp_confirm");
     return securityFail("invalid_code");
   }
@@ -210,6 +249,7 @@ export async function confirmTwoFactorSetup(
       where: { id: actor.id },
       data: {
         isTwoFactorEnabled: true,
+        twoFactorSetupStartedAt: null,
         sessionVersion: { increment: 1 },
       },
       select: { sessionVersion: true },
@@ -260,6 +300,7 @@ export async function cancelTwoFactorSetup(
         where: { id: actor.id, isTwoFactorEnabled: false },
         data: {
           twoFactorSecret: null,
+          twoFactorSetupStartedAt: null,
           isTwoFactorEnabled: false,
           sessionVersion: { increment: 1 },
         },
@@ -316,6 +357,7 @@ export async function disableTwoFactor(
       data: {
         isTwoFactorEnabled: false,
         twoFactorSecret: null,
+        twoFactorSetupStartedAt: null,
         sessionVersion: { increment: 1 },
       },
       select: { sessionVersion: true },
@@ -337,22 +379,32 @@ export async function disableTwoFactor(
 }
 
 /**
- * Lager et nytt sett gjenopprettingskoder. Krever passord på nytt, og erstatter
- * alle gamle koder i samme transaksjon, slik at ingen gamle koder blir gyldige.
+ * Lager et nytt sett gjenopprettingskoder. Krever både passord og en gyldig
+ * engangskode, og erstatter alle gamle koder i samme transaksjon, slik at
+ * ingen gamle koder blir gyldige.
  */
 export async function regenerateRecoveryCodes(
   actor: ServiceActor,
-  input: { password?: unknown },
+  input: { password?: unknown; code?: unknown },
   ip?: string,
 ): Promise<SecurityResult<{ recoveryCodes: string[] }>> {
   const verified = await verifyOwnPassword(actor, input.password, ip);
   if (!verified.ok) return verified;
 
+  // Nye koder gir bare mening når 2FA faktisk er aktivert.
   const state = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { isTwoFactorEnabled: true },
+    select: { isTwoFactorEnabled: true, twoFactorSecret: true },
   });
-  if (!state?.isTwoFactorEnabled) return securityFail("forbidden");
+  if (!state?.isTwoFactorEnabled || !state.twoFactorSecret) {
+    return securityFail("forbidden");
+  }
+
+  const code = cleanText(input.code, { maxLength: 10 });
+  if (!verifyTotp(state.twoFactorSecret, code)) {
+    await auditFailure(actor, "totp_recovery_codes");
+    return securityFail("invalid_code");
+  }
 
   const recoveryCodes = await prisma.$transaction(async (tx) => {
     const codes = await replaceRecoveryCodes(tx, actor.id);

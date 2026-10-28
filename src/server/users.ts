@@ -526,6 +526,7 @@ export async function resetTwoFactor(
       data: {
         isTwoFactorEnabled: false,
         twoFactorSecret: null,
+        twoFactorSetupStartedAt: null,
         sessionVersion: { increment: 1 },
       },
     });

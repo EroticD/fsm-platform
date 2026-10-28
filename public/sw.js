@@ -7,20 +7,29 @@
  *  - Hver bruker har sin egen side-cache, `fsm-pages-v1:<userId>`. Brukeren
  *    meldes inn fra offline-banneret og lagres som en markør i CacheStorage, så
  *    den overlever at workeren restartes. Ved utlogging slettes alle cacher.
+ *  - Hver side-cache-oppføring har et tidsstempel i samme cache. Oppføringer
+ *    eldre enn åtte timer slettes og serveres aldri, og en 401/403 eller
+ *    omdirigering til innlogging tømmer side-cachene og markøren.
  *  - RSC-navigasjon som mangler cache får feile, slik at Next.js faller tilbake
  *    til en vanlig nettlesernavigasjon. Den treffer da HTML-cachen eller
  *    offline-siden.
  *  - Statiske filer og offline-siden caches cache-first.
  */
-const CACHE = "fsm-static-v4";
+const CACHE = "fsm-static-v5";
 const PAGE_CACHE_PREFIX = "fsm-pages-v1:";
 const LEGACY_PAGE_CACHE = "fsm-pages-v1";
 const META_CACHE = "fsm-offline-meta";
 const OFFLINE_USER_KEY = "/__fsm/offline-user";
 const OFFLINE_URL = "/offline.html";
+const OFFLINE_SCRIPT_URL = "/offline.js";
+const LOGIN_PATH = "/logg-inn";
+
+/** Samme grense som OFFLINE_CACHE_TTL_MS i src/lib/offline/cache.ts. */
+const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
 const HTML_KIND = "html";
 const RSC_KIND = "rsc";
+const META_KIND_SUFFIX = "meta";
 
 /** Rapporteringsskjemaet – fortsatt den viktigste offline-siden. */
 function isReportFormPage(pathname) {
@@ -42,6 +51,7 @@ function isFieldPage(pathname) {
 
 function isStaticAsset(pathname) {
   return (
+    pathname === OFFLINE_SCRIPT_URL ||
     pathname.startsWith("/_next/static/") ||
     pathname.startsWith("/icon-") ||
     pathname.startsWith("/favicon") ||
@@ -67,6 +77,28 @@ function pageCacheKey(url, kind) {
   return new Request(key.toString(), { method: "GET" });
 }
 
+/**
+ * Tidsstempelet ligger som en egen liten oppføring i samme cache. Da slipper vi
+ * å skrive om selve svaret (som kan være komprimert), og `CLEAR_PAGE` rydder
+ * både siden og metadataen fordi de har samme pathname.
+ */
+function pageMetaKey(url, kind) {
+  return pageCacheKey(url, `${kind}-${META_KIND_SUFFIX}`);
+}
+
+/** Samme regel som isCacheEntryFresh i src/lib/offline/cache.ts. */
+function isFreshCacheEntry(cachedAt, now) {
+  if (
+    !Number.isFinite(cachedAt) ||
+    cachedAt <= 0 ||
+    !Number.isFinite(now)
+  ) {
+    return false;
+  }
+  const age = now - cachedAt;
+  return age >= 0 && age <= CACHE_TTL_MS;
+}
+
 async function readOfflineUser() {
   try {
     const cache = await caches.open(META_CACHE);
@@ -88,11 +120,52 @@ async function writeOfflineUser(userId) {
   );
 }
 
+async function clearOfflineUser() {
+  try {
+    const cache = await caches.open(META_CACHE);
+    await cache.delete(OFFLINE_USER_KEY);
+  } catch {
+    // CacheStorage kan være utilgjengelig.
+  }
+}
+
+/**
+ * Tømmer side-cachene for brukeren som er markert, og glemmer markøren. Uten
+ * markør vet vi ikke hvilken cache som er «brukerens», og da ryddes alle
+ * side-cacher. Kladder i IndexedDB røres ikke.
+ */
+async function clearSessionCaches() {
+  try {
+    const userId = await readOfflineUser();
+    const own = userId ? pageCacheName(userId) : null;
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((key) => {
+          if (key === LEGACY_PAGE_CACHE) return true;
+          if (own) return key === own;
+          return key.startsWith(PAGE_CACHE_PREFIX);
+        })
+        .map((key) => caches.delete(key)),
+    );
+  } catch {
+    // CacheStorage kan være utilgjengelig.
+  }
+  await clearOfflineUser();
+}
+
 async function cachePageResponse(url, kind, response, userId) {
   if (!response || !response.ok || !userId) return;
   try {
     const cache = await caches.open(pageCacheName(userId));
+    const cachedAt = Date.now();
     await cache.put(pageCacheKey(url, kind), response.clone());
+    await cache.put(
+      pageMetaKey(url, kind),
+      new Response(String(cachedAt), {
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      }),
+    );
   } catch {
     // CacheStorage kan være full eller utilgjengelig.
   }
@@ -102,10 +175,58 @@ async function matchPage(url, kind, userId) {
   if (!userId) return null;
   try {
     const cache = await caches.open(pageCacheName(userId));
-    return (await cache.match(pageCacheKey(url, kind))) ?? null;
+    const key = pageCacheKey(url, kind);
+    const cached = await cache.match(key);
+    if (!cached) return null;
+
+    const meta = await cache.match(pageMetaKey(url, kind));
+    const cachedAt = meta ? Number((await meta.text()).trim()) : Number.NaN;
+    if (!isFreshCacheEntry(cachedAt, Date.now())) {
+      await Promise.all([
+        cache.delete(key),
+        cache.delete(pageMetaKey(url, kind)),
+      ]);
+      return null;
+    }
+
+    return cached;
   } catch {
     return null;
   }
+}
+
+function isLoginPath(pathname) {
+  return pathname === LOGIN_PATH || pathname.startsWith(`${LOGIN_PATH}/`);
+}
+
+/** En nettverksforespørsel som viser at økten er borte eller avvist. */
+function isAuthFailure(response, url, assumeLoginRedirect = false) {
+  if (!response) return false;
+  if (response.status === 401 || response.status === 403) return true;
+  // Navigasjonsforespørsler kan ha redirect-mode «manual». Da er målet skjult,
+  // men en omdirigering fra en feltside er i praksis innlogging.
+  if (assumeLoginRedirect && response.type === "opaqueredirect") return true;
+
+  // Bare en faktisk omdirigering til innlogging teller. En direkte navigasjon
+  // til /logg-inn skal ikke tømme cachene til en innlogget bruker.
+  if (response.redirected) {
+    try {
+      if (isLoginPath(new URL(response.url, url).pathname)) return true;
+    } catch {
+      // Ugyldig respons-URL.
+    }
+  }
+
+  const location = response.headers.get("location");
+  if (location) {
+    try {
+      if (isLoginPath(new URL(location, url).pathname)) return true;
+    } catch {
+      // Ugyldig Location-header.
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -126,6 +247,10 @@ async function ensureHtmlCached(url, userId) {
       headers: { Accept: "text/html" },
       cache: "no-store",
     });
+    if (isAuthFailure(response, url, true)) {
+      await clearSessionCaches();
+      return;
+    }
     if (
       response.ok &&
       (response.headers.get("content-type") || "").startsWith("text/html")
@@ -142,15 +267,51 @@ async function ensureHtmlCached(url, userId) {
   }
 }
 
+/**
+ * Offline-siden er en statisk fil og kan derfor ikke få en per-forespørsel
+ * nonce. Når CSP-en inneholder 'strict-dynamic', ignorerer nettleseren 'self',
+ * og da ville /offline.js blitt blokkert. Fjern bare strict-dynamic for denne
+ * ene siden uten brukerdata, slik at script-src 'self' faktisk gjelder.
+ */
+async function offlinePageResponse(response) {
+  if (!response || !response.ok) return response;
+  const csp = response.headers.get("content-security-policy");
+  if (!csp || !csp.includes("'strict-dynamic'")) return response;
+
+  try {
+    const body = await response.clone().text();
+    const headers = new Headers(response.headers);
+    headers.set(
+      "content-security-policy",
+      csp.replace(/\s*'strict-dynamic'/g, ""),
+    );
+    // Body er lest som tekst og er ikke lenger komprimert.
+    headers.delete("content-encoding");
+    headers.delete("content-length");
+    headers.delete("transfer-encoding");
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  } catch {
+    return response;
+  }
+}
+
 async function offlineFallback() {
   const offline = await caches.match(OFFLINE_URL);
-  return offline || Response.error();
+  return offline ? offlinePageResponse(offline) : Response.error();
 }
 
 async function navigationResponse(request, url) {
   const fieldPage = isFieldPage(url.pathname);
   try {
     const response = await fetch(request);
+    if (isAuthFailure(response, url, fieldPage)) {
+      await clearSessionCaches();
+      return response;
+    }
     if (fieldPage && response.ok) {
       // Ikke cache en innloggingsomdirigering under oppdragssidens URL.
       const responsePath = new URL(response.url, url).pathname;
@@ -174,6 +335,10 @@ async function rscResponse(request, url, prefetch) {
   const fieldPage = isFieldPage(url.pathname);
   try {
     const response = await fetch(request);
+    if (isAuthFailure(response, url, fieldPage)) {
+      await clearSessionCaches();
+      return response;
+    }
     const contentType = response.headers.get("content-type") || "";
     if (
       fieldPage &&
@@ -200,6 +365,10 @@ async function rscResponse(request, url, prefetch) {
 async function nextDataResponse(request, url) {
   try {
     const response = await fetch(request);
+    if (isAuthFailure(response, url, isFieldPage(url.pathname))) {
+      await clearSessionCaches();
+      return response;
+    }
     if (response.ok) {
       const userId = await readOfflineUser();
       await cachePageResponse(url, RSC_KIND, response, userId);
@@ -217,7 +386,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll([OFFLINE_URL]))
+      .then((cache) => cache.addAll([OFFLINE_URL, OFFLINE_SCRIPT_URL]))
       .catch(() => undefined),
   );
   self.skipWaiting();
@@ -268,6 +437,11 @@ self.addEventListener("message", (event) => {
         ),
       ),
     );
+    return;
+  }
+
+  if (data.type === "CLEAR_SESSION_CACHES") {
+    event.waitUntil(clearSessionCaches());
     return;
   }
 
@@ -344,17 +518,15 @@ self.addEventListener("fetch", (event) => {
   // Offline-siden og statiske filer: cache-first.
   if (url.pathname === OFFLINE_URL) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              caches.open(CACHE).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          }),
-      ),
+      caches.match(request).then(async (cached) => {
+        if (cached) return offlinePageResponse(cached);
+        const response = await fetch(request);
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
+        return offlinePageResponse(response);
+      }),
     );
     return;
   }

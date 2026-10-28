@@ -935,10 +935,146 @@ describe("work-orders-tjenesten", () => {
     });
   });
 
+  it("avviser kundebytte når oppdraget har en rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "IN_PROGRESS",
+      orderNumber: null,
+      orderNumberNormalized: null,
+      reports: [{ id: "r1" }],
+      bookingRequest: null,
+    });
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-2",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "kunde-last" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.upload.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("avviser kundebytte selv når rapporten er mykt slettet", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "IN_PROGRESS",
+      orderNumber: null,
+      orderNumberNormalized: null,
+      reports: [{ id: "r-slettet", deletedAt: new Date("2026-01-01") }],
+      bookingRequest: null,
+    });
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-2",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "kunde-last" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.prisma.upload.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("avviser kundebytte når oppdraget har en bestilling – også for administrator", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "OPEN",
+      orderNumber: null,
+      orderNumberNormalized: null,
+      reports: [],
+      bookingRequest: { id: "br-1" },
+    });
+
+    const result = await updateWorkOrder(
+      actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
+      "wo-1",
+      {
+        title: "Ny tittel",
+        description: "",
+        departmentId: "dep-a",
+        customerId: "cust-2",
+        contactId: "",
+        scheduledFor: "2026-10-24",
+        scheduledTo: "",
+        technicianIds: [],
+        tagNames: [],
+      },
+    );
+
+    expect(result).toEqual({ ok: false, error: "kunde-last" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.prisma.upload.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("flytter kunden og oppdaterer fil-ACL når det ikke finnes rapporter eller bestilling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "IN_PROGRESS",
+      orderNumber: null,
+      orderNumberNormalized: null,
+      reports: [],
+      bookingRequest: null,
+    });
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-2",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: expect.objectContaining({ customerId: "cust-2" }),
+    });
+    expect(tx.upload.updateMany).toHaveBeenCalledWith({
+      where: { ownerType: "WORK_ORDER", ownerId: "wo-1" },
+      data: { departmentId: "dep-a", customerId: "cust-2" },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({
+          customerId: { from: "cust-1", to: "cust-2" },
+        }),
+      }),
+    });
+  });
+
   it("låst sjekkliste blokkerer ikke redigering av et ikke-fullført oppdrag", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
+      customerId: "cust-1",
       status: "IN_PROGRESS",
       reports: [{ isLocked: true }],
     });

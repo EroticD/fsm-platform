@@ -68,8 +68,11 @@ model User {
   resetToken       String?
   resetTokenExpiry DateTime?
 
-  isTwoFactorEnabled Boolean @default(false)
-  twoFactorSecret    String?
+  isTwoFactorEnabled    Boolean   @default(false)
+  twoFactorSecret       String?
+  // Når det pågående 2FA-oppsettet ble startet. Oppsett eldre enn 10 minutter
+  // avvises, slik at en gammel hemmelighet ikke kan bekreftes senere.
+  twoFactorSetupStartedAt DateTime?
 
   // Konto må aktiveres manuelt av en administrator før innlogging er tillatt
   isActive Boolean @default(false)

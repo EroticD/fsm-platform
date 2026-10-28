@@ -60,6 +60,7 @@ export type WorkOrderError =
   | "ugyldig-sluttdato"
   | "sluttdato-for-startdato"
   | "workorder-locked"
+  | "kunde-last"
   | "legal-hold"
   | "reason-required"
   | "duplikat-ordrenummer"
@@ -439,6 +440,11 @@ export async function updateWorkOrder(
       latitude: true,
       longitude: true,
       geoAddressHash: true,
+      // Bevis og bestillinger hører til den opprinnelige kunden. Rapportene
+      // hentes uten filter, slik at også mykt slettede signerte rapporter
+      // blokkerer en kundeflytting.
+      reports: { select: { id: true }, take: 1 },
+      bookingRequest: { select: { id: true } },
     },
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
@@ -511,6 +517,22 @@ export async function updateWorkOrder(
     scheduledFor,
     scheduledTo,
   } = parsed.data;
+
+  // Kunden kan ikke flyttes når oppdraget allerede har rapporter eller en
+  // bestilling. Rapportene kan være mykt slettet, men signert innhold er
+  // fortsatt bevis; bestillingen tilhører den opprinnelige kunden. Da avvises
+  // hele redigeringen, og opplastingsradene beholder sin opprinnelige eier.
+  const previousCustomerId = currentWorkOrder.customerId ?? null;
+  const nextCustomerId = customerId || null;
+  const customerChanged = nextCustomerId !== previousCustomerId;
+  if (
+    customerChanged &&
+    ((currentWorkOrder.reports?.length ?? 0) > 0 ||
+      Boolean(currentWorkOrder.bookingRequest))
+  ) {
+    return { ok: false, error: "kunde-last" };
+  }
+
   const orderNumberValue = orderNumber || null;
   const orderNumberNormalized = normalizeOrderNumber(orderNumberValue);
   const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
@@ -570,7 +592,7 @@ export async function updateWorkOrder(
           longitude: coordinates?.lng ?? null,
           departmentId,
           // Tom kunde betyr et internt oppdrag, ikke en uendret kunde.
-          customerId: customerId || null,
+          customerId: nextCustomerId,
           contactId: validContactId || null,
           scheduledFor: scheduledForDate,
           scheduledTo:
@@ -599,15 +621,26 @@ export async function updateWorkOrder(
             to: orderNumberValue,
           },
           orderNumberNormalized,
+          // Bare id-er, aldri kundedata. Bare med når kunden faktisk endres.
+          ...(customerChanged
+            ? {
+                customerId: {
+                  from: previousCustomerId,
+                  to: nextCustomerId,
+                },
+              }
+            : {}),
         },
       });
 
       // Filene til oppdraget arver avdeling og kunde fra oppdraget. Flyttes
       // oppdraget, må ACL-en på opplastingsradene følge med i samme transaksjon;
       // ellers ville brukere i den gamle avdelingen fortsatt kunne lese filene.
+      // En kundeflytting med rapporter/bestilling er allerede avvist over, så
+      // her finnes det ingen signert historikk som kan havne hos feil kunde.
       await tx.upload.updateMany({
         where: { ownerType: "WORK_ORDER", ownerId: workOrderId },
-        data: { departmentId, customerId: customerId || null },
+        data: { departmentId, customerId: nextCustomerId },
       });
     });
   } catch (error) {

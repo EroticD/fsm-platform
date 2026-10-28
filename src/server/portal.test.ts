@@ -93,6 +93,7 @@ function ownBooking(overrides: Record<string, unknown> = {}) {
       id: "wo1",
       title: "Service",
       status: "OPEN",
+      customerId: "cust-1",
       deletedAt: null,
     },
     ...overrides,
@@ -352,20 +353,58 @@ describe("kundeportaltjenesten", () => {
       ok: true,
       data: { status: "cancelled", reference: "B-1" },
     });
+    expect(mocks.prisma.bookingRequest.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "br-1",
+          customerId: "cust-1",
+          workOrder: { customerId: "cust-1" },
+        },
+      }),
+    );
     expect(mocks.prisma.bookingRequest.updateMany).toHaveBeenCalledWith({
       where: { id: "br-1", customerId: "cust-1", status: "PENDING" },
       data: expect.objectContaining({ status: "CANCELLED" }),
     });
     expect(mocks.prisma.workOrder.findFirst).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo1", customerId: "cust-1", status: "OPEN" },
+      data: { status: "CANCELLED" },
+    });
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "CANCELLED" }),
     });
   });
 
-  it("avviser kansellering etter endringsfristen", async () => {
+  it("avviser kansellering når oppdraget er flyttet til en annen kunde", async () => {
     mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
       ownBooking({
-        requestedDate: addDaysUtc(parseDateOnly(todayInOslo())!, 1),
+        workOrder: {
+          id: "wo1",
+          title: "Service",
+          status: "OPEN",
+          customerId: "cust-2",
+          deletedAt: null,
+        },
+      }),
+    );
+
+    const result = await cancelBooking(customer(), { bookingId: "br-1" });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.bookingRequest.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+
+  it("avviser kansellering etter endringsfristen", async () => {
+    // Dagens dato gjør fristen (24 timer før ønsket start) alltid passert,
+    // uavhengig av når på døgnet testen kjøres.
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
+      ownBooking({
+        requestedDate: parseDateOnly(todayInOslo())!,
         requestedFrom: "08:00",
       }),
     );
@@ -403,8 +442,46 @@ describe("kundeportaltjenesten", () => {
       where: { id: "br-1" },
       data: expect.objectContaining({ requestedFrom: "09:00", requestedTo: "11:00" }),
     });
+    expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo1", customerId: "cust-1", status: "OPEN" },
+      data: {
+        scheduledFor: expect.any(Date),
+        scheduledTo: expect.any(Date),
+      },
+    });
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "RESCHEDULED" }),
     });
+  });
+
+  it("avviser ny tid når oppdraget er flyttet til en annen kunde", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
+      ownBooking({
+        workOrder: {
+          id: "wo1",
+          title: "Service",
+          status: "OPEN",
+          customerId: "cust-2",
+          deletedAt: null,
+        },
+      }),
+    );
+    const newDate = toDateOnly(
+      addDaysUtc(parseDateOnly(todayInOslo())!, 10),
+    );
+
+    const result = await rescheduleBooking(customer(), {
+      bookingId: "br-1",
+      requestedDate: newDate,
+      requestedFrom: "09:00",
+      requestedTo: "11:00",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
   });
 });

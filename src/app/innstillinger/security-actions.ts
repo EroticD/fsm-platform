@@ -53,17 +53,26 @@ export async function confirmSetupAction(formData: FormData): Promise<never> {
   const actor = await currentActor();
   const result = await confirmTwoFactorSetup(
     actor,
-    { code: formData.get("code") },
+    {
+      password: formData.get("password"),
+      code: formData.get("code"),
+    },
     await requestIp(),
   );
 
   if (!result.ok) {
-    redirect(`${BASE}&setup=1&error=kode`);
+    const error =
+      result.reason === "invalid_password"
+        ? "passord"
+        : result.reason === "setup-expired"
+          ? "setup-expired"
+          : "kode";
+    redirect(`${BASE}&setup=1&error=${error}`);
   }
 
   // Andre økter er nå ugyldige; den som aktiverte 2FA skal fortsatt være innlogget.
   await refreshSessionCookie(actor.id, result.data.sessionVersion);
-  await setRecoveryCodesForDisplay(result.data.recoveryCodes);
+  await setRecoveryCodesForDisplay(actor.id, result.data.recoveryCodes);
   revalidatePath("/innstillinger");
   redirect(`${BASE}&ok=enabled`);
 }
@@ -113,15 +122,19 @@ export async function regenerateRecoveryCodesAction(
   const actor = await currentActor();
   const result = await regenerateRecoveryCodes(
     actor,
-    { password: formData.get("password") },
+    {
+      password: formData.get("password"),
+      code: formData.get("code"),
+    },
     await requestIp(),
   );
 
   if (!result.ok) {
-    redirect(`${BASE}&error=passord`);
+    const error = result.reason === "invalid_password" ? "passord" : "kode";
+    redirect(`${BASE}&error=${error}`);
   }
 
-  await setRecoveryCodesForDisplay(result.data.recoveryCodes);
+  await setRecoveryCodesForDisplay(actor.id, result.data.recoveryCodes);
   revalidatePath("/innstillinger");
   redirect(`${BASE}&ok=recovery`);
 }

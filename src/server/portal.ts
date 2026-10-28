@@ -495,7 +495,13 @@ type BookingChangeRow = {
   requestedDate: Date;
   requestedFrom: string;
   requestedTo: string;
-  workOrder: { id: string; title: string; status: string; deletedAt: Date | null };
+  workOrder: {
+    id: string;
+    title: string;
+    status: string;
+    customerId: string | null;
+    deletedAt: Date | null;
+  };
 };
 
 async function ownBooking(
@@ -509,7 +515,13 @@ async function ownBooking(
   if (!id) return fail("invalid");
 
   const booking = await prisma.bookingRequest.findFirst({
-    where: { id, customerId: actor.customerId },
+    where: {
+      id,
+      customerId: actor.customerId,
+      // Bestillingen kan henge igjen på et oppdrag som senere er flyttet til
+      // en annen kunde. Den gamle kunden skal ikke kunne endre oppdraget.
+      workOrder: { customerId: actor.customerId },
+    },
     select: {
       id: true,
       reference: true,
@@ -519,11 +531,20 @@ async function ownBooking(
       requestedFrom: true,
       requestedTo: true,
       workOrder: {
-        select: { id: true, title: true, status: true, deletedAt: true },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          customerId: true,
+          deletedAt: true,
+        },
       },
     },
   });
   if (!booking) return fail("not_found");
+  // Kontrollerer også raden vi faktisk fikk tilbake, slik at en fremmed
+  // oppdragskunde aldri kan mutere saken selv om spørringen skulle være utdatert.
+  if (booking.workOrder.customerId !== actor.customerId) return fail("not_found");
   return ok(booking);
 }
 
@@ -573,7 +594,11 @@ export async function cancelBooking(
       // En ubekreftet bestilling er bare et åpent oppdrag. Er kontoret
       // allerede i gang, lar vi oppdragets status stå og varsler dem i stedet.
       await tx.workOrder.updateMany({
-        where: { id: booking.data.workOrder.id, status: "OPEN" },
+        where: {
+          id: booking.data.workOrder.id,
+          customerId: actor.customerId!,
+          status: "OPEN",
+        },
         data: { status: "CANCELLED" },
       });
 
@@ -671,7 +696,11 @@ export async function rescheduleBooking(
       // Bare en ubekreftet sak flyttes direkte. En planlagt sak beholder
       // planen til kontoret har bekreftet den nye tiden.
       await tx.workOrder.updateMany({
-        where: { id: booking.data.workOrder.id, status: "OPEN" },
+        where: {
+          id: booking.data.workOrder.id,
+          customerId: actor.customerId!,
+          status: "OPEN",
+        },
         data: {
           scheduledFor: schedule.data.requestedDate,
           scheduledTo: schedule.data.requestedDate,

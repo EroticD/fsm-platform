@@ -9,8 +9,12 @@ vi.mock("./draft-outbox", () => ({
 }));
 
 import {
+  OFFLINE_CACHE_TTL_MS,
+  OFFLINE_META_CACHE,
   clearOfflineCaches,
   clearOfflinePage,
+  clearOfflineSessionCaches,
+  isCacheEntryFresh,
   offlinePageCacheName,
 } from "./cache";
 
@@ -37,6 +41,8 @@ function installCaches(requests: Request[]) {
     keys: vi.fn(async () => [
       offlinePageCacheName("u1"),
       offlinePageCacheName("u2"),
+      OFFLINE_META_CACHE,
+      "fsm-static-v5",
     ]),
     has: vi.fn(
       async (name: string) => name === offlinePageCacheName("u1"),
@@ -67,6 +73,48 @@ beforeEach(() => {
   const postMessage = vi.fn();
   vi.stubGlobal("navigator", {
     serviceWorker: { controller: { postMessage } },
+  });
+});
+
+describe("isCacheEntryFresh", () => {
+  const now = Date.UTC(2026, 9, 29, 12, 0, 0);
+
+  it("godtar oppføringer som er yngre enn åtte timer", () => {
+    expect(isCacheEntryFresh(now - OFFLINE_CACHE_TTL_MS + 1, now)).toBe(true);
+    expect(isCacheEntryFresh(now - 60_000, now)).toBe(true);
+  });
+
+  it("avviser oppføringer som er eldre enn åtte timer", () => {
+    expect(isCacheEntryFresh(now - OFFLINE_CACHE_TTL_MS - 1, now)).toBe(false);
+  });
+
+  it("avviser manglende, ugyldige og fremtidige tidsstempler", () => {
+    expect(isCacheEntryFresh(null, now)).toBe(false);
+    expect(isCacheEntryFresh(undefined, now)).toBe(false);
+    expect(isCacheEntryFresh(Number.NaN, now)).toBe(false);
+    expect(isCacheEntryFresh(0, now)).toBe(false);
+    expect(isCacheEntryFresh(-1, now)).toBe(false);
+    expect(isCacheEntryFresh(now + 1, now)).toBe(false);
+  });
+});
+
+describe("clearOfflineSessionCaches", () => {
+  it("fjerner side-cacher og markøren, men beholder kladdene", async () => {
+    const { cacheStorage, deleteCache } = installCaches([]);
+
+    await clearOfflineSessionCaches();
+
+    expect(deleteCache).toHaveBeenCalledWith(offlinePageCacheName("u1"));
+    expect(deleteCache).toHaveBeenCalledWith(offlinePageCacheName("u2"));
+    expect(deleteCache).toHaveBeenCalledWith(OFFLINE_META_CACHE);
+    expect(deleteCache).not.toHaveBeenCalledWith("fsm-static-v5");
+    expect(mocks.forgetOfflineUser).toHaveBeenCalled();
+    // Bare side-cacher og markøren ryddes – nylige søk er ikke en kladd.
+    expect(localStorage.getItem("fsm:recent-searches")).not.toBeNull();
+    expect(navigator.serviceWorker.controller?.postMessage).toHaveBeenCalledWith(
+      { type: "CLEAR_SESSION_CACHES" },
+    );
+    expect(cacheStorage.keys).toHaveBeenCalled();
   });
 });
 

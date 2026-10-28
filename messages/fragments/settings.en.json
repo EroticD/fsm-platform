@@ -191,6 +191,7 @@
       "disabled": "Two-factor authentication is disabled.",
       "errorCode": "Incorrect one-time code. Try again.",
       "errorPassword": "Incorrect password. The 2FA settings were not changed.",
+      "errorSetupExpired": "The setup has expired. Start the setup again.",
       "title": "Two-factor authentication (TOTP)",
       "desc": "Use an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, etc.).",
       "on": "On",
@@ -219,7 +220,7 @@
         "saved": "I have saved the codes",
         "regenerated": "New recovery codes have been created. The old codes are no longer valid.",
         "regenerateTitle": "Create new recovery codes",
-        "regenerateDesc": "Creates a new set and invalidates all old codes. Confirm with your password.",
+        "regenerateDesc": "Creates a new set and invalidates all old codes. Confirm with your password and a code from the app.",
         "regenerate": "Create new codes",
         "fileHeader": "Recovery codes for {name}",
         "fileWarning": "Each code can be used once. Keep the file in a safe place."

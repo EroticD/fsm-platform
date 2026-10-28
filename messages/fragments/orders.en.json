@@ -620,6 +620,7 @@
       "legalHold": "⛔ The work order cannot be deleted because it or one of its reports is under legal hold.",
       "legalHoldFrozen": "⛔ The report is frozen by legal hold. An administrator must release the hold with a reason before it can be changed or unlocked.",
       "duplicateOrderNumber": "⛔ The order number is already in use in this department. Use a different number.",
+      "customerChangeBlocked": "⛔ The customer cannot be changed because the work order has reports or a booking.",
       "tooManyTags": "Too many tags.",
       "tooManyRows": "Too many selected rows."
     },

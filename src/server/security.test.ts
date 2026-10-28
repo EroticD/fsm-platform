@@ -24,6 +24,7 @@ vi.mock("@/lib/rate-limit-db", () => ({
 vi.mock("@/lib/two-factor", () => ({
   createTotpSecret: mocks.createTotpSecret,
   verifyTotp: mocks.verifyTotp,
+  TWO_FACTOR_SETUP_TTL_MS: 10 * 60_000,
 }));
 vi.mock("@/lib/two-factor-recovery", () => ({
   replaceRecoveryCodes: mocks.replaceRecoveryCodes,
@@ -33,6 +34,7 @@ import {
   cancelTwoFactorSetup,
   confirmTwoFactorSetup,
   disableTwoFactor,
+  regenerateRecoveryCodes,
   startTwoFactorSetup,
   verifyOwnPassword,
 } from "./security";
@@ -83,6 +85,12 @@ beforeEach(() => {
   mocks.prisma.user.findUnique.mockImplementation(
     async ({ select }: { select?: Record<string, boolean> }) => {
       if (select?.password) return { password: passwordHash };
+      if (select?.twoFactorSecret && select?.twoFactorSetupStartedAt) {
+        return {
+          twoFactorSecret: "HEMMELIGHET",
+          twoFactorSetupStartedAt: new Date(),
+        };
+      }
       if (select?.twoFactorSecret && select?.isTwoFactorEnabled) {
         return { twoFactorSecret: "HEMMELIGHET", isTwoFactorEnabled: true };
       }
@@ -100,12 +108,18 @@ describe("2FA-innstillinger – rate limiting", () => {
   it("sperrer etter fem feil TOTP-koder", async () => {
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       await expect(
-        confirmTwoFactorSetup(actor, { code: "000000" }),
+        confirmTwoFactorSetup(actor, {
+          password: CORRECT_PASSWORD,
+          code: "000000",
+        }),
       ).resolves.toEqual({ ok: false, reason: "invalid_code" });
     }
 
     await expect(
-      confirmTwoFactorSetup(actor, { code: "000000" }),
+      confirmTwoFactorSetup(actor, {
+        password: CORRECT_PASSWORD,
+        code: "000000",
+      }),
     ).resolves.toEqual({ ok: false, reason: "rate_limited" });
 
     // Den sjette forespørselen skal stoppes før koden i det hele tatt sjekkes.
@@ -169,6 +183,7 @@ describe("2FA-innstillinger – verifisering", () => {
       data: {
         isTwoFactorEnabled: false,
         twoFactorSecret: null,
+        twoFactorSetupStartedAt: null,
         sessionVersion: { increment: 1 },
       },
       select: { sessionVersion: true },
@@ -199,7 +214,10 @@ describe("2FA-innstillinger – verifisering", () => {
   });
 
   it("aktiverer 2FA og øker øktversjonen i samme transaksjon", async () => {
-    const result = await confirmTwoFactorSetup(actor, { code: CORRECT_CODE });
+    const result = await confirmTwoFactorSetup(actor, {
+      password: CORRECT_PASSWORD,
+      code: CORRECT_CODE,
+    });
 
     expect(result).toEqual({
       ok: true,
@@ -212,6 +230,7 @@ describe("2FA-innstillinger – verifisering", () => {
       where: { id: "user-1" },
       data: {
         isTwoFactorEnabled: true,
+        twoFactorSetupStartedAt: null,
         sessionVersion: { increment: 1 },
       },
       select: { sessionVersion: true },
@@ -236,6 +255,136 @@ describe("2FA-innstillinger – verifisering", () => {
     });
   });
 
+  it("krever passord på nytt når oppsettet bekreftes", async () => {
+    await expect(
+      confirmTwoFactorSetup(actor, {
+        password: "feil-passord",
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "invalid_password" });
+
+    expect(mocks.verifyTotp).not.toHaveBeenCalled();
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser et oppsett som er eldre enn ti minutter og sletter det", async () => {
+    const startedAt = new Date(Date.now() - 11 * 60_000);
+    mocks.prisma.user.findUnique.mockImplementation(
+      async ({ select }: { select?: Record<string, boolean> }) => {
+        if (select?.password) return { password: passwordHash };
+        if (select?.twoFactorSecret && select?.twoFactorSetupStartedAt) {
+          return { twoFactorSecret: "HEMMELIGHET", twoFactorSetupStartedAt: startedAt };
+        }
+        return null;
+      },
+    );
+
+    await expect(
+      confirmTwoFactorSetup(actor, {
+        password: CORRECT_PASSWORD,
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "setup-expired" });
+
+    expect(mocks.verifyTotp).not.toHaveBeenCalled();
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1", twoFactorSetupStartedAt: startedAt },
+      data: { twoFactorSecret: null, twoFactorSetupStartedAt: null },
+    });
+  });
+
+  it("avviser et ventende oppsett uten tidsstempel", async () => {
+    mocks.prisma.user.findUnique.mockImplementation(
+      async ({ select }: { select?: Record<string, boolean> }) => {
+        if (select?.password) return { password: passwordHash };
+        if (select?.twoFactorSecret && select?.twoFactorSetupStartedAt) {
+          return { twoFactorSecret: "HEMMELIGHET", twoFactorSetupStartedAt: null };
+        }
+        return null;
+      },
+    );
+
+    await expect(
+      confirmTwoFactorSetup(actor, {
+        password: CORRECT_PASSWORD,
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "setup-expired" });
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1", twoFactorSetupStartedAt: null },
+      data: { twoFactorSecret: null, twoFactorSetupStartedAt: null },
+    });
+  });
+
+  it("setter tidsstempel når et nytt oppsett startes", async () => {
+    await expect(
+      startTwoFactorSetup(actor, { password: CORRECT_PASSWORD }),
+    ).resolves.toEqual({ ok: true, data: undefined });
+
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1", isTwoFactorEnabled: false },
+      data: {
+        twoFactorSecret: "NY-HEMMELIGHET",
+        twoFactorSetupStartedAt: expect.any(Date),
+        isTwoFactorEnabled: false,
+      },
+    });
+  });
+
+  it("krever både passord og TOTP for nye gjenopprettingskoder", async () => {
+    await expect(
+      regenerateRecoveryCodes(actor, {
+        password: CORRECT_PASSWORD,
+        code: "000000",
+      }),
+    ).resolves.toEqual({ ok: false, reason: "invalid_code" });
+    await expect(
+      regenerateRecoveryCodes(actor, { password: CORRECT_PASSWORD }),
+    ).resolves.toEqual({ ok: false, reason: "invalid_code" });
+    await expect(
+      regenerateRecoveryCodes(actor, {
+        password: "feil-passord",
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "invalid_password" });
+
+    expect(mocks.replaceRecoveryCodes).not.toHaveBeenCalled();
+
+    await expect(
+      regenerateRecoveryCodes(actor, {
+        password: CORRECT_PASSWORD,
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      data: { recoveryCodes: ["AAAA-BBBB", "CCCC-DDDD"] },
+    });
+    expect(mocks.replaceRecoveryCodes).toHaveBeenCalledWith(
+      mocks.prisma,
+      "user-1",
+    );
+  });
+
+  it("lager ikke nye gjenopprettingskoder når 2FA er slått av", async () => {
+    mocks.prisma.user.findUnique.mockImplementation(
+      async ({ select }: { select?: Record<string, boolean> }) => {
+        if (select?.password) return { password: passwordHash };
+        if (select?.isTwoFactorEnabled) {
+          return { isTwoFactorEnabled: false, twoFactorSecret: null };
+        }
+        return null;
+      },
+    );
+
+    await expect(
+      regenerateRecoveryCodes(actor, {
+        password: CORRECT_PASSWORD,
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.replaceRecoveryCodes).not.toHaveBeenCalled();
+  });
+
   it("avbryter oppsett og ugyldiggjør øktene i samme transaksjon", async () => {
     const result = await cancelTwoFactorSetup(actor, {
       password: CORRECT_PASSWORD,
@@ -246,6 +395,7 @@ describe("2FA-innstillinger – verifisering", () => {
       where: { id: "user-1", isTwoFactorEnabled: false },
       data: {
         twoFactorSecret: null,
+        twoFactorSetupStartedAt: null,
         isTwoFactorEnabled: false,
         sessionVersion: { increment: 1 },
       },

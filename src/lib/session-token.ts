@@ -146,8 +146,12 @@ export async function clearPendingTwoFactor(): Promise<void> {
   cookieStore.delete(PENDING_2FA_COOKIE);
 }
 
-/** Legger de nye gjenopprettingskodene i en kortlevd visningscookie. */
+/**
+ * Legger de nye gjenopprettingskodene i en kortlevd visningscookie. Bruker-id
+ * bindes til cookien, slik at den ikke kan vises i en annen brukers økt.
+ */
 export async function setRecoveryCodesForDisplay(
+  userId: string,
   codes: string[],
 ): Promise<void> {
   const secret = process.env.NEXTAUTH_SECRET;
@@ -155,7 +159,7 @@ export async function setRecoveryCodesForDisplay(
 
   const expires = Date.now() + RECOVERY_CODES_DISPLAY_MAX_AGE * 1000;
   const token = await encode({
-    token: { codes, expires },
+    token: { userId, codes, expires },
     secret,
     maxAge: RECOVERY_CODES_DISPLAY_MAX_AGE,
   });
@@ -170,8 +174,13 @@ export async function setRecoveryCodesForDisplay(
   });
 }
 
-/** Leser kodene som skal vises én gang etter aktivering. */
-export async function readRecoveryCodesForDisplay(): Promise<string[] | null> {
+/**
+ * Leser kodene som skal vises én gang etter aktivering. Cookien godtas bare
+ * for samme bruker som den ble laget for.
+ */
+export async function readRecoveryCodesForDisplay(
+  userId: string,
+): Promise<string[] | null> {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) return null;
 
@@ -184,6 +193,7 @@ export async function readRecoveryCodesForDisplay(): Promise<string[] | null> {
     const payload = await decode({ token: raw, secret });
     const expires = Number(payload?.expires ?? 0);
     if (!expires || expires < Date.now()) return null;
+    if (payload?.userId !== userId) return null;
     const codes = payload?.codes;
     if (
       !Array.isArray(codes) ||

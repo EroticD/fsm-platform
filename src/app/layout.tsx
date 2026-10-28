@@ -15,6 +15,7 @@ import { isSafeLogoUrl } from "@/lib/logo";
 import { readableTextColor } from "@/lib/colors";
 import ToastProvider from "@/components/ToastProvider";
 import OfflineBanner from "@/components/OfflineBanner";
+import OfflineSessionGuard from "@/components/OfflineSessionGuard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 const geistSans = Geist({
@@ -119,7 +120,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}
             {isStaff(currentUser?.role ?? session?.user?.role) && (
-              <RealtimeRefresh />
+              <>
+                <OfflineSessionGuard />
+                <RealtimeRefresh />
+              </>
             )}
             <main id="main-content" className="flex-1">
               {children}

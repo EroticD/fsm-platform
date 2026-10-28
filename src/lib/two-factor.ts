@@ -3,6 +3,18 @@ import { generateSecret, generateSync, verifySync, generateURI } from "otplib";
 /** Antall sekunder en TOTP-kode er gyldig (standard 30). */
 export const TOTP_PERIOD = 30;
 
+/** Hvor lenge et påbegynt 2FA-oppsett kan bekreftes (10 minutter). */
+export const TWO_FACTOR_SETUP_TTL_MS = 10 * 60_000;
+
+/** Er et påbegynt 2FA-oppsett fortsatt innenfor tidsgrensen? */
+export function isTwoFactorSetupFresh(
+  startedAt: Date | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!startedAt) return false;
+  return now - startedAt.getTime() <= TWO_FACTOR_SETUP_TTL_MS;
+}
+
 /** Lager en ny base32-hemmelighet for TOTP. */
 export function createTotpSecret(): string {
   return generateSecret();

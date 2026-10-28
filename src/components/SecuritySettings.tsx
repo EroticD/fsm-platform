@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import QRCode from "qrcode";
 import CopyButton from "@/components/CopyButton";
-import { buildTotpUri } from "@/lib/two-factor";
+import { buildTotpUri, isTwoFactorSetupFresh } from "@/lib/two-factor";
 import { readRecoveryCodesForDisplay } from "@/lib/session-token";
 import {
   cancelSetupAction,
@@ -18,6 +18,7 @@ type SecurityUser = {
   name: string | null;
   isTwoFactorEnabled: boolean;
   twoFactorSecret: string | null;
+  twoFactorSetupStartedAt: Date | null;
 };
 
 export default async function SecuritySettings({
@@ -33,7 +34,13 @@ export default async function SecuritySettings({
 }) {
   const isEnabled = Boolean(user.isTwoFactorEnabled);
   const t = await getTranslations("common");
-  const recoveryCodes = await readRecoveryCodesForDisplay();
+  const recoveryCodes = await readRecoveryCodesForDisplay(user.id);
+  // Et påbegynt oppsett skal ikke vise en hemmelighet som er utløpt.
+  const setupActive =
+    setup === "1" &&
+    !isEnabled &&
+    Boolean(user.twoFactorSecret) &&
+    isTwoFactorSetupFresh(user.twoFactorSetupStartedAt);
   const recoveryFile =
     recoveryCodes && recoveryCodes.length > 0
       ? `data:text/plain;charset=utf-8,${encodeURIComponent(
@@ -47,7 +54,7 @@ export default async function SecuritySettings({
 
   let qrDataUrl: string | null = null;
   let manualKey: string | null = null;
-  if (setup === "1" && !isEnabled && user.twoFactorSecret) {
+  if (setupActive && user.twoFactorSecret) {
     manualKey = user.twoFactorSecret;
     const uri = buildTotpUri(user.twoFactorSecret, user.email || "konto");
     qrDataUrl = await QRCode.toDataURL(uri, { margin: 1, width: 220 });
@@ -134,6 +141,15 @@ export default async function SecuritySettings({
           {t("settings.security.errorPassword")}
         </div>
       )}
+      {error === "setup-expired" && (
+        <div
+          id="security-setup-expired-error"
+          role="alert"
+          className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+        >
+          {t("settings.security.errorSetupExpired")}
+        </div>
+      )}
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
         <div className="flex items-center justify-between gap-3">
@@ -153,7 +169,7 @@ export default async function SecuritySettings({
         </div>
 
         {/* Oppsett */}
-        {setup === "1" && !isEnabled && qrDataUrl && (
+        {setupActive && qrDataUrl && (
           <div className="border-t pt-4 space-y-4">
             <p className="text-sm text-gray-700">{t("settings.security.step1")}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -163,20 +179,38 @@ export default async function SecuritySettings({
               <code className="block mt-1 bg-gray-100 rounded-lg p-2 font-mono text-gray-900 break-all">{manualKey}</code>
             </div>
             <form action={confirmSetupAction} className="space-y-3 border-t pt-4">
-              <label htmlFor="security-setup-code" className="block text-sm font-bold text-gray-700">{t("settings.security.step2")}</label>
-              <input
-                id="security-setup-code"
-                type="text"
-                name="code"
-                required
-                inputMode="numeric"
-                maxLength={6}
-                pattern="[0-9]{6}"
-                placeholder="000000"
-                aria-invalid={error === "kode" || undefined}
-                aria-describedby={error === "kode" ? "security-code-error" : undefined}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
-              />
+              <div>
+                <label htmlFor="security-setup-password" className="block text-sm font-bold text-gray-700 mb-1">
+                  {t("settings.security.passwordLabel")}
+                </label>
+                <input
+                  id="security-setup-password"
+                  type="password"
+                  name="password"
+                  required
+                  autoComplete="current-password"
+                  placeholder={t("settings.security.passwordPlaceholder")}
+                  aria-invalid={error === "passord" || undefined}
+                  aria-describedby={error === "passord" ? "security-password-error" : undefined}
+                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="security-setup-code" className="block text-sm font-bold text-gray-700">{t("settings.security.step2")}</label>
+                <input
+                  id="security-setup-code"
+                  type="text"
+                  name="code"
+                  required
+                  inputMode="numeric"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  placeholder="000000"
+                  aria-invalid={error === "kode" || undefined}
+                  aria-describedby={error === "kode" ? "security-code-error" : undefined}
+                  className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
+                />
+              </div>
               <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 transition">
                 {t("settings.security.confirm")}
               </button>
@@ -204,7 +238,7 @@ export default async function SecuritySettings({
         )}
 
         {/* Ikke satt opp */}
-        {!isEnabled && setup !== "1" && (
+        {!isEnabled && !setupActive && (
           <form action={startSetupAction} className="border-t pt-4 space-y-3">
             <div>
               <label
@@ -299,6 +333,24 @@ export default async function SecuritySettings({
                 aria-invalid={error === "passord" || undefined}
                 aria-describedby={error === "passord" ? "security-password-error" : undefined}
                 className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="security-regenerate-code" className="sr-only">
+                {t("settings.security.codeLabel")}
+              </label>
+              <input
+                id="security-regenerate-code"
+                type="text"
+                name="code"
+                required
+                inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                placeholder="000000"
+                aria-invalid={error === "kode" || undefined}
+                aria-describedby={error === "kode" ? "security-code-error" : undefined}
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
               />
             </div>
             <button
