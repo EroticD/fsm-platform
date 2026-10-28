@@ -775,6 +775,7 @@ export default function ReportForm({
         title={t("orders.reportForm.removeUnitTitle")}
         description={t("orders.reportForm.removeUnitConfirm")}
         confirmLabel={t("orders.reportForm.removeUnit")}
+        danger
         onCancel={() => setUnitToRemove(null)}
         onConfirm={() => {
           if (unitToRemove) removeUnit(unitToRemove);
