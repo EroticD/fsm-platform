@@ -23,6 +23,24 @@ type Rule = {
 const rules: Rule[] = [
   // ------------------------------------------------------------------ oppdrag
   {
+    pattern:
+      /^(?:Kontoret|Montør) endret status til: (OPEN|PENDING|PLANNED|WAITING|IN_PROGRESS|COMPLETED|CANCELLED)$/,
+    translate: (m, t) => {
+      const statusKeys: Record<string, string> = {
+        OPEN: "orders.detail.statusOpen",
+        PENDING: "orders.detail.statusPending",
+        PLANNED: "orders.detail.statusPlanned",
+        WAITING: "orders.detail.statusWaiting",
+        IN_PROGRESS: "orders.detail.statusInProgress",
+        COMPLETED: "orders.detail.statusCompleted",
+        CANCELLED: "orders.detail.statusCancelled",
+      };
+      return t("auditActions.workOrder.statusChanged", {
+        status: t(statusKeys[m[1]] ?? m[1]),
+      });
+    },
+  },
+  {
     pattern: /^Kontoret opprettet nytt oppdrag: (.*)$/,
     translate: (m, t) => t("auditActions.workOrder.created", { title: m[1] }),
   },

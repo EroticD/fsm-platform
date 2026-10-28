@@ -720,6 +720,7 @@
       "created": "Office created a new work order: {title}",
       "updated": "Updated the work order: {title}",
       "dateChanged": "Changed the date to {range}",
+      "statusChanged": "Status changed to: {status}",
       "checklistAdded": "Added a checklist to the work order",
       "commentAdded": "Added a comment: “{snippet}”",
       "tagsUpdated": "Updated tags: {tags}",

@@ -221,7 +221,7 @@ export default function FullCalendarView({
         .kalender-editable .fc-event-locked { cursor: default !important; }
         .fc-event-content { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
         .fc-event-title-line { font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
-        .fc-event-address { font-size: 0.72em; font-weight: 400; opacity: 0.9; line-height: 1.1; overflow-wrap: anywhere; }
+        .fc-event-address { font-size: 0.72em; font-weight: 400; opacity: 1; line-height: 1.1; overflow-wrap: anywhere; }
         .fc-daygrid-event { white-space: normal; }
         .fc-day-today { background-color: #f0fdf4 !important; }
         .fc-toolbar-chunk { display: flex; gap: 0.5rem; }

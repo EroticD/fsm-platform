@@ -423,7 +423,9 @@ function breadcrumbLabel(
       return segment;
     }
   })();
-  if (parent === "oppdrag" || /^\d+$/.test(decoded)) return `#${decoded}`;
+  if (parent === "oppdrag" || /^\d+$/.test(decoded) || /^[a-z0-9]{20,}$/.test(decoded)) {
+    return translate("components.header.details");
+  }
 
   const words = decoded.replace(/[-_]+/g, " ").trim();
   return words.charAt(0).toUpperCase() + words.slice(1);

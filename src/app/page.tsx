@@ -22,6 +22,7 @@ import {
   todayInOslo,
 } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
+import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 
@@ -165,7 +166,7 @@ async function OrderList({
             className="block bg-gray-50 hover:bg-blue-50/60 border border-gray-200 hover:border-blue-300 p-3 rounded-xl transition"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-bold text-gray-900 text-sm truncate">
+              <span className="font-bold text-gray-900 text-sm line-clamp-2">
                 {wo.title}
               </span>
               <StatusBadge status={wo.status} />
@@ -614,7 +615,15 @@ async function DashboardLists({
       },
     }),
     canViewAudit
-      ? prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8 })
+      ? prisma.auditLog.findMany({
+          where: {
+            // Innlogging og 2FA er sikkerhetshendelser, ikke arbeidsaktivitet.
+            // De vises i revisjonsloggen, men skal ikke fylle dashbordet.
+            action: { notIn: ["Logget inn", "Logget inn med gjenopprettingskode"] },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 8,
+        })
       : Promise.resolve([]),
   ]);
 
@@ -702,7 +711,7 @@ async function DashboardLists({
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 sm:gap-3 mb-1 flex-wrap">
-                    <h3 className="font-bold text-gray-900 text-base truncate">
+                    <h3 className="font-bold text-gray-900 text-base line-clamp-2">
                       {wo.title}
                     </h3>
                     <StatusBadge status={wo.status} />
@@ -819,7 +828,12 @@ async function DashboardLists({
                 <li key={log.id} className="flex items-start gap-3 text-sm">
                   <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-gray-800 font-medium">{log.action}</p>
+                    <p className="text-gray-800 font-medium">
+                      {describeAuditAction(
+                        log.action,
+                        t as unknown as AuditTranslator,
+                      ) ?? log.action}
+                    </p>
                     <p className="text-xs text-gray-600">
                       {log.userName || t("dashboard.unknownUser")} •{" "}
                       {formatDateTimeLocalized(log.createdAt, locale)}

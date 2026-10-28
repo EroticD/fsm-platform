@@ -720,6 +720,7 @@
       "created": "Kontoret opprettet nytt oppdrag: {title}",
       "updated": "Oppdaterte oppdraget: {title}",
       "dateChanged": "Endret dato til {range}",
+      "statusChanged": "Status endret til: {status}",
       "checklistAdded": "La til en sjekkliste på oppdraget",
       "commentAdded": "La til kommentar: «{snippet}»",
       "tagsUpdated": "Oppdaterte tags: {tags}",

@@ -1,28 +1,30 @@
-# UI/UX backlog — agent work queue (revision 3)
+# UI/UX backlog — agent work queue (revision 4)
 
 Re-audit of the same five areas at HEAD `e8480fc`, verifying every revision-1
 claim against current code. Revision 1 was lost (never committed); this file is
 the authoritative version.
 
-## Execution status (revision 3)
+## Execution status (revision 4)
 
-All 37 R2 items were implemented on `dev` in five agent waves. Verification at
-the end of the run:
+All 37 R2 items are implemented on `dev`. Verification at the end of the run:
 
 - `npx tsc --noEmit` — clean
-- `npx vitest run` — 124 files, 1 093 tests passed
-- `node scripts/check-i18n.mjs` — nb/en parity (2 853 keys)
+- `npx vitest run` — 124 files, 1 094 tests passed
+- `node scripts/check-i18n.mjs` — nb/en parity (2 855 keys)
 - `npx eslint` — 0 errors
 - `npm run build` — passes
-- `e2e/a11y.spec.ts` — 10/10 runnable tests pass on desktop and mobile-375
-  (office/technician/customer role suites skip without their env credentials)
+- `e2e/a11y.spec.ts` — 28 passed, 2 skipped on desktop + mobile-375 with all
+  four role accounts (admin, office, technician, customer)
+- `e2e/roles.spec.ts` — 12 passed on desktop + mobile-375
 
-Only two follow-ups remain, both documented in their items:
-**R2-27** still has Norwegian literals in API-route error JSON and nb-only HMS
-templates; **R2-37** still needs the README screenshots re-captured at HEAD.
+E2E and screenshots now run against an isolated database (`fsm_ui_e2e`) seeded
+with fictional data by `scripts/seed-e2e.mjs`: four role accounts, three demo
+customers, eight work orders, a completed report, documents and notifications.
+`scripts/capture-screenshots.mjs` refreshed all 15 README screenshots from that
+database.
 
-> **Screenshots in `screenshots/` are stale** (2026-10-24, pre-`ddc4646`) and
-> still show removed features. Re-capture before using them as evidence.
+One follow-up remains: **R2-27** still has Norwegian literals in API-route error
+JSON and nb-only HMS templates.
 
 **How to use**
 
@@ -340,10 +342,10 @@ primitive adoption is no longer zero.
   combined work-order PDF with no way to reach a specific checklist. Add
   customer/technician/deviation/text filters and a per-report PDF route.
 
-- [~] **R2-37 · Screenshot refresh** — S
-  The cleanup part (dead files, duplicate calendar key, `PageHeader`/
-  `SectionCard`, `DECISIONS.md`) is done. Remaining: re-capture all screenshots
-  at HEAD against a seeded database.
+- [x] **R2-37 · Screenshot refresh** — S
+  All 15 screenshots re-captured at HEAD from the fictional `fsm_ui_e2e`
+  database via `scripts/capture-screenshots.mjs` (production build, nb-NO
+  locale, desktop 1440×900 and mobile 390×844).
 
 ---
 

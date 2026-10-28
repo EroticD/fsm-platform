@@ -17,6 +17,16 @@ describe("validateProductionConfig", () => {
     expect(errors.join(" ")).toContain("https://");
   });
 
+  it("godtar http på localhost i produksjon for lokal forhåndsvisning", () => {
+    expect(
+      validateProductionConfig({
+        NODE_ENV: "production",
+        NEXTAUTH_URL: "http://127.0.0.1:3100",
+        NEXTAUTH_SECRET: "secret",
+      }),
+    ).toEqual([]);
+  });
+
   it("godtar gyldig produksjonskonfigurasjon", () => {
     expect(
       validateProductionConfig({

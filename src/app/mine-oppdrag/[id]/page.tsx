@@ -339,6 +339,7 @@ export default async function TechnicianWorkOrderPage({
                     <select
                       name="status"
                       defaultValue={workOrder.status}
+                      aria-label={t("orders.fieldDetail.statusTitle")}
                       className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px] min-h-11"
                     >
                       <option value={workOrder.status} disabled>
@@ -504,6 +505,7 @@ export default async function TechnicianWorkOrderPage({
                   name="templateId"
                   required
                   defaultValue=""
+                  aria-label={t("orders.fieldDetail.extraChecklist")}
                   className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectTemplate")}</option>
@@ -648,6 +650,7 @@ export default async function TechnicianWorkOrderPage({
                   name="userId"
                   required
                   defaultValue=""
+                  aria-label={t("orders.fieldDetail.addPersonnel")}
                   className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectPerson")}</option>
