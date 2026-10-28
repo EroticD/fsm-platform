@@ -109,26 +109,30 @@ describe("work-orders-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("avviser et ulovlig statushopp uten å skrive til databasen", async () => {
+  it("lar et åpent oppdrag fullføres direkte", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
       customerId: null,
       status: "OPEN",
     });
+    const tx = withTransaction();
 
     const result = await changeWorkOrderStatus(
-      actor({ role: "TECHNICIAN" }),
+      actor(),
       "wo-1",
-      "IN_PROGRESS",
-      "field",
+      "COMPLETED",
+      "office",
     );
 
-    expect(result).toEqual({ ok: false, error: "ugyldig-status" });
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo-1", status: "OPEN" },
+      data: { status: "COMPLETED" },
+    });
   });
 
-  it("lar en gyldig åpen overgang utføres uten grunn", async () => {
+  it("lar en åpen status endres fritt uten grunn", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -140,7 +144,7 @@ describe("work-orders-tjenesten", () => {
     const result = await changeWorkOrderStatus(
       actor({ role: "TECHNICIAN" }),
       "wo-1",
-      "PLANNED",
+      "IN_PROGRESS",
       "field",
     );
 
@@ -955,7 +959,7 @@ describe("work-orders-tjenesten", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("låst sjekkliste blokkerer ikke lovlig statusendring", async () => {
+  it("låst rapport blokkerer ikke statusendring på oppdraget", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -968,11 +972,38 @@ describe("work-orders-tjenesten", () => {
     const result = await changeWorkOrderStatus(
       actor(),
       "wo-1",
-      "PLANNED",
+      "IN_PROGRESS",
       "office",
     );
 
     expect(result).toEqual({ ok: true });
+    // Statusflyten skal ikke lese rapporten i det hele tatt.
+    expect(mocks.prisma.report.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("låst rapport blokkerer ikke at oppdraget fullføres", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "IN_PROGRESS",
+      reports: [{ isLocked: true }],
+    });
+    const tx = withTransaction();
+
+    const result = await changeWorkOrderStatus(
+      actor(),
+      "wo-1",
+      "COMPLETED",
+      "office",
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo-1", status: "IN_PROGRESS" },
+      data: { status: "COMPLETED" },
+    });
+    expect(mocks.prisma.report.findFirst).not.toHaveBeenCalled();
   });
 
   it("avviser statusendring på et fullført oppdrag for ikke-admin", async () => {

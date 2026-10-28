@@ -33,11 +33,29 @@ beforeEach(() => {
 });
 
 describe("transitionWorkOrderStatus", () => {
-  it("avviser en ulovlig overgang uten å skrive til databasen", async () => {
-    const result = await call("OPEN", "COMPLETED");
+  it("avviser en overgang til samme status uten å skrive til databasen", async () => {
+    const result = await call("OPEN", "OPEN");
 
     expect(result).toEqual({ ok: false, error: "ugyldig-status" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar et åpent oppdrag fullføres uten å kreve lineær rekkefølge", async () => {
+    const tx = {
+      workOrder: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      auditLog: { create: vi.fn(async () => ({})) },
+    };
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx),
+    );
+
+    const result = await call("OPEN", "COMPLETED");
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo-1", status: "OPEN" },
+      data: { status: "COMPLETED" },
+    });
   });
 
   it("lar bare administrator gjenåpne et fullført oppdrag", async () => {

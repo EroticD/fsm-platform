@@ -31,6 +31,7 @@ import {
 } from "@/lib/schemas";
 import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
+import { isClosedStatus } from "@/lib/work-order-status";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -619,11 +620,14 @@ export async function updateWorkOrder(
 export type StatusContext = "office" | "field";
 
 /**
- * Bytter status. Overgangen må være lovlig i tilstandsmaskinen, slik at
- * kontoret og feltportalen følger samme regler som dispatch. Bare når
- * oppdraget er fullført eller kansellert kreves en grunn, og bare
- * administrator kan gjenåpne det. Kansellering krever fortsatt
- * `workorders.edit`.
+ * Bytter status på et oppdrag.
+ *
+ * Bare COMPLETED og CANCELLED er lukkede tilstander. Alle åpne statuser kan
+ * byttes fritt til en annen åpen status, eller lukkes som fullført/kansellert.
+ * En låst rapport (`Report.isLocked`) påvirker ikke oppdragets livssyklus; den
+ * låser bare redigering av selve rapporten. Bare når oppdraget er fullført
+ * eller kansellert kreves en grunn, og bare administrator kan gjenåpne det.
+ * Kansellering krever fortsatt `workorders.edit`.
  */
 export async function changeWorkOrderStatus(
   user: Actor,
@@ -642,10 +646,11 @@ export async function changeWorkOrderStatus(
   const status = parsed.data.status as WorkStatus;
   const from = access.status as WorkStatus;
 
-  const fromClosed = from === "COMPLETED" || from === "CANCELLED";
+  const fromClosed = isClosedStatus(from);
   const reason = cleanText(rawReason, { maxLength: 1000 });
 
-  // Bare lukkede oppdrag krever grunn. Åpne statuser kan velges fritt.
+  // Bare lukkede oppdrag krever grunn. Åpne statuser kan velges fritt,
+  // uavhengig av om oppdraget har en låst rapport.
   if (fromClosed) {
     if (user.role !== "ADMIN") return { ok: false, error: "workorder-locked" };
     if (!reason) return { ok: false, error: "reason-required" };
@@ -668,9 +673,10 @@ export async function changeWorkOrderStatus(
     from,
     to: status,
     isAdmin: user.role === "ADMIN",
-    // Åpne statuser må følge tilstandsmaskinen, akkurat som i dispatch.
-    // Bare den bevisste administratorgjenåpningen av et lukket oppdrag
-    // overstyrer maskinen – den krever allerede en grunn over.
+    // Åpne statuser kan byttes fritt, også når en rapport er låst. Rapporten
+    // og oppdraget har hver sin livssyklus. Bare den bevisste
+    // administratorgjenåpningen av et lukket oppdrag overstyrer reglene –
+    // den krever allerede en grunn over.
     force: fromClosed,
     actor: auditActor(user),
     action,
