@@ -10,6 +10,8 @@ import { staffWhere, type AccessUser } from "@/lib/access";
 import { performSearch, type SearchItem, type SearchResults } from "@/lib/search";
 import { hasActiveFilters } from "@/lib/search-filters";
 import { listSavedSearches, type SavedSearch } from "@/server/saved-searches";
+import PageHeader from "@/components/PageHeader";
+import SectionCard from "@/components/SectionCard";
 import HighlightedText from "@/components/search/HighlightedText";
 import RecentSearches from "@/components/search/RecentSearches";
 import SearchFiltersForm from "./SearchFiltersForm";
@@ -307,40 +309,44 @@ export default async function SearchResultsPage({
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Link
-            href="/"
-            className="whitespace-nowrap rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50"
-          >
-            ← {t("components.search.home")}
-          </Link>
-          <form
-            action="/sok"
-            method="get"
-            aria-label={t("components.search.title")}
-            className="flex min-w-0 flex-1 gap-2"
-          >
-            <FilterHiddenInputs filters={filters} />
-            <label htmlFor="search-results-q" className="sr-only">
-              {t("components.search.title")}
-            </label>
-            <input
-              id="search-results-q"
-              type="search"
-              name="q"
-              defaultValue={query}
-              maxLength={100}
-              placeholder={t("components.search.placeholder")}
-              className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-            />
-            <button
-              type="submit"
-              className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 sm:px-6"
+        <PageHeader
+          title={t("components.search.title")}
+          icon="🔍"
+          actions={
+            <Link
+              href="/"
+              className="whitespace-nowrap rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50"
             >
-              {t("components.search.title")}
-            </button>
-          </form>
-        </div>
+              ← {t("components.search.home")}
+            </Link>
+          }
+        />
+        <form
+          action="/sok"
+          method="get"
+          aria-label={t("components.search.title")}
+          className="flex min-w-0 flex-1 gap-2"
+        >
+          <FilterHiddenInputs filters={filters} />
+          <label htmlFor="search-results-q" className="sr-only">
+            {t("components.search.title")}
+          </label>
+          <input
+            id="search-results-q"
+            type="search"
+            name="q"
+            defaultValue={query}
+            maxLength={100}
+            placeholder={t("components.search.placeholder")}
+            className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 sm:px-6"
+          >
+            {t("components.search.title")}
+          </button>
+        </form>
 
         <SearchFiltersForm
           variant="mobile"
@@ -404,13 +410,11 @@ export default async function SearchResultsPage({
 
           <div className="min-w-0 space-y-5">
             {!hasQuery ? (
-              <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-                <h1 className="text-xl font-black text-gray-900 sm:text-2xl">
-                  {t("components.search.emptyTitle")}
-                </h1>
-                <p className="mt-2 text-sm text-gray-600 sm:text-base">
-                  {t("components.search.emptyBody")}
-                </p>
+              <SectionCard
+                title={t("components.search.emptyTitle")}
+                description={t("components.search.emptyBody")}
+                className="p-6 sm:p-8"
+              >
                 <p className="mt-4 rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
                   {query.length > 0
                     ? t("components.search.queryTooShort")
@@ -438,7 +442,7 @@ export default async function SearchResultsPage({
                 <div className="mt-6 border-t border-gray-100 pt-4">
                   <RecentSearches query="" />
                 </div>
-              </section>
+              </SectionCard>
             ) : rateLimited ? (
               <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-center">
                 <p className="font-bold text-yellow-900">
@@ -470,20 +474,23 @@ export default async function SearchResultsPage({
               </div>
             ) : (
               <>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-                  <h1 className="text-xl font-black text-gray-900 sm:text-2xl">
-                    {t("components.search.resultsFor", { query })}{" "}
-                    <span className="text-base font-bold text-gray-400 sm:text-lg">
-                      ({t("components.search.hits", { count: results.total })}
-                      {results.capped ? "+" : ""})
-                    </span>
-                  </h1>
-                  {canUseFilters && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      {t("components.search.filtersActive")}
-                    </p>
-                  )}
-                </div>
+                <SectionCard
+                  title={
+                    <>
+                      {t("components.search.resultsFor", { query })}{" "}
+                      <span className="text-base font-bold text-gray-400 sm:text-lg">
+                        ({t("components.search.hits", { count: results.total })}
+                        {results.capped ? "+" : ""})
+                      </span>
+                    </>
+                  }
+                  description={
+                    canUseFilters
+                      ? t("components.search.filtersActive")
+                      : undefined
+                  }
+                  className="p-4 sm:p-5"
+                />
 
                 {paginationBar()}
 

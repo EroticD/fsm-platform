@@ -8,6 +8,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { type Prisma, WorkStatus } from "@prisma/client";
 import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
+import PageHeader from "@/components/PageHeader";
+import SectionCard from "@/components/SectionCard";
 import EmptyState from "@/components/EmptyState";
 import { Skeleton } from "@/components/Skeleton";
 import { formatAddress } from "@/lib/address";
@@ -437,65 +439,67 @@ async function DashboardActionQueue({
 
   return (
     <>
-      <section className="order-2 lg:order-3 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-        <div className="flex items-center justify-between gap-3 border-b pb-2">
-          <h2 className="font-black text-gray-900 text-base">
-            {t("dashboard.todayTitle")}
-          </h2>
+      <SectionCard
+        title={t("dashboard.todayTitle")}
+        action={
           <Link
             href="/oppdrag?vis=idag"
             className="whitespace-nowrap text-[11px] font-bold text-blue-600 hover:underline"
           >
             {t("dashboard.todayViewAll")}
           </Link>
-        </div>
+        }
+        className="order-2 lg:order-3 border-2 border-gray-200"
+      >
         <OrderList
           orders={todayVisible}
           emptyTitle={t("dashboard.todayEmpty")}
           locale={locale}
         />
-      </section>
+      </SectionCard>
 
       <div className="order-3 lg:order-3 space-y-4">
-        <section className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-          <div className="flex items-center justify-between gap-3 border-b pb-2">
-            <div className="flex items-center gap-2">
-              <h2 className="font-black text-gray-900 text-base">
-                {t("dashboard.overdueTitle")}
-              </h2>
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              {t("dashboard.overdueTitle")}
               {overdueOrders.length > 0 && (
                 <span className="text-xs font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
                   {overdueHasMore ? `${QUEUE_LIMIT}+` : overdueOrders.length}
                 </span>
               )}
-            </div>
+            </span>
+          }
+          action={
             <Link
               href="/oppdrag?vis=forfalte"
               className="whitespace-nowrap text-[11px] font-bold text-blue-600 hover:underline"
             >
               {t("dashboard.viewAll")}
             </Link>
-          </div>
+          }
+          className="border-2 border-gray-200"
+        >
           <OrderList
             orders={overdueVisible}
             emptyTitle={t("dashboard.overdueEmpty")}
             locale={locale}
           />
-        </section>
+        </SectionCard>
 
-        <section className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-          <div className="flex items-center justify-between gap-3 border-b pb-2">
-            <div className="flex items-center gap-2">
-              <h2 className="font-black text-gray-900 text-base">
-                {t("dashboard.unassignedTitle")}
-              </h2>
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              {t("dashboard.unassignedTitle")}
               {unassignedOrders.length > 0 && (
                 <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
                   {unassignedHasMore ? `${QUEUE_LIMIT}+` : unassignedOrders.length}
                 </span>
               )}
-            </div>
-            {canAssign ? (
+            </span>
+          }
+          action={
+            canAssign ? (
               <Link
                 href="/kalender/dispatch"
                 className="whitespace-nowrap text-[11px] font-bold text-blue-600 hover:underline"
@@ -509,14 +513,16 @@ async function DashboardActionQueue({
               >
                 {t("dashboard.viewAll")}
               </Link>
-            )}
-          </div>
+            )
+          }
+          className="border-2 border-gray-200"
+        >
           <OrderList
             orders={unassignedVisible}
             emptyTitle={t("dashboard.unassignedEmpty")}
             locale={locale}
           />
-        </section>
+        </SectionCard>
       </div>
     </>
   );
@@ -619,21 +625,17 @@ async function DashboardLists({
 
   return (
     <>
-      <section className="order-7 lg:order-6 lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
-        <div className="flex items-start justify-between gap-3 border-b pb-2">
-          <div>
-            <h2 className="font-black text-gray-900 text-base">
-              {t("dashboard.ordersTitle")}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-gray-500">
-              {t("dashboard.ordersDescription")}
-            </p>
-          </div>
+      <SectionCard
+        title={t("dashboard.ordersTitle")}
+        description={t("dashboard.ordersDescription")}
+        action={
           <span className="whitespace-nowrap text-[11px] text-gray-600">
             {t("dashboard.hits", { count: listTotal })}
           </span>
-        </div>
-
+        }
+        className="order-7 lg:order-6 lg:col-span-2 border-2 border-gray-200"
+      >
+        <div className="space-y-4">
         <form
           method="GET"
           action="/"
@@ -790,21 +792,22 @@ async function DashboardLists({
             )}
           </div>
         )}
-      </section>
+        </div>
+      </SectionCard>
 
       {canViewAudit && (
-        <section className="order-8 lg:order-7 lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <div className="flex items-center justify-between border-b pb-2 mb-3">
-            <h2 className="font-black text-gray-900 text-base">
-              {t("dashboard.activityTitle")}
-            </h2>
+        <SectionCard
+          title={t("dashboard.activityTitle")}
+          action={
             <Link
               href="/innstillinger?tab=auditlog"
               className="text-[11px] font-bold text-blue-600 hover:underline"
             >
               {t("dashboard.viewAllActivity")}
             </Link>
-          </div>
+          }
+          className="order-8 lg:order-7 lg:col-span-2 border-2 border-gray-200"
+        >
           {recentLogs.length === 0 ? (
             <CompactEmptyState
               icon="📭"
@@ -826,7 +829,7 @@ async function DashboardLists({
               ))}
             </ol>
           )}
-        </section>
+        </SectionCard>
       )}
     </>
   );
@@ -998,41 +1001,43 @@ export default async function AdminDashboard({
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-2">
         {/* HEADER */}
-        <header className="order-1 flex flex-col gap-3 border-b border-gray-300 pb-3 sm:flex-row sm:items-center sm:justify-between sm:pb-4 lg:col-span-2">
-          <div>
-            <h1 className="text-xl font-black text-gray-900 sm:text-2xl md:text-3xl">
-              {t("dashboard.greeting", {
-                name: user?.name?.split(" ")[0] || t("admin"),
-              })}
-            </h1>
-            <p className="mt-0.5 text-xs font-medium text-gray-600 sm:mt-1 sm:text-sm">
-              <span className="hidden sm:inline">
-                {t("dashboard.adminOf", { companyName })} •{" "}
-              </span>
-              {formatDateLocalized(
-                dateContext.startOfToday,
-                locale,
-                undefined,
-                t("dashboard.orderList.noDate"),
-              )}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {canCreate && (
-              <Link
-                href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className="bg-[var(--primary-color)] text-white px-3 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap sm:px-4"
-              >
-                {t("dashboard.newWorkOrder")}
-              </Link>
-            )}
-            <Link
-              href="/kalender"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap sm:px-4"
-            >
-              {t("dashboard.calendar")}
-            </Link>
-          </div>
+        <header className="order-1 lg:col-span-2">
+          <PageHeader
+            title={t("dashboard.greeting", {
+              name: user?.name?.split(" ")[0] || t("admin"),
+            })}
+            subtitle={
+              <>
+                <span className="hidden sm:inline">
+                  {t("dashboard.adminOf", { companyName })} •{" "}
+                </span>
+                {formatDateLocalized(
+                  dateContext.startOfToday,
+                  locale,
+                  undefined,
+                  t("dashboard.orderList.noDate"),
+                )}
+              </>
+            }
+            actions={
+              <div className="flex flex-wrap gap-2">
+                {canCreate && (
+                  <Link
+                    href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
+                    className="bg-[var(--primary-color)] text-white px-3 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap sm:px-4"
+                  >
+                    {t("dashboard.newWorkOrder")}
+                  </Link>
+                )}
+                <Link
+                  href="/kalender"
+                  className="bg-white border-2 border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap sm:px-4"
+                >
+                  {t("dashboard.calendar")}
+                </Link>
+              </div>
+            }
+          />
         </header>
 
         {/* På mobil: dagens oppdrag først, deretter forfalte/ikke-tildelte.
@@ -1058,16 +1063,14 @@ export default async function AdminDashboard({
         </Suspense>
 
         {/* HURTIGHANDLINGER – bevisst under køen og nøkkeltallene. */}
-        <section
-          aria-labelledby="dashboard-quick-actions-title"
-          className="order-6 lg:order-5 lg:col-span-2 bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200"
+        <SectionCard
+          title={
+            <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+              {t("dashboard.quickActionsTitle")}
+            </span>
+          }
+          className="order-6 lg:order-5 lg:col-span-2 border-2 border-gray-200"
         >
-          <h2
-            id="dashboard-quick-actions-title"
-            className="text-[11px] font-bold uppercase tracking-wide text-gray-600 mb-2"
-          >
-            {t("dashboard.quickActionsTitle")}
-          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {quickActions.map((action) => (
               <Link
@@ -1080,7 +1083,7 @@ export default async function AdminDashboard({
               </Link>
             ))}
           </div>
-        </section>
+        </SectionCard>
 
         <Suspense fallback={<ListSectionFallback label={loadingLabel} />}>
           <DashboardLists

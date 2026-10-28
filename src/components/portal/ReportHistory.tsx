@@ -152,7 +152,7 @@ export default async function ReportHistory({
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Link
-                            href={`/api/rapporter/${workOrder.id}/pdf`}
+                            href={`/api/rapporter/${workOrder.id}/pdf?rapport=${encodeURIComponent(report.id)}`}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
                           >
                             {t("p3.portalReports.download")}

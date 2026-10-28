@@ -117,12 +117,20 @@ export default async function SecuritySettings({
         </div>
       )}
       {error === "kode" && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+        <div
+          id="security-code-error"
+          role="alert"
+          className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+        >
           {t("settings.security.errorCode")}
         </div>
       )}
       {error === "passord" && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+        <div
+          id="security-password-error"
+          role="alert"
+          className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+        >
           {t("settings.security.errorPassword")}
         </div>
       )}
@@ -136,7 +144,7 @@ export default async function SecuritySettings({
             </p>
           </div>
           <span
-            className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase whitespace-nowrap ${
+            className={`text-xs font-bold px-2 py-1 rounded-full uppercase whitespace-nowrap ${
               isEnabled ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
             }`}
           >
@@ -155,8 +163,9 @@ export default async function SecuritySettings({
               <code className="block mt-1 bg-gray-100 rounded-lg p-2 font-mono text-gray-900 break-all">{manualKey}</code>
             </div>
             <form action={confirmSetupAction} className="space-y-3 border-t pt-4">
-              <label className="block text-sm font-bold text-gray-700">{t("settings.security.step2")}</label>
+              <label htmlFor="security-setup-code" className="block text-sm font-bold text-gray-700">{t("settings.security.step2")}</label>
               <input
+                id="security-setup-code"
                 type="text"
                 name="code"
                 required
@@ -164,6 +173,8 @@ export default async function SecuritySettings({
                 maxLength={6}
                 pattern="[0-9]{6}"
                 placeholder="000000"
+                aria-invalid={error === "kode" || undefined}
+                aria-describedby={error === "kode" ? "security-code-error" : undefined}
                 className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
               />
               <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 transition">
@@ -171,12 +182,18 @@ export default async function SecuritySettings({
               </button>
             </form>
             <form action={cancelSetupAction} className="space-y-2">
+              <label htmlFor="security-cancel-password" className="sr-only">
+                {t("settings.security.passwordLabel")}
+              </label>
               <input
+                id="security-cancel-password"
                 type="password"
                 name="password"
                 required
                 autoComplete="current-password"
                 placeholder={t("settings.security.cancelPlaceholder")}
+                aria-invalid={error === "passord" || undefined}
+                aria-describedby={error === "passord" ? "security-password-error" : undefined}
                 className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
               />
               <button type="submit" className="w-full text-sm text-gray-500 hover:text-gray-800 transition">
@@ -190,15 +207,21 @@ export default async function SecuritySettings({
         {!isEnabled && setup !== "1" && (
           <form action={startSetupAction} className="border-t pt-4 space-y-3">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">
+              <label
+                htmlFor="security-start-password"
+                className="block text-sm font-bold text-gray-700 mb-1"
+              >
                 {t("settings.security.passwordConfirm")}
               </label>
               <input
+                id="security-start-password"
                 type="password"
                 name="password"
                 required
                 autoComplete="current-password"
                 placeholder={t("settings.security.passwordPlaceholder")}
+                aria-invalid={error === "passord" || undefined}
+                aria-describedby={error === "passord" ? "security-password-error" : undefined}
                 className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
               />
             </div>
@@ -212,24 +235,40 @@ export default async function SecuritySettings({
         {isEnabled && (
           <form action={disableTwoFactorAction} className="border-t pt-4 space-y-3">
             <p className="text-sm text-gray-700">{t("settings.security.disableDesc")}</p>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-              placeholder={t("settings.security.passwordPlaceholder")}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
-            />
-            <input
-              type="text"
-              name="code"
-              required
-              inputMode="numeric"
-              maxLength={6}
-              pattern="[0-9]{6}"
-              placeholder="000000"
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
-            />
+            <div>
+              <label htmlFor="security-disable-password" className="sr-only">
+                {t("settings.security.passwordLabel")}
+              </label>
+              <input
+                id="security-disable-password"
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder={t("settings.security.passwordPlaceholder")}
+                aria-invalid={error === "passord" || undefined}
+                aria-describedby={error === "passord" ? "security-password-error" : undefined}
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="security-disable-code" className="sr-only">
+                {t("settings.security.codeLabel")}
+              </label>
+              <input
+                id="security-disable-code"
+                type="text"
+                name="code"
+                required
+                inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
+                placeholder="000000"
+                aria-invalid={error === "kode" || undefined}
+                aria-describedby={error === "kode" ? "security-code-error" : undefined}
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
+              />
+            </div>
             <button type="submit" className="w-full bg-white border-2 border-red-200 text-red-700 py-2.5 rounded-xl font-bold hover:bg-red-50 transition">
               {t("settings.security.disable")}
             </button>
@@ -246,14 +285,22 @@ export default async function SecuritySettings({
                 {t("settings.security.recoveryCodes.regenerateDesc")}
               </p>
             </div>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-              placeholder={t("settings.security.passwordPlaceholder")}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
-            />
+            <div>
+              <label htmlFor="security-regenerate-password" className="sr-only">
+                {t("settings.security.passwordLabel")}
+              </label>
+              <input
+                id="security-regenerate-password"
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder={t("settings.security.passwordPlaceholder")}
+                aria-invalid={error === "passord" || undefined}
+                aria-describedby={error === "passord" ? "security-password-error" : undefined}
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+              />
+            </div>
             <button
               type="submit"
               className="w-full bg-white border border-gray-300 text-gray-800 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition"

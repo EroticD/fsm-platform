@@ -321,33 +321,44 @@ export default async function WorkOrdersPage({
 
         {/* FILTRE */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-          <div className="-mx-1 px-1 overflow-x-auto" tabIndex={0}>
-            <div className="flex gap-2 w-max">
-              {availableViews.map((v) => {
-                const active = v.key === view;
-                return (
-                  <Link
-                    key={v.key}
-                    href={linkFor(v.key)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
-                      active
-                        ? "bg-blue-700 border-blue-700 text-white shadow-sm"
-                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
-                    }`}
-                  >
-                    <span className="leading-none">{v.icon}</span>
-                    <span>{t(v.labelKey)}</span>
-                    <span
-                      className={`text-[11px] px-1.5 py-0.5 rounded-full ${
-                        active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
+          <div className="relative">
+            <div
+              role="region"
+              aria-label={t("orders.list.viewsLabel")}
+              tabIndex={0}
+              className="-mx-1 overflow-x-auto px-1 pb-2 pr-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 [scrollbar-width:thin]"
+            >
+              <div className="flex gap-2 w-max">
+                {availableViews.map((v) => {
+                  const active = v.key === view;
+                  return (
+                    <Link
+                      key={v.key}
+                      href={linkFor(v.key)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
+                        active
+                          ? "bg-blue-700 border-blue-700 text-white shadow-sm"
+                          : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
                       }`}
                     >
-                      {viewCounts[v.key]}
-                    </span>
-                  </Link>
-                );
-              })}
+                      <span className="leading-none" aria-hidden>{v.icon}</span>
+                      <span>{t(v.labelKey)}</span>
+                      <span
+                        className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
+                          active ? "bg-white text-blue-800 ring-1 ring-inset ring-blue-200" : "bg-white border border-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {viewCounts[v.key]}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent"
+            />
           </div>
 
           <form method="GET" action="/oppdrag" className="flex flex-wrap gap-2">
@@ -446,7 +457,7 @@ export default async function WorkOrdersPage({
                         {wo.tags.map((tag) => (
                           <span
                             key={tag.id}
-                            className="text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm"
+                            className="text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
                             suppressHydrationWarning
                             style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >

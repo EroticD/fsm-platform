@@ -272,7 +272,7 @@ export default function TemplateBuilder({
                       onClick={() => moveField(index, "UP")} 
                       disabled={index === 0} 
                       aria-label={t("settings.templateBuilder.moveUp")}
-                      className="text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded p-1 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white transition"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-gray-300 bg-white p-1 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-white"
                       title={t("settings.templateBuilder.moveUp")}
                     >
                       ▲
@@ -282,7 +282,7 @@ export default function TemplateBuilder({
                       onClick={() => moveField(index, "DOWN")} 
                       disabled={index === fields.length - 1} 
                       aria-label={t("settings.templateBuilder.moveDown")}
-                      className="text-gray-700 hover:text-gray-900 bg-white border border-gray-300 rounded p-1 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-white transition"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-gray-300 bg-white p-1 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:hover:bg-white"
                       title={t("settings.templateBuilder.moveDown")}
                     >
                       ▼

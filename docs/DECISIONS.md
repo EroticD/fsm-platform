@@ -3,11 +3,14 @@
 Denne filen oppsummerer valg som ble tatt under P2/P3-arbeidet, og hva som
 bevisst er utsatt. Den er ment som grunnlag for neste planleggingsrunde.
 
+> **Aktuell UI-arbeidskjø ligger i `docs/ui-ux-backlog.md`.** Nye UI-oppgaver
+> føres der; denne filen dokumenterer bare beslutninger og avgrensninger.
+
 ## Fullført i denne runden
 
-- **P2-B2** – full i18n for hovedflatene. `npm run check:i18n -- --strict` er
-  grønn: 1 884 nøkler i både nb og en, og ingen hardkodede norske tekstnoder i
-  JSX (PDF-motoren er bevisst unntatt).
+- **P2-B2** – full i18n for hovedflatene. `node scripts/check-i18n.mjs` er
+  grønn på paritet: 2 851 nøkler i både nb og en. Hardkodede norske strenger
+  rapporteres fortsatt som kjente varsler (PDF-motoren er bevisst unntatt).
 - **P2-B3** – axe-scans på innlogging, dashbord, kunder, dokumenter og
   innstillinger; Lighthouse mobil a11y 100/100; fokusfelle, skip-link,
   redusert bevegelse, 44 px trykkflater, toasts, skeletons og sticky
@@ -45,6 +48,10 @@ bevisst er utsatt. Den er ment som grunnlag for neste planleggingsrunde.
    `Notification`-tabellen og tømmes av jobbworkeren.
 7. **Multi-tenancy er ikke innført.** P5-0 gjelder bare hvis plattformen skal
    bli en SaaS for flere selskaper. For on-prem/single-company er den utsatt.
+8. **Felles UI-primitiver.** Sider gjenbruker `PageHeader`, `SectionCard`,
+   `EmptyState`, `KpiCard`, `Pagination` og `Skeleton` fra `src/components/`
+   i stedet for egne kopier. Det er bevisst ingen egen `src/components/ui/`-
+   pakke; nye flater skal bruke primitivene før nye komponenter lages.
 
 ## Utsatt: P4 og P5
 

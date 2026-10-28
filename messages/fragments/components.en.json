@@ -18,10 +18,6 @@
       "deleteDocumentTag": "Delete the document tag “{name}”? It will be removed from all documents it is used on.",
       "deleteDocumentTagLabel": "Delete document tag"
     },
-    "autoSave": {
-      "saving": "Saving...",
-      "saved": "Saved! ✅"
-    },
     "pagination": {
       "label": "Pagination",
       "first": "First",
@@ -49,6 +45,7 @@
       "placeholder": "Write a comment or event...",
       "submit": "Add comment",
       "saving": "Saving...",
+      "error": "Could not save the comment. Please try again.",
       "empty": "No comments or events yet.",
       "unknown": "Unknown"
     },

@@ -30,13 +30,3 @@ export function useI18n() {
     isRTL: false,
   };
 }
-
-export function useLanguage() {
-  const { locale, locales, localeNames, changeLocale } = useI18n();
-  return {
-    locale,
-    locales,
-    localeNames,
-    changeLocale,
-  };
-}

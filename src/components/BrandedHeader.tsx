@@ -402,7 +402,7 @@ export default function BrandedHeader({
 
 function MenuHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+    <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-600">
       {children}
     </p>
   );

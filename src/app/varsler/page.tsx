@@ -127,7 +127,7 @@ export default async function NotificationsPage({
           ) : (
             <span
               aria-disabled="true"
-              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-400"
+              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-600"
             >
               {t("p3.notifications.previous")}
             </span>
@@ -146,7 +146,7 @@ export default async function NotificationsPage({
           ) : (
             <span
               aria-disabled="true"
-              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-400"
+              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-600"
             >
               {t("p3.notifications.next")}
             </span>

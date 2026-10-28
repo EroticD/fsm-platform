@@ -254,8 +254,8 @@ export default async function ReportsPage({
                   <span className="leading-none">{range.icon}</span>
                   <span>{t(range.labelKey)}</span>
                   <span
-                    className={`text-xs px-1.5 py-0.5 rounded-full ${
-                      active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
+                    className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                      active ? "bg-white text-blue-800 ring-1 ring-inset ring-blue-200" : "bg-white border border-gray-200 text-gray-600"
                     }`}
                   >
                     {rangeCounts[range.key]}

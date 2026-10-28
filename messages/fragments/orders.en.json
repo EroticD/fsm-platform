@@ -39,6 +39,7 @@
           "description": "Cancelled work orders – history."
         }
       },
+      "viewsLabel": "Filter work orders by view",
       "total": "{count, plural, one {# work order} other {# work orders}}",
       "backToDashboard": "← Dashboard",
       "newWorkOrder": "➕ New work order",

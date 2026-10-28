@@ -30,7 +30,7 @@ Legend: **S** <½ day · **M** 1–2 days · **L** 3+ days.
 | Rev-1 item | Status now | Evidence |
 | --- | --- | --- |
 | UX-01 design tokens + base layer | **Partial** | Focus ring done (`globals.css:34-36`). Still no `--primary-foreground`/danger/muted/type scale; coarse rule still only `button, [role=button]` (`globals.css:67-70`). 24 `bg-[var(--primary-color)] text-white` sites. |
-| UX-02 `ui/` primitives | **Partial** | PageHeader 5 uses, SectionCard 4, EmptyState 3; no `src/components/ui/`. 29/40 pages still hand-roll `<h1>`. |
+| UX-02 `ui/` primitives | **Partial** | PageHeader 7 uses, SectionCard 11, EmptyState 3; no `src/components/ui/`. Several pages still hand-roll `<h1>`. |
 | UX-03 confirmation contract | **Fixed** | Neutral defaults (`lib/confirm-dialog.ts:8-12`); all destructive sites pass `danger`. Dialog id/focus issues remain → R2-15. |
 | UX-04 localized date sweep | **Open** | `NotificationCard.tsx:74`, `AuditLogTable.tsx:61`, `oppdrag/page.tsx:417`, `mine-oppdrag/[id]/page.tsx:249`. |
 | UX-05 i18n hardening | **Open** | Static Norwegian metadata (`layout.tsx:28-47`); checker only scans JSX text (`check-i18n.mjs:87`). |
@@ -44,7 +44,7 @@ Legend: **S** <½ day · **M** 1–2 days · **L** 3+ days.
 | UX-22 nav/mobile shell | **Partial** | Overlay drawer + mobile search collapse done. Still 9 flat items wrapping at 1024–1280, duplicate Settings tile, no breadcrumbs, language hidden <640. “Add Rapporter/Utstyr” was **wrong** (product decision). |
 | UX-24 status transitions | **Partial** | `force: true` claim was **wrong**. Fixed status list still used instead of `allowedTransitions` → R2-02. |
 | UX-25 calendar | **Partial** | Dispatch tab now permission-gated (`lib/calendar-tabs.ts`). Calendar still `editable: true` unconditionally → R2-08; three routes remain. |
-| UX-37 branding flash | **Open** | Two client fetches (`BrandingColors.tsx:9`, `BrandedHeader.tsx:67`). |
+| UX-37 branding flash | **Fixed** | Branding is read once in the root layout and emitted as a server `<style>` (`layout.tsx:76-118`). |
 
 **Corrections to revision 1:** “`force: true` in detail actions” was false;
 “add Rapporter/Utstyr to nav” contradicts the product decision (keep them out);
@@ -254,10 +254,9 @@ primitive adoption is no longer zero.
   menu. Also remove the duplicate Settings tile in the mobile drawer
   (`BrandedHeader.tsx:330-338`) and show the language control on mobile.
 
-- [ ] **R2-26 · Branding first paint** — M
-  Two `/api/branding` fetches per load, default “FSM System”/blue paints first.
-  Fetch once in the root layout, pass to the header, emit `--primary-color` in a
-  server `<style>`, delete `BrandingColors`.
+- [x] **R2-26 · Branding first paint** — M
+  Done: branding is read once in the root layout, passed to the header, and
+  emitted as `--primary-color` in a server `<style>`.
 
 - [ ] **R2-27 · Metadata + i18n leak** — L
   Static Norwegian metadata (`layout.tsx:28-47`) with no per-page titles; server
@@ -294,8 +293,7 @@ primitive adoption is no longer zero.
   view buttons desync the URL. Use `/kalender?vis=` with one switcher, add a
   status legend (colours are undocumented), hide the unassigned warning for
   non-dispatch users (`kalender/page.tsx:91-112`), fix OPEN shown as “Planlagt”
-  in the resource overview (`:148-152`), delete dead `CalendarClient`/
-  `CalendarWrapper`.
+  in the resource overview (`:148-152`).
 
 - [ ] **R2-32 · Customer surface** — L
   8 tabs without counts/`aria-current`; no `/enheter/[id]` so unit links land at
@@ -331,11 +329,9 @@ primitive adoption is no longer zero.
   combined work-order PDF with no way to reach a specific checklist. Add
   customer/technician/deviation/text filters and a per-report PDF route.
 
-- [ ] **R2-37 · Cleanup + docs** — S
-  Delete `AutoSaveTextArea`, `CalendarClient`, `CalendarWrapper`,
-  `BrandingColors`; dedupe `"statusPending"` in `calendar.nb.json`; adopt
-  `PageHeader`/`SectionCard` on dashboard and `/sok`; update `DECISIONS.md`
-  (1884 → 2375 keys); re-capture all screenshots at HEAD.
+- [ ] **R2-37 · Screenshot refresh** — S
+  Re-capture all screenshots at HEAD. The cleanup part (dead files, duplicate
+  calendar key, `PageHeader`/`SectionCard`, `DECISIONS.md`) is done.
 
 ---
 

@@ -118,7 +118,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
           {String(answer)}
         </span>
       ) : (
-        <span className="text-gray-400">{t("orders.detail.report.notAssessed")}</span>
+        <span className="text-gray-600">{t("orders.detail.report.notAssessed")}</span>
       );
     }
     if (field.type === "SIGNATURE") {
@@ -130,7 +130,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     }
     if (field.type === "IMAGE") {
       const urls = parseImageUrls(answer);
-      if (urls.length === 0) return <span className="text-gray-400">{t("orders.detail.report.notAttached")}</span>;
+      if (urls.length === 0) return <span className="text-gray-600">{t("orders.detail.report.notAttached")}</span>;
       return (
         <span className="flex flex-wrap gap-2">
           {urls.map((url, index) => (
@@ -148,7 +148,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     }
     return (
       <span className="text-gray-900 font-medium italic">
-        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-gray-400">{t("orders.detail.report.notAnswered")}</span>}
+        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-gray-600">{t("orders.detail.report.notAnswered")}</span>}
       </span>
     );
   };
@@ -173,7 +173,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
             {typeof answer === "string" && answer.trim() ? (
               <MarkdownView value={answer} />
             ) : (
-              <span className="text-gray-400 font-medium">{t("orders.detail.report.notAnswered")}</span>
+              <span className="text-gray-600 font-medium">{t("orders.detail.report.notAnswered")}</span>
             )}
           </div>
         )}
@@ -193,7 +193,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     if (!url && !name) return null;
     return (
       <div className="bg-gray-50 p-3 rounded-xl border-2 border-gray-200">
-        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+        <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1">{label}</p>
         {url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={label} className="h-20 bg-white border border-gray-200 rounded" />
@@ -238,7 +238,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
 
       {acknowledgement.acknowledged && acknowledgement.comment && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
-          <p className="text-[10px] font-black uppercase tracking-wider text-green-700">
+          <p className="text-xs font-black uppercase tracking-wider text-green-700">
             {t("orders.detail.report.customerAcknowledgementComment")}
           </p>
           <p className="mt-1 whitespace-pre-wrap">{acknowledgement.comment}</p>
@@ -647,7 +647,7 @@ export default async function AdminWorkOrderPage({
             <div className="lg:col-span-2 space-y-6">
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-                <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.detail.descriptionTitle")}</h2>
+                <h2 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.detail.descriptionTitle")}</h2>
                 {workOrder.description ? (
                   <MarkdownView value={workOrder.description} className="text-gray-900 font-medium" />
                 ) : (
@@ -694,7 +694,7 @@ export default async function AdminWorkOrderPage({
                               {template.title}
                               {isHmsTemplate(template) && (
                                 <span
-                                  className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
+                                  className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
                                   title={t("orders.templateGroups.hms")}
                                 >
                                   🛡️ {template.hmsType
@@ -715,7 +715,7 @@ export default async function AdminWorkOrderPage({
                                   {canViewReports && (
                                     <>
                                       <Link
-                                        href={`/rapporter/${workOrder.id}`}
+                                        href={`/rapporter/${workOrder.id}?rapport=${report.id}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"

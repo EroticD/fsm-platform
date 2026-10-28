@@ -18,10 +18,6 @@
       "deleteDocumentTag": "Slette dokumenttaggen «{name}»? Den fjernes fra alle dokumenter den er brukt på.",
       "deleteDocumentTagLabel": "Slett dokument-tag"
     },
-    "autoSave": {
-      "saving": "Lagrer...",
-      "saved": "Lagret! ✅"
-    },
     "pagination": {
       "label": "Paginering",
       "first": "Første",
@@ -49,6 +45,7 @@
       "placeholder": "Skriv en kommentar eller hendelse...",
       "submit": "Legg til kommentar",
       "saving": "Lagrer...",
+      "error": "Kunne ikke lagre kommentaren. Prøv igjen.",
       "empty": "Ingen kommentarer eller hendelser ennå.",
       "unknown": "Ukjent"
     },

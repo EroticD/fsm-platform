@@ -39,6 +39,7 @@
           "description": "Oppdrag som er kansellert – historikk."
         }
       },
+      "viewsLabel": "Filtrer oppdrag etter visning",
       "total": "{count} oppdrag",
       "backToDashboard": "← Dashbord",
       "newWorkOrder": "➕ Nytt oppdrag",

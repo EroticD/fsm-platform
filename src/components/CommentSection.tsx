@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
 import { formatDateTime } from "@/lib/dates";
@@ -29,14 +30,17 @@ export default function CommentSection({
   canWrite = true,
 }: CommentSectionProps) {
   const t = useTranslations("common");
+  const router = useRouter();
   const [content, setContent] = useState("");
   const [editorKey, setEditorKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || submitting) return;
     setSubmitting(true);
+    setError(null);
 
     try {
       const response = await fetch("/api/comments", {
@@ -50,13 +54,27 @@ export default function CommentSection({
         }),
       });
 
-      if (response.ok) {
-        setContent("");
-        setEditorKey((current) => current + 1);
-        window.location.reload();
+      if (!response.ok) {
+        let reason = t("components.comment.error");
+        try {
+          const data = (await response.json()) as { error?: unknown };
+          if (typeof data?.error === "string" && data.error.trim()) {
+            reason = data.error.trim();
+          }
+        } catch {
+          // Serveren svarte uten JSON – vis den lokale feilmeldingen.
+        }
+        setError(reason);
+        return;
       }
-    } catch (error) {
-      console.error("Feil ved lagring av kommentar:", error);
+
+      setContent("");
+      setEditorKey((current) => current + 1);
+      router.refresh();
+    } catch (err) {
+      console.error("Feil ved lagring av kommentar:", err);
+      setError(t("components.comment.error"));
+    } finally {
       setSubmitting(false);
     }
   };
@@ -71,7 +89,7 @@ export default function CommentSection({
               ? `💬 ${t("components.comment.titleCustomer")}`
               : `💬 ${t("components.comment.titleContact")}`}
         </h2>
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
           {t("components.comment.count", { count: existingComments.length })}
         </span>
       </div>
@@ -94,6 +112,14 @@ export default function CommentSection({
               </div>
             )}
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800"
+            >
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             disabled={!content.trim() || submitting}

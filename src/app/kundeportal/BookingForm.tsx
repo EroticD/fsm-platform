@@ -33,7 +33,7 @@ const TIME_OPTIONS = Array.from({ length: 23 }, (_, index) => {
   return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 });
 
-export type BookingEquipment = { id: string; label: string };
+type BookingEquipment = { id: string; label: string };
 
 /**
  * Kundens bestillingsskjema. Ønsket dag kan velges fra ledighetkortene; da

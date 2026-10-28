@@ -109,8 +109,7 @@
       "badgeOpen": "✨ Open",
       "badgePending": "⏳ Waiting",
       "badgePlanned": "📅 Planned",
-      "badgeWaiting": "⏸️ Waiting",
-      "statusPending": "Waiting"
+      "badgeWaiting": "⏸️ Waiting"
     },
     "client": {
       "today": "Today",

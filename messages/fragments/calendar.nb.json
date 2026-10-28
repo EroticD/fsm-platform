@@ -109,8 +109,7 @@
       "badgeOpen": "✨ Åpen",
       "badgePending": "⏳ Venter",
       "badgePlanned": "📅 Planlagt",
-      "badgeWaiting": "⏸️ Venter",
-      "statusPending": "Venter"
+      "badgeWaiting": "⏸️ Venter"
     },
     "client": {
       "today": "I dag",
