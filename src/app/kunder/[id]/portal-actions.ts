@@ -36,13 +36,13 @@ export async function createPortalUser(
   if (!result.ok) {
     if (!customerId) return { status: "error" };
     if (result.reason === "missing_fields") {
-      redirect(`/kunder/${customerId}?tab=portal&error=mangler_felt`);
+      redirect(`/kunder/${customerId}?tab=kontakter&error=mangler_felt`);
     }
     if (result.reason === "invalid_contact") {
-      redirect(`/kunder/${customerId}?tab=portal&error=ugyldig_kontakt`);
+      redirect(`/kunder/${customerId}?tab=kontakter&error=ugyldig_kontakt`);
     }
     if (result.reason === "duplicate_email") {
-      redirect(`/kunder/${customerId}?tab=portal&error=epost_finnes`);
+      redirect(`/kunder/${customerId}?tab=kontakter&error=epost_finnes`);
     }
     return { status: "error" };
   }

@@ -204,6 +204,48 @@ export async function getCustomerDetail(
     AND: [workOrderScopeFor(actor), ...statusFilter],
   };
 
+  // Aktivitetsfanen viser kundens egne revisjonsrader i tillegg til de siste
+  // oppdragene og rapportene som faktisk hører til kunden. Begge listene er
+  // begrenset til oppdrag aktøren har tilgang til, og rapportene krever i
+  // tillegg reports.view.
+  const loadActivity = currentTab === "aktivitet";
+  const [activityWorkOrders, activityReports] = await Promise.all([
+    loadActivity
+      ? prisma.workOrder.findMany({
+          where: orderWhere,
+          orderBy: { updatedAt: "desc" },
+          take: 15,
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            scheduledFor: true,
+            updatedAt: true,
+            technicians: { select: { name: true }, take: 3 },
+          },
+        })
+      : Promise.resolve([]),
+    loadActivity && canViewReports
+      ? prisma.report.findMany({
+          where: {
+            deletedAt: null,
+            workOrder: orderWhere,
+          },
+          orderBy: { completedAt: "desc" },
+          take: 15,
+          select: {
+            id: true,
+            completedAt: true,
+            name: true,
+            templateTitle: true,
+            technicianName: true,
+            workOrderId: true,
+            workOrder: { select: { id: true, title: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+
   // Enhetsfanen lastes først når den åpnes. Servicehistorikken per enhet er
   // begrenset til de 25 nyeste kontrollene; totalen kommer fra _count.
   // Enheter og servicehistorikk krever equipment.view. Historikken er i
@@ -297,6 +339,8 @@ export async function getCustomerDetail(
     customer,
     customerAuditLogs,
     customerComments,
+    activityWorkOrders,
+    activityReports,
     portalUsers,
     templates,
     departments,

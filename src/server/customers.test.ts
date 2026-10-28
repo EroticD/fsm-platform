@@ -47,7 +47,7 @@ const mocks = vi.hoisted(() => ({
       findUnique: vi.fn(),
     },
     workOrder: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
-    report: { count: vi.fn() },
+    report: { count: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
   recurring: vi.fn(async () => ({ contractId: "contract" })),
@@ -246,6 +246,7 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
     mocks.prisma.workOrder.count.mockResolvedValue(0);
     mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
     mocks.prisma.report.count.mockResolvedValue(0);
+    mocks.prisma.report.findMany.mockResolvedValue([]);
   });
 
   it("avgrenser rapportenhetene til aktørens oppdrag og krever reports.view", async () => {
@@ -309,6 +310,40 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
       orderBy: { createdAt: "desc" },
       take: 50,
     });
+  });
+
+  it("tar med kundens siste oppdrag og rapporter i aktiviteten", async () => {
+    await getCustomerDetail(office(), "kunde-1", {
+      tab: "aktivitet",
+      orderPage: 1,
+    });
+
+    const orderArgs = mocks.prisma.workOrder.findMany.mock.calls[0][0] as {
+      where: unknown;
+      take: number;
+    };
+    expect(JSON.stringify(orderArgs.where)).toContain('"customerId":"kunde-1"');
+    expect(JSON.stringify(orderArgs.where)).toContain('"departmentId":"dep-a"');
+    expect(orderArgs.take).toBe(15);
+
+    const reportArgs = mocks.prisma.report.findMany.mock.calls[0][0] as {
+      where: unknown;
+      take: number;
+    };
+    expect(JSON.stringify(reportArgs.where)).toContain(
+      '"customerId":"kunde-1"',
+    );
+    expect(reportArgs.take).toBe(15);
+  });
+
+  it("skjuler rapporter i aktiviteten uten reports.view", async () => {
+    await getCustomerDetail(technician(), "kunde-1", {
+      tab: "aktivitet",
+      orderPage: 1,
+    });
+
+    expect(mocks.prisma.workOrder.findMany).toHaveBeenCalled();
+    expect(mocks.prisma.report.findMany).not.toHaveBeenCalled();
   });
 });
 

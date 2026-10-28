@@ -38,6 +38,7 @@ export default function BrandedHeader({
   // Mobilmenyen husker hvilken side den ble åpnet fra. Navigerer man videre til
   // en annen side stemmer ikke stien lenger, og menyen lukker seg av seg selv.
   const [openMenuForPath, setOpenMenuForPath] = useState<string | null>(null);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [primaryColor, setPrimaryColor] = useState("#2563eb");
   const pathname = usePathname();
   const isMobileMenuOpen = openMenuForPath === pathname;
@@ -134,6 +135,17 @@ export default function BrandedHeader({
   }, [isMobileMenuOpen]);
 
   useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    // Låser bakgrunnen mens menyen er åpen, slik at mobilen ikke scroller
+    // innholdet under det faste overlegget.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
     if (isMobileMenuOpen) {
       wasOpenRef.current = true;
       return;
@@ -154,7 +166,7 @@ export default function BrandedHeader({
   return (
     <div className="flex flex-col gap-0">
       {/* Top bar: Logo + Company + Global Navigation */}
-      <div className="flex justify-between items-center border-none outline-none py-6 px-4 sm:px-6 lg:px-8 bg-white">
+      <div className="flex justify-between items-center border-none outline-none py-3 px-4 sm:py-6 sm:px-6 lg:px-8 bg-white">
         {/* Logo + Company name (clickable to dashboard) - ALWAYS visible */}
         <Link
           href={isCustomer ? "/kundeportal" : "/"}
@@ -234,23 +246,53 @@ export default function BrandedHeader({
         </div>
       </div>
 
-      {/* Globalt søk (ikke for kundeportalbrukere) */}
+      {/* Globalt søk (ikke for kundeportalbrukere). På mobil er søket
+          sammenklappet som standard, slik at det ikke spiser første skjerm. */}
       {showNav && !isCustomer && (
-        <div className="px-4 sm:px-6 lg:px-8 pb-4 bg-white">
-          <GlobalSearch />
-        </div>
+        <>
+          <div className="hidden px-4 pb-4 sm:block sm:px-6 lg:px-8 bg-white">
+            <GlobalSearch />
+          </div>
+          <div className="px-4 pb-3 sm:hidden bg-white">
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((open) => !open)}
+              aria-expanded={mobileSearchOpen}
+              aria-controls="mobile-global-search"
+              className="flex min-h-11 w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+            >
+              <span aria-hidden>🔍</span>
+              <span className="flex-1 truncate">
+                {t("components.header.search")}
+              </span>
+              <span aria-hidden className="text-xs text-gray-400">
+                {mobileSearchOpen ? "▲" : "▼"}
+              </span>
+            </button>
+            {mobileSearchOpen && (
+              <div id="mobile-global-search" className="mt-2">
+                <GlobalSearch />
+              </div>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Mobile navigation drawer. Den er en modal dialog for skjermlesere,
-          med fokusfelle, Escape og klikk utenfor for å lukke. */}
+      {/* Mobilmenyen er et ekte overlegg: fast posisjon, bakgrunn som dempes
+          og låst sidescroll. Den dytter ikke innholdet ned. */}
       {showNav && isMobileMenuOpen && (
-        <div className="lg:hidden px-4 pb-4 border-b border-gray-200 bg-gray-50">
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-[1px]"
+          />
           <div
             ref={menuRef}
             id={MOBILE_MENU_ID}
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${MOBILE_MENU_ID}-title`}
+            className="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-y-auto bg-white p-4 shadow-2xl"
           >
             <div className="flex justify-between items-center mb-4">
               <h2
@@ -296,7 +338,7 @@ export default function BrandedHeader({
                 )}
               </div>
             )}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
+            <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
               {!isCustomer && <NotificationSoundToggle />}
               <LanguageSwitcher />
             </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
 import { formatDateRangeLocalized } from "@/lib/dates";
+import CalendarTabs from "@/app/kalender/CalendarTabs";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope, workOrderScope } from "@/lib/access";
@@ -79,33 +80,12 @@ export default async function CalendarPage() {
           </div>
         </div>
 
-        {/* FANER (TABS) FOR Å BYTTE VISNING - scrollable on mobile */}
-        <div className="overflow-x-auto pb-2" tabIndex={0}>
-          <div className="flex gap-1 bg-gray-200 p-1 rounded-xl min-w-max">
-            <Link href="/kalender" className="px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-gray-900 pointer-events-none whitespace-nowrap">
-              {t("calendar.common.resources")}
-            </Link>
-            <Link href="/kalender/maned" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.month")}
-            </Link>
-            <Link href="/kalender/uke" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.week")}
-            </Link>
-            <Link href="/kalender/uke-2" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-              {t("calendar.common.biweekly")}
-            </Link>
-            {office && (
-              <Link href="/kalender/dispatch" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-                {t("calendar.common.dispatch")}
-              </Link>
-            )}
-            {canReports && (
-              <Link href="/rapporter" className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:text-gray-900 transition whitespace-nowrap">
-                📄 {t("calendar.common.reports")}
-              </Link>
-            )}
-          </div>
-        </div>
+        {/* FANER (TABS) FOR Å BYTTE VISNING */}
+        <CalendarTabs
+          active="resources"
+          canDispatch={office}
+          canReports={canReports}
+        />
 
         {/* VARSEL: UFORDELTE OPPDRAG */}
         {unassignedJobs.length > 0 && (

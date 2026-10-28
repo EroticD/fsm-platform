@@ -156,7 +156,7 @@ export default async function AdminDashboard({
     if (user.role === "CUSTOMER") redirect("/kundeportal");
     if (hasPermission(user, "customers.view")) redirect("/kunder");
     if (hasPermission(user, "documents.view")) redirect("/dokumenter");
-    if (hasPermission(user, "equipment.view")) redirect("/enheter");
+    if (hasPermission(user, "equipment.view")) redirect("/kunder");
     if (hasPermission(user, "reports.view")) redirect("/rapporter");
     if (hasPermission(user, "users.view")) redirect("/innstillinger?tab=ansatte");
     redirect("/kundeportal");
@@ -353,6 +353,7 @@ export default async function AdminDashboard({
     }),
     prisma.report.count({
       where: {
+        deletedAt: null,
         completedAt: { gte: startOfMonth },
         workOrder: workOrderScope(user),
       },
@@ -384,57 +385,39 @@ export default async function AdminDashboard({
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto flex flex-col gap-5 sm:gap-6">
 
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
+        <div className="order-1 flex flex-col gap-3 border-b border-gray-300 pb-3 sm:flex-row sm:items-center sm:justify-between sm:pb-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900">
+            <h1 className="text-xl font-black text-gray-900 sm:text-2xl md:text-3xl">
               {t("dashboard.greeting", { name: user?.name?.split(" ")[0] || t("admin") })}
             </h1>
-            <p className="text-gray-600 mt-1 font-medium text-sm">
-              {t("dashboard.adminOf", { companyName })}
-              {" • "}
+            <p className="mt-0.5 text-xs font-medium text-gray-600 sm:mt-1 sm:text-sm">
+              <span className="hidden sm:inline">{t("dashboard.adminOf", { companyName })}{" • "}</span>
               {formatDateLocalized(startOfToday, locale, undefined, t("dashboard.orderList.noDate"))}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap"
+                className="bg-[var(--primary-color)] text-white px-3 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap sm:px-4"
               >
                 {t("dashboard.newWorkOrder")}
               </Link>
             )}
             <Link
               href="/kalender"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              className="bg-white border-2 border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap sm:px-4"
             >
               {t("dashboard.calendar")}
             </Link>
           </div>
         </div>
 
-        {/* HURTIGHANDLINGER */}
-        <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-600 mb-2">{t("dashboard.quickActionsTitle")}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {quickActions.map((a) => (
-              <Link
-                key={a.href}
-                href={a.href}
-                className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-800 transition"
-              >
-                <span className="text-base leading-none">{a.icon}</span>
-                <span className="truncate">{t(a.labelKey)}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* KPI-ER */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* PRIMÆRE KPI-ER – øverst på mobil, slik at dagens oppdrag kommer tidlig. */}
+        <div className="order-2 grid grid-cols-2 gap-3 md:order-3 lg:grid-cols-4">
           <KpiCard
             icon="📂"
             label={t("dashboard.kpi.open")}
@@ -469,42 +452,8 @@ export default async function AdminDashboard({
           />
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard
-            icon="🙋"
-            label={t("dashboard.kpi.unassigned")}
-            value={unassignedCount}
-            sub={t("dashboard.kpi.unassignedSub")}
-            tone={unassignedCount > 0 ? "amber" : "gray"}
-            href="/oppdrag?vis=ikke-tildelt"
-          />
-          <KpiCard
-            icon="📋"
-            label={t("dashboard.kpi.reports")}
-            value={reportsThisMonth}
-            sub={t("dashboard.kpi.reportsSub")}
-            tone="green"
-            href="/kalender"
-          />
-          <KpiCard
-            icon="🏢"
-            label={t("dashboard.kpi.customers")}
-            value={customerCount}
-            sub={t("dashboard.kpi.customersSub")}
-            tone="gray"
-            href="/kunder"
-          />
-          <KpiCard
-            icon="🔧"
-            label={t("dashboard.kpi.equipment")}
-            value={productCount}
-            sub={t("dashboard.kpi.equipmentSub", { count: completedCount })}
-            tone="gray"
-          />
-        </div>
-
-        {/* DAGENS + FORFALTE */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* DAGENS + FORFALTE – dagens oppdrag ligger rett etter KPI-ene på mobil. */}
+        <div className="order-3 grid grid-cols-1 gap-4 md:order-5 lg:grid-cols-2">
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <h2 className="font-black text-gray-900 text-base">{t("dashboard.todayTitle")}</h2>
@@ -528,8 +477,60 @@ export default async function AdminDashboard({
           </div>
         </div>
 
+        {/* SEKUNDÆRE KPI-ER – under dagens oppdrag på mobil. */}
+        <div className="order-4 grid grid-cols-2 gap-3 md:order-4 lg:grid-cols-4">
+          <KpiCard
+            icon="🙋"
+            label={t("dashboard.kpi.unassigned")}
+            value={unassignedCount}
+            sub={t("dashboard.kpi.unassignedSub")}
+            tone={unassignedCount > 0 ? "amber" : "gray"}
+            href="/oppdrag?vis=ikke-tildelt"
+          />
+          <KpiCard
+            icon="📋"
+            label={t("dashboard.kpi.reports")}
+            value={reportsThisMonth}
+            sub={t("dashboard.kpi.reportsSub")}
+            tone="green"
+            href="/rapporter"
+          />
+          <KpiCard
+            icon="🏢"
+            label={t("dashboard.kpi.customers")}
+            value={customerCount}
+            sub={t("dashboard.kpi.customersSub")}
+            tone="gray"
+            href="/kunder"
+          />
+          <KpiCard
+            icon="🔧"
+            label={t("dashboard.kpi.equipment")}
+            value={productCount}
+            sub={t("dashboard.kpi.equipmentSub", { count: completedCount })}
+            tone="gray"
+          />
+        </div>
+
+        {/* HURTIGHANDLINGER – sekundært innhold, under oppdragene på mobil. */}
+        <div className="order-5 bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200 md:order-2">
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-600 mb-2">{t("dashboard.quickActionsTitle")}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {quickActions.map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-800 transition"
+              >
+                <span className="text-base leading-none">{a.icon}</span>
+                <span className="truncate">{t(a.labelKey)}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {/* IKKE TILDELTE */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
+        <div className="order-6 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">{t("dashboard.unassignedTitle")}</h2>
             {canAssign && (
@@ -546,7 +547,7 @@ export default async function AdminDashboard({
         </div>
 
         {/* OPPDRAGSLISTE MED SØK OG FILTER */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
+        <div className="order-7 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">{t("dashboard.ordersTitle")}</h2>
             <span className="text-[11px] text-gray-600">{t("dashboard.hits", { count: listTotal })}</span>
@@ -678,7 +679,7 @@ export default async function AdminDashboard({
 
         {/* SISTE AKTIVITET */}
         {canViewAudit && (
-          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+          <div className="order-8 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
             <div className="flex items-center justify-between border-b pb-2 mb-3">
               <h2 className="font-black text-gray-900 text-base">{t("dashboard.activityTitle")}</h2>
               <Link href="/innstillinger?tab=auditlog" className="text-[11px] font-bold text-blue-600 hover:underline">

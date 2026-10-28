@@ -47,6 +47,7 @@
         "attachments": "📎 Vedlegg",
         "units": "🔧 Enheter",
         "contacts": "👤 Kontakter",
+        "contactsPortal": "👤 Kontakter og portal",
         "portal": "🔐 Kundeportal",
         "activity": "📋 Aktivitet"
       },
@@ -229,7 +230,15 @@
       "errorDuplicateEmail": "Det finnes allerede en bruker med denne e-postadressen."
     },
     "activity": {
-      "title": "Aktivitetslogg"
+      "title": "Aktivitetslogg",
+      "recentOrders": "Siste oppdrag",
+      "noRecentOrders": "Ingen oppdrag registrert på kunden ennå.",
+      "orderUpdated": "Oppdatert {date}",
+      "recentReports": "Siste rapporter",
+      "noRecentReports": "Ingen rapporter levert for kunden ennå.",
+      "reportFallback": "Rapport",
+      "reportFor": "Oppdrag: {order}",
+      "viewReport": "Vis rapport"
     },
     "attachments": {
       "title": "Vedlegg",

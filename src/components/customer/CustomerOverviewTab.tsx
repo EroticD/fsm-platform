@@ -51,7 +51,7 @@ export default async function CustomerOverviewTab({
         <KpiCard icon="📄" label={t("customers.overview.contracts")} value={customer._count.contracts} tone="blue" href="?tab=avtaler" />
         <KpiCard icon="📎" label={t("customers.overview.attachments")} value={customer._count.attachments} tone="gray" href="?tab=vedlegg" />
         {office && (
-          <KpiCard icon="🔐" label={t("customers.overview.portalUsers")} value={portalUserCount} tone="gray" href="?tab=portal" />
+          <KpiCard icon="🔐" label={t("customers.overview.portalUsers")} value={portalUserCount} tone="gray" href="?tab=kontakter" />
         )}
         <KpiCard
           icon="🗓️"
