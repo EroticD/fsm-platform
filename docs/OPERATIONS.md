@@ -5,7 +5,7 @@
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
 
 ```dotenv
-APP_IMAGE=ghcr.io/eroticd/fsm-platform:0.7.1
+APP_IMAGE=ghcr.io/eroticd/fsm-platform:0.7.5
 POSTGRES_IMAGE=postgres:15.13
 ```
 
@@ -14,9 +14,9 @@ POSTGRES_IMAGE=postgres:15.13
 - Vil du være helt sikker på at taggen ikke flyttes, pinn til digest:
 
   ```bash
-  docker pull ghcr.io/eroticd/fsm-platform:0.7.1
+  docker pull ghcr.io/eroticd/fsm-platform:0.7.5
   docker inspect --format='{{index .RepoDigests 0}}' \
-    ghcr.io/eroticd/fsm-platform:0.7.1
+    ghcr.io/eroticd/fsm-platform:0.7.5
   # APP_IMAGE=ghcr.io/eroticd/fsm-platform@sha256:<digest>
   ```
 
