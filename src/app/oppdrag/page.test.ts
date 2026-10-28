@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next-intl/server", () => ({
   getTranslations: mocks.getTranslations,
+  getLocale: vi.fn(async () => "nb"),
 }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/lib/search-sql", () => ({

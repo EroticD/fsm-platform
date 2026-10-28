@@ -19,6 +19,7 @@ import {
   type UnitEntry,
 } from "./draft-restore";
 import { saveDraft, submitReport } from "./actions";
+import { canSubmitReport, useOnlineStatus } from "./submit-connectivity";
 import {
   loadDraftLocally,
   queueDraftForRetry,
@@ -65,24 +66,46 @@ function isFieldVisible(
   return answerMatches(answers[field.conditionalFieldId], field.conditionalValue);
 }
 
-/** Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk. */
+/**
+ * Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk.
+ *
+ * Uten nett er knappen grå og deaktivert, og forklaringen ligger rett over den
+ * (se `report-offline-notice`), slik at montøren ikke tror rapporten ble sendt.
+ */
 function SubmitButton({
   isEditing,
   disabled = false,
+  offline = false,
 }: {
   isEditing: boolean;
   disabled?: boolean;
+  offline?: boolean;
 }) {
   const { pending } = useFormStatus();
   const t = useTranslations("common");
+  const describedBy =
+    [offline ? "report-offline-notice" : null, disabled ? "report-no-units-error" : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
   return (
     <button
       type="submit"
-      disabled={pending || disabled}
-      aria-describedby={disabled ? "report-no-units-error" : undefined}
-      className="w-full bg-blue-700 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-800 transition shadow-md flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+      disabled={pending || disabled || offline}
+      aria-disabled={pending || disabled || offline}
+      aria-describedby={describedBy}
+      className={`w-full py-4 rounded-xl font-black text-lg transition flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+        offline
+          ? "bg-gray-400 text-white shadow-none"
+          : "bg-blue-700 text-white hover:bg-blue-800 shadow-md"
+      }`}
     >
-      {pending ? t("orders.reportForm.saving") : isEditing ? t("orders.reportForm.saveChanges") : t("orders.reportForm.saveReport")}
+      {pending
+        ? t("orders.reportForm.saving")
+        : offline
+          ? t("orders.reportForm.submitOffline")
+          : isEditing
+            ? t("orders.reportForm.saveChanges")
+            : t("orders.reportForm.saveReport")}
     </button>
   );
 }
@@ -136,6 +159,10 @@ export default function ReportForm({
   const t = useTranslations("common");
   const locale = useLocale();
   const formId = useId();
+  // Hydreringssikker nettstatus: antar online på serveren og oppdateres rett
+  // etterpå i nettleseren. Endres automatisk når nettet forsvinner/kommer
+  // tilbake, så innsendingen låses opp uten reload.
+  const online = useOnlineStatus();
 
   const [state, setState] = useState(() => {
     // Rapport uten enheter: én anonym oppføring med fast nøkkel. Svarene
@@ -464,7 +491,27 @@ export default function ReportForm({
   } | null>(null);
   const bypassReview = useRef(false);
 
+  // Forsvinner nettet mens forhåndskontrollen står åpen, skal rapporten ikke
+  // sendes. Vi lukker dialogen og skriver siste endring lokalt, slik at
+  // montøren kan fortsette der han slapp når nettet er tilbake.
+  useEffect(() => {
+    const onOffline = () => {
+      setReviewOpen(false);
+      void writeLocalDraft();
+    };
+    window.addEventListener("offline", onOffline);
+    return () => window.removeEventListener("offline", onOffline);
+  }, [writeLocalDraft]);
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    // Innsending krever nett. Knappen er deaktivert, men Enter i et felt kan
+    // fortsatt utløse submit i noen nettlesere.
+    if (!online) {
+      event.preventDefault();
+      bypassReview.current = false;
+      setReviewOpen(false);
+      return;
+    }
     if (bypassReview.current) {
       bypassReview.current = false;
       return;
@@ -500,7 +547,7 @@ export default function ReportForm({
 
   const confirmSubmit = () => {
     setReviewOpen(false);
-    if (!formRef.current) return;
+    if (!canSubmitReport({ online, missingUnits }) || !formRef.current) return;
     bypassReview.current = true;
     formRef.current.requestSubmit();
     // Hvis nettleservalideringen stopper innsendingen, må neste klikk igjen
@@ -913,11 +960,25 @@ export default function ReportForm({
 
       {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd. */}
       <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
-        <SubmitButton isEditing={isEditing} disabled={missingUnits} />
+        {!online && (
+          <p
+            id="report-offline-notice"
+            role="status"
+            aria-live="polite"
+            className="mb-2 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900"
+          >
+            {t("orders.reportForm.offlineNotice")}
+          </p>
+        )}
+        <SubmitButton
+          isEditing={isEditing}
+          disabled={missingUnits}
+          offline={!online}
+        />
       </div>
 
       <ConfirmDialog
-        open={reviewOpen}
+        open={reviewOpen && online}
         title={t("orders.reportForm.reviewTitle")}
         description={reviewDescription}
         confirmLabel={t("orders.reportForm.reviewConfirm")}

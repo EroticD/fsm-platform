@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
-import { formatDate, formatDateTime } from "@/lib/dates";
+import { formatDateLocalized, formatDateTimeLocalized } from "@/lib/dates";
 import { isLineCommentKey, readLineComment } from "@/lib/report-answers";
 import {
   revisionFields,
@@ -102,6 +102,7 @@ async function RevisionSnapshot({
   reportName: string;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const fields = revisionFields(revision);
   const status = revisionStatus(revision);
   const legacyAnswers = revisionLegacyAnswers(revision);
@@ -120,7 +121,7 @@ async function RevisionSnapshot({
           <p className="text-xs text-gray-500">
             {reportName}
             {revision.completedAt
-              ? ` · ${formatDate(revision.completedAt)}`
+              ? ` · ${formatDateLocalized(revision.completedAt, locale)}`
               : ""}
           </p>
         </div>
@@ -152,7 +153,7 @@ async function RevisionSnapshot({
           </p>
           <p className="text-xs text-gray-600">
             {t("orders.revisions.createdAt")}:{" "}
-            {formatDateTime(revision.createdAt)}
+            {formatDateTimeLocalized(revision.createdAt, locale)}
           </p>
         </div>
         <div className="rounded-xl bg-gray-50 p-3 text-sm">
@@ -184,7 +185,7 @@ async function RevisionSnapshot({
             <p className="mt-1 text-xs text-green-800">
               ✓{" "}
               {t("p3.portalReports.acknowledged", {
-                date: formatDate(revision.customerAcknowledgedAt),
+                date: formatDateLocalized(revision.customerAcknowledgedAt, locale),
               })}
               {revision.customerAcknowledgedBy
                 ? ` · ${revision.customerAcknowledgedBy}`
@@ -333,6 +334,7 @@ export default async function ReportRevisionsPage({
   if (!user?.isActive) redirect("/logg-inn");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const { id } = await params;
   const query = await searchParams;
   const returnTo = (() => {
@@ -489,7 +491,7 @@ export default async function ReportRevisionsPage({
                               {revision.reason ? ` – ${revision.reason}` : ""}
                             </span>
                             <span className="text-xs font-bold text-gray-600">
-                              {formatDateTime(revision.createdAt)}
+                              {formatDateTimeLocalized(revision.createdAt, locale)}
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-gray-600">

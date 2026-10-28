@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import MarkdownView from "@/components/MarkdownView";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import {
   isLineCommentKey,
   needsComment,
@@ -63,6 +63,7 @@ function fieldValue(
  */
 export default async function UnitHistory({ entries }: { entries: UnitHistoryEntry[] }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const translate = (key: string, values?: Record<string, string | number>) =>
     t(key, values);
   const history = [...entries].sort(
@@ -112,7 +113,12 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
           <li key={entry.id} className="bg-white border border-gray-200 rounded-lg p-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-bold text-gray-900">
-                {formatDate(serviceDate(entry), t("orders.unitHistory.noDate"))}
+                {formatDateLocalized(
+                  serviceDate(entry),
+                  locale,
+                  undefined,
+                  t("orders.unitHistory.noDate"),
+                )}
                 <span className="font-normal text-gray-500">
                   {" • "}
                   {entry.report.template?.title ?? t("orders.unitHistory.serviceReport")}
@@ -195,7 +201,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
 
             <div className="flex flex-wrap gap-3 mt-2">
               <Link
-                href={`/rapporter/${entry.report.workOrderId}`}
+                href={`/rapporter/${entry.report.workOrderId}?rapport=${entry.report.id}`}
                 className="text-xs font-bold text-blue-700 hover:underline"
               >
                 {t("orders.unitHistory.openReport")}

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { formatDateTime } from "@/lib/dates";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formatDateTimeLocalized } from "@/lib/dates";
 import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import type { CustomerDetailData } from "@/server/customers";
 
@@ -34,6 +34,7 @@ export default async function CustomerActivityList({
   showKind?: boolean;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const translate = t as unknown as AuditTranslator;
 
   if (items.length === 0) {
@@ -61,7 +62,7 @@ export default async function CustomerActivityList({
               </span>
               <span className="mt-0.5 block text-xs text-gray-500">
                 {item.userName || t("customers.overview.unknownUser")} •{" "}
-                {formatDateTime(item.createdAt)}
+                {formatDateTimeLocalized(item.createdAt, locale)}
               </span>
             </span>
           </>

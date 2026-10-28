@@ -474,6 +474,8 @@
       "saving": "Lagrer …",
       "saveChanges": "💾 Lagre endringer",
       "saveReport": "✍️ Signer og send rapport",
+      "submitOffline": "📴 Kan ikke sendes offline",
+      "offlineNotice": "Offline – kladden lagres, men rapporten kan ikke sendes før du er på nett.",
       "draftSaving": "💾 Lagrer kladd …",
       "draftSaved": "✅ Kladd lagret",
       "draftSavedAt": "✅ Kladd lagret {time}",

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { CONTRACT_INTERVAL_MONTHS } from "@/lib/contracts";
-import { formatDate, toDateOnly } from "@/lib/dates";
+import { formatDateLocalized, toDateOnly } from "@/lib/dates";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
 
@@ -34,6 +34,7 @@ export default async function CustomerContractsTab({
   deleteContract,
 }: ContractsTabProps) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   return (
     <CustomerTabPanel
@@ -193,7 +194,7 @@ export default async function CustomerContractsTab({
                     </p>
                     <p className="text-xs text-gray-600 mt-0.5">
                       {t("customers.contracts.startDateValue", {
-                        date: formatDate(contract.startDate, "–"),
+                        date: formatDateLocalized(contract.startDate, locale, undefined, "–"),
                       })}{" "}
                       •{" "}
                       {t("customers.contracts.intervalValue", {
@@ -203,7 +204,7 @@ export default async function CustomerContractsTab({
                       })}{" "}
                       •{" "}
                       {t("customers.contracts.nextService", {
-                        date: formatDate(contract.nextServiceDate, "–"),
+                        date: formatDateLocalized(contract.nextServiceDate, locale, undefined, "–"),
                       })}
                     </p>
                     <p className="text-xs text-gray-600">
@@ -237,8 +238,10 @@ export default async function CustomerContractsTab({
                   >
                     {t("customers.contracts.latestOrder", {
                       title: latestOrder.title,
-                      date: formatDate(
+                      date: formatDateLocalized(
                         latestOrder.scheduledFor,
+                        locale,
+                        undefined,
                         t("customers.overview.noDate"),
                       ),
                     })}

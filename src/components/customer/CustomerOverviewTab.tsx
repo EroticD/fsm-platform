@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import KpiCard from "@/components/KpiCard";
 import MarkdownView from "@/components/MarkdownView";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import type { CustomerDetailData } from "@/server/customers";
 import StatusBadge from "@/components/StatusBadge";
 import CustomerActivityList from "./CustomerActivityList";
@@ -36,6 +36,7 @@ export default async function CustomerOverviewTab({
   recentActivity,
 }: OverviewProps) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   return (
     <div className="space-y-6">
@@ -59,7 +60,12 @@ export default async function CustomerOverviewTab({
           label={t("customers.overview.nextOrder")}
           value={
             nextOrder
-              ? formatDate(nextOrder.scheduledFor, t("customers.overview.noDate"))
+              ? formatDateLocalized(
+                  nextOrder.scheduledFor,
+                  locale,
+                  undefined,
+                  t("customers.overview.noDate"),
+                )
               : t("customers.overview.none")
           }
           sub={nextOrder?.title}
@@ -129,7 +135,12 @@ export default async function CustomerOverviewTab({
                     <StatusBadge status={wo.status} />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {formatDate(wo.scheduledFor, t("customers.overview.noDate"))}
+                    {formatDateLocalized(
+                      wo.scheduledFor,
+                      locale,
+                      undefined,
+                      t("customers.overview.noDate"),
+                    )}
                     {wo._count.reports > 0
                       ? ` • 📋 ${t("customers.overview.checklists", { count: wo._count.reports })}`
                       : ""}

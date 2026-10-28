@@ -5,7 +5,7 @@ import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import MarkdownEditor from "@/components/MarkdownEditor";
@@ -20,7 +20,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
 import { statusSelectOptions } from "@/lib/work-order-status";
-import { formatDateRange, formatDateTime } from "@/lib/dates";
+import { formatDateRangeLocalized, formatDateTimeLocalized } from "@/lib/dates";
 import { idSchema } from "@/lib/schemas/common";
 import {
   HMS_TYPE_MESSAGE_KEYS,
@@ -53,6 +53,7 @@ export default async function TechnicianWorkOrderPage({
   const workOrderId = resolvedParams.id;
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
@@ -394,7 +395,7 @@ export default async function TechnicianWorkOrderPage({
             <div>
               <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">{t("orders.fieldDetail.scheduledDate")}</p>
               <p className="font-bold text-gray-900 bg-gray-50 p-2.5 border-2 border-gray-200 rounded-xl inline-block w-full">
-                📅 {formatDateRange(workOrder.scheduledFor, workOrder.scheduledTo) || t("orders.fieldDetail.noDate")}
+                📅 {formatDateRangeLocalized(workOrder.scheduledFor, workOrder.scheduledTo, locale) || t("orders.fieldDetail.noDate")}
               </p>
             </div>
 
@@ -458,7 +459,7 @@ export default async function TechnicianWorkOrderPage({
                       <div className="flex items-center gap-2 flex-wrap">
                         {canViewReports && (
                           <Link
-                            href={`/rapporter/${workOrderId}`}
+                            href={`/rapporter/${workOrderId}?rapport=${report.id}`}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
@@ -578,7 +579,7 @@ export default async function TechnicianWorkOrderPage({
                 <div key={comment.id} className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 space-y-1">
                   <div className="flex justify-between items-center text-xs text-gray-600 font-bold">
                     <span>{comment.authorName || t("orders.fieldDetail.unknownAuthor")}</span>
-                    <span>{formatDateTime(comment.createdAt)}</span>
+                    <span>{formatDateTimeLocalized(comment.createdAt, locale)}</span>
                   </div>
                   <div className="text-sm text-gray-900 font-medium">
                     <MarkdownView value={comment.content} />

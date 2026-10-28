@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
@@ -9,7 +9,7 @@ import { hasPermission } from "@/lib/permissions";
 import { DEFAULT_PAGE_SIZE, parsePage } from "@/lib/pagination";
 import { searchNormalizedIds } from "@/lib/search-sql";
 import { customerSearchOr } from "@/lib/customer-search";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import { workOrderScopeFor } from "@/server/actor";
 import { CUSTOMER_ACTIVE_STATUSES } from "@/server/customers";
 import {
@@ -62,6 +62,7 @@ export default async function KunderPage({
   if (!hasPermission(user, "customers.view")) redirect("/");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   // Montører får lese kundekatalogen, men ikke registrere nye kunder.
   const office = hasPermission(user, "customers.manage");
@@ -402,7 +403,12 @@ export default async function KunderPage({
                         {customer._count.workOrder}
                       </td>
                       <td className="p-4 text-gray-600">
-                        {formatDate(lastServiceDate, t("customers.list.neverServiced"))}
+                        {formatDateLocalized(
+                          lastServiceDate,
+                          locale,
+                          undefined,
+                          t("customers.list.neverServiced"),
+                        )}
                       </td>
                       <td className="relative z-10 p-4 space-y-1">
                         {showDeleted ? (

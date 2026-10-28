@@ -474,6 +474,8 @@
       "saving": "Saving …",
       "saveChanges": "💾 Save changes",
       "saveReport": "✍️ Sign and submit report",
+      "submitOffline": "📴 Cannot submit offline",
+      "offlineNotice": "Offline – the draft is saved, but the report cannot be submitted until you are back online.",
       "draftSaving": "💾 Saving draft …",
       "draftSaved": "✅ Draft saved",
       "draftSavedAt": "✅ Draft saved {time}",

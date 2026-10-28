@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import StatusBadge from "@/components/StatusBadge";
 import HmsTemplateCard from "@/components/hms/HmsTemplateCard";
 import { getHmsOverview } from "@/server/hms";
@@ -55,6 +55,7 @@ export default async function HmsPage({
   } = overview.data;
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const params = await searchParams;
   const errorKey = params.error ? ERROR_KEYS[params.error] : undefined;
 
@@ -396,7 +397,12 @@ export default async function HmsPage({
                           </p>
                         </td>
                         <td className="whitespace-nowrap px-2 py-3 text-gray-700">
-                          {formatDate(report.completedAt, t("hms.recent.noDate"))}
+                          {formatDateLocalized(
+                            report.completedAt,
+                            locale,
+                            undefined,
+                            t("hms.recent.noDate"),
+                          )}
                         </td>
                         <td className="px-2 py-3">
                           <StatusBadge status={report.workOrder.status} />
@@ -404,14 +410,14 @@ export default async function HmsPage({
                         <td className="px-2 py-3">
                           <div className="flex flex-col gap-1 text-xs font-bold">
                             <Link
-                              href={`/rapporter/${report.workOrder.id}`}
-                              className="text-blue-800 hover:underline"
+                              href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
+                              className="inline-flex min-h-6 items-center text-blue-800 hover:underline"
                             >
                               📄 {t("hms.recent.viewPdf")}
                             </Link>
                             <Link
                               href={workOrderHref(report.workOrder.id)}
-                              className="text-gray-700 hover:underline"
+                              className="inline-flex min-h-6 items-center text-gray-700 hover:underline"
                             >
                               📂 {t("hms.recent.openWorkOrder")}
                             </Link>

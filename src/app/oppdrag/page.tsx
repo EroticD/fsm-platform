@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { readableTextColor } from "@/lib/colors";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
@@ -11,7 +11,7 @@ import Pagination, { paginationLabels } from "@/components/Pagination";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
-  formatDateRange,
+  formatDateRangeLocalized,
   parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
@@ -165,6 +165,7 @@ export default async function WorkOrdersPage({
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
@@ -450,7 +451,7 @@ export default async function WorkOrdersPage({
                       🏢 {wo.customer?.name || t("orders.list.noCustomer")}
                       {address ? ` • 📍 ${address}` : ""}
                       {" • 📅 "}
-                      {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("orders.list.noDate")}
+                      {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("orders.list.noDate")}
                     </p>
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">

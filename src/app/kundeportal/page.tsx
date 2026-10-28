@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
 import {
   addDaysUtc,
-  formatDate,
+  formatDateLocalized,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -50,6 +50,7 @@ export default async function KundeportalPage({
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const listParams = await searchParams;
   const requestedUpcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
@@ -338,11 +339,11 @@ export default async function KundeportalPage({
                         )}
                       </div>
                       <p className="text-xs text-blue-700">
-                        {t("portal.contracts.start", { date: formatDate(contract.startDate, "–") })} •{" "}
+                        {t("portal.contracts.start", { date: formatDateLocalized(contract.startDate, locale, undefined, "–") })} •{" "}
                         {t("portal.contracts.interval", { interval: t("portal.contracts.months", { count: contract.intervalMonths }) })}
                       </p>
                       <p className="text-xs text-blue-700">
-                        {t("portal.contracts.next", { date: formatDate(contract.nextServiceDate, "–") })}
+                        {t("portal.contracts.next", { date: formatDateLocalized(contract.nextServiceDate, locale, undefined, "–") })}
                       </p>
                     </div>
                   ))
@@ -400,7 +401,7 @@ export default async function KundeportalPage({
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
                           <p className="text-xs text-gray-500">
-                            📅 {formatDate(wo.scheduledFor, t("portal.upcoming.noDate"))}
+                            📅 {formatDateLocalized(wo.scheduledFor, locale, undefined, t("portal.upcoming.noDate"))}
                           </p>
                         </div>
                         <StatusBadge status={wo.status} />

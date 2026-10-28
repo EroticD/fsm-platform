@@ -285,7 +285,7 @@ export default async function SearchResultsPage({
               ← {t("components.search.previous")}
             </Link>
           ) : (
-            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-300">
+            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600">
               ← {t("components.search.previous")}
             </span>
           )}
@@ -297,7 +297,7 @@ export default async function SearchResultsPage({
               {t("components.search.next")} →
             </Link>
           ) : (
-            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-300">
+            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600">
               {t("components.search.next")} →
             </span>
           )}
@@ -478,7 +478,7 @@ export default async function SearchResultsPage({
                   title={
                     <>
                       {t("components.search.resultsFor", { query })}{" "}
-                      <span className="text-base font-bold text-gray-400 sm:text-lg">
+                      <span className="text-base font-bold text-gray-600 sm:text-lg">
                         ({t("components.search.hits", { count: results.total })}
                         {results.capped ? "+" : ""})
                       </span>
@@ -524,7 +524,7 @@ export default async function SearchResultsPage({
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {topHits.map((hit) => (
                             <div key={`${hit.kind}-${hit.id}`} className="min-w-0">
-                              <p className="mb-1 truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                              <p className="mb-1 truncate text-xs font-bold uppercase tracking-wide text-gray-600">
                                 {hit.icon} {groupLabel(hit.kind)}
                               </p>
                               <ResultLink
@@ -555,7 +555,7 @@ export default async function SearchResultsPage({
                               className="text-lg font-black text-gray-900"
                             >
                               {group.icon} {groupLabel(group.kind)}{" "}
-                              <span className="text-sm font-bold text-gray-400">
+                              <span className="text-sm font-bold text-gray-600">
                                 ({group.total}
                                 {group.capped ? "+" : ""})
                               </span>

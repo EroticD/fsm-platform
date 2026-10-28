@@ -4,7 +4,7 @@ import { WorkStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import TagSelector from "@/components/TagSelector";
 import AuditLogTable from "@/components/AuditLogTable";
@@ -34,7 +34,7 @@ import {
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import {
   reportAcknowledgement,
   reportUnitSummary,
@@ -65,6 +65,7 @@ type ReportUnitView = {
 
 async function ReportContent({ report, template }: { report: any; template: any }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   let reportStatus = "UKJENT";
   let parsedAnswers: Record<string, unknown> = {};
 
@@ -231,7 +232,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
         )}
         {acknowledgement.acknowledged && (
           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
-            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDate(acknowledgement.at) })}
+            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDateLocalized(acknowledgement.at, locale) })}
           </span>
         )}
       </div>

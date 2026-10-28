@@ -39,15 +39,16 @@ export default async function HmsTemplateCard({
           </dt>
           <dd className="truncate">{template.reportName || template.title}</dd>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-bold">
-            {t("hms.template.reports", { count: template.reportCount })}
-          </span>
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-bold">
-            {t("hms.template.workOrders", { count: template.workOrderCount })}
-          </span>
-        </div>
       </dl>
+
+      <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-bold">
+          {t("hms.template.reports", { count: template.reportCount })}
+        </span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-bold">
+          {t("hms.template.workOrders", { count: template.workOrderCount })}
+        </span>
+      </div>
 
       <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
         {canLink && (

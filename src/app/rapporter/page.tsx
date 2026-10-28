@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
-import { formatDate } from "@/lib/dates";
+import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder, staffWhere } from "@/lib/access";
@@ -67,6 +67,7 @@ export default async function ReportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 
@@ -501,7 +502,12 @@ export default async function ReportsPage({
                         {reportDisplayName(report, t("orders.reportsPage.defaultTitle"))}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        📅 {formatDate(report.completedAt, t("orders.reportsPage.noDate"))}
+                        📅 {formatDateLocalized(
+                          report.completedAt,
+                          locale,
+                          undefined,
+                          t("orders.reportsPage.noDate"),
+                        )}
                         {" • 🏢 "}
                         {workOrder?.customer?.name ||
                           t("orders.reportsPage.internalOrder")}

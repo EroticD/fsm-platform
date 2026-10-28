@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { formatDate } from "@/lib/dates";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { getPortalReportHistory } from "@/server/portal";
 import { reportDisplayName } from "@/lib/report-display";
@@ -45,6 +45,7 @@ export default async function ReportHistory({
   historyPage?: number;
 }) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const user = await getCurrentUser();
   if (!user || user.role !== "CUSTOMER" || !user.customerId) return null;
 
@@ -99,8 +100,10 @@ export default async function ReportHistory({
                 <p className="font-bold text-gray-900">{workOrder.title}</p>
                 <p className="text-xs text-gray-500">
                   {t("p3.portalReports.workOrderPerformed", {
-                    date: formatDate(
+                    date: formatDateLocalized(
                       workOrder.scheduledFor,
+                      locale,
+                      undefined,
                       t("p3.portalReports.unknownDate"),
                     ),
                   })}
@@ -130,8 +133,10 @@ export default async function ReportHistory({
                           </p>
                           <p className="text-xs text-gray-600">
                             {t("p3.portalReports.performed", {
-                              date: formatDate(
+                              date: formatDateLocalized(
                                 report.completedAt || workOrder.scheduledFor,
+                                locale,
+                                undefined,
                                 t("p3.portalReports.unknownDate"),
                               ),
                             })}
@@ -172,7 +177,7 @@ export default async function ReportHistory({
                         <div className="rounded-xl bg-green-50 px-3 py-2 text-xs text-green-900">
                           <p className="font-bold">
                             {t("p3.portalReports.acknowledged", {
-                              date: formatDate(report.customerAcknowledgedAt),
+                              date: formatDateLocalized(report.customerAcknowledgedAt, locale),
                             })}
                             {report.customerAcknowledgedBy
                               ? ` · ${report.customerAcknowledgedBy}`

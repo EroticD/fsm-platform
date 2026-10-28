@@ -1,15 +1,26 @@
-# UI/UX backlog — agent work queue (revision 2)
+# UI/UX backlog — agent work queue (revision 3)
 
 Re-audit of the same five areas at HEAD `e8480fc`, verifying every revision-1
 claim against current code. Revision 1 was lost (never committed); this file is
-the authoritative version. Commit it.
+the authoritative version.
 
-> **Fixes landed since revision 1** (`6cddf33`, `2fa7e7`, `ddc4646`, `8026f9e`,
-> `bfa27a3`, `30137e2`, `e8480fc`): date boundary, end-before-start validation,
-> dispatch-tab permission gating, global focus ring, neutral confirm dialog,
-> mobile header overlay/search collapse, outbox coalescing, logout preserving
-> drafts, document global text search, report-submitted cleanup.
->
+## Execution status (revision 3)
+
+All 37 R2 items were implemented on `dev` in five agent waves. Verification at
+the end of the run:
+
+- `npx tsc --noEmit` — clean
+- `npx vitest run` — 124 files, 1 093 tests passed
+- `node scripts/check-i18n.mjs` — nb/en parity (2 853 keys)
+- `npx eslint` — 0 errors
+- `npm run build` — passes
+- `e2e/a11y.spec.ts` — 10/10 runnable tests pass on desktop and mobile-375
+  (office/technician/customer role suites skip without their env credentials)
+
+Only two follow-ups remain, both documented in their items:
+**R2-27** still has Norwegian literals in API-route error JSON and nb-only HMS
+templates; **R2-37** still needs the README screenshots re-captured at HEAD.
+
 > **Screenshots in `screenshots/` are stale** (2026-10-24, pre-`ddc4646`) and
 > still show removed features. Re-capture before using them as evidence.
 
@@ -54,7 +65,7 @@ primitive adoption is no longer zero.
 
 ## P0 — data-loss risk
 
-- [ ] **R2-01 · Confirm destructive admin actions** — M
+- [x] **R2-01 · Confirm destructive admin actions** — M
   `UsersAdmin.tsx:484` (delete user), `RolesAdmin.tsx:183` (delete role),
   `TagsTab.tsx:89,159` (delete tag) are bare `<form><button>` — one click,
   irreversible. Wrap in `ConfirmSubmitForm` with `danger` + entity name.
@@ -64,7 +75,7 @@ primitive adoption is no longer zero.
 
 ## P1 — correctness, blocked workflow, silent failure
 
-- [ ] **R2-02 · PENDING masquerades as WAITING** — S
+- [x] **R2-02 · PENDING masquerades as WAITING** — S
   `orders.detail.statusPending` and `statusWaiting` are both “Venter”
   (`messages/nb.json:113,115`). The option list dedupes by label and PENDING
   sorts first (`oppdrag/[id]/page.tsx:440-447`,
@@ -76,14 +87,14 @@ primitive adoption is no longer zero.
   PENDING→WAITING), and test the option set for PLANNED and IN_PROGRESS.
   Done when: every offered status is accepted by the server.
 
-- [ ] **R2-03 · Document filters can't be cleared** — S
+- [x] **R2-03 · Document filters can't be cleared** — S
   `folderLink()` re-applies `q`/`tag`, so the “Nullstill” link
   (`DocumentBrowser.tsx:134-141`) and the active tag chip (`:154-157`) link to
   the current URL — clicking does nothing. Build reset hrefs from scratch;
   add a unit test on the href builders.
   Done when: both controls clear the filter in one click.
 
-- [ ] **R2-04 · Draft restore still loses evidence** — M
+- [x] **R2-04 · Draft restore still loses evidence** — M
   Restore reconstructs notes/signatures, but `IMAGE` fields never call
   `onValueChange` (`FieldInput.tsx:272-280`) and unit/line comment editors have
   no `onChange` (`ReportForm.tsx:711-717`), so images and comments are absent
@@ -95,13 +106,13 @@ primitive adoption is no longer zero.
   Done when: a restored draft shows and submits the same photos/comments the
   technician entered.
 
-- [ ] **R2-05 · Offline submit has no guard** — S
+- [x] **R2-05 · Offline submit has no guard** — S
   `ReportForm.tsx:426-430` posts regardless of connectivity. Disable submit when
   `!navigator.onLine` with “Rapporten kan ikke sendes offline – kladden er
   lagret”, and keep the action pending until reconnection.
   Done when: a technician can never believe an offline report was sent.
 
-- [ ] **R2-06 · Report submit contract** — M
+- [x] **R2-06 · Report submit contract** — M
   Three inconsistencies in one flow:
   - Button says “Lagre rapport” and locks the report (`reports.ts:1076`), with no
     review/confirmation.
@@ -114,7 +125,7 @@ primitive adoption is no longer zero.
   persistent success banner with PDF link, and either block removing the last
   unit or fix the copy + dedicated `mangler-enhet` error.
 
-- [ ] **R2-07 · 2FA lockout is permanent** — M
+- [x] **R2-07 · 2FA lockout is permanent** — M
   No recovery codes anywhere; disabling 2FA needs the current TOTP
   (`SecuritySettings.tsx:130-159`); no admin reset. Pending cookie is 5 min
   (`session-token.ts:86`) and expiry redirects to `/logg-inn` **before** the
@@ -123,14 +134,14 @@ primitive adoption is no longer zero.
   audit, raise TTL to 10–15 min, and surface `TwoFactorExpired`.
   Done when: a lost phone does not require DB surgery.
 
-- [ ] **R2-08 · Calendar edit permission ignored** — S
+- [x] **R2-08 · Calendar edit permission ignored** — S
   `FullCalendarView.tsx:128-134` sets `editable/droppable/eventDurationEditable`
   unconditionally; `canEdit` only gates a link. The date API requires
   `workorders.update`, which technicians have — so decide: either gate editing
   on `canEdit` or explicitly document field rescheduling and keep it. Add a test
   either way.
 
-- [ ] **R2-09 · Bulk document import is untruthful** — M
+- [x] **R2-09 · Bulk document import is untruthful** — M
   One failed file `throw`s out of the loop (`BulkUploadForm.tsx:91`), abandoning
   the rest after earlier files were already uploaded; dedupe checks only the
   first 1000 files in the current folder; `bulkCreateDocuments` returns `void`
@@ -138,14 +149,14 @@ primitive adoption is no longer zero.
   Continue on error, return `{created, skipped, failed}`, show per-file results
   with retry, and clean up orphan uploads.
 
-- [ ] **R2-10 · Action feedback gaps** — M
+- [x] **R2-10 · Action feedback gaps** — M
   Customer edit/unit CRUD, document upload/edit, notification settings, portal
   acknowledge/contact-update and comment posting all succeed or fail silently.
   `CommentSection.tsx:53-61` never clears `submitting` on non-2xx (infinite
   spinner). Use `SubmitButton`/`useFormStatus` + toast/banner, and reset state in
   `finally`.
 
-- [ ] **R2-11 · Search layouts hide results on mobile** — M
+- [x] **R2-11 · Search layouts hide results on mobile** — M
   `/sok` renders the filter `<aside>` before results (`sok/page.tsx:307-317`);
   measured ~1,460 px of filters before the first hit at 375 px. Put results
   first and filters behind `<details>Filtre (n)</details>` on `<lg`.
@@ -153,7 +164,7 @@ primitive adoption is no longer zero.
   only authoritative one (or hide it on `/sok`), and fix the hardcoded `⌘K`
   hint (`GlobalSearch.tsx:431`).
 
-- [ ] **R2-12 · Customer activity feed is false** — M
+- [x] **R2-12 · Customer activity feed is false** — M
   “Siste aktivitet” queries `entityType: "Customer"` only
   (`server/customers.ts:171-178`), so a customer with orders/contracts/reports
   shows “Ingen aktivitet”. Merge WorkOrder/Report/Contact audit rows into one
@@ -161,14 +172,14 @@ primitive adoption is no longer zero.
 
 ## P2 — UX debt and accessibility
 
-- [ ] **R2-13 · Unlabeled form controls** — M
+- [x] **R2-13 · Unlabeled form controls** — M
   26 orphan `<label>`s (no `htmlFor`, not wrapping): `FieldInput.tsx:197-304`,
   `ReportForm.tsx:549-590,711-726`, `RolesAdmin.tsx:63-75`, `WorkOrderForm.tsx`,
   `TemplateBuilder.tsx`; 16 unlabeled `<select>` incl. dispatch filters;
   3 placeholder-only search inputs. Build `Field` with `useId` and migrate the
   report/customer/user forms first.
 
-- [ ] **R2-14 · Contrast failures** — M
+- [x] **R2-14 · Contrast failures** — M
   `text-gray-400` at 2.54:1 (36×, e.g. `SignaturePad.tsx:124`,
   `GlobalSearch.tsx:410`, `kundeportal/page.tsx:479`); amber-500/600 + white
   2.1–3.0:1 (`oppdrag/[id]/page.tsx:745`); `green-600`+white at `text-xs`
@@ -177,34 +188,34 @@ primitive adoption is no longer zero.
   chips. Also add `--primary-foreground` derived from brand colour and stop
   hardcoding `text-white` on `var(--primary-color)` (24 sites).
 
-- [ ] **R2-15 · Dialog + toast semantics** — S
+- [x] **R2-15 · Dialog + toast semantics** — S
   `ConfirmDialog.tsx:103-111` hardcodes ids (duplicate if two open), focus
   effect depends on inline `onCancel` (refocus thrash), no `aria-busy`, no
   scroll lock. `ToastProvider.tsx:39-40` uses one polite region for errors, 4 s,
   no dismiss/pause, no cap. Use `useId`, a stable callback ref, portal + `inert`,
   `role="alert"` for errors, dismiss + pause.
 
-- [ ] **R2-16 · Table semantics and mobile audit log** — M
+- [x] **R2-16 · Table semantics and mobile audit log** — M
   10 of 27 `<th>` lack `scope`; 5 of 9 tables lack captions
   (`AuditLogTable`, `NotificationPreferences`, `kundeportal`).
   `AuditLogTable` is `overflow-hidden` with `truncate`, so actions clip on
   phones. Add `scope`/`caption`, `overflow-x-auto` region, and a card layout
   below `sm`.
 
-- [ ] **R2-17 · Small/dead interactive affordances** — S
+- [x] **R2-17 · Small/dead interactive affordances** — S
   Icon-only delete buttons rely on `title` (`UsersAdmin.tsx:490`,
   `ContactCard.tsx:71`, `ConsumerAttachments.tsx:196`, `TagSelector.tsx:126`);
   tag selection indicated by colour only (no `aria-pressed`); coarse-pointer rule
   excludes links/inputs/selects; 72 remaining 9–11 px texts (16 in
   `mine-oppdrag/[id]`, 10 px labels in `BookingForm.tsx:63,81`).
 
-- [ ] **R2-18 · Pagination duplicated 7×** — M
+- [x] **R2-18 · Pagination duplicated 7×** — M
   `oppdrag`, `kunder`, `rapporter`, `kundeportal`, `DocumentBrowser`,
   `AuditLogTable`, `UsersAdmin` each hand-roll it; only `/sok` has
   `<nav aria-label>`. `/oppdrag` doesn't clamp page → stale `?side=999` shows an
   empty list. Ship one `Pagination` with `aria-current`, first/last, clamping.
 
-- [ ] **R2-19 · Document library workflow** — L
+- [x] **R2-19 · Document library workflow** — L
   Upload/new-folder/bulk panels sit **below** the list (`DocumentBrowser.tsx:386-435`);
   no bulk select/move/tag/delete; no folder rename/move/delete (`deleteFolder`
   exists unused, and deleting a parent silently moves child docs to root);
@@ -215,40 +226,40 @@ primitive adoption is no longer zero.
   scope explicit with a “Kun denne mappen” toggle and show the folder path on
   hits.
 
-- [ ] **R2-20 · Search result targeting** — M
+- [x] **R2-20 · Search result targeting** — M
   Document hits open the raw `/uploads/...` file (no title/tags/versions) and
   report hits open the combined work-order PDF, not the specific report
   (`lib/search.ts:923,1017`). Add `/dokumenter?doc=<id>` and a per-report route
   (`/rapporter/<wo>?rapport=<id>`).
 
-- [ ] **R2-21 · Dispatch board** — L
+- [x] **R2-21 · Dispatch board** — L
   Still no drag-and-drop; no date/search filter, no technician grouping, 500-row
   cap (`dispatch/page.tsx:78-90`), one modal per assignment, removal defaults to
   the first technician and names nobody, errors render at page top after a long
   scroll, all statuses offered (incl. illegal). Group by date/technician, drag to
   assign, per-person remove, legal statuses + inline row errors.
 
-- [ ] **R2-22 · Status counts ignore filters** — S
+- [x] **R2-22 · Status counts ignore filters** — S
   `statusGroups` where = `visibleStatus` only (`oppdrag/page.tsx:201-205`), so a
   zero-result search still shows “Alle 5”. Apply `filters` to every count, and
   rename “Alle” → “Aktive” (description currently claims all orders, excluding
   closed).
 
-- [ ] **R2-23 · Map correctness** — M
+- [x] **R2-23 · Map correctness** — M
   Date filter matches only `scheduledFor`, excluding multi-day jobs already
   running (`kart/page.tsx:64-65`); default shows up to 1000 orders; identical
   markers, no status/legend/technician; `role="application"` on the map;
   `dateFrom > dateTo` silently empty. Use interval overlap, default today/week,
   status-coloured clustered markers, region semantics tied to the list.
 
-- [ ] **R2-24 · Dashboard completion** — M
+- [x] **R2-24 · Dashboard completion** — M
   Still 8 equal KPIs and 12 queries in one `Promise.all`; `take: 100` today-cards
   duplicates rows and buries overdue on busy days; “Enheter” subtitle counts
   completed work orders, not units (`page.tsx:501-507`). Cap today at 5–8 + “Se
   alle”, promote overdue/unassigned above secondary KPIs, fix the Enheter metric,
   add Suspense sections.
 
-- [ ] **R2-25 · Header overflow** — S/M
+- [x] **R2-25 · Header overflow** — S/M
   9 flat nav items + logout wrap to two rows at 1024–1280 px (`navigation.ts:18-32`,
   `BrandedHeader.tsx:206-214`). Group to 5 + “Mer” or move logout into a user
   menu. Also remove the duplicate Settings tile in the mobile drawer
@@ -258,15 +269,15 @@ primitive adoption is no longer zero.
   Done: branding is read once in the root layout, passed to the header, and
   emitted as `--primary-color` in a server `<style>`.
 
-- [ ] **R2-27 · Metadata + i18n leak** — L
-  Static Norwegian metadata (`layout.tsx:28-47`) with no per-page titles; server
-  layer returns Norwegian literals for search subtitles (`lib/search.ts`), audit
-  actions (`server/*.ts`), HMS templates (`lib/hms.ts`, 118) and validation
-  (`lib/schemas/workOrder.ts:40`); `check-i18n.mjs` ignores `.ts`, attributes and
-  string literals. Return keys/params, localize metadata, extend the checker,
-  add a terminology glossary (oppdrag/montør/tekniker/kundens ordrenummer).
+- [~] **R2-27 · Metadata + i18n leak** — L
+  Done: localized `generateMetadata` + per-route titles, search subtitle
+  key/params, an audit-action key map translated at render, checker support for
+  attributes/`.ts` literals/unused keys, and a terminology glossary.
+  Remaining (documented): API-route error JSON strings, audit actions from
+  documents/users/settings (raw fallback), and HMS template content, which is
+  database seed data and stays nb-only by design.
 
-- [ ] **R2-28 · a11y CI gate is blind** — M
+- [x] **R2-28 · a11y CI gate is blind** — M
   `e2e/a11y.spec.ts:5,18` blocks only critical/serious and only WCAG 2.0 A/AA;
   routes exclude `/kundeportal`, `/sok`, `/rapporter`, `/hms`, `/brukere`,
   `/oppdrag/[id]`; Lighthouse is not in CI; ESLint has no
@@ -275,41 +286,41 @@ primitive adoption is no longer zero.
 
 ## P3 — polish
 
-- [ ] **R2-29 · Page states** — M
+- [x] **R2-29 · Page states** — M
   Only root `loading.tsx`/`error.tsx`; add route-shaped `loading.tsx` for
   `/oppdrag`, `/kunder`, `/sok`, `/kalender`, `/dokumenter`, `/rapporter`; add
   `global-error.tsx`; fix double live-region announcement
   (`loading.tsx:9` + `Skeleton.tsx:27`); `error.tsx` → `<h1>`, digest, retry,
   `min-h-[60vh]`; brand the 404 and make its recovery links role-aware.
 
-- [ ] **R2-30 · Notification UX** — M
+- [x] **R2-30 · Notification UX** — M
   Bell is still a link with a 60 s poll (`NotificationBell.tsx:62`); add a
   popover, optimistic decrement, mark-all-read, and localized relative time;
   render cards as `<a>` not POST buttons (`NotificationCard.tsx:117-127`);
   disable pagination at boundaries (`varsler/page.tsx:106-128`).
 
-- [ ] **R2-31 · Calendar consolidation + legend** — M
+- [x] **R2-31 · Calendar consolidation + legend** — M
   Three routes render one component with different `initialView`; in-calendar
   view buttons desync the URL. Use `/kalender?vis=` with one switcher, add a
   status legend (colours are undocumented), hide the unassigned warning for
   non-dispatch users (`kalender/page.tsx:91-112`), fix OPEN shown as “Planlagt”
   in the resource overview (`:148-152`).
 
-- [ ] **R2-32 · Customer surface** — L
+- [x] **R2-32 · Customer surface** — L
   8 tabs without counts/`aria-current`; no `/enheter/[id]` so unit links land at
   the top of a 100-unit tab; list has only name/org.nr with the create form
   permanently open; “Utfylte sjekklister” KPI links to the wrong tab; the
   brand-colour text field doesn't update. Consolidate to ~5 tabs, deep-link
   units, add list columns/sorting, collapse the create form.
 
-- [ ] **R2-33 · Portal booking + feedback** — M
+- [x] **R2-33 · Portal booking + feedback** — M
   Booking captures only title/description — no requested date, equipment, or
   contact — and the availability table can't be acted on; no cancel/reschedule;
   acknowledge/contact forms have no pending/error state; 560 px table forces
   horizontal scroll. Add fields + slot picker, reference and next steps,
   `useActionState` feedback, and a card layout on phones.
 
-- [ ] **R2-34 · Field ergonomics leftovers** — M
+- [x] **R2-34 · Field ergonomics leftovers** — M
   Checklist still 3–4 screens down on `mine-oppdrag/[id]` (comment editor and
   personnel first); “Ta oppdrag →” only opens detail (no self-assign action);
   no tap-to-call/map on list cards; photo input forces `capture` and clears
@@ -317,21 +328,22 @@ primitive adoption is no longer zero.
   Add sticky “Fortsett skjema”, real claim action, contact shortcuts, and a
   camera/gallery choice with a retry queue.
 
-- [ ] **R2-35 · Offline shell completion** — L
+- [x] **R2-35 · Offline shell completion** — L
   Only the report form HTML is cached (`sw.js:14-16`); `/mine-oppdrag` and job
   detail are not, and submitting one report clears the whole page cache. Queue
   local-only drafts into the outbox (currently only failed POSTs are queued, so
   a killed tab never syncs and the banner says 0), cap outbox retries
   (`attempts` unused → 413 loops forever), and add “forkast kladder”.
 
-- [ ] **R2-36 · Reports list + report PDF targeting** — M
+- [x] **R2-36 · Reports list + report PDF targeting** — M
   `/rapporter` only filters month + HMS; every “Se rapport” surface opens the
   combined work-order PDF with no way to reach a specific checklist. Add
   customer/technician/deviation/text filters and a per-report PDF route.
 
-- [ ] **R2-37 · Screenshot refresh** — S
-  Re-capture all screenshots at HEAD. The cleanup part (dead files, duplicate
-  calendar key, `PageHeader`/`SectionCard`, `DECISIONS.md`) is done.
+- [~] **R2-37 · Screenshot refresh** — S
+  The cleanup part (dead files, duplicate calendar key, `PageHeader`/
+  `SectionCard`, `DECISIONS.md`) is done. Remaining: re-capture all screenshots
+  at HEAD against a seeded database.
 
 ---
 

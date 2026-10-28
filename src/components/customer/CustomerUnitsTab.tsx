@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { formatDate } from "@/lib/dates";
+import { getLocale, getTranslations } from "next-intl/server";
+import { formatDateLocalized } from "@/lib/dates";
 import UnitHistory from "@/components/UnitHistory";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import type { CustomerDetailData } from "@/server/customers";
@@ -44,6 +44,7 @@ export default async function CustomerUnitsTab({
   deleteUnit,
 }: UnitsTabProps) {
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   return (
     <CustomerTabPanel
@@ -140,8 +141,10 @@ export default async function CustomerUnitsTab({
                           <span className="text-blue-800 font-bold">
                             🕓 {t("customers.units.serviceCount", { count: unit._count.reportUnits })} •{" "}
                             {t("customers.units.lastService", {
-                              date: formatDate(
+                              date: formatDateLocalized(
                                 lastServiceDate(unit.reportUnits),
+                                locale,
+                                undefined,
                                 t("customers.units.noDate"),
                               ),
                             })}

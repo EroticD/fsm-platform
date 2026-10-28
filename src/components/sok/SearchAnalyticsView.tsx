@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { SearchAnalytics } from "@/server/search-analytics";
+import { formatDateLocalized } from "@/lib/dates";
 import {
   barWidthPercent,
   formatSearchCount,
@@ -250,7 +251,9 @@ export default async function SearchAnalyticsView({
                   {data.daily.map((row) => (
                     <tr key={row.date} className="border-b border-gray-100 last:border-0">
                       <th scope="row" className="py-3 pr-4 text-left font-normal text-gray-900">
-                        <time dateTime={row.date}>{row.date}</time>
+                        <time dateTime={row.date}>
+                          {formatDateLocalized(row.date, locale)}
+                        </time>
                       </th>
                       <td className="py-3 pr-4 text-right font-bold text-gray-900">
                         {formatSearchCount(row.count, locale)}
