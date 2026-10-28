@@ -85,10 +85,27 @@
             status.textContent = "Kunne ikke lese lagrede kladder.";
           };
           all.onsuccess = function () {
-            var drafts = (all.result || []).sort(function (a, b) {
-              return (b.updatedAt || 0) - (a.updatedAt || 0);
-            });
+            var owner = null;
+            try {
+              owner = localStorage.getItem("fsm:offline-user");
+            } catch (error) {
+              owner = null;
+            }
+            // Vis bare kladder som tilhører innlogget bruker. Etter utlogging
+            // er eieren glemt, og en annen bruker skal ikke se kundedata.
+            var drafts = (all.result || [])
+              .filter(function (draft) {
+                return Boolean(owner) && draft.userId === owner;
+              })
+              .sort(function (a, b) {
+                return (b.updatedAt || 0) - (a.updatedAt || 0);
+              });
             db.close();
+            if (!owner) {
+              status.textContent =
+                "Logg inn igjen for å se dine lagrede kladder.";
+              return;
+            }
             if (drafts.length === 0) {
               status.textContent = "Ingen lagrede kladder på denne enheten.";
               return;
