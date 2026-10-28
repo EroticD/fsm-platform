@@ -10,6 +10,9 @@ import {
   deleteCustomerAction,
   restoreCustomerAction,
 } from "./actions";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import ErrorBanner from "@/components/ErrorBanner";
+import SubmitButton from "@/components/SubmitButton";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
@@ -103,9 +106,10 @@ export default async function KunderPage({
         )}
 
         {error === "ugyldig-data" && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 p-4 rounded-xl mb-4 text-sm font-bold">
-            ⛔ {t("customers.list.errorInvalidData")}
-          </div>
+          <ErrorBanner
+            message={`⛔ ${t("customers.list.errorInvalidData")}`}
+            className="mb-4"
+          />
         )}
 
         {/* Skjema for å legge til ny kunde – kun kontor/admin */}
@@ -113,22 +117,38 @@ export default async function KunderPage({
           <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">{t("customers.list.addTitle")}</h2>
             <form action={addCustomer} className="flex flex-col sm:flex-row gap-4">
-              <input
-                type="text"
-                name="name"
-                placeholder={t("customers.list.namePlaceholder")}
-                required
-                className="border p-2 rounded flex-1 text-gray-800"
-              />
-              <input
-                type="text"
-                name="orgNumber"
-                placeholder={t("customers.list.orgNumberPlaceholder")}
-                className="border p-2 rounded flex-1 text-gray-800"
-              />
-              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition font-medium whitespace-nowrap">
+              <div className="flex-1">
+                <label htmlFor="customer-name" className="block text-xs font-bold text-gray-700 mb-1">
+                  {t("customers.list.companyName")}
+                </label>
+                <input
+                  id="customer-name"
+                  type="text"
+                  name="name"
+                  placeholder={t("customers.list.namePlaceholder")}
+                  required
+                  aria-required="true"
+                  className="w-full border p-2 rounded text-gray-800"
+                />
+              </div>
+              <div className="flex-1">
+                <label htmlFor="customer-org-number" className="block text-xs font-bold text-gray-700 mb-1">
+                  {t("customers.list.orgNumber")}
+                </label>
+                <input
+                  id="customer-org-number"
+                  type="text"
+                  name="orgNumber"
+                  placeholder={t("customers.list.orgNumberPlaceholder")}
+                  className="w-full border p-2 rounded text-gray-800"
+                />
+              </div>
+              <SubmitButton
+                pendingLabel={t("customers.list.saving")}
+                className="self-end bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition font-medium whitespace-nowrap"
+              >
                 {t("customers.list.save")}
-              </button>
+              </SubmitButton>
             </form>
           </div>
         )}
@@ -154,14 +174,16 @@ export default async function KunderPage({
           </form>
         </div>
 
-        {/* Tabell med eksisterende kunder */}
+        {/* Tabell med eksisterende kunder. På mobil kan tabellen scrolles
+            vannrett i stedet for å presse hele siden bredere enn skjermen. */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] text-left border-collapse">
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.companyName")}</th>
-                <th className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.orgNumber")}</th>
-                <th className="p-4 font-semibold text-gray-600 border-b w-32">{t("customers.list.actions")}</th>
+                <th scope="col" className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.companyName")}</th>
+                <th scope="col" className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.orgNumber")}</th>
+                <th scope="col" className="p-4 font-semibold text-gray-600 border-b w-32">{t("customers.list.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -196,7 +218,12 @@ export default async function KunderPage({
                             <Link href={`/kunder/${customer.id}/rediger`} className="text-gray-600 hover:underline text-sm font-medium">{t("customers.list.edit")}</Link>
                           )}
                           {user.role === "ADMIN" && (
-                            <form action={deleteCustomerAction}>
+                            <ConfirmSubmitForm
+                              action={deleteCustomerAction}
+                              confirmMessage={t("customers.list.deleteConfirm", {
+                                name: customer.name,
+                              })}
+                            >
                               <input type="hidden" name="id" value={customer.id} />
                               <button
                                 type="submit"
@@ -204,7 +231,7 @@ export default async function KunderPage({
                               >
                                 {t("customers.list.delete")}
                               </button>
-                            </form>
+                            </ConfirmSubmitForm>
                           )}
                         </>
                       )}
@@ -214,6 +241,7 @@ export default async function KunderPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Sidebladdring */}

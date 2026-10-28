@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 
 /**
@@ -30,6 +30,9 @@ export default function ImageUploadField({
   workOrderId?: string;
 }) {
   const t = useTranslations("common");
+  const fieldId = useId();
+  const hintId = `${fieldId}-hint`;
+  const errorId = `${fieldId}-error`;
   const [urls, setUrls] = useState<string[]>(initialUrls);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -94,15 +97,18 @@ export default function ImageUploadField({
 
   return (
     <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 space-y-3">
-      <label className="block text-sm font-black text-gray-900">
+      <label htmlFor={fieldId} className="block text-sm font-black text-gray-900">
         📷 {label} {required && urls.length === 0 && <span className="text-red-500">*</span>}
       </label>
 
       <input
+        id={fieldId}
         type="file"
         capture="environment"
         accept="image/*"
         multiple
+        aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
+        aria-invalid={error ? true : undefined}
         onChange={handleChange}
         // Når minst ett bilde er lastet opp er kravet oppfylt, og vi fjerner
         // required slik at man ikke må velge filene på nytt.
@@ -110,7 +116,7 @@ export default function ImageUploadField({
         className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white outline-none focus:border-blue-700"
       />
 
-      <p className="text-[11px] text-gray-500">
+      <p id={hintId} className="text-[11px] text-gray-500">
         {t("orders.imageUpload.hint")}
       </p>
 
@@ -150,7 +156,7 @@ export default function ImageUploadField({
         </div>
       )}
 
-      {error && <p className="text-[11px] font-bold text-red-600">❌ {error}</p>}
+      {error && <p id={errorId} role="alert" className="text-[11px] font-bold text-red-600">❌ {error}</p>}
 
       {/* Verdien som sendes med skjemaet: en JSON-liste med URL-er. */}
       <input type="hidden" name={name} value={urls.length > 0 ? JSON.stringify(urls) : ""} />

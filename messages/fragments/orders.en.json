@@ -84,7 +84,8 @@
       "descriptionPlaceholder": "Write instructions for the technician...",
       "submit": "Save work order",
       "orderNumber": "Order number",
-      "orderNumberPlaceholder": "Customer order number (optional)"
+      "orderNumberPlaceholder": "Customer order number (optional)",
+      "submitting": "Creating …"
     },
     "customerSelect": {
       "label": "Select customer",
@@ -229,7 +230,10 @@
       "statusPlanned": "Planned",
       "statusWaiting": "Waiting",
       "orderNumber": "Order number associated with work order",
-      "revisions": "Revisions ({count})"
+      "revisions": "Revisions ({count})",
+      "updatingStatus": "Updating …",
+      "cancelConfirm": "Cancel this work order? This is a closing action. An administrator can reopen it later.",
+      "reportNoAccess": "You do not have permission to view the report content."
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -259,7 +263,8 @@
       "roleAdmin": "Admin / Office",
       "roleOffice": "Office",
       "roleTechnician": "Technician",
-      "orderNumber": "Order number"
+      "orderNumber": "Order number",
+      "saving": "Saving …"
     },
     "fieldList": {
       "greeting": "Hi, {name} 👋",
@@ -338,7 +343,9 @@
       "auditLog": "📋 Activity log",
       "statusPlanned": "Planned",
       "statusWaiting": "Waiting",
-      "reportNumber": "Report no. {number}"
+      "reportNumber": "Report no. {number}",
+      "updating": "Updating …",
+      "cancelConfirm": "Cancel this work order? This is a closing action."
     },
     "fieldNew": {
       "noDepartmentTitle": "You are missing a department",
@@ -360,7 +367,11 @@
       "tags": "Tags",
       "description": "Description / Instructions",
       "descriptionPlaceholder": "What needs to be done?",
-      "submit": "Create work order"
+      "submit": "Create work order",
+      "submitting": "Creating …",
+      "errorOrigin": "⛔ The form was rejected for security reasons. Reload the page and try again.",
+      "errorInvalidData": "⛔ The work order could not be created. Check the title, date and customer.",
+      "errorRateLimit": "⏳ You have created many work orders in a short time. Wait a minute and try again."
     },
     "fieldCustomers": {
       "title": "🔍 Customer and Equipment Archive",
@@ -471,7 +482,14 @@
       "customerHelper": "The customer representative on site.",
       "draftOffline": "Saved locally – will sync when back online",
       "reportNoUnitsTitle": "Checkpoints",
-      "reportNoUnitsHint": "This report is not linked to equipment units. The checkpoints are completed for the work order as a whole."
+      "reportNoUnitsHint": "This report is not linked to equipment units. The checkpoints are completed for the work order as a whole.",
+      "errorInvalidData": "⛔ The report is missing or contains invalid information. Correct the fields below and try again.",
+      "errorSignature": "⛔ Signing failed. Try signing again, or contact an administrator.",
+      "errorLocked": "🔒 The report is locked and was not submitted. An administrator must unlock it first.",
+      "errorLegalHold": "⛔ The report is frozen by legal hold and cannot be submitted.",
+      "errorGeneric": "⛔ The report could not be submitted. Check the fields and try again.",
+      "removeUnitTitle": "Remove unit",
+      "removeUnitConfirm": "Remove this unit from the report? Its checkpoints will be removed."
     },
     "attachments": {
       "title": "📎 Attachments",
@@ -488,7 +506,8 @@
       "deleteError": "Could not delete the attachment",
       "deleteTitle": "Delete attachment",
       "deleteConfirm": "Delete the attachment “{name}”?",
-      "delete": "✕"
+      "delete": "✕",
+      "uploadLabel": "Add files"
     },
     "unitHistory": {
       "empty": "No previous service registered on this unit.",

@@ -17,6 +17,8 @@ import CustomerContactsTab from "@/components/customer/CustomerContactsTab";
 import CustomerPortalTab from "@/components/customer/CustomerPortalTab";
 import CustomerActivityTab from "@/components/customer/CustomerActivityTab";
 import CustomerAttachments from "@/components/CustomerAttachments";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import ErrorBanner from "@/components/ErrorBanner";
 import {
   addContactAction,
   createContractAction,
@@ -142,28 +144,34 @@ export default async function CustomerDetailPage({
                 : ""}
             </p>
           </div>
-          <div className="flex gap-2 sm:gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
             {canCreateWorkOrders && (
-              <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+              <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="flex-1 sm:flex-none justify-center bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
                 ➕ {t("customers.detail.newWorkOrder")}
               </Link>
             )}
             {office && (
-              <Link href={`/kunder/${customerId}/rediger`} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
+              <Link href={`/kunder/${customerId}/rediger`} className="flex-1 sm:flex-none justify-center bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
                 ✏️ {t("customers.detail.edit")}
               </Link>
             )}
             {isAdmin && (
-              <form action={deleteCustomerAction.bind(null, customerId)}>
+              <ConfirmSubmitForm
+                action={deleteCustomerAction.bind(null, customerId)}
+                confirmMessage={t("customers.detail.deleteConfirm", {
+                  name: customer.name,
+                })}
+                className="flex-1 sm:flex-none"
+              >
                 <button
                   type="submit"
-                  className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition whitespace-nowrap"
+                  className="w-full bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition whitespace-nowrap"
                 >
                   🗑️ {t("customers.detail.delete")}
                 </button>
-              </form>
+              </ConfirmSubmitForm>
             )}
-            <Link href="/kunder" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
+            <Link href="/kunder" className="flex-1 sm:flex-none justify-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
               &larr; {t("customers.detail.backToCustomers")}
             </Link>
           </div>
@@ -188,9 +196,7 @@ export default async function CustomerDetailPage({
         </nav>
 
         {error === "ugyldig-data" && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
-            ⛔ {t("customers.detail.editError")}
-          </div>
+          <ErrorBanner message={`⛔ ${t("customers.detail.editError")}`} />
         )}
 
         {currentTab === "oversikt" && (

@@ -249,5 +249,11 @@
       "uploaded": "File(s) uploaded",
       "deleted": "Attachment deleted"
     }
+  },
+  "notFound": {
+    "title": "This page does not exist",
+    "description": "The page you are looking for has moved or does not exist in {companyName}.",
+    "home": "Go to the home page",
+    "workOrders": "Go to work orders"
   }
 }

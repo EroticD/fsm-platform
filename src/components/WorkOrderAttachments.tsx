@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { addAttachment, removeAttachment } from "@/lib/attachment-actions";
@@ -41,6 +41,9 @@ export default function WorkOrderAttachments({
   const router = useRouter();
   const t = useTranslations("common");
   const { toast } = useToast();
+  const uploadId = useId();
+  const uploadHintId = `${uploadId}-hint`;
+  const uploadErrorId = `${uploadId}-error`;
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
@@ -198,16 +201,22 @@ export default function WorkOrderAttachments({
 
       {canUpload && (
         <div className="space-y-2">
+          <label htmlFor={uploadId} className="block text-xs font-bold text-gray-700">
+            {t("orders.attachments.uploadLabel")}
+          </label>
           <input
+            id={uploadId}
             type="file"
-        capture="environment"
+            capture="environment"
             accept="image/*,application/pdf,.pdf"
             multiple
+            aria-describedby={`${uploadHintId}${error ? ` ${uploadErrorId}` : ""}`}
+            aria-invalid={error ? true : undefined}
             onChange={handleChange}
             disabled={busy}
             className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white outline-none focus:border-blue-700 disabled:opacity-60"
           />
-          <p className="text-[11px] text-gray-500">
+          <p id={uploadHintId} className="text-[11px] text-gray-500">
             {t("orders.attachments.uploadHint")}
           </p>
         </div>
@@ -221,7 +230,7 @@ export default function WorkOrderAttachments({
         </p>
       )}
 
-      {error && <p className="text-[11px] font-bold text-red-600 mt-2">❌ {error}</p>}
+      {error && <p id={uploadErrorId} role="alert" className="text-[11px] font-bold text-red-600 mt-2">❌ {error}</p>}
 
       <ConfirmDialog
         open={pendingDelete !== null}

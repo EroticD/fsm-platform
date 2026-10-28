@@ -279,25 +279,25 @@ export default async function WorkOrdersPage({
               </span>
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             {user.role === "ADMIN" && (
               <Link
                 href="/oppdrag/slettede"
-                className="bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
+                className="flex-1 md:flex-none text-center bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
               >
                 🗑️ {t("orders.detail.deletedOrders")}
               </Link>
             )}
             <Link
               href="/"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              className="flex-1 md:flex-none text-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
             >
               {t("orders.list.backToDashboard")}
             </Link>
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                className="flex-1 md:flex-none text-center bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
               >
                 {t("orders.list.newWorkOrder")}
               </Link>

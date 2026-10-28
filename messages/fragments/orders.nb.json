@@ -84,7 +84,8 @@
       "descriptionPlaceholder": "Skriv instruksjoner til montøren...",
       "submit": "Lagre oppdrag",
       "orderNumber": "Ordrenummer",
-      "orderNumberPlaceholder": "Kundens ordrenummer (valgfritt)"
+      "orderNumberPlaceholder": "Kundens ordrenummer (valgfritt)",
+      "submitting": "Oppretter …"
     },
     "customerSelect": {
       "label": "Velg kunde",
@@ -229,7 +230,10 @@
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
       "orderNumber": "Ordrenummer tilknyttet oppdrag",
-      "revisions": "Revisjoner ({count})"
+      "revisions": "Revisjoner ({count})",
+      "updatingStatus": "Oppdaterer …",
+      "cancelConfirm": "Kansellere oppdraget? Dette er en avsluttende handling. Du kan gjenåpne det senere som administrator.",
+      "reportNoAccess": "Du har ikke tilgang til å se rapportinnholdet."
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -259,7 +263,8 @@
       "roleAdmin": "Admin / Kontor",
       "roleOffice": "Kontor",
       "roleTechnician": "Montør",
-      "orderNumber": "Ordrenummer"
+      "orderNumber": "Ordrenummer",
+      "saving": "Lagrer …"
     },
     "fieldList": {
       "greeting": "Hei, {name} 👋",
@@ -338,7 +343,9 @@
       "auditLog": "📋 Aktivitetslogg",
       "statusPlanned": "Planlagt",
       "statusWaiting": "Venter",
-      "reportNumber": "Rapportnr. {number}"
+      "reportNumber": "Rapportnr. {number}",
+      "updating": "Oppdaterer …",
+      "cancelConfirm": "Kansellere oppdraget? Dette er en avsluttende handling."
     },
     "fieldNew": {
       "noDepartmentTitle": "Du mangler avdeling",
@@ -360,7 +367,11 @@
       "tags": "Tags",
       "description": "Beskrivelse / Instruks",
       "descriptionPlaceholder": "Hva skal gjøres?",
-      "submit": "Opprett oppdrag"
+      "submit": "Opprett oppdrag",
+      "submitting": "Oppretter …",
+      "errorOrigin": "⛔ Skjemaet ble avvist av sikkerhetshensyn. Last siden på nytt og prøv igjen.",
+      "errorInvalidData": "⛔ Oppdraget kunne ikke opprettes. Sjekk tittel, dato og eventuell kunde.",
+      "errorRateLimit": "⏳ Du har opprettet mange oppdrag på kort tid. Vent et minutt og prøv igjen."
     },
     "fieldCustomers": {
       "title": "🔍 Kunde- og Utstyrsarkiv",
@@ -471,7 +482,14 @@
       "customerHelper": "Kundens representant på stedet.",
       "draftOffline": "Lagret lokalt – sendes når nettet er tilbake",
       "reportNoUnitsTitle": "Sjekkpunkter",
-      "reportNoUnitsHint": "Denne rapporten er ikke knyttet til enheter. Sjekkpunktene fylles ut for oppdraget samlet."
+      "reportNoUnitsHint": "Denne rapporten er ikke knyttet til enheter. Sjekkpunktene fylles ut for oppdraget samlet.",
+      "errorInvalidData": "⛔ Rapporten mangler eller har ugyldige opplysninger. Rett opp feltene under og prøv igjen.",
+      "errorSignature": "⛔ Signeringen feilet. Prøv å signere på nytt, eller kontakt en administrator.",
+      "errorLocked": "🔒 Rapporten er låst og ble ikke sendt inn. En administrator må låse den opp først.",
+      "errorLegalHold": "⛔ Rapporten er fryst av bevaringsplikt og kan ikke sendes inn.",
+      "errorGeneric": "⛔ Rapporten kunne ikke sendes inn. Sjekk feltene og prøv igjen.",
+      "removeUnitTitle": "Fjern enhet",
+      "removeUnitConfirm": "Fjerne denne enheten fra rapporten? Sjekkpunktene for enheten blir borte."
     },
     "attachments": {
       "title": "📎 Vedlegg",
@@ -488,7 +506,8 @@
       "deleteError": "Kunne ikke slette vedlegget",
       "deleteTitle": "Slett vedlegg",
       "deleteConfirm": "Slette vedlegget «{name}»?",
-      "delete": "✕"
+      "delete": "✕",
+      "uploadLabel": "Legg til filer"
     },
     "unitHistory": {
       "empty": "Ingen tidligere servicer registrert på denne enheten.",

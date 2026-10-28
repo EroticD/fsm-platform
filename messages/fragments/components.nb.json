@@ -249,5 +249,11 @@
       "uploaded": "Fil(er) lastet opp",
       "deleted": "Vedlegg slettet"
     }
+  },
+  "notFound": {
+    "title": "Siden finnes ikke",
+    "description": "Siden du leter etter er flyttet eller finnes ikke i {companyName}.",
+    "home": "Til forsiden",
+    "workOrders": "Til oppdrag"
   }
 }

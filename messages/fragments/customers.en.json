@@ -26,7 +26,9 @@
       "showActive": "← Active customers",
       "deletedTitle": "Recycle bin: deleted customers can be restored by an administrator.",
       "restore": "Restore",
-      "delete": "Delete"
+      "delete": "Delete",
+      "saving": "Saving …",
+      "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator."
     },
     "detail": {
       "notFound": "Customer not found",
@@ -47,7 +49,8 @@
         "contacts": "👤 Contacts",
         "portal": "🔐 Customer portal",
         "activity": "📋 Activity"
-      }
+      },
+      "deleteConfirm": "Delete the customer “{name}”? The customer is marked as deleted and can be restored by an administrator."
     },
     "edit": {
       "title": "Edit customer",
@@ -74,7 +77,8 @@
       "notesPlaceholder": "Notes about the customer...",
       "cancel": "Cancel",
       "save": "Save changes",
-      "saveError": "The customer could not be saved. Check the fields and try again."
+      "saveError": "The customer could not be saved. Check the fields and try again.",
+      "saving": "Saving …"
     },
     "overview": {
       "totalOrders": "Total work orders",
@@ -179,7 +183,8 @@
       "showingRecent": "Showing the {shown} most recent of {total} inspections.",
       "editUnit": "Edit unit",
       "save": "Save changes",
-      "delete": "Delete unit"
+      "delete": "Delete unit",
+      "deleteConfirm": "Delete the unit “{model}”? Service history is kept on the reports."
     },
     "contacts": {
       "title": "Contacts",
