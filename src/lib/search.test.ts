@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fuzzyScore, normalizeSearchText } from "@/lib/fuzzy";
+import { fuzzyScore, normalizeSearchCompact, normalizeSearchText } from "@/lib/fuzzy";
 import {
   parseSearchFilters,
   reportSearchWhere,
@@ -20,6 +20,23 @@ describe("normalizeSearchText", () => {
     expect(normalizeSearchText("arlig-service")).toBe("arlig service");
     expect(normalizeSearchText("  2026-1042 / NO  ")).toBe("2026 1042 no");
     expect(normalizeSearchText("a---b___c")).toBe("a b c");
+  });
+});
+
+describe("normalizeSearchCompact", () => {
+  it("fjerner separatorer fra telefon, orgnummer og kundenummer", () => {
+    expect(normalizeSearchCompact("+47 123 45 678")).toBe("4712345678");
+    expect(normalizeSearchCompact("123 456 789")).toBe("123456789");
+    expect(normalizeSearchCompact("K-100")).toBe("k100");
+    expect(normalizeSearchCompact("NO-2026-1042")).toBe("no20261042");
+  });
+
+  it("fjerner tegnsetting og æ/ø/å på samme måte som normalizeSearchText", () => {
+    expect(normalizeSearchCompact("Faktura #123 (kunde).pdf")).toBe(
+      "faktura123kundepdf",
+    );
+    expect(normalizeSearchCompact("Årlig-service")).toBe("arligservice");
+    expect(normalizeSearchCompact(" --- ")).toBe("");
   });
 });
 

@@ -43,7 +43,7 @@ describe("searchDocuments", () => {
     // contentText kan brukes inne i ts_headline for å lage utdraget, men skal
     // ikke være en kolonne som returneres til Node.
     expect(sql.text).toMatch(
-      /SELECT\s+d\."id",\s+d\."title",\s+d\."description",\s+d\."fileName",\s+d\."filePath",\s+ts_headline/,
+      /SELECT\s+d\."id",\s+d\."title",\s+d\."description",\s+d\."fileName",\s+d\."filePath",\s+CASE/,
     );
     expect(sql.text).not.toContain("pageTexts");
   });
@@ -60,6 +60,41 @@ describe("searchDocuments", () => {
   it("utelater mykt slettede dokumenter", async () => {
     await searchDocuments("pumpe", 10);
     expect(lastSql().text).toContain('d."deletedAt" IS NULL');
+  });
+
+  it("søker i normalisert og kompakt filnavn, også med tegnsetting", async () => {
+    await searchDocuments("Faktura #123 (kunde).pdf", 10);
+    const sql = lastSql();
+
+    expect(sql.text).toContain('d."fileName"');
+    expect(sql.text).toContain("unaccent");
+    expect(sql.text).toContain("replace(");
+    expect(sql.text).toContain("strpos(");
+    // Både normalisert («faktura 123 kunde pdf») og kompakt
+    // («faktura123kundepdf») form sendes som parametre.
+    expect(sql.values).toContain("faktura 123 kunde pdf");
+    expect(sql.values).toContain("faktura123kundepdf");
+    expect(sql.text).not.toContain("Faktura #123");
+  });
+
+  it("normaliserer fulltekstspørringen før websearch_to_tsquery", async () => {
+    await searchDocuments("Faktura-123.pdf", 10);
+    const sql = lastSql();
+
+    expect(sql.text).toContain("websearch_to_tsquery('norwegian', $1)");
+    expect(sql.values[0]).toBe("faktura 123 pdf");
+    // Uten denne vakten ville en tom tsquery blitt sendt til ts_headline.
+    expect(sql.text).toContain("numnode(q.tsq)");
+  });
+
+  it("krasjer ikke på stoppord eller bare tegnsetting", async () => {
+    await expect(searchDocuments("og det", 10)).resolves.toEqual([]);
+    const sql = lastSql();
+    expect(sql.text).toContain("numnode(q.tsq)");
+
+    mocks.queryRaw.mockClear();
+    await expect(searchDocuments(" --- ", 10)).resolves.toEqual([]);
+    expect(mocks.queryRaw).not.toHaveBeenCalled();
   });
 });
 
@@ -195,6 +230,55 @@ describe("searchNormalizedIds", () => {
     expect(sql.text).toContain('"Product"."serialNumber"');
     expect(sql.text).toContain('"Product"."location"');
     expect(sql.values).toContain("sn 123");
+  });
+
+  it("søker i alle feltene på kundekortet", async () => {
+    await searchNormalizedIds("Customer", "123456789", 10);
+    const sql = lastSql();
+
+    for (const column of [
+      "name",
+      "customerNumber",
+      "orgNumber",
+      "phone",
+      "email",
+      "address",
+      "postalCode",
+      "city",
+      "notes",
+    ]) {
+      expect(sql.text).toContain(`"Customer"."${column}"`);
+    }
+    // Kontaktpersoner gir også kundetreff, men uten egne rader i kundegruppen.
+    expect(sql.text).toContain('"Contact"');
+    expect(sql.text).toContain('ct."phone"');
+  });
+
+  it("matcher telefon og orgnummer både med og uten separatorer", async () => {
+    await searchNormalizedIds("Customer", "+47 123 45 678", 10);
+    const phoneSql = lastSql();
+
+    // Normalisert form bevarer mellomrom, kompakt form fjerner dem.
+    expect(phoneSql.values).toContain("47 123 45 678");
+    expect(phoneSql.values).toContain("4712345678");
+    expect(phoneSql.text).toContain("replace(");
+    // Kort kolonneverdi kan ligge inni et lengre søk (telefon uten landkode).
+    expect(phoneSql.text).toContain("length(");
+
+    mocks.queryRaw.mockClear();
+    await searchNormalizedIds("Customer", "123 456 789", 10);
+    const orgSql = lastSql();
+    expect(orgSql.values).toContain("123 456 789");
+    expect(orgSql.values).toContain("123456789");
+  });
+
+  it("kan bevisst ta med slettede rader for kundelisten", async () => {
+    await searchNormalizedIds("Customer", "kunde", 10);
+    expect(lastSql().text).toContain('"Customer"."deletedAt" IS NULL');
+
+    mocks.queryRaw.mockClear();
+    await searchNormalizedIds("Customer", "kunde", 10, undefined, true);
+    expect(lastSql().text).not.toContain("deletedAt");
   });
 
   it("utelater mykt slettede kunder, men ikke brukere", async () => {

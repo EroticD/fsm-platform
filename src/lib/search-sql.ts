@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { normalizeSearchText } from "@/lib/fuzzy";
+import { normalizeSearchCompact, normalizeSearchText } from "@/lib/fuzzy";
 
 /**
  * SQL-søk mot PostgreSQL-indeksene fra P1-4.
@@ -70,8 +70,24 @@ export type SubstringSearchColumn = "title" | "orderNumber" | "name";
 const NORMALIZED_SEARCH_TABLES = {
   Customer: {
     table: '"Customer"',
-    columns: ["name", "city", "address", "customerNumber", "orgNumber", "email"],
+    // Alle feltene på kundekortet. Da gir orgnummer, kundenummer, telefon,
+    // e-post, adresse, postnummer og notater kundetreff – ikke bare navn og
+    // sted. Notater brukes bare til rangering/treff og vises aldri i UI.
+    columns: [
+      "name",
+      "customerNumber",
+      "orgNumber",
+      "phone",
+      "email",
+      "address",
+      "postalCode",
+      "city",
+      "notes",
+    ],
     hasDeletedAt: true,
+    // Kontaktdata har sin egen gruppe, men kunden skal også dukke opp når
+    // telefonnummeret/e-posten står på en kontaktperson.
+    matchContacts: true,
   },
   Product: {
     table: '"Product"',
@@ -131,16 +147,27 @@ function normalizedColumnExpression(
  *
  * Returnerer id-er og score, ikke visningsdata. Kalleren henter de få radene
  * den trenger og legger alltid på tilgangskontroll før noe vises.
+ *
+ * Søket matcher både normalt (med mellomrom) og kompakt (uten mellomrom), slik
+ * at «+47 123 45 678» treffer «12345678», «123 456 789» treffer «123456789»
+ * og «K-100» treffer «K100». `includeDeleted` er en bevisst opt-in for lister
+ * som skal vise slettede rader (f.eks. kundelisten); standard er at mykt
+ * slettede rader aldri kommer med.
  */
 export async function searchNormalizedIds(
   table: NormalizedSearchTable,
   query: string,
   limit: number,
   columns?: string[],
+  includeDeleted = false,
 ): Promise<NormalizedSearchRow[]> {
   const config = normalizedTableConfig(table);
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
+  // Kompakt form uten separatorer. For søk som allerede er uten separatorer
+  // er den identisk med `normalizedQuery`, og da er det bare én ekstra,
+  // billig strpos per kolonne.
+  const compactQuery = normalizeSearchCompact(query);
 
   const selected = columns ?? [...config.columns];
   for (const column of selected) {
@@ -152,23 +179,68 @@ export async function searchNormalizedIds(
 
   const take = takeLimit(limit);
   const rawQuery = query.trim();
-  const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
+  const term = Prisma.sql`${normalizedQuery}`;
+  const compactTerm = Prisma.sql`${compactQuery}`;
   const contains = selected.map(
-    (column) => Prisma.sql`(
+    (column) => {
+      const compactColumn = compactNormalizedColumnExpression(table, column);
+      return Prisma.sql`(
       strpos(${normalizedColumnExpression(table, column)}, ${term}) > 0
+      OR strpos(${compactColumn}, ${compactTerm}) > 0
+      -- Også når kolonnen er kortere enn søket: «+47 123 45 678» skal treffe
+      -- et telefonnummer lagret som «12345678». Korte verdier (< 5 tegn)
+      -- krever full match, så en by som «Os» ikke gir treff på alt.
+      OR (length(${compactColumn}) >= 5 AND strpos(${compactTerm}, ${compactColumn}) > 0)
       OR ${Prisma.raw(`${config.table}."${column}"`)} % ${rawQuery}
-    )`,
+    )`;
+    },
   );
   const exact = selected.map(
-    (column) => Prisma.sql`${normalizedColumnExpression(table, column)} = ${term}`,
+    (column) => Prisma.sql`(
+      ${normalizedColumnExpression(table, column)} = ${term}
+      OR ${compactNormalizedColumnExpression(table, column)} = ${compactTerm}
+    )`,
   );
   const prefix = selected.map(
-    (column) =>
-      Prisma.sql`strpos(${normalizedColumnExpression(table, column)}, ${term}) = 1`,
+    (column) => Prisma.sql`(
+      strpos(${normalizedColumnExpression(table, column)}, ${term}) = 1
+      OR strpos(${compactNormalizedColumnExpression(table, column)}, ${compactTerm}) = 1
+    )`,
   );
-  const deletedFilter = config.hasDeletedAt
-    ? Prisma.sql`AND ${Prisma.raw(config.table)}."deletedAt" IS NULL`
+
+  // Kunder skal også matche når søkeordet står på en kontaktperson. Det gir
+  // kundetreff uten at kontaktradene dupliseres i kundegruppen. Bare når
+  // kalleren ikke har begrenset kolonnene eksplisitt.
+  const matchContacts =
+    columns === undefined && "matchContacts" in config && config.matchContacts;
+  const contactMatch = matchContacts
+    ? Prisma.sql`EXISTS (
+        SELECT 1
+        FROM "Contact" ct
+        WHERE ct."customerId" = ${Prisma.raw(config.table)}."id"
+          AND (
+            ${Prisma.join(
+              ["name", "email", "phone", "role"].map(
+                (column) => Prisma.sql`(
+                  strpos(${normalizedSql(Prisma.raw(`ct."${column}"`))}, ${term}) > 0
+                  OR strpos(${compactNormalizedSql(Prisma.raw(`ct."${column}"`))}, ${compactTerm}) > 0
+                )`,
+              ),
+              " OR ",
+            )}
+          )
+      )`
     : Prisma.empty;
+
+  const showDeleted = includeDeleted === true;
+  const deletedFilter =
+    config.hasDeletedAt && !showDeleted
+      ? Prisma.sql`AND ${Prisma.raw(config.table)}."deletedAt" IS NULL`
+      : Prisma.empty;
+
+  const where = matchContacts
+    ? Prisma.sql`((${Prisma.join(contains, " OR ")}) OR ${contactMatch})`
+    : Prisma.sql`(${Prisma.join(contains, " OR ")})`;
 
   return prisma.$queryRaw<NormalizedSearchRow[]>(Prisma.sql`
     SELECT
@@ -180,7 +252,7 @@ export async function searchNormalizedIds(
       END AS "score",
       COUNT(*) OVER() AS "total"
     FROM ${Prisma.raw(config.table)}
-    WHERE (${Prisma.join(contains, " OR ")})
+    WHERE ${where}
       ${deletedFilter}
     ORDER BY "score" DESC, "id" ASC
     LIMIT ${take}
@@ -404,6 +476,26 @@ function normalizedSql(expression: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`btrim(regexp_replace(lower(unaccent(coalesce(${expression}, ''))), '[^a-z0-9]+', ' ', 'g'))`;
 }
 
+/**
+ * Som `normalizedSql`, men fjerner også mellomrom. Speiler
+ * `normalizeSearchCompact` i JS, slik at telefon-, org- og kundenumre matcher
+ * uavhengig av separatorer.
+ */
+function compactNormalizedSql(expression: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`replace(${normalizedSql(expression)}, ' ', '')`;
+}
+
+function compactNormalizedColumnExpression(
+  table: NormalizedSearchTable,
+  column: string,
+): Prisma.Sql {
+  const config = normalizedTableConfig(table);
+  if (!(config.columns as readonly string[]).includes(column)) {
+    throw new Error(`Ugyldig kolonne for normalisert søk: ${table}.${column}`);
+  }
+  return compactNormalizedSql(Prisma.raw(`${config.table}."${column}"`));
+}
+
 function fieldExpression(table: string, column: string): Prisma.Sql {
   return Prisma.raw(`${table}.${column}`);
 }
@@ -412,16 +504,68 @@ function fieldExpression(table: string, column: string): Prisma.Sql {
  * Fulltekstsøk i dokumenter med `websearch_to_tsquery`, `ts_rank` og
  * `ts_headline`. `searchTsv` er vedlikeholdt av en trigger, så vi leser aldri
  * `contentText` eller `pageTexts` inn i Node.
+ *
+ * Filnavn er ikke en del av `searchTsv`, og kan inneholde tegnsetting som
+ * ødelegger en rå `websearch_to_tsquery`. Derfor matcher vi filnavnet både
+ * normalisert og kompakt (uten separatorer), i tillegg til trigram-likhet.
+ * Da finner «faktura 123 kunde» filen «Faktura #123 (kunde).pdf», og
+ * «Faktura-123.pdf» matcher «faktura 123».
  */
 export async function searchDocuments(
   query: string,
   limit: number,
 ): Promise<DocumentSearchRow[]> {
   const take = takeLimit(limit);
+  const rawQuery = query.trim();
+  const normalizedQuery = normalizeSearchText(rawQuery);
+  const compactQuery = normalizeSearchCompact(rawQuery);
+  // Bare tegnsetting/whitespace: ingenting kan matche.
+  if (!normalizedQuery) return [];
+
+  const normalizedTerm = Prisma.sql`${normalizedQuery}`;
+  const compactTerm = Prisma.sql`${compactQuery}`;
+  const normalizedFileName = normalizedSql(Prisma.raw('d."fileName"'));
+  const compactFileName = compactNormalizedSql(Prisma.raw('d."fileName"'));
+
+  const filenameMatch = Prisma.sql`(
+    strpos(${normalizedFileName}, ${normalizedTerm}) > 0
+    OR strpos(${compactFileName}, ${compactTerm}) > 0
+    -- Filnavnet kan være kortere enn søket (f.eks. med «(1).pdf»-suffiks).
+    OR (length(${compactFileName}) >= 5 AND strpos(${compactTerm}, ${compactFileName}) > 0)
+    OR d."fileName" % ${rawQuery}
+  )`;
+
+  // `numnode` er 0 for tomme/stopword-only spørringer. Da hopper vi over
+  // ts_headline, som ikke skal kjøres med en tom tsquery.
+  const headline = Prisma.sql`CASE
+    WHEN numnode(q.tsq) > 0 THEN ts_headline(
+      'norwegian',
+      -- contentText leses av PostgreSQL for å lage utdraget, men sendes
+      -- aldri til Node. Det holder minnebruken borte fra app-prosessen.
+      coalesce(d."title", '') || ' ' ||
+      coalesce(d."description", '') || ' ' ||
+      coalesce(d."contentText", ''),
+      q.tsq,
+      'MaxFragments=2,MaxWords=18,MinWords=5'
+    )
+    ELSE left(coalesce(nullif(d."description", ''), d."title", ''), 160)
+  END`;
+
+  const score = Prisma.sql`GREATEST(
+    ts_rank(d."searchTsv", q.tsq) * 4,
+    similarity(coalesce(d."fileName", ''), ${rawQuery}),
+    CASE
+      WHEN strpos(${normalizedFileName}, ${normalizedTerm}) = 1 THEN 1
+      WHEN strpos(${compactFileName}, ${compactTerm}) = 1 THEN 0.95
+      WHEN strpos(${normalizedFileName}, ${normalizedTerm}) > 0 THEN 0.9
+      WHEN strpos(${compactFileName}, ${compactTerm}) > 0 THEN 0.85
+      ELSE 0
+    END
+  )`;
 
   return prisma.$queryRaw<DocumentSearchRow[]>(Prisma.sql`
     WITH q AS (
-      SELECT websearch_to_tsquery('norwegian', ${query}) AS tsq
+      SELECT websearch_to_tsquery('norwegian', ${normalizedQuery}) AS tsq
     )
     SELECT
       d."id",
@@ -429,21 +573,13 @@ export async function searchDocuments(
       d."description",
       d."fileName",
       d."filePath",
-      ts_headline(
-        'norwegian',
-        -- contentText leses av PostgreSQL for å lage utdraget, men sendes
-        -- aldri til Node. Det holder minnebruken borte fra app-prosessen.
-        coalesce(d."title", '') || ' ' ||
-        coalesce(d."description", '') || ' ' ||
-        coalesce(d."contentText", ''),
-        q.tsq,
-        'MaxFragments=2,MaxWords=18,MinWords=5'
-      ) AS "snippet",
+      ${headline} AS "snippet",
+      ${score} AS "score",
       COUNT(*) OVER() AS "total"
     FROM "Document" d, q
-    WHERE d."searchTsv" @@ q.tsq
+    WHERE (d."searchTsv" @@ q.tsq OR ${filenameMatch})
       AND d."deletedAt" IS NULL
-    ORDER BY ts_rank(d."searchTsv", q.tsq) DESC, d."title" ASC
+    ORDER BY "score" DESC, d."title" ASC
     LIMIT ${take}
   `);
 }

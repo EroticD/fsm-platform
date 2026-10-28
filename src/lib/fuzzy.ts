@@ -35,6 +35,18 @@ export function normalize(text: string | null | undefined): string {
   return normalizeSearchText(text).replace(/\s+/g, "");
 }
 
+/**
+ * Kompakt normalisering: samme som `normalizeSearchText`, men uten mellomrom.
+ *
+ * Brukes der separatorer ikke skal avgjøre om noe treffer, for eksempel
+ * telefonnummer («+47 123 45 678» → «4712345678»), organisasjonsnummer
+ * («123 456 789» → «123456789»), kundenummer («K-100» → «k100») og filnavn
+ * med tegnsetting («Faktura #123 (kunde).pdf» → «faktura123kundepdf»).
+ */
+export function normalizeSearchCompact(text: string | null | undefined): string {
+  return normalizeSearchText(text).replace(/\s+/g, "");
+}
+
 /** Normaliserer men BEVARER mellomrom, slik at vi kan gi bonus for ordgrenser. */
 function normalizeKeepSpaces(text: string | null | undefined): string {
   return normalizeSearchText(text);
