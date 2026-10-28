@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { searchNormalizedIds } from "@/lib/search-sql";
 
 export default async function TechnicianCustomerLookupPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await getCurrentUser();
@@ -18,23 +19,22 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
   let customers: any[] = [];
 
   if (searchQuery.length > 0) {
-    customers = await prisma.customer.findMany({
-      where: {
-        deletedAt: null,
-        OR: [
-          { name: { contains: searchQuery, mode: 'insensitive' } },
-          { customerNumber: { contains: searchQuery, mode: 'insensitive' } },
-          { address: { contains: searchQuery, mode: 'insensitive' } },
-          { city: { contains: searchQuery, mode: 'insensitive' } },
-          { phone: { contains: searchQuery, mode: 'insensitive' } }
-        ]
-      },
-      include: {
-        contacts: true,
-        products: true,
-      },
-      take: 20
-    });
+    // Samme normaliserte kundesøk som kundelisten og kundevelgeren: navn,
+    // kundenummer, org.nr, telefon, e-post, adresse, postnummer, sted og
+    // notater. Det gjør telefon/org.nr med mellomrom og tegnsetting søkbare.
+    const hits = await searchNormalizedIds("Customer", searchQuery, 20);
+    const ids = hits.map((hit) => hit.id);
+
+    customers = ids.length === 0
+      ? []
+      : await prisma.customer.findMany({
+          where: { deletedAt: null, id: { in: ids } },
+          include: {
+            contacts: true,
+            products: true,
+          },
+          take: 20,
+        });
   } else {
     customers = await prisma.customer.findMany({
       where: { deletedAt: null },
