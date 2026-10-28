@@ -43,6 +43,7 @@ import {
   restoreWorkOrder,
   setReportLegalHold,
   setWorkOrderLegalHold,
+  updateWorkOrderDate,
   updateWorkOrder,
 } from "./work-orders";
 
@@ -66,6 +67,7 @@ function txClient() {
   return {
     workOrder: {
       create: vi.fn(async () => ({ id: "wo-new" })),
+      findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null),
       update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 1 })),
       delete: vi.fn(async () => ({})),
@@ -1021,5 +1023,74 @@ describe("work-orders-tjenesten", () => {
       }),
       select: { id: true },
     });
+  });
+});
+
+describe("updateWorkOrderDate – flerdagsoppdrag", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getDefaultDepartmentId.mockResolvedValue("dep-default");
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      title: "Service",
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+    });
+  });
+
+  it("beholder varigheten når bare startdatoen flyttes", async () => {
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+    });
+
+    const result = await updateWorkOrderDate(actor(), "wo-1", {
+      newDate: "2026-11-02",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: {
+        scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
+        scheduledTo: new Date("2026-11-04T00:00:00.000Z"),
+      },
+    });
+  });
+
+  it("fjerner sluttdatoen når newEnd sendes eksplisitt tom", async () => {
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+    });
+
+    const result = await updateWorkOrderDate(actor(), "wo-1", {
+      newDate: "2026-11-02",
+      newEnd: "",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: {
+        scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
+        scheduledTo: null,
+      },
+    });
+  });
+
+  it("avviser sluttdato før startdato", async () => {
+    const result = await updateWorkOrderDate(actor(), "wo-1", {
+      newDate: "2026-11-02",
+      newEnd: "2026-11-01",
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-dato" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 });

@@ -11,7 +11,7 @@ import {
   type AccessUser,
 } from "@/lib/access";
 import { markdownToPlainText } from "@/lib/markdown";
-import { parseDateOnly, toDateOnly } from "@/lib/dates";
+import { addDaysUtc, parseDateOnly, toDateOnly } from "@/lib/dates";
 import {
   LIMITS,
   cleanEmail,
@@ -29,6 +29,9 @@ import {
   workOrderUpdateSchema,
 } from "@/lib/schemas";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
+
+/** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Tjenestelaget for oppdrag.
@@ -606,7 +609,12 @@ export async function updateWorkOrderDate(
 
   const existing = await prisma.workOrder.findFirst({
     where: { id: workOrderId, ...workOrderScope(user) },
-    select: { status: true, title: true },
+    select: {
+      status: true,
+      title: true,
+      scheduledFor: true,
+      scheduledTo: true,
+    },
   });
   if (!existing) return { ok: false, error: "ikke-funnet" };
   if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
@@ -619,8 +627,9 @@ export async function updateWorkOrderDate(
   const scheduledFor = parseDateOnly(parsed.data.newDate);
   if (!scheduledFor) return { ok: false, error: "dato-mangler" };
 
-  // `newEnd` er siste inkluderte dag. Når den mangler eller er lik startdato,
-  // lagres oppdraget som et éndagsoppdrag.
+  // `newEnd` er siste inkluderte dag. Når feltet mangler helt (for eksempel når
+  // kalenderen bare drar i startdatoen) beholder et flerdagsoppdrag lengden sin.
+  // Sendes `newEnd` eksplisitt som tom verdi, blir oppdraget éndags.
   const hasEnd =
     typeof body === "object" &&
     body !== null &&
@@ -650,9 +659,25 @@ export async function updateWorkOrderDate(
       });
       if (!before) return { count: 0 };
 
+      // Mangler `newEnd`, flyttes hele intervallet: samme antall dager som før.
+      // Da kan scheduledTo aldri havne før scheduledFor.
+      let nextScheduledTo = scheduledTo;
+      if (!hasEnd && before.scheduledFor && before.scheduledTo) {
+        const durationDays = Math.max(
+          0,
+          Math.round(
+            (before.scheduledTo.getTime() - before.scheduledFor.getTime()) / DAY_MS,
+          ),
+        );
+        nextScheduledTo = durationDays > 0 ? addDaysUtc(scheduledFor, durationDays) : null;
+      }
+      if (nextScheduledTo && nextScheduledTo < scheduledFor) {
+        return { count: 0, invalidRange: true } as const;
+      }
+
       const result = await tx.workOrder.updateMany({
         where: { id: before.id },
-        data: hasEnd ? { scheduledFor, scheduledTo } : { scheduledFor },
+        data: { scheduledFor, scheduledTo: nextScheduledTo },
       });
 
       if (result.count > 0) {
@@ -660,12 +685,12 @@ export async function updateWorkOrderDate(
           entityType: "WorkOrder",
           entityId: before.id,
           action: `Endret dato til ${toDateOnly(scheduledFor)}${
-            scheduledTo ? `–${toDateOnly(scheduledTo)}` : ""
+            nextScheduledTo ? `–${toDateOnly(nextScheduledTo)}` : ""
           }`,
           actor: auditActor(user),
           metadata: {
             from: toDateOnly(before.scheduledFor),
-            to: toDateOnly(scheduledTo ?? scheduledFor),
+            to: toDateOnly(nextScheduledTo ?? scheduledFor),
           },
         });
       }
@@ -673,6 +698,9 @@ export async function updateWorkOrderDate(
       return result;
     });
 
+    if ("invalidRange" in updated && updated.invalidRange) {
+      return { ok: false, error: "sluttdato-for-startdato" };
+    }
     if (updated.count === 0) return { ok: false, error: "ikke-funnet" };
     try {
       await notifyWorkOrderEvent(

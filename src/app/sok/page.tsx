@@ -402,7 +402,8 @@ export default async function SearchResultsPage({
                   <h1 className="text-xl font-black text-gray-900 sm:text-2xl">
                     {t("components.search.resultsFor", { query })}{" "}
                     <span className="text-base font-bold text-gray-400 sm:text-lg">
-                      ({t("components.search.hits", { count: results.total })})
+                      ({t("components.search.hits", { count: results.total })}
+                      {results.capped ? "+" : ""})
                     </span>
                   </h1>
                   {canUseFilters && (
@@ -471,7 +472,8 @@ export default async function SearchResultsPage({
                             >
                               {group.icon} {groupLabel(group.kind)}{" "}
                               <span className="text-sm font-bold text-gray-400">
-                                ({group.total})
+                                ({group.total}
+                                {group.capped ? "+" : ""})
                               </span>
                             </h2>
                             {range && (

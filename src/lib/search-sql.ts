@@ -21,12 +21,16 @@ export type DocumentSearchRow = {
   snippet: string | null;
   /** ts_rank fra fulltekstsøket, når det finnes. */
   score?: number;
+  /** Antall treff før LIMIT. */
+  total?: number;
 };
 
 /** Et navnetreff med trigram-likhet (0–1). */
 export type NameSearchRow = {
   id: string;
   score: number;
+  /** Antall treff før LIMIT, når spørringen returnerer det. */
+  total?: number;
 };
 
 /** Hvilke tabeller og kolonner som har trigram-indeks. */
@@ -173,7 +177,8 @@ export async function searchNormalizedIds(
         WHEN ${Prisma.join(exact, " OR ")} THEN 1
         WHEN ${Prisma.join(prefix, " OR ")} THEN 0.9
         ELSE 0.8
-      END AS "score"
+      END AS "score",
+      COUNT(*) OVER() AS "total"
     FROM ${Prisma.raw(config.table)}
     WHERE (${Prisma.join(contains, " OR ")})
       ${deletedFilter}
@@ -194,6 +199,8 @@ export type ReportSearchOptions = {
   limit: number;
   includeCancelled: boolean;
   filters?: import("./search-filters").SearchFilters;
+  /** Hopp over så mange rangerte treff (1-basert side konverteres av kalleren). */
+  offset?: number;
 };
 
 /**
@@ -217,6 +224,9 @@ export async function searchReports(
   if (!normalizedQuery) return [];
 
   const take = takeLimit(options.limit);
+  const offset = Number.isFinite(options.offset)
+    ? Math.max(0, Math.trunc(options.offset as number))
+    : 0;
   const filters = options.filters ?? {};
   const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
 
@@ -263,7 +273,10 @@ export async function searchReports(
       AND to_tsvector('norwegian', coalesce(ru."answersJson", '')) @@ q.tsq
   )`;
 
-  const conditions: Prisma.Sql[] = [
+  // Alle treffkildene er alternative måter å matche samme rapport på. De må
+  // derfor OR-es sammen; tidligere ble de AND-et, slik at en rapport bare
+  // kom med hvis *alle* feltene lignet søkeordet.
+  const matchConditions: Prisma.Sql[] = [
     Prisma.sql`${reportTsv} @@ q.tsq`,
     Prisma.sql`r."reportNumber" % ${rawQuery}`,
     Prisma.sql`r."name" % ${rawQuery}`,
@@ -272,6 +285,10 @@ export async function searchReports(
     Prisma.sql`c."name" % ${rawQuery}`,
     matchingUnits,
     substringMatch,
+  ];
+
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`(${Prisma.join(matchConditions, " OR ")})`,
   ];
 
   if (!options.includeCancelled) {
@@ -308,9 +325,7 @@ export async function searchReports(
     );
   }
 
-  const rows = await prisma.$queryRaw<
-    Array<{ id: string; score: number; snippet: string | null; total: bigint | number }>
-  >(Prisma.sql`
+  const sql = Prisma.sql`
     WITH q AS (
       SELECT websearch_to_tsquery('norwegian', ${rawQuery}) AS tsq
     )
@@ -338,7 +353,11 @@ export async function searchReports(
       AND (${Prisma.join(conditions, " AND ")})
     ORDER BY "score" DESC, r."completedAt" DESC
     LIMIT ${take}
-  `);
+    OFFSET ${offset}
+  `;
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string; score: number; snippet: string | null; total: bigint | number }>
+  >(sql);
 
   return rows.map((row) => ({
     id: row.id,
@@ -419,7 +438,8 @@ export async function searchDocuments(
         coalesce(d."contentText", ''),
         q.tsq,
         'MaxFragments=2,MaxWords=18,MinWords=5'
-      ) AS "snippet"
+      ) AS "snippet",
+      COUNT(*) OVER() AS "total"
     FROM "Document" d, q
     WHERE d."searchTsv" @@ q.tsq
       AND d."deletedAt" IS NULL
@@ -457,7 +477,8 @@ export async function searchByName(
   return prisma.$queryRaw<NameSearchRow[]>(Prisma.sql`
     SELECT
       "id",
-      similarity(coalesce(${Prisma.raw(field.column)}, ''), ${query}) AS "score"
+      similarity(coalesce(${Prisma.raw(field.column)}, ''), ${query}) AS "score",
+      COUNT(*) OVER() AS "total"
     FROM ${Prisma.raw(field.table)}
     WHERE ${Prisma.raw(field.column)} % ${query}
       ${deletedFilter}
@@ -506,7 +527,8 @@ export async function searchBySubstring(
         WHEN ${normalizedColumn} = ${normalizedTerm} THEN 1
         WHEN strpos(${normalizedColumn}, ${normalizedTerm}) = 1 THEN 0.9
         ELSE 0.8
-      END AS "score"
+      END AS "score",
+      COUNT(*) OVER() AS "total"
     FROM ${Prisma.raw(field.table)}
     WHERE strpos(${normalizedColumn}, ${normalizedTerm}) > 0
       ${deletedFilter}
@@ -528,14 +550,23 @@ export async function searchWorkOrderIds(
   query: string,
   limit = 500,
 ): Promise<string[]> {
+  const { ids } = await searchWorkOrderIdsWithTotal(query, limit);
+  return ids;
+}
+
+/** Som `searchWorkOrderIds`, men returnerer også antall treff før LIMIT. */
+export async function searchWorkOrderIdsWithTotal(
+  query: string,
+  limit = 500,
+): Promise<{ ids: string[]; total: number }> {
   const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return [];
+  if (!normalizedQuery) return { ids: [], total: 0 };
 
   const take = takeLimit(limit);
   const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
 
-  const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
-    SELECT w."id"
+  const rows = await prisma.$queryRaw<{ id: string; total: number | bigint }[]>(Prisma.sql`
+    SELECT w."id", COUNT(*) OVER() AS "total"
     FROM "WorkOrder" w
     LEFT JOIN "Customer" c ON c."id" = w."customerId"
     WHERE w."deletedAt" IS NULL
@@ -558,5 +589,8 @@ export async function searchWorkOrderIds(
     LIMIT ${take}
   `);
 
-  return rows.map((row) => row.id);
+  return {
+    ids: rows.map((row) => row.id),
+    total: Number(rows[0]?.total ?? 0) || 0,
+  };
 }

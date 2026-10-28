@@ -232,6 +232,23 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
     );
   });
 
+  it("skjuler HMS-rapporter på kansellerte oppdrag for montører", async () => {
+    const result = await getHmsOverview(
+      actor(["templates.view", "reports.view"], { role: "TECHNICIAN" }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.report.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workOrder: expect.objectContaining({
+            status: { not: "CANCELLED" },
+          }),
+        }),
+      }),
+    );
+  });
+
   it("gir administrator tilgang til alle ikke-slettede oppdrag", async () => {
     await getHmsOverview(actor([], { role: "ADMIN" }));
 
