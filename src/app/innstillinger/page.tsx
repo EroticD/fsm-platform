@@ -13,6 +13,8 @@ import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
+import PageHeader from "@/components/PageHeader";
+import SectionCard from "@/components/SectionCard";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
 import { getMapSettingsView } from "@/server/map-settings";
@@ -137,16 +139,16 @@ export default async function SettingsPage({
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* HEADER */}
-        <div className="flex justify-between items-center border-b pb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">⚙️ {t("settings.title")}</h1>
-            <p className="text-gray-500 mt-1 text-sm">{t("settings.subtitle")}</p>
-          </div>
-          <Link href="/" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            &larr; {t("settings.backToDashboard")}
-          </Link>
-        </div>
+        <PageHeader
+          title={t("settings.title")}
+          subtitle={t("settings.subtitle")}
+          icon="⚙️"
+          actions={
+            <Link href="/" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
+              &larr; {t("settings.backToDashboard")}
+            </Link>
+          }
+        />
 
         <SettingsTabs
           currentTab={currentTab}
@@ -249,14 +251,11 @@ export default async function SettingsPage({
 
         {currentTab === "roller" && isAdmin && (
           <div>
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                🔐 {t("settings.roles.title")}
-              </h2>
-              <p className="text-gray-500 text-sm">
-                {t("settings.roles.description")}
-              </p>
-            </div>
+            <SectionCard
+              title={`🔐 ${t("settings.roles.title")}`}
+              description={t("settings.roles.description")}
+              className="mb-6"
+            />
             <RolesAdmin
               roles={roleRows}
               error={resolvedParams.error}
@@ -267,12 +266,11 @@ export default async function SettingsPage({
 
         {currentTab === "avdelinger" && isAdmin && (
           <div>
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">🏷️ {t("settings.departments.title")}</h2>
-              <p className="text-gray-500 text-sm">
-                {t("settings.departments.description")}
-              </p>
-            </div>
+            <SectionCard
+              title={`🏷️ ${t("settings.departments.title")}`}
+              description={t("settings.departments.description")}
+              className="mb-6"
+            />
             <DepartmentsAdmin departments={departmentRows} />
           </div>
         )}

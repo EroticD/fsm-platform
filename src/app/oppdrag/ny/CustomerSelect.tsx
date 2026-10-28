@@ -326,7 +326,7 @@ export default function CustomerSelect({
         }}
         onFocus={() => setIsOpen(true)}
         onKeyDown={onKeyDown}
-        className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
       />
 
       {isOpen && (
@@ -417,7 +417,7 @@ export default function CustomerSelect({
                   ? (selectedContactId ?? "")
                   : ""
               }
-              className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 shadow-sm outline-none focus:border-blue-600"
+              className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 shadow-sm focus:border-blue-600"
             >
               <option value="">{t("orders.customerSelect.noContactOption")}</option>
               {contactOptions.map((contact) => (

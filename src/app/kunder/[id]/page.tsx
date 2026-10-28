@@ -17,7 +17,9 @@ import CustomerPortalTab from "@/components/customer/CustomerPortalTab";
 import CustomerActivityTab from "@/components/customer/CustomerActivityTab";
 import CustomerAttachments from "@/components/CustomerAttachments";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
 import {
   addContactAction,
   createContractAction,
@@ -91,10 +93,15 @@ export default async function CustomerDetailPage({
     if (result.reason === "forbidden") redirect("/");
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("customers.detail.notFound")}</h1>
-        <Link href="/kunder" className="text-blue-600 font-bold hover:underline">
-          {t("customers.detail.backToArchive")}
-        </Link>
+        <EmptyState
+          icon="🏢"
+          title={t("customers.detail.notFound")}
+          action={
+            <Link href="/kunder" className="text-blue-600 font-bold hover:underline">
+              {t("customers.detail.backToArchive")}
+            </Link>
+          }
+        />
       </div>
     );
   }
@@ -123,21 +130,14 @@ export default async function CustomerDetailPage({
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-300 pb-4">
-          <div>
-            <h1 className="text-xl sm:text-3xl font-black text-gray-900">{customer.name}</h1>
-            <p className="text-gray-500 mt-1 text-sm font-medium">
-              {t("customers.detail.customerNumber", {
-                number: customer.customerNumber || "–",
-              })}
-              {customer.orgNumber
-                ? ` • ${t("customers.detail.orgNumber", { number: customer.orgNumber })}`
-                : ""}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-            {canCreateWorkOrders && (
+        <PageHeader
+          title={customer.name}
+          subtitle={`${t("customers.detail.customerNumber", {
+            number: customer.customerNumber || "–",
+          })}${customer.orgNumber ? ` • ${t("customers.detail.orgNumber", { number: customer.orgNumber })}` : ""}`}
+          actions={
+            <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+              {canCreateWorkOrders && (
               <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="flex-1 sm:flex-none justify-center bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
                 ➕ {t("customers.detail.newWorkOrder")}
               </Link>
@@ -153,6 +153,8 @@ export default async function CustomerDetailPage({
                 confirmMessage={t("customers.detail.deleteConfirm", {
                   name: customer.name,
                 })}
+                confirmLabel={t("delete")}
+                danger
                 className="flex-1 sm:flex-none"
               >
                 <button
@@ -163,11 +165,12 @@ export default async function CustomerDetailPage({
                 </button>
               </ConfirmSubmitForm>
             )}
-            <Link href="/kunder" className="flex-1 sm:flex-none justify-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-              &larr; {t("customers.detail.backToCustomers")}
-            </Link>
-          </div>
-        </div>
+              <Link href="/kunder" className="flex-1 sm:flex-none justify-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
+                &larr; {t("customers.detail.backToCustomers")}
+              </Link>
+            </div>
+          }
+        />
 
         {/* FANER (TABS) */}
         <nav className="flex gap-1 bg-white border-2 border-gray-200 rounded-2xl p-1 shadow-sm overflow-x-auto" tabIndex={0}>

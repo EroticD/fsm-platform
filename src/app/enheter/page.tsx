@@ -7,6 +7,8 @@ import { formatDate } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import EmptyState from "@/components/EmptyState";
+import PageHeader from "@/components/PageHeader";
 
 // ---------------------------------------------------------------------------
 // Hjelpere
@@ -112,45 +114,39 @@ export default async function UnitsPage({
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-5">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900">{t("equipment.list.title")}</h1>
-            <p className="text-gray-500 mt-1 text-sm font-medium">
-              {t("equipment.list.subtitle")} •{" "}
-              <span className="font-bold text-gray-700">
-                {t("equipment.list.summary", {
-                  units: total,
-                  customers: customerCount,
-                })}
-              </span>
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-            >
-              ← {t("equipment.list.dashboard")}
-            </Link>
-            <Link
-              href="/kunder"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-            >
-              🏢 {t("equipment.list.customers")}
-            </Link>
-          </div>
-        </div>
+        <PageHeader
+          title={t("equipment.list.title")}
+          subtitle={`${t("equipment.list.subtitle")} • ${t("equipment.list.summary", {
+            units: total,
+            customers: customerCount,
+          })}`}
+          actions={
+            <>
+              <Link
+                href="/"
+                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              >
+                ← {t("equipment.list.dashboard")}
+              </Link>
+              <Link
+                href="/kunder"
+                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              >
+                🏢 {t("equipment.list.customers")}
+              </Link>
+            </>
+          }
+        />
 
         {/* SAMMENDRAG + SØK */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{t("equipment.list.units")}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{t("equipment.list.units")}</p>
               <p className="text-xl font-black text-gray-900">{total}</p>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-green-700">{t("equipment.list.withHistory")}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-green-700">{t("equipment.list.withHistory")}</p>
               <p className="text-xl font-black text-green-800">{serviced}</p>
             </div>
             <div
@@ -159,7 +155,7 @@ export default async function UnitsPage({
               }`}
             >
               <p
-                className={`text-[10px] font-bold uppercase tracking-wide ${
+                className={`text-xs font-bold uppercase tracking-wide ${
                   withDeviation > 0 ? "text-red-700" : "text-gray-500"
                 }`}
               >
@@ -176,8 +172,9 @@ export default async function UnitsPage({
               type="search"
               name="q"
               defaultValue={search}
+              aria-label={t("equipment.list.searchPlaceholder")}
               placeholder={t("equipment.list.searchPlaceholder")}
-              className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+              className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 focus:border-blue-700"
             />
             <button
               type="submit"
@@ -195,7 +192,7 @@ export default async function UnitsPage({
             ) : null}
           </form>
           {search ? (
-            <p className="text-[11px] text-gray-500 font-bold">
+            <p className="text-xs text-gray-500 font-bold">
               {t("equipment.list.hits", { total, query: search })}
             </p>
           ) : null}
@@ -203,22 +200,23 @@ export default async function UnitsPage({
 
         {/* LISTE */}
         {units.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">
-              {search
+          <EmptyState
+            icon="🔧"
+            title={
+              search
                 ? t("equipment.list.noMatches", { query: search })
-                : t("equipment.list.empty")}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {t("equipment.list.emptyHint")}
-            </p>
-            <Link
-              href="/kunder"
-              className="inline-block mt-3 bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition"
-            >
-              🏢 {t("equipment.list.goToCustomers")}
-            </Link>
-          </div>
+                : t("equipment.list.empty")
+            }
+            description={t("equipment.list.emptyHint")}
+            action={
+              <Link
+                href="/kunder"
+                className="inline-block bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition"
+              >
+                🏢 {t("equipment.list.goToCustomers")}
+              </Link>
+            }
+          />
         ) : (
           <div className="space-y-2">
             {units.map((unit) => {
@@ -235,7 +233,7 @@ export default async function UnitsPage({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-black text-gray-900 truncate">🔧 {unit.model}</p>
-                      <p className="text-[11px] text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         🏢 {unit.customer.name}
                         {unit.customer.city ? ` (${unit.customer.city})` : ""}
                         {unit.serialNumber ? ` • #️⃣ ${unit.serialNumber}` : ""}
@@ -245,7 +243,7 @@ export default async function UnitsPage({
                     <div className="flex flex-wrap gap-2">
                       {services > 0 ? (
                         <span
-                          className={`text-[11px] font-bold px-2 py-1 rounded-full border ${
+                          className={`text-xs font-bold px-2 py-1 rounded-full border ${
                             deviations > 0
                               ? "bg-red-50 text-red-800 border-red-200"
                               : "bg-green-50 text-green-800 border-green-200"
@@ -256,13 +254,13 @@ export default async function UnitsPage({
                             : `✅ ${t("equipment.list.serviceCount", { count: services })}`}
                         </span>
                       ) : (
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-600 border-gray-200">
+                        <span className="text-xs font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-600 border-gray-200">
                           {t("equipment.list.neverChecked")}
                         </span>
                       )}
                     </div>
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-2 font-bold">
+                  <p className="text-xs text-gray-500 mt-2 font-bold">
                     🕓 {t("equipment.list.serviceCount", { count: services })} •{" "}
                     {t("equipment.list.lastService", {
                       date: formatDate(last, t("equipment.list.never")),

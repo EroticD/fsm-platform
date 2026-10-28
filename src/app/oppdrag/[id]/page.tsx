@@ -600,6 +600,8 @@ export default async function AdminWorkOrderPage({
               <ConfirmSubmitForm
                 action={deleteWorkOrder}
                 confirmMessage={t("orders.detail.deleteConfirm", { title: workOrder.title })}
+                confirmLabel={t("delete")}
+                danger
               >
                 <input type="hidden" name="workOrderId" value={workOrder.id} />
                 <button

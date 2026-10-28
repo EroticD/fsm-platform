@@ -6,7 +6,7 @@
     },
     "confirm": {
       "title": "Bekreft handling",
-      "confirm": "Slett",
+      "confirm": "Bekreft",
       "cancel": "Avbryt"
     },
     "autoSave": {

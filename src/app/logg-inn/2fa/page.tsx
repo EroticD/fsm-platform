@@ -79,7 +79,7 @@ export default async function TwoFactorPage({
               pattern="[0-9]{6}"
               placeholder="000000"
               autoFocus
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] text-gray-900 bg-white font-bold focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] text-gray-900 bg-white font-bold focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
             />
           </div>
           <SubmitButton

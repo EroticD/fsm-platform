@@ -173,8 +173,9 @@ export default async function UsersAdmin({
             >
               <input type="hidden" name="returnTo" value={returnTo} />
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
+                <label htmlFor="new-user-name" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
                 <input
+                  id="new-user-name"
                   type="text"
                   name="name"
                   required
@@ -183,8 +184,9 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.email")}</label>
+                <label htmlFor="new-user-email" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.email")}</label>
                 <input
+                  id="new-user-email"
                   type="email"
                   name="email"
                   required
@@ -220,7 +222,7 @@ export default async function UsersAdmin({
                   ))}
                 </select>
                 {roles.length === 0 && (
-                  <p className="text-[11px] text-red-600 mt-1">
+                  <p className="text-xs text-red-600 mt-1">
                     {t("users.add.noRoles")}
                   </p>
                 )}
@@ -243,7 +245,7 @@ export default async function UsersAdmin({
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   {t("users.add.departmentHelp")}
                 </p>
               </div>
@@ -273,13 +275,13 @@ export default async function UsersAdmin({
                         </optgroup>
                       ))}
                   </select>
-                  <p className="text-[11px] text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     {t("users.add.contactHelp")}
                   </p>
                 </div>
               )}
 
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
                 {t("users.add.info")}
               </div>
             </InviteActionForm>
@@ -316,18 +318,18 @@ export default async function UsersAdmin({
                           <p className="font-bold text-gray-900 flex items-center gap-2">
                             {u.name || t("users.list.noName")}
                             {isMe && (
-                              <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
                                 {t("users.list.thisIsYou")}
                               </span>
                             )}
                           </p>
                           <p className="text-sm text-gray-500">{u.email}</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
+                          <p className="text-xs text-gray-500 mt-0.5">
                             🔐 {roleLabel} • 🏷️{" "}
                             {u.department?.name || t("users.list.noDepartment")}
                           </p>
                           {u.customer && (
-                            <p className="text-[11px] text-gray-500 mt-0.5">
+                            <p className="text-xs text-gray-500 mt-0.5">
                               🏢 {u.customer.name}
                               {u.contact ? ` • ${u.contact.name}` : ""}
                             </p>
@@ -337,19 +339,19 @@ export default async function UsersAdmin({
 
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${
+                          className={`text-xs font-bold px-2 py-1 rounded-full uppercase ${
                             u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
                           }`}
                         >
                           {u.isActive ? t("users.list.active") : t("users.list.inactive")}
                         </span>
                         {!u.password && (
-                          <span className="text-[10px] font-bold px-2 py-1 rounded-full uppercase bg-gray-100 text-gray-600">
+                          <span className="text-xs font-bold px-2 py-1 rounded-full uppercase bg-gray-100 text-gray-600">
                             {t("users.list.missingPassword")}
                           </span>
                         )}
                         {hasPendingInvite && (
-                          <span className="text-[10px] font-bold px-2 py-1 rounded-full uppercase bg-blue-100 text-blue-800">
+                          <span className="text-xs font-bold px-2 py-1 rounded-full uppercase bg-blue-100 text-blue-800">
                             {t("users.list.invited")}
                           </span>
                         )}
@@ -367,7 +369,7 @@ export default async function UsersAdmin({
                           aria-label={`${t("users.add.role")}: ${u.name || u.email || u.id}`}
                           defaultValue={u.role}
                           disabled={isMe}
-                          className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
+                          className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900"
                         >
                           {!roles.some((role) => role.key === u.role) && (
                             <option value={u.role}>{roleLabel}</option>
@@ -382,7 +384,7 @@ export default async function UsersAdmin({
                         {!isMe && (
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                            className="text-xs font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
                             {t("users.list.saveRole")}
                           </button>
@@ -397,7 +399,7 @@ export default async function UsersAdmin({
                             aria-label={`${t("users.add.department")}: ${u.name || u.email || u.id}`}
                             defaultValue={u.departmentId ?? ""}
                             disabled={u.role === "CUSTOMER"}
-                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
+                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900"
                           >
                             <option value="">{t("users.list.noDepartmentOption")}</option>
                             {departments.map((department) => (
@@ -408,7 +410,7 @@ export default async function UsersAdmin({
                           </select>
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                            className="text-xs font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
                             {t("users.list.saveDepartment")}
                           </button>
@@ -423,11 +425,11 @@ export default async function UsersAdmin({
                             name="phone"
                             defaultValue={u.phone ?? ""}
                             placeholder={t("users.list.phonePlaceholder")}
-                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900 w-32"
+                            className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-900 w-32"
                           />
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
+                            className="text-xs font-bold bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"
                           >
                             {t("users.list.savePhone")}
                           </button>
@@ -439,7 +441,7 @@ export default async function UsersAdmin({
                           action={generateInvite}
                           wrapperClassName="contents"
                           submitLabel={`🔗 ${t("users.list.inviteLink")}`}
-                          buttonClassName="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
+                          buttonClassName="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
                           bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
                           labels={{
                             ready: t("users.invite.ready", { name: "{name}" }),
@@ -465,7 +467,7 @@ export default async function UsersAdmin({
                           />
                           <button
                             type="submit"
-                            className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition ${
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
                               u.isActive
                                 ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                                 : "bg-green-600 text-white border-green-600 hover:bg-green-700"
@@ -497,7 +499,7 @@ export default async function UsersAdmin({
                       <form action={changePermissions} className="border-t border-gray-100 pt-3 space-y-3">
                         <input type="hidden" name="id" value={u.id} />
                         {u.role === "ADMIN" || u.role === "CUSTOMER" ? (
-                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                             {u.role === "ADMIN"
                               ? t("users.list.adminHint")
                               : t("users.list.customerHint")}
@@ -509,12 +511,12 @@ export default async function UsersAdmin({
                                 <p className="text-xs font-bold text-gray-800">
                                   {t("users.list.permissionsTitle")}
                                 </p>
-                                <p className="text-[11px] text-gray-500">
+                                <p className="text-xs text-gray-500">
                                   {t("users.list.permissionsDesc")}
                                 </p>
                               </div>
                               {u.permissionsCustomized && (
-                                <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
+                                <span className="text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
                                   {t("users.list.customized")}
                                 </span>
                               )}
@@ -525,7 +527,7 @@ export default async function UsersAdmin({
                                   key={group.group}
                                   className="border border-gray-200 rounded-xl p-3"
                                 >
-                                  <legend className="px-1 text-[11px] font-bold text-gray-500 uppercase">
+                                  <legend className="px-1 text-xs font-bold text-gray-500 uppercase">
                                     {group.group}
                                   </legend>
                                   <div className="space-y-2">
@@ -548,7 +550,7 @@ export default async function UsersAdmin({
                                           <span className="font-semibold">
                                             {permission.label}
                                           </span>
-                                          <span className="block text-[11px] text-gray-500">
+                                          <span className="block text-xs text-gray-500">
                                             {permission.description}
                                           </span>
                                         </span>
@@ -560,7 +562,7 @@ export default async function UsersAdmin({
                             </div>
                             <button
                               type="submit"
-                              className="text-[10px] font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
+                              className="text-xs font-bold bg-purple-700 text-white px-3 py-1.5 rounded-lg hover:bg-purple-800 transition"
                             >
                               {t("users.list.savePermissions")}
                             </button>
@@ -575,7 +577,7 @@ export default async function UsersAdmin({
                           <input type="hidden" name="id" value={u.id} />
                           <button
                             type="submit"
-                            className="text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
+                            className="text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
                           >
                             {t("users.list.useRolePermissions")}
                           </button>

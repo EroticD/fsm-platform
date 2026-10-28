@@ -92,7 +92,7 @@ export default async function LoginPage({
               placeholder={t("emailPlaceholder")}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "login-error" : undefined}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
             />
           </div>
 
@@ -112,7 +112,7 @@ export default async function LoginPage({
               placeholder="••••••••"
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "login-error" : undefined}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent outline-none"
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
             />
           </div>
 

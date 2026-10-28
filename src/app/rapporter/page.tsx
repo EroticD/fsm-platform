@@ -12,6 +12,8 @@ import {
   reportUnitSummary,
 } from "@/lib/report-display";
 import { pageWindow, parsePage } from "@/lib/pagination";
+import EmptyState from "@/components/EmptyState";
+import PageHeader from "@/components/PageHeader";
 import {
   HMS_TYPE_MESSAGE_KEYS,
   isHmsReport,
@@ -143,32 +145,27 @@ export default async function ReportsPage({
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-5">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900">📋 {t("orders.reportsPage.title")}</h1>
-            <p className="text-gray-500 mt-1 text-sm font-medium">
-              {t("orders.reportsPage.subtitle")} •{" "}
-              <span className="font-bold text-gray-700">
-                {t("orders.reportsPage.count", { count: total })} ({rangeLabel(range)})
-              </span>
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-            >
-              ← {t("orders.reportsPage.dashboard")}
-            </Link>
-            <Link
-              href="/oppdrag"
-              className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-            >
-              📂 {t("orders.reportsPage.orders")}
-            </Link>
-          </div>
-        </div>
+        <PageHeader
+          title={t("orders.reportsPage.title")}
+          subtitle={`${t("orders.reportsPage.subtitle")} • ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(range)})`}
+          icon="📋"
+          actions={
+            <>
+              <Link
+                href="/"
+                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              >
+                ← {t("orders.reportsPage.dashboard")}
+              </Link>
+              <Link
+                href="/oppdrag"
+                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+              >
+                📂 {t("orders.reportsPage.orders")}
+              </Link>
+            </>
+          }
+        />
 
         {/* TIDSROM */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200">
@@ -188,7 +185,7 @@ export default async function ReportsPage({
                   <span className="leading-none">{r.icon}</span>
                   <span>{t(r.labelKey)}</span>
                   <span
-                    className={`text-[11px] px-1.5 py-0.5 rounded-full ${
+                    className={`text-xs px-1.5 py-0.5 rounded-full ${
                       active ? "bg-white/25" : "bg-white border border-gray-200 text-gray-600"
                     }`}
                   >
@@ -228,14 +225,11 @@ export default async function ReportsPage({
 
         {/* LISTE */}
         {reports.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">
-              {t("orders.reportsPage.emptyTitle", { range: rangeLabel(range) })}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {t("orders.reportsPage.emptyDescription")}
-            </p>
-          </div>
+          <EmptyState
+            icon="📋"
+            title={t("orders.reportsPage.emptyTitle", { range: rangeLabel(range) })}
+            description={t("orders.reportsPage.emptyDescription")}
+          />
         ) : (
           <div className="space-y-2">
             {reports.map((report) => {
@@ -256,13 +250,13 @@ export default async function ReportsPage({
                     <div className="min-w-0">
                       <p className="font-black text-gray-900 truncate">
                         {hms && (
-                          <span className="inline-block align-middle mr-2 bg-indigo-100 text-indigo-900 border border-indigo-200 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                          <span className="inline-block align-middle mr-2 bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
                             🛡️ {t("orders.templateGroups.hmsBadge")}
                           </span>
                         )}
                         {reportDisplayName(report, t("orders.reportsPage.defaultTitle"))}
                       </p>
-                      <p className="text-[11px] text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         📅 {formatDate(report.completedAt, t("orders.reportsPage.noDate"))}
                         {" • 🏢 "}
                         {report.workOrder?.customer?.name ||
@@ -285,7 +279,7 @@ export default async function ReportsPage({
                     <div className="flex flex-wrap items-center gap-2">
                       {summary.usesUnits && unitCount > 0 ? (
                         <span
-                          className={`text-[11px] font-bold px-2 py-1 rounded-full border ${
+                          className={`text-xs font-bold px-2 py-1 rounded-full border ${
                             deviations > 0
                               ? "bg-red-50 text-red-800 border-red-200"
                               : "bg-green-50 text-green-800 border-green-200"
@@ -296,12 +290,12 @@ export default async function ReportsPage({
                             : `✅ ${t("orders.reportsPage.units", { count: unitCount })}`}
                         </span>
                       ) : !summary.usesUnits ? (
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
+                        <span className="text-xs font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
                           {t("orders.reportsPage.noUnits")}
                         </span>
                       ) : null}
                       <span
-                        className={`text-[11px] font-bold px-2 py-1 rounded-full border ${
+                        className={`text-xs font-bold px-2 py-1 rounded-full border ${
                           report.isLocked
                             ? "bg-gray-100 text-gray-700 border-gray-200"
                             : "bg-amber-50 text-amber-800 border-amber-200"
@@ -312,7 +306,7 @@ export default async function ReportsPage({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
                     <span className="font-bold text-gray-600">
                       ✍️ {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
                     </span>

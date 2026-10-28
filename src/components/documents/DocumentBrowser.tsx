@@ -124,8 +124,9 @@ export default async function DocumentBrowser({
             type="search"
             name="q"
             defaultValue={searchQuery}
+            aria-label={t("documents.browser.searchPlaceholder")}
             placeholder={t("documents.browser.searchPlaceholder")}
-            className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+            className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 focus:border-blue-700"
           />
           <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition">
             {t("documents.browser.search")}
@@ -149,7 +150,7 @@ export default async function DocumentBrowser({
         {/* Tag-filter chips */}
         {allTags.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider self-center">{t("documents.browser.tagFilter")}</span>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider self-center">{t("documents.browser.tagFilter")}</span>
             {allTags.map((tag) => (
               <Link
                 key={tag.id}
@@ -276,7 +277,7 @@ export default async function DocumentBrowser({
                     {doc.description && (
                       <p className="text-xs text-gray-600 mt-1 line-clamp-2">{doc.description}</p>
                     )}
-                    <p className="text-[10px] text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       {doc.fileName} • {(doc.fileSize / 1024).toFixed(0)} KB
                       {doc.uploadedBy
                         ? ` • ${t("documents.browser.uploadedBy", { name: doc.uploadedBy })}`
@@ -287,7 +288,7 @@ export default async function DocumentBrowser({
                         {doc.tags.map((tag) => (
                           <span
                             key={tag.id}
-                            className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                            className="px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
                             suppressHydrationWarning
                             style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >
@@ -341,6 +342,8 @@ export default async function DocumentBrowser({
                             confirmMessage={t("documents.browser.deleteConfirm", {
                               title: doc.title,
                             })}
+                            confirmLabel={t("delete")}
+                            danger
                           >
                             <input type="hidden" name="id" value={doc.id} />
                             <button
@@ -392,7 +395,7 @@ export default async function DocumentBrowser({
                 name="name"
                 placeholder={t("documents.browser.folderNamePlaceholder")}
                 required
-                className="flex-1 min-w-0 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+                className="flex-1 min-w-0 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500"
               />
               <button type="submit" className="bg-[var(--primary-color)] text-white px-5 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap">
                 + {t("documents.browser.createFolder")}

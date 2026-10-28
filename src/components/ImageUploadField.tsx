@@ -113,15 +113,15 @@ export default function ImageUploadField({
         // Når minst ett bilde er lastet opp er kravet oppfylt, og vi fjerner
         // required slik at man ikke må velge filene på nytt.
         required={required && urls.length === 0}
-        className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white outline-none focus:border-blue-700"
+        className="w-full border-2 border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white focus:border-blue-700"
       />
 
-      <p id={hintId} className="text-[11px] text-gray-500">
+      <p id={hintId} className="text-xs text-gray-500">
         {t("orders.imageUpload.hint")}
       </p>
 
       {busy && (
-        <p className="text-[11px] font-bold text-blue-700 animate-pulse">
+        <p className="text-xs font-bold text-blue-700 animate-pulse">
           {progress
             ? t("orders.imageUpload.uploading", { done: progress.done + 1, total: progress.total })
             : t("orders.imageUpload.uploadingShort")}
@@ -130,7 +130,7 @@ export default function ImageUploadField({
 
       {urls.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-bold text-green-700">
+          <p className="text-xs font-bold text-green-700">
             {t("orders.imageUpload.uploaded", { count: urls.length })}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -139,13 +139,13 @@ export default function ImageUploadField({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt={t("orders.imageUpload.attachmentAlt", { number: index + 1 })} className="w-full h-24 object-cover" />
                 <div className="flex items-center justify-between gap-1 px-2 py-1">
-                  <a href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-700 underline">
+                  <a href={url} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 underline">
                     {t("orders.imageUpload.viewImage")}
                   </a>
                   <button
                     type="button"
                     onClick={() => removeUrl(url)}
-                    className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 transition"
+                    className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 transition"
                   >
                     {t("orders.imageUpload.remove")}
                   </button>
@@ -156,7 +156,7 @@ export default function ImageUploadField({
         </div>
       )}
 
-      {error && <p id={errorId} role="alert" className="text-[11px] font-bold text-red-600">❌ {error}</p>}
+      {error && <p id={errorId} role="alert" className="text-xs font-bold text-red-600">❌ {error}</p>}
 
       {/* Verdien som sendes med skjemaet: en JSON-liste med URL-er. */}
       <input type="hidden" name={name} value={urls.length > 0 ? JSON.stringify(urls) : ""} />

@@ -71,7 +71,7 @@ export default function CommentSection({
               ? `💬 ${t("components.comment.titleCustomer")}`
               : `💬 ${t("components.comment.titleContact")}`}
         </h2>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
           {t("components.comment.count", { count: existingComments.length })}
         </span>
       </div>
@@ -115,7 +115,7 @@ export default function CommentSection({
         ) : (
           existingComments.map((comment) => (
             <div key={comment.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-              <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 mb-1">
+              <div className="flex justify-between items-center text-xs font-bold text-gray-500 mb-1">
                 <span>{comment.authorName || t("components.comment.unknown")}</span>
                 <span>{formatDateTime(comment.createdAt)}</span>
               </div>

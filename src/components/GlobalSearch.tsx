@@ -407,12 +407,12 @@ export default function GlobalSearch({
           aria-autocomplete="list"
           aria-activedescendant={showPanel ? activeOptionId : undefined}
           aria-label={t("components.search.ariaLabel")}
-          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 placeholder:text-gray-400"
         />
         {status === "loading" && hasQuery && (
           <span
             aria-hidden
-            className="shrink-0 text-[11px] text-gray-400 animate-pulse"
+            className="shrink-0 text-xs text-gray-400 animate-pulse"
           >
             {t("components.search.searchingShort")}
           </span>
@@ -430,9 +430,9 @@ export default function GlobalSearch({
         {query.length === 0 && (
           <kbd
             aria-hidden
-            className="hidden shrink-0 items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-400 sm:inline-flex"
           >
-            <span className="text-[11px]">⌘</span>K
+            <span className="text-xs">⌘</span>K
           </kbd>
         )}
       </div>
@@ -502,7 +502,7 @@ export default function GlobalSearch({
                       <div
                         id={headingId}
                         role="presentation"
-                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-gray-400"
+                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-400"
                       >
                         <span className="min-w-0 truncate">
                           <span aria-hidden>{group.icon}</span>{" "}
@@ -547,7 +547,7 @@ export default function GlobalSearch({
                               />
                             </span>
                             {item.subtitle && (
-                              <span className="block w-full truncate text-[11px] text-gray-500">
+                              <span className="block w-full truncate text-xs text-gray-500">
                                 <HighlightedText
                                   text={item.subtitle}
                                   query={trimmed}
@@ -568,7 +568,7 @@ export default function GlobalSearch({
                 <div
                   id={recentHeadingId}
                   role="presentation"
-                  className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-gray-400"
+                  className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-400"
                 >
                   {t("components.search.recentTitle")}
                 </div>

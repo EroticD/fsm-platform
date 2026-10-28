@@ -295,7 +295,7 @@ export default function MarkdownEditor({
           placeholder={placeholder}
           onChange={(event) => update(event.target.value)}
           onKeyDown={onKeyDown}
-          className="w-full resize-y rounded-b-xl px-3 py-2 font-mono text-sm text-gray-900 outline-none disabled:bg-gray-100 disabled:text-gray-500"
+          className="w-full resize-y rounded-b-xl px-3 py-2 font-mono text-sm text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
         />
       </div>
 

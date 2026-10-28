@@ -42,7 +42,7 @@ export default function AutoSaveTextArea({
         onBlur={handleBlur}
         rows={4}
         placeholder={placeholder}
-        className="w-full border border-gray-200 p-3 rounded-xl text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+        className="w-full border border-gray-200 p-3 rounded-xl text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
         aria-label={name}
       />
       

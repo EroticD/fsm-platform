@@ -2,6 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
+import {
+  CONFIRM_DIALOG_DEFAULTS,
+  resolveConfirmDialogConfig,
+} from "@/lib/confirm-dialog";
 
 /**
  * Tilgjengelig bekreftelsesdialog.
@@ -16,7 +20,7 @@ export default function ConfirmDialog({
   description,
   confirmLabel,
   cancelLabel,
-  danger = true,
+  danger = CONFIRM_DIALOG_DEFAULTS.danger,
   busy = false,
   onConfirm,
   onCancel,
@@ -32,8 +36,13 @@ export default function ConfirmDialog({
   onCancel: () => void;
 }) {
   const t = useTranslations("common");
-  const resolvedConfirmLabel = confirmLabel ?? t("components.confirm.confirm");
-  const resolvedCancelLabel = cancelLabel ?? t("components.confirm.cancel");
+  const resolved = resolveConfirmDialogConfig(
+    { confirmLabel, cancelLabel, danger },
+    {
+      confirm: t(CONFIRM_DIALOG_DEFAULTS.confirmLabelKey),
+      cancel: t(CONFIRM_DIALOG_DEFAULTS.cancelLabelKey),
+    },
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -111,19 +120,19 @@ export default function ConfirmDialog({
             disabled={busy}
             className="min-h-11 rounded-xl border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            {resolvedCancelLabel}
+            {resolved.cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={busy}
             className={`min-h-11 rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${
-              danger
+              resolved.danger
                 ? "bg-red-600 hover:bg-red-700"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {busy ? "…" : resolvedConfirmLabel}
+            {busy ? "…" : resolved.confirmLabel}
           </button>
         </div>
       </div>

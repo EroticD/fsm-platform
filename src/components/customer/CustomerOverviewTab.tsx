@@ -73,7 +73,7 @@ export default async function CustomerOverviewTab({
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">🏢 {t("customers.overview.companyInfo")}</h2>
             {office && (
-              <Link href={`/kunder/${customerId}/rediger`} className="text-[11px] font-bold text-blue-600 hover:underline">
+              <Link href={`/kunder/${customerId}/rediger`} className="text-xs font-bold text-blue-600 hover:underline">
                 {t("customers.overview.change")}
               </Link>
             )}
@@ -108,7 +108,7 @@ export default async function CustomerOverviewTab({
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3 lg:col-span-2">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">📂 {t("customers.overview.recentOrders")}</h2>
-            <Link href="?tab=oppdrag" className="text-[11px] font-bold text-blue-600 hover:underline">
+            <Link href="?tab=oppdrag" className="text-xs font-bold text-blue-600 hover:underline">
               {t("customers.overview.seeAll", { count: totalOrders })}
             </Link>
           </div>
@@ -127,7 +127,7 @@ export default async function CustomerOverviewTab({
                     <span className="font-bold text-gray-900 text-sm truncate">{wo.title}</span>
                     <StatusBadge status={wo.status} />
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     {formatDate(wo.scheduledFor, t("customers.overview.noDate"))}
                     {wo._count.reports > 0
                       ? ` • 📋 ${t("customers.overview.checklists", { count: wo._count.reports })}`
@@ -144,7 +144,7 @@ export default async function CustomerOverviewTab({
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
         <div className="flex items-center justify-between border-b pb-2 mb-3">
           <h2 className="font-black text-gray-900 text-base">📋 {t("customers.overview.recentActivity")}</h2>
-          <Link href="?tab=aktivitet" className="text-[11px] font-bold text-blue-600 hover:underline">
+          <Link href="?tab=aktivitet" className="text-xs font-bold text-blue-600 hover:underline">
             {t("customers.overview.seeAllActivity")}
           </Link>
         </div>
@@ -157,7 +157,7 @@ export default async function CustomerOverviewTab({
                 <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-gray-800 font-medium">{log.action}</p>
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-xs text-gray-500">
                     {log.userName || t("customers.overview.unknownUser")} • {formatDateTime(log.createdAt)}
                   </p>
                 </div>
