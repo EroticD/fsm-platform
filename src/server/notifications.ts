@@ -354,6 +354,15 @@ export type NotifyInput = {
 export async function notifyUser(
   input: NotifyInput,
 ): Promise<{ id: string } | null> {
+  // Inaktive kontoer skal ikke få nye varsler – verken in-app eller på e-post.
+  // Sjekken ligger her, slik at alle varsel veier (tildeling, booking, cron)
+  // får samme regel uten å måtte gjenta den.
+  const target = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { isActive: true },
+  });
+  if (!target?.isActive) return null;
+
   const preference = await prisma.notificationPreference.findUnique({
     where: { userId_type: { userId: input.userId, type: input.type } },
     select: { inApp: true, email: true },
@@ -537,6 +546,9 @@ export async function processPendingNotificationEmails(
         emailSentAt: null,
         emailAttempts: { lt: EMAIL_MAX_ATTEMPTS },
         emailNextAttemptAt: { lte: now },
+        // En konto som er deaktivert etter at varselet ble laget, skal ikke
+        // få e-post. Varselet blir liggende i historikken.
+        user: { isActive: true },
         OR: [
           { emailLockedAt: null },
           { emailLockedAt: { lt: leaseCutoff } },
@@ -544,7 +556,7 @@ export async function processPendingNotificationEmails(
       },
       orderBy: { createdAt: "asc" },
       take: limit,
-      include: { user: { select: { email: true, role: true } } },
+      include: { user: { select: { email: true, role: true, isActive: true } } },
     });
 
     let sent = 0;
@@ -565,6 +577,20 @@ export async function processPendingNotificationEmails(
         },
       });
       if (claimed.count !== 1) continue;
+
+      // Kontoen kan ha blitt deaktivert mellom spørringen og claimet.
+      if (notification.user.isActive === false) {
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: {
+            emailSentAt: new Date(),
+            emailError: "Brukeren er deaktivert",
+            emailLockedAt: null,
+            emailLockedBy: null,
+          },
+        });
+        continue;
+      }
 
       const email = notification.user.email;
       if (!email) {

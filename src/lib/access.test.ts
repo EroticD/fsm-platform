@@ -24,6 +24,8 @@ vi.mock("@/lib/session", () => ({
 import {
   canAccessWorkOrder,
   requireWorkOrderAccess,
+  staffForDepartment,
+  staffWhere,
   workOrderScope,
 } from "@/lib/access";
 
@@ -51,6 +53,7 @@ describe("workOrderScope", () => {
   it("begrenser ansatte til egen avdeling", () => {
     expect(workOrderScope(technician as never)).toEqual({
       departmentId: "dep-a",
+      department: { isActive: true },
       deletedAt: null,
     });
   });
@@ -68,7 +71,11 @@ describe("workOrderScope", () => {
         role: "USER",
         permissions: ["workorders.view"],
       } as never),
-    ).toEqual({ departmentId: "dep-a", deletedAt: null });
+    ).toEqual({
+      departmentId: "dep-a",
+      department: { isActive: true },
+      deletedAt: null,
+    });
   });
 
   it("gir ikke en USER uten oppdragsrettigheter tilgang", () => {
@@ -91,10 +98,38 @@ describe("workOrderScope", () => {
     ).toEqual({ customerId: "customer-1", deletedAt: null });
   });
 
+  it("gir ingen oppdrag når avdelingen er deaktivert", () => {
+    expect(
+      workOrderScope({
+        ...technician,
+        department: { isActive: false },
+      } as never),
+    ).toEqual({ id: { in: [] } });
+  });
+
   it("gir ingen oppdrag til inaktive brukere", () => {
     expect(
       workOrderScope({ ...technician, isActive: false } as never),
     ).toEqual({ id: { in: [] } });
+  });
+});
+
+describe("staffScope", () => {
+  it("krever aktive brukere og en aktiv avdeling", () => {
+    expect(staffWhere("dep-a")).toMatchObject({
+      AND: [
+        {
+          isActive: true,
+          role: { not: "CUSTOMER" },
+          department: { isActive: true },
+        },
+        { departmentId: "dep-a" },
+      ],
+    });
+    expect(staffForDepartment("dep-a")).toMatchObject({
+      AND: expect.arrayContaining([{ departmentId: "dep-a" }]),
+    });
+    expect(staffForDepartment(null)).toEqual({ id: { in: [] } });
   });
 });
 
@@ -110,6 +145,16 @@ describe("canAccessWorkOrder", () => {
       canAccessWorkOrder(technician as never, {
         departmentId: "dep-b",
         customerId: "customer-1",
+      }),
+    ).toBe(false);
+  });
+
+  it("avviser oppdrag i en deaktivert avdeling", () => {
+    expect(
+      canAccessWorkOrder(technician as never, {
+        departmentId: "dep-a",
+        customerId: "customer-1",
+        departmentIsActive: false,
       }),
     ).toBe(false);
   });

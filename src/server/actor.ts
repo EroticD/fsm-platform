@@ -105,14 +105,20 @@ export function workOrderScopeFor(
     hasPermission(actor, permission),
   );
   if (!canUseWorkOrders || !actor.departmentId) return { id: { in: [] } };
-  return { departmentId: actor.departmentId, deletedAt: null };
+  return {
+    departmentId: actor.departmentId,
+    department: { isActive: true },
+    deletedAt: null,
+  };
 }
 
 /** Samme avdelingssperre som `staffScope` i src/lib/access.ts. */
 export function staffScopeFor(actor: ServiceActor): Prisma.UserWhereInput {
   if (!actor.isActive) return { id: { in: [] } };
   const permissionFilter: Prisma.UserWhereInput = {
+    isActive: true,
     role: { not: "CUSTOMER" },
+    department: { isActive: true },
     OR: [
       {
         permissionsCustomized: false,

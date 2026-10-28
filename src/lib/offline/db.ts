@@ -21,6 +21,8 @@ export type OfflineDraft = {
 
 export type OutboxItem = {
   id: string;
+  /** Eieren av kladden. Outboxen skal aldri sendes på vegne av en annen bruker. */
+  userId: string;
   payload: string;
   createdAt: number;
   attempts: number;
@@ -102,9 +104,13 @@ export async function deleteOfflineDraft(key: string): Promise<void> {
   });
 }
 
-export async function enqueueOutbox(payload: string): Promise<void> {
+export async function enqueueOutbox(
+  payload: string,
+  userId: string,
+): Promise<void> {
   const item: OutboxItem = {
     id: crypto.randomUUID(),
+    userId,
     payload,
     createdAt: Date.now(),
     attempts: 0,
@@ -120,6 +126,16 @@ export async function listOutbox(): Promise<OutboxItem[]> {
     requestResult<OutboxItem[]>(store.getAll()),
   );
   return result ?? [];
+}
+
+export async function listOutboxForUser(userId: string): Promise<OutboxItem[]> {
+  const items = await listOutbox();
+  return items.filter((item) => item.userId === userId);
+}
+
+export async function countOutboxForUser(userId: string): Promise<number> {
+  const items = await listOutboxForUser(userId);
+  return items.length;
 }
 
 export async function removeOutbox(id: string): Promise<void> {
@@ -143,6 +159,48 @@ export async function countOutbox(): Promise<number> {
     requestResult<number>(store.count()),
   );
   return result ?? 0;
+}
+
+/**
+ * Sletter alle kladder og outbox-oppføringer som tilhører én bruker. Brukes
+ * ved utlogging fra en delt enhet, uten å røre en annen brukers data.
+ */
+export async function clearOfflineDataForUser(userId: string): Promise<void> {
+  if (!hasIndexedDb()) return;
+
+  await withStore(DRAFT_STORE, "readwrite", async (store) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = store.openCursor();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        if ((cursor.value as OfflineDraft).userId === userId) cursor.delete();
+        cursor.continue();
+      };
+    });
+    return undefined;
+  });
+
+  await withStore(OUTBOX_STORE, "readwrite", async (store) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = store.openCursor();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        if ((cursor.value as OutboxItem).userId === userId) cursor.delete();
+        cursor.continue();
+      };
+    });
+    return undefined;
+  });
 }
 
 /** Sletter alle lokale kladder og outbox-oppføringer (brukes ved utlogging). */

@@ -34,7 +34,11 @@ function canUseWorkOrders(user: AccessUser): boolean {
  */
 export function staffWhere(departmentId?: string | null): Prisma.UserWhereInput {
   const permissionFilter: Prisma.UserWhereInput = {
+    // Inaktive kontoer og brukere i en deaktivert avdeling skal aldri kunne
+    // tildeles oppdrag eller dukke opp i montørlister.
+    isActive: true,
     role: { not: "CUSTOMER" },
+    department: { isActive: true },
     OR: [
       {
         permissionsCustomized: false,
@@ -73,19 +77,34 @@ export function workOrderScope(user?: AccessUser | null): Prisma.WorkOrderWhereI
       : { id: { in: [] } };
   }
   if (!canUseWorkOrders(user) || !user.departmentId) return { id: { in: [] } };
-  return { departmentId: user.departmentId, deletedAt: null };
+  if (user.department && user.department.isActive === false) {
+    return { id: { in: [] } };
+  }
+  // Aktiv avdeling håndheves også i spørringen, slik at en deaktivert
+  // avdeling ikke gir tilgang selv om brukerens økt ble opprettet før
+  // deaktiveringen.
+  return {
+    departmentId: user.departmentId,
+    department: { isActive: true },
+    deletedAt: null,
+  };
 }
 
 /** Sjekker et oppdragsobjekt mot brukerens avdeling/kundetilhørighet. */
 export function canAccessWorkOrder(
   user: AccessUser | null | undefined,
-  workOrder: { departmentId?: string | null; customerId?: string | null },
+  workOrder: {
+    departmentId?: string | null;
+    customerId?: string | null;
+    departmentIsActive?: boolean;
+  },
 ): boolean {
   if (!user?.isActive) return false;
   if (user.role === "ADMIN") return true;
   if (user.role === "CUSTOMER") {
     return Boolean(user.customerId && workOrder.customerId === user.customerId);
   }
+  if (workOrder.departmentIsActive === false) return false;
   return Boolean(
     canUseWorkOrders(user) &&
       user.departmentId &&

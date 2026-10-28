@@ -13,6 +13,16 @@ export async function GET() {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
   }
 
+  // En mykt slettet kunde er stengt for kundeportalen, også direkte via en
+  // gammel bokmerket eksportadresse.
+  const customer = await prisma.customer.findFirst({
+    where: { id: user.customerId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!customer) {
+    return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+  }
+
   const workOrders = await prisma.workOrder.findMany({
     where: { customerId: user.customerId, deletedAt: null },
     orderBy: { scheduledFor: "desc" },

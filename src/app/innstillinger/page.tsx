@@ -44,10 +44,7 @@ export default async function SettingsPage({
     customer?: string;
     technician?: string;
     page?: string;
-    invite?: string;
-    inviteToken?: string;
     error?: string;
-    mail?: string;
     role?: string;
     setup?: string;
     ok?: string;
@@ -180,10 +177,7 @@ export default async function SettingsPage({
             departmentId={user.departmentId}
             canManageCustomers={hasPermission(user, "customers.manage")}
             actorPermissions={Array.from(effectivePermissions(user))}
-            invite={resolvedParams.invite}
-            inviteToken={resolvedParams.inviteToken}
             error={resolvedParams.error}
-            mail={resolvedParams.mail}
             page={page}
             baseUrl="/innstillinger?tab=ansatte"
           />

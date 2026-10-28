@@ -9,7 +9,7 @@ import { effectivePermissions, hasPermission } from "@/lib/permissions";
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; inviteToken?: string; error?: string; mail?: string; side?: string }>;
+  searchParams: Promise<{ error?: string; side?: string }>;
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/logg-inn");
@@ -18,7 +18,7 @@ export default async function UsersPage({
   if (!hasPermission(currentUser, "users.view")) redirect("/");
 
   const t = await getTranslations("common");
-  const { invite, inviteToken, error, mail, side } = await searchParams;
+  const { error, side } = await searchParams;
   const page = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
   const userCount = await prisma.user.count({
     where:
@@ -54,10 +54,7 @@ export default async function UsersPage({
           departmentId={currentUser?.departmentId}
           canManageCustomers={hasPermission(currentUser, "customers.manage")}
           actorPermissions={Array.from(effectivePermissions(currentUser))}
-          invite={invite}
-          inviteToken={inviteToken}
           error={error}
-          mail={mail}
           page={page}
           baseUrl="/brukere"
         />

@@ -1,0 +1,116 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  putOfflineDraft: vi.fn(),
+  getOfflineDraft: vi.fn(),
+  deleteOfflineDraft: vi.fn(),
+  enqueueOutbox: vi.fn(),
+  listOutboxForUser: vi.fn(),
+  countOutboxForUser: vi.fn(),
+  removeOutbox: vi.fn(),
+  incrementOutboxAttempt: vi.fn(),
+  clearOfflineDataForUser: vi.fn(),
+}));
+
+vi.mock("./db", () => mocks);
+
+import {
+  clearOfflineUserData,
+  currentOfflineUserId,
+  flushDraftOutbox,
+  pendingDraftCount,
+  queueDraftForRetry,
+  saveDraftLocally,
+} from "./draft-outbox";
+
+function installLocalStorage() {
+  const store = new Map<string, string>();
+  const fake = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+    removeItem: (key: string) => void store.delete(key),
+    clear: () => store.clear(),
+    key: (index: number) => [...store.keys()][index] ?? null,
+    get length() {
+      return store.size;
+    },
+  };
+  vi.stubGlobal("localStorage", fake);
+  return fake;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  installLocalStorage();
+  mocks.countOutboxForUser.mockResolvedValue(0);
+  mocks.listOutboxForUser.mockResolvedValue([]);
+});
+
+describe("offline outbox – brukerscoping", () => {
+  it("lagrer eieren på outbox-oppføringen", async () => {
+    await saveDraftLocally({
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: { notes: "a" },
+    });
+
+    expect(currentOfflineUserId()).toBe("u1");
+
+    await queueDraftForRetry({ workOrderId: "wo1" });
+
+    expect(mocks.enqueueOutbox).toHaveBeenCalledWith(
+      JSON.stringify({ workOrderId: "wo1" }),
+      "u1",
+    );
+  });
+
+  it("sender bare gjeldende brukers kladder", async () => {
+    localStorage.setItem("fsm:offline-user", "u2");
+    mocks.listOutboxForUser.mockResolvedValue([
+      {
+        id: "o2",
+        userId: "u2",
+        payload: "{}",
+        createdAt: 1,
+        attempts: 0,
+      },
+    ]);
+    mocks.countOutboxForUser.mockResolvedValue(0);
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+
+    const result = await flushDraftOutbox();
+
+    expect(result).toEqual({ sent: 1, pending: 0 });
+    expect(mocks.listOutboxForUser).toHaveBeenCalledWith("u2");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("sender ingenting når ingen bruker er kjent", async () => {
+    const result = await flushDraftOutbox();
+
+    expect(result).toEqual({ sent: 0, pending: 0 });
+    expect(mocks.listOutboxForUser).not.toHaveBeenCalled();
+  });
+
+  it("teller bare gjeldende brukers ventende kladder", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    mocks.countOutboxForUser.mockResolvedValue(3);
+
+    await expect(pendingDraftCount()).resolves.toBe(3);
+    expect(mocks.countOutboxForUser).toHaveBeenCalledWith("u1");
+  });
+
+  it("rydder brukerens kladder og glemmer eieren ved utlogging", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+
+    await clearOfflineUserData();
+
+    expect(mocks.clearOfflineDataForUser).toHaveBeenCalledWith("u1");
+    expect(currentOfflineUserId()).toBeNull();
+  });
+});

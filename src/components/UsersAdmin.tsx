@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
-import { buildInviteUrl } from "@/lib/invite";
-import CopyButton from "@/components/CopyButton";
+import InviteActionForm from "@/components/InviteActionForm";
 import {
   createUser,
   deleteUser,
@@ -29,10 +28,7 @@ export default async function UsersAdmin({
   departmentId,
   canManageCustomers = false,
   actorPermissions = [],
-  invite,
-  inviteToken,
   error,
-  mail,
   page = 1,
   pageSize = DEFAULT_PAGE_SIZE,
   baseUrl = "/brukere",
@@ -46,10 +42,7 @@ export default async function UsersAdmin({
   canManageCustomers?: boolean;
   /** Rettighetene innlogget bruker har, brukt til å filtrere roller. */
   actorPermissions?: string[];
-  invite?: string;
-  inviteToken?: string;
   error?: string;
-  mail?: string;
   page?: number;
   pageSize?: number;
   baseUrl?: string;
@@ -120,11 +113,6 @@ export default async function UsersAdmin({
       })
     : [];
 
-  // Brukeren vi nettopp lagde invitasjonslenke for (vises i banneret øverst).
-  // Selve nøkkelen lagres bare som hash, så den rå lenken kommer i redirecten.
-  const inviteUser = invite ? users.find((u) => u.id === invite) : undefined;
-  const inviteUrl = inviteToken ? buildInviteUrl(inviteToken) : null;
-
   const errorMessage =
     error === "mangler_kontakt"
       ? t("users.errors.missingContact")
@@ -163,33 +151,6 @@ export default async function UsersAdmin({
         </div>
       )}
 
-      {inviteUser && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
-          <h2 className="font-bold text-green-900 mb-1">
-            ✅ {t("users.invite.ready", { name: inviteUser.name || inviteUser.email || inviteUser.id })}
-          </h2>
-          <p className="text-sm text-green-800 mb-3">
-            {mail === "sent"
-              ? t("users.invite.sent")
-              : t("users.invite.manual")}
-          </p>
-          {inviteUrl ? (
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <input
-                readOnly
-                value={inviteUrl}
-                className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs text-gray-700 font-mono"
-              />
-              <CopyButton value={inviteUrl} label={t("users.invite.copy")} />
-            </div>
-          ) : (
-            <p className="text-sm text-red-700 font-semibold">
-              {t("users.invite.invalid")}
-            </p>
-          )}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-8">
@@ -197,7 +158,19 @@ export default async function UsersAdmin({
               ➕ {t("users.add.title")}
             </h2>
 
-            <form action={createUser} className="space-y-4">
+            <InviteActionForm
+              action={createUser}
+              formClassName="space-y-4"
+              submitLabel={t("users.add.submit")}
+              buttonClassName="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition mt-2"
+              labels={{
+                ready: t("users.invite.ready", { name: "{name}" }),
+                sent: t("users.invite.sent"),
+                manual: t("users.invite.manual"),
+                copy: t("users.invite.copy"),
+                error: t("users.invite.failed"),
+              }}
+            >
               <input type="hidden" name="returnTo" value={returnTo} />
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
@@ -305,14 +278,7 @@ export default async function UsersAdmin({
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
                 {t("users.add.info")}
               </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition mt-2"
-              >
-                {t("users.add.submit")}
-              </button>
-            </form>
+            </InviteActionForm>
           </div>
         </div>
 
@@ -463,16 +429,23 @@ export default async function UsersAdmin({
                       )}
 
                       {!isMe && (
-                        <form action={generateInvite}>
+                        <InviteActionForm
+                          action={generateInvite}
+                          wrapperClassName="contents"
+                          submitLabel={`🔗 ${t("users.list.inviteLink")}`}
+                          buttonClassName="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
+                          bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
+                          labels={{
+                            ready: t("users.invite.ready", { name: "{name}" }),
+                            sent: t("users.invite.sent"),
+                            manual: t("users.invite.manual"),
+                            copy: t("users.invite.copy"),
+                            error: t("users.invite.failed"),
+                          }}
+                        >
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={u.id} />
-                          <button
-                            type="submit"
-                            className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-700 hover:text-white transition"
-                          >
-                            🔗 {t("users.list.inviteLink")}
-                          </button>
-                        </form>
+                        </InviteActionForm>
                       )}
 
                       {!isMe && (
