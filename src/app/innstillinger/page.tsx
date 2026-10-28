@@ -13,6 +13,7 @@ import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
+import { chooseSettingsTab } from "@/lib/settings-tabs";
 import { getCurrentUser } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import {
@@ -77,21 +78,15 @@ export default async function SettingsPage({
   // – med mindre de ber om sikkerhetsfanen.
   if (!canUseSettings && requestedTab !== "sikkerhet") redirect("/");
 
-  const currentTab =
-    requestedTab ||
-    (canUseSettings
-      ? canBranding
-        ? "branding"
-        : canUsers
-          ? "ansatte"
-          : canTemplates
-            ? "maler"
-            : canAudit
-              ? "auditlog"
-              : canStats
-                ? "statistikk"
-                : "avdelinger"
-      : "sikkerhet");
+  const currentTab = chooseSettingsTab(requestedTab, {
+    canBranding,
+    canUsers,
+    canTemplates,
+    canDocuments,
+    canAudit,
+    canStats,
+    isAdmin,
+  });
   const searchQuery = resolvedParams.search || "";
   const dateFrom = resolvedParams.dateFrom || "";
   const dateTo = resolvedParams.dateTo || "";

@@ -51,7 +51,8 @@
         "CONTACT_UPDATE": "Customer requests updated contact information"
       },
       "inAppAria": "{label} in app",
-      "emailAria": "{label} by email"
+      "emailAria": "{label} by email",
+      "saving": "Saving …"
     },
     "calendarFeed": {
       "title": "Calendar subscription",

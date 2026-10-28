@@ -12,6 +12,8 @@ import CommentSection from "@/components/CommentSection";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
+import ReportSubmissionCleanup from "@/components/ReportSubmissionCleanup";
+import SubmitButton from "@/components/SubmitButton";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -339,11 +341,11 @@ export default async function AdminWorkOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reportSubmitted?: string }>;
 }) {
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
-  const { error } = await searchParams;
+  const { error, reportSubmitted } = await searchParams;
   const t = await getTranslations("common");
 
   const user = await getCurrentUser();
@@ -407,6 +409,7 @@ export default async function AdminWorkOrderPage({
   const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isClosed;
   const canCreate = hasPermission(user, "workorders.create");
   const canWriteReports = hasPermission(user, "reports.write");
+  const canViewReports = hasPermission(user, "reports.view");
   const canManageCustomers = hasPermission(user, "customers.manage");
 
   const statusLabels: Record<WorkStatus, string> = {
@@ -637,6 +640,14 @@ export default async function AdminWorkOrderPage({
           </div>
         )}
 
+        {reportSubmitted && (
+          <ReportSubmissionCleanup
+            userId={user.id}
+            workOrderId={workOrder.id}
+            templateId={reportSubmitted}
+          />
+        )}
+
         <div className="space-y-6">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -708,20 +719,24 @@ export default async function AdminWorkOrderPage({
                                   ) : (
                                     <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">{t("orders.detail.unlocked")}</span>
                                   )}
-                                  <Link
-                                    href={`/rapporter/${workOrder.id}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-                                  >
-                                    {t("orders.detail.openPdf")}
-                                  </Link>
-                                  <Link
-                                    href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
-                                    className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-                                  >
-                                    🕘 {t("orders.detail.revisions", { count: report.revision })}
-                                  </Link>
+                                  {canViewReports && (
+                                    <>
+                                      <Link
+                                        href={`/rapporter/${workOrder.id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                                      >
+                                        {t("orders.detail.openPdf")}
+                                      </Link>
+                                      <Link
+                                        href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
+                                        className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                                      >
+                                        🕘 {t("orders.detail.revisions", { count: report.revision })}
+                                      </Link>
+                                    </>
+                                  )}
                                   {canWriteReports && canModify && !report.isLocked && (
                                     <Link
                                       href={fillHref}
@@ -814,7 +829,13 @@ export default async function AdminWorkOrderPage({
                           )}
 
                           {report ? (
-                            <ReportContent report={report} template={template} />
+                            canViewReports ? (
+                              <ReportContent report={report} template={template} />
+                            ) : (
+                              <p className="text-xs text-gray-500 italic">
+                                {t("orders.detail.reportNoAccess")}
+                              </p>
+                            )
                           ) : (
                             <p className="text-xs text-gray-500 italic">{t("orders.detail.waitingForm")}</p>
                           )}
@@ -886,7 +907,14 @@ export default async function AdminWorkOrderPage({
                   </p>
                 )}
                 {canUpdate && (!isClosed || isAdmin) ? (
-                  <form action={updateStatus} className="flex flex-col gap-3">
+                  <ConfirmSubmitForm
+                    action={updateStatus}
+                    confirmMessage={t("orders.detail.cancelConfirm")}
+                    confirmWhen={(formData) =>
+                      formData.get("status") === "CANCELLED"
+                    }
+                    className="flex flex-col gap-3"
+                  >
                     <input type="hidden" name="workOrderId" value={workOrder.id} />
                     <select
                       name="status"
@@ -915,10 +943,13 @@ export default async function AdminWorkOrderPage({
                         />
                       </label>
                     )}
-                    <button type="submit" className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
+                    <SubmitButton
+                      pendingLabel={t("orders.detail.updatingStatus")}
+                      className="w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
+                    >
                       {t("orders.detail.updateStatus")}
-                    </button>
-                  </form>
+                    </SubmitButton>
+                  </ConfirmSubmitForm>
                 ) : (
                   <p className="text-sm text-gray-500 italic">
                     {t("orders.detail.noStatusPermission")}

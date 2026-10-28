@@ -6,6 +6,8 @@ import { useLocale, useTranslations } from "next-intl";
 import FieldInput, { type TemplateField } from "./FieldInput";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
+import ErrorBanner from "@/components/ErrorBanner";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { readLineComment } from "@/lib/report-answers";
 import { reportFormSections } from "./report-form-sections";
 import { saveDraft, submitReport } from "./actions";
@@ -116,6 +118,7 @@ export default function ReportForm({
   initialDraft,
   draftUpdatedAt,
   returnTo,
+  submitError,
 }: {
   workOrderId: string;
   userId: string;
@@ -132,6 +135,8 @@ export default function ReportForm({
   draftUpdatedAt?: string;
   /** Siden skjemaet ble åpnet fra, så vi kan sende brukeren tilbake dit. */
   returnTo?: string;
+  /** Feilkode fra server-handlingen etter en avvist innsending. */
+  submitError?: string;
 }) {
   const isEditing = Boolean(initialReport);
   const seed = initialDraft ?? initialReport;
@@ -320,6 +325,7 @@ export default function ReportForm({
   // Sjekkpunkter som krever oppfølging (f.eks. «Utbedres»), gruppert per enhet.
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
   const [followUps, setFollowUps] = useState<Record<string, string[]>>({});
+  const [unitToRemove, setUnitToRemove] = useState<string | null>(null);
 
   const setFieldNeedsComment = (unitKey: string, fieldId: string, needs: boolean) =>
     setFollowUps((prev) => {
@@ -382,6 +388,16 @@ export default function ReportForm({
   const statusLabel = "block text-xs font-black uppercase tracking-wider text-gray-600 mb-2";
   const visibility = reportFormSections(requiresUnits);
 
+  const submitErrorMessages: Record<string, string> = {
+    "ugyldig-data": t("orders.reportForm.errorInvalidData"),
+    signatur: t("orders.reportForm.errorSignature"),
+    locked: t("orders.reportForm.errorLocked"),
+    "legal-hold": t("orders.reportForm.errorLegalHold"),
+  };
+  const submitErrorMessage = submitError
+    ? (submitErrorMessages[submitError] ?? t("orders.reportForm.errorGeneric"))
+    : undefined;
+
   return (
     <form
       ref={formRef}
@@ -395,6 +411,8 @@ export default function ReportForm({
       <input type="hidden" name="unitsJson" value={unitsJson} />
       <input type="hidden" name="status" value={overallStatus} />
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
+
+      <ErrorBanner message={submitErrorMessage} />
 
       {/* Status for autolagret kladd */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
@@ -494,7 +512,7 @@ export default function ReportForm({
                   <h3 className="font-black text-gray-900">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
                   <button
                     type="button"
-                    onClick={() => removeUnit(unit.key)}
+                    onClick={() => setUnitToRemove(unit.key)}
                     className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap"
                   >
                     {t("orders.reportForm.removeUnit")}
@@ -567,8 +585,8 @@ export default function ReportForm({
 
             {/* RESULTAT – enhetsstatus finnes bare når malen bruker enheter. */}
             {visibility.showUnitResult && (
-              <div>
-                <label className={statusLabel}>{t("orders.reportForm.unitResult")}</label>
+              <fieldset>
+                <legend className={statusLabel}>{t("orders.reportForm.unitResult")}</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label
                     className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
@@ -602,7 +620,7 @@ export default function ReportForm({
                     <span className="font-bold text-gray-900">{t("orders.reportForm.deviation")}</span>
                   </label>
                 </div>
-              </div>
+              </fieldset>
             )}
 
             {/* SJEKKPUNKTER */}
@@ -723,6 +741,18 @@ export default function ReportForm({
       <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <SubmitButton isEditing={isEditing} />
       </div>
+
+      <ConfirmDialog
+        open={unitToRemove !== null}
+        title={t("orders.reportForm.removeUnitTitle")}
+        description={t("orders.reportForm.removeUnitConfirm")}
+        confirmLabel={t("orders.reportForm.removeUnit")}
+        onCancel={() => setUnitToRemove(null)}
+        onConfirm={() => {
+          if (unitToRemove) removeUnit(unitToRemove);
+          setUnitToRemove(null);
+        }}
+      />
     </form>
   );
 }

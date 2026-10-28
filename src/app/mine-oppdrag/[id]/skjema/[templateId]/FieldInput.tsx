@@ -69,10 +69,10 @@ function StatusInput({
   }, [value, triggers, onNeedsComment]);
 
   return (
-    <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 space-y-3">
-      <label className="block text-sm font-black text-gray-900">
+    <fieldset className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 space-y-3">
+      <legend className="block text-sm font-black text-gray-900">
         🧭 {field.label} {field.required && <span className="text-red-500">*</span>}
-      </label>
+      </legend>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map((option, index) => {
@@ -109,10 +109,11 @@ function StatusInput({
 
       {mustComment ? (
         <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
-          <label className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
+          <label htmlFor={`${commentName}-comment`} className="block text-[11px] font-black uppercase tracking-wider text-amber-900 mb-2">
             {t("orders.fieldInput.commentRequired", { value })}
           </label>
           <MarkdownEditor
+            id={`${commentName}-comment`}
             name={commentName}
             required
             rows={3}
@@ -123,7 +124,7 @@ function StatusInput({
       ) : (
         <input type="hidden" name={commentName} value="" />
       )}
-    </div>
+    </fieldset>
   );
 }
 

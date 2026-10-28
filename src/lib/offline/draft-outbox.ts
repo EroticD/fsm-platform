@@ -175,3 +175,47 @@ export async function clearOfflineUserData(
   if (userId) await clearOfflineDataForUser(userId);
   forgetOfflineUser();
 }
+
+/** Hendelse som varsler offline-banneret om at outboxen er endret. */
+export const OUTBOX_CHANGED_EVENT = "fsm:outbox-changed";
+
+/**
+ * Sjekker om en outbox-oppføring gjelder samme oppdrag og mal. Payloaden er
+ * skjemaets FormData serialisert til JSON, så vi leser id-ene derfra.
+ */
+export function payloadMatchesReport(
+  payload: string,
+  workOrderId: string,
+  templateId: string,
+): boolean {
+  try {
+    const parsed = JSON.parse(payload) as Record<string, unknown>;
+    return (
+      parsed.workOrderId === workOrderId && parsed.templateId === templateId
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fjerner ventende kladder for en rapport som nettopp ble sendt inn. Uten
+ * dette ville outboxen senere replayet en gammel kladd over den signerte
+ * rapporten, og banneret ville fortsatt vist et pending-tall.
+ */
+export async function removeOutboxForReport(input: {
+  workOrderId: string;
+  templateId: string;
+}): Promise<number> {
+  const userId = currentOfflineUserId();
+  if (!userId) return 0;
+  const items = await listOutboxForUser(userId);
+  let removed = 0;
+  for (const item of items) {
+    if (payloadMatchesReport(item.payload, input.workOrderId, input.templateId)) {
+      await removeOutbox(item.id);
+      removed += 1;
+    }
+  }
+  return removed;
+}

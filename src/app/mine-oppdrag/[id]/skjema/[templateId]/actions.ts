@@ -15,7 +15,10 @@ import {
  *
  * All logikk – låsing, øyeblikksbilde av malen, signaturlagring og
  * revisjonslogg – ligger i `src/server/reports.ts`. Her oversettes resultatet
- * til de samme redirectene og revalideringene som før.
+ * til redirects og revalidering.
+ *
+ * Ved feil går brukeren tilbake til selve skjemaet med en synlig feilkode – ikke
+ * til «mine oppdrag». Da beholdes kladden og montøren ser hva som må rettes.
  */
 
 /** Lagrer kladden. Kalles også automatisk fra skjemaet mens det fylles ut. */
@@ -34,6 +37,48 @@ export async function saveDraft(
   return result.ok ? { ok: true, savedAt: result.savedAt } : { ok: false };
 }
 
+type FormTarget = { path: string; params: URLSearchParams };
+
+/** Bygger adressen tilbake til skjemaet, med et trygt returmål. */
+function formTarget(formData: FormData, fallback?: string): FormTarget | null {
+  const workOrderId = cleanText(formData.get("workOrderId"), {
+    maxLength: LIMITS.line,
+  });
+  const templateId = cleanText(formData.get("templateId"), {
+    maxLength: LIMITS.line,
+  });
+
+  if (!workOrderId || !templateId) {
+    return fallback ? { path: fallback, params: new URLSearchParams() } : null;
+  }
+
+  const params = new URLSearchParams();
+  const returnTo = formData.get("returnTo");
+  if (
+    typeof returnTo === "string" &&
+    [`/oppdrag/${workOrderId}`, `/mine-oppdrag/${workOrderId}`].includes(returnTo)
+  ) {
+    params.set("returnTo", returnTo);
+  }
+
+  return {
+    path: `/mine-oppdrag/${workOrderId}/skjema/${templateId}`,
+    params,
+  };
+}
+
+function redirectToFormError(
+  formData: FormData,
+  error: string,
+  fallback?: string,
+): never {
+  const target = formTarget(formData, fallback);
+  if (!target) redirect("/mine-oppdrag");
+  target.params.set("error", error);
+  const query = target.params.toString();
+  redirect(`${target.path}${query ? `?${query}` : ""}`);
+}
+
 export async function submitReport(formData: FormData) {
   const user = await getCurrentUser();
   const result = await submitReportService(user, formData);
@@ -45,7 +90,16 @@ export async function submitReport(formData: FormData) {
     revalidatePath(`/mine-oppdrag/${workOrderId}`);
     revalidatePath(`/rapporter/${workOrderId}`);
     revalidatePath(`/oppdrag/${workOrderId}`);
-    redirect(result.returnTo);
+    // Markøren lar retursiden rydde lokal kladd og outbox etter innsending.
+    const templateId = cleanText(formData.get("templateId"), {
+      maxLength: LIMITS.line,
+    });
+    const separator = result.returnTo.includes("?") ? "&" : "?";
+    redirect(
+      templateId
+        ? `${result.returnTo}${separator}reportSubmitted=${encodeURIComponent(templateId)}`
+        : result.returnTo,
+    );
   }
 
   switch (result.error) {
@@ -54,13 +108,19 @@ export async function submitReport(formData: FormData) {
     case "ikke-tilgang":
       redirect("/");
     case "ugyldig-data":
-      redirect("/mine-oppdrag?error=ugyldig-data");
-    case "kansellert":
-      redirect("/oppdrag");
-    case "locked":
-      redirect(`${result.returnTo}?error=locked`);
+      // Prøv å lagre det montøren faktisk skrev før vi sender hen tilbake.
+      await saveDraftService(user, formData);
+      redirectToFormError(formData, "ugyldig-data", result.returnTo);
     case "signatur":
-      redirect(`${result.returnTo}?error=signatur`);
+      await saveDraftService(user, formData);
+      redirectToFormError(formData, "signatur", result.returnTo);
+    case "locked":
+      redirectToFormError(formData, "locked", result.returnTo);
+    case "legal-hold":
+      redirectToFormError(formData, "legal-hold", result.returnTo);
+    case "kansellert":
+      // Kansellerte oppdrag kan ikke fylles ut; vis feilen på retursiden.
+      redirect(`${result.returnTo ?? "/oppdrag"}?error=kansellert`);
     case "ikke-funnet":
       // Samme som før: en mal som ikke hører til oppdraget avslutter stille.
       return;

@@ -4,6 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import ErrorBanner from "@/components/ErrorBanner";
+import SubmitButton from "@/components/SubmitButton";
 import { getCustomerEditOptions } from "@/server/customers";
 import { updateCustomerAction } from "../../actions";
 
@@ -45,11 +47,9 @@ export default async function EditCustomerPage({
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto space-y-6">
         
-        {error && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            ⛔ {t("customers.edit.saveError")}
-          </div>
-        )}
+        <ErrorBanner
+          message={error ? `⛔ ${t("customers.edit.saveError")}` : undefined}
+        />
 
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
@@ -238,9 +238,12 @@ export default async function EditCustomerPage({
             <Link href={`/kunder/${customerId}`} className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-bold hover:bg-gray-200 transition shadow-sm">
               {t("customers.edit.cancel")}
             </Link>
-            <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm">
+            <SubmitButton
+              pendingLabel={t("customers.edit.saving")}
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm"
+            >
               {t("customers.edit.save")}
-            </button>
+            </SubmitButton>
           </div>
 
         </form>

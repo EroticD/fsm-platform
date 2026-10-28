@@ -51,7 +51,8 @@
         "CONTACT_UPDATE": "Kunde ber om oppdatert kontaktinformasjon"
       },
       "inAppAria": "{label} i appen",
-      "emailAria": "{label} på e-post"
+      "emailAria": "{label} på e-post",
+      "saving": "Lagrer …"
     },
     "calendarFeed": {
       "title": "Kalenderabonnement",

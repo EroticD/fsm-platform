@@ -47,3 +47,19 @@ test("mobil visning av innlogging har ikke horisontal scroll", async ({ page }) 
   );
   expect(overflow).toBeLessThanOrEqual(1);
 });
+
+test("oppdrags- og kundelister har ikke horisontal scroll på mobil", async ({ page }) => {
+  test.skip(!process.env.E2E_ADMIN_EMAIL, "E2E_ADMIN_EMAIL er ikke satt");
+  const loggedIn = await loginAsAdmin(page);
+  expect(loggedIn).toBe(true);
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  for (const path of ["/oppdrag", "/kunder"]) {
+    await page.goto(path);
+    await expect(page.locator("body")).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow, `${path} har horisontal scroll`).toBeLessThanOrEqual(1);
+  }
+});

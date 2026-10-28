@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { formatDate } from "@/lib/dates";
 import UnitHistory from "@/components/UnitHistory";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
 
@@ -155,13 +156,18 @@ export default async function CustomerUnitsTab({
                 </details>
 
                 {isAdmin && (
-                  <form action={deleteUnit}>
+                  <ConfirmSubmitForm
+                    action={deleteUnit}
+                    confirmMessage={t("customers.units.deleteConfirm", {
+                      model: unit.model,
+                    })}
+                  >
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={unit.id} />
                     <button type="submit" title={t("customers.units.delete")} className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
                       🗑️
                     </button>
-                  </form>
+                  </ConfirmSubmitForm>
                 )}
               </div>
             </div>

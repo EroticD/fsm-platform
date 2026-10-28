@@ -10,6 +10,10 @@ import AuditLogTable from "@/components/AuditLogTable";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import ErrorBanner from "@/components/ErrorBanner";
+import ReportSubmissionCleanup from "@/components/ReportSubmissionCleanup";
+import SubmitButton from "@/components/SubmitButton";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
@@ -32,9 +36,9 @@ export default async function TechnicianWorkOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reportSubmitted?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, reportSubmitted } = await searchParams;
 
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
@@ -126,6 +130,7 @@ export default async function TechnicianWorkOrderPage({
     return true;
   });
   const canWriteReports = hasPermission(user, "reports.write");
+  const canViewReports = hasPermission(user, "reports.view");
 
   const allUsers = await prisma.user.findMany({
     where: staffForDepartment(workOrder.departmentId),
@@ -176,21 +181,23 @@ export default async function TechnicianWorkOrderPage({
         </div>
 
         {error === "locked" && (
-          <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl px-4 py-3 text-sm font-bold">
-            {t("orders.errors.lockedField")}
-          </div>
+          <ErrorBanner message={t("orders.errors.lockedField")} />
         )}
 
         {error === "ugyldig-status" && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
-            {t("orders.errors.invalidStatusField")}
-          </div>
+          <ErrorBanner message={t("orders.errors.invalidStatusField")} />
         )}
 
         {error && !["locked", "ugyldig-status"].includes(error) && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-4 py-3 text-sm font-bold">
-            {t("orders.errors.generic")}
-          </div>
+          <ErrorBanner message={t("orders.errors.generic")} />
+        )}
+
+        {reportSubmitted && (
+          <ReportSubmissionCleanup
+            userId={user.id}
+            workOrderId={workOrderId}
+            templateId={reportSubmitted}
+          />
         )}
 
         {/* STATUS & INFO */}
@@ -200,7 +207,14 @@ export default async function TechnicianWorkOrderPage({
             <div>
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.statusTitle")}</p>
               {canUpdate ? (
-                <form action={updateStatus} className="flex items-center gap-2 flex-wrap">
+                <ConfirmSubmitForm
+                  action={updateStatus}
+                  confirmMessage={t("orders.fieldDetail.cancelConfirm")}
+                  confirmWhen={(formData) =>
+                    formData.get("status") === "CANCELLED"
+                  }
+                  className="flex items-center gap-2 flex-wrap"
+                >
                   <input type="hidden" name="workOrderId" value={workOrderId} />
                   <select
                     name="status"
@@ -216,10 +230,13 @@ export default async function TechnicianWorkOrderPage({
                       </option>
                     ))}
                   </select>
-                  <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap">
+                  <SubmitButton
+                    pendingLabel={t("orders.fieldDetail.updating")}
+                    className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap"
+                  >
                     {t("orders.fieldDetail.update")}
-                  </button>
-                </form>
+                  </SubmitButton>
+                </ConfirmSubmitForm>
               ) : (
                 <p className="text-sm text-gray-500 italic">
                   {t("orders.fieldDetail.noStatusPermission")}
@@ -438,7 +455,7 @@ export default async function TechnicianWorkOrderPage({
                             : t("orders.templateGroups.hmsBadge")}
                         </span>
                       )}
-                      {report?.reportNumber && (
+                      {canViewReports && report?.reportNumber && (
                         <span className="bg-white text-gray-700 border border-gray-300 text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.reportNumber", {
                             number: report.reportNumber,
@@ -459,14 +476,16 @@ export default async function TechnicianWorkOrderPage({
 
                     {report ? (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          href={`/rapporter/${workOrderId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
-                        >
-                          {t("orders.fieldDetail.openReport")}
-                        </Link>
+                        {canViewReports && (
+                          <Link
+                            href={`/rapporter/${workOrderId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                          >
+                            {t("orders.fieldDetail.openReport")}
+                          </Link>
+                        )}
                         {canWriteReports && canUpdate && !report.isLocked && (
                           <Link
                             href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}

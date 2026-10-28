@@ -5,6 +5,7 @@ import {
   NOTIFICATION_TYPES,
 } from "@/server/notifications";
 import NotificationSoundToggle from "@/components/NotificationSoundToggle";
+import SubmitButton from "@/components/SubmitButton";
 import { saveNotificationPreferencesAction } from "./actions";
 
 
@@ -84,12 +85,12 @@ export default async function NotificationPreferences() {
           </tbody>
         </table>
       </div>
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel={t("p3.notificationSettings.saving")}
         className="min-h-11 rounded-xl bg-[var(--primary-color)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90"
       >
         {t("p3.notificationSettings.save")}
-      </button>
+      </SubmitButton>
     </form>
   );
 }

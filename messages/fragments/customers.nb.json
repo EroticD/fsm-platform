@@ -26,7 +26,9 @@
       "showActive": "← Aktive kunder",
       "deletedTitle": "Papirkurv: slettede kunder kan gjenopprettes av administrator.",
       "restore": "Gjenopprett",
-      "delete": "Slett"
+      "delete": "Slett",
+      "saving": "Lagrer …",
+      "deleteConfirm": "Slette kunden «{name}»? Kunden merkes som slettet og kan gjenopprettes av en administrator."
     },
     "detail": {
       "notFound": "Kunden finnes ikke",
@@ -47,7 +49,8 @@
         "contacts": "👤 Kontakter",
         "portal": "🔐 Kundeportal",
         "activity": "📋 Aktivitet"
-      }
+      },
+      "deleteConfirm": "Slette kunden «{name}»? Kunden merkes som slettet og kan gjenopprettes av en administrator."
     },
     "edit": {
       "title": "Rediger kunde",
@@ -74,7 +77,8 @@
       "notesPlaceholder": "Noter om kunden...",
       "cancel": "Avbryt",
       "save": "Lagre endringer",
-      "saveError": "Kunden kunne ikke lagres. Sjekk feltene og prøv igjen."
+      "saveError": "Kunden kunne ikke lagres. Sjekk feltene og prøv igjen.",
+      "saving": "Lagrer …"
     },
     "overview": {
       "totalOrders": "Oppdrag totalt",
@@ -179,7 +183,8 @@
       "showingRecent": "Viser de {shown} nyeste av {total} kontroller.",
       "editUnit": "Endre enhet",
       "save": "Lagre endringer",
-      "delete": "Slett enhet"
+      "delete": "Slett enhet",
+      "deleteConfirm": "Slette enheten «{model}»? Servicehistorikken beholdes på rapportene."
     },
     "contacts": {
       "title": "Kontaktpersoner",

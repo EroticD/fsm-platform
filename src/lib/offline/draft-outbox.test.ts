@@ -5,7 +5,9 @@ const mocks = vi.hoisted(() => ({
   getOfflineDraft: vi.fn(),
   deleteOfflineDraft: vi.fn(),
   enqueueOutbox: vi.fn(),
+  listOutbox: vi.fn(),
   listOutboxForUser: vi.fn(),
+  countOutbox: vi.fn(),
   countOutboxForUser: vi.fn(),
   removeOutbox: vi.fn(),
   incrementOutboxAttempt: vi.fn(),
@@ -18,8 +20,10 @@ import {
   clearOfflineUserData,
   currentOfflineUserId,
   flushDraftOutbox,
+  payloadMatchesReport,
   pendingDraftCount,
   queueDraftForRetry,
+  removeOutboxForReport,
   saveDraftLocally,
 } from "./draft-outbox";
 
@@ -44,6 +48,8 @@ beforeEach(() => {
   installLocalStorage();
   mocks.countOutboxForUser.mockResolvedValue(0);
   mocks.listOutboxForUser.mockResolvedValue([]);
+  mocks.listOutbox.mockResolvedValue([]);
+  mocks.removeOutbox.mockResolvedValue(undefined);
 });
 
 describe("offline outbox – brukerscoping", () => {
@@ -112,5 +118,50 @@ describe("offline outbox – brukerscoping", () => {
 
     expect(mocks.clearOfflineDataForUser).toHaveBeenCalledWith("u1");
     expect(currentOfflineUserId()).toBeNull();
+  });
+});
+
+describe("offline outbox – rapportopprydding", () => {
+  it("gjenkjenner en outbox-oppføring for samme oppdrag og mal", () => {
+    const payload = JSON.stringify({
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      notes: "Kladd",
+    });
+
+    expect(payloadMatchesReport(payload, "wo1", "tpl1")).toBe(true);
+    expect(payloadMatchesReport(payload, "wo2", "tpl1")).toBe(false);
+    expect(payloadMatchesReport("ikke-json", "wo1", "tpl1")).toBe(false);
+  });
+
+  it("fjerner bare oppføringer som hører til den innsendte rapporten", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    mocks.listOutboxForUser.mockResolvedValue([
+      {
+        id: "a",
+        payload: JSON.stringify({ workOrderId: "wo1", templateId: "tpl1" }),
+        createdAt: 1,
+        attempts: 0,
+      },
+      {
+        id: "b",
+        payload: JSON.stringify({ workOrderId: "wo1", templateId: "tpl2" }),
+        createdAt: 2,
+        attempts: 0,
+      },
+      {
+        id: "c",
+        payload: "ugyldig",
+        createdAt: 3,
+        attempts: 0,
+      },
+    ]);
+
+    await expect(
+      removeOutboxForReport({ workOrderId: "wo1", templateId: "tpl1" }),
+    ).resolves.toBe(1);
+    expect(mocks.listOutboxForUser).toHaveBeenCalledWith("u1");
+    expect(mocks.removeOutbox).toHaveBeenCalledTimes(1);
+    expect(mocks.removeOutbox).toHaveBeenCalledWith("a");
   });
 });
