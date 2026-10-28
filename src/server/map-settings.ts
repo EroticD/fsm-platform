@@ -182,6 +182,7 @@ export async function saveMapSettings(
     });
   });
 
-  const { apiKey: _key, ...safe } = settings;
+  const { apiKey: savedApiKey, ...safe } = settings;
+  void savedApiKey;
   return ok({ ...safe, hasApiKey: Boolean(settings.apiKey) });
 }
