@@ -18,6 +18,7 @@ import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answ
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
+import { allowedTransitions } from "@/lib/work-order-status";
 import {
   addContactToCustomer,
   assignTechnician,
@@ -401,9 +402,12 @@ export default async function AdminWorkOrderPage({
   const isClosed =
     workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED";
   const canUpdate = hasPermission(user, "workorders.update");
+  // Kansellering krever workorders.edit, også når administrator gjenåpner et
+  // lukket oppdrag til en annen lukket status.
+  const canCancel = hasPermission(user, "workorders.edit");
   // Selve oppdraget låses først når det er fullført. En låst rapport skal
   // ikke hindre redigering av et oppdrag som fortsatt er under arbeid.
-  const canEdit = hasPermission(user, "workorders.edit") && !isClosed;
+  const canEdit = canCancel && !isClosed;
   const canModify = canUpdate && !isClosed;
   const canAssign = hasPermission(user, "workorders.assign") && !isClosed;
   const canDeleteWorkOrder = hasPermission(user, "workorders.delete") && !isClosed;
@@ -430,15 +434,13 @@ export default async function AdminWorkOrderPage({
     "COMPLETED",
     "CANCELLED",
   ];
-  const rawStatusOptions = isClosed
-    ? isAdmin
-      ? statusOrder.filter((status) => status !== workOrder.status)
-      : []
-    : statusOrder.filter(
-        (status) =>
-          status !== workOrder.status &&
-          (status !== "CANCELLED" || canEdit),
-      );
+  // Alle åpne statuser kan velges fritt, i tillegg til fullført/kansellert.
+  // En låst rapport påvirker ikke valgene – den låser bare rapporten.
+  const allowed = new Set(allowedTransitions(workOrder.status, isAdmin));
+  const rawStatusOptions = statusOrder.filter(
+    (status) =>
+      allowed.has(status) && (status !== "CANCELLED" || canCancel),
+  );
   // PENDING og WAITING er begge «Venter»; vis bare én valgmulighet.
   const seenStatusLabels = new Set<string>();
   const statusOptions = rawStatusOptions.filter((status) => {

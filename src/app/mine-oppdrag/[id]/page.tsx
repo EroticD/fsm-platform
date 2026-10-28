@@ -17,6 +17,7 @@ import SubmitButton from "@/components/SubmitButton";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
+import { allowedTransitions } from "@/lib/work-order-status";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
 import {
   HMS_TYPE_MESSAGE_KEYS,
@@ -115,11 +116,14 @@ export default async function TechnicianWorkOrderPage({
     "COMPLETED",
     "CANCELLED",
   ];
+  // Alle åpne statuser kan velges fritt, i tillegg til fullført/kansellert.
+  // En låst rapport påvirker ikke valgene – den låser bare rapporten.
+  const allowed = new Set(allowedTransitions(workOrder.status, isAdmin));
   const rawStatusOptions = isClosed
     ? []
     : statusOrder.filter(
         (status) =>
-          status !== workOrder.status &&
+          allowed.has(status) &&
           (status !== "CANCELLED" || canEdit),
       );
   const seenStatusLabels = new Set<string>();
