@@ -103,7 +103,12 @@
       "empty": "Ingen oppdrag med adresse ennå.",
       "noCustomer": "Uten kunde",
       "openMaps": "Åpne i Maps",
-      "unknownCity": "Ukjent sted"
+      "unknownCity": "Ukjent sted",
+      "mapHint": "Markørene er plassert på kundens by. Klikk en markør for å åpne oppdraget.",
+      "mapAria": "Kart over oppdrag",
+      "noMapPoints": "Ingen oppdrag kunne plasseres på kartet fordi kunden mangler en kjent by.",
+      "noDate": "Ingen dato",
+      "openWorkOrder": "Åpne oppdrag"
     }
   }
 }

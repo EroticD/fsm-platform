@@ -18,7 +18,8 @@ export function buildCsp(nonce: string): string {
     scriptSrc,
     // Tailwind og FullCalendar setter inline-stiler. Stiler er ikke script.
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // Kartfliser fra OpenStreetMap. Bare bilder – ikke script eller data.
+    "img-src 'self' data: blob: https://tile.openstreetmap.org",
     "font-src 'self'",
     "connect-src 'self'",
     "frame-src 'self' blob:",

@@ -13,7 +13,7 @@ describe("buildCsp", () => {
     for (const directive of [
       "default-src 'self'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://tile.openstreetmap.org",
       "font-src 'self'",
       "connect-src 'self'",
       "frame-src 'self' blob:",

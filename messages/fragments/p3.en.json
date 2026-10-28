@@ -103,7 +103,12 @@
       "empty": "No work orders with an address yet.",
       "noCustomer": "No customer",
       "openMaps": "Open in Maps",
-      "unknownCity": "Unknown location"
+      "unknownCity": "Unknown location",
+      "mapHint": "Markers are placed at the customer city. Click a marker to open the work order.",
+      "mapAria": "Map of work orders",
+      "noMapPoints": "No work orders could be placed on the map because the customer has no known city.",
+      "noDate": "No date",
+      "openWorkOrder": "Open work order"
     }
   }
 }

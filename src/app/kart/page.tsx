@@ -6,11 +6,14 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import prisma from "@/lib/prisma";
+import WorkOrderMap from "@/components/WorkOrderMap";
+import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 
 type MapWorkOrder = {
   id: string;
   title: string;
   scheduledFor: Date | null;
+  status: string;
   customer: {
     name: string;
     address: string | null;
@@ -26,20 +29,61 @@ export default async function MapPage() {
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const workOrders = (await prisma.workOrder.findMany({
-    where: {
-      AND: [workOrderScope(user), { scheduledFor: { not: null } }],
-    },
+    where: workOrderScope(user),
     select: {
       id: true,
       title: true,
       scheduledFor: true,
+      status: true,
       customer: {
         select: { name: true, address: true, postalCode: true, city: true },
       },
     },
-    orderBy: { scheduledFor: "asc" },
-    take: 200,
+    orderBy: [{ scheduledFor: "asc" }, { createdAt: "desc" }],
+    take: 1000,
   })) as MapWorkOrder[];
+
+  const statusLabel = (status: string) => {
+    const keys: Record<string, string> = {
+      OPEN: "orders.detail.statusOpen",
+      PENDING: "orders.detail.statusPending",
+      PLANNED: "orders.detail.statusPlanned",
+      WAITING: "orders.detail.statusWaiting",
+      IN_PROGRESS: "orders.detail.statusInProgress",
+      COMPLETED: "orders.detail.statusCompleted",
+      CANCELLED: "orders.detail.statusCancelled",
+    };
+    return keys[status] ? t(keys[status]) : status;
+  };
+
+  const cityIndexes = new Map<string, number>();
+  const mapPoints = workOrders.flatMap((workOrder) => {
+    const city = workOrder.customer?.city?.trim();
+    const center = cityCoordinates(city);
+    if (!center || !city) return [];
+    const index = cityIndexes.get(city) ?? 0;
+    cityIndexes.set(city, index + 1);
+    const point = offsetCityPoint(center, index);
+    const customer = workOrder.customer;
+    const address = customer
+      ? [customer.address, customer.postalCode, customer.city]
+          .filter(Boolean)
+          .join(", ")
+      : "";
+    return [{
+      id: workOrder.id,
+      title: workOrder.title,
+      href: `/oppdrag/${workOrder.id}`,
+      customerName: customer?.name || t("p3.map.noCustomer"),
+      address,
+      date: workOrder.scheduledFor
+        ? formatDate(workOrder.scheduledFor)
+        : t("p3.map.noDate"),
+      status: statusLabel(workOrder.status),
+      lat: point.lat,
+      lng: point.lng,
+    }];
+  });
 
   const groups = new Map<string, MapWorkOrder[]>();
   for (const workOrder of workOrders) {
@@ -63,6 +107,16 @@ export default async function MapPage() {
           {t("p3.map.calendar")}
         </Link>
       </div>
+
+      <section className="space-y-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
+        <WorkOrderMap
+          points={mapPoints}
+          ariaLabel={t("p3.map.mapAria")}
+          noPointsLabel={t("p3.map.noMapPoints")}
+          openLabel={t("p3.map.openWorkOrder")}
+        />
+        <p className="px-1 text-xs text-gray-600">{t("p3.map.mapHint")}</p>
+      </section>
 
       {groups.size === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
