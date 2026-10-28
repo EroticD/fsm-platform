@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
-import { isStaff } from "@/lib/session";
+import { getCurrentUser, isStaff } from "@/lib/session";
+import { effectivePermissions } from "@/lib/permissions";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
 import BrandingColors from "@/components/BrandingColors";
@@ -48,10 +50,15 @@ export const viewport = {
   themeColor: "#0F2E4C",
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const t = await getTranslations("common");
   const session = await getServerSession(authOptions);
+  const currentUser = await getCurrentUser();
+  const permissions = currentUser
+    ? Array.from(effectivePermissions(currentUser))
+    : [];
 
   return (
     <html
@@ -64,16 +71,22 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-gray-900 focus:shadow-lg"
         >
-          Hopp til innhold
+          {t("components.header.skipToContent")}
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
             <BrandingColors />
             <OfflineBanner />
-            <BrandedHeader showNav role={session?.user?.role} />
+            <BrandedHeader
+              showNav
+              role={currentUser?.role ?? session?.user?.role}
+              permissions={permissions}
+            />
             {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}
-            {isStaff(session?.user?.role) && <RealtimeRefresh />}
+            {isStaff(currentUser?.role ?? session?.user?.role) && (
+              <RealtimeRefresh />
+            )}
             <main id="main-content" className="flex-1">
               {children}
             </main>

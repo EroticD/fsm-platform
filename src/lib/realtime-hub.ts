@@ -14,9 +14,51 @@ import {
  * per prosess og sprer bare kategori-navnet videre i minnet – aldri data.
  */
 
-/** Maks samtidige SSE-tilkoblinger per bruker og per IP. */
-export const MAX_SSE_PER_USER = 3;
-export const MAX_SSE_PER_IP = 3;
+/**
+ * Standardgrenser for samtidige SSE-tilkoblinger.
+ *
+ * Hver åpne fane holder én strøm, så tre var for lavt for vanlige
+ * arbeidsdager med flere faner. Grensene kan justeres med miljøvariablene
+ * `REALTIME_MAX_SSE_PER_USER` og `REALTIME_MAX_SSE_PER_IP`, men er alltid
+ * begrenset oppover slik at en feilkonfigurasjon ikke kan tømme prosessen.
+ */
+export const DEFAULT_MAX_SSE_PER_USER = 10;
+export const DEFAULT_MAX_SSE_PER_IP = 100;
+export const MAX_SSE_PER_USER_CAP = 50;
+export const MAX_SSE_PER_IP_CAP = 1_000;
+
+// Bakoverkompatible navn for kall som bare leser standardverdiene.
+export const MAX_SSE_PER_USER = DEFAULT_MAX_SSE_PER_USER;
+export const MAX_SSE_PER_IP = DEFAULT_MAX_SSE_PER_IP;
+
+function readLimit(
+  raw: string | undefined,
+  fallback: number,
+  cap: number,
+): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, cap);
+}
+
+/** Leser gjeldende grenser, slik at env-endringer virker uten ny import. */
+export function realtimeLimits(env: NodeJS.ProcessEnv = process.env): {
+  perUser: number;
+  perIp: number;
+} {
+  return {
+    perUser: readLimit(
+      env.REALTIME_MAX_SSE_PER_USER,
+      DEFAULT_MAX_SSE_PER_USER,
+      MAX_SSE_PER_USER_CAP,
+    ),
+    perIp: readLimit(
+      env.REALTIME_MAX_SSE_PER_IP,
+      DEFAULT_MAX_SSE_PER_IP,
+      MAX_SSE_PER_IP_CAP,
+    ),
+  };
+}
 
 type Subscriber = (kind: RealtimeKind) => void;
 
@@ -70,12 +112,13 @@ export type RealtimeSlot = { userId: string; ip?: string };
 /** Prøver å reservere en plass. Returnerer false når grensen er nådd. */
 export function acquireRealtimeSlot(slot: RealtimeSlot): boolean {
   const state = hub();
+  const limits = realtimeLimits();
   const userCount = state.userCounts.get(slot.userId) ?? 0;
-  if (userCount >= MAX_SSE_PER_USER) return false;
+  if (userCount >= limits.perUser) return false;
 
   if (slot.ip) {
     const ipCount = state.ipCounts.get(slot.ip) ?? 0;
-    if (ipCount >= MAX_SSE_PER_IP) return false;
+    if (ipCount >= limits.perIp) return false;
   }
 
   state.userCounts.set(slot.userId, userCount + 1);

@@ -6,6 +6,7 @@ import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { useToast } from '@/components/ToastProvider';
 
 type EventData = {
   id: string;
@@ -24,6 +25,7 @@ export default function CalendarClient({
   const calendarEl = useRef<HTMLDivElement>(null);
   const t = useTranslations("common");
   const locale = useLocale();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!calendarEl.current) return;
@@ -69,7 +71,7 @@ export default function CalendarClient({
           } catch (error) {
             // Hvis noe går galt på serveren, spretter oppdraget tilbake til der det var
             info.revert();
-            alert(t("calendar.client.saveError"));
+            toast(t("calendar.client.saveError"), "error");
           } finally {
             document.body.style.cursor = 'default';
           }
@@ -82,7 +84,7 @@ export default function CalendarClient({
     return () => {
       calendar.destroy();
     };
-  }, [events, updateEventDate, t, locale]);
+  }, [events, updateEventDate, t, locale, toast]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border text-gray-800">

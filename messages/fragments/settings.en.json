@@ -146,6 +146,13 @@
         "created": "The role was created.",
         "updated": "The role was updated.",
         "deleted": "The role was deleted."
+      },
+      "builtIn": {
+        "admin": "Administrator",
+        "office": "Office",
+        "technician": "Technician",
+        "customer": "Customer",
+        "user": "User"
       }
     },
     "departments": {
@@ -265,6 +272,96 @@
       "reportNameHint": "The name shown in the PDF and report lists. Empty uses the checklist name.",
       "requiresUnits": "Link the report to equipment units",
       "requiresUnitsHint": "Turn off when the report does not concern specific units. The checkpoints are then completed once for the whole work order."
+    },
+    "permissions": {
+      "groups": {
+        "workOrders": "Work orders",
+        "customersEquipment": "Customers and equipment",
+        "reportsDocuments": "Reports and documents",
+        "administration": "Administration"
+      },
+      "items": {
+        "workorders_view": {
+          "label": "View work orders",
+          "description": "View work orders belonging to your own department."
+        },
+        "workorders_create": {
+          "label": "Create work orders",
+          "description": "Create new work orders in your own department."
+        },
+        "workorders_update": {
+          "label": "Update work orders",
+          "description": "Change status, comments, attachments and checklists on work orders in your own department."
+        },
+        "workorders_edit": {
+          "label": "Edit work orders",
+          "description": "Change title, customer, date, contact person, tags, templates and cancel work orders."
+        },
+        "workorders_assign": {
+          "label": "Assign technicians",
+          "description": "Assign and remove technicians on work orders in your own department."
+        },
+        "workorders_delete": {
+          "label": "Delete work orders",
+          "description": "Delete work orders and everything related (reports, comments, attachments). Administrator only by default."
+        },
+        "customers_view": {
+          "label": "View customers",
+          "description": "View customer cards, contacts, agreements and history."
+        },
+        "customers_manage": {
+          "label": "Manage customers",
+          "description": "Create and change customers, contacts, service agreements and customer portal users."
+        },
+        "equipment_view": {
+          "label": "View equipment",
+          "description": "View equipment and service history."
+        },
+        "equipment_manage": {
+          "label": "Manage equipment",
+          "description": "Add and change equipment on customer cards."
+        },
+        "reports_view": {
+          "label": "View reports",
+          "description": "View and download service reports from all departments."
+        },
+        "reports_write": {
+          "label": "Fill in reports",
+          "description": "Fill in and save checklists on work orders in your own department."
+        },
+        "documents_view": {
+          "label": "View documents",
+          "description": "Use the document library and view generated documents."
+        },
+        "documents_manage": {
+          "label": "Manage documents",
+          "description": "Upload, edit and organise documents and folders."
+        },
+        "templates_view": {
+          "label": "View checklists",
+          "description": "View available checklists and templates."
+        },
+        "templates_manage": {
+          "label": "Manage checklists",
+          "description": "Create and edit checklists, templates and tags."
+        },
+        "users_view": {
+          "label": "View employees",
+          "description": "View employees, roles and department affiliation in your own department."
+        },
+        "users_manage": {
+          "label": "Manage employees",
+          "description": "Create users, change roles and send invitations in your own department. Only administrators can move employees between departments."
+        },
+        "settings_manage": {
+          "label": "Manage settings",
+          "description": "Change branding and system settings."
+        },
+        "audit_view": {
+          "label": "View activity log",
+          "description": "View the system activity log."
+        }
+      }
     }
   },
   "users": {

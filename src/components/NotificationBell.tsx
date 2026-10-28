@@ -18,13 +18,15 @@ import { isNotificationSoundEnabled } from "@/lib/notification-sound-preference"
  * fallback, og henter på nytt når realtime-laget varsler om endringer.
  * Spiller en kort lyd når antallet øker etter første innlasting.
  */
-export default function NotificationBell() {
+export default function NotificationBell({ role }: { role?: string }) {
   const t = useTranslations("common");
+  const isCustomer = role === "CUSTOMER";
   const [count, setCount] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const previousCountRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (isCustomer) return;
     let active = true;
     let latestRequest = 0;
 
@@ -64,9 +66,10 @@ export default function NotificationBell() {
       window.clearInterval(interval);
       window.removeEventListener(NOTIFICATION_REALTIME_EVENT, onRealtime);
     };
-  }, []);
+  }, [isCustomer]);
 
   useEffect(() => {
+    if (isCustomer) return;
     // Nettlesere blokkerer lyd til brukeren har samhandlet med siden. Lås opp
     // AudioContext på første gesture, og slutt å lytte når det er gjort.
     const unlock = () => {
@@ -88,7 +91,9 @@ export default function NotificationBell() {
       }
       audioContextRef.current = null;
     };
-  }, []);
+  }, [isCustomer]);
+
+  if (isCustomer) return null;
 
   return (
     <Link

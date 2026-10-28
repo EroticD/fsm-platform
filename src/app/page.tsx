@@ -2,16 +2,16 @@ import { redirect } from "next/navigation";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { type Prisma, WorkStatus } from "@prisma/client";
 import StatusBadge from "@/components/StatusBadge";
 import KpiCard from "@/components/KpiCard";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
-  formatDate,
-  formatDateRange,
-  formatDateTime,
+  formatDateLocalized,
+  formatDateRangeLocalized,
+  formatDateTimeLocalized,
   parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
@@ -47,10 +47,18 @@ type OrderWith = {
 };
 
 // Kompakt oppdragsliste brukt i flere av dashbord-panelene.
-async function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string }) {
+async function OrderList({
+  orders,
+  empty,
+  locale,
+}: {
+  orders: OrderWith[];
+  empty: string;
+  locale: string;
+}) {
   const t = await getTranslations("common");
   if (orders.length === 0) {
-    return <p className="text-xs text-gray-500 italic">{empty}</p>;
+    return <p className="text-xs text-gray-600 italic">{empty}</p>;
   }
   return (
     <div className="space-y-2">
@@ -66,21 +74,21 @@ async function OrderList({ orders, empty }: { orders: OrderWith[]; empty: string
             <span className="font-bold text-gray-900 text-sm truncate">{wo.title}</span>
             <StatusBadge status={wo.status} />
           </div>
-          <p className="text-[10px] text-gray-500 mt-1">
-            🏢 {wo.customer?.name || t("dashboard.orderList.noCustomer")} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("dashboard.orderList.noDate")}
+          <p className="text-xs text-gray-600 mt-1">
+            🏢 {wo.customer?.name || t("dashboard.orderList.noCustomer")} • 📅 {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("dashboard.orderList.noDate")}
             {wo.technicians.length === 0
               ? ` • ${t("dashboard.orderList.unassigned")}`
               : ` • 👷 ${wo.technicians.map((tech) => tech.name?.split(" ")[0]).filter(Boolean).join(", ")}`}
           </p>
           {address && (
-            <p className="text-[10px] text-gray-500 mt-0.5">📍 {address}</p>
+            <p className="text-xs text-gray-600 mt-0.5">📍 {address}</p>
           )}
           {wo.tags && wo.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {wo.tags.map((tag: any) => (
                 <span
                   key={tag.id}
-                  className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                  className="px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
                   suppressHydrationWarning
                   style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                 >
@@ -111,6 +119,7 @@ const STATUS_OPTIONS = [
 const OFFICE_ACTIONS = [
   { href: "/oppdrag/ny", icon: "➕", labelKey: "dashboard.quickActions.newWorkOrder" },
   { href: "/kalender", icon: "📅", labelKey: "dashboard.quickActions.calendar" },
+  { href: "/kart", icon: "🗺️", labelKey: "dashboard.quickActions.map" },
   { href: "/kalender/dispatch", icon: "🎛️", labelKey: "dashboard.quickActions.dispatch" },
   { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
   { href: "/dokumenter", icon: "📚", labelKey: "dashboard.quickActions.documents" },
@@ -125,6 +134,7 @@ const FIELD_ACTIONS = [
   { href: "/mine-oppdrag", icon: "📋", labelKey: "dashboard.quickActions.myWorkOrders" },
   { href: "/oppdrag", icon: "📂", labelKey: "dashboard.quickActions.allWorkOrders" },
   { href: "/kalender", icon: "📅", labelKey: "dashboard.quickActions.calendar" },
+  { href: "/kart", icon: "🗺️", labelKey: "dashboard.quickActions.map" },
   { href: "/kunder", icon: "🏢", labelKey: "dashboard.quickActions.customers" },
   { href: "/enheter", icon: "🔧", labelKey: "dashboard.quickActions.equipment" },
   { href: "/rapporter", icon: "📄", labelKey: "dashboard.quickActions.reports" },
@@ -141,6 +151,7 @@ export default async function AdminDashboard({
   if (!user) redirect("/api/auth/signin");
 
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   // Dashbordet bygger på oppdrag. En bruker med utvidede rettigheter, men uten
   // oppdragstilgang, sendes til den første siden vedkommende faktisk kan bruke.
@@ -165,6 +176,7 @@ export default async function AdminDashboard({
   // Vis bare hurtighandlinger brukeren faktisk har tilgang til.
   const allowedHrefs = new Set<string>([
     "/kalender",
+    "/kart",
     "/oppdrag",
     "/mine-oppdrag",
   ]);
@@ -200,6 +212,14 @@ export default async function AdminDashboard({
     ? {}
     : { status: { not: "CANCELLED" } };
   const scope = workOrderScope(user);
+  // Kunde- og enhets-KPI-ene skal følge samme avdelingssperre som oppdragene.
+  // Administrator ser hele organisasjonen; andre ser egen avdeling.
+  const organisationScope: Prisma.CustomerWhereInput =
+    user.role === "ADMIN"
+      ? {}
+      : user.departmentId
+        ? { departmentId: user.departmentId }
+        : { id: { in: [] } };
 
   const branding = await prisma.branding.findFirst();
   const companyName = branding?.companyName || "FSM System";
@@ -283,6 +303,7 @@ export default async function AdminDashboard({
 
   const [
     todayOrders,
+    todayCount,
     overdueCount,
     overdueOrders,
     unassignedCount,
@@ -300,6 +321,7 @@ export default async function AdminDashboard({
       take: 100,
       include: { customer: true, technicians: true, tags: true },
     }),
+    prisma.workOrder.count({ where: todayWhere }),
     prisma.workOrder.count({ where: overdueWhere }),
     prisma.workOrder.findMany({
       where: overdueWhere,
@@ -334,9 +356,14 @@ export default async function AdminDashboard({
       take: 8,
       include: { customer: true, technicians: true, tags: true },
     }),
-    prisma.report.count({ where: { completedAt: { gte: startOfMonth } } }),
-    prisma.customer.count(),
-    prisma.product.count(),
+    prisma.report.count({
+      where: {
+        completedAt: { gte: startOfMonth },
+        workOrder: workOrderScope(user),
+      },
+    }),
+    prisma.customer.count({ where: organisationScope }),
+    prisma.product.count({ where: { customer: organisationScope } }),
     canViewAudit
       ? prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8 })
       : Promise.resolve([]),
@@ -370,17 +397,17 @@ export default async function AdminDashboard({
             <h1 className="text-2xl md:text-3xl font-black text-gray-900">
               {t("dashboard.greeting", { name: user?.name?.split(" ")[0] || t("admin") })}
             </h1>
-            <p className="text-gray-500 mt-1 font-medium text-sm">
+            <p className="text-gray-600 mt-1 font-medium text-sm">
               {t("dashboard.adminOf", { companyName })}
               {" • "}
-              {formatDate(startOfToday, t("dashboard.orderList.noDate"))}
+              {formatDateLocalized(startOfToday, locale, undefined, t("dashboard.orderList.noDate"))}
             </p>
           </div>
           <div className="flex gap-2">
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-sm whitespace-nowrap"
               >
                 {t("dashboard.newWorkOrder")}
               </Link>
@@ -396,7 +423,7 @@ export default async function AdminDashboard({
 
         {/* HURTIGHANDLINGER */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-2">{t("dashboard.quickActionsTitle")}</h2>
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-gray-600 mb-2">{t("dashboard.quickActionsTitle")}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {quickActions.map((a) => (
               <Link
@@ -432,8 +459,8 @@ export default async function AdminDashboard({
           <KpiCard
             icon="📅"
             label={t("dashboard.kpi.today")}
-            value={todayOrders.length}
-            sub={formatDate(startOfToday, t("dashboard.orderList.noDate"))}
+            value={todayCount}
+            sub={formatDateLocalized(startOfToday, locale, undefined, t("dashboard.orderList.noDate"))}
             tone="gray"
             href="/oppdrag?vis=idag"
           />
@@ -491,19 +518,19 @@ export default async function AdminDashboard({
                 {t("dashboard.calendarLink")}
               </Link>
             </div>
-            <OrderList orders={todayOrders} empty={t("dashboard.todayEmpty")} />
+            <OrderList orders={todayOrders} empty={t("dashboard.todayEmpty")} locale={locale} />
           </div>
 
           <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <h2 className="font-black text-gray-900 text-base">{t("dashboard.overdueTitle")}</h2>
               {overdueCount > 0 && (
-                <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
                   {overdueCount}
                 </span>
               )}
             </div>
-            <OrderList orders={overdueOrders} empty={t("dashboard.overdueEmpty")} />
+            <OrderList orders={overdueOrders} empty={t("dashboard.overdueEmpty")} locale={locale} />
           </div>
         </div>
 
@@ -520,6 +547,7 @@ export default async function AdminDashboard({
           <OrderList
             orders={unassignedOrders}
             empty={t("dashboard.unassignedEmpty")}
+            locale={locale}
           />
         </div>
 
@@ -527,7 +555,7 @@ export default async function AdminDashboard({
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="font-black text-gray-900 text-base">{t("dashboard.ordersTitle")}</h2>
-            <span className="text-[11px] text-gray-500">{t("dashboard.hits", { count: listTotal })}</span>
+            <span className="text-[11px] text-gray-600">{t("dashboard.hits", { count: listTotal })}</span>
           </div>
 
           <form method="GET" action="/" className="flex flex-col sm:flex-row gap-2 sm:gap-3">
@@ -569,7 +597,7 @@ export default async function AdminDashboard({
 
           {listOrders.length === 0 ? (
             <div className="p-6 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <p className="text-gray-500 font-medium">{t("dashboard.noMatches")}</p>
+              <p className="text-gray-600 font-medium">{t("dashboard.noMatches")}</p>
               {canCreate && (
                 <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className="text-blue-600 font-bold hover:underline mt-2 inline-block">
                   {t("dashboard.createNew")}
@@ -589,19 +617,19 @@ export default async function AdminDashboard({
                       <h3 className="font-bold text-gray-900 text-base truncate">{wo.title}</h3>
                       <StatusBadge status={wo.status} />
                     </div>
-                    <p className="text-[10px] text-gray-500">
-                      🏢 {wo.customer?.name || t("dashboard.orderList.noCustomer")} • 📅 {formatDateRange(wo.scheduledFor, wo.scheduledTo) || t("dashboard.orderList.noDate")}
+                    <p className="text-xs text-gray-600">
+                      🏢 {wo.customer?.name || t("dashboard.orderList.noCustomer")} • 📅 {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("dashboard.orderList.noDate")}
                       {wo._count.reports > 0 ? ` • ${t("dashboard.checklists", { count: wo._count.reports })}` : ""}
                     </p>
                     {formatAddress(wo.customer) && (
-                      <p className="text-[10px] text-gray-500">📍 {formatAddress(wo.customer)}</p>
+                      <p className="text-xs text-gray-600">📍 {formatAddress(wo.customer)}</p>
                     )}
                     {wo.tags && wo.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {wo.tags.map((tag: any) => (
                           <span
                             key={tag.id}
-                            className="px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm"
+                            className="px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
                             suppressHydrationWarning
                             style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                           >
@@ -611,9 +639,9 @@ export default async function AdminDashboard({
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-[10px]">
+                  <div className="flex items-center gap-3 text-xs">
                     <div className="text-gray-600">
-                      <p className="font-bold text-gray-700 text-[10px] uppercase tracking-wider">{t("dashboard.technicians")}</p>
+                      <p className="font-bold text-gray-700 text-xs uppercase tracking-wider">{t("dashboard.technicians")}</p>
                       <p className="truncate">
                         {wo.technicians.length > 0 ? (
                           wo.technicians.map((tech) => tech.name?.split(" ")[0]).filter(Boolean).join(", ")
@@ -622,7 +650,7 @@ export default async function AdminDashboard({
                         )}
                       </p>
                     </div>
-                    <div className="text-gray-400 font-bold">&rarr;</div>
+                    <div className="text-gray-600 font-bold">&rarr;</div>
                   </div>
                 </Link>
               ))}
@@ -664,7 +692,7 @@ export default async function AdminDashboard({
               </Link>
             </div>
             {recentLogs.length === 0 ? (
-              <p className="text-xs text-gray-500 italic">{t("dashboard.noActivity")}</p>
+              <p className="text-xs text-gray-600 italic">{t("dashboard.noActivity")}</p>
             ) : (
               <ol className="space-y-2">
                 {recentLogs.map((log) => (
@@ -672,8 +700,8 @@ export default async function AdminDashboard({
                     <span className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-gray-800 font-medium">{log.action}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {log.userName || t("dashboard.unknownUser")} • {formatDateTime(log.createdAt)}
+                      <p className="text-xs text-gray-600">
+                        {log.userName || t("dashboard.unknownUser")} • {formatDateTimeLocalized(log.createdAt, locale)}
                       </p>
                     </div>
                   </li>

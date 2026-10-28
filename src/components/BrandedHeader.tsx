@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -8,70 +8,26 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 import NotificationSoundToggle from "./NotificationSoundToggle";
-import { clearOfflineCaches } from "@/lib/offline/cache";
+import LogoutButton from "./LogoutButton";
+import { readableTextColor } from "@/lib/colors";
+import {
+  activeNavHref,
+  navItemsFor,
+  type NavItem,
+} from "@/lib/navigation";
 
-type NavItem = {
-  href: string;
-  label?: string;
-  labelKey?: string;
-  icon: string;
-};
-
-// Kontor og admin: full oversikt, inkludert kontorverktøyene.
-const NAV_ITEMS: NavItem[] = [
-  { href: "/", labelKey: "dashboard", icon: "🏠" },
-  { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
-  { href: "/kalender", labelKey: "calendar", icon: "📅" },
-  { href: "/kunder", labelKey: "customers", icon: "🏢" },
-  { href: "/dokumenter", labelKey: "documents", icon: "📚" },
-  { href: "/oppdrag/ny", labelKey: "newWorkOrder", icon: "" },
-  { href: "/innstillinger", labelKey: "settings", icon: "⚙️" },
-];
-
-// Montører: alt som er relevant ute hos kunden – kundeinfo, oppdrag, enheter og
-// rapporter. Dispatch, ansatte, maler og innstillinger er kontorverktøy og
-// utelates helt, slik at menyen ikke peker på sider de ikke kommer inn på.
-const TECHNICIAN_NAV: NavItem[] = [
-  { href: "/", labelKey: "dashboard", icon: "🏠" },
-  { href: "/mine-oppdrag", labelKey: "myWorkOrders", icon: "📋" },
-  { href: "/oppdrag", labelKey: "workOrders", icon: "📂" },
-  { href: "/kalender", labelKey: "calendar", icon: "📅" },
-  { href: "/kunder", labelKey: "customers", icon: "🏢" },
-  { href: "/dokumenter", labelKey: "documents", icon: "📚" },
-  { href: "/enheter", labelKey: "equipment", icon: "🔧" },
-  { href: "/rapporter", labelKey: "reports", icon: "📄" },
-  { href: "/mine-oppdrag/ny", labelKey: "newWorkOrder", icon: "" },
-];
-
-// Kundeportalbrukere har bare sin egen portal.
-const CUSTOMER_NAV: NavItem[] = [
-  { href: "/kundeportal", labelKey: "customerPortal", icon: "👤" },
-];
-
-function navItemsFor(role?: string): NavItem[] {
-  if (role === "TECHNICIAN") return TECHNICIAN_NAV;
-  if (role === "CUSTOMER") return CUSTOMER_NAV;
-  return NAV_ITEMS;
-}
-
-function handleLogoutSubmit(event: FormEvent<HTMLFormElement>) {
-  const form = event.currentTarget;
-  if (form.dataset.cleared === "1") return;
-  event.preventDefault();
-  void clearOfflineCaches().finally(() => {
-    form.dataset.cleared = "1";
-    form.requestSubmit();
-  });
-}
+const MOBILE_MENU_ID = "mobile-navigation";
 
 export default function BrandedHeader({
   title,
   showNav = true,
   role,
+  permissions,
 }: {
   title?: string;
   showNav?: boolean;
   role?: string;
+  permissions?: string[];
 }) {
   const t = useTranslations("common");
   const [branding, setBranding] = useState<{
@@ -85,7 +41,18 @@ export default function BrandedHeader({
   const [primaryColor, setPrimaryColor] = useState("#2563eb");
   const pathname = usePathname();
   const isMobileMenuOpen = openMenuForPath === pathname;
+  const menuRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
   const closeMobileMenu = () => setOpenMenuForPath(null);
+  const isCustomer = role === "CUSTOMER";
+
+  const navItems = useMemo(
+    () => (showNav ? navItemsFor(role, permissions) : []),
+    [role, permissions, showNav],
+  );
+  const activeHref = activeNavHref(navItems, pathname);
 
   // Innloggings- og kontosidene skal stå alene uten app-navigasjon.
   const isAuthRoute = [
@@ -118,21 +85,79 @@ export default function BrandedHeader({
       });
   }, []);
 
+  // Fokus flyttes inn i menyen når den åpnes, og tilbake til knappen når den
+  // lukkes. Selve menyen er en dialog, så Tab holder seg innenfor.
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMobileMenu();
+        return;
+      }
+      if (event.key !== "Tab" || !menuRef.current) return;
+
+      const focusable = Array.from(
+        menuRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (menuRef.current?.contains(target)) return;
+      if (toggleRef.current?.contains(target)) return;
+      closeMobileMenu();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      wasOpenRef.current = true;
+      return;
+    }
+    if (wasOpenRef.current) {
+      wasOpenRef.current = false;
+      toggleRef.current?.focus();
+    }
+  }, [isMobileMenuOpen]);
+
   if (isAuthRoute) return null;
 
   const companyName = branding?.companyName || "FSM System";
   const logoUrl = branding?.logoUrl || null;
   const pc = branding?.primaryColor || primaryColor;
+  const activeTextColor = readableTextColor(pc);
 
   return (
     <div className="flex flex-col gap-0">
       {/* Top bar: Logo + Company + Global Navigation */}
-      <div
-        className="flex justify-between items-center border-none outline-none py-6 px-4 sm:px-6 lg:px-8 bg-white"
-      >
+      <div className="flex justify-between items-center border-none outline-none py-6 px-4 sm:px-6 lg:px-8 bg-white">
         {/* Logo + Company name (clickable to dashboard) - ALWAYS visible */}
         <Link
-          href="/"
+          href={isCustomer ? "/kundeportal" : "/"}
           className="flex items-center gap-3"
           suppressHydrationWarning
           style={{ color: pc }}
@@ -167,25 +192,41 @@ export default function BrandedHeader({
         {/* Desktop navigation */}
         {showNav && (
           <div className="hidden lg:flex gap-1">
-            <GlobalNavDesktop primaryColor={pc} role={role} />
+            <GlobalNavDesktop
+              items={navItems}
+              activeHref={activeHref}
+              primaryColor={pc}
+              activeTextColor={activeTextColor}
+              onLogout={closeMobileMenu}
+            />
           </div>
         )}
 
-        {/* Varsler, lyd og språk. Bjellen er alltid synlig, også på mobil,
-            slik at nye varsler ikke bare kan oppdages i menyen. */}
+        {/* Varsler og lyd er bare relevante for interne roller. Kundeportalen
+            har ingen varsler i proxyen, så bjellen skjules helt der. */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <NotificationBell />
-          <div className="hidden sm:flex items-center gap-2">
-            <NotificationSoundToggle compact />
-            <LanguageSwitcher />
-          </div>
+          <NotificationBell role={role} />
+          {!isCustomer && (
+            <div className="hidden sm:flex items-center gap-2">
+              <NotificationSoundToggle compact />
+              <LanguageSwitcher />
+            </div>
+          )}
           {showNav && (
             <button
+              ref={toggleRef}
               type="button"
-              onClick={() => setOpenMenuForPath(isMobileMenuOpen ? null : pathname)}
+              onClick={() =>
+                setOpenMenuForPath(isMobileMenuOpen ? null : pathname)
+              }
               className="lg:hidden flex min-h-11 min-w-11 items-center justify-center p-2.5 text-2xl leading-none text-gray-700 hover:bg-gray-100 rounded-xl transition"
-              aria-label={t("components.header.openMenu")}
+              aria-label={
+                isMobileMenuOpen
+                  ? t("components.header.closeMenu")
+                  : t("components.header.openMenu")
+              }
               aria-expanded={isMobileMenuOpen}
+              aria-controls={MOBILE_MENU_ID}
             >
               {isMobileMenuOpen ? "✕" : "☰"}
             </button>
@@ -194,46 +235,71 @@ export default function BrandedHeader({
       </div>
 
       {/* Globalt søk (ikke for kundeportalbrukere) */}
-      {showNav && role !== "CUSTOMER" && (
+      {showNav && !isCustomer && (
         <div className="px-4 sm:px-6 lg:px-8 pb-4 bg-white">
           <GlobalSearch />
         </div>
       )}
 
-      {/* Mobile navigation drawer */}
+      {/* Mobile navigation drawer. Den er en modal dialog for skjermlesere,
+          med fokusfelle, Escape og klikk utenfor for å lukke. */}
       {showNav && isMobileMenuOpen && (
         <div className="lg:hidden px-4 pb-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-900 text-sm">{t("components.header.menu")}</h3>
-            <button
-              type="button"
-              onClick={closeMobileMenu}
-              className="flex items-center justify-center text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl p-2.5"
-              aria-label={t("components.header.closeMenu")}
-            >
-              ✕
-            </button>
-          </div>
-          <GlobalNavMobile primaryColor={pc} onNavigate={closeMobileMenu} role={role} />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Link
-              href="/varsler"
-              onClick={closeMobileMenu}
-              className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-100"
-            >
-              🔔 {t("p3.notifications.title")}
-            </Link>
-            <Link
-              href={role === "CUSTOMER" ? "/varsler/innstillinger" : "/innstillinger"}
-              onClick={closeMobileMenu}
-              className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-100"
-            >
-              ⚙️ {t("settings.title")}
-            </Link>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
-            <NotificationSoundToggle />
-            <LanguageSwitcher />
+          <div
+            ref={menuRef}
+            id={MOBILE_MENU_ID}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${MOBILE_MENU_ID}-title`}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2
+                id={`${MOBILE_MENU_ID}-title`}
+                className="font-bold text-gray-900 text-sm"
+              >
+                {t("components.header.menu")}
+              </h2>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={closeMobileMenu}
+                className="flex min-h-11 min-w-11 items-center justify-center text-2xl leading-none text-gray-600 hover:bg-gray-100 rounded-xl p-2.5"
+                aria-label={t("components.header.closeMenu")}
+              >
+                ✕
+              </button>
+            </div>
+            <GlobalNavMobile
+              items={navItems}
+              activeHref={activeHref}
+              primaryColor={pc}
+              activeTextColor={activeTextColor}
+              onNavigate={closeMobileMenu}
+            />
+            {!isCustomer && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link
+                  href="/varsler"
+                  onClick={closeMobileMenu}
+                  className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-100"
+                >
+                  🔔 {t("p3.notifications.title")}
+                </Link>
+                {navItems.some((item) => item.href === "/innstillinger") && (
+                  <Link
+                    href="/innstillinger"
+                    onClick={closeMobileMenu}
+                    className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-100"
+                  >
+                    ⚙️ {t("settings.title")}
+                  </Link>
+                )}
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
+              {!isCustomer && <NotificationSoundToggle />}
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       )}
@@ -241,71 +307,118 @@ export default function BrandedHeader({
   );
 }
 
-function GlobalNavDesktop({ primaryColor, role }: { primaryColor: string; role?: string }) {
-  const pathname = usePathname();
+function navLinkClass(isActive: boolean, mobile: boolean) {
+  return [
+    mobile
+      ? "w-full px-4 py-3 rounded-xl text-sm font-bold transition-all text-left border border-transparent"
+      : "px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap border border-transparent",
+    isActive
+      ? "font-bold shadow-sm"
+      : mobile
+        ? "text-gray-900 hover:bg-gray-100"
+        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+  ].join(" ");
+}
+
+function NavLink({
+  item,
+  isActive,
+  primaryColor,
+  activeTextColor,
+  onNavigate,
+  mobile,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  primaryColor: string;
+  activeTextColor: string;
+  onNavigate?: () => void;
+  mobile: boolean;
+}) {
   const t = useTranslations("common");
-  const items = navItemsFor(role);
   return (
-    <nav className="flex gap-1 flex-wrap">
-      {items.map((item) => {
-        const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap border border-transparent ${isActive ? `bg-[${primaryColor}] text-gray-900 font-bold shadow-sm` : "text-gray-900 hover:bg-gray-50 hover:text-gray-900"}`}
-          >
-            {item.icon && `${item.icon} `}
-            {item.labelKey ? t(`nav.${item.labelKey}`) : item.label}
-          </Link>
-        )}
-      )}
-      <form action="/api/auth/signout" method="POST" onSubmit={handleLogoutSubmit} className="flex items-center">
-        <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition border border-transparent whitespace-nowrap">
-          🚪 {t("components.header.logOut")}
-        </button>
-      </form>
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? "page" : undefined}
+      className={navLinkClass(isActive, mobile)}
+      style={
+        isActive
+          ? { backgroundColor: primaryColor, color: activeTextColor }
+          : undefined
+      }
+    >
+      {item.icon && `${item.icon} `}
+      {t(`nav.${item.labelKey}`)}
+    </Link>
+  );
+}
+
+function GlobalNavDesktop({
+  items,
+  activeHref,
+  primaryColor,
+  activeTextColor,
+  onLogout,
+}: {
+  items: NavItem[];
+  activeHref: string | null;
+  primaryColor: string;
+  activeTextColor: string;
+  onLogout?: () => void;
+}) {
+  const t = useTranslations("common");
+  return (
+    <nav className="flex gap-1 flex-wrap" aria-label={t("components.header.menu")}>
+      {items.map((item) => (
+        <NavLink
+          key={item.href}
+          item={item}
+          isActive={activeHref === item.href}
+          primaryColor={primaryColor}
+          activeTextColor={activeTextColor}
+          mobile={false}
+        />
+      ))}
+      <LogoutButton
+        onNavigate={onLogout}
+        className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition border border-transparent whitespace-nowrap disabled:opacity-60"
+      />
     </nav>
   );
 }
 
 function GlobalNavMobile({
+  items,
+  activeHref,
   primaryColor,
+  activeTextColor,
   onNavigate,
-  role,
 }: {
+  items: NavItem[];
+  activeHref: string | null;
   primaryColor: string;
+  activeTextColor: string;
   onNavigate?: () => void;
-  role?: string;
 }) {
-  const pathname = usePathname();
   const t = useTranslations("common");
-  const items = navItemsFor(role);
   return (
-    <nav className="flex flex-col gap-2">
-      {items.map((item) => {
-        const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition-all text-left border border-transparent ${isActive ? `bg-[${primaryColor}] text-gray-900 font-bold shadow-sm` : "text-gray-900 hover:bg-gray-100 hover:text-gray-900"}`}
-          >
-            {item.icon && `${item.icon} `}
-            {item.labelKey ? t(`nav.${item.labelKey}`) : item.label}
-          </Link>
-        )}
-      )}
-      <form action="/api/auth/signout" method="POST" onSubmit={handleLogoutSubmit} className="w-full flex items-center">
-        <button
-          type="submit"
-          onClick={onNavigate}
-          className="w-full px-4 py-3 rounded-xl text-left font-bold text-gray-700 hover:bg-red-50 hover:text-red-800 transition border border-transparent"
-        >
-          🚪 {t("components.header.logOut")}
-        </button>
-      </form>
+    <nav className="flex flex-col gap-2" aria-label={t("components.header.menu")}>
+      {items.map((item) => (
+        <NavLink
+          key={item.href}
+          item={item}
+          isActive={activeHref === item.href}
+          primaryColor={primaryColor}
+          activeTextColor={activeTextColor}
+          onNavigate={onNavigate}
+          mobile
+        />
+      ))}
+      <LogoutButton
+        onNavigate={onNavigate}
+        className="w-full px-4 py-3 rounded-xl text-left font-bold text-gray-700 hover:bg-red-50 hover:text-red-800 transition border border-transparent disabled:opacity-60"
+      />
     </nav>
   );
 }

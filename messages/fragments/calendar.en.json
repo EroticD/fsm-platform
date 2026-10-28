@@ -83,6 +83,15 @@
       "month": "Month",
       "week": "Week",
       "saveError": "Could not save the new date."
+    },
+    "a11y": {
+      "previous": "Previous period",
+      "next": "Next period",
+      "today": "Go to today",
+      "keyboardTitle": "Keyboard alternative",
+      "keyboardAlternative": "Using a keyboard? Open the work order in the edit page to change the date.",
+      "openInEditor": "Edit date",
+      "openWorkOrder": "Open work order"
     }
   }
 }

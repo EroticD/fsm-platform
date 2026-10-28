@@ -14,6 +14,7 @@ export default async function BiweeklyCalendarPage() {
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
   const canCreate = hasPermission(user, "workorders.create");
+  const canEdit = hasPermission(user, "workorders.edit");
   const t = await getTranslations("common");
 
   // Hent oppdrag i en bred datoøk (6 måneder bakover og fremover)
@@ -66,7 +67,7 @@ export default async function BiweeklyCalendarPage() {
               {t("calendar.common.home")}
             </Link>
             {canCreate && (
-              <Link href="/oppdrag/ny" className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
+              <Link href="/oppdrag/ny" className="bg-[var(--primary-color)] text-white px-5 py-2 rounded-lg font-bold hover:opacity-90 shadow-sm transition flex items-center gap-2">
                 {t("calendar.common.newWorkOrder")}
               </Link>
             )}
@@ -97,6 +98,7 @@ export default async function BiweeklyCalendarPage() {
           events={events}
           view="biweekly"
           weekNumbers={true}
+          canEdit={canEdit}
         />
 
       </div>

@@ -23,10 +23,12 @@ export default function FullCalendarClient({
   events,
   view = 'dayGridWeek',
   weekNumbers = true,
+  canEdit = false,
 }: { 
   events: any[];
   view?: string;
   weekNumbers?: boolean;
+  canEdit?: boolean;
 }) {
-  return <FullCalendarView events={events} view={view} weekNumbers={weekNumbers} />;
+  return <FullCalendarView events={events} view={view} weekNumbers={weekNumbers} canEdit={canEdit} />;
 }

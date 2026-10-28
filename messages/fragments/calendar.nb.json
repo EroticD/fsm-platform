@@ -83,6 +83,15 @@
       "month": "Måned",
       "week": "Uke",
       "saveError": "Kunne ikke lagre den nye datoen."
+    },
+    "a11y": {
+      "previous": "Forrige periode",
+      "next": "Neste periode",
+      "today": "Gå til i dag",
+      "keyboardTitle": "Tastaturalternativ",
+      "keyboardAlternative": "Bruker du tastatur? Åpne oppdraget i redigeringssiden for å endre dato.",
+      "openInEditor": "Rediger dato",
+      "openWorkOrder": "Åpne oppdrag"
     }
   }
 }

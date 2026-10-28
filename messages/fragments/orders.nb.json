@@ -278,7 +278,9 @@
       "requiresAssignment": "Krever tildeling / utførelse",
       "takeWorkOrder": "Se og ta oppdrag →",
       "historyTitle": "📂 Fullførte oppdrag / Historikk ({count})",
-      "archived": "🏢 {customer} • Fullført / Arkivert"
+      "archived": "🏢 {customer} • Fullført / Arkivert",
+      "loadMore": "Vis flere ({count})",
+      "showingCount": "Viser {shown} av {total}"
     },
     "fieldDetail": {
       "notFoundTitle": "Oppdraget finnes ikke",

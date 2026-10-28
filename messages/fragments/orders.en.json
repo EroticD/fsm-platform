@@ -278,7 +278,9 @@
       "requiresAssignment": "Requires assignment / execution",
       "takeWorkOrder": "View and take work order →",
       "historyTitle": "📂 Completed work orders / History ({count})",
-      "archived": "🏢 {customer} • Completed / Archived"
+      "archived": "🏢 {customer} • Completed / Archived",
+      "loadMore": "Show more ({count})",
+      "showingCount": "Showing {shown} of {total}"
     },
     "fieldDetail": {
       "notFoundTitle": "The work order does not exist",

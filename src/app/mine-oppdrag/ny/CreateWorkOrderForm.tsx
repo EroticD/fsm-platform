@@ -7,6 +7,7 @@ import GoogleMapsLink from "@/components/GoogleMapsLink";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import { splitTemplatesByCategory } from "@/lib/template-categories";
+import { todayInOslo } from "@/lib/dates";
 
 export default function CreateWorkOrderForm({ customers, templates, tags }: { customers: any[], templates: any[], tags: any[] }) {
   const t = useTranslations("common");
@@ -104,7 +105,7 @@ export default function CreateWorkOrderForm({ customers, templates, tags }: { cu
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.executionDate")}</label>
-              <input type="date" name="scheduledFor" defaultValue={new Date().toISOString().split('T')[0]} required className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
+              <input type="date" name="scheduledFor" defaultValue={todayInOslo()} required className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.endDate")}</label>

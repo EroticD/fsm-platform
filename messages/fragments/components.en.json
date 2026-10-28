@@ -223,7 +223,8 @@
       "menu": "Menu",
       "openMenu": "Open menu",
       "closeMenu": "Close menu",
-      "logOut": "Log out"
+      "logOut": "Log out",
+      "skipToContent": "Skip to content"
     },
     "language": {
       "change": "Change language"
@@ -248,6 +249,10 @@
     "toast": {
       "uploaded": "File(s) uploaded",
       "deleted": "Attachment deleted"
+    },
+    "realtime": {
+      "paused": "Live updates are paused.",
+      "retry": "Try again"
     }
   }
 }

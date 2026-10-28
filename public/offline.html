@@ -3,13 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FSM – offline</title>
+    <title>FSM – offline / off net</title>
     <style>
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f4f6; color: #111827; font-family: system-ui, sans-serif; padding: 24px; }
-      .card { max-width: 420px; background: white; border: 1px solid #e5e7eb; border-radius: 18px; padding: 32px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f4f6; color: #111827; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px; }
+      .card { max-width: 460px; background: white; border: 1px solid #d1d5db; border-radius: 18px; padding: 32px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.06); }
       h1 { font-size: 22px; margin: 0 0 8px; }
-      p { color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
-      a { display: inline-block; background: #2563eb; color: white; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 12px; }
+      h1:lang(en) { margin-top: 24px; }
+      p { color: #374151; font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+      a { display: inline-block; background: #1d4ed8; color: white; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 12px; }
+      hr { border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0; }
     </style>
   </head>
   <body>
@@ -17,6 +19,12 @@
       <h1>Du er offline</h1>
       <p>Kladder du lagrer nå, blir liggende på enheten og sendes automatisk når nettet er tilbake.</p>
       <a href="/mine-oppdrag">Prøv igjen</a>
+      <hr />
+      <div lang="en">
+        <h1>You are offline</h1>
+        <p>Drafts saved now stay on this device and are sent automatically when the connection returns.</p>
+        <a href="/mine-oppdrag">Try again</a>
+      </div>
     </main>
   </body>
 </html>

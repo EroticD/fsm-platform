@@ -1,15 +1,36 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
+
+function preferredLocale(acceptLanguage: string | null): "nb" | "en" {
+  const first = acceptLanguage?.split(",")[0]?.trim().toLowerCase() ?? "";
+  return first.startsWith("en") ? "en" : "nb";
+}
 
 /**
  * Web App Manifest – gjør feltappen installerbar på mobil (PWA).
- * Ikonene genereres fra appens branding der det er mulig; her bruker vi
- * statiske PNG-ikoner i /public.
+ * Navn og beskrivelse følger nettleserens språk, slik at installasjons-
+ * dialogen ikke alltid er norsk for engelske brukere. Ikonene er statiske
+ * PNG-filer i /public.
  */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const requestHeaders = await headers();
+  const locale = preferredLocale(requestHeaders.get("accept-language"));
+  const localized =
+    locale === "en"
+      ? {
+          name: "FSM – field service",
+          short_name: "FSM",
+          description: "Work orders, checklists and documents in the field.",
+        }
+      : {
+          name: "FSM – feltapp",
+          short_name: "FSM",
+          description: "Serviceoppdrag, sjekklister og dokumenter i felt.",
+        };
+
   return {
-    name: "FSM – feltapp",
-    short_name: "FSM",
-    description: "Serviceoppdrag, sjekklister og dokumenter i felt.",
+    ...localized,
+    lang: locale,
     start_url: "/mine-oppdrag",
     display: "standalone",
     orientation: "portrait",

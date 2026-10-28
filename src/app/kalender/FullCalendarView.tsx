@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Calendar, type EventDropArg } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { type EventResizeDoneArg } from '@fullcalendar/interaction';
-import { inclusiveLastDay } from '@/lib/dates';
+import { formatDateLocalized, inclusiveLastDay } from '@/lib/dates';
+import { readableTextColor } from '@/lib/colors';
+import { useToast } from '@/components/ToastProvider';
 
 type EventData = {
   id: string;
@@ -21,14 +24,17 @@ export default function FullCalendarView({
   events,
   view = 'dayGridWeek',
   weekNumbers = true,
+  canEdit = false,
 }: { 
   events: EventData[];
   view?: string;
   weekNumbers?: boolean;
+  canEdit?: boolean;
 }) {
   const calendarEl = useRef<HTMLDivElement>(null);
   const t = useTranslations("common");
   const locale = useLocale();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!calendarEl.current) return;
@@ -51,11 +57,11 @@ export default function FullCalendarView({
         });
         if (!response.ok) {
           info.revert();
-          alert(t("calendar.client.saveError"));
+          toast(t("calendar.client.saveError"), "error");
         }
       } catch {
         info.revert();
-        alert(t("calendar.client.saveError"));
+        toast(t("calendar.client.saveError"), "error");
       } finally {
         document.body.style.cursor = 'default';
       }
@@ -91,6 +97,9 @@ export default function FullCalendarView({
 
         const content = document.createElement('div');
         content.className = 'fc-event-content';
+        content.style.color = readableTextColor(
+          arg.event.backgroundColor || '#2563eb',
+        );
 
         const title = document.createElement('div');
         title.className = 'fc-event-title-line';
@@ -111,6 +120,11 @@ export default function FullCalendarView({
         week: t("calendar.client.week"),
         month: t("calendar.client.month"),
       },
+      buttonHints: {
+        prev: t("calendar.a11y.previous"),
+        next: t("calendar.a11y.next"),
+        today: t("calendar.a11y.today"),
+      },
       editable: true,
       droppable: true,
       eventDurationEditable: true,
@@ -123,14 +137,60 @@ export default function FullCalendarView({
 
     calendar.render();
 
+    // FullCalendar lager ikon-knapper uten lesbar etikett. Gi knappene et
+    // eksplisitt aria-label og skjul selve chevron-ikonet for skjermlesere,
+    // slik at de ikke leses som tomme knapper.
+    const toolbar = calendarEl.current.querySelector('.fc-toolbar');
+    const labelButton = (selector: string, label: string) => {
+      toolbar?.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
+        button.setAttribute('aria-label', label);
+      });
+    };
+    labelButton('.fc-prev-button', t("calendar.a11y.previous"));
+    labelButton('.fc-next-button', t("calendar.a11y.next"));
+    labelButton('.fc-today-button', t("calendar.a11y.today"));
+    toolbar?.querySelectorAll('.fc-icon').forEach((icon) => {
+      icon.setAttribute('aria-hidden', 'true');
+    });
+
     return () => {
       calendar.destroy();
     };
-  }, [events, view, weekNumbers, t, locale]);
+  }, [events, view, weekNumbers, t, locale, toast]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border text-gray-800">
       <div ref={calendarEl} className="kalender-container"></div>
+      <details className="mt-4 rounded-xl border border-gray-300 bg-gray-50 p-3 text-sm">
+        <summary className="cursor-pointer font-bold text-gray-900">
+          {t("calendar.a11y.keyboardTitle")}
+        </summary>
+        <p className="mt-2 text-xs text-gray-700">
+          {t("calendar.a11y.keyboardAlternative")}
+        </p>
+        <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
+          {events.slice(0, 100).map((event) => (
+            <li key={event.id}>
+              <Link
+                href={
+                  canEdit
+                    ? `/oppdrag/${event.id}/rediger`
+                    : `/oppdrag/${event.id}`
+                }
+                className="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2 py-1.5 font-medium text-blue-800 hover:bg-blue-50"
+              >
+                <span className="truncate">{event.title}</span>
+                <span className="shrink-0 text-xs text-gray-700">
+                  {canEdit
+                    ? t("calendar.a11y.openInEditor")
+                    : t("calendar.a11y.openWorkOrder")}{" "}
+                  · {formatDateLocalized(event.start, locale)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </details>
       <style jsx global>{`
         .fc-event { cursor: grab !important; padding: 2px 4px; border-radius: 4px; border: none; background-color: #2563eb; font-weight: 500;}
         .fc-event:active { cursor: grabbing !important; opacity: 0.8;}
