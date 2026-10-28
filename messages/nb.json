@@ -437,7 +437,8 @@
       "newWorkOrder": "Nytt oppdrag",
       "settings": "Innstillinger",
       "customerPortal": "Kundeportal",
-      "map": "Kart"
+      "map": "Kart",
+      "users": "Ansatte"
     },
     "loginErrorTwoFactorUnavailable": "To-trinns verifisering er ikke riktig konfigurert. Kontakt administrator."
   }

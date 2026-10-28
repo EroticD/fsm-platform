@@ -437,7 +437,8 @@
       "newWorkOrder": "New work order",
       "settings": "Settings",
       "customerPortal": "Customer portal",
-      "map": "Map"
+      "map": "Map",
+      "users": "Employees"
     },
     "loginErrorTwoFactorUnavailable": "Two-factor authentication is not configured correctly. Contact an administrator."
   }

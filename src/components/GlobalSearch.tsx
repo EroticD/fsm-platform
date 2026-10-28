@@ -120,6 +120,11 @@ export default function GlobalSearch({
   );
 
   const total = results?.total ?? 0;
+  const groupLabel = (kind: string, fallback: string) => {
+    const key = `components.search.groups.${kind}`;
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
 
   const flat = useMemo<FlatItem[]>(
     () =>
@@ -500,7 +505,8 @@ export default function GlobalSearch({
                         className="flex items-center gap-2 px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-gray-400"
                       >
                         <span className="min-w-0 truncate">
-                          <span aria-hidden>{group.icon}</span> {group.label}
+                          <span aria-hidden>{group.icon}</span>{" "}
+                          {groupLabel(group.kind, group.label)}
                         </span>
                         {group.total > 0 && (
                           <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal">
