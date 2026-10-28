@@ -12,7 +12,8 @@
       "statistics": "Statistics",
       "roles": "Roles & permissions",
       "departments": "Departments",
-      "security": "Security"
+      "security": "Security",
+      "map": "Map"
     },
     "branding": {
       "title": "White-label settings",
@@ -361,6 +362,37 @@
           "label": "View activity log",
           "description": "View the system activity log."
         }
+      }
+    },
+    "map": {
+      "title": "Map settings",
+      "description": "Choose map provider, default layer and how the map behaves.",
+      "provider": "Map provider",
+      "apiKey": "API key",
+      "keyStored": "A key is stored – leave blank to keep it",
+      "keyPlaceholder": "Paste API key",
+      "keyHint": "The key is stored on the server and sent only to the map in the browser. Use a domain-restricted key when supported.",
+      "clearKey": "Remove stored key",
+      "defaultLayer": "Default layer",
+      "defaultZoom": "Default zoom (2–19)",
+      "centerLat": "Center – latitude",
+      "centerLng": "Center – longitude",
+      "centerHint": "Optional. Used when there are no work orders to fit the map to.",
+      "scrollWheel": "Enable scroll wheel zoom",
+      "save": "Save map settings",
+      "saved": "Map settings saved.",
+      "missingKey": "An API key is required for this provider.",
+      "invalid": "Invalid map settings. Check the fields.",
+      "providers": {
+        "osm": "OpenStreetMap (no key)",
+        "maptiler": "MapTiler",
+        "mapbox": "Mapbox"
+      },
+      "layers": {
+        "osm": "Standard",
+        "topo": "Topographic",
+        "light": "Light",
+        "satellite": "Satellite"
       }
     }
   },

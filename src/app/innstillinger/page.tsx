@@ -12,8 +12,10 @@ import TemplatesTab from "@/components/settings/TemplatesTab";
 import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
+import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
+import { getMapSettingsView } from "@/server/map-settings";
 import { getCurrentUser } from "@/lib/session";
 import { effectivePermissions, hasPermission } from "@/lib/permissions";
 import {
@@ -29,6 +31,7 @@ import {
   deleteTagAction,
   deleteTemplateAction,
   saveBrandingAction,
+  saveMapSettingsAction,
   updateDocumentTagAction,
   updateTagAction,
 } from "./actions";
@@ -59,13 +62,14 @@ export default async function SettingsPage({
 
   const isAdmin = user.role === "ADMIN";
   const canBranding = hasPermission(user, "settings.manage");
+  const canMap = hasPermission(user, "settings.manage");
   const canUsers = hasPermission(user, "users.view");
   const canTemplates = hasPermission(user, "templates.manage");
   const canDocuments = hasPermission(user, "documents.manage");
   const canAudit = hasPermission(user, "audit.view");
   const canStats = hasPermission(user, "reports.view");
   const canUseSettings =
-    canBranding || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
+    canBranding || canMap || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
 
   // Vent på searchParams (kreves i nyere Next.js) og sett standardfane.
   // Sikkerhetsfanen er åpen for alle innloggede, slik at også montører kan
@@ -80,6 +84,7 @@ export default async function SettingsPage({
 
   const currentTab = chooseSettingsTab(requestedTab, {
     canBranding,
+    canMap,
     canUsers,
     canTemplates,
     canDocuments,
@@ -115,6 +120,9 @@ export default async function SettingsPage({
         })
       : null;
 
+  const mapSettings =
+    currentTab === "kart" && canMap ? await getMapSettingsView(user) : null;
+
   const statistics =
     currentTab === "statistikk" && canStats
       ? await getStatistics(user, {
@@ -143,6 +151,7 @@ export default async function SettingsPage({
         <SettingsTabs
           currentTab={currentTab}
           canBranding={canBranding}
+          canMap={canMap}
           canUsers={canUsers}
           canTemplates={canTemplates}
           canDocuments={canDocuments}
@@ -150,6 +159,15 @@ export default async function SettingsPage({
           canStats={canStats}
           isAdmin={isAdmin}
         />
+
+        {currentTab === "kart" && canMap && mapSettings?.ok && (
+          <MapSettingsTab
+            settings={mapSettings.data}
+            error={error}
+            saved={resolvedParams.ok === "map"}
+            action={saveMapSettingsAction}
+          />
+        )}
 
         {/* FANE 1: BRANDING */}
         {currentTab === "branding" && canBranding && (

@@ -12,7 +12,8 @@
       "statistics": "Statistikk",
       "roles": "Roller & rettigheter",
       "departments": "Avdelinger",
-      "security": "Sikkerhet"
+      "security": "Sikkerhet",
+      "map": "Kart"
     },
     "branding": {
       "title": "White-label Innstillinger",
@@ -361,6 +362,37 @@
           "label": "Se aktivitetslogg",
           "description": "Se systemets aktivitetslogg."
         }
+      }
+    },
+    "map": {
+      "title": "Kartinnstillinger",
+      "description": "Velg kartleverandør, standardkartlag og hvordan kartet skal oppføre seg.",
+      "provider": "Kartleverandør",
+      "apiKey": "API-nøkkel",
+      "keyStored": "Nøkkel er lagret – la feltet stå tomt for å beholde den",
+      "keyPlaceholder": "Lim inn API-nøkkel",
+      "keyHint": "Nøkkelen lagres på serveren og sendes bare til kartet i nettleseren. Bruk en nøkkel med domenebegrensning der leverandøren støtter det.",
+      "clearKey": "Fjern lagret nøkkel",
+      "defaultLayer": "Standardkartlag",
+      "defaultZoom": "Standard zoom (2–19)",
+      "centerLat": "Senter – breddegrad",
+      "centerLng": "Senter – lengdegrad",
+      "centerHint": "Valgfritt. Brukes når kartet ikke har oppdrag å tilpasse seg etter.",
+      "scrollWheel": "Aktiver zoom med scrollhjulet",
+      "save": "Lagre kartinnstillinger",
+      "saved": "Kartinnstillingene er lagret.",
+      "missingKey": "Du må legge inn en API-nøkkel for denne leverandøren.",
+      "invalid": "Kartinnstillingene er ugyldige. Sjekk feltene.",
+      "providers": {
+        "osm": "OpenStreetMap (ingen nøkkel)",
+        "maptiler": "MapTiler",
+        "mapbox": "Mapbox"
+      },
+      "layers": {
+        "osm": "Standard",
+        "topo": "Topografisk",
+        "light": "Lyst",
+        "satellite": "Satellitt"
       }
     }
   },

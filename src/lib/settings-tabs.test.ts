@@ -7,6 +7,7 @@ import {
 
 const noPermissions: SettingsTabPermissions = {
   canBranding: false,
+  canMap: false,
   canUsers: false,
   canTemplates: false,
   canDocuments: false,
@@ -18,6 +19,7 @@ const noPermissions: SettingsTabPermissions = {
 const admin: SettingsTabPermissions = {
   ...noPermissions,
   canBranding: true,
+  canMap: true,
   canUsers: true,
   canTemplates: true,
   canDocuments: true,

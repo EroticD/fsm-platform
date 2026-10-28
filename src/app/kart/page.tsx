@@ -9,6 +9,7 @@ import prisma from "@/lib/prisma";
 import WorkOrderMap from "@/components/WorkOrderMap";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 import { effectiveAddress } from "@/lib/geocode";
+import { getMapSettings } from "@/server/map-settings";
 
 type MapWorkOrder = {
   id: string;
@@ -42,6 +43,7 @@ export default async function MapPage({
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
+  const mapSettings = await getMapSettings();
   const params = await searchParams;
   const technicianId = params.technician?.trim() ?? "";
   const dateFrom = parseDateOnly(params.dateFrom ?? "");
@@ -218,6 +220,7 @@ export default async function MapPage({
             light: t("p3.map.layers.light"),
             satellite: t("p3.map.layers.satellite"),
           }}
+          settings={mapSettings}
         />
       </section>
 

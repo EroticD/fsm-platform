@@ -813,3 +813,19 @@ model Comment {
   @@index([customerId])
   @@index([contactId])
 }
+
+/// Globale kartinnstillinger. Én rad med id "default".
+model MapSettings {
+  id              String   @id @default("default")
+  /// osm | maptiler | mapbox
+  provider        String   @default("osm")
+  /// API-nøkkel/token for leverandøren. Vises aldri i klientinnstillinger.
+  apiKey          String?
+  /// osm | topo | light | satellite
+  defaultLayer    String   @default("osm")
+  defaultZoom     Int      @default(6)
+  centerLat       Float?
+  centerLng       Float?
+  scrollWheelZoom Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}

@@ -14,6 +14,7 @@ import {
   updateDocumentTag,
   updateTag,
 } from "@/server/settings";
+import { saveMapSettings } from "@/server/map-settings";
 
 function revalidateSettings() {
   revalidatePath("/innstillinger");
@@ -137,4 +138,30 @@ export async function deleteDocumentTagAction(formData: FormData) {
   if (!result.ok) return;
 
   revalidateSettings();
+}
+
+export async function saveMapSettingsAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
+  const result = await saveMapSettings(actor, {
+    provider: formData.get("provider"),
+    apiKey: formData.get("apiKey"),
+    clearApiKey: formData.get("clearApiKey"),
+    defaultLayer: formData.get("defaultLayer"),
+    defaultZoom: formData.get("defaultZoom"),
+    centerLat: formData.get("centerLat"),
+    centerLng: formData.get("centerLng"),
+    scrollWheelZoom: formData.get("scrollWheelZoom"),
+  });
+
+  if (!result.ok) {
+    const error =
+      result.reason === "missing_fields" ? "map-key" : "map-invalid";
+    redirect(`/innstillinger?tab=kart&error=${error}`);
+  }
+
+  revalidatePath("/innstillinger");
+  revalidatePath("/kart");
+  redirect("/innstillinger?tab=kart&ok=map");
 }

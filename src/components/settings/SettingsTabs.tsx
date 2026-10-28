@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 type SettingsTabsProps = {
   currentTab: string;
   canBranding: boolean;
+  canMap: boolean;
   canUsers: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
@@ -22,6 +23,7 @@ const linkClass = (active: boolean) =>
 export default async function SettingsTabs({
   currentTab,
   canBranding,
+  canMap,
   canUsers,
   canTemplates,
   canDocuments,
@@ -39,6 +41,11 @@ export default async function SettingsTabs({
       {canBranding && (
         <Link href="?tab=branding" className={linkClass(currentTab === "branding")} aria-current={currentTab === "branding" ? "page" : undefined}>
           🎨 {t("settings.tabs.branding")}
+        </Link>
+      )}
+      {canMap && (
+        <Link href="?tab=kart" className={linkClass(currentTab === "kart")} aria-current={currentTab === "kart" ? "page" : undefined}>
+          🗺️ {t("settings.tabs.map")}
         </Link>
       )}
       {canUsers && (

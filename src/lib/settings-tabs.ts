@@ -1,5 +1,6 @@
 export type SettingsTabKey =
   | "branding"
+  | "kart"
   | "ansatte"
   | "maler"
   | "tags"
@@ -11,6 +12,7 @@ export type SettingsTabKey =
 
 export type SettingsTabPermissions = {
   canBranding: boolean;
+  canMap: boolean;
   canUsers: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
@@ -22,6 +24,7 @@ export type SettingsTabPermissions = {
 /** Fanene i den rekkefølgen de vises, med sikkerhet alltid tilgjengelig. */
 const TAB_ORDER: SettingsTabKey[] = [
   "branding",
+  "kart",
   "ansatte",
   "maler",
   "tags",
@@ -39,6 +42,8 @@ export function isSettingsTabAllowed(
   switch (tab) {
     case "branding":
       return permissions.canBranding;
+    case "kart":
+      return permissions.canMap;
     case "ansatte":
       return permissions.canUsers;
     case "maler":

@@ -27,6 +27,7 @@ export default function WorkOrderMap({
   noPointsLabel,
   openLabel,
   layerLabels,
+  settings,
 }: {
   points: WorkOrderMapPoint[];
   ariaLabel: string;
@@ -37,6 +38,15 @@ export default function WorkOrderMap({
     topo: string;
     light: string;
     satellite: string;
+  };
+  settings: {
+    provider: "osm" | "maptiler" | "mapbox";
+    apiKey: string | null;
+    defaultLayer: "osm" | "topo" | "light" | "satellite";
+    defaultZoom: number;
+    centerLat: number | null;
+    centerLng: number | null;
+    scrollWheelZoom: boolean;
   };
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,47 +60,102 @@ export default function WorkOrderMap({
       if (cancelled || !containerRef.current) return;
 
       map = L.map(containerRef.current, {
-        scrollWheelZoom: true,
+        scrollWheelZoom: settings.scrollWheelZoom,
         wheelDebounceTime: 40,
         wheelPxPerZoomLevel: 90,
         keyboard: true,
         zoomControl: true,
       });
 
-      const baseLayers = {
-        [layerLabels.osm]: L.tileLayer(
-          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-          {
-            maxZoom: 19,
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
-          },
-        ).addTo(map),
-        [layerLabels.topo]: L.tileLayer(
-          "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-          {
-            maxZoom: 17,
-            attribution:
-              'Kartdata &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>, OpenTopoMap',
-          },
-        ),
-        [layerLabels.light]: L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-          {
-            maxZoom: 20,
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>, &copy; CARTO',
-          },
-        ),
-        [layerLabels.satellite]: L.tileLayer(
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          {
-            maxZoom: 18,
-            attribution:
-              "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-          },
-        ),
-      };
+      const apiKey = settings.apiKey ? encodeURIComponent(settings.apiKey) : "";
+      let baseLayers: Record<string, import("leaflet").TileLayer>;
+      if (settings.provider === "maptiler" && apiKey) {
+        baseLayers = {
+          [layerLabels.osm]: L.tileLayer(
+            `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${apiKey}`,
+            { maxZoom: 22, attribution: "&copy; MapTiler &copy; OpenStreetMap" },
+          ),
+          [layerLabels.topo]: L.tileLayer(
+            `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${apiKey}`,
+            { maxZoom: 22, attribution: "&copy; MapTiler &copy; OpenStreetMap" },
+          ),
+          [layerLabels.light]: L.tileLayer(
+            `https://api.maptiler.com/maps/basic-v2/{z}/{x}/{y}.png?key=${apiKey}`,
+            { maxZoom: 22, attribution: "&copy; MapTiler &copy; OpenStreetMap" },
+          ),
+          [layerLabels.satellite]: L.tileLayer(
+            `https://api.maptiler.com/maps/satellite-v2/{z}/{x}/{y}.png?key=${apiKey}`,
+            { maxZoom: 20, attribution: "&copy; MapTiler &copy; OpenStreetMap" },
+          ),
+        };
+      } else if (settings.provider === "mapbox" && apiKey) {
+        const token = `access_token=${apiKey}`;
+        baseLayers = {
+          [layerLabels.osm]: L.tileLayer(
+            `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?${token}`,
+            { maxZoom: 22, attribution: "&copy; Mapbox &copy; OpenStreetMap" },
+          ),
+          [layerLabels.topo]: L.tileLayer(
+            `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?${token}`,
+            { maxZoom: 22, attribution: "&copy; Mapbox &copy; OpenStreetMap" },
+          ),
+          [layerLabels.light]: L.tileLayer(
+            `https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}@2x?${token}`,
+            { maxZoom: 22, attribution: "&copy; Mapbox &copy; OpenStreetMap" },
+          ),
+          [layerLabels.satellite]: L.tileLayer(
+            `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}@2x?${token}`,
+            { maxZoom: 22, attribution: "&copy; Mapbox &copy; OpenStreetMap" },
+          ),
+        };
+      } else {
+        baseLayers = {
+          [layerLabels.osm]: L.tileLayer(
+            "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+              maxZoom: 19,
+              attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+            },
+          ),
+          [layerLabels.topo]: L.tileLayer(
+            "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+            {
+              maxZoom: 17,
+              attribution:
+                'Kartdata &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>, OpenTopoMap',
+            },
+          ),
+          [layerLabels.light]: L.tileLayer(
+            "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+            {
+              maxZoom: 20,
+              attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>, &copy; CARTO',
+            },
+          ),
+          [layerLabels.satellite]: L.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            {
+              maxZoom: 18,
+              attribution:
+                "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+            },
+          ),
+        };
+      }
+      const layerKeys = Object.keys(baseLayers);
+      const selectedLayer =
+        baseLayers[
+          settings.defaultLayer === "osm"
+            ? layerLabels.osm
+            : settings.defaultLayer === "topo"
+              ? layerLabels.topo
+              : settings.defaultLayer === "light"
+                ? layerLabels.light
+                : layerLabels.satellite
+        ] ?? baseLayers[layerKeys[0]];
+      selectedLayer.addTo(map);
       L.control.layers(baseLayers, undefined, { collapsed: true }).addTo(map);
 
       const bounds = L.latLngBounds([]);
@@ -151,7 +216,13 @@ export default function WorkOrderMap({
       } else if (points.length > 1) {
         map.fitBounds(bounds, { padding: [32, 32], maxZoom: 12 });
       } else {
-        map.setView([64.5, 12], 4);
+        map.setView(
+          [
+            settings.centerLat ?? 64.5,
+            settings.centerLng ?? 12,
+          ],
+          settings.defaultZoom,
+        );
       }
     };
 
@@ -164,7 +235,7 @@ export default function WorkOrderMap({
       map?.remove();
       map = null;
     };
-  }, [points, openLabel, layerLabels]);
+  }, [points, openLabel, layerLabels, settings]);
 
   return (
     <div className="space-y-2">
