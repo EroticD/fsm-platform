@@ -120,8 +120,13 @@ test("rapportskjemaet er tilgjengelig når det finnes et oppdrag med sjekkliste"
   }
 
   await page.goto("/mine-oppdrag");
-  const workOrderLink = page.locator('a[href^="/mine-oppdrag/"]').first();
-  const workOrderHref = await workOrderLink.getAttribute("href").catch(() => null);
+  const workOrderLink = page
+    .locator('a[href^="/mine-oppdrag/"]')
+    .filter({ hasNot: page.locator('[href="/mine-oppdrag"]') })
+    .first();
+  const workOrderHref = (await workOrderLink.count())
+    ? await workOrderLink.getAttribute("href").catch(() => null)
+    : null;
   if (!workOrderHref) {
     test.skip(true, "Fant ikke noe oppdrag med rapportskjema");
     return;
@@ -129,7 +134,9 @@ test("rapportskjemaet er tilgjengelig når det finnes et oppdrag med sjekkliste"
 
   await page.goto(workOrderHref);
   const formLink = page.locator('a[href*="/skjema/"]').first();
-  const formHref = await formLink.getAttribute("href").catch(() => null);
+  const formHref = (await formLink.count())
+    ? await formLink.getAttribute("href").catch(() => null)
+    : null;
   if (!formHref) {
     test.skip(true, "Oppdraget har ingen sjekkliste å fylle ut");
     return;
@@ -146,7 +153,8 @@ test("mobil meny er en merket dialog med fokusfelle", async ({ page }) => {
   const loggedIn = await loginAsAdmin(page);
   expect(loggedIn).toBe(true);
 
-  const menuButton = page.getByRole("button", { name: /åpne menyen/i });
+  const menuButton = page.locator('button[aria-controls="mobile-navigation"]');
+  await expect(menuButton).toHaveAttribute("aria-expanded", "false");
   await menuButton.click();
 
   const dialog = page.getByRole("dialog", { name: /meny/i });

@@ -200,6 +200,11 @@ export default function FullCalendarView({
         .fc-daygrid-event { white-space: normal; }
         .fc-day-today { background-color: #f0fdf4 !important; }
         .fc-toolbar-chunk { display: flex; gap: 0.5rem; }
+        .fc .fc-daygrid-week-number { color: #374151 !important; background-color: #f3f4f6 !important; font-weight: 700; }
+        .fc .fc-daygrid-day-number { color: #111827 !important; }
+        .fc .fc-col-header-cell-cushion { color: #374151 !important; }
+        .fc .fc-day-other .fc-daygrid-day-top { opacity: 1 !important; }
+        .fc .fc-day-other .fc-daygrid-day-number { color: #6b7280 !important; }
       `}</style>
     </div>
   );

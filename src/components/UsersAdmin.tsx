@@ -193,8 +193,9 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.phone")} <span className="font-normal text-gray-400">{t("users.add.optional")}</span></label>
+                <label htmlFor="new-user-phone" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.phone")} <span className="font-normal text-gray-600">{t("users.add.optional")}</span></label>
                 <input
+                  id="new-user-phone"
                   type="tel"
                   name="phone"
                   placeholder={t("users.add.phonePlaceholder")}
@@ -202,10 +203,11 @@ export default async function UsersAdmin({
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="new-user-role" className="block text-sm font-bold text-gray-700 mb-1">
                   {t("users.add.role")}
                 </label>
                 <select
+                  id="new-user-role"
                   name="role"
                   defaultValue={defaultRole?.key ?? ""}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
@@ -224,10 +226,11 @@ export default async function UsersAdmin({
                 )}
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="new-user-department" className="block text-sm font-bold text-gray-700 mb-1">
                   {t("users.add.department")}
                 </label>
                 <select
+                  id="new-user-department"
                   name="departmentId"
                   defaultValue={defaultDepartment?.id ?? ""}
                   className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900"
@@ -246,11 +249,12 @@ export default async function UsersAdmin({
               </div>
               {canManageCustomers && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                  <label htmlFor="new-user-contact" className="block text-sm font-bold text-gray-700 mb-1">
                     {t("users.add.contact")}{" "}
-                    <span className="font-normal text-gray-400">{t("users.add.contactRequired")}</span>
+                    <span className="font-normal text-gray-600">{t("users.add.contactRequired")}</span>
                   </label>
                   <select
+                    id="new-user-contact"
                     name="contactId"
                     defaultValue=""
                     className="w-full border border-gray-300 p-2.5 rounded-xl text-xs font-medium bg-white text-gray-900"
@@ -286,7 +290,7 @@ export default async function UsersAdmin({
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b bg-gray-50/50 flex justify-between items-center">
               <h2 className="font-bold text-lg text-gray-800">{t("users.list.title")}</h2>
-              <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-bold text-gray-800 bg-gray-200 px-2.5 py-1 rounded-full">
                 {t("users.list.count", { count: totalUsers })}
               </span>
             </div>
@@ -360,6 +364,7 @@ export default async function UsersAdmin({
                         <input type="hidden" name="id" value={u.id} />
                         <select
                           name="role"
+                          aria-label={`${t("users.add.role")}: ${u.name || u.email || u.id}`}
                           defaultValue={u.role}
                           disabled={isMe}
                           className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"
@@ -389,6 +394,7 @@ export default async function UsersAdmin({
                           <input type="hidden" name="id" value={u.id} />
                           <select
                             name="departmentId"
+                            aria-label={`${t("users.add.department")}: ${u.name || u.email || u.id}`}
                             defaultValue={u.departmentId ?? ""}
                             disabled={u.role === "CUSTOMER"}
                             className="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1.5 outline-none bg-white text-gray-900"

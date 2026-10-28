@@ -302,10 +302,10 @@ export default function MarkdownEditor({
       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span>
           {t("components.markdown.supports")}{" "}
-          <code className="rounded bg-gray-100 px-1">**fet**</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">==utheving==</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">- liste</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">&gt; [!tips]</code>
+          <code className="rounded bg-gray-100 px-1 text-gray-900">**fet**</code>,{" "}
+          <code className="rounded bg-gray-100 px-1 text-gray-900">==utheving==</code>,{" "}
+          <code className="rounded bg-gray-100 px-1 text-gray-900">- liste</code>,{" "}
+          <code className="rounded bg-gray-100 px-1 text-gray-900">&gt; [!tips]</code>
         </span>
         <a
           href="https://obsidian.md/help/syntax"

@@ -175,7 +175,7 @@ export default async function TemplatesTab({
                       confirmMessage={deleteMessage}
                     >
                       <input type="hidden" name="id" value={template.id} />
-                      <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
+                      <button type="submit" className="text-red-700 hover:text-red-800 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">
                         {t("settings.templates.delete")}
                       </button>
                     </ConfirmSubmitForm>

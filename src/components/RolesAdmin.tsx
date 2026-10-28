@@ -74,7 +74,7 @@ export default async function RolesAdmin({
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">
                 {t("settings.roles.descriptionLabel")}{" "}
-                <span className="font-normal text-gray-400">{t("settings.roles.optional")}</span>
+                <span className="font-normal text-gray-600">{t("settings.roles.optional")}</span>
               </label>
               <input
                 type="text"
