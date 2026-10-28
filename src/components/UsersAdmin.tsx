@@ -11,6 +11,7 @@ import {
   changePhone,
   changePermissions,
   resetPermissions,
+  resetTwoFactor,
   setActive,
   generateInvite,
 } from "@/app/brukere/actions";
@@ -479,6 +480,27 @@ export default async function UsersAdmin({
                               : t("users.list.activate")}
                           </button>
                         </form>
+                      )}
+
+                      {!isMe && isAdmin && u.isTwoFactorEnabled && (
+                        <ConfirmSubmitForm
+                          action={resetTwoFactor}
+                          confirmMessage={t("users.list.resetTwoFactorConfirm", {
+                            name: u.name || u.email || u.id,
+                          })}
+                          confirmLabel={t("users.list.resetTwoFactorLabel")}
+                          danger
+                        >
+                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <input type="hidden" name="id" value={u.id} />
+                          <button
+                            type="submit"
+                            className="text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition"
+                            title={t("users.list.resetTwoFactorHint")}
+                          >
+                            {t("users.list.resetTwoFactor")}
+                          </button>
+                        </ConfirmSubmitForm>
                       )}
 
                       {!isMe && isAdmin && (

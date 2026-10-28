@@ -9,10 +9,17 @@ import DocumentBrowser from "@/components/documents/DocumentBrowser";
 import PageHeader from "@/components/PageHeader";
 import {
   bulkCreateDocuments,
+  bulkDeleteDocuments,
+  bulkMoveDocuments,
+  bulkTagDocuments,
   createDocument,
   createFolder,
   deleteDocument,
+  deleteFolder,
+  discardDocumentUploads,
+  moveFolder,
   reindexDocuments,
+  renameFolder,
   restoreDocument,
   restoreVersion,
   updateDocument,
@@ -25,6 +32,7 @@ export default async function DocumentsPage({
     folder?: string;
     q?: string;
     tag?: string;
+    scope?: string;
     page?: string;
     doc?: string;
     error?: string;
@@ -44,6 +52,7 @@ export default async function DocumentsPage({
   const folderId = resolved.folder || null;
   const searchQuery = resolved.q?.trim() || "";
   const tagFilter = resolved.tag || "";
+  const onlyFolder = resolved.scope === "folder";
   const error = resolved.error;
   const page = parsePage(resolved.page);
   const showDeleted = resolved.slettet === "1" && isAdmin;
@@ -55,6 +64,7 @@ export default async function DocumentsPage({
     page,
     documentId: resolved.doc || null,
     deleted: showDeleted,
+    onlyFolder,
   });
   if (!result.ok) redirect("/");
 
@@ -78,21 +88,37 @@ export default async function DocumentsPage({
         )}
 
         <DocumentBrowser
+          key={JSON.stringify([
+            folderId,
+            searchQuery,
+            tagFilter,
+            page,
+            onlyFolder,
+            showDeleted,
+          ])}
           data={result.data}
           folderId={folderId}
           searchQuery={searchQuery}
           tagFilter={tagFilter}
+          onlyFolder={onlyFolder}
           page={page}
           office={office}
           isAdmin={isAdmin}
           showDeleted={showDeleted}
-          createFolderAction={createFolder.bind(null, folderId)}
+          createFolderAction={createFolder}
           restoreVersionAction={restoreVersion}
           deleteDocumentAction={deleteDocument}
           restoreDocumentAction={restoreDocument}
           updateDocumentAction={updateDocument}
           createDocumentAction={createDocument}
           bulkCreateDocumentsAction={bulkCreateDocuments}
+          bulkMoveDocumentsAction={bulkMoveDocuments}
+          bulkDeleteDocumentsAction={bulkDeleteDocuments}
+          bulkTagDocumentsAction={bulkTagDocuments}
+          discardUploadsAction={discardDocumentUploads}
+          renameFolderAction={renameFolder}
+          moveFolderAction={moveFolder}
+          deleteFolderAction={deleteFolder}
           reindexDocumentsAction={reindexDocuments}
         />
       </div>

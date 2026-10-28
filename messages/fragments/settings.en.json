@@ -207,7 +207,21 @@
       "enable": "Enable two-factor authentication",
       "disableDesc": "Enter a valid one-time code to disable.",
       "disable": "Disable two-factor authentication",
-      "loggedInAs": "Signed in as {name}."
+      "loggedInAs": "Signed in as {name}.",
+      "recoveryCodes": {
+        "title": "Recovery codes",
+        "desc": "Store these codes somewhere safe. They are shown only now, and each code can be used once if you lose your authenticator app.",
+        "warning": "These codes are shown only this one time. Save them before closing the box.",
+        "copy": "Copy all",
+        "download": "Download as text file",
+        "saved": "I have saved the codes",
+        "regenerated": "New recovery codes have been created. The old codes are no longer valid.",
+        "regenerateTitle": "Create new recovery codes",
+        "regenerateDesc": "Creates a new set and invalidates all old codes. Confirm with your password.",
+        "regenerate": "Create new codes",
+        "fileHeader": "Recovery codes for {name}",
+        "fileWarning": "Each code can be used once. Keep the file in a safe place."
+      }
     },
     "templateEditor": {
       "title": "Edit template",
@@ -455,6 +469,10 @@
       "inviteLink": "Invitation link",
       "deactivate": "Deactivate",
       "activate": "Activate",
+      "resetTwoFactor": "Reset 2FA",
+      "resetTwoFactorHint": "Disable two-factor authentication for a user who has lost their device",
+      "resetTwoFactorConfirm": "Disable two-factor authentication for “{name}”? The user must set up 2FA again, and all sessions are signed out.",
+      "resetTwoFactorLabel": "Reset 2FA",
       "deleteUser": "Delete user",
       "adminHint": "Administrators always have all permissions, regardless of the role's list.",
       "customerHint": "Customer portal users are controlled by their customer link, not by internal permissions.",

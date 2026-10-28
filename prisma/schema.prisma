@@ -112,6 +112,7 @@ model User {
   notificationPreferences NotificationPreference[]
   savedSearches           SavedSearch[]
   searchLogs              SearchLog[]
+  twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
 
   @@index([departmentId])
   @@index([role])
@@ -119,6 +120,19 @@ model User {
   @@index([customerId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_name_trgm")
   @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_email_trgm")
+}
+
+// Engangskoder for gjenoppretting av 2FA. Bare bcrypt-hashen lagres, og hver
+// kode kan brukes nøyaktig én gang (usedAt settes ved innlogging).
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt])
 }
 
 model Customer {

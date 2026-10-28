@@ -1,10 +1,14 @@
 import { getTranslations } from "next-intl/server";
 import QRCode from "qrcode";
+import CopyButton from "@/components/CopyButton";
 import { buildTotpUri } from "@/lib/two-factor";
+import { readRecoveryCodesForDisplay } from "@/lib/session-token";
 import {
   cancelSetupAction,
   confirmSetupAction,
   disableTwoFactorAction,
+  dismissRecoveryCodesAction,
+  regenerateRecoveryCodesAction,
   startSetupAction,
 } from "@/app/innstillinger/security-actions";
 
@@ -29,6 +33,17 @@ export default async function SecuritySettings({
 }) {
   const isEnabled = Boolean(user.isTwoFactorEnabled);
   const t = await getTranslations("common");
+  const recoveryCodes = await readRecoveryCodesForDisplay();
+  const recoveryFile =
+    recoveryCodes && recoveryCodes.length > 0
+      ? `data:text/plain;charset=utf-8,${encodeURIComponent(
+          `${t("settings.security.recoveryCodes.fileHeader", {
+            name: user.email || user.name || "",
+          })}\n\n${recoveryCodes.join("\n")}\n\n${t(
+            "settings.security.recoveryCodes.fileWarning",
+          )}\n`,
+        )}`
+      : null;
 
   let qrDataUrl: string | null = null;
   let manualKey: string | null = null;
@@ -48,6 +63,57 @@ export default async function SecuritySettings({
       {ok === "disabled" && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3 font-medium">
           {t("settings.security.disabled")}
+        </div>
+      )}
+      {ok === "recovery" && (
+        <div className="bg-green-50 border border-green-200 text-green-800 text-sm rounded-xl px-4 py-3 font-medium">
+          {t("settings.security.recoveryCodes.regenerated")}
+        </div>
+      )}
+
+      {recoveryCodes && recoveryFile && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 className="font-bold text-amber-950">
+              {t("settings.security.recoveryCodes.title")}
+            </h2>
+            <p className="text-sm text-amber-800 mt-1">
+              {t("settings.security.recoveryCodes.desc")}
+            </p>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {recoveryCodes.map((code) => (
+              <li key={code}>
+                <code className="block bg-white border border-amber-200 rounded-lg px-3 py-2 font-mono text-sm tracking-wider text-gray-900 text-center">
+                  {code}
+                </code>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <CopyButton
+              value={recoveryCodes.join("\n")}
+              label={t("settings.security.recoveryCodes.copy")}
+            />
+            <a
+              href={recoveryFile}
+              download="gjenopprettingskoder.txt"
+              className="text-xs font-bold border border-gray-300 bg-white text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition text-center"
+            >
+              {t("settings.security.recoveryCodes.download")}
+            </a>
+          </div>
+          <p className="text-xs font-semibold text-amber-900">
+            {t("settings.security.recoveryCodes.warning")}
+          </p>
+          <form action={dismissRecoveryCodesAction}>
+            <button
+              type="submit"
+              className="text-xs font-bold bg-amber-900 text-white px-3 py-2 rounded-lg hover:bg-amber-950 transition"
+            >
+              {t("settings.security.recoveryCodes.saved")}
+            </button>
+          </form>
         </div>
       )}
       {error === "kode" && (
@@ -166,6 +232,33 @@ export default async function SecuritySettings({
             />
             <button type="submit" className="w-full bg-white border-2 border-red-200 text-red-700 py-2.5 rounded-xl font-bold hover:bg-red-50 transition">
               {t("settings.security.disable")}
+            </button>
+          </form>
+        )}
+
+        {isEnabled && (
+          <form action={regenerateRecoveryCodesAction} className="border-t pt-4 space-y-3">
+            <div>
+              <p className="text-sm font-bold text-gray-700">
+                {t("settings.security.recoveryCodes.regenerateTitle")}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {t("settings.security.recoveryCodes.regenerateDesc")}
+              </p>
+            </div>
+            <input
+              type="password"
+              name="password"
+              required
+              autoComplete="current-password"
+              placeholder={t("settings.security.passwordPlaceholder")}
+              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+            />
+            <button
+              type="submit"
+              className="w-full bg-white border border-gray-300 text-gray-800 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition"
+            >
+              {t("settings.security.recoveryCodes.regenerate")}
             </button>
           </form>
         )}

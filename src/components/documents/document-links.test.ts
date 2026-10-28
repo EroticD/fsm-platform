@@ -9,6 +9,12 @@ describe("resetHref", () => {
   it("gir ren dokumentlenke uten mappe", () => {
     expect(resetHref(null)).toBe("/dokumenter");
   });
+
+  it("beholder «kun denne mappen»", () => {
+    expect(resetHref("folder-1", true)).toBe(
+      "/dokumenter?folder=folder-1&scope=folder",
+    );
+  });
 });
 
 describe("toggleTagHref", () => {
@@ -42,5 +48,16 @@ describe("toggleTagHref", () => {
     ).toBe(
       "/dokumenter?folder=folder-1&q=pumpe+service&tag=HMS+%26+milj%C3%B8",
     );
+  });
+
+  it("beholder søkeomfanget når taggen slås av", () => {
+    expect(
+      toggleTagHref("Viktig", {
+        folderId: "folder-1",
+        searchQuery: "avtale",
+        tagFilter: "Viktig",
+        onlyFolder: true,
+      }),
+    ).toBe("/dokumenter?folder=folder-1&q=avtale&scope=folder");
   });
 });

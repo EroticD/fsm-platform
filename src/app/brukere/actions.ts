@@ -15,6 +15,7 @@ import {
   deleteUser as deleteUserService,
   generateInvite as generateInviteService,
   resetPermissions as resetPermissionsService,
+  resetTwoFactor as resetTwoFactorService,
   setActive as setActiveService,
 } from "@/server/users";
 
@@ -203,6 +204,25 @@ export async function resetPermissions(formData: FormData) {
   if (!actor) return;
 
   const result = await resetPermissionsService(actor, {
+    id: formData.get("id"),
+  });
+  if (!result.ok) {
+    if (result.reason === "invalid") {
+      redirect(withParam(back, "error", "ugyldig-data"));
+    }
+    return;
+  }
+
+  revalidateUserAdmin();
+}
+
+/** Administrator kan nullstille 2FA når en ansatt har mistet enheten sin. */
+export async function resetTwoFactor(formData: FormData) {
+  const back = returnPath(formData);
+  const actor = await getCurrentUser();
+  if (!actor) return;
+
+  const result = await resetTwoFactorService(actor, {
     id: formData.get("id"),
   });
   if (!result.ok) {

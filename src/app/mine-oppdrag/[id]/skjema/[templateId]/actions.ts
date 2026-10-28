@@ -111,6 +111,10 @@ export async function submitReport(formData: FormData) {
       // Prøv å lagre det montøren faktisk skrev før vi sender hen tilbake.
       await saveDraftService(user, formData);
       redirectToFormError(formData, "ugyldig-data", result.returnTo);
+    case "mangler-enhet":
+      // Kladden bevares, slik at montøren kan legge til enheten og sende på nytt.
+      await saveDraftService(user, formData);
+      redirectToFormError(formData, "mangler-enhet", result.returnTo);
     case "signatur":
       await saveDraftService(user, formData);
       redirectToFormError(formData, "signatur", result.returnTo);

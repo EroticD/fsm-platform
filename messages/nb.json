@@ -436,6 +436,12 @@
       "settings": "Innstillinger",
       "customerPortal": "Kundeportal",
       "map": "Kart",
+      "notifications": "Varsler",
+      "hms": "HMS",
+      "reports": "Rapporter",
+      "units": "Enheter",
+      "search": "Søk",
+      "security": "Sikkerhet",
       "users": "Ansatte"
     },
     "loginErrorTwoFactorUnavailable": "To-trinns verifisering er ikke riktig konfigurert. Kontakt administrator."

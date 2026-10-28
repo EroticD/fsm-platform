@@ -238,7 +238,10 @@
       "closeMenu": "Close menu",
       "search": "Search the system",
       "logOut": "Log out",
-      "skipToContent": "Skip to content"
+      "skipToContent": "Skip to content",
+      "breadcrumb": "Breadcrumb",
+      "work": "Work",
+      "more": "More"
     },
     "language": {
       "change": "Change language"

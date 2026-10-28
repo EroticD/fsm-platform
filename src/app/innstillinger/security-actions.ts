@@ -9,8 +9,13 @@ import {
   cancelTwoFactorSetup,
   confirmTwoFactorSetup,
   disableTwoFactor,
+  regenerateRecoveryCodes,
   startTwoFactorSetup,
 } from "@/server/security";
+import {
+  clearRecoveryCodesForDisplay,
+  setRecoveryCodesForDisplay,
+} from "@/lib/session-token";
 
 const BASE = "/innstillinger?tab=sikkerhet";
 
@@ -58,6 +63,7 @@ export async function confirmSetupAction(formData: FormData): Promise<never> {
 
   // Andre økter er nå ugyldige; den som aktiverte 2FA skal fortsatt være innlogget.
   await refreshSessionCookie(actor.id, result.data.sessionVersion);
+  await setRecoveryCodesForDisplay(result.data.recoveryCodes);
   revalidatePath("/innstillinger");
   redirect(`${BASE}&ok=enabled`);
 }
@@ -96,6 +102,33 @@ export async function disableTwoFactorAction(formData: FormData): Promise<never>
   }
 
   await refreshSessionCookie(actor.id, result.data.sessionVersion);
+  await clearRecoveryCodesForDisplay();
   revalidatePath("/innstillinger");
   redirect(`${BASE}&ok=disabled`);
+}
+
+export async function regenerateRecoveryCodesAction(
+  formData: FormData,
+): Promise<never> {
+  const actor = await currentActor();
+  const result = await regenerateRecoveryCodes(
+    actor,
+    { password: formData.get("password") },
+    await requestIp(),
+  );
+
+  if (!result.ok) {
+    redirect(`${BASE}&error=passord`);
+  }
+
+  await setRecoveryCodesForDisplay(result.data.recoveryCodes);
+  revalidatePath("/innstillinger");
+  redirect(`${BASE}&ok=recovery`);
+}
+
+/** Skjuler engangskodene når brukeren har lagret eller kopiert dem. */
+export async function dismissRecoveryCodesAction(): Promise<never> {
+  await clearRecoveryCodesForDisplay();
+  revalidatePath("/innstillinger");
+  redirect(BASE);
 }

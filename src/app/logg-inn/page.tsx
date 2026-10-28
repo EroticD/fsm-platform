@@ -43,6 +43,9 @@ export default async function LoginPage({
       case "TwoFactorUnavailable":
         error = t("loginErrorTwoFactorUnavailable");
         break;
+      case "TwoFactorExpired":
+        error = t("auth.twoFactor.errors.TwoFactorExpired");
+        break;
       default:
         error = t("loginErrorDefault");
     }

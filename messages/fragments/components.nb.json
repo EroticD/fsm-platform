@@ -238,7 +238,10 @@
       "closeMenu": "Lukk menyen",
       "search": "Søk i systemet",
       "logOut": "Logg ut",
-      "skipToContent": "Hopp til innhold"
+      "skipToContent": "Hopp til innhold",
+      "breadcrumb": "Brødsmulesti",
+      "work": "Arbeid",
+      "more": "Mer"
     },
     "language": {
       "change": "Endre språk"

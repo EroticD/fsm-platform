@@ -5,6 +5,7 @@ import type { ServiceActor } from "./actor";
 const mocks = vi.hoisted(() => ({
   prisma: {
     user: { findUnique: vi.fn(), update: vi.fn() },
+    twoFactorRecoveryCode: { deleteMany: vi.fn() },
     auditLog: { create: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   resetRateLimitDb: vi.fn(),
   verifyTotp: vi.fn(),
   createTotpSecret: vi.fn(() => "NY-HEMMELIGHET"),
+  replaceRecoveryCodes: vi.fn(async () => ["AAAA-BBBB", "CCCC-DDDD"]),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
@@ -22,6 +24,9 @@ vi.mock("@/lib/rate-limit-db", () => ({
 vi.mock("@/lib/two-factor", () => ({
   createTotpSecret: mocks.createTotpSecret,
   verifyTotp: mocks.verifyTotp,
+}));
+vi.mock("@/lib/two-factor-recovery", () => ({
+  replaceRecoveryCodes: mocks.replaceRecoveryCodes,
 }));
 
 import {
@@ -73,6 +78,7 @@ beforeEach(() => {
     async (callback: (tx: typeof mocks.prisma) => unknown) => callback(mocks.prisma),
   );
   mocks.prisma.user.update.mockResolvedValue({ sessionVersion: 7 });
+  mocks.prisma.twoFactorRecoveryCode.deleteMany.mockResolvedValue({ count: 10 });
   mocks.prisma.auditLog.create.mockResolvedValue({});
   mocks.prisma.user.findUnique.mockImplementation(
     async ({ select }: { select?: Record<string, boolean> }) => {
@@ -167,6 +173,9 @@ describe("2FA-innstillinger – verifisering", () => {
       },
       select: { sessionVersion: true },
     });
+    expect(mocks.prisma.twoFactorRecoveryCode.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+    });
     expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         entityType: "User",
@@ -192,7 +201,13 @@ describe("2FA-innstillinger – verifisering", () => {
   it("aktiverer 2FA og øker øktversjonen i samme transaksjon", async () => {
     const result = await confirmTwoFactorSetup(actor, { code: CORRECT_CODE });
 
-    expect(result).toEqual({ ok: true, data: { sessionVersion: 7 } });
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        sessionVersion: 7,
+        recoveryCodes: ["AAAA-BBBB", "CCCC-DDDD"],
+      },
+    });
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
       data: {
@@ -201,6 +216,10 @@ describe("2FA-innstillinger – verifisering", () => {
       },
       select: { sessionVersion: true },
     });
+    expect(mocks.replaceRecoveryCodes).toHaveBeenCalledWith(
+      mocks.prisma,
+      "user-1",
+    );
     expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         action: "Slå på to-trinns verifisering",

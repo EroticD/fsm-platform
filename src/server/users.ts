@@ -502,6 +502,46 @@ export async function changePhone(
 }
 
 /**
+ * Slår av 2FA for en bruker som har mistet enheten sin. Bare administrator,
+ * og handlingen revisjonslogges. Alle økter ugyldiggjøres, og kodene slettes.
+ */
+export async function resetTwoFactor(
+  actor: ServiceActor,
+  input: { id?: unknown },
+): Promise<ServiceResult> {
+  if (!isAdminActor(actor) || !actor.isActive) return fail("forbidden");
+
+  const parsed = userInviteSchema.safeParse({
+    id: cleanText(input.id, { maxLength: LIMITS.line }),
+  });
+  if (!parsed.success) return fail("invalid");
+  const id = parsed.data.id;
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return fail("not_found");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: {
+        isTwoFactorEnabled: false,
+        twoFactorSecret: null,
+        sessionVersion: { increment: 1 },
+      },
+    });
+    await tx.twoFactorRecoveryCode.deleteMany({ where: { userId: id } });
+    await clearCalendarToken(id, tx);
+    await audit(tx, {
+      entityType: "User",
+      entityId: id,
+      action: `Tilbaketstilte to-trinns verifisering for ${target.name || target.email || "Ukjent"}`,
+      actor: toAuditActor(actor),
+    });
+  });
+  return ok(undefined);
+}
+
+/**
  * Lagrer tilpassede rettigheter for en bruker. Bare administrator. Listen
  * overstyrer rollens rettigheter helt. Velger man nøyaktig rollens liste,
  * fjernes overstyringen slik at brukeren følger rollen videre.

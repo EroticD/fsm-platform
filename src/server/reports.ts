@@ -834,6 +834,7 @@ export type SubmitReportError =
   | "ikke-autentisert"
   | "ikke-tilgang"
   | "ugyldig-data"
+  | "mangler-enhet"
   | "ikke-funnet"
   | "kansellert"
   | "locked"
@@ -1010,7 +1011,7 @@ export async function submitReport(
   // sjekkpunkter og rapporter uten enheter. Ellers kunne en klient sende inn
   // en «godkjent» rapport med hull i dokumentasjonen.
   if (unitRows.length === 0) {
-    return { ok: false, error: "ugyldig-data", returnTo: returnPathFrom(formData, workOrderId) };
+    return { ok: false, error: "mangler-enhet", returnTo: returnPathFrom(formData, workOrderId) };
   }
 
   const hasMissingRequired = unitRows.some((row) => {

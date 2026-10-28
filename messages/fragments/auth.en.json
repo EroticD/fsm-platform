@@ -9,9 +9,17 @@
       "backToLogin": "Back to login",
       "errors": {
         "InvalidTwoFactor": "Incorrect one-time code. Try again.",
+        "InvalidRecoveryCode": "Invalid or already used recovery code. Try another code.",
         "TwoFactorExpired": "The session has expired. Log in again.",
         "TooManyAttempts": "Too many attempts. Wait a few minutes and try again.",
         "default": "Could not verify the code."
+      },
+      "recovery": {
+        "link": "Sign in with a recovery code",
+        "label": "Recovery code",
+        "hint": "Use one of the single-use codes you saved when you enabled two-factor authentication. Each code works only once.",
+        "submit": "Sign in with code",
+        "submitting": "Signing in..."
       }
     },
     "forgot": {

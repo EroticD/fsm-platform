@@ -207,7 +207,21 @@
       "enable": "Slå på to-trinns verifisering",
       "disableDesc": "Skriv inn en gyldig engangskode for å slå av.",
       "disable": "Slå av to-trinns verifisering",
-      "loggedInAs": "Innlogget som {name}."
+      "loggedInAs": "Innlogget som {name}.",
+      "recoveryCodes": {
+        "title": "Gjenopprettingskoder",
+        "desc": "Lagre disse kodene på et trygt sted. De vises bare nå, og hver kode kan brukes én gang hvis du mister autentiseringsappen.",
+        "warning": "Kodene vises bare denne ene gangen. Lagre dem før du lukker boksen.",
+        "copy": "Kopier alle",
+        "download": "Last ned som tekstfil",
+        "saved": "Jeg har lagret kodene",
+        "regenerated": "Nye gjenopprettingskoder er laget. De gamle kodene er ugyldige.",
+        "regenerateTitle": "Lag nye gjenopprettingskoder",
+        "regenerateDesc": "Lager et nytt sett og gjør alle gamle koder ugyldige. Bekreft med passordet ditt.",
+        "regenerate": "Lag nye koder",
+        "fileHeader": "Gjenopprettingskoder for {name}",
+        "fileWarning": "Hver kode kan brukes én gang. Oppbevar filen på et trygt sted."
+      }
     },
     "templateEditor": {
       "title": "Rediger Mal",
@@ -455,6 +469,10 @@
       "inviteLink": "Invitasjonslenke",
       "deactivate": "Deaktiver",
       "activate": "Aktiver",
+      "resetTwoFactor": "Tilbakestill 2FA",
+      "resetTwoFactorHint": "Slå av to-trinns verifisering for en bruker som har mistet enheten sin",
+      "resetTwoFactorConfirm": "Slå av to-trinns verifisering for «{name}»? Brukeren må sette opp 2FA på nytt, og alle økter logges ut.",
+      "resetTwoFactorLabel": "Tilbakestill 2FA",
       "deleteUser": "Slett bruker",
       "adminHint": "Administrator har alltid alle rettigheter, uavhengig av rollens liste.",
       "customerHint": "Kundeportalbrukere styres av kundetilknytningen, ikke av interne rettigheter.",

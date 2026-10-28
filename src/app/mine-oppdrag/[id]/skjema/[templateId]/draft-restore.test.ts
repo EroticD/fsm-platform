@@ -81,6 +81,54 @@ describe("restoreLocalDraft", () => {
     });
   });
 
+  it("gjenoppretter bilde-svar og kommentarer fra skjemaet", () => {
+    const restored = restoreLocalDraft({
+      requiresUnits: true,
+      fallback: seed(),
+      snapshot: {
+        state: {
+          counter: 1,
+          units: [
+            {
+              key: "unit-0",
+              productId: "prod1",
+              label: "Port Nord",
+              serialNumber: "SN-1",
+              location: "Bygg A",
+              status: "AVVIK",
+              // Kommentaren i state kan være eldre enn skjemaet.
+              comment: "gammel kommentar",
+              answers: { f1: "Avvik" },
+            },
+          ],
+        },
+        form: {
+          "answer__unit-0__f1": "Avvik",
+          "answer__unit-0__f_image":
+            '["/uploads/bilde-1.png","/uploads/bilde-2.png"]',
+          "linecomment__unit-0__f1": "Kommentar til avviket",
+          "comment__unit-0": "Ny enhetskommentar",
+        },
+      },
+    });
+
+    expect(restored).not.toBeNull();
+    expect(restored?.state.units[0].answers).toMatchObject({
+      f1: "Avvik",
+      f_image: '["/uploads/bilde-1.png","/uploads/bilde-2.png"]',
+      "f1__kommentar": "Kommentar til avviket",
+    });
+    expect(restored?.state.units[0].comment).toBe("Ny enhetskommentar");
+    // Startobjektet brukes til å rendre feltene på nytt, og må ha samme verdier.
+    expect(restored?.seed.units[0]).toMatchObject({
+      comment: "Ny enhetskommentar",
+      answers: {
+        f_image: '["/uploads/bilde-1.png","/uploads/bilde-2.png"]',
+        "f1__kommentar": "Kommentar til avviket",
+      },
+    });
+  });
+
   it("beholder serververdier for felter som mangler lokalt", () => {
     const restored = restoreLocalDraft({
       requiresUnits: true,

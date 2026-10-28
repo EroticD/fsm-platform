@@ -9,8 +9,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
-import BrandingColors from "@/components/BrandingColors";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import prisma from "@/lib/prisma";
+import { isSafeLogoUrl } from "@/lib/logo";
+import { readableTextColor } from "@/lib/colors";
 import ToastProvider from "@/components/ToastProvider";
 import OfflineBanner from "@/components/OfflineBanner";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
@@ -50,6 +52,12 @@ export const viewport = {
   themeColor: "#0F2E4C",
 };
 
+const DEFAULT_PRIMARY_COLOR = "#2563eb";
+
+function isHexColor(value: string | null | undefined): value is string {
+  return Boolean(value && /^#[0-9a-f]{6}$/i.test(value));
+}
+
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const messages = await getMessages();
@@ -59,6 +67,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const permissions = currentUser
     ? Array.from(effectivePermissions(currentUser))
     : [];
+  // Merkevaren hentes én gang på serveren, slik at første maling får riktig
+  // navn, logo og farge uten en ekstra klientforespørsel.
+  const branding = await prisma.branding.findFirst().catch(() => null);
+  const companyName = branding?.companyName?.trim() || "FSM System";
+  const configuredColor = branding?.primaryColor;
+  const primaryColor = isHexColor(configuredColor)
+    ? configuredColor
+    : DEFAULT_PRIMARY_COLOR;
+  const primaryForeground = readableTextColor(primaryColor);
+  const logoUrl =
+    branding?.logoUrl && isSafeLogoUrl(branding.logoUrl)
+      ? branding.logoUrl
+      : null;
 
   return (
     <html
@@ -67,6 +88,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `:root{--primary-color:${primaryColor};--primary-foreground:${primaryForeground};}`,
+          }}
+        />
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-gray-900 focus:shadow-lg"
@@ -75,12 +101,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
-            <BrandingColors />
             <OfflineBanner userId={currentUser?.id} />
             <BrandedHeader
               showNav
               role={currentUser?.role ?? session?.user?.role}
               permissions={permissions}
+              companyName={companyName}
+              logoUrl={logoUrl}
+              primaryColor={primaryColor}
             />
             {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}

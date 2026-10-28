@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { activeNavHref, hasAnyPermission, navItemsFor } from "./navigation";
+import {
+  activeNavHref,
+  hasAnyPermission,
+  menuNavFor,
+  navItemsFor,
+  primaryNavFor,
+  settingsNavItem,
+} from "./navigation";
 import { defaultPermissionsForRole } from "./permissions";
 
 describe("toppnavigasjon", () => {
@@ -46,6 +53,49 @@ describe("toppnavigasjon", () => {
     expect(activeNavHref(items, "/oppdrag/abc")).toBe("/oppdrag");
     expect(activeNavHref(items, "/")).toBe("/");
     expect(activeNavHref(items, "/ukjent")).toBeNull();
+  });
+
+  it("deler menyen i hovednavigasjon og hamburgermeny", () => {
+    const items = navItemsFor("ADMIN", []);
+    expect(primaryNavFor(items).map((item) => item.href)).toEqual([
+      "/",
+      "/mine-oppdrag",
+      "/oppdrag",
+      "/kalender",
+      "/kunder",
+      "/dokumenter",
+    ]);
+    expect(menuNavFor(items).map((item) => item.href)).toEqual([
+      "/kart",
+      "/oppdrag/ny",
+      "/varsler",
+    ]);
+    expect(settingsNavItem(items)?.href).toBe("/innstillinger");
+  });
+
+  it("filtrerer hoved- og hamburgermenyen etter samme rettigheter", () => {
+    const items = navItemsFor("SERVICELEDER", ["documents.view"]);
+    expect(primaryNavFor(items).map((item) => item.href)).toEqual([
+      "/dokumenter",
+    ]);
+    expect(menuNavFor(items).map((item) => item.href)).toEqual(["/varsler"]);
+    expect(settingsNavItem(items)).toBeUndefined();
+  });
+
+  it("gir kundeportalbrukere portalen uten hamburgerelementer", () => {
+    const items = navItemsFor("CUSTOMER");
+    expect(primaryNavFor(items).map((item) => item.href)).toEqual([
+      "/kundeportal",
+    ]);
+    expect(menuNavFor(items)).toEqual([]);
+    expect(settingsNavItem(items)).toBeUndefined();
+  });
+
+  it("markerer varsler og innstillinger når de åpnes fra menyen", () => {
+    const items = navItemsFor("ADMIN", []);
+    expect(activeNavHref(items, "/varsler")).toBe("/varsler");
+    expect(activeNavHref(items, "/varsler/innstillinger")).toBe("/varsler");
+    expect(activeNavHref(items, "/innstillinger")).toBe("/innstillinger");
   });
 
   it("sjekker én eller flere rettigheter", () => {

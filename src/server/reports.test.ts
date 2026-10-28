@@ -697,7 +697,7 @@ describe("reports-tjenesten", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: "ugyldig-data",
+      error: "mangler-enhet",
       returnTo: "/oppdrag/wo1",
     });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();

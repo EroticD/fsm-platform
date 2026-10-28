@@ -8,6 +8,8 @@
  * at alle felter kan rendres på nytt med de gjenopprettede verdiene.
  */
 
+import { lineCommentKey } from "@/lib/report-answers";
+
 export type UnitEntry = {
   key: string;
   productId: string;
@@ -114,6 +116,46 @@ function formValue(
 }
 
 /**
+ * Skjemaet er delvis ukontrollert, og enkelte svar (bilder, linje- og
+ * enhetskommentarer) rapporteres ikke til React-state mens man skriver. Den
+ * serialiserte FormData-en er derfor autoritativ for disse feltene, og må
+ * flettes inn i state før feltene rendres på nytt.
+ */
+function mergeFormIntoState(
+  state: ReportFormState,
+  form: Record<string, string> | undefined,
+): ReportFormState {
+  if (!form) return state;
+
+  return {
+    ...state,
+    units: state.units.map((unit) => {
+      const answers = { ...unit.answers };
+      const answerPrefix = `answer__${unit.key}__`;
+      const lineCommentPrefix = `linecomment__${unit.key}__`;
+
+      for (const [key, value] of Object.entries(form)) {
+        if (key.startsWith(answerPrefix)) {
+          const fieldId = key.slice(answerPrefix.length);
+          if (fieldId) answers[fieldId] = value;
+          continue;
+        }
+        if (key.startsWith(lineCommentPrefix)) {
+          const fieldId = key.slice(lineCommentPrefix.length);
+          if (fieldId) answers[lineCommentKey(fieldId)] = value;
+        }
+      }
+
+      return {
+        ...unit,
+        comment: formValue(form, `comment__${unit.key}`) ?? unit.comment,
+        answers,
+      };
+    }),
+  };
+}
+
+/**
  * Slår sammen en lokal kladd med en eventuell eldre serverkladd/rapport.
  * Lokale verdier vinner, men felter som ikke finnes lokalt beholder serverens
  * verdi. Returnerer null når kladden ikke inneholder brukbar state.
@@ -123,11 +165,12 @@ export function restoreLocalDraft(input: {
   requiresUnits: boolean;
   fallback?: ReportSeed;
 }): { state: ReportFormState; seed: ReportSeed } | null {
-  const state = normalizeState(input.snapshot, input.requiresUnits);
-  if (!state) return null;
+  const normalized = normalizeState(input.snapshot, input.requiresUnits);
+  if (!normalized) return null;
 
   const { snapshot, fallback } = input;
   const form = snapshot.form;
+  const state = mergeFormIntoState(normalized, form);
   const notes =
     formValue(form, "notes") ?? snapshot.notes ?? fallback?.notes ?? "";
 

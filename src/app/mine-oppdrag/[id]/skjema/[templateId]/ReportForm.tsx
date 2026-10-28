@@ -8,7 +8,7 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import ErrorBanner from "@/components/ErrorBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { readLineComment } from "@/lib/report-answers";
+import { parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { reportFormSections } from "./report-form-sections";
 import {
   makeUnit,
@@ -66,14 +66,21 @@ function isFieldVisible(
 }
 
 /** Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk. */
-function SubmitButton({ isEditing }: { isEditing: boolean }) {
+function SubmitButton({
+  isEditing,
+  disabled = false,
+}: {
+  isEditing: boolean;
+  disabled?: boolean;
+}) {
   const { pending } = useFormStatus();
   const t = useTranslations("common");
   return (
     <button
       type="submit"
-      disabled={pending}
-      className="w-full bg-blue-700 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-800 transition shadow-md flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
+      disabled={pending || disabled}
+      aria-describedby={disabled ? "report-no-units-error" : undefined}
+      className="w-full bg-blue-700 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-800 transition shadow-md flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {pending ? t("orders.reportForm.saving") : isEditing ? t("orders.reportForm.saveChanges") : t("orders.reportForm.saveReport")}
     </button>
@@ -115,6 +122,9 @@ export default function ReportForm({
 }) {
   const isEditing = Boolean(initialReport);
   const initialSeed = initialDraft ?? initialReport;
+  // Startobjektet skal bare brukes ved første gjenoppretting. Uten denne ref-en
+  // ville en ny objektidentitet fra router.refresh startet restaureringen på nytt.
+  const initialSeedRef = useRef(initialSeed);
   // Startobjektet kan oppdateres når en nyere lokal kladd gjenopprettes.
   // Skjemaet er delvis ukontrollert, så `formVersion` tvinger feltene til å
   // rendres på nytt med de gjenopprettede verdiene.
@@ -175,6 +185,11 @@ export default function ReportForm({
   const formRef = useRef<HTMLFormElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Restaureringen skal maksimalt kjøre én gang per kladdidentitet. En ny
+  // render fra router.refresh må ikke remontere feltene mens montøren skriver.
+  const restoreAttemptedKey = useRef<string | null>(null);
+  const restoreSettledKey = useRef<string | null>(null);
+  const userEditedRef = useRef(false);
   // Skriver lokale kladder sekvensielt, så en senere (nyere) snapshot alltid
   // havner etter en eldre – også om to lagringer skulle overlappe.
   const localWriteChain = useRef<Promise<void>>(Promise.resolve());
@@ -191,6 +206,12 @@ export default function ReportForm({
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // Hold fallbacken fersk dersom serverkladden endrer seg, uten å starte en ny
+  // gjenoppretting (den styres av kladdidentiteten lenger ned).
+  useEffect(() => {
+    initialSeedRef.current = initialSeed;
+  }, [initialSeed]);
 
   /** Leser hele skjemaet som strenger – samme format som serverkladden. */
   const readFormPayload = (form: HTMLFormElement): Record<string, string> => {
@@ -273,6 +294,7 @@ export default function ReportForm({
   }, [writeLocalDraft, templateId, userId, workOrderId]);
 
   const scheduleSave = useCallback(() => {
+    userEditedRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       void saveDraftNow();
@@ -315,11 +337,21 @@ export default function ReportForm({
 
   // Gjenopprett en nyere lokal kladd (f.eks. laget offline) når serverkladden
   // er eldre. En signert rapport skal aldri overskrives av en lokal kladd.
+  // Kjører bare én gang per kladdidentitet, og aldri etter at montøren har
+  // begynt å skrive – ellers ville en refresh remontert feltene midt i utfyllingen.
   useEffect(() => {
     if (initialReport) return;
+
+    const draftIdentity = [userId, workOrderId, templateId, draftUpdatedAt ?? ""].join("|");
+    if (restoreAttemptedKey.current === draftIdentity) return;
+    restoreAttemptedKey.current = draftIdentity;
+    if (userEditedRef.current) return;
+
     let active = true;
     void loadDraftLocally({ userId, workOrderId, templateId })
       .then((local) => {
+        // Marker at oppslaget er fullført, også når det ikke finnes en kladd.
+        restoreSettledKey.current = draftIdentity;
         if (!active || !local) return;
         const serverTime = draftUpdatedAt
           ? new Date(draftUpdatedAt).getTime()
@@ -328,7 +360,7 @@ export default function ReportForm({
         const restored = restoreLocalDraft({
           snapshot: local.payload as LocalDraftSnapshot,
           requiresUnits,
-          fallback: initialSeed,
+          fallback: initialSeedRef.current,
         });
         if (!restored) return;
         // State og startobjekt oppdateres i samme render, og `formVersion`
@@ -340,11 +372,22 @@ export default function ReportForm({
         setDraftStatus("saved");
         setDraftSavedAt(new Date(local.updatedAt));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        restoreSettledKey.current = draftIdentity;
+      });
     return () => {
       active = false;
+      // React StrictMode kjører effekten på nytt etter en umiddelbar cleanup.
+      // Slipp derfor identiteten fri igjen når oppslaget ikke rakk å fullføre,
+      // slik at neste kjøring kan gjenopprette kladden.
+      if (
+        restoreSettledKey.current !== draftIdentity &&
+        restoreAttemptedKey.current === draftIdentity
+      ) {
+        restoreAttemptedKey.current = null;
+      }
     };
-  }, [draftUpdatedAt, initialReport, requiresUnits, templateId, userId, workOrderId, initialSeed]);
+  }, [draftUpdatedAt, initialReport, requiresUnits, templateId, userId, workOrderId]);
 
   // Sjekkpunkter som krever oppfølging (f.eks. «Utbedres»), gruppert per enhet.
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
@@ -397,6 +440,69 @@ export default function ReportForm({
 
   const overallStatus = units.some((u) => u.status === "AVVIK") ? "AVVIK" : "GODKJENT";
 
+  // En rapport med enheter kan ikke sendes uten minst én enhet. Serveren
+  // avviser den også med `mangler-enhet`, men knappen skal aldri invitere til det.
+  const missingUnits = requiresUnits && units.length === 0;
+
+  // --- Forhåndskontroll før innsending --------------------------------------
+  // Rapporten låses når den sendes, så montøren får se en oppsummering og et
+  // eksplisitt låsevarsel før server-handlingen kjøres.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState<{
+    units: number;
+    deviations: number;
+    photos: number;
+    technicianSigned: boolean;
+    customerSigned: boolean;
+  } | null>(null);
+  const bypassReview = useRef(false);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    if (bypassReview.current) {
+      bypassReview.current = false;
+      return;
+    }
+    event.preventDefault();
+    if (missingUnits) return;
+
+    const payload = formRef.current ? readFormPayload(formRef.current) : {};
+    const imageFields = new Set(
+      fields.filter((field) => field.type === "IMAGE").map((field) => field.id),
+    );
+    let photos = 0;
+    for (const [key, value] of Object.entries(payload)) {
+      // Bare bildefelt teller som foto. Signaturene ligger i egne felt.
+      if (!key.startsWith("answer__")) continue;
+      const fieldId = key.slice(key.lastIndexOf("__") + 2);
+      if (imageFields.has(fieldId)) photos += parseImageUrls(value).length;
+    }
+
+    setReviewSummary({
+      units: units.length,
+      deviations: units.filter((unit) => unit.status === "AVVIK").length,
+      photos,
+      technicianSigned:
+        Boolean(payload.technicianSignature) ||
+        Boolean(seed?.technicianSignatureUrl),
+      customerSigned:
+        Boolean(payload.customerSignature) ||
+        Boolean(seed?.customerSignatureUrl),
+    });
+    setReviewOpen(true);
+  };
+
+  const confirmSubmit = () => {
+    setReviewOpen(false);
+    if (!formRef.current) return;
+    bypassReview.current = true;
+    formRef.current.requestSubmit();
+    // Hvis nettleservalideringen stopper innsendingen, må neste klikk igjen
+    // åpne forhåndskontrollen i stedet for å sende direkte.
+    window.setTimeout(() => {
+      bypassReview.current = false;
+    }, 0);
+  };
+
   // Enhetslisten sendes som JSON, mens svarene sendes som vanlige felt
   // (answer__<enhetsnøkkel>__<feltId>) slik at de blir enkle å lese på serveren.
   const unitsJson = JSON.stringify(
@@ -414,6 +520,7 @@ export default function ReportForm({
 
   const submitErrorMessages: Record<string, string> = {
     "ugyldig-data": t("orders.reportForm.errorInvalidData"),
+    "mangler-enhet": t("orders.reportForm.errorMissingUnit"),
     signatur: t("orders.reportForm.errorSignature"),
     locked: t("orders.reportForm.errorLocked"),
     "legal-hold": t("orders.reportForm.errorLegalHold"),
@@ -422,12 +529,34 @@ export default function ReportForm({
     ? (submitErrorMessages[submitError] ?? t("orders.reportForm.errorGeneric"))
     : undefined;
 
+  const signedLabel = t("orders.reportForm.reviewSigned");
+  const notSignedLabel = t("orders.reportForm.reviewNotSigned");
+  const reviewDescription = reviewSummary
+    ? [
+        requiresUnits
+          ? t("orders.reportForm.reviewUnits", { count: reviewSummary.units })
+          : t("orders.reportForm.reviewWithoutUnits"),
+        t("orders.reportForm.reviewDeviations", {
+          count: reviewSummary.deviations,
+        }),
+        t("orders.reportForm.reviewPhotos", { count: reviewSummary.photos }),
+        t("orders.reportForm.reviewSignatures", {
+          technician: reviewSummary.technicianSigned
+            ? signedLabel
+            : notSignedLabel,
+          customer: reviewSummary.customerSigned ? signedLabel : notSignedLabel,
+        }),
+        t("orders.reportForm.reviewLockWarning"),
+      ].join(" · ")
+    : undefined;
+
   return (
     <form
       ref={formRef}
       action={submitReport}
       onChange={scheduleSave}
       onInput={scheduleSave}
+      onSubmit={handleSubmit}
       className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-8"
     >
       <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -516,8 +645,12 @@ export default function ReportForm({
           </div>
         )}
 
-        {requiresUnits && units.length === 0 && (
-          <p className="text-sm text-gray-500 italic bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-4">
+        {missingUnits && (
+          <p
+            id="report-no-units-error"
+            role="alert"
+            className="text-sm font-bold text-red-700 bg-red-50 border-2 border-red-200 rounded-xl p-4"
+          >
             {t("orders.reportForm.noUnits")}
           </p>
         )}
@@ -767,8 +900,19 @@ export default function ReportForm({
 
       {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd. */}
       <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
-        <SubmitButton isEditing={isEditing} />
+        <SubmitButton isEditing={isEditing} disabled={missingUnits} />
       </div>
+
+      <ConfirmDialog
+        open={reviewOpen}
+        title={t("orders.reportForm.reviewTitle")}
+        description={reviewDescription}
+        confirmLabel={t("orders.reportForm.reviewConfirm")}
+        cancelLabel={t("orders.reportForm.reviewCancel")}
+        danger
+        onCancel={() => setReviewOpen(false)}
+        onConfirm={confirmSubmit}
+      />
 
       <ConfirmDialog
         open={unitToRemove !== null}

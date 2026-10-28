@@ -165,7 +165,13 @@ export default function FieldInput({
             type="checkbox"
             name={name}
             value="on"
-            defaultChecked={defaultValue === true || defaultValue === "true"}
+            defaultChecked={
+              defaultValue === true ||
+              defaultValue === "true" ||
+              // Skjemaets FormData lagrer avkrysning som «on». Kladder kan
+              // derfor inneholde denne verdien i tillegg til React-state.
+              defaultValue === "on"
+            }
             required={field.required}
             onChange={(event) =>
               onValueChange?.(event.target.checked ? "true" : "false")

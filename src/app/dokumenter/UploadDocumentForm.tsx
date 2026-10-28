@@ -3,15 +3,19 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import TagSelector from "@/components/TagSelector";
+import DocumentContextFields from "./DocumentContextFields";
+import type { DocumentFormContext } from "./action-types";
 
 export default function UploadDocumentForm({
   folderId,
   allTags,
   createDocument,
+  context,
 }: {
   folderId: string | null;
   allTags: { id: string; name: string; color: string }[];
   createDocument: (formData: FormData) => Promise<void>;
+  context: DocumentFormContext;
 }) {
   const t = useTranslations("common");
   const [uploading, setUploading] = useState(false);
@@ -39,8 +43,10 @@ export default function UploadDocumentForm({
       setFileUrl(data.fileUrl);
       setFileName(data.fileName);
       setFileSize(data.fileSize);
-    } catch (err: any) {
-      setError(err.message || t("documents.upload.uploadFailed"));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t("documents.upload.uploadFailed"),
+      );
       setFileUrl(null);
     } finally {
       setUploading(false);
@@ -69,6 +75,7 @@ export default function UploadDocumentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <DocumentContextFields context={context} />
       <div>
         <label htmlFor="upload-pdf-input" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.pdfFile")}</label>
         <input
