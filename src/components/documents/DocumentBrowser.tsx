@@ -6,6 +6,7 @@ import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import UploadDocumentForm from "@/app/dokumenter/UploadDocumentForm";
 import BulkUploadForm from "@/app/dokumenter/BulkUploadForm";
 import EditDocumentForm from "@/app/dokumenter/EditDocumentForm";
+import { resetHref, toggleTagHref } from "./document-links";
 
 type DocumentBrowserProps = {
   data: DocumentLibraryData;
@@ -66,14 +67,10 @@ export default async function DocumentBrowser({
     return `/dokumenter${qs ? `?${qs}` : ""}`;
   };
 
-  const tagLink = (tagName: string) => {
-    const params = new URLSearchParams();
-    if (folderId) params.set("folder", folderId);
-    if (searchQuery) params.set("q", searchQuery);
-    if (tagName) params.set("tag", tagName);
-    const qs = params.toString();
-    return `/dokumenter${qs ? `?${qs}` : ""}`;
-  };
+  const resetLink = () => resetHref(folderId);
+
+  const toggleTagLink = (tagName: string) =>
+    toggleTagHref(tagName, { folderId, searchQuery, tagFilter });
 
   const pageLink = (nextPage: number) => {
     const params = new URLSearchParams();
@@ -133,7 +130,7 @@ export default async function DocumentBrowser({
           </button>
           {(searchQuery || tagFilter) && (
             <Link
-              href={folderLink(folderId)}
+              href={resetLink()}
               className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
             >
               {t("documents.browser.reset")}
@@ -154,7 +151,7 @@ export default async function DocumentBrowser({
             {allTags.map((tag) => (
               <Link
                 key={tag.id}
-                href={tagFilter === tag.name ? folderLink(folderId) : tagLink(tag.name)}
+                href={toggleTagLink(tag.name)}
                 className={`px-3 py-1 rounded-full text-xs font-bold border-2 transition ${
                   tagFilter === tag.name
                     ? "text-white border-transparent"

@@ -7,7 +7,16 @@
     "confirm": {
       "title": "Bekreft handling",
       "confirm": "Bekreft",
-      "cancel": "Avbryt"
+      "cancel": "Avbryt",
+      "busy": "Behandler …",
+      "deleteUser": "Slette brukeren «{name}»? Dette kan ikke angres.",
+      "deleteUserLabel": "Slett bruker",
+      "deleteRole": "Slette rollen «{name}»? Dette kan ikke angres.",
+      "deleteRoleLabel": "Slett rolle",
+      "deleteTag": "Slette taggen «{name}»? Den fjernes fra alle oppdrag den er brukt på.",
+      "deleteTagLabel": "Slett tag",
+      "deleteDocumentTag": "Slette dokumenttaggen «{name}»? Den fjernes fra alle dokumenter den er brukt på.",
+      "deleteDocumentTagLabel": "Slett dokument-tag"
     },
     "autoSave": {
       "saving": "Lagrer...",
@@ -97,6 +106,7 @@
       "emptyTitle": "Søk i hele plattformen",
       "emptyBody": "Finn kunder, oppdrag, utstyr, rapporter, kommentarer og dokumenter på ett sted.",
       "queryTooShort": "Skriv minst to tegn for å søke.",
+      "minLengthHint": "Skriv minst 2 tegn",
       "suggestionsTitle": "Prøv for eksempel",
       "suggestions": {
         "service": "Service",
@@ -126,7 +136,10 @@
         "hmsType": "HMS-type",
         "allHmsTypes": "Alle HMS-typer",
         "apply": "Bruk filtre",
-        "clear": "Fjern filtre"
+        "clear": "Fjern filtre",
+        "mobileTrigger": "Filtre ({count})",
+        "showResults": "Vis resultater",
+        "panelLabel": "Søkefiltre"
       },
       "statuses": {
         "PLANNED": "Planlagt",
@@ -249,7 +262,8 @@
     },
     "toast": {
       "uploaded": "Fil(er) lastet opp",
-      "deleted": "Vedlegg slettet"
+      "deleted": "Vedlegg slettet",
+      "dismiss": "Lukk varsel"
     },
     "realtime": {
       "paused": "Sanntidsoppdatering er satt på pause.",

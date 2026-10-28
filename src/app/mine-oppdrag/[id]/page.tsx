@@ -17,7 +17,7 @@ import SubmitButton from "@/components/SubmitButton";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
-import { allowedTransitions } from "@/lib/work-order-status";
+import { statusSelectOptions } from "@/lib/work-order-status";
 import { formatDateRange, formatDateTime } from "@/lib/dates";
 import {
   HMS_TYPE_MESSAGE_KEYS,
@@ -107,32 +107,22 @@ export default async function TechnicianWorkOrderPage({
   };
   // Kansellerte oppdrag er allerede avvist for montører lenger opp.
   const isClosed = workOrder.status === "COMPLETED";
-  const statusOrder: WorkStatus[] = [
-    "OPEN",
-    "PENDING",
-    "PLANNED",
-    "WAITING",
-    "IN_PROGRESS",
-    "COMPLETED",
-    "CANCELLED",
-  ];
   // Alle åpne statuser kan velges fritt, i tillegg til fullført/kansellert.
   // En låst rapport påvirker ikke valgene – den låser bare rapporten.
-  const allowed = new Set(allowedTransitions(workOrder.status, isAdmin));
-  const rawStatusOptions = isClosed
+  // PENDING er systemets startstatus og tilbys ikke som manuelt valg.
+  // Feltportalen gjenåpner ikke fullførte oppdrag; det gjøres fra kontorsiden
+  // med en begrunnelse.
+  const allowedStatusOptions = isClosed
     ? []
-    : statusOrder.filter(
-        (status) =>
-          allowed.has(status) &&
-          (status !== "CANCELLED" || canEdit),
-      );
-  const seenStatusLabels = new Set<string>();
-  const statusOptions = rawStatusOptions.filter((status) => {
-    const label = statusLabels[status];
-    if (seenStatusLabels.has(label)) return false;
-    seenStatusLabels.add(label);
-    return true;
-  });
+    : statusSelectOptions(workOrder.status, isAdmin);
+  const canCancelNow =
+    canUpdate &&
+    canEdit &&
+    !isClosed &&
+    allowedStatusOptions.includes("CANCELLED");
+  const statusOptions = allowedStatusOptions.filter(
+    (status) => status !== "CANCELLED",
+  );
   const canWriteReports = hasPermission(user, "reports.write");
   const canViewReports = hasPermission(user, "reports.view");
 
@@ -210,36 +200,81 @@ export default async function TechnicianWorkOrderPage({
 
             <div>
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.fieldDetail.statusTitle")}</p>
-              {canUpdate ? (
-                <ConfirmSubmitForm
-                  action={updateStatus}
-                  confirmMessage={t("orders.fieldDetail.cancelConfirm")}
-                  confirmWhenField="status"
-                  confirmWhenValue="CANCELLED"
-                  className="flex items-center gap-2 flex-wrap"
-                >
-                  <input type="hidden" name="workOrderId" value={workOrderId} />
-                  <select
-                    name="status"
-                    defaultValue={workOrder.status}
-                    className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
+              {isClosed ? (
+                <p className="text-sm text-gray-500 italic">
+                  {t("orders.errors.workOrderLocked")}
+                </p>
+              ) : canUpdate ? (
+                <>
+                  {/*
+                    Uten en egen klientkomponent kan vi ikke lese select-verdien
+                    i React. CSS-en bytter derfor mellom en deaktivert knapp
+                    (gjeldende status valgt) og den aktive knappen (ny status
+                    valgt). Dagens status er dessuten disabled og kan ikke
+                    velges på nytt.
+                  */}
+                  <style>{`
+                    .status-form .status-submit-ready { display: none; }
+                    .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-disabled { display: none; }
+                    .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-ready { display: inline-block; }
+                  `}</style>
+                  <ConfirmSubmitForm
+                    action={updateStatus}
+                    confirmMessage={t("orders.fieldDetail.completeConfirm")}
+                    confirmWhenField="status"
+                    confirmWhenValue="COMPLETED"
+                    className="status-form flex items-center gap-2 flex-wrap"
                   >
-                    <option value={workOrder.status} disabled>
-                      {statusLabels[workOrder.status]}
-                    </option>
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {statusLabels[status]}
+                    <input type="hidden" name="workOrderId" value={workOrderId} />
+                    <select
+                      name="status"
+                      defaultValue={workOrder.status}
+                      className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px]"
+                    >
+                      <option value={workOrder.status} disabled>
+                        {statusLabels[workOrder.status]} ({t("orders.fieldDetail.currentStatus")})
                       </option>
-                    ))}
-                  </select>
-                  <SubmitButton
-                    pendingLabel={t("orders.fieldDetail.updating")}
-                    className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap"
-                  >
-                    {t("orders.fieldDetail.update")}
-                  </SubmitButton>
-                </ConfirmSubmitForm>
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {statusLabels[status]}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton
+                      disabled
+                      pendingLabel={t("orders.fieldDetail.updating")}
+                      className="status-submit-disabled bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap"
+                    >
+                      {t("orders.fieldDetail.update")}
+                    </SubmitButton>
+                    <SubmitButton
+                      disabled={statusOptions.length === 0}
+                      pendingLabel={t("orders.fieldDetail.updating")}
+                      className="status-submit-ready bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap"
+                    >
+                      {t("orders.fieldDetail.update")}
+                    </SubmitButton>
+                  </ConfirmSubmitForm>
+                  {canCancelNow && (
+                    <ConfirmSubmitForm
+                      action={updateStatus}
+                      confirmMessage={t("orders.fieldDetail.cancelConfirm")}
+                      confirmWhenField="status"
+                      confirmWhenValue="CANCELLED"
+                      danger
+                      className="mt-2 flex items-center gap-2 flex-wrap"
+                    >
+                      <input type="hidden" name="workOrderId" value={workOrderId} />
+                      <input type="hidden" name="status" value="CANCELLED" />
+                      <SubmitButton
+                        pendingLabel={t("orders.fieldDetail.updating")}
+                        className="border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition whitespace-nowrap"
+                      >
+                        {t("orders.fieldDetail.cancelWorkOrder")}
+                      </SubmitButton>
+                    </ConfirmSubmitForm>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-gray-500 italic">
                   {t("orders.fieldDetail.noStatusPermission")}

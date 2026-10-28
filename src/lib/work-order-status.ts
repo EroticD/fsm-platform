@@ -57,3 +57,28 @@ export function allowedTransitions(
   if (!isOpenStatus(from) && !isAdmin) return [];
   return Object.values(WorkStatus).filter((status) => status !== from);
 }
+
+/** Rekkefølgen statusene vises i på oppdragsdetaljene. */
+export const STATUS_OPTION_ORDER: readonly WorkStatus[] = [
+  "OPEN",
+  "PLANNED",
+  "WAITING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+];
+
+/**
+ * Valgbare statuser i UI-et, bygget på `allowedTransitions`.
+ *
+ * PENDING er systemets startstatus for nye og klonede oppdrag. Den skal ikke
+ * settes manuelt, bare vises når den allerede er gjeldende. Tjenestelaget
+ * godtar PENDING som en vanlig åpen status, så filtreringen hører til UI-et.
+ */
+export function statusSelectOptions(
+  from: WorkStatus,
+  isAdmin: boolean,
+): WorkStatus[] {
+  const allowed = new Set(allowedTransitions(from, isAdmin));
+  return STATUS_OPTION_ORDER.filter((status) => allowed.has(status));
+}

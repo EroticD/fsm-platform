@@ -5,6 +5,7 @@ import {
   updateRole,
 } from "@/app/innstillinger/role-actions";
 import { PERMISSIONS, roleLabel } from "@/lib/permissions";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 
 type RoleRow = {
   key: string;
@@ -180,7 +181,14 @@ export default async function RolesAdmin({
                 </div>
 
                 {!role.isSystem && (
-                  <form action={deleteRole}>
+                  <ConfirmSubmitForm
+                    action={deleteRole}
+                    confirmMessage={t("components.confirm.deleteRole", {
+                      name: role.label,
+                    })}
+                    confirmLabel={t("components.confirm.deleteRoleLabel")}
+                    danger
+                  >
                     <input type="hidden" name="key" value={role.key} />
                     <button
                       type="submit"
@@ -194,7 +202,7 @@ export default async function RolesAdmin({
                     >
                       {t("settings.roles.deleteRole")}
                     </button>
-                  </form>
+                  </ConfirmSubmitForm>
                 )}
               </div>
 

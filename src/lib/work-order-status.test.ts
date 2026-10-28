@@ -7,6 +7,7 @@ import {
   canTransition,
   isClosedStatus,
   isOpenStatus,
+  statusSelectOptions,
 } from "./work-order-status";
 
 const ALL_STATUSES = Object.values(WorkStatus);
@@ -88,6 +89,70 @@ describe("allowedTransitions", () => {
     for (const from of CLOSED_STATUSES) {
       const options = allowedTransitions(from, true);
       expect(options).toEqual(ALL_STATUSES.filter((status) => status !== from));
+      expect(options).not.toContain(from);
+    }
+  });
+});
+
+describe("statusSelectOptions", () => {
+  it("tilbyr WAITING fra PLANNED og IN_PROGRESS", () => {
+    for (const from of ["PLANNED", "IN_PROGRESS"] as const) {
+      const options = statusSelectOptions(from, false);
+
+      expect(options).toContain("WAITING");
+      expect(canTransition(from, "WAITING", false)).toBe(true);
+      expect(options).not.toContain(from);
+    }
+  });
+
+  it("tilbyr aldri PENDING som et manuelt statusvalg", () => {
+    for (const from of OPEN_STATUSES) {
+      expect(statusSelectOptions(from, false)).not.toContain("PENDING");
+      expect(statusSelectOptions(from, true)).not.toContain("PENDING");
+    }
+  });
+
+  it("tilbyr bare statuser som canTransition godtar", () => {
+    for (const from of ALL_STATUSES) {
+      for (const isAdmin of [false, true]) {
+        for (const to of statusSelectOptions(from, isAdmin)) {
+          expect(canTransition(from, to, isAdmin)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("har en stabil rekkefølge uten gjeldende status", () => {
+    expect(statusSelectOptions("PLANNED", false)).toEqual([
+      "OPEN",
+      "WAITING",
+      "IN_PROGRESS",
+      "COMPLETED",
+      "CANCELLED",
+    ]);
+    expect(statusSelectOptions("IN_PROGRESS", false)).toEqual([
+      "OPEN",
+      "PLANNED",
+      "WAITING",
+      "COMPLETED",
+      "CANCELLED",
+    ]);
+  });
+
+  it("gir ingen valg fra en lukket status for ikke-admin", () => {
+    for (const from of CLOSED_STATUSES) {
+      expect(statusSelectOptions(from, false)).toEqual([]);
+    }
+  });
+
+  it("lar administrator gjenåpne lukkede oppdrag til åpne statuser", () => {
+    for (const from of CLOSED_STATUSES) {
+      const options = statusSelectOptions(from, true);
+
+      expect(options).toEqual(
+        expect.arrayContaining(["OPEN", "PLANNED", "WAITING", "IN_PROGRESS"]),
+      );
+      expect(options).not.toContain("PENDING");
       expect(options).not.toContain(from);
     }
   });

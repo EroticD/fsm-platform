@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -41,6 +41,13 @@ export default function ConfirmSubmitForm({
   const confirmed = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  const handleCancel = useCallback(() => setOpen(false), []);
+  const handleConfirm = useCallback(() => {
+    confirmed.current = true;
+    setOpen(false);
+    formRef.current?.requestSubmit();
+  }, []);
+
   return (
     <>
       <form
@@ -72,12 +79,8 @@ export default function ConfirmSubmitForm({
         description={confirmMessage}
         confirmLabel={confirmLabel}
         danger={danger}
-        onCancel={() => setOpen(false)}
-        onConfirm={() => {
-          confirmed.current = true;
-          setOpen(false);
-          formRef.current?.requestSubmit();
-        }}
+        onCancel={handleCancel}
+        onConfirm={handleConfirm}
       />
     </>
   );

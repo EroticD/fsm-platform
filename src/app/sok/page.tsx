@@ -289,6 +289,24 @@ export default async function SearchResultsPage({
           </form>
         </div>
 
+        <SearchFiltersForm
+          variant="mobile"
+          query={query}
+          filters={filters}
+          customers={customers}
+          technicians={technicianOptions}
+          showCustomers={showCustomers}
+          showTechnicians={showTechnicians}
+        >
+          <SavedSearchesPanel
+            searches={savedSearches}
+            query={query}
+            filters={filters}
+            page={page}
+            idPrefix="mobile-saved-searches"
+          />
+        </SearchFiltersForm>
+
         {hasQuery && <RecentSearches query={query} visible={false} />}
 
         {notice && (
@@ -305,7 +323,7 @@ export default async function SearchResultsPage({
         )}
 
         <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+          <aside className="hidden space-y-4 lg:block">
             <SearchFiltersForm
               query={query}
               filters={filters}
@@ -319,6 +337,7 @@ export default async function SearchResultsPage({
               query={query}
               filters={filters}
               page={page}
+              idPrefix="desktop-saved-searches"
             />
             {hasPermission(user, "audit.view") && (
               <Link

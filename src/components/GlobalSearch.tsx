@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   addRecentSearch,
@@ -85,6 +85,16 @@ export default function GlobalSearch({
 }: {
   placeholder?: string;
 }) {
+  const pathname = usePathname();
+
+  // På /sok er søkefeltet i selve resultatsiden autoritativt. Da skjules
+  // headeren sitt søk for å unngå to konkurrerende søkefelt på samme side.
+  if (pathname === "/sok" || pathname === "/sok/") return null;
+
+  return <GlobalSearchInner placeholder={placeholder} />;
+}
+
+function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   const t = useTranslations("common");
   const resolvedPlaceholder = placeholder ?? t("components.search.placeholder");
   const router = useRouter();
@@ -99,12 +109,14 @@ export default function GlobalSearch({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [recent, setRecent] = useState<string[]>([]);
+  const [isMac, setIsMac] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recentRef = useRef<string[]>([]);
 
   const trimmed = query.trim();
   const hasQuery = trimmed.length >= MIN_LENGTH;
+  const tooShort = trimmed.length > 0 && !hasQuery;
 
   const groups = useMemo(
     () =>
@@ -153,10 +165,11 @@ export default function GlobalSearch({
     return out;
   }, [groups]);
 
-  const optionCount = hasQuery ? flat.length : recent.length;
+  const optionCount = hasQuery ? flat.length : tooShort ? 0 : recent.length;
   const safeActive = Math.min(active, Math.max(optionCount - 1, 0));
   const activeItem = hasQuery ? flat[safeActive] : undefined;
-  const activeRecent = !hasQuery ? recent[safeActive] : undefined;
+  const activeRecent =
+    !hasQuery && !tooShort ? recent[safeActive] : undefined;
   const activeOptionId = !open
     ? undefined
     : hasQuery
@@ -216,6 +229,16 @@ export default function GlobalSearch({
     }
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  // Vis riktig snarvei i søkefeltet: ⌘K på macOS, Ctrl+K ellers. Plattformen
+  // leses i en effekt, slik at server- og klient-render er identiske.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const platform = `${navigator.platform ?? ""} ${navigator.userAgent ?? ""}`;
+      setIsMac(/mac|iphone|ipad|ipod/i.test(platform));
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   // Globalt tastatursnarvei: Ctrl/Cmd+K fokuserer søket, «/» gjør det samme
@@ -286,7 +309,7 @@ export default function GlobalSearch({
   );
 
   const navigateToAllResults = useCallback(() => {
-    if (!trimmed) return;
+    if (trimmed.length < MIN_LENGTH) return;
     rememberQuery(trimmed);
     navigate(`/sok?q=${encodeURIComponent(trimmed)}`);
   }, [navigate, rememberQuery, trimmed]);
@@ -335,6 +358,7 @@ export default function GlobalSearch({
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (!hasQuery) {
+        if (tooShort) return;
         if (open && activeRecent) runRecentSearch(activeRecent);
         return;
       }
@@ -353,7 +377,8 @@ export default function GlobalSearch({
   }
 
   const showPanel =
-    open && (hasQuery || (trimmed.length === 0 && recent.length > 0));
+    open &&
+    (hasQuery || tooShort || (trimmed.length === 0 && recent.length > 0));
 
   const announcement = (() => {
     if (!showPanel) return "";
@@ -370,6 +395,7 @@ export default function GlobalSearch({
       }
       return "";
     }
+    if (tooShort) return t("components.search.minLengthHint");
     return activeRecent
       ? t("components.search.recentAnnouncement", { query: activeRecent })
       : "";
@@ -430,9 +456,15 @@ export default function GlobalSearch({
         {query.length === 0 && (
           <kbd
             aria-hidden
-            className="hidden shrink-0 items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-400 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-400 sm:inline-flex"
           >
-            <span className="text-xs">⌘</span>K
+            {isMac ? (
+              <>
+                <span className="text-xs">⌘</span>K
+              </>
+            ) : (
+              "Ctrl+K"
+            )}
           </kbd>
         )}
       </div>
@@ -450,6 +482,14 @@ export default function GlobalSearch({
             aria-busy={status === "loading"}
             className="max-h-[60vh] overflow-y-auto overflow-x-hidden overscroll-contain py-1"
           >
+            {tooShort && (
+              <div className="px-4 py-6">
+                <p className="text-sm font-bold text-gray-800">
+                  {t("components.search.minLengthHint")}
+                </p>
+              </div>
+            )}
+
             {hasQuery && status === "loading" && (
               <div className="flex items-center gap-3 px-4 py-6 text-sm text-gray-600">
                 <span
@@ -563,7 +603,7 @@ export default function GlobalSearch({
               </>
             )}
 
-            {!hasQuery && recent.length > 0 && (
+            {!hasQuery && !tooShort && recent.length > 0 && (
               <div role="group" aria-labelledby={recentHeadingId}>
                 <div
                   id={recentHeadingId}
@@ -613,7 +653,7 @@ export default function GlobalSearch({
             </div>
           )}
 
-          {!hasQuery && recent.length > 0 && (
+          {!hasQuery && !tooShort && recent.length > 0 && (
             <div className="border-t border-gray-100">
               <button
                 type="button"

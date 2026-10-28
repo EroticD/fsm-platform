@@ -198,9 +198,12 @@ export default async function WorkOrdersPage({
 
   const [statusGroups, todayCount, overdueCount, unassignedCount, total, orders] =
     await Promise.all([
+      // Fanetallene må bruke nøyaktig samme filter som listen, ellers viser
+      // f.eks. et søk uten treff fortsatt «Alle 5». `filters` inneholder bare
+      // søk/tag – statusvalget ligger i `whereFor(view)` og skal ikke inn her.
       prisma.workOrder.groupBy({
         by: ["status"],
-        where: visibleStatus,
+        where: { AND: [visibleStatus, filters] },
         _count: { _all: true },
       }),
       prisma.workOrder.count({

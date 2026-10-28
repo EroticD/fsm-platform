@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import InviteActionForm from "@/components/InviteActionForm";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import {
   createUser,
   deleteUser,
@@ -481,7 +482,14 @@ export default async function UsersAdmin({
                       )}
 
                       {!isMe && isAdmin && (
-                        <form action={deleteUser}>
+                        <ConfirmSubmitForm
+                          action={deleteUser}
+                          confirmMessage={t("components.confirm.deleteUser", {
+                            name: u.name || u.email || u.id,
+                          })}
+                          confirmLabel={t("components.confirm.deleteUserLabel")}
+                          danger
+                        >
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <input type="hidden" name="id" value={u.id} />
                           <button
@@ -491,7 +499,7 @@ export default async function UsersAdmin({
                           >
                             🗑️
                           </button>
-                        </form>
+                        </ConfirmSubmitForm>
                       )}
                     </div>
 

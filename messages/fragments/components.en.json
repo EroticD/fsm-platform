@@ -7,7 +7,16 @@
     "confirm": {
       "title": "Confirm action",
       "confirm": "Confirm",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "busy": "Working …",
+      "deleteUser": "Delete the user “{name}”? This cannot be undone.",
+      "deleteUserLabel": "Delete user",
+      "deleteRole": "Delete the role “{name}”? This cannot be undone.",
+      "deleteRoleLabel": "Delete role",
+      "deleteTag": "Delete the tag “{name}”? It will be removed from all work orders it is used on.",
+      "deleteTagLabel": "Delete tag",
+      "deleteDocumentTag": "Delete the document tag “{name}”? It will be removed from all documents it is used on.",
+      "deleteDocumentTagLabel": "Delete document tag"
     },
     "autoSave": {
       "saving": "Saving...",
@@ -97,6 +106,7 @@
       "emptyTitle": "Search the whole platform",
       "emptyBody": "Find customers, work orders, equipment, reports, comments and documents in one place.",
       "queryTooShort": "Enter at least two characters to search.",
+      "minLengthHint": "Type at least 2 characters",
       "suggestionsTitle": "Try for example",
       "suggestions": {
         "service": "Service",
@@ -126,7 +136,10 @@
         "hmsType": "HMS type",
         "allHmsTypes": "All HMS types",
         "apply": "Apply filters",
-        "clear": "Clear filters"
+        "clear": "Clear filters",
+        "mobileTrigger": "Filters ({count})",
+        "showResults": "Show results",
+        "panelLabel": "Search filters"
       },
       "statuses": {
         "PLANNED": "Planned",
@@ -249,7 +262,8 @@
     },
     "toast": {
       "uploaded": "File(s) uploaded",
-      "deleted": "Attachment deleted"
+      "deleted": "Attachment deleted",
+      "dismiss": "Dismiss notification"
     },
     "realtime": {
       "paused": "Live updates are paused.",

@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import type { SettingsOverviewData } from "@/server/settings";
 
 type TagsTabProps = {
@@ -86,10 +87,17 @@ export default async function TagsTab({
                     </div>
                   </details>
                   {isAdmin && (
-                    <form action={deleteTag}>
+                    <ConfirmSubmitForm
+                      action={deleteTag}
+                      confirmMessage={t("components.confirm.deleteTag", {
+                        name: tag.name,
+                      })}
+                      confirmLabel={t("components.confirm.deleteTagLabel")}
+                      danger
+                    >
                       <input type="hidden" name="id" value={tag.id} />
                       <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">{t("settings.tags.delete")}</button>
-                    </form>
+                    </ConfirmSubmitForm>
                   )}
                 </div>
               </div>
@@ -156,10 +164,17 @@ export default async function TagsTab({
                     </div>
                   </details>
                   {isAdmin && (
-                    <form action={deleteDocumentTag}>
+                    <ConfirmSubmitForm
+                      action={deleteDocumentTag}
+                      confirmMessage={t("components.confirm.deleteDocumentTag", {
+                        name: tag.name,
+                      })}
+                      confirmLabel={t("components.confirm.deleteDocumentTagLabel")}
+                      danger
+                    >
                       <input type="hidden" name="id" value={tag.id} />
                       <button type="submit" className="text-red-500 hover:text-red-700 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">{t("settings.tags.delete")}</button>
-                    </form>
+                    </ConfirmSubmitForm>
                   )}
                 </div>
               </div>
