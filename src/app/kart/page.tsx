@@ -139,7 +139,6 @@ export default async function MapPage() {
           noPointsLabel={t("p3.map.noMapPoints")}
           openLabel={t("p3.map.openWorkOrder")}
         />
-        <p className="px-1 text-xs text-gray-600">{t("p3.map.mapHint")}</p>
       </section>
 
       {groups.size === 0 ? (
