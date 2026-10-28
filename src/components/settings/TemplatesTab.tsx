@@ -133,19 +133,19 @@ export default async function TemplatesTab({
                   )}
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {template.category === "HMS" ? (
-                      <span className="text-[11px] font-bold text-purple-900 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold text-purple-900 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
                         🦺 HMS{hmsLabel ? ` · ${hmsLabel}` : ""}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-bold text-sky-900 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold text-sky-900 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
                         {t("settings.templates.categories.SERVICE")}
                       </span>
                     )}
-                    <span className="text-[11px] font-bold text-gray-700 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-gray-700 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
                       {t("settings.templateBuilder.reportName")}: {template.reportName || template.title}
                     </span>
                     <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                         template.requiresUnits
                           ? "text-emerald-800 bg-emerald-50 border-emerald-200"
                           : "text-amber-800 bg-amber-50 border-amber-200"
@@ -154,7 +154,7 @@ export default async function TemplatesTab({
                       {template.requiresUnits ? "✓" : "✕"} {t("settings.templateBuilder.requiresUnits")}
                     </span>
                     {usage > 0 && (
-                      <span className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                         ⚠ {t("settings.templates.inUse", { count: usage })}
                       </span>
                     )}
@@ -173,6 +173,8 @@ export default async function TemplatesTab({
                     <ConfirmSubmitForm
                       action={deleteTemplate}
                       confirmMessage={deleteMessage}
+                      confirmLabel={t("delete")}
+                      danger
                     >
                       <input type="hidden" name="id" value={template.id} />
                       <button type="submit" className="text-red-700 hover:text-red-800 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition">

@@ -107,8 +107,9 @@ export default function EditDocumentForm({
         <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
           <input type="hidden" name="id" value={doc.id} />
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.title")}</label>
+            <label htmlFor={`edit-document-title-${doc.id}`} className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.title")}</label>
             <input
+              id={`edit-document-title-${doc.id}`}
               type="text"
               name="title"
               defaultValue={doc.title}
@@ -117,8 +118,9 @@ export default function EditDocumentForm({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.description")}</label>
+            <label htmlFor={`edit-document-description-${doc.id}`} className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.description")}</label>
             <textarea
+              id={`edit-document-description-${doc.id}`}
               name="description"
               rows={2}
               defaultValue={doc.description || ""}
@@ -126,8 +128,9 @@ export default function EditDocumentForm({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.folder")}</label>
+            <label htmlFor={`edit-document-folder-${doc.id}`} className="block text-xs font-bold text-gray-700 mb-1">{t("documents.edit.folder")}</label>
             <select
+              id={`edit-document-folder-${doc.id}`}
               name="folderId"
               defaultValue={doc.folderId || ""}
               className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
@@ -161,7 +164,7 @@ export default function EditDocumentForm({
               </p>
             )}
             {!replacing && (
-              <p className="text-[10px] text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {t("documents.edit.currentFile", {
                   name: doc.fileName,
                   size: (doc.fileSize / 1024).toFixed(0),
@@ -183,7 +186,7 @@ export default function EditDocumentForm({
             <p className="text-xs font-bold text-gray-700 mb-2">{t("documents.edit.previousVersions", { count: doc.versions.length })}</p>
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {doc.versions.map((v) => (
-                <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]">
+                <div key={v.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs">
                   <div className="min-w-0">
                     <p className="text-gray-800 font-medium truncate">{v.fileName}</p>
                     <p className="text-gray-500">

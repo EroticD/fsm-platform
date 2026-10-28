@@ -59,7 +59,7 @@ export default async function CustomerOrdersTab({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                 <div>
                   <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
-                  <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">
                     {t("customers.orders.scheduled", {
                       date: formatDate(wo.scheduledFor, t("customers.overview.noDate")),
                     })}
@@ -77,7 +77,7 @@ export default async function CustomerOrdersTab({
                 </p>
               )}
 
-              <div className="mt-2 flex justify-between items-center text-[10px] pt-2 border-t border-gray-200 text-gray-600">
+              <div className="mt-2 flex justify-between items-center text-xs pt-2 border-t border-gray-200 text-gray-600">
                 <span>
                   <strong>{t("customers.orders.technicians")}</strong>{" "}
                   {wo.technicians.length > 0

@@ -62,8 +62,8 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
           <input type="hidden" name="token" value={token} />
           
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.reset.newPassword")}</label>
-            <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder={t("auth.reset.placeholder")} className="w-full border p-3 rounded-xl text-gray-800" />
+            <label htmlFor="reset-password" className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.reset.newPassword")}</label>
+            <input id="reset-password" type="password" name="password" required minLength={8} autoComplete="new-password" placeholder={t("auth.reset.placeholder")} className="w-full border p-3 rounded-xl text-gray-800" />
           </div>
           
           <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition">

@@ -93,8 +93,9 @@ export default function TagSelector({
               addNew();
             }
           }}
+          aria-label={t("documents.tagSelector.newTagPlaceholder")}
           placeholder={t("documents.tagSelector.newTagPlaceholder")}
-          className="flex-1 border border-gray-300 p-2 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+          className="flex-1 border border-gray-300 p-2 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500"
         />
         <button
           type="button"

@@ -91,7 +91,7 @@ export default async function RolesAdmin({
                   key={group.group}
                   className="border border-gray-200 rounded-xl p-3"
                 >
-                  <legend className="px-1 text-[11px] font-bold text-gray-600 uppercase">
+                  <legend className="px-1 text-xs font-bold text-gray-600 uppercase">
                     {t(group.groupKey)}
                   </legend>
                   <div className="space-y-2">
@@ -109,7 +109,7 @@ export default async function RolesAdmin({
                         />
                         <span>
                           <span className="font-semibold">{t(permission.labelKey)}</span>
-                          <span className="block text-[11px] text-gray-600">
+                          <span className="block text-xs text-gray-600">
                             {t(permission.descriptionKey)}
                           </span>
                         </span>
@@ -120,7 +120,7 @@ export default async function RolesAdmin({
               ))}
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[11px] text-blue-800">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
               {t("settings.roles.keyInfo")}
             </div>
 
@@ -158,12 +158,12 @@ export default async function RolesAdmin({
                   <h3 className="font-bold text-gray-900 flex flex-wrap items-center gap-2">
                     {role.isSystem ? roleLabel(role.key, t) : role.label}
                     {role.isSystem && (
-                      <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">
                         {t("settings.roles.system")}
                       </span>
                     )}
                   </h3>
-                  <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">
                     {role.key}
                   </p>
                   {role.description && (
@@ -171,7 +171,7 @@ export default async function RolesAdmin({
                       {role.description}
                     </p>
                   )}
-                  <p className="text-[11px] text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 mt-2">
                     👥 {t("settings.roles.stats", {
                       users: role.users,
                       permissions: role.permissions.length,
@@ -185,7 +185,7 @@ export default async function RolesAdmin({
                     <button
                       type="submit"
                       disabled={role.users > 0}
-                      className="text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="text-xs font-bold bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
                       title={
                         role.users > 0
                           ? t("settings.roles.deleteBlocked")
@@ -231,7 +231,7 @@ export default async function RolesAdmin({
                   </div>
 
                   {locked ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                       {role.key === "ADMIN"
                         ? t("settings.roles.adminLocked")
                         : t("settings.roles.customerLocked")}
@@ -243,7 +243,7 @@ export default async function RolesAdmin({
                           key={group.group}
                           className="border border-gray-200 rounded-xl p-3"
                         >
-                          <legend className="px-1 text-[11px] font-bold text-gray-600 uppercase">
+                          <legend className="px-1 text-xs font-bold text-gray-600 uppercase">
                             {t(group.groupKey)}
                           </legend>
                           <div className="space-y-2">
@@ -266,7 +266,7 @@ export default async function RolesAdmin({
                                   <span className="font-semibold">
                                     {t(permission.labelKey)}
                                   </span>
-                                  <span className="block text-[11px] text-gray-600">
+                                  <span className="block text-xs text-gray-600">
                                     {t(permission.descriptionKey)}
                                   </span>
                                 </span>

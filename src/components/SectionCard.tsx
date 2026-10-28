@@ -11,7 +11,7 @@ export default function SectionCard({
   title?: string;
   description?: string;
   action?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
 }) {
   return (

@@ -37,13 +37,15 @@ export default async function TagsTab({
           <input
             type="text"
             name="name"
+            aria-label={t("settings.tags.name")}
             placeholder={t("settings.tags.namePlaceholder")}
             required
-            className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 min-w-[150px]"
+            className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500 min-w-[150px]"
           />
           <input
             type="color"
             name="color"
+            aria-label={t("settings.tags.color")}
             defaultValue="#3b82f6"
             className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
           />
@@ -72,12 +74,12 @@ export default async function TagsTab({
                       <form action={updateTag} className="space-y-3">
                         <input type="hidden" name="id" value={tag.id} />
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.name")}</label>
-                          <input type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                          <label htmlFor={`tag-${tag.id}-name`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.name")}</label>
+                          <input id={`tag-${tag.id}-name`} type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.color")}</label>
-                          <input type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
+                          <label htmlFor={`tag-${tag.id}-color`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.color")}</label>
+                          <input id={`tag-${tag.id}-color`} type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
                         </div>
                         <button type="submit" className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition">{t("settings.tags.save")}</button>
                       </form>
@@ -105,13 +107,15 @@ export default async function TagsTab({
           <input
             type="text"
             name="name"
+            aria-label={t("settings.tags.name")}
             placeholder={t("settings.tags.namePlaceholder")}
             required
-            className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 min-w-[150px]"
+            className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500 min-w-[150px]"
           />
           <input
             type="color"
             name="color"
+            aria-label={t("settings.tags.color")}
             defaultValue="#10b981"
             className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
           />
@@ -140,12 +144,12 @@ export default async function TagsTab({
                       <form action={updateDocumentTag} className="space-y-3">
                         <input type="hidden" name="id" value={tag.id} />
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.name")}</label>
-                          <input type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                          <label htmlFor={`doctag-${tag.id}-name`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.name")}</label>
+                          <input id={`doctag-${tag.id}-name`} type="text" name="name" defaultValue={tag.name} required className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.color")}</label>
-                          <input type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
+                          <label htmlFor={`doctag-${tag.id}-color`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.tags.color")}</label>
+                          <input id={`doctag-${tag.id}-color`} type="color" name="color" defaultValue={tag.color} className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300" />
                         </div>
                         <button type="submit" className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition">{t("settings.tags.save")}</button>
                       </form>

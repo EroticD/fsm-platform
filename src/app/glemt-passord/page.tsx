@@ -116,8 +116,8 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
             <p className="text-gray-500 text-sm mb-6">{t("auth.forgot.desc")}</p>
             <form action={requestReset} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.forgot.email")}</label>
-                <input type="email" name="email" required placeholder={t("auth.forgot.emailPlaceholder")} className="w-full border p-3 rounded-xl text-gray-800" />
+                <label htmlFor="forgot-email" className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.forgot.email")}</label>
+                <input id="forgot-email" type="email" name="email" required placeholder={t("auth.forgot.emailPlaceholder")} className="w-full border p-3 rounded-xl text-gray-800" />
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">
                 {t("auth.forgot.submit")}

@@ -12,6 +12,8 @@ import ConfirmDialog from "./ConfirmDialog";
 export default function ConfirmSubmitForm({
   action,
   confirmMessage,
+  confirmLabel,
+  danger,
   className,
   confirmWhenField,
   confirmWhenValue,
@@ -19,6 +21,9 @@ export default function ConfirmSubmitForm({
 }: {
   action: (formData: FormData) => void | Promise<void>;
   confirmMessage: string;
+  /** Sletting og andre destruktive handlinger må sende en tydelig etikett. */
+  confirmLabel?: string;
+  danger?: boolean;
   className?: string;
   /**
    * Vurder om skjemaet faktisk krever bekreftelse. Brukes for handlinger der
@@ -65,6 +70,8 @@ export default function ConfirmSubmitForm({
         open={open}
         title={t("components.confirm.title")}
         description={confirmMessage}
+        confirmLabel={confirmLabel}
+        danger={danger}
         onCancel={() => setOpen(false)}
         onConfirm={() => {
           confirmed.current = true;

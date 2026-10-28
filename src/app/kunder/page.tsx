@@ -11,7 +11,10 @@ import {
   restoreCustomerAction,
 } from "./actions";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
+import PageHeader from "@/components/PageHeader";
+import SectionCard from "@/components/SectionCard";
 import SubmitButton from "@/components/SubmitButton";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
@@ -79,25 +82,27 @@ export default async function KunderPage({
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="max-w-4xl mx-auto">
 
-        {/* Navigasjon på toppen */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">{t("customers.list.title")}</h1>
-          <div className="flex flex-wrap items-center gap-3">
-            {user.role === "ADMIN" && (
-              <Link
-                href={showDeleted ? "/kunder" : "/kunder?slettet=1"}
-                className="text-sm font-bold text-gray-700 bg-white border-2 border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
-              >
-                {showDeleted
-                  ? t("customers.list.showActive")
-                  : t("customers.list.showDeleted")}
+        <PageHeader
+          title={t("customers.list.title")}
+          className="mb-8"
+          actions={
+            <>
+              {user.role === "ADMIN" && (
+                <Link
+                  href={showDeleted ? "/kunder" : "/kunder?slettet=1"}
+                  className="text-sm font-bold text-gray-700 bg-white border-2 border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
+                >
+                  {showDeleted
+                    ? t("customers.list.showActive")
+                    : t("customers.list.showDeleted")}
+                </Link>
+              )}
+              <Link href="/" className="text-blue-600 hover:underline font-medium">
+                &larr; {t("customers.list.backToDashboard")}
               </Link>
-            )}
-            <Link href="/" className="text-blue-600 hover:underline font-medium">
-              &larr; {t("customers.list.backToDashboard")}
-            </Link>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {showDeleted && (
           <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 p-4 rounded-xl mb-4 text-sm font-bold">
@@ -114,8 +119,7 @@ export default async function KunderPage({
 
         {/* Skjema for å legge til ny kunde – kun kontor/admin */}
         {office && !showDeleted && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">{t("customers.list.addTitle")}</h2>
+          <SectionCard title={t("customers.list.addTitle")} className="mb-8">
             <form action={addCustomer} className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <label htmlFor="customer-name" className="block text-xs font-bold text-gray-700 mb-1">
@@ -150,16 +154,17 @@ export default async function KunderPage({
                 {t("customers.list.save")}
               </SubmitButton>
             </form>
-          </div>
+          </SectionCard>
         )}
 
         {/* Søk */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border mb-4">
+        <SectionCard className="mb-4">
           <form method="GET" action="/kunder" className="flex flex-wrap gap-2">
             <input
               type="search"
               name="q"
               defaultValue={search}
+              aria-label={t("customers.list.searchPlaceholder")}
               placeholder={t("customers.list.searchPlaceholder")}
               className="flex-1 min-w-[12rem] border p-2.5 rounded-xl text-sm text-gray-900"
             />
@@ -172,7 +177,7 @@ export default async function KunderPage({
               </Link>
             )}
           </form>
-        </div>
+        </SectionCard>
 
         {/* Tabell med eksisterende kunder. På mobil kan tabellen scrolles
             vannrett i stedet for å presse hele siden bredere enn skjermen. */}
@@ -189,10 +194,15 @@ export default async function KunderPage({
             <tbody>
               {customers.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="p-8 text-center text-gray-500">
-                    {search
-                      ? t("customers.list.noMatches", { query: search })
-                      : t("customers.list.empty")}
+                  <td colSpan={3} className="p-4">
+                    <EmptyState
+                      icon="🏢"
+                      title={
+                        search
+                          ? t("customers.list.noMatches", { query: search })
+                          : t("customers.list.empty")
+                      }
+                    />
                   </td>
                 </tr>
               ) : (
@@ -223,6 +233,8 @@ export default async function KunderPage({
                               confirmMessage={t("customers.list.deleteConfirm", {
                                 name: customer.name,
                               })}
+                              confirmLabel={t("delete")}
+                              danger
                             >
                               <input type="hidden" name="id" value={customer.id} />
                               <button

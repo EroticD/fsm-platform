@@ -212,7 +212,7 @@ export default async function KundeportalPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Avdeling / lokasjon */}
             <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                 {customer.department ? t("portal.contact.department") : t("portal.contact.company")}
               </p>
               <p className="text-sm text-gray-900 font-bold">
@@ -259,7 +259,7 @@ export default async function KundeportalPage({
 
             {/* Ansvarlig montør */}
             <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
               {customer.responsibleTechnician ? (
                 <>
                   <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
@@ -318,7 +318,7 @@ export default async function KundeportalPage({
                         <p className="font-bold text-gray-800 text-sm">{product.model}</p>
                         <p className="text-xs text-gray-500">{t("portal.equipment.serial", { serial: product.serialNumber || "–" })}</p>
                       </div>
-                      <span className="text-[10px] bg-white px-2 py-1 rounded text-gray-600 border">{product.location || t("portal.equipment.unknownBuilding")}</span>
+                      <span className="text-xs bg-white px-2 py-1 rounded text-gray-600 border">{product.location || t("portal.equipment.unknownBuilding")}</span>
                     </div>
                   ))
                 )}
@@ -337,16 +337,16 @@ export default async function KundeportalPage({
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-bold text-blue-900 text-sm">{contract.title}</p>
                         {!contract.isActive && (
-                          <span className="text-[9px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
                             {t("portal.contracts.paused")}
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-blue-700">
+                      <p className="text-xs text-blue-700">
                         {t("portal.contracts.start", { date: formatDate(contract.startDate, "–") })} •{" "}
                         {t("portal.contracts.interval", { interval: t("portal.contracts.months", { count: contract.intervalMonths }) })}
                       </p>
-                      <p className="text-[10px] text-blue-700">
+                      <p className="text-xs text-blue-700">
                         {t("portal.contracts.next", { date: formatDate(contract.nextServiceDate, "–") })}
                       </p>
                     </div>
@@ -372,7 +372,7 @@ export default async function KundeportalPage({
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <h2 className="font-bold text-lg text-gray-900">📅 {t("portal.upcoming.title")}</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">{t("portal.upcoming.desc")}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t("portal.upcoming.desc")}</p>
                 </div>
                 <a
                   href="/api/kundeportal/export"
@@ -393,20 +393,20 @@ export default async function KundeportalPage({
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
-                          <p className="text-[10px] text-gray-500">
+                          <p className="text-xs text-gray-500">
                             📅 {formatDate(wo.scheduledFor, t("portal.upcoming.noDate"))}
                           </p>
                         </div>
                         <StatusBadge status={wo.status} />
                       </div>
-                      <p className="text-[10px] text-gray-600">
+                      <p className="text-xs text-gray-600">
                         🏢 {customer.name}
                         {wo.technicians.length > 0 && (
                           <span className="text-blue-600 font-bold ml-1">• {wo.technicians.map(t => t.name).join(", ")}</span>
                         )}
                       </p>
                       {wo.description && (
-                        <p className="text-[10px] text-gray-700 italic mt-1">
+                        <p className="text-xs text-gray-700 italic mt-1">
                           {markdownToPlainText(wo.description)}
                         </p>
                       )}
@@ -453,7 +453,7 @@ export default async function KundeportalPage({
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mt-6">
           <div className="mb-4 border-b pb-2">
             <h2 className="font-bold text-lg text-gray-900">🗓️ {t("portal.availability.title")}</h2>
-            <p className="text-[10px] text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               {t("portal.availability.desc")}
             </p>
           </div>
@@ -476,7 +476,7 @@ export default async function KundeportalPage({
                         <span className="block">
                           {d.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", { weekday: "short" })}
                         </span>
-                        <span className="block text-[10px] font-medium text-gray-400">
+                        <span className="block text-xs font-medium text-gray-400">
                           {toDateOnly(d)}
                         </span>
                       </th>
@@ -494,11 +494,11 @@ export default async function KundeportalPage({
                         return (
                           <td key={dateKey(d)} className="p-2 text-center">
                             {isBusy ? (
-                              <span className="inline-block bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-[10px] font-bold">
+                              <span className="inline-block bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-xs font-bold">
                                 {t("portal.availability.busy")}
                               </span>
                             ) : (
-                              <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-[10px] font-bold">
+                              <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-bold">
                                 {t("portal.availability.free")}
                               </span>
                             )}
@@ -511,7 +511,7 @@ export default async function KundeportalPage({
               </table>
             </div>
           )}
-          <p className="text-[10px] text-gray-400 mt-3">
+          <p className="text-xs text-gray-400 mt-3">
             {t("portal.availability.note")}
           </p>
         </div>

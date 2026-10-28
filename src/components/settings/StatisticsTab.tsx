@@ -116,19 +116,19 @@ export default async function StatisticsTab({
       {/* STATISTIKK KORT */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.total")}</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.total")}</p>
           <p className="text-3xl font-black text-gray-900">{totalWorkOrders}</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.planned")}</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.planned")}</p>
           <p className="text-3xl font-black text-yellow-600">{byStatus.PLANNED || 0}</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.inProgress")}</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.inProgress")}</p>
           <p className="text-3xl font-black text-blue-600">{byStatus.IN_PROGRESS || 0}</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.completed")}</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t("settings.statistics.completed")}</p>
           <p className="text-3xl font-black text-green-600">{byStatus.COMPLETED || 0}</p>
         </div>
       </div>
@@ -149,13 +149,13 @@ export default async function StatisticsTab({
                     className="w-full bg-blue-600 rounded-t-sm"
                     style={{ height: `${height}%` }}
                   />
-                  <span className="text-[10px] text-gray-500">{month.slice(5)}</span>
-                  <span className="text-[10px] font-bold text-gray-900">{count}</span>
+                  <span className="text-xs text-gray-500">{month.slice(5)}</span>
+                  <span className="text-xs font-bold text-gray-900">{count}</span>
                 </div>
               );
             })}
         </div>
-        <p className="text-[10px] text-gray-500 mt-2 text-right">
+        <p className="text-xs text-gray-500 mt-2 text-right">
           {t("settings.statistics.last6Months")}
         </p>
       </div>

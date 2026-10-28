@@ -68,8 +68,9 @@ export default async function CustomerPortalTab({
           <input type="hidden" name="customerId" value={customerId} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.name")} *</label>
+              <label htmlFor="portal-user-name" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.name")} *</label>
               <input
+                id="portal-user-name"
                 type="text"
                 name="name"
                 required
@@ -78,8 +79,9 @@ export default async function CustomerPortalTab({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.email")} *</label>
+              <label htmlFor="portal-user-email" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.email")} *</label>
               <input
+                id="portal-user-email"
                 type="email"
                 name="email"
                 required
@@ -89,8 +91,9 @@ export default async function CustomerPortalTab({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.contact")} *</label>
+            <label htmlFor="portal-user-contact" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.contact")} *</label>
             <select
+              id="portal-user-contact"
               name="contactId"
               required
               defaultValue=""
@@ -126,7 +129,7 @@ export default async function CustomerPortalTab({
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                      className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${
                         u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
                       }`}
                     >
@@ -135,12 +138,12 @@ export default async function CustomerPortalTab({
                         : t("customers.portal.inactive")}
                     </span>
                     {!u.password && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-200 text-gray-600">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase bg-gray-200 text-gray-600">
                         {t("customers.portal.missingPassword")}
                       </span>
                     )}
                     {hasPendingInvite && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-blue-100 text-blue-800">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase bg-blue-100 text-blue-800">
                         {t("customers.portal.invited")}
                       </span>
                     )}
@@ -151,7 +154,7 @@ export default async function CustomerPortalTab({
                     action={resendPortalInvite}
                     wrapperClassName="contents"
                     submitLabel={`🔗 ${t("customers.portal.newLink")}`}
-                    buttonClassName="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
+                    buttonClassName="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
                     bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
                     labels={inviteLabels}
                   >
@@ -164,7 +167,7 @@ export default async function CustomerPortalTab({
                     <input type="hidden" name="active" value={u.isActive ? "false" : "true"} />
                     <button
                       type="submit"
-                      className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition ${
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
                         u.isActive
                           ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                           : "bg-green-600 text-white border-green-600 hover:bg-green-700"

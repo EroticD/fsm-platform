@@ -73,8 +73,9 @@ export default async function EditCustomerPage({
             
             {/* Firmanavn */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.companyName")} *</label>
+              <label htmlFor="customer-edit-name" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.companyName")} *</label>
               <input 
+                id="customer-edit-name"
                 type="text" 
                 name="name" 
                 defaultValue={customer.name} 
@@ -85,8 +86,9 @@ export default async function EditCustomerPage({
 
             {/* Kundenummer */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.customerNumber")}</label>
+              <label htmlFor="customer-edit-number" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.customerNumber")}</label>
               <input 
+                id="customer-edit-number"
                 type="text" 
                 name="customerNumber" 
                 defaultValue={customer.customerNumber || ""} 
@@ -96,8 +98,9 @@ export default async function EditCustomerPage({
 
             {/* Org.nr */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.orgNumber")}</label>
+              <label htmlFor="customer-edit-org-number" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.orgNumber")}</label>
               <input 
+                id="customer-edit-org-number"
                 type="text" 
                 name="orgNumber" 
                 defaultValue={customer.orgNumber || ""} 
@@ -107,9 +110,10 @@ export default async function EditCustomerPage({
 
             {/* Merkevarefarge */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.brandColor")}</label>
+              <label htmlFor="customer-edit-brand-color" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.brandColor")}</label>
               <div className="flex gap-3 items-center">
                 <input 
+                  id="customer-edit-brand-color"
                   type="color" 
                   name="brandColor" 
                   defaultValue={customer.brandColor || "#2563eb"} 
@@ -118,6 +122,7 @@ export default async function EditCustomerPage({
                 <input 
                   type="text" 
                   name="brandColorText" 
+                  aria-label={t("customers.edit.brandColor")}
                   defaultValue={customer.brandColor || "#2563eb"} 
                   className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium bg-gray-50" 
                   readOnly 
@@ -131,8 +136,9 @@ export default async function EditCustomerPage({
             
             {/* Adresse */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.address")}</label>
+              <label htmlFor="customer-edit-address" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.address")}</label>
               <input 
+                id="customer-edit-address"
                 type="text" 
                 name="address" 
                 defaultValue={customer.address || ""} 
@@ -147,8 +153,9 @@ export default async function EditCustomerPage({
             
             {/* Postnr */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.postalCode")}</label>
+              <label htmlFor="customer-edit-postal-code" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.postalCode")}</label>
               <input 
+                id="customer-edit-postal-code"
                 type="text" 
                 name="postalCode" 
                 defaultValue={customer.postalCode || ""} 
@@ -158,8 +165,9 @@ export default async function EditCustomerPage({
 
             {/* By */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.city")}</label>
+              <label htmlFor="customer-edit-city" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.city")}</label>
               <input 
+                id="customer-edit-city"
                 type="text" 
                 name="city" 
                 defaultValue={customer.city || ""} 
@@ -169,8 +177,9 @@ export default async function EditCustomerPage({
 
             {/* Telefon */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.phone")}</label>
+              <label htmlFor="customer-edit-phone" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.phone")}</label>
               <input 
+                id="customer-edit-phone"
                 type="tel" 
                 name="phone" 
                 defaultValue={customer.phone || ""} 
@@ -180,8 +189,9 @@ export default async function EditCustomerPage({
 
             {/* E-post */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.email")}</label>
+              <label htmlFor="customer-edit-email" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.email")}</label>
               <input 
+                id="customer-edit-email"
                 type="email" 
                 name="email" 
                 defaultValue={customer.email || ""} 
@@ -194,8 +204,9 @@ export default async function EditCustomerPage({
           {/* Avdeling og ansvarlig montør */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.department")}</label>
+              <label htmlFor="customer-edit-department" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.department")}</label>
               <select
+                id="customer-edit-department"
                 name="departmentId"
                 defaultValue={customer.departmentId || ""}
                 className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
@@ -208,8 +219,9 @@ export default async function EditCustomerPage({
               <p className="text-xs text-gray-500 mt-1">{t("customers.edit.departmentHint")}</p>
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.responsibleTechnician")}</label>
+              <label htmlFor="customer-edit-technician" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.responsibleTechnician")}</label>
               <select
+                id="customer-edit-technician"
                 name="responsibleTechnicianId"
                 defaultValue={customer.responsibleTechnicianId || ""}
                 className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 bg-white font-medium"
@@ -225,8 +237,9 @@ export default async function EditCustomerPage({
 
           {/* Noter */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.notes")}</label>
+            <label htmlFor="customer-edit-notes" className="block text-sm font-bold text-gray-700 mb-1">{t("customers.edit.notes")}</label>
             <MarkdownEditor
+              id="customer-edit-notes"
               name="notes"
               rows={4}
               defaultValue={customer.notes || ""}

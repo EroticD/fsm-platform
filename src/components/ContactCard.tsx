@@ -60,6 +60,8 @@ export default function ContactCard({
           <ConfirmSubmitForm
             action={onDelete}
             confirmMessage={t("components.contact.deleteConfirm")}
+            confirmLabel={t("delete")}
+            danger
             className={`inline ${canDelete ? "" : "hidden"}`}
           >
             <input type="hidden" name="id" value={contact.id} />
@@ -79,8 +81,9 @@ export default function ContactCard({
           <input type="hidden" name="id" value={contact.id} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.name")}</label>
+              <label htmlFor={`contact-${contact.id}-name`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.name")}</label>
               <input
+                id={`contact-${contact.id}-name`}
                 type="text"
                 name="name"
                 defaultValue={contact.name}
@@ -89,8 +92,9 @@ export default function ContactCard({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.role")}</label>
+              <label htmlFor={`contact-${contact.id}-role`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.role")}</label>
               <input
+                id={`contact-${contact.id}-role`}
                 type="text"
                 name="role"
                 defaultValue={contact.role || ""}
@@ -100,8 +104,9 @@ export default function ContactCard({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.email")}</label>
+              <label htmlFor={`contact-${contact.id}-email`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.email")}</label>
               <input
+                id={`contact-${contact.id}-email`}
                 type="email"
                 name="email"
                 defaultValue={contact.email || ""}
@@ -109,8 +114,9 @@ export default function ContactCard({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.phone")}</label>
+              <label htmlFor={`contact-${contact.id}-phone`} className="block text-xs font-bold text-gray-700 mb-1">{t("components.contact.phone")}</label>
               <input
+                id={`contact-${contact.id}-phone`}
                 type="tel"
                 name="phone"
                 defaultValue={contact.phone || ""}

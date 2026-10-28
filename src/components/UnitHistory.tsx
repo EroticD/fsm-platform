@@ -119,7 +119,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
                 </span>
               </p>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                   ok
                     ? "bg-green-100 text-green-800 border-green-200"
                     : "bg-red-100 text-red-800 border-red-200"
@@ -129,7 +129,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
               </span>
             </div>
 
-            <p className="text-[11px] text-gray-600 mt-1">{entry.report.workOrder.title}</p>
+            <p className="text-xs text-gray-600 mt-1">{entry.report.workOrder.title}</p>
 
             {entry.comment ? (
               <div className="text-xs text-gray-700 mt-1">
@@ -139,7 +139,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
 
             {rows.length > 0 ? (
               <details className="mt-2">
-                <summary className="cursor-pointer text-[11px] font-bold text-blue-700">
+                <summary className="cursor-pointer text-xs font-bold text-blue-700">
                   {t("orders.unitHistory.showCheckpoints", { count: rows.length })}
                 </summary>
                 <div className="mt-1.5 space-y-1.5 border-l-2 border-gray-200 pl-2">
@@ -151,7 +151,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
                       row.field?.type === "TEXTAREA" || row.field?.type === "TEXT";
                     const richValue = typeof row.value === "string" ? row.value.trim() : "";
                     return (
-                      <div key={`${row.label}-${index}`} className="text-[11px]">
+                      <div key={`${row.label}-${index}`} className="text-xs">
                         <p className={alert ? "text-red-800 font-bold" : "text-gray-700"}>
                           <span className="font-bold text-gray-900">{row.label}: </span>
                           {richText ? null : fieldValue(row.field, row.value, translate)}
@@ -166,7 +166,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
                           )
                         ) : null}
                         {comment ? (
-                          <div className="text-[11px] text-amber-800 italic">
+                          <div className="text-xs text-amber-800 italic">
                             <MarkdownView value={comment} size="xs" />
                           </div>
                         ) : null}
@@ -196,13 +196,13 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
             <div className="flex flex-wrap gap-3 mt-2">
               <Link
                 href={`/rapporter/${entry.report.workOrderId}`}
-                className="text-[11px] font-bold text-blue-700 hover:underline"
+                className="text-xs font-bold text-blue-700 hover:underline"
               >
                 {t("orders.unitHistory.openReport")}
               </Link>
               <Link
                 href={`/oppdrag/${entry.report.workOrder.id}`}
-                className="text-[11px] font-bold text-gray-600 hover:underline"
+                className="text-xs font-bold text-gray-600 hover:underline"
               >
                 {t("orders.unitHistory.openWorkOrder")}
               </Link>

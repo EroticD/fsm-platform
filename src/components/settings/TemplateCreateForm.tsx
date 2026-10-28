@@ -26,21 +26,24 @@ export default function TemplateCreateForm({
       <input
         type="text"
         name="title"
+        aria-label={t("settings.templates.titlePlaceholder")}
         placeholder={t("settings.templates.titlePlaceholder")}
         required
-        className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+        className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500"
       />
       <input
         type="text"
         name="reportName"
+        aria-label={t("settings.templates.reportNamePlaceholder")}
         placeholder={t("settings.templates.reportNamePlaceholder")}
-        className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+        className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500"
       />
       <textarea
         name="description"
         rows={2}
+        aria-label={t("settings.templates.descriptionPlaceholder")}
         placeholder={t("settings.templates.descriptionPlaceholder")}
-        className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500"
+        className="w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500"
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-bold text-gray-900">
@@ -53,7 +56,7 @@ export default function TemplateCreateForm({
                 event.target.value as (typeof TEMPLATE_CATEGORIES)[number],
               )
             }
-            className="mt-1 w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 bg-white"
+            className="mt-1 w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500 bg-white"
           >
             {TEMPLATE_CATEGORIES.map((value) => (
               <option key={value} value={value}>
@@ -70,7 +73,7 @@ export default function TemplateCreateForm({
               name="hmsType"
               required
               defaultValue=""
-              className="mt-1 w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium outline-none focus:border-blue-500 bg-white"
+              className="mt-1 w-full border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500 bg-white"
             >
               <option value="" disabled>
                 {t("settings.templates.hmsTypePlaceholder")}

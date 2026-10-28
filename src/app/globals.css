@@ -10,6 +10,32 @@
   --primary-color: #2563eb;
 }
 
+/*
+ * Synlig tastaturfokus for alle interaktive elementer.
+ *
+ * Regelen ligger utenfor Tailwind-laget, slik at den også vinner over
+ * `outline-none`-klasser på komponenter som bare har en svak hover- eller
+ * border-endring. Museklikk gir fortsatt ingen ring, fordi vi bruker
+ * `:focus-visible`.
+ */
+:where(
+  a[href],
+  button:not(:disabled),
+  input:not([type="hidden"]),
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [contenteditable="true"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

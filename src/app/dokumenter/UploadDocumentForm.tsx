@@ -83,8 +83,9 @@ export default function UploadDocumentForm({
         {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.title")}</label>
+        <label htmlFor="upload-document-title" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.title")}</label>
         <input
+          id="upload-document-title"
           type="text"
           name="title"
           required
@@ -93,8 +94,9 @@ export default function UploadDocumentForm({
         />
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.description")}</label>
+        <label htmlFor="upload-document-description" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.description")}</label>
         <textarea
+          id="upload-document-description"
           name="description"
           rows={2}
           placeholder={t("documents.upload.descriptionPlaceholder")}
