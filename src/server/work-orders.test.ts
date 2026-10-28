@@ -109,7 +109,26 @@ describe("work-orders-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("lar alle åpne statuser velges fritt uten grunn", async () => {
+  it("avviser et ulovlig statushopp uten å skrive til databasen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+    });
+
+    const result = await changeWorkOrderStatus(
+      actor({ role: "TECHNICIAN" }),
+      "wo-1",
+      "IN_PROGRESS",
+      "field",
+    );
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-status" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar en gyldig åpen overgang utføres uten grunn", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
       departmentId: "dep-a",
@@ -121,7 +140,7 @@ describe("work-orders-tjenesten", () => {
     const result = await changeWorkOrderStatus(
       actor({ role: "TECHNICIAN" }),
       "wo-1",
-      "IN_PROGRESS",
+      "PLANNED",
       "field",
     );
 
@@ -178,6 +197,43 @@ describe("work-orders-tjenesten", () => {
     expect(result).toEqual({ ok: false, error: "ugyldig-data" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
+  });
+
+  it("avviser opprettelse når sluttdato er før startdato", async () => {
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "2026-10-23",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "sluttdato-for-startdato" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
+  });
+
+  it("avviser opprettelse med ugyldig sluttdato", async () => {
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "2026-02-31",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-sluttdato" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("oppretter oppdraget og skriver revisjonsloggen i samme transaksjon", async () => {
@@ -761,6 +817,52 @@ describe("work-orders-tjenesten", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("avviser redigering når sluttdato er før startdato", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      status: "IN_PROGRESS",
+    });
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "2026-10-23",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "sluttdato-for-startdato" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser redigering med ugyldig sluttdato", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      status: "IN_PROGRESS",
+    });
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Ny tittel",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "2026-13-01",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-sluttdato" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("lar et ikke-fullført oppdrag redigeres selv om rapporten er låst", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       id: "wo-1",
@@ -975,7 +1077,7 @@ describe("work-orders-tjenesten", () => {
     const result = await changeWorkOrderStatus(
       actor({ role: "ADMIN", permissionsCustomized: true, permissions: null }),
       "wo-1",
-      "IN_PROGRESS",
+      "PLANNED",
       "office",
     );
 

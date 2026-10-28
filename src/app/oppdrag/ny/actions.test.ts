@@ -64,6 +64,17 @@ describe("createWorkOrder (action-wrapper)", () => {
     );
   });
 
+  it("sender datofeil tilbake til skjemaet", async () => {
+    vi.mocked(createWorkOrderService).mockResolvedValue({
+      ok: false,
+      error: "sluttdato-for-startdato",
+    });
+
+    await expect(createWorkOrder(form())).rejects.toThrow(
+      "NEXT_REDIRECT:/oppdrag/ny?error=sluttdato-for-startdato",
+    );
+  });
+
   it("går til kalenderen etter en vellykket opprettelse", async () => {
     vi.mocked(createWorkOrderService).mockResolvedValue({
       ok: true,

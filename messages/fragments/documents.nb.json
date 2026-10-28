@@ -9,6 +9,7 @@
     "browser": {
       "searchPlaceholder": "Søk i tittel, beskrivelse, filnavn eller tags...",
       "search": "Søk",
+      "globalSearchNotice": "Søket gjelder hele dokumentbiblioteket, ikke bare denne mappen.",
       "reset": "Nullstill",
       "tagFilter": "Filter på tag:",
       "root": "Rot",

@@ -97,7 +97,10 @@ export async function getDocumentLibrary(
   ]);
 
   const docWhere: Prisma.DocumentWhereInput = {
-    folderId,
+    // Når brukeren søker, skal treffene komme fra hele biblioteket – også
+    // utenfor mappen som vises. Uten søk er mappen fortsatt rammen for
+    // blaing. Tag-filteret kombineres med søket (AND), ikke i stedet for.
+    ...(searchQuery ? {} : { folderId }),
     deletedAt: deletedFilter,
   };
   if (searchQuery) {

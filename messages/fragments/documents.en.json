@@ -9,6 +9,7 @@
     "browser": {
       "searchPlaceholder": "Search title, description, file name or tags...",
       "search": "Search",
+      "globalSearchNotice": "The search covers the whole document library, not just this folder.",
       "reset": "Reset",
       "tagFilter": "Filter by tag:",
       "root": "Root",

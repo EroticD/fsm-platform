@@ -55,6 +55,17 @@ describe("updateWorkOrder (action-wrapper)", () => {
     );
   });
 
+  it("viser dato-feil i redigeringsskjemaet", async () => {
+    vi.mocked(updateWorkOrderService).mockResolvedValue({
+      ok: false,
+      error: "sluttdato-for-startdato",
+    });
+
+    await expect(updateWorkOrder(form())).rejects.toThrow(
+      "NEXT_REDIRECT:/oppdrag/wo1/rediger?error=sluttdato-for-startdato",
+    );
+  });
+
   it("sender låst oppdrag til detaljsiden med forklaring", async () => {
     vi.mocked(updateWorkOrderService).mockResolvedValue({
       ok: false,
