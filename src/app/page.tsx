@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
+import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { type Prisma, WorkStatus } from "@prisma/client";
@@ -274,13 +275,7 @@ export default async function AdminDashboard({
       scope,
       visibleStatus,
       { status: { notIn: ["COMPLETED", "CANCELLED"] } },
-      {
-        scheduledFor: { lte: endOfToday },
-        OR: [
-          { scheduledTo: { gte: startOfToday } },
-          { scheduledTo: null, scheduledFor: { gte: startOfToday } },
-        ],
-      },
+      scheduledTodayWhere(startOfToday, endOfToday),
     ],
   } satisfies Prisma.WorkOrderWhereInput;
 
