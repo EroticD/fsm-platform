@@ -11,6 +11,8 @@ import { requireWorkOrderAccess } from "@/lib/access";
 import { claimUpload } from "@/lib/upload-access";
 import { releaseUpload } from "@/lib/upload-cleanup";
 import { uploadDir } from "@/lib/uploads";
+import { isClosedStatus } from "@/lib/work-order-status";
+import type { WorkStatus } from "@prisma/client";
 import {
   addCustomerAttachment as addCustomerAttachmentService,
   removeCustomerAttachment as removeCustomerAttachmentService,
@@ -24,6 +26,21 @@ const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 function attachmentPath(fileUrl: string): string | null {
   if (!UPLOAD_URL.test(fileUrl)) return null;
   return path.join(uploadDir(), path.basename(fileUrl));
+}
+
+/**
+ * Et fullført/kansellert oppdrag og et oppdrag med bevaringsplikt er låst
+ * historikk. Regelen gjelder alle roller, også administrator: det finnes ingen
+ * dokumentert admin-overstyring for vedlegg. En administrator må eventuelt
+ * gjenåpne oppdraget eller fjerne bevaringsplikten med begrunnelse først.
+ */
+function attachmentLockError(
+  workOrder: { status: string; legalHold: boolean } | null | undefined,
+): "legal-hold" | "workorder-locked" | null {
+  if (!workOrder) return null;
+  if (workOrder.legalHold) return "legal-hold";
+  if (isClosedStatus(workOrder.status as WorkStatus)) return "workorder-locked";
+  return null;
 }
 
 /**
@@ -56,27 +73,41 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
     return { ok: false, error: "Filen ble ikke funnet" };
   }
 
-  // Ikke legg ved samme fil to ganger på samme oppdrag.
-  const existing = await prisma.attachment.findFirst({
-    where: { workOrderId, dataUrl: fileUrl },
-    select: { id: true }
-  });
-  if (existing) return { ok: true };
-
   const displayName = fileName || "Vedlegg";
 
   // Kravet på filen, vedlegget og revisjonen skjer i samme transaksjon. Hvis
   // filen allerede tilhører et annet oppdrag/en annen bruker, opprettes det
   // ingen attachment-rad, og svaret er generisk slik at det ikke røper om
   // filen finnes.
-  const claimed = await prisma.$transaction(async (tx) => {
+  //
+  // Låsen kontrolleres på nytt inne i transaksjonen, slik at et oppdrag som
+  // fullføres eller får bevaringsplikt samtidig ikke kan få nye vedlegg. Også
+  // duplikatsjekken ligger etter låsen: et lukket oppdrag skal avvises selv om
+  // filen allerede er vedlagt.
+  const result = await prisma.$transaction(async (tx) => {
+    const current = await tx.workOrder.findUnique({
+      where: { id: workOrderId },
+      select: { status: true, legalHold: true },
+    });
+    const locked = attachmentLockError(current);
+    if (locked) return { ok: false as const, error: locked };
+
+    // Ikke legg ved samme fil to ganger på samme oppdrag.
+    const existing = await tx.attachment.findFirst({
+      where: { workOrderId, dataUrl: fileUrl },
+      select: { id: true }
+    });
+    if (existing) return { ok: true as const };
+
     const { claimed } = await claimUpload(tx, fileUrl, access.user.id, {
       ownerType: "WORK_ORDER",
       ownerId: workOrderId,
       departmentId: access.workOrder.departmentId,
       customerId: access.workOrder.customerId,
     });
-    if (!claimed) return false;
+    if (!claimed) {
+      return { ok: false as const, error: "Ugyldig fil" };
+    }
 
     const attachment = await tx.attachment.create({
       data: {
@@ -98,10 +129,10 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
       metadata: { attachmentId: attachment.id },
     });
 
-    return true;
+    return { ok: true as const };
   });
 
-  if (!claimed) return { ok: false, error: "Ugyldig fil" };
+  if (!result.ok) return { ok: false, error: result.error };
 
   revalidateAttachmentViews(workOrderId);
   return { ok: true };
@@ -118,27 +149,30 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
   const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
 
-  // Bevaringsplikt på oppdraget eller en av rapportene fryser også vedleggene.
-  // Sletting av bevis skal først skje etter at en administrator bevisst har
-  // frigjort holdet med grunn.
-  const hold = await prisma.workOrder.findUnique({
-    where: { id: attachment.workOrderId },
-    select: { legalHold: true, reports: { select: { legalHold: true } } },
-  });
-  if (
-    hold?.legalHold ||
-    hold?.reports.some((report) => report.legalHold)
-  ) {
-    return {
-      ok: false,
-      error: "Oppdraget har bevaringsplikt. Fjern bevaringsplikten med grunn før vedlegg slettes.",
-    };
-  }
-
   const actor = await getCurrentUser();
   if (!actor) return { ok: false, error: "Ikke tilgang" };
 
-  await prisma.$transaction(async (tx) => {
+  // Bevaringsplikt på oppdraget eller en av rapportene fryser også vedleggene.
+  // Et fullført eller kansellert oppdrag er låst historikk. Låsen kontrolleres
+  // på nytt inne i transaksjonen, like før slettingen.
+  const locked = await prisma.$transaction(async (tx) => {
+    const current = await tx.workOrder.findUnique({
+      where: { id: attachment.workOrderId },
+      select: {
+        status: true,
+        legalHold: true,
+        reports: { select: { legalHold: true } },
+      },
+    });
+    if (
+      current?.legalHold ||
+      current?.reports.some((report) => report.legalHold)
+    ) {
+      return "legal-hold";
+    }
+    const guard = attachmentLockError(current);
+    if (guard) return guard;
+
     await tx.attachment.delete({ where: { id: attachmentId } });
 
     // Filen blir liggende på disk. Samme fil kan være referert fra flere
@@ -151,7 +185,10 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
       actor: { id: actor.id, name: actor.name, email: actor.email },
       metadata: { attachmentId },
     });
+
+    return null;
   });
+  if (locked) return { ok: false, error: locked };
 
   await releaseUpload(attachment.dataUrl);
 

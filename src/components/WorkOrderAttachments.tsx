@@ -49,6 +49,14 @@ export default function WorkOrderAttachments({
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<WorkOrderAttachment | null>(null);
 
+  // Serveren returnerer stabile feilkoder; vis menneskelig tekst uten å endre
+  // layouten. Ukjente koder vises som før.
+  const describeError = (code: string | undefined, fallback: string) => {
+    if (code === "legal-hold") return t("orders.attachments.legalHold");
+    if (code === "workorder-locked") return t("orders.attachments.locked");
+    return code || fallback;
+  };
+
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     // Tøm inputen med en gang, slik at samme fil kan velges på nytt senere.
@@ -124,7 +132,9 @@ export default function WorkOrderAttachments({
 
     const result = await removeAttachment(data);
     if (!result.ok) {
-      setError(result.error || t("orders.attachments.deleteError"));
+      setError(
+        describeError(result.error, t("orders.attachments.deleteError")),
+      );
     } else {
       toast(t("components.toast.deleted"), "success");
     }

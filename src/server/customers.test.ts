@@ -199,6 +199,44 @@ describe("kundetjenesten – autorisasjon", () => {
     const allowed = await deleteContact(admin(), "kunde-1", { id: "kontakt-1" });
     expect(allowed.ok).toBe(true);
   });
+
+  it("deaktiverer portalbrukeren som hører til kontakten før den slettes", async () => {
+    mocks.prisma.contact.findFirst.mockResolvedValue({
+      id: "kontakt-1",
+      customerId: "kunde-1",
+      name: "Kari",
+    });
+    mocks.prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await deleteContact(admin(), "kunde-1", {
+      id: "kontakt-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { contactId: "kontakt-1" },
+      data: {
+        isActive: false,
+        sessionVersion: { increment: 1 },
+        calendarTokenHash: null,
+        calendarTokenCreatedAt: null,
+        calendarTokenLastUsedAt: null,
+      },
+    });
+    expect(
+      mocks.prisma.user.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.prisma.contact.delete.mock.invocationCallOrder[0]);
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "Customer",
+        entityId: "kunde-1",
+        metadata: {
+          contactId: "kontakt-1",
+          deactivatedPortalUsers: 1,
+        },
+      }),
+    });
+  });
 });
 
 describe("kundetjenesten – revisjon og transaksjon", () => {

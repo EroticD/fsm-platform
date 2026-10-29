@@ -563,6 +563,8 @@
       "uploadError": "Upload failed",
       "saveError": "Could not save the attachment",
       "deleteError": "Could not delete the attachment",
+      "locked": "The work order is locked and cannot be changed.",
+      "legalHold": "The work order is under legal hold and cannot be changed.",
       "deleteTitle": "Delete attachment",
       "deleteConfirm": "Delete the attachment “{name}”?",
       "delete": "✕",

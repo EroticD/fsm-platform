@@ -65,6 +65,10 @@ beforeEach(() => {
   mocks.requireWorkOrderAccess.mockResolvedValue(access);
   mocks.prisma.attachment.findFirst.mockResolvedValue(null);
   mocks.prisma.attachment.create.mockResolvedValue({ id: "att-1" });
+  mocks.prisma.workOrder.findUnique.mockResolvedValue({
+    status: "OPEN",
+    legalHold: false,
+  });
   mocks.audit.mockResolvedValue(undefined);
   mocks.claimUpload.mockResolvedValue({ claimed: true });
   mocks.prisma.$transaction.mockImplementation(
@@ -114,6 +118,53 @@ describe("addAttachment – eierskap", () => {
   });
 });
 
+describe("addAttachment – låst oppdrag", () => {
+  it.each(["COMPLETED", "CANCELLED"])(
+    "avviser vedlegg når oppdraget er %s",
+    async (status) => {
+      mocks.prisma.workOrder.findUnique.mockResolvedValue({
+        status,
+        legalHold: false,
+      });
+
+      const result = await addAttachment(formData());
+
+      expect(result).toEqual({ ok: false, error: "workorder-locked" });
+      expect(mocks.claimUpload).not.toHaveBeenCalled();
+      expect(mocks.prisma.attachment.create).not.toHaveBeenCalled();
+      expect(mocks.audit).not.toHaveBeenCalled();
+      expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    },
+  );
+
+  it("avviser vedlegg når oppdraget har bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      status: "OPEN",
+      legalHold: true,
+    });
+
+    const result = await addAttachment(formData());
+
+    expect(result).toEqual({ ok: false, error: "legal-hold" });
+    expect(mocks.claimUpload).not.toHaveBeenCalled();
+    expect(mocks.prisma.attachment.create).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("avviser et duplikat når oppdraget er lukket", async () => {
+    mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      status: "COMPLETED",
+      legalHold: false,
+    });
+    mocks.prisma.attachment.findFirst.mockResolvedValue({ id: "att-1" });
+
+    const result = await addAttachment(formData());
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(mocks.claimUpload).not.toHaveBeenCalled();
+  });
+});
+
 describe("removeAttachment – bevaringsplikt", () => {
   function removeForm() {
     const data = new FormData();
@@ -136,6 +187,7 @@ describe("removeAttachment – bevaringsplikt", () => {
       dataUrl: "/uploads/fil.pdf",
     });
     mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      status: "OPEN",
       legalHold: false,
       reports: [{ legalHold: false }],
     });
@@ -147,26 +199,55 @@ describe("removeAttachment – bevaringsplikt", () => {
 
   it("avviser sletting når oppdraget har bevaringsplikt", async () => {
     mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      status: "OPEN",
       legalHold: true,
       reports: [],
     });
 
     const result = await removeAttachment(removeForm());
 
-    expect(result.ok).toBe(false);
-    expect(String(result.error)).toContain("bevaringsplikt");
+    expect(result).toEqual({ ok: false, error: "legal-hold" });
     expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
   });
 
   it("avviser sletting når en rapport har bevaringsplikt", async () => {
     mocks.prisma.workOrder.findUnique.mockResolvedValue({
+      status: "OPEN",
       legalHold: false,
       reports: [{ legalHold: true }],
     });
 
     const result = await removeAttachment(removeForm());
 
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({ ok: false, error: "legal-hold" });
     expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
+  });
+
+  it.each(["COMPLETED", "CANCELLED"])(
+    "avviser sletting når oppdraget er %s",
+    async (status) => {
+      mocks.prisma.workOrder.findUnique.mockResolvedValue({
+        status,
+        legalHold: false,
+        reports: [],
+      });
+
+      const result = await removeAttachment(removeForm());
+
+      expect(result).toEqual({ ok: false, error: "workorder-locked" });
+      expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
+      expect(mocks.releaseUpload).not.toHaveBeenCalled();
+    },
+  );
+
+  it("sletter vedlegget på et åpent oppdrag uten bevaringsplikt", async () => {
+    const result = await removeAttachment(removeForm());
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.prisma.attachment.delete).toHaveBeenCalledWith({
+      where: { id: "att-1" },
+    });
+    expect(mocks.audit).toHaveBeenCalled();
+    expect(mocks.releaseUpload).toHaveBeenCalledWith("/uploads/fil.pdf");
   });
 });

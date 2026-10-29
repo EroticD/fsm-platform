@@ -18,6 +18,10 @@ import {
   withUploadSlot,
 } from "@/lib/upload-slot";
 import {
+  tryAcquireUploadBodySlot,
+  UPLOAD_BODY_RETRY_AFTER_SECONDS,
+} from "@/lib/upload-concurrency";
+import {
   declaredMimeMatches,
   readRequestBodyWithLimit,
   sniffFileMime,
@@ -74,13 +78,33 @@ export async function POST(request: Request) {
     );
   }
 
+  // Lesing av kroppen er den minnetunge delen av opplastingen. En prosesslokal
+  // plassgrense hindrer at mange samtidige store filer bufres på én gang. Når
+  // alle plassene er opptatt, avvises forespørselen raskt med 503 i stedet for
+  // å hope seg opp. Grensen er per instans; proxy/ingress må fortsatt begrense
+  // kroppsstørrelse og samtidige tilkoblinger i multi-instans-drift.
+  const bodyLease = tryAcquireUploadBodySlot();
+  if (!bodyLease) {
+    return jsonError(
+      "Opplastingen er opptatt. Prøv igjen om litt.",
+      503,
+      { "Retry-After": String(UPLOAD_BODY_RETRY_AFTER_SECONDS) },
+    );
+  }
+
   let filePath: string | null = null;
 
   try {
     // Content-Length kan mangle eller lyve. Vi leser derfor strømmen med en
     // hard grense og avbryter så snart den overskrides, før hele kroppen er
     // bufret. Multipart-parsingen skjer etterpå på den avgrensede bufferen.
-    const limited = await readRequestBodyWithLimit(request, MAX_REQUEST_BYTES);
+    const limited = await (async () => {
+      try {
+        return await readRequestBodyWithLimit(request, MAX_REQUEST_BYTES);
+      } finally {
+        bodyLease.release();
+      }
+    })();
     if (!limited.ok) {
       if (limited.reason === "too-large") {
         return jsonError("Filen er for stor", 413);
@@ -119,10 +143,33 @@ export async function POST(request: Request) {
       }
       const workOrder = await prisma.workOrder.findFirst({
         where: { id: workOrderId, ...workOrderScope(user) },
-        select: { departmentId: true, customerId: true },
+        select: {
+          departmentId: true,
+          customerId: true,
+          status: true,
+          legalHold: true,
+          department: { select: { isActive: true } },
+        },
       });
       if (!workOrder) {
         return jsonError("Ingen tilgang", 403);
+      }
+      // En deaktivert avdeling skal ikke kunne ta imot nye filer, heller ikke
+      // fra administrator som ellers ser alle avdelinger.
+      if (!workOrder.department?.isActive) {
+        return jsonError("Avdelingen er deaktivert", 403);
+      }
+      // Lukkede oppdrag og bevaringsplikt er låst historikk. Samme regel
+      // gjelder alle roller; en administrator må gjenåpne oppdraget eller
+      // fjerne bevaringsplikten før nye filer kan lastes opp.
+      if (workOrder.legalHold) {
+        return jsonError("Oppdraget har bevaringsplikt", 403);
+      }
+      if (
+        workOrder.status === "COMPLETED" ||
+        workOrder.status === "CANCELLED"
+      ) {
+        return jsonError("Oppdraget er låst", 403);
       }
       ownerType = "WORK_ORDER";
       ownerId = workOrderId;

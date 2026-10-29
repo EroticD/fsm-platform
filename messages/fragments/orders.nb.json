@@ -563,6 +563,8 @@
       "uploadError": "Opplasting feilet",
       "saveError": "Kunne ikke lagre vedlegget",
       "deleteError": "Kunne ikke slette vedlegget",
+      "locked": "Oppdraget er låst og kan ikke endres.",
+      "legalHold": "Oppdraget har bevaringsplikt og kan ikke endres.",
       "deleteTitle": "Slett vedlegg",
       "deleteConfirm": "Slette vedlegget «{name}»?",
       "delete": "✕",

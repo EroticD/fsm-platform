@@ -930,13 +930,31 @@ export async function deleteContact(
     if (!contact) return fail("not_found");
 
     await prisma.$transaction(async (tx) => {
+      // Kontakten kan være koblet til en kundeportalbruker. Relasjonen er
+      // ON DELETE SET NULL, så brukeren ville ellers beholdt både kunde- og
+      // innloggingstilgang etter at kontaktpersonen er fjernet. Deaktiver
+      // brukeren og ugyldiggjør øktene før kontakten slettes.
+      const portalUsers = await tx.user.updateMany({
+        where: { contactId: id },
+        data: {
+          isActive: false,
+          sessionVersion: { increment: 1 },
+          calendarTokenHash: null,
+          calendarTokenCreatedAt: null,
+          calendarTokenLastUsedAt: null,
+        },
+      });
+
       await tx.contact.delete({ where: { id } });
       await audit(tx, {
         entityType: "Customer",
         entityId: customerId,
         action: `Slettet kontaktperson: ${contact.name || "Ukjent"}`,
         actor: toAuditActor(actor),
-        metadata: { contactId: id },
+        metadata: {
+          contactId: id,
+          deactivatedPortalUsers: portalUsers.count,
+        },
       });
     });
     return ok(undefined);
