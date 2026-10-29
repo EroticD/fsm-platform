@@ -10,6 +10,30 @@ The injection, XSS, SQL, path-traversal and file-ACL foundations are strong. The
 material risks are authorization edge cases around customer ownership, account
 recovery, offline caches, and lifecycle gaps after deletion/deactivation.
 
+## Remediation status (2026-10-29, branch `security/hardening-0.7.6`)
+
+**Fixed:** SEC-01–SEC-09, SEC-10–SEC-14, SEC-16–SEC-20, SEC-22–SEC-27,
+SEC-29–SEC-31, SEC-33–SEC-39.
+
+**Partially fixed / mitigated:**
+- **SEC-15** — JSON/form routes have hard limits; uploads are gated to four
+  concurrent body reads per instance and downloads stream, but upload bodies are
+  still buffered (proxy limits remain required).
+- **SEC-21** — PDFs are served as attachments; embedded PDF JavaScript is not
+  stripped (qpdf/scanning still recommended).
+- **SEC-32** — reset/activation error redirects no longer re-embed tokens; the
+  initial email link still carries the token in the query string.
+- **SEC-11** — signature reuse across reports and arbitrary same-order uploads
+  are blocked; signer names are still free text (needs a delegation model).
+- **SEC-18** — separate migration/runtime DB URLs are supported and documented,
+  but not enforced; existing single-user deployments still work.
+
+**Deferred / requires product decision:** cross-department report visibility,
+mandatory 2FA for admins, customer erasure/anonymisation, server-side booking
+availability enforcement, map provider key exposure, and encryption/PIN for
+offline drafts at rest (SEC-40).
+
+
 ---
 
 ## High
@@ -176,5 +200,5 @@ resume/online; clear on forced logout; minimize cached PII.
   finding by the lead. No live exploit was executed.
 - Deployment-dependent items (proxy headers, `APP_URL`/`NEXTAUTH_URL`, SMTP TLS,
   secret entropy) are marked where applicable.
-- `docs/security-audit-2026-10-29.md` is a read-only audit artefact and was not
-  committed to the release branch.
+- `docs/security-audit-2026-10-29.md` is the audit artefact; it lives on the
+  `security/hardening-0.7.6` hardening branch together with the fixes.
