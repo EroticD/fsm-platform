@@ -263,6 +263,7 @@
     "header": {
       "menu": "Menu",
       "mainMenu": "Main menu",
+      "quickNav": "Quick navigation",
       "openMenu": "Open menu",
       "closeMenu": "Close menu",
       "search": "Search the system",

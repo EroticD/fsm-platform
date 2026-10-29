@@ -52,7 +52,7 @@ export default function MobileTabBar({
 
   return (
     <nav
-      aria-label={t("components.header.menu")}
+      aria-label={t("components.header.quickNav")}
       className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-gray-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden"
     >
       <div className="mx-auto grid max-w-xl grid-cols-4">

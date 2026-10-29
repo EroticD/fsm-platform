@@ -263,6 +263,7 @@
     "header": {
       "menu": "Meny",
       "mainMenu": "Hovedmeny",
+      "quickNav": "Hurtignavigasjon",
       "openMenu": "Åpne menyen",
       "closeMenu": "Lukk menyen",
       "search": "Søk i systemet",

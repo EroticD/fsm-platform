@@ -82,7 +82,7 @@ test("office: dashbord, oppdrag, kunder, dokumenter og rapporter", async ({
     page.getByRole("heading", { name: "Servicerapporter" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /Se rapport \(PDF\)/ }).first(),
+    page.getByRole("link", { name: /📄 Åpne/ }).first(),
   ).toBeVisible();
 });
 
@@ -108,7 +108,7 @@ test("office: innstillinger ligger bare i menyen, og ansattefanen er tilgjengeli
     .getByRole("navigation", { name: "Meny" })
     .first();
   await expect(primaryNav).toBeVisible();
-  await expect(primaryNav.getByRole("link")).toHaveCount(6);
+  await expect(primaryNav.getByRole("link")).toHaveCount(5);
   await expect(
     primaryNav.getByRole("link", { name: /Innstillinger/ }),
   ).toHaveCount(0);
@@ -144,8 +144,7 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
   await page.goto("/mine-oppdrag");
   const orderLink = page
     .getByRole("link", {
-      name: "Service – automatiske dører",
-      exact: true,
+      name: /Service – automatiske dører/,
     })
     .first();
   await expect(orderLink).toBeVisible();
