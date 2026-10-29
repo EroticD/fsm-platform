@@ -5,7 +5,7 @@
 Produksjon bruker `docker-compose.prod.yml`. Der er `APP_IMAGE` **påkrevd**:
 
 ```dotenv
-APP_IMAGE=ghcr.io/eroticd/fsm-platform:0.7.6
+APP_IMAGE=ghcr.io/eroticd/fsm-platform:v0.7.6
 POSTGRES_IMAGE=postgres:15.13
 ```
 
@@ -14,9 +14,9 @@ POSTGRES_IMAGE=postgres:15.13
 - Vil du være helt sikker på at taggen ikke flyttes, pinn til digest:
 
   ```bash
-  docker pull ghcr.io/eroticd/fsm-platform:0.7.6
+  docker pull ghcr.io/eroticd/fsm-platform:v0.7.6
   docker inspect --format='{{index .RepoDigests 0}}' \
-    ghcr.io/eroticd/fsm-platform:0.7.6
+    ghcr.io/eroticd/fsm-platform:v0.7.6
   # APP_IMAGE=ghcr.io/eroticd/fsm-platform@sha256:<digest>
   ```
 
@@ -491,8 +491,8 @@ restore-test og ekstern kopi er automatisert og varsler ved feil.
 - Docker-imaget publiseres bare når CI-kjøringen for samme tag er grønn
   (`workflow_run`), eller ved manuell `workflow_dispatch`. Trivy skanner både
   CI-imaget og det publiserte manifestet.
-- Actions er ikke låst til commit-SHA-er ennå; det bør gjøres når
-  versjonsavhengighetene er avklart (se `SECURITY.md`).
+- Alle Actions er pinnet til commit-SHA, og release-jobben krever en verifisert
+  tag som peker på samme commit som CI kjørte. Se `SECURITY.md`.
 
 ## Feilsøking
 
