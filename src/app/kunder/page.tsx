@@ -299,7 +299,7 @@ export default async function KunderPage({
               {t("customers.list.search")}
             </button>
             {search && (
-              <Link href="/kunder" className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition">
+              <Link href="/kunder" prefetch={false} className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition">
                 {t("customers.list.reset")}
               </Link>
             )}
@@ -322,18 +322,18 @@ export default async function KunderPage({
             <thead className="bg-gray-100">
               <tr>
                 <th scope="col" aria-sort={ariaSort("name")} className="p-4 font-semibold text-gray-600 border-b">
-                  <Link href={sortHref("name")} aria-label={t("customers.list.sortBy", { column: t("customers.list.companyName") })} className="inline-flex items-center gap-1 hover:text-gray-900">
+                  <Link href={sortHref("name")} prefetch={false} aria-label={t("customers.list.sortBy", { column: t("customers.list.companyName") })} className="inline-flex items-center gap-1 hover:text-gray-900">
                     {t("customers.list.companyName")} <span aria-hidden="true">{sortIndicator("name")}</span>
                   </Link>
                 </th>
                 <th scope="col" aria-sort={ariaSort("city")} className="p-4 font-semibold text-gray-600 border-b">
-                  <Link href={sortHref("city")} aria-label={t("customers.list.sortBy", { column: t("customers.list.city") })} className="inline-flex items-center gap-1 hover:text-gray-900">
+                  <Link href={sortHref("city")} prefetch={false} aria-label={t("customers.list.sortBy", { column: t("customers.list.city") })} className="inline-flex items-center gap-1 hover:text-gray-900">
                     {t("customers.list.city")} <span aria-hidden="true">{sortIndicator("city")}</span>
                   </Link>
                 </th>
                 <th scope="col" className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.contact")}</th>
                 <th scope="col" aria-sort={ariaSort("orgNumber")} className="p-4 font-semibold text-gray-600 border-b">
-                  <Link href={sortHref("orgNumber")} aria-label={t("customers.list.sortBy", { column: t("customers.list.orgNumber") })} className="inline-flex items-center gap-1 hover:text-gray-900">
+                  <Link href={sortHref("orgNumber")} prefetch={false} aria-label={t("customers.list.sortBy", { column: t("customers.list.orgNumber") })} className="inline-flex items-center gap-1 hover:text-gray-900">
                     {t("customers.list.orgNumber")} <span aria-hidden="true">{sortIndicator("orgNumber")}</span>
                   </Link>
                 </th>
@@ -357,6 +357,7 @@ export default async function KunderPage({
                         search ? (
                           <Link
                             href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                            prefetch={false}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
                           >
                             {t("customers.list.reset")}
@@ -378,6 +379,7 @@ export default async function KunderPage({
                       <td className="p-4 font-medium text-gray-800">
                         <Link
                           href={`/kunder/${customer.id}`}
+                          prefetch={false}
                           aria-label={t("customers.list.openCustomer", {
                             name: customer.name,
                           })}
@@ -423,9 +425,9 @@ export default async function KunderPage({
                           </form>
                         ) : (
                           <>
-                            <Link href={`/kunder/${customer.id}`} className="text-blue-600 hover:underline text-sm font-medium block">{t("customers.list.viewDetails")}</Link>
+                            <Link href={`/kunder/${customer.id}`} prefetch={false} className="text-blue-600 hover:underline text-sm font-medium block">{t("customers.list.viewDetails")}</Link>
                             {office && (
-                              <Link href={`/kunder/${customer.id}/rediger`} className="text-gray-600 hover:underline text-sm font-medium">{t("customers.list.edit")}</Link>
+                              <Link href={`/kunder/${customer.id}/rediger`} prefetch={false} className="text-gray-600 hover:underline text-sm font-medium">{t("customers.list.edit")}</Link>
                             )}
                             {user.role === "ADMIN" && (
                               <ConfirmSubmitForm
@@ -471,6 +473,7 @@ export default async function KunderPage({
                   search ? (
                     <Link
                       href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                      prefetch={false}
                       className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
                     >
                       {t("customers.list.reset")}
@@ -492,6 +495,7 @@ export default async function KunderPage({
                     <div className="min-w-0">
                       <Link
                         href={`/kunder/${customer.id}`}
+                        prefetch={false}
                         className="break-words text-base font-bold text-blue-800 hover:underline"
                       >
                         {customer.name}
@@ -567,6 +571,7 @@ export default async function KunderPage({
                         <>
                           <Link
                             href={`/kunder/${customer.id}`}
+                            prefetch={false}
                             className="inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 text-sm font-bold text-white hover:bg-blue-800"
                           >
                             {t("customers.list.viewDetails")}
@@ -574,6 +579,7 @@ export default async function KunderPage({
                           {office && (
                             <Link
                               href={`/kunder/${customer.id}/rediger`}
+                              prefetch={false}
                               className="inline-flex min-h-11 items-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
                             >
                               {t("customers.list.edit")}

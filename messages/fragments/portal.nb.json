@@ -6,6 +6,29 @@
     "headerWelcome": "Velkommen til din kundeportal, {userName}!",
     "home": "Hjem",
     "refresh": "Oppdater",
+    "summary": {
+      "title": "Oversikt",
+      "nextAppointment": "Neste bekreftede avtale",
+      "noConfirmed": "Ingen bekreftet",
+      "noDate": "Tid ikke satt",
+      "seeUpcoming": "Se kommende",
+      "pending": "Forespørsler",
+      "pendingHint": "Venter på svar",
+      "pendingNone": "Ingen til behandling",
+      "seeBookings": "Se bestillinger",
+      "reports": "Rapporter",
+      "reportsHint": "Venter på kvittering",
+      "reportsNone": "Ingen til kvittering",
+      "seeReports": "Se rapporter",
+      "cta": "Send ny forespørsel"
+    },
+    "sectionNav": {
+      "label": "Seksjoner i kundeportalen",
+      "overview": "Oversikt",
+      "bookings": "Bestillinger",
+      "reports": "Rapporter",
+      "contact": "Kontakt"
+    },
     "contact": {
       "title": "Din kontakt",
       "department": "Avdeling / lokasjon",

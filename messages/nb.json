@@ -480,7 +480,8 @@
       "units": "Enheter",
       "search": "Søk",
       "security": "Sikkerhet",
-      "users": "Ansatte"
+      "users": "Ansatte",
+      "accountSecurity": "Konto & sikkerhet"
     },
     "loginErrorTwoFactorUnavailable": "To-trinns verifisering er ikke riktig konfigurert. Kontakt administrator."
   }

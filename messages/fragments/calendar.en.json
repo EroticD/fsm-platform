@@ -138,12 +138,14 @@
       "today": "Today",
       "month": "Month",
       "week": "Week",
+      "biweekly": "2 weeks",
       "saveError": "Could not save the new date."
     },
     "a11y": {
       "previous": "Previous period",
       "next": "Next period",
       "today": "Go to today",
+      "gridLabel": "Calendar, {view}",
       "keyboardTitle": "Keyboard alternative",
       "keyboardAlternative": "Using a keyboard? Open the work order in the edit page to change the date.",
       "keyboardAlternativeReadOnly": "Open the work order in the list to see details. You cannot change the date here.",

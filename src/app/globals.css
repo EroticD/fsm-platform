@@ -15,6 +15,9 @@
   --focus-ring: #2563eb;
   /* Minste lesbare tekststørrelse for brukervendt tekst. */
   --text-min: 0.75rem;
+  /* Kortflatens kant. Holdes som egen token slik at Card-primitiven og
+     eksisterende kort bruker samme farge. */
+  --border-card: #e5e7eb;
 }
 
 /*
@@ -49,11 +52,39 @@
   --color-primary: var(--primary-color);
   --color-primary-foreground: var(--primary-foreground);
   --color-focus-ring: var(--focus-ring);
-  /* Tailwind-utility for den minste tillatte tekststørrelsen (12 px). */
-  --text-2xs: var(--text-min);
-  --text-2xs--line-height: 1rem;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Designsystemets grunntokens. De ligger i @theme slik at de både er
+ * tilgjengelige som CSS-variabler og gir Tailwind-utilities:
+ * rounded-control, rounded-card, shadow-card, bg-surface, text-danger osv.
+ */
+@theme static {
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --color-surface: #ffffff;
+  --color-border-card: var(--border-card);
+  /* Tailwind-utility for den minste tillatte tekststørrelsen (12 px). */
+  --text-2xs: 0.75rem;
+  --text-2xs--line-height: 1rem;
+
+  /* Semantiske farger. Bruk disse i nye flater i stedet for rå
+     Tailwind-farger når betydningen er info/suksess/advarsel/feil. */
+  --color-info: #1d4ed8;
+  --color-info-surface: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-success: #15803d;
+  --color-success-surface: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-warning: #b45309;
+  --color-warning-surface: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-danger: #b91c1c;
+  --color-danger-surface: #fef2f2;
+  --color-danger-border: #fecaca;
 }
 
 body {
@@ -61,6 +92,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
+}
+
+/* Plassholdere skal ha samme lesbare gråtoner som hjelpetekst (4,5:1).
+   Velgeren er mer spesifikk enn Tailwind-hjelpeklasser som
+   `placeholder:text-gray-500`, slik at kontrasten gjelder uansett. */
+input:not([type="checkbox"]):not([type="radio"])::placeholder,
+textarea::placeholder {
+  color: #4b5563;
+  opacity: 1;
 }
 
 /* Respekter operativsystemets ønske om mindre bevegelse. */
@@ -109,6 +149,15 @@ body {
  * sørger for at siste felt kan rulles opp over knappen når den vises igjen.
  */
 @media (max-width: 639px) {
+  /* iOS zoomer inn i skjemafelt når tekststørrelsen er under 16 px. Hold
+     feltene på 16 px på mobil, men la avkrysningsbokser og radioknapper
+     beholde sin lille visuelle størrelse. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
   /* Ligg over den faste mobilmenyen, ikke bak den. */
   .report-sticky-submit {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 3.75rem);

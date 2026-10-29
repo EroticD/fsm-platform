@@ -23,7 +23,17 @@ const CUSTOMER_ALLOWED_PREFIXES = [
 // (/rapporter uten id) er derimot kun for kontoret og er ikke tillatt her.
 const REPORT_VIEWER = /^\/rapporter\/[^/]+/;
 
-function isAllowedForCustomer(pathname: string) {
+export function isAllowedForCustomer(
+  pathname: string,
+  searchParams: URLSearchParams,
+) {
+  // Kunden får bare åpne sikkerhetsfanen i innstillingene. Selve siden skjuler
+  // alle administrative faner, og denne vakten hindrer at andre faner i det
+  // hele tatt lastes for en kundeportalbruker.
+  if (pathname === "/innstillinger") {
+    const tabs = searchParams.getAll("tab");
+    return tabs.length > 0 && tabs.every((tab) => tab === "sikkerhet");
+  }
   if (REPORT_VIEWER.test(pathname)) return true;
   return CUSTOMER_ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -48,8 +58,8 @@ export async function proxy(request: NextRequest) {
 
   // Kundeportalbrukere skal kun se egen kundedata og teknikertilgjengelighet.
   if (token?.role === "CUSTOMER") {
-    const { pathname } = request.nextUrl;
-    if (!isAllowedForCustomer(pathname)) {
+    const { pathname, searchParams } = request.nextUrl;
+    if (!isAllowedForCustomer(pathname, searchParams)) {
       const redirect = NextResponse.redirect(new URL("/kundeportal", request.url));
       redirect.headers.set("Content-Security-Policy", csp);
       redirect.headers.set("x-request-id", requestId);

@@ -111,8 +111,20 @@ describe("toppnavigasjon", () => {
     expect(hrefs(items)).toContain("/rapporter");
   });
 
-  it("gir kundeportalbrukere bare portalen", () => {
-    expect(hrefs(navItemsFor("CUSTOMER"))).toEqual(["/kundeportal"]);
+  it("gir kundeportalbrukere portalen og egen kontosikkerhet", () => {
+    const items = navItemsFor("CUSTOMER");
+    expect(hrefs(items)).toEqual([
+      "/kundeportal",
+      "/innstillinger?tab=sikkerhet",
+    ]);
+    expect(settingsNavItem(items)?.labelKey).toBe("accountSecurity");
+    expect(hrefs(items)).not.toContain("/innstillinger");
+  });
+
+  it("markerer kundens sikkerhetsfane som aktiv uten query i stien", () => {
+    expect(activeNavHref(navItemsFor("CUSTOMER"), "/innstillinger")).toBe(
+      "/innstillinger?tab=sikkerhet",
+    );
   });
 
   it("sender montører til feltportalen for nytt oppdrag", () => {

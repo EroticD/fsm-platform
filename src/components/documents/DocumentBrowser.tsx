@@ -1200,6 +1200,7 @@ export default function DocumentBrowser({
                 >
                   <Link
                     href={folderLink(folder.id)}
+                    prefetch={false}
                     className="block p-4 text-center"
                   >
                     <div className="mb-1 text-3xl">📁</div>
@@ -1348,6 +1349,7 @@ export default function DocumentBrowser({
                         {office && (
                           <Link
                             href={docLink(doc.id)}
+                            prefetch={false}
                             className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
                           >
                             🗂️ {t("documents.browser.versions")}

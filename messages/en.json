@@ -480,7 +480,8 @@
       "units": "Units",
       "search": "Search",
       "security": "Security",
-      "users": "Employees"
+      "users": "Employees",
+      "accountSecurity": "Account & security"
     },
     "loginErrorTwoFactorUnavailable": "Two-factor authentication is not configured correctly. Contact an administrator."
   }

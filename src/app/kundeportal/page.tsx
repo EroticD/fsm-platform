@@ -18,6 +18,7 @@ import Pagination, { paginationLabels } from "@/components/Pagination";
 import ReportHistory from "@/components/portal/ReportHistory";
 import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
+import PortalSectionNav from "@/components/portal/PortalSectionNav";
 import StatusBadge from "@/components/StatusBadge";
 import {
   BOOKING_MIN_LEAD_HOURS,
@@ -167,7 +168,45 @@ export default async function KundeportalPage({
   // Ubekreftede forespørsler ligger under «Dine bestillinger».
   const upcomingWhere = portalUpcomingWhere(customer.id, today);
 
-  const upcomingTotal = await prisma.workOrder.count({ where: upcomingWhere });
+  // Kortene øverst skal være sanne for hele kontoen, ikke bare siden som
+  // tilfeldigvis vises. Derfor egne tellespørringer og en egen «neste»-sak.
+  const [upcomingTotal, nextAppointment, pendingRequestCount, reportsAwaitingAck] =
+    await Promise.all([
+      prisma.workOrder.count({ where: upcomingWhere }),
+      prisma.workOrder.findFirst({
+        where: upcomingWhere,
+        orderBy: [
+          { scheduledFor: { sort: "asc", nulls: "last" } },
+          { scheduledTo: "asc" },
+        ],
+        select: {
+          id: true,
+          title: true,
+          scheduledFor: true,
+          scheduledTo: true,
+        },
+      }),
+      prisma.bookingRequest.count({
+        where: {
+          customerId: customer.id,
+          status: "PENDING",
+          // Kontoret bekrefter ved å flytte selve oppdraget. En bestilling kan
+          // derfor fortsatt stå som PENDING etter at avtalen er bekreftet.
+          workOrder: {
+            deletedAt: null,
+            status: { in: ["OPEN", "PENDING"] },
+          },
+        },
+      }),
+      prisma.report.count({
+        where: {
+          deletedAt: null,
+          isLocked: true,
+          customerAcknowledgedAt: null,
+          workOrder: { customerId: customer.id, deletedAt: null },
+        },
+      }),
+    ]);
   // Klem en gammel `?u=999` til siste side før listen hentes.
   const upcomingWindow = pageWindow(
     requestedUpcomingPage,
@@ -288,82 +327,106 @@ export default async function KundeportalPage({
           </div>
         </div>
 
-        {/* KONTAKTINFO: avdeling og ansvarlig montør */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-          <h2 className="font-bold text-gray-900 mb-4 border-b pb-2">🏢 {t("portal.contact.title")}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Avdeling / lokasjon */}
-            <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                {customer.department ? t("portal.contact.department") : t("portal.contact.company")}
+        {/* OVERSIKT: neste avtale, ventende saker og rapportkvitteringer */}
+        <section
+          id="oversikt"
+          aria-labelledby="oversikt-title"
+          className="scroll-mt-20 pt-6"
+        >
+          <h2
+            id="oversikt-title"
+            className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500"
+          >
+            {t("portal.summary.title")}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Link
+              href="#kommende"
+              className="group col-span-2 flex min-h-28 min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary-color)] hover:shadow-md lg:col-span-1"
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                {t("portal.summary.nextAppointment")}
               </p>
-              <p className="text-sm text-gray-900 font-bold">
-                {customer.department?.name || customer.name}
-              </p>
-              {customer.department ? (
+              {nextAppointment ? (
                 <>
-                  {(customer.department.address || customer.department.city) && (
-                    <p className="text-sm text-gray-700 mt-1">
-                      {customer.department.address || ""}
-                      {customer.department.postalCode ? `, ${customer.department.postalCode}` : ""}
-                      {customer.department.city ? ` ${customer.department.city}` : ""}
-                    </p>
-                  )}
-                  {customer.department.phone && (
-                    <p className="text-sm mt-1">
-                      📞 <a href={`tel:${customer.department.phone}`} className="text-blue-600 font-bold hover:underline">{customer.department.phone}</a>
-                    </p>
-                  )}
-                  {customer.department.email && (
-                    <p className="text-sm">
-                      ✉️ <a href={`mailto:${customer.department.email}`} className="text-blue-600 font-bold hover:underline">{customer.department.email}</a>
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-700 mt-1">
-                    {customer.address || t("portal.contact.notProvided")} {customer.postalCode || ""} {customer.city || ""}
+                  <p className="mt-1 truncate text-base font-black text-gray-900">
+                    {formatDateLocalized(
+                      nextAppointment.scheduledFor ??
+                        nextAppointment.scheduledTo,
+                      locale,
+                      undefined,
+                      t("portal.summary.noDate"),
+                    )}
                   </p>
-                  {customer.phone && (
-                    <p className="text-sm mt-1">
-                      📞 <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a>
-                    </p>
-                  )}
-                  {customer.email && (
-                    <p className="text-sm">
-                      ✉️ <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a>
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Ansvarlig montør */}
-            <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
-              {customer.responsibleTechnician ? (
-                <>
-                  <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
-                  {customer.responsibleTechnician.phone && (
-                    <p className="text-sm mt-1">
-                      📞 <a href={`tel:${customer.responsibleTechnician.phone}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.phone}</a>
-                    </p>
-                  )}
-                  {customer.responsibleTechnician.email && (
-                    <p className="text-sm">
-                      ✉️ <a href={`mailto:${customer.responsibleTechnician.email}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.email}</a>
-                    </p>
-                  )}
+                  <p className="truncate text-xs font-semibold text-gray-600">
+                    {nextAppointment.title}
+                  </p>
                 </>
               ) : (
-                <p className="text-sm text-gray-500">{t("portal.contact.noResponsible")}</p>
+                <p className="mt-1 text-base font-black text-gray-900">
+                  {t("portal.summary.noConfirmed")}
+                </p>
               )}
-            </div>
-          </div>
+              <span className="mt-auto pt-2 text-xs font-bold text-blue-700 group-hover:underline">
+                {t("portal.summary.seeUpcoming")} &rarr;
+              </span>
+            </Link>
 
-          <ContactUpdateForm />
-        </div>
+            <Link
+              href="#bestillinger"
+              className="group flex min-h-28 min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary-color)] hover:shadow-md"
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                {t("portal.summary.pending")}
+              </p>
+              <p className="mt-1 text-3xl font-black tabular-nums text-gray-900">
+                {pendingRequestCount}
+              </p>
+              <p className="text-xs font-semibold text-gray-600">
+                {pendingRequestCount > 0
+                  ? t("portal.summary.pendingHint")
+                  : t("portal.summary.pendingNone")}
+              </p>
+              <span className="mt-auto pt-2 text-xs font-bold text-blue-700 group-hover:underline">
+                {t("portal.summary.seeBookings")} &rarr;
+              </span>
+            </Link>
+
+            <Link
+              href="#rapporter"
+              className="group flex min-h-28 min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary-color)] hover:shadow-md"
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                {t("portal.summary.reports")}
+              </p>
+              <p className="mt-1 text-3xl font-black tabular-nums text-gray-900">
+                {reportsAwaitingAck}
+              </p>
+              <p className="text-xs font-semibold text-gray-600">
+                {reportsAwaitingAck > 0
+                  ? t("portal.summary.reportsHint")
+                  : t("portal.summary.reportsNone")}
+              </p>
+              <span className="mt-auto pt-2 text-xs font-bold text-blue-700 group-hover:underline">
+                {t("portal.summary.seeReports")} &rarr;
+              </span>
+            </Link>
+
+            <Link
+              href="#bestillinger"
+              className="col-span-2 flex min-h-20 items-center justify-between gap-3 rounded-xl bg-[var(--primary-color)] px-4 py-4 text-[var(--primary-foreground)] shadow-sm transition hover:opacity-90 lg:col-span-1"
+            >
+              <span className="text-base font-black">
+                {t("portal.summary.cta")}
+              </span>
+              <span aria-hidden className="text-xl">
+                &rarr;
+              </span>
+            </Link>
+          </div>
+        </section>
+
+        <PortalSectionNav />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
@@ -426,7 +489,10 @@ export default async function KundeportalPage({
           <div className="lg:col-span-2 space-y-6">
             
             {/* SEND NY FORESPØRSEL */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+            <div
+              id="bestillinger"
+              className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200"
+            >
               <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
               <p className="text-gray-600 text-sm mb-4">{t("portal.booking.desc")}</p>
               <BookingForm
@@ -461,7 +527,7 @@ export default async function KundeportalPage({
             </div>
 
             {/* KOMMENDE OPPDRAG */}
-            <div id="kommende" className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+            <div id="kommende" className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <h2 className="font-bold text-lg text-gray-900">📅 {t("portal.upcoming.title")}</h2>
@@ -562,6 +628,92 @@ export default async function KundeportalPage({
             {t("portal.availability.note")}
           </p>
         </div>
+
+        {/* KONTAKTINFO: avdeling, ansvarlig montør og oppdateringsskjema */}
+        <section
+          id="kontakt"
+          aria-labelledby="kontakt-title"
+          className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mt-6"
+        >
+          <h2
+            id="kontakt-title"
+            className="font-bold text-gray-900 mb-4 border-b pb-2"
+          >
+            🏢 {t("portal.contact.title")}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Avdeling / lokasjon */}
+            <div className="bg-gray-50 p-3 rounded border">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                {customer.department ? t("portal.contact.department") : t("portal.contact.company")}
+              </p>
+              <p className="text-sm text-gray-900 font-bold">
+                {customer.department?.name || customer.name}
+              </p>
+              {customer.department ? (
+                <>
+                  {(customer.department.address || customer.department.city) && (
+                    <p className="text-sm text-gray-700 mt-1">
+                      {customer.department.address || ""}
+                      {customer.department.postalCode ? `, ${customer.department.postalCode}` : ""}
+                      {customer.department.city ? ` ${customer.department.city}` : ""}
+                    </p>
+                  )}
+                  {customer.department.phone && (
+                    <p className="text-sm mt-1">
+                      📞 <a href={`tel:${customer.department.phone}`} className="text-blue-600 font-bold hover:underline">{customer.department.phone}</a>
+                    </p>
+                  )}
+                  {customer.department.email && (
+                    <p className="text-sm">
+                      ✉️ <a href={`mailto:${customer.department.email}`} className="text-blue-600 font-bold hover:underline">{customer.department.email}</a>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-700 mt-1">
+                    {customer.address || t("portal.contact.notProvided")} {customer.postalCode || ""} {customer.city || ""}
+                  </p>
+                  {customer.phone && (
+                    <p className="text-sm mt-1">
+                      📞 <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a>
+                    </p>
+                  )}
+                  {customer.email && (
+                    <p className="text-sm">
+                      ✉️ <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a>
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Ansvarlig montør */}
+            <div className="bg-gray-50 p-3 rounded border">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
+              {customer.responsibleTechnician ? (
+                <>
+                  <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
+                  {customer.responsibleTechnician.phone && (
+                    <p className="text-sm mt-1">
+                      📞 <a href={`tel:${customer.responsibleTechnician.phone}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.phone}</a>
+                    </p>
+                  )}
+                  {customer.responsibleTechnician.email && (
+                    <p className="text-sm">
+                      ✉️ <a href={`mailto:${customer.responsibleTechnician.email}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.email}</a>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500">{t("portal.contact.noResponsible")}</p>
+              )}
+            </div>
+          </div>
+
+          <ContactUpdateForm />
+        </section>
 
       </div>
     </div>

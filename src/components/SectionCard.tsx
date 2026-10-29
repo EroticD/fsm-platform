@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Card from "@/components/ui/Card";
 
 /** Kort seksjon med tittel og valgfri beskrivelse/handling. */
 export default function SectionCard({
@@ -15,9 +16,7 @@ export default function SectionCard({
   className?: string;
 }) {
   return (
-    <section
-      className={`rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6 ${className}`}
-    >
+    <Card as="section" className={`p-5 sm:p-6 ${className}`}>
       {(title || action) && (
         <div className="mb-4 flex flex-col gap-2 border-b border-gray-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -30,6 +29,6 @@ export default function SectionCard({
         </div>
       )}
       {children}
-    </section>
+    </Card>
   );
 }

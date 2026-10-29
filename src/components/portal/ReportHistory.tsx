@@ -70,7 +70,7 @@ export default async function ReportHistory({
   return (
     <section
       id="rapporter"
-      className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+      className="scroll-mt-20 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
         <h2 className="text-lg font-bold text-gray-900">

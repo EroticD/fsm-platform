@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { config } from "./proxy";
+import { config, isAllowedForCustomer } from "./proxy";
 
 /**
  * Next bruker matcher-strengen som en path-regex. Vi tester den samme
@@ -8,6 +8,46 @@ import { config } from "./proxy";
  */
 const matches = (pathname: string) =>
   new RegExp(`^${config.matcher[0]}$`).test(pathname);
+
+const params = (query = "") => new URLSearchParams(query);
+
+describe("kundeportalens allowlist", () => {
+  it("slipper kunden inn på sikkerhetsfanen", () => {
+    expect(
+      isAllowedForCustomer("/innstillinger", params("tab=sikkerhet")),
+    ).toBe(true);
+    expect(
+      isAllowedForCustomer(
+        "/innstillinger",
+        params("tab=sikkerhet&setup=1"),
+      ),
+    ).toBe(true);
+  });
+
+  it("avviser innstillinger uten sikkerhetsfanen", () => {
+    expect(isAllowedForCustomer("/innstillinger", params())).toBe(false);
+    expect(
+      isAllowedForCustomer("/innstillinger", params("tab=ansatte")),
+    ).toBe(false);
+    expect(
+      isAllowedForCustomer(
+        "/innstillinger",
+        params("tab=sikkerhet&tab=branding"),
+      ),
+    ).toBe(false);
+    expect(
+      isAllowedForCustomer("/innstillinger/brukere", params("tab=sikkerhet")),
+    ).toBe(false);
+  });
+
+  it("beholder de øvrige kundetillatte stiene", () => {
+    expect(isAllowedForCustomer("/kundeportal", params())).toBe(true);
+    expect(isAllowedForCustomer("/api/kundeportal", params())).toBe(true);
+    expect(isAllowedForCustomer("/rapporter/abc", params())).toBe(true);
+    expect(isAllowedForCustomer("/rapporter", params())).toBe(false);
+    expect(isAllowedForCustomer("/oppdrag", params())).toBe(false);
+  });
+});
 
 describe("CSP-matcher", () => {
   it("kjører på HTML-ruter som slutter på .js eller .png", () => {

@@ -154,13 +154,19 @@ export const STAFF_NAV: NavItem[] = [
   },
 ];
 
-/** Kundeportalbrukere har bare sin egen portal. */
+/** Kundeportalbrukere har bare sin egen portal og egen kontosikkerhet. */
 export const CUSTOMER_NAV: NavItem[] = [
   {
     href: "/kundeportal",
     labelKey: "customerPortal",
     icon: "👤",
     section: "primary",
+  },
+  {
+    href: "/innstillinger?tab=sikkerhet",
+    labelKey: "accountSecurity",
+    icon: "🔐",
+    section: "settings",
   },
 ];
 
@@ -265,10 +271,13 @@ export function activeNavHref(
 ): string | null {
   let match: string | null = null;
   for (const item of items) {
+    // Elementer kan peke på en fane med query, f.eks. kundens sikkerhetsfane.
+    // Aktive markeringen skal fortsatt følge selve siden.
+    const itemPath = item.href.split(/[?#]/, 1)[0] || "/";
     const isMatch =
-      pathname === item.href ||
-      (item.href !== "/" && pathname.startsWith(`${item.href}/`));
-    if (isMatch && (!match || item.href.length > match.length)) {
+      pathname === itemPath ||
+      (itemPath !== "/" && pathname.startsWith(`${itemPath}/`));
+    if (isMatch && (!match || itemPath.length > match.split(/[?#]/, 1)[0].length)) {
       match = item.href;
     }
   }

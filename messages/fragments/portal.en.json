@@ -6,6 +6,29 @@
     "headerWelcome": "Welcome to your customer portal, {userName}!",
     "home": "Home",
     "refresh": "Refresh",
+    "summary": {
+      "title": "Overview",
+      "nextAppointment": "Next confirmed appointment",
+      "noConfirmed": "No confirmed appointment",
+      "noDate": "Time not set",
+      "seeUpcoming": "See upcoming",
+      "pending": "Requests",
+      "pendingHint": "Awaiting a reply",
+      "pendingNone": "None pending",
+      "seeBookings": "See requests",
+      "reports": "Reports",
+      "reportsHint": "Awaiting acknowledgement",
+      "reportsNone": "None to acknowledge",
+      "seeReports": "See reports",
+      "cta": "Send a new request"
+    },
+    "sectionNav": {
+      "label": "Customer portal sections",
+      "overview": "Overview",
+      "bookings": "Requests",
+      "reports": "Reports",
+      "contact": "Contact"
+    },
     "contact": {
       "title": "Your contact",
       "department": "Department / location",

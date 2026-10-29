@@ -61,6 +61,7 @@ export default function OrderViewTabs({
                 key={tab.key}
                 ref={active ? activeRef : undefined}
                 href={tab.href}
+                prefetch={false}
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-bold transition whitespace-nowrap ${
                   active

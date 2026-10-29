@@ -220,6 +220,27 @@ export default function FullCalendarView({
           router.replace(target, { scroll: false });
         }
       },
+      // FullCalendar lager et rutenett uten lesbart navn. Gi det et navn som
+      // sier hvilken periodevisning som er aktiv, slik at skjermlesere ikke
+      // annonserer en navnløs tabell.
+      viewDidMount: function(info) {
+        const viewLabels: Record<string, string> = {
+          dayGridMonth: tRef.current("calendar.client.month"),
+          dayGridWeek: tRef.current("calendar.client.week"),
+          biweekly: tRef.current("calendar.client.biweekly"),
+        };
+        const grid = calendarEl.current?.querySelector<HTMLElement>(
+          '[role="grid"], .fc-scrollgrid',
+        );
+        grid?.setAttribute(
+          "aria-label",
+          tRef.current("calendar.a11y.gridLabel", {
+            view: (viewLabels[info.view.type] ?? info.view.title).toLocaleLowerCase(
+              locale,
+            ),
+          }),
+        );
+      },
       // Vis tittel og adresse på hver hendelse. Bygges som DOM-noder (ikke
       // HTML-strenger) slik at brukerstyrte titler og adresser aldri tolkes
       // som markup. Status vises som tekst/ikon i tillegg til fargen, slik at

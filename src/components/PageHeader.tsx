@@ -16,7 +16,7 @@ export default function PageHeader({
 }) {
   return (
     <div
-      className={`flex flex-col gap-3 border-b border-gray-200 pb-5 sm:flex-row sm:items-center sm:justify-between ${className}`}
+      className={`flex flex-col gap-3 border-b border-border-card pb-5 sm:flex-row sm:items-center sm:justify-between ${className}`}
     >
       <div className="min-w-0">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 sm:text-3xl">

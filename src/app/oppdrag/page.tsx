@@ -442,6 +442,7 @@ export default async function WorkOrdersPage({
             {search || tagFilter ? (
               <Link
                 href={resetLinkFor()}
+                prefetch={false}
                 className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
               >
                 {t("orders.list.reset")}
@@ -459,6 +460,7 @@ export default async function WorkOrdersPage({
                 <Link
                   key={option.key}
                   href={sortLinkFor(option.key)}
+                  prefetch={false}
                   aria-current={active ? "true" : undefined}
                   className={`rounded-full border-2 px-3 py-1.5 font-bold transition ${
                     active
@@ -479,6 +481,7 @@ export default async function WorkOrdersPage({
               </span>
               <Link
                 href={linkFor(view, false)}
+                prefetch={false}
                 className="text-blue-700 font-bold hover:underline"
               >
                 {t("orders.list.clearTag")}
@@ -503,6 +506,7 @@ export default async function WorkOrdersPage({
               search || tagFilter ? (
                 <Link
                   href={resetLinkFor()}
+                  prefetch={false}
                   className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
                 >
                   {t("orders.list.reset")}
@@ -518,6 +522,7 @@ export default async function WorkOrdersPage({
               <Link
                 key={wo.id}
                 href={`/oppdrag/${wo.id}`}
+                prefetch={false}
                 className="block bg-white p-3 sm:p-4 rounded-2xl border-2 border-gray-200 hover:border-blue-400 hover:shadow-md transition"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">

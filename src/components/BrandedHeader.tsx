@@ -197,7 +197,7 @@ export default function BrandedHeader({
     <div className="flex flex-col gap-0">
       {/* Topplinje: logo, hovednavigasjon og kontroller. Høyden er fast og
           navigasjonen brytes aldri over to rader. */}
-      <div className="flex min-h-16 items-center gap-2 border-b border-gray-100 bg-white px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8">
+      <header className="flex min-h-16 items-center gap-2 border-b border-border-card bg-surface px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8">
         <Link
           href={isCustomer ? "/kundeportal" : homePathForRole(role)}
           className="flex shrink-0 items-center gap-3"
@@ -273,7 +273,7 @@ export default function BrandedHeader({
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {showBreadcrumbs && <Breadcrumbs pathname={pathname} role={role} />}
 
@@ -350,6 +350,7 @@ export default function BrandedHeader({
                   activeHref={activeHref}
                   primaryColor={pc}
                   activeTextColor={activeTextColor}
+                  label={t("components.header.mainMenu")}
                   onNavigate={closeMenu}
                 />
               ) : (
@@ -364,6 +365,7 @@ export default function BrandedHeader({
                         activeHref={activeHref}
                         primaryColor={pc}
                         activeTextColor={activeTextColor}
+                        label={t("components.header.work")}
                         onNavigate={closeMenu}
                       />
                     </div>
@@ -382,6 +384,7 @@ export default function BrandedHeader({
                         activeHref={activeHref}
                         primaryColor={pc}
                         activeTextColor={activeTextColor}
+                        label={t("components.header.more")}
                         onNavigate={closeMenu}
                       />
                     </div>
@@ -397,11 +400,11 @@ export default function BrandedHeader({
             {(!isCustomer || settingsItem) && (
               <div className="shrink-0 border-t border-gray-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <div className="flex flex-col gap-2">
+                  {/* Språket skal være synlig også for kundeportalbrukere,
+                      som ikke har den interne menyens øvrige kontroller. */}
+                  <LanguageSwitcher />
                   {!isCustomer && (
-                    <>
-                      <LanguageSwitcher />
-                      <NotificationSoundToggle className="w-full justify-between" />
-                    </>
+                    <NotificationSoundToggle className="w-full justify-between" />
                   )}
                   {settingsItem && (
                     <NavLink
@@ -425,7 +428,7 @@ export default function BrandedHeader({
 
 function MenuHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-600">
+    <p className="mb-2 px-1 text-2xs font-bold uppercase tracking-wider text-gray-600">
       {children}
     </p>
   );
@@ -588,7 +591,7 @@ function GlobalNavDesktop({
   return (
     <nav
       className="flex flex-nowrap items-center gap-0.5 xl:gap-1"
-      aria-label={t("components.header.menu")}
+      aria-label={t("components.header.mainMenu")}
     >
       {items.map((item) => (
         <NavLink
@@ -609,19 +612,20 @@ function GlobalNavMobile({
   activeHref,
   primaryColor,
   activeTextColor,
+  label,
   onNavigate,
 }: {
   items: NavItem[];
   activeHref: string | null;
   primaryColor: string;
   activeTextColor: string;
+  label: string;
   onNavigate?: () => void;
 }) {
-  const t = useTranslations("common");
   return (
     <nav
       className="flex flex-col gap-2"
-      aria-label={t("components.header.menu")}
+      aria-label={label}
     >
       {items.map((item) => (
         <NavLink

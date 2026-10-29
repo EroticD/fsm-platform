@@ -262,6 +262,7 @@
     },
     "header": {
       "menu": "Menu",
+      "mainMenu": "Main menu",
       "openMenu": "Open menu",
       "closeMenu": "Close menu",
       "search": "Search the system",
