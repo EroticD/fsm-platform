@@ -16,14 +16,17 @@ export type ReportSubmitGate = {
   pending?: boolean;
   /** Malen krever enheter, men ingen er lagt til. */
   missingUnits?: boolean;
+  /** En eller flere enheter mangler en vurdering (godkjent/avvik). */
+  missingAssessment?: boolean;
 };
 
 export function canSubmitReport({
   online,
   pending = false,
   missingUnits = false,
+  missingAssessment = false,
 }: ReportSubmitGate): boolean {
-  return online && !pending && !missingUnits;
+  return online && !pending && !missingUnits && !missingAssessment;
 }
 
 function subscribeToConnectivity(callback: () => void): () => void {

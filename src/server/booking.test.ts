@@ -132,6 +132,22 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
   });
 
+  it("avviser bestilling som starter innenfor minste ledetid", async () => {
+    const result = await createBooking(customer(), {
+      ...booking,
+      // Dagens dato kl. 23:00 er alltid mindre enn 24 timer fram, uansett
+      // når på døgnet testen kjøres.
+      requestedDate: todayInOslo(),
+      requestedFrom: "23:00",
+      requestedTo: "23:59",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.allowRequestDb).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+
   it("avviser den sjette bestillingen innenfor en time", async () => {
     let customerAttempts = 0;
     mocks.allowRequestDb.mockImplementation(async (key: string) => {

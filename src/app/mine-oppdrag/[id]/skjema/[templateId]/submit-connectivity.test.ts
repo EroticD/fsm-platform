@@ -21,6 +21,12 @@ describe("canSubmitReport", () => {
     expect(canSubmitReport({ online: true, missingUnits: true })).toBe(false);
   });
 
+  it("blokkerer innsending når en eller flere enheter ikke er vurdert", () => {
+    expect(canSubmitReport({ online: true, missingAssessment: true })).toBe(
+      false,
+    );
+  });
+
   it("blokkerer innsending når både nett og enheter mangler", () => {
     expect(canSubmitReport({ online: false, missingUnits: true })).toBe(false);
   });

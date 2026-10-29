@@ -156,6 +156,7 @@ function txClient(overrides: Record<string, unknown> = {}) {
     reportRevision: { create: vi.fn(async () => ({})) },
     workOrder: {
       findUnique: vi.fn(async () => null),
+      updateMany: vi.fn(async () => ({ count: 1 })),
       create: vi.fn(async () => ({ id: "wo-rem" })),
     },
     auditLog: { create: vi.fn(async () => ({})) },
@@ -556,6 +557,26 @@ describe("reports-tjenesten", () => {
     );
   });
 
+  it("lagrer en uvurdert enhet som UNASSESSED i kladden", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+    const data = formData();
+    data.delete("status__unit-0");
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result.ok).toBe(true);
+    const upsert = mocks.prisma.reportDraft.upsert.mock.calls[0][0] as {
+      create: { dataJson: string };
+    };
+    const payload = JSON.parse(upsert.create.dataJson) as {
+      units: Array<{ status: string }>;
+    };
+    expect(payload.units[0]).toMatchObject({ status: "UNASSESSED" });
+  });
+
   it("lagrer kladdesignaturer som filer og bare /uploads-URL-er i dataJson", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue(null);
@@ -701,6 +722,161 @@ describe("reports-tjenesten", () => {
       returnTo: "/oppdrag/wo1",
     });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["manglende status", undefined],
+    ["eksplisitt UNASSESSED", "UNASSESSED"],
+  ])("avviser en enhet med %s", async (_label, status) => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const data = formData();
+    if (status) data.set("status__unit-0", status);
+    else data.delete("status__unit-0");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "mangler-vurdering",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.prisma.report.create).not.toHaveBeenCalled();
+  });
+
+  it("fullfører oppdraget i samme transaksjon når valget er krysset av", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction();
+    const data = formData();
+    data.set("completeWorkOrder", "1");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.report.create).toHaveBeenCalled();
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "wo1",
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+      data: { status: "COMPLETED" },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo1",
+        action: "Montør endret status til: COMPLETED",
+        actorId: "u1",
+        metadata: expect.objectContaining({
+          from: "OPEN",
+          to: "COMPLETED",
+          reportId: "r1",
+          templateId: "tpl1",
+          via: "report-submit",
+        }),
+      }),
+    });
+  });
+
+  it("endrer ikke oppdragets status når valget ikke er krysset av", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction();
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.create).toHaveBeenCalled();
+    expect(tx.workOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("ruller tilbake både rapport og fullføring når transaksjonen feiler", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+
+    let committedReport: string | null = null;
+    let committedCompletion = false;
+    mocks.prisma.$transaction.mockImplementation(
+      async (callback: (client: unknown) => unknown) => {
+        let pendingReport: string | null = null;
+        let pendingCompletion = false;
+        const tx = txClient({
+          report: {
+            findUnique: vi.fn(async () => null),
+            updateMany: vi.fn(async () => ({ count: 1 })),
+            update: vi.fn(async () => ({})),
+            create: vi.fn(async () => {
+              pendingReport = "r1";
+              return { id: "r1" };
+            }),
+          },
+          workOrder: {
+            findUnique: vi.fn(async () => null),
+            updateMany: vi.fn(async () => {
+              pendingCompletion = true;
+              return { count: 1 };
+            }),
+            create: vi.fn(async () => ({ id: "wo-rem" })),
+          },
+          auditLog: {
+            create: vi.fn(async () => {
+              throw new Error("audit feilet");
+            }),
+          },
+        });
+
+        try {
+          const result = await callback(tx);
+          committedReport = pendingReport;
+          committedCompletion = pendingCompletion;
+          return result;
+        } catch (error) {
+          // Simulerer at databasetransaksjonen rulles tilbake.
+          pendingReport = null;
+          pendingCompletion = false;
+          throw error;
+        }
+      },
+    );
+    const data = formData();
+    data.set("completeWorkOrder", "1");
+
+    await expect(submitReport(actor(), data)).rejects.toThrow("audit feilet");
+    expect(committedReport).toBeNull();
+    expect(committedCompletion).toBe(false);
+  });
+
+  it("lagrer rapporten når oppdraget allerede er fullført", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      status: "COMPLETED",
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const tx = withTransaction();
+    tx.workOrder.updateMany.mockResolvedValue({ count: 0 });
+    const data = formData();
+    data.set("completeWorkOrder", "1");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.create).toHaveBeenCalled();
+    expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "wo1",
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+      data: { status: "COMPLETED" },
+    });
+    // Den betingede oppdateringen traff ingen rad, så statusendringen logges ikke.
+    expect(tx.auditLog.create).not.toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: expect.stringContaining("endret status"),
+      }),
+    });
   });
 
   it("bevarer tall, dato og tekst når rapporten har bildefelt", async () => {

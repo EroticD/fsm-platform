@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import {
@@ -72,6 +72,7 @@ export default function ConfirmDialog({
   cancelLabel,
   danger = CONFIRM_DIALOG_DEFAULTS.danger,
   busy = false,
+  children,
   onConfirm,
   onCancel,
 }: {
@@ -82,6 +83,8 @@ export default function ConfirmDialog({
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  /** Ekstra valg som vises i dialogen, over knappene. */
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -218,6 +221,7 @@ export default function ConfirmDialog({
             {description}
           </p>
         )}
+        {children && <div className="mt-4">{children}</div>}
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             ref={cancelRef}

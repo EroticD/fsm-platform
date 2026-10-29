@@ -45,6 +45,7 @@ import {
   cloneWorkOrder,
   createWorkOrder,
   deleteWorkOrder,
+  moveTechnician,
   removeTechnician,
   restoreWorkOrder,
   setContact,
@@ -1447,6 +1448,115 @@ describe("work-orders-tjenesten", () => {
     const result = await assignTechnician(actor(), "wo-1", "tech-1");
 
     expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(tx.workOrder.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("moveTechnician – flytting i dispatch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+    });
+  });
+
+  it("fjerner kildemontøren og legger til målmontøren i samme transaksjon", async () => {
+    mocks.prisma.user.findFirst
+      .mockResolvedValueOnce({ id: "tech-2", name: "Tore" })
+      .mockResolvedValueOnce({ id: "tech-1", name: "Kari" });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      status: "OPEN",
+      legalHold: false,
+      technicians: [{ id: "tech-1" }],
+    });
+
+    const result = await moveTechnician(actor(), "wo-1", "tech-1", "tech-2");
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: {
+        technicians: {
+          disconnect: { id: "tech-1" },
+          connect: { id: "tech-2" },
+        },
+      },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        action: "Flyttet Kari til Tore",
+      }),
+    });
+  });
+
+  it("avviser samme kolonne som no-op uten å skrive", async () => {
+    const result = await moveTechnician(actor(), "wo-1", "tech-1", "tech-1");
+
+    expect(result).toEqual({ ok: false, error: "ingen-endring" });
+    expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser flytting på et lukket oppdrag", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "COMPLETED",
+      legalHold: false,
+    });
+
+    const result = await moveTechnician(actor(), "wo-1", "tech-1", "tech-2");
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("fjerner bare kildemontøren når kortet slippes på uten montør", async () => {
+    mocks.prisma.user.findFirst.mockResolvedValueOnce({
+      id: "tech-1",
+      name: "Kari",
+    });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      status: "OPEN",
+      legalHold: false,
+      technicians: [{ id: "tech-1" }, { id: "tech-2" }],
+    });
+
+    const result = await moveTechnician(actor(), "wo-1", "tech-1", "");
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { technicians: { disconnect: { id: "tech-1" } } },
+    });
+  });
+
+  it("avviser en utdatert kilde som ikke lenger står på oppdraget", async () => {
+    mocks.prisma.user.findFirst.mockResolvedValue({
+      id: "tech-1",
+      name: "Kari",
+    });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      status: "OPEN",
+      legalHold: false,
+      technicians: [{ id: "tech-2" }],
+    });
+
+    const result = await moveTechnician(actor(), "wo-1", "tech-1", "");
+
+    expect(result).toEqual({ ok: false, error: "ingen-endring" });
     expect(tx.workOrder.update).not.toHaveBeenCalled();
   });
 });

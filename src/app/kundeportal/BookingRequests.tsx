@@ -4,6 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   formatDateLocalized,
+  formatDateRangeLocalized,
   formatDateTimeLocalized,
 } from "@/lib/dates";
 import type { PortalBooking } from "@/server/portal";
@@ -74,15 +75,22 @@ function EventList({ booking }: { booking: PortalBooking }) {
 function BookingRequestCard({
   booking,
   minDate,
+  minFromTime,
+  minLeadHours,
 }: {
   booking: PortalBooking;
   minDate: string;
+  minFromTime: string;
+  minLeadHours: number;
 }) {
   const t = useTranslations("common");
   const locale = useLocale();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const rescheduleFormRef = useRef<HTMLFormElement>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(booking.requestedDate);
+  const [rescheduleFrom, setRescheduleFrom] = useState(booking.requestedFrom);
+  const [rescheduleTo, setRescheduleTo] = useState(booking.requestedTo);
 
   const [cancelState, cancelAction, cancelPending] = useActionState(
     cancelBookingAction,
@@ -92,6 +100,9 @@ function BookingRequestCard({
     async (previous: BookingChangeState, formData: FormData) => {
       const result = await rescheduleBookingAction(previous, formData);
       if (result.status === "success") {
+        setRescheduleDate(String(formData.get("requestedDate") ?? ""));
+        setRescheduleFrom(String(formData.get("requestedFrom") ?? ""));
+        setRescheduleTo(String(formData.get("requestedTo") ?? ""));
         rescheduleFormRef.current?.reset();
         setShowReschedule(false);
       }
@@ -102,6 +113,17 @@ function BookingRequestCard({
 
   const cancelled =
     booking.displayStatus === "cancelled" || cancelState.status === "success";
+  const isConfirmed = booking.displayStatus === "confirmed";
+  const inProgress = booking.workOrder.status === "IN_PROGRESS";
+  const canCancel = booking.canCancel && !cancelled;
+  const canReschedule = booking.canReschedule && !cancelled;
+  const rescheduleLeadInvalid =
+    rescheduleDate !== "" &&
+    (rescheduleDate < minDate ||
+      (rescheduleDate === minDate && rescheduleFrom < minFromTime));
+  const rescheduleWindowInvalid = rescheduleTo <= rescheduleFrom;
+  const canSubmitReschedule =
+    !reschedulePending && !rescheduleLeadInvalid && !rescheduleWindowInvalid;
   const changeError =
     cancelState.status === "error"
       ? cancelState
@@ -132,18 +154,35 @@ function BookingRequestCard({
       </div>
 
       <dl className="grid gap-1 text-xs text-gray-700 sm:grid-cols-2">
-        <div>
-          <dt className="inline font-bold text-gray-900">
-            {t("portal.bookingRequests.requestedLabel")}{" "}
-          </dt>
-          <dd className="inline">
-            {formatDateLocalized(booking.requestedDate, locale)}{" "}
-            {t("portal.bookingRequests.window", {
-              from: booking.requestedFrom,
-              to: booking.requestedTo,
-            })}
-          </dd>
-        </div>
+        {isConfirmed ? (
+          <div>
+            <dt className="inline font-bold text-gray-900">
+              {t("portal.bookingRequests.confirmedLabel")}{" "}
+            </dt>
+            <dd className="inline">
+              {booking.workOrder.scheduledFor
+                ? formatDateRangeLocalized(
+                    booking.workOrder.scheduledFor,
+                    booking.workOrder.scheduledTo,
+                    locale,
+                  )
+                : t("portal.bookingRequests.confirmedTimeFallback")}
+            </dd>
+          </div>
+        ) : (
+          <div>
+            <dt className="inline font-bold text-gray-900">
+              {t("portal.bookingRequests.requestedLabel")}{" "}
+            </dt>
+            <dd className="inline">
+              {formatDateLocalized(booking.requestedDate, locale)}{" "}
+              {t("portal.bookingRequests.window", {
+                from: booking.requestedFrom,
+                to: booking.requestedTo,
+              })}
+            </dd>
+          </div>
+        )}
         {booking.equipmentLabel && (
           <div>
             <dt className="inline font-bold text-gray-900">
@@ -195,7 +234,11 @@ function BookingRequestCard({
       )}
       {cancelState.status === "success" && (
         <p role="status" className="text-xs font-bold text-green-900">
-          {t("portal.bookingRequests.cancelSuccess")}
+          {t(
+            cancelState.visitInProgress
+              ? "portal.bookingRequests.cancelInProgressSuccess"
+              : "portal.bookingRequests.cancelSuccess",
+          )}
         </p>
       )}
       {rescheduleState.status === "success" && (
@@ -204,150 +247,192 @@ function BookingRequestCard({
         </p>
       )}
 
-      {booking.canChange && !cancelled ? (
-        <div className="space-y-3 border-t border-gray-200 pt-3">
-          <p className="text-xs text-gray-700">
-            {t("portal.bookingRequests.deadline", {
-              date: formatDateTimeLocalized(booking.changeDeadline, locale),
-            })}
-          </p>
-
-          {!confirmCancel ? (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setShowReschedule((current) => !current)}
-                aria-expanded={showReschedule}
-                className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100"
-              >
-                {t("portal.bookingRequests.rescheduleButton")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmCancel(true)}
-                className="min-h-11 rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50"
-              >
-                {t("portal.bookingRequests.cancelButton")}
-              </button>
-            </div>
-          ) : (
-            <form action={cancelAction} className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
-              <input type="hidden" name="bookingId" value={booking.id} />
-              <p className="text-sm font-bold text-red-900">
-                {t("portal.bookingRequests.cancelConfirm")}
+      {!cancelled &&
+        booking.displayStatus !== "completed" &&
+        (canCancel || canReschedule) && (
+          <div className="space-y-3 border-t border-gray-200 pt-3">
+            {isConfirmed && inProgress && (
+              <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950">
+                {t("portal.bookingRequests.inProgressNotice")}
               </p>
+            )}
+            {canReschedule && (
+              <p className="text-xs text-gray-700">
+                {t("portal.bookingRequests.deadline", {
+                  date: formatDateTimeLocalized(booking.changeDeadline, locale),
+                })}
+              </p>
+            )}
+            {!isConfirmed && !canReschedule && (
+              <p className="text-xs text-gray-700">
+                {t("portal.bookingRequests.pendingCancelNote")}
+              </p>
+            )}
+
+            {!confirmCancel ? (
               <div className="flex flex-wrap gap-2">
+                {canReschedule && (
+                  <button
+                    type="button"
+                    onClick={() => setShowReschedule((current) => !current)}
+                    aria-expanded={showReschedule}
+                    className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100"
+                  >
+                    {t("portal.bookingRequests.rescheduleButton")}
+                  </button>
+                )}
+                {canCancel && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(true)}
+                    className="min-h-11 rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50"
+                  >
+                    {t(
+                      isConfirmed
+                        ? "portal.bookingRequests.cancelConfirmedButton"
+                        : "portal.bookingRequests.cancelButton",
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <form action={cancelAction} className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <p className="text-sm font-bold text-red-900">
+                  {t(
+                    isConfirmed
+                      ? inProgress
+                        ? "portal.bookingRequests.cancelInProgressConfirm"
+                        : "portal.bookingRequests.cancelConfirmedConfirm"
+                      : "portal.bookingRequests.cancelConfirm",
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={cancelPending}
+                    className="min-h-11 rounded-xl bg-red-700 px-3 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {cancelPending
+                      ? t("portal.bookingRequests.cancelPending")
+                      : t("portal.bookingRequests.cancelConfirmButton")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(false)}
+                    className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100"
+                  >
+                    {t("portal.bookingRequests.keepButton")}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {showReschedule && canReschedule && (
+              <form
+                ref={rescheduleFormRef}
+                action={rescheduleAction}
+                className="space-y-2 rounded-xl border border-gray-200 bg-white p-3"
+              >
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <p className="text-sm font-bold text-gray-900">
+                  {t("portal.bookingRequests.rescheduleTitle")}
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor={`reschedule-date-${booking.id}`}
+                      className="mb-1 block text-xs font-bold text-gray-700"
+                    >
+                      {t("portal.booking.dateLabel")}
+                    </label>
+                    <input
+                      id={`reschedule-date-${booking.id}`}
+                      type="date"
+                      name="requestedDate"
+                      required
+                      min={minDate}
+                      value={rescheduleDate}
+                      onChange={(event) => setRescheduleDate(event.target.value)}
+                      className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={`reschedule-from-${booking.id}`}
+                      className="mb-1 block text-xs font-bold text-gray-700"
+                    >
+                      {t("portal.booking.fromLabel")}
+                    </label>
+                    <select
+                      id={`reschedule-from-${booking.id}`}
+                      name="requestedFrom"
+                      required
+                      value={rescheduleFrom}
+                      onChange={(event) => setRescheduleFrom(event.target.value)}
+                      className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={`reschedule-to-${booking.id}`}
+                      className="mb-1 block text-xs font-bold text-gray-700"
+                    >
+                      {t("portal.booking.toLabel")}
+                    </label>
+                    <select
+                      id={`reschedule-to-${booking.id}`}
+                      name="requestedTo"
+                      required
+                      value={rescheduleTo}
+                      onChange={(event) => setRescheduleTo(event.target.value)}
+                      className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {rescheduleLeadInvalid && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+                  >
+                    {t("portal.bookingRequests.leadTimeError", {
+                      hours: minLeadHours,
+                    })}
+                  </p>
+                )}
+                {rescheduleWindowInvalid && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+                  >
+                    {t("portal.booking.windowError")}
+                  </p>
+                )}
                 <button
                   type="submit"
-                  disabled={cancelPending}
-                  className="min-h-11 rounded-xl bg-red-700 px-3 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
+                  disabled={!canSubmitReschedule}
+                  className="min-h-11 rounded-xl bg-[var(--primary-color)] px-3 py-2 text-sm font-bold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
                 >
-                  {cancelPending
-                    ? t("portal.bookingRequests.cancelPending")
-                    : t("portal.bookingRequests.cancelConfirmButton")}
+                  {reschedulePending
+                    ? t("portal.bookingRequests.reschedulePending")
+                    : t("portal.bookingRequests.rescheduleSubmit")}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmCancel(false)}
-                  className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100"
-                >
-                  {t("portal.bookingRequests.keepButton")}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {showReschedule && (
-            <form
-              ref={rescheduleFormRef}
-              action={rescheduleAction}
-              className="space-y-2 rounded-xl border border-gray-200 bg-white p-3"
-            >
-              <input type="hidden" name="bookingId" value={booking.id} />
-              <p className="text-sm font-bold text-gray-900">
-                {t("portal.bookingRequests.rescheduleTitle")}
-              </p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div>
-                  <label
-                    htmlFor={`reschedule-date-${booking.id}`}
-                    className="mb-1 block text-xs font-bold text-gray-700"
-                  >
-                    {t("portal.booking.dateLabel")}
-                  </label>
-                  <input
-                    id={`reschedule-date-${booking.id}`}
-                    type="date"
-                    name="requestedDate"
-                    required
-                    min={minDate}
-                    defaultValue={booking.requestedDate}
-                    className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor={`reschedule-from-${booking.id}`}
-                    className="mb-1 block text-xs font-bold text-gray-700"
-                  >
-                    {t("portal.booking.fromLabel")}
-                  </label>
-                  <select
-                    id={`reschedule-from-${booking.id}`}
-                    name="requestedFrom"
-                    required
-                    defaultValue={booking.requestedFrom}
-                    className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
-                  >
-                    {TIME_OPTIONS.map((time) => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    htmlFor={`reschedule-to-${booking.id}`}
-                    className="mb-1 block text-xs font-bold text-gray-700"
-                  >
-                    {t("portal.booking.toLabel")}
-                  </label>
-                  <select
-                    id={`reschedule-to-${booking.id}`}
-                    name="requestedTo"
-                    required
-                    defaultValue={booking.requestedTo}
-                    className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
-                  >
-                    {TIME_OPTIONS.map((time) => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={reschedulePending}
-                className="min-h-11 rounded-xl bg-[var(--primary-color)] px-3 py-2 text-sm font-bold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
-              >
-                {reschedulePending
-                  ? t("portal.bookingRequests.reschedulePending")
-                  : t("portal.bookingRequests.rescheduleSubmit")}
-              </button>
-            </form>
-          )}
-        </div>
-      ) : (
-        !cancelled &&
-        booking.displayStatus !== "completed" && (
-          <p className="border-t border-gray-200 pt-3 text-xs text-gray-700">
-            {t("portal.bookingRequests.deadlinePassed")}
-          </p>
-        )
-      )}
+              </form>
+            )}
+          </div>
+        )}
     </article>
   );
 }
@@ -356,9 +441,15 @@ function BookingRequestCard({
 export default function BookingRequests({
   bookings,
   minDate,
+  minFromTime,
+  minLeadHours,
+  summary,
 }: {
   bookings: PortalBooking[];
   minDate: string;
+  minFromTime: string;
+  minLeadHours: number;
+  summary?: string;
 }) {
   const t = useTranslations("common");
 
@@ -371,6 +462,9 @@ export default function BookingRequests({
         <p className="text-xs text-gray-600">
           {t("portal.bookingRequests.desc")}
         </p>
+        {summary && (
+          <p className="mt-1 text-xs font-bold text-gray-600">{summary}</p>
+        )}
       </div>
       {bookings.length === 0 ? (
         <p className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-600">
@@ -383,6 +477,8 @@ export default function BookingRequests({
               key={booking.id}
               booking={booking}
               minDate={minDate}
+              minFromTime={minFromTime}
+              minLeadHours={minLeadHours}
             />
           ))}
         </div>

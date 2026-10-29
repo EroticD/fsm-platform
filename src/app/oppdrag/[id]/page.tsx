@@ -37,6 +37,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { formatDateLocalized } from "@/lib/dates";
 import {
   reportAcknowledgement,
+  reportDisplayName,
   reportUnitSummary,
 } from "@/lib/report-display";
 import {
@@ -350,6 +351,7 @@ export default async function AdminWorkOrderPage({
   const workOrderId = resolvedParams.id;
   const { error, reportSubmitted } = await searchParams;
   const t = await getTranslations("common");
+  const locale = await getLocale();
 
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -367,6 +369,7 @@ export default async function AdminWorkOrderPage({
       templates: true,
       tags: true,
       reports: {
+        where: { deletedAt: null },
         include: { units: { orderBy: { sortOrder: "asc" } } },
         orderBy: { createdAt: "desc" },
       },
@@ -456,6 +459,24 @@ export default async function AdminWorkOrderPage({
   // Service-sjekklistene vises først, deretter HMS-dokumentasjonen, slik at
   // eksisterende serviceflyt er uendret og HMS får en tydelig seksjon.
   const orderedTemplates = [...serviceTemplates, ...hmsTemplates];
+  // En rapport skal vises selv om malen er fjernet fra oppdraget. Rapporter
+  // som matcher en mal vises i malblokken; resten havner i «Rapport uten mal».
+  // Rapporten mappes på mal-id slik at samme rapport aldri kan vises to steder.
+  const linkedTemplateIds = new Set(
+    workOrder.templates.map((template) => template.id),
+  );
+  const reportByTemplateId = new Map<
+    string,
+    (typeof workOrder.reports)[number]
+  >();
+  const orphanReports: typeof workOrder.reports = [];
+  for (const report of workOrder.reports) {
+    if (report.templateId && linkedTemplateIds.has(report.templateId)) {
+      reportByTemplateId.set(report.templateId, report);
+    } else {
+      orphanReports.push(report);
+    }
+  }
   const {
     service: availableServiceTemplates,
     hms: availableHmsTemplates,
@@ -675,12 +696,14 @@ export default async function AdminWorkOrderPage({
                   </p>
                 )}
 
-                {workOrder.templates.length === 0 ? (
+                {workOrder.templates.length === 0 && workOrder.reports.length === 0 && (
                   <p className="text-sm text-gray-500 italic mb-4">{t("orders.detail.noChecklists")}</p>
-                ) : (
+                )}
+
+                {workOrder.templates.length > 0 && (
                   <div className="space-y-4 mb-6">
                     {orderedTemplates.map((template, templateIndex) => {
-                      const report = workOrder.reports.find(r => r.templateId === template.id);
+                      const report = reportByTemplateId.get(template.id);
                       // Skjemaet kan fylles ut både fra feltportalen og herfra.
                       const fillHref = `/mine-oppdrag/${workOrder.id}/skjema/${template.id}?returnTo=${encodeURIComponent(`/oppdrag/${workOrder.id}`)}`;
                       const startsHmsSection =
@@ -846,7 +869,101 @@ export default async function AdminWorkOrderPage({
                       );
                     })}
                   </div>
-                  )}
+                )}
+
+                {orphanReports.length > 0 && (
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                        {t("orders.detail.orphanReport")}
+                      </span>
+                      <span className="h-px flex-1 bg-amber-200" />
+                    </div>
+                    {orphanReports.map((report) => {
+                      const summary = reportUnitSummary(report);
+                      return (
+                        <div
+                          key={report.id}
+                          className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4"
+                        >
+                          <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+                            <span className="font-black text-gray-900 text-base flex items-center gap-2 flex-wrap">
+                              {reportDisplayName(
+                                report,
+                                t("orders.reportsPage.defaultTitle"),
+                              )}
+                              <span className="bg-amber-100 text-amber-900 border border-amber-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                {t("orders.detail.orphanReport")}
+                              </span>
+                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {report.isLocked ? (
+                                <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">
+                                  {t("orders.detail.locked")}
+                                </span>
+                              ) : (
+                                <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">
+                                  {t("orders.detail.unlocked")}
+                                </span>
+                              )}
+                              {canViewReports && (
+                                <>
+                                  <Link
+                                    href={`/rapporter/${workOrder.id}?rapport=${report.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                                  >
+                                    {t("orders.detail.openPdf")}
+                                  </Link>
+                                  <Link
+                                    href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
+                                    className="bg-white border-2 border-gray-300 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                                  >
+                                    🕘 {t("orders.detail.revisions", { count: report.revision })}
+                                  </Link>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
+                            {report.reportNumber && (
+                              <span className="rounded-full border border-gray-200 bg-white px-3 py-1 font-black tracking-wide text-gray-700">
+                                {t("orders.detail.report.reportNumber", {
+                                  number: report.reportNumber,
+                                })}
+                              </span>
+                            )}
+                            <span className="rounded-full border border-gray-200 bg-white px-3 py-1 font-bold text-gray-700">
+                              📅 {formatDateLocalized(
+                                report.completedAt,
+                                locale,
+                                undefined,
+                                t("orders.reportsPage.noDate"),
+                              )}
+                            </span>
+                            <span className="rounded-full border border-gray-200 bg-white px-3 py-1 font-bold text-gray-700">
+                              {summary.usesUnits
+                                ? t("orders.reportsPage.units", {
+                                    count: summary.unitCount,
+                                  })
+                                : t("orders.reportsPage.noUnits")}
+                            </span>
+                          </div>
+
+                          {canViewReports ? (
+                            <ReportContent report={report} template={null} />
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">
+                              {t("orders.detail.reportNoAccess")}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                   
                   {canEdit && availableTemplates.length > 0 && (
                     <div className="border-t-2 border-gray-200 pt-4">

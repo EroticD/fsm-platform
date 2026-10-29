@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
       updateMany: vi.fn(),
     },
     bookingRequest: {
+      count: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
@@ -47,6 +48,7 @@ import {
   cancelBooking,
   getPortalBookingRequests,
   getPortalReportHistory,
+  portalUpcomingWhere,
   rescheduleBooking,
 } from "./portal";
 
@@ -74,6 +76,7 @@ beforeEach(() => {
   mocks.prisma.workOrder.findUnique.mockResolvedValue(null);
   mocks.prisma.workOrder.updateMany.mockResolvedValue({ count: 1 });
   mocks.prisma.bookingRequest.findFirst.mockResolvedValue(null);
+  mocks.prisma.bookingRequest.count.mockResolvedValue(0);
   mocks.prisma.bookingRequest.findMany.mockResolvedValue([]);
   mocks.prisma.bookingRequest.update.mockResolvedValue({});
   mocks.prisma.bookingRequest.updateMany.mockResolvedValue({ count: 1 });
@@ -308,7 +311,26 @@ describe("kundeportaltjenesten", () => {
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 
+  it("inkluderer bare bekreftede og ikke-past-daterte oppdrag som kommende", () => {
+    const today = parseDateOnly("2026-10-29")!;
+    const where = portalUpcomingWhere("cust-1", today);
+
+    expect(where).toEqual({
+      customerId: "cust-1",
+      deletedAt: null,
+      status: { in: ["PLANNED", "WAITING", "IN_PROGRESS"] },
+      OR: [
+        { scheduledFor: { gte: today } },
+        { scheduledTo: { gte: today } },
+      ],
+    });
+    expect(
+      (where.status as { in: string[] }).in,
+    ).not.toEqual(expect.arrayContaining(["OPEN", "PENDING"]));
+  });
+
   it("henter bare egne bestillinger med status og historikk", async () => {
+    mocks.prisma.bookingRequest.count.mockResolvedValue(1);
     mocks.prisma.bookingRequest.findMany.mockResolvedValue([
       {
         id: "br-1",
@@ -322,7 +344,13 @@ describe("kundeportaltjenesten", () => {
         contactName: "Kari",
         contactPhone: "12345678",
         createdAt: new Date("2026-10-01T10:00:00.000Z"),
-        workOrder: { id: "wo1", title: "Service", status: "OPEN" },
+        workOrder: {
+          id: "wo1",
+          title: "Service",
+          status: "OPEN",
+          scheduledFor: requestedDate,
+          scheduledTo: requestedDate,
+        },
         events: [],
       },
     ]);
@@ -331,7 +359,23 @@ describe("kundeportaltjenesten", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      data: [{ reference: "B-1", displayStatus: "pending", canChange: true }],
+      data: {
+        total: 1,
+        page: 1,
+        totalPages: 1,
+        items: [
+          {
+            reference: "B-1",
+            displayStatus: "pending",
+            canCancel: true,
+            canReschedule: true,
+            workOrder: {
+              status: "OPEN",
+              scheduledFor: toDateOnly(requestedDate),
+            },
+          },
+        ],
+      },
     });
     expect(mocks.prisma.bookingRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -339,8 +383,24 @@ describe("kundeportaltjenesten", () => {
           customerId: "cust-1",
           workOrder: { deletedAt: null },
         },
+        skip: 0,
         take: 20,
       }),
+    );
+  });
+
+  it("paginerer bestillingshistorikken med synlig total", async () => {
+    mocks.prisma.bookingRequest.count.mockResolvedValue(45);
+    mocks.prisma.bookingRequest.findMany.mockResolvedValue([]);
+
+    const result = await getPortalBookingRequests(customer(), { page: 2 });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: { total: 45, page: 2, totalPages: 3, items: [] },
+    });
+    expect(mocks.prisma.bookingRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 20 }),
     );
   });
 
@@ -353,14 +413,19 @@ describe("kundeportaltjenesten", () => {
     expect(mocks.prisma.bookingRequest.updateMany).not.toHaveBeenCalled();
   });
 
-  it("kansellerer egen bestilling før fristen", async () => {
+  it("kansellerer egen ubekreftet bestilling og avlyser det åpne oppdraget", async () => {
     mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
 
     const result = await cancelBooking(customer(), { bookingId: "br-1" });
 
     expect(result).toEqual({
       ok: true,
-      data: { status: "cancelled", reference: "B-1" },
+      data: {
+        status: "cancelled",
+        reference: "B-1",
+        workOrderCancelled: true,
+        visitInProgress: false,
+      },
     });
     expect(mocks.prisma.bookingRequest.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -377,12 +442,89 @@ describe("kundeportaltjenesten", () => {
     });
     expect(mocks.prisma.workOrder.findFirst).not.toHaveBeenCalled();
     expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: "wo1", customerId: "cust-1", status: "OPEN" },
+      where: {
+        id: "wo1",
+        customerId: "cust-1",
+        status: { in: ["OPEN", "PENDING", "PLANNED", "WAITING"] },
+      },
       data: { status: "CANCELLED" },
     });
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "CANCELLED" }),
     });
+  });
+
+  it("kansellerer en bekreftet PLANNED-avtale og avlyser oppdraget", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
+      ownBooking({
+        workOrder: {
+          id: "wo1",
+          title: "Service",
+          status: "PLANNED",
+          customerId: "cust-1",
+          deletedAt: null,
+        },
+      }),
+    );
+
+    const result = await cancelBooking(customer(), { bookingId: "br-1" });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        status: "cancelled",
+        reference: "B-1",
+        workOrderCancelled: true,
+        visitInProgress: false,
+      },
+    });
+    expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "wo1",
+        customerId: "cust-1",
+        status: { in: ["OPEN", "PENDING", "PLANNED", "WAITING"] },
+      },
+      data: { status: "CANCELLED" },
+    });
+  });
+
+  it("lar et IN_PROGRESS-oppdrag stå og varsler kontoret", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
+      ownBooking({
+        workOrder: {
+          id: "wo1",
+          title: "Service",
+          status: "IN_PROGRESS",
+          customerId: "cust-1",
+          deletedAt: null,
+        },
+      }),
+    );
+
+    const result = await cancelBooking(customer(), { bookingId: "br-1" });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        status: "cancelled",
+        reference: "B-1",
+        workOrderCancelled: false,
+        visitInProgress: true,
+      },
+    });
+    expect(mocks.prisma.bookingRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "br-1", customerId: "cust-1", status: "PENDING" },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    });
+    expect(mocks.prisma.workOrder.updateMany).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).toHaveBeenCalledWith(
+      "wo1",
+      "BOOKING",
+      "Kunde kansellerte – oppdraget er i gang",
+      expect.stringContaining("allerede i gang"),
+      "/oppdrag/wo1",
+      "booking-cancel:br-1",
+    );
   });
 
   it("avviser kansellering når oppdraget er flyttet til en annen kunde", async () => {
@@ -408,9 +550,10 @@ describe("kundeportaltjenesten", () => {
     expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
   });
 
-  it("avviser kansellering etter endringsfristen", async () => {
-    // Dagens dato gjør fristen (24 timer før ønsket start) alltid passert,
-    // uavhengig av når på døgnet testen kjøres.
+  it("kansellerer en ubekreftet forespørsel selv innenfor 24-timersvinduet", async () => {
+    // Dagens dato gjør endringsfristen (24 timer før ønsket start) passert,
+    // uavhengig av når på døgnet testen kjøres. En ubekreftet forespørsel
+    // skal likevel kunne kanselleres.
     mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
       ownBooking({
         requestedDate: parseDateOnly(todayInOslo())!,
@@ -420,8 +563,14 @@ describe("kundeportaltjenesten", () => {
 
     const result = await cancelBooking(customer(), { bookingId: "br-1" });
 
-    expect(result).toEqual({ ok: false, reason: "deadline_passed" });
-    expect(mocks.prisma.bookingRequest.updateMany).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: true,
+      data: { status: "cancelled", reference: "B-1" },
+    });
+    expect(mocks.prisma.bookingRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "br-1", customerId: "cust-1", status: "PENDING" },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    });
   });
 
   it("oppdaterer ønsket tid og skriver historikk ved ny-tid-forespørsel", async () => {
@@ -474,6 +623,22 @@ describe("kundeportaltjenesten", () => {
       "/oppdrag/wo1",
       `booking-reschedule:br-1:${newDate}:09:00:11:00`,
     );
+  });
+
+  it("avviser ny tid som starter innenfor minste ledetid", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
+
+    const result = await rescheduleBooking(customer(), {
+      bookingId: "br-1",
+      requestedDate: todayInOslo(),
+      requestedFrom: "23:00",
+      requestedTo: "23:59",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
   });
 
   it("er en no-op når tidsvinduet er uendret", async () => {

@@ -8,7 +8,17 @@
  * at alle felter kan rendres på nytt med de gjenopprettede verdiene.
  */
 
-import { lineCommentKey } from "@/lib/report-answers";
+import {
+  REPORT_STATUS_APPROVED,
+  REPORT_STATUS_DEVIATION,
+  REPORT_STATUS_UNASSESSED,
+  lineCommentKey,
+} from "@/lib/report-answers";
+
+export type UnitStatus =
+  | typeof REPORT_STATUS_APPROVED
+  | typeof REPORT_STATUS_DEVIATION
+  | typeof REPORT_STATUS_UNASSESSED;
 
 export type UnitEntry = {
   key: string;
@@ -16,7 +26,7 @@ export type UnitEntry = {
   label: string;
   serialNumber: string;
   location: string;
-  status: "GODKJENT" | "AVVIK";
+  status: UnitStatus;
   comment: string;
   answers: Record<string, unknown>;
 };
@@ -48,6 +58,17 @@ export type LocalDraftSnapshot = {
 
 export const REPORT_WITHOUT_UNITS_KEY = "report";
 
+/**
+ * En ny enhet er ikke vurdert før montøren velger Godkjent eller Avvik.
+ * Eldre kladder med en eksplisitt status beholder den; alt annet blir nøytralt.
+ */
+function normalizeUnitStatus(value: unknown): UnitStatus {
+  if (value === REPORT_STATUS_APPROVED || value === REPORT_STATUS_DEVIATION) {
+    return value;
+  }
+  return REPORT_STATUS_UNASSESSED;
+}
+
 export function makeUnit(
   key: string,
   from?: Partial<UnitEntry> | null,
@@ -58,7 +79,7 @@ export function makeUnit(
     label: from?.label ?? "",
     serialNumber: from?.serialNumber ?? "",
     location: from?.location ?? "",
-    status: from?.status === "AVVIK" ? "AVVIK" : "GODKJENT",
+    status: normalizeUnitStatus(from?.status),
     comment: from?.comment ?? "",
     answers: from?.answers ?? {},
   };

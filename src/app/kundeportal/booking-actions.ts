@@ -23,7 +23,12 @@ export type BookingActionState =
 
 export type BookingChangeState =
   | { status: "idle" }
-  | { status: "success"; reference: string }
+  | {
+      status: "success";
+      reference: string;
+      workOrderCancelled?: boolean;
+      visitInProgress?: boolean;
+    }
   | { status: "error"; reason: ServiceError };
 
 /**
@@ -63,7 +68,7 @@ export async function bookWorkOrderAction(
   };
 }
 
-/** Kunden kansellerer sin egen bestilling fram til endringsfristen. */
+/** Kunden kansellerer sin egen bestilling. */
 export async function cancelBookingAction(
   _previous: BookingChangeState,
   formData: FormData,
@@ -77,7 +82,12 @@ export async function cancelBookingAction(
   if (!result.ok) return { status: "error", reason: result.reason };
 
   revalidatePath("/kundeportal");
-  return { status: "success", reference: result.data.reference };
+  return {
+    status: "success",
+    reference: result.data.reference,
+    workOrderCancelled: result.data.workOrderCancelled,
+    visitInProgress: result.data.visitInProgress,
+  };
 }
 
 /** Kunden ber om et nytt tidsvindu for sin egen bestilling. */

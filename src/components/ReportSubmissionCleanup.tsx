@@ -43,6 +43,9 @@ export default function ReportSubmissionCleanup({
   const workOrderHref = pathname?.startsWith("/oppdrag/")
     ? `/oppdrag/${workOrderId}`
     : `/mine-oppdrag/${workOrderId}`;
+  // Feltportalen har en egen liste over neste oppdrag. Kontoret har ikke det
+  // samme feltløpet, så der vises bare oppdraget og PDF-en.
+  const isFieldPortal = pathname?.startsWith("/mine-oppdrag") ?? false;
 
   useEffect(() => {
     if (!verified) return;
@@ -97,6 +100,14 @@ export default function ReportSubmissionCleanup({
             {t("orders.reportForm.submittedText")}
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
+            {isFieldPortal && (
+              <Link
+                href="/mine-oppdrag"
+                className="rounded-xl bg-green-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-green-800"
+              >
+                {t("orders.reportForm.submittedNextAssignment")}
+              </Link>
+            )}
             <Link
               href={`/rapporter/${workOrderId}`}
               className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-800"

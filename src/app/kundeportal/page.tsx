@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { markdownToPlainText } from "@/lib/markdown";
@@ -20,12 +19,21 @@ import ReportHistory from "@/components/portal/ReportHistory";
 import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
 import StatusBadge from "@/components/StatusBadge";
-import { getPortalBookingRequests } from "@/server/portal";
+import {
+  BOOKING_MIN_LEAD_HOURS,
+  PORTAL_BOOKING_PAGE_SIZE,
+  getPortalBookingRequests,
+  portalUpcomingWhere,
+  type PortalBookingPage,
+} from "@/server/portal";
 import BookingForm from "./BookingForm";
 import BookingRequests from "./BookingRequests";
 
 /** Listene i kundeportalen lastes i små biter, ikke hele historikken. */
 const UPCOMING_PAGE_SIZE = 20;
+/** Valgene i booking-skjemaet går fra 07:00 til 18:00, i halvtimer. */
+const FIRST_BOOKING_MINUTES = 7 * 60;
+const LAST_BOOKING_START_MINUTES = 17 * 60 + 30;
 
 const WORK_ORDER_LIST_SELECT = {
   id: true,
@@ -42,10 +50,51 @@ function dateKey(d: Date) {
   return toDateOnly(d);
 }
 
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * Tidligste starttiden skjemaet kan tilby, regnet i Oslo-tid og rundet opp
+ * til neste halvtime. Serveren håndhever den eksakte 24-timersgrensen.
+ */
+function minimumBookingStart(now = new Date()) {
+  const threshold = new Date(
+    now.getTime() + BOOKING_MIN_LEAD_HOURS * 60 * 60_000 + 60_000,
+  );
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(threshold);
+  const part = (type: string) =>
+    Number(parts.find((item) => item.type === type)?.value ?? 0);
+
+  let date = `${part("year")}-${pad2(part("month"))}-${pad2(part("day"))}`;
+  let minutes = Math.max(
+    FIRST_BOOKING_MINUTES,
+    Math.ceil((part("hour") * 60 + part("minute")) / 30) * 30,
+  );
+  if (minutes > LAST_BOOKING_START_MINUTES) {
+    const nextDay = parseDateOnly(date);
+    date = nextDay ? toDateOnly(addDaysUtc(nextDay, 1)) : date;
+    minutes = FIRST_BOOKING_MINUTES;
+  }
+
+  return {
+    date,
+    from: `${pad2(Math.floor(minutes / 60))}:${pad2(minutes % 60)}`,
+  };
+}
+
 export default async function KundeportalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ u?: string; h?: string; r?: string }>;
+  searchParams: Promise<{ u?: string; h?: string; r?: string; b?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -55,6 +104,7 @@ export default async function KundeportalPage({
   const requestedUpcomingPage = parsePage(listParams.u);
   const historyPage = parsePage(listParams.h);
   const reportPage = parsePage(listParams.r);
+  const requestedBookingPage = parsePage(listParams.b);
 
   if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return (
@@ -90,17 +140,32 @@ export default async function KundeportalPage({
 
   const defaultDepartmentId = await getDefaultDepartmentId();
   const todayText = todayInOslo();
+  const today = parseDateOnly(todayText) ?? new Date();
+  const minimumStart = minimumBookingStart();
 
-  const bookingsResult = await getPortalBookingRequests(user);
-  const bookings = bookingsResult.ok ? bookingsResult.data : [];
+  const bookingsResult = await getPortalBookingRequests(user, {
+    page: requestedBookingPage,
+  });
+  const bookingHistory: PortalBookingPage = bookingsResult.ok
+    ? bookingsResult.data
+    : { items: [], total: 0, page: 1, totalPages: 1 };
+  const bookings = bookingHistory.items;
+  const bookingPage = bookingHistory.page;
+  const bookingSummary =
+    bookingHistory.total > 0
+      ? t("portal.pagination.showing", {
+          from: (bookingPage - 1) * PORTAL_BOOKING_PAGE_SIZE + 1,
+          to: Math.min(
+            bookingPage * PORTAL_BOOKING_PAGE_SIZE,
+            bookingHistory.total,
+          ),
+          total: bookingHistory.total,
+        })
+      : undefined;
 
-  // Kommende oppdrag hentes med et fast tak. Avsluttede oppdrag og alle
-  // rapportene deres ligger i den samlede rapporthistorikken lenger ned.
-  const upcomingWhere: Prisma.WorkOrderWhereInput = {
-    customerId: customer.id,
-    deletedAt: null,
-    status: { notIn: ["COMPLETED", "CANCELLED"] },
-  };
+  // Kommende oppdrag er bare bekreftede oppdrag som ikke er datoen forbi.
+  // Ubekreftede forespørsler ligger under «Dine bestillinger».
+  const upcomingWhere = portalUpcomingWhere(customer.id, today);
 
   const upcomingTotal = await prisma.workOrder.count({ where: upcomingWhere });
   // Klem en gammel `?u=999` til siste side før listen hentes.
@@ -121,12 +186,17 @@ export default async function KundeportalPage({
   });
 
   // Beholder motpartens side når man blar i én av listene.
-  const listLink = (next: { u?: number; h?: number }, hash: string) => {
+  const listLink = (
+    next: { u?: number; h?: number; b?: number },
+    hash: string,
+  ) => {
     const params = new URLSearchParams();
     const u = next.u ?? upcomingPage;
     const h = next.h ?? historyPage;
+    const b = next.b ?? bookingPage;
     if (u > 1) params.set("u", String(u));
     if (h > 1) params.set("h", String(h));
+    if (b > 1) params.set("b", String(b));
     if (reportPage > 1) params.set("r", String(reportPage));
     const qs = params.toString();
     return `/kundeportal${qs ? `?${qs}` : ""}${hash}`;
@@ -134,7 +204,6 @@ export default async function KundeportalPage({
 
   // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
   // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
-  const today = parseDateOnly(todayText) ?? new Date();
   const horizon = addDaysUtc(today, 7);
 
   const days = Array.from({ length: 7 }, (_, i) => addDaysUtc(today, i));
@@ -356,12 +425,14 @@ export default async function KundeportalPage({
           {/* HOYRE: Oppdrag & Booking */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* BOOK NYTT OPPDRAG */}
+            {/* SEND NY FORESPØRSEL */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
               <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
               <p className="text-gray-600 text-sm mb-4">{t("portal.booking.desc")}</p>
               <BookingForm
-                minDate={todayText}
+                minDate={minimumStart.date}
+                minFromTime={minimumStart.from}
+                minLeadHours={BOOKING_MIN_LEAD_HOURS}
                 defaultContactName={user.name ?? ""}
                 defaultContactPhone={customer.phone ?? ""}
                 equipment={customer.products.map((product) => ({
@@ -371,7 +442,22 @@ export default async function KundeportalPage({
                     : product.model,
                 }))}
               />
-              <BookingRequests bookings={bookings} minDate={todayText} />
+              <BookingRequests
+                bookings={bookings}
+                minDate={minimumStart.date}
+                minFromTime={minimumStart.from}
+                minLeadHours={BOOKING_MIN_LEAD_HOURS}
+                summary={bookingSummary}
+              />
+              <Pagination
+                page={bookingPage}
+                totalPages={bookingHistory.totalPages}
+                hrefFor={(targetPage) =>
+                  listLink({ b: targetPage }, "#bestillinger")
+                }
+                labels={paginationLabels(t)}
+                className="pt-3"
+              />
             </div>
 
             {/* KOMMENDE OPPDRAG */}

@@ -57,6 +57,7 @@ export type WorkOrderError =
   | "ikke-funnet"
   | "ugyldig-data"
   | "ugyldig-status"
+  | "ingen-endring"
   | "ugyldig-sluttdato"
   | "sluttdato-for-startdato"
   | "workorder-locked"
@@ -1265,6 +1266,141 @@ export function unassignTechnician(
     mode: "disconnect",
     action: (name) => `Fjernet ${name || "montør"} fra oppdraget`,
   });
+}
+
+/**
+ * Flytter én montør fra en kolonne til en annen i dispatch-tavla.
+ *
+ * Kilden fjernes og målet legges til i samme transaksjon, slik at et avbrudd
+ * aldri kan ende med at oppdraget verken har gammel eller ny montør. Tom kilde
+ * betyr «uten montør», og tomt mål betyr «fjern kilden». Ved tomt mål fjernes
+ * bare den angitte montøren – aldri alle montørene på oppdraget.
+ */
+export async function moveTechnician(
+  user: Actor,
+  workOrderId: string,
+  rawFromTechnicianId: unknown,
+  rawToTechnicianId: unknown,
+): Promise<WorkOrderResult> {
+  const access = await requireAccess(user, "workorders.assign", workOrderId);
+  if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.legalHold) return { ok: false, error: "legal-hold" };
+  if (isClosedStatus(access.status as WorkStatus)) {
+    return { ok: false, error: "workorder-locked" };
+  }
+
+  const fromId = rawId(rawFromTechnicianId);
+  const toId = rawId(rawToTechnicianId);
+  // Klienten kan sende kolonnenavnet «unassigned» i stedet for tom id.
+  const sourceTechnicianId = fromId === "unassigned" ? "" : fromId;
+  const targetTechnicianId = toId === "unassigned" ? "" : toId;
+  if (!sourceTechnicianId && !targetTechnicianId) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+  if (
+    sourceTechnicianId &&
+    targetTechnicianId &&
+    sourceTechnicianId === targetTechnicianId
+  ) {
+    return { ok: false, error: "ingen-endring" };
+  }
+
+  const target = targetTechnicianId
+    ? await prisma.user.findFirst({
+        where: {
+          id: targetTechnicianId,
+          ...staffForDepartment(access.departmentId),
+        },
+        select: { id: true, name: true },
+      })
+    : null;
+  if (targetTechnicianId && !target) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+
+  const source = sourceTechnicianId
+    ? await prisma.user.findFirst({
+        where: { id: sourceTechnicianId },
+        select: { id: true, name: true },
+      })
+    : null;
+
+  const blocked = await prisma.$transaction(async (tx): Promise<WorkOrderError | null> => {
+    const current = await tx.workOrder.findFirst({
+      where: { id: workOrderId, ...workOrderScope(user) },
+      select: {
+        status: true,
+        legalHold: true,
+        technicians: { select: { id: true } },
+      },
+    });
+    const finalGuard = mutationBlocked(current);
+    if (finalGuard) return finalGuard;
+
+    const assigned = new Set(
+      current?.technicians.map((technician) => technician.id) ?? [],
+    );
+    // En utdatert tavle skal ikke kunne fjerne feil person, eller «flytte»
+    // noe som allerede står i målkolonnen.
+    if (sourceTechnicianId && !assigned.has(sourceTechnicianId)) {
+      return "ingen-endring";
+    }
+    if (targetTechnicianId && assigned.has(targetTechnicianId)) {
+      return "ingen-endring";
+    }
+
+    await tx.workOrder.update({
+      where: { id: workOrderId },
+      data: {
+        technicians: {
+          ...(sourceTechnicianId
+            ? { disconnect: { id: sourceTechnicianId } }
+            : {}),
+          ...(targetTechnicianId
+            ? { connect: { id: targetTechnicianId } }
+            : {}),
+        },
+      },
+    });
+
+    const action = targetTechnicianId
+      ? sourceTechnicianId
+        ? `Flyttet ${source?.name || "montør"} til ${target?.name || "montør"}`
+        : `La til ${target?.name || "montør"} som montør`
+      : `Fjernet ${source?.name || "montør"} fra oppdraget`;
+
+    await audit(tx, {
+      entityType: "WorkOrder",
+      entityId: workOrderId,
+      action,
+      actor: auditActor(user),
+      metadata: {
+        fromTechnicianId: sourceTechnicianId || null,
+        technicianId: targetTechnicianId || null,
+      },
+    });
+    return null;
+  });
+  if (blocked) return { ok: false, error: blocked };
+
+  if (targetTechnicianId && target) {
+    try {
+      await notifyUser({
+        userId: target.id,
+        type: "ASSIGNMENT",
+        title: "Du er tildelt et oppdrag",
+        body: access.title
+          ? `«${access.title}» er tildelt deg.`
+          : "Et oppdrag er tildelt deg.",
+        href: `/mine-oppdrag/${workOrderId}`,
+        dedupeKey: `assignment:${workOrderId}:${target.id}`,
+      });
+    } catch {
+      // Varsling er best effort.
+    }
+  }
+
+  return { ok: true };
 }
 
 /** Feltportalens tillegging av kollega eller kontorperson. */

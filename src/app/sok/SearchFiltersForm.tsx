@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useTranslations } from "next-intl";
 import type { SearchFilters } from "@/lib/search-filters";
 import { SEARCH_GROUP_KINDS } from "@/lib/search-filters";
@@ -48,7 +48,8 @@ function FilterForm({
   showTechnicians,
   idPrefix,
   onApply,
-}: FilterFormProps) {
+  formRef,
+}: FilterFormProps & { formRef?: RefObject<HTMLFormElement | null> }) {
   const t = useTranslations("common");
   const tl = t as unknown as (key: string) => string;
   const selectedTypes = new Set(filters.types ?? []);
@@ -64,6 +65,7 @@ function FilterForm({
 
   return (
     <form
+      ref={formRef}
       action="/sok"
       method="get"
       aria-labelledby={titleId}
@@ -272,6 +274,7 @@ function MobileFilters({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const triggerId = `${idPrefix}-mobile-filter-trigger`;
   const panelId = `${idPrefix}-mobile-filter-panel`;
   const activeCount = countActiveFilters(formProps.filters);
@@ -322,6 +325,13 @@ function MobileFilters({
   function close() {
     setOpen(false);
     triggerRef.current?.focus();
+  }
+
+  // Header- og footer-knappen står utenfor selve skjemaet, men skal bruke de
+  // avkryssede filtrene. requestSubmit validerer og sender skjemaet på samme
+  // måte som den innebygde «Bruke filtre»-knappen.
+  function applyFilters() {
+    formRef.current?.requestSubmit();
   }
 
   function trapFocus(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -403,7 +413,7 @@ function MobileFilters({
               <button
                 type="button"
                 data-autofocus
-                onClick={close}
+                onClick={applyFilters}
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               >
                 {t("components.search.filters.showResults")}
@@ -414,6 +424,7 @@ function MobileFilters({
               <FilterForm
                 {...formProps}
                 idPrefix={`${idPrefix}-panel`}
+                formRef={formRef}
                 onApply={() => window.setTimeout(close, 0)}
               />
               {children && <div className="mt-4 space-y-4">{children}</div>}
@@ -422,7 +433,7 @@ function MobileFilters({
             <div className="border-t border-gray-200 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
               <button
                 type="button"
-                onClick={close}
+                onClick={applyFilters}
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               >
                 {t("components.search.filters.showResults")}

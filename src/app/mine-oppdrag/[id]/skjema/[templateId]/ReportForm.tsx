@@ -8,7 +8,7 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import ErrorBanner from "@/components/ErrorBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { parseImageUrls, readLineComment } from "@/lib/report-answers";
+import { parseImageUrls, readLineComment, REPORT_STATUS_UNASSESSED } from "@/lib/report-answers";
 import { reportFormSections } from "./report-form-sections";
 import {
   makeUnit,
@@ -76,15 +76,18 @@ function SubmitButton({
   isEditing,
   disabled = false,
   offline = false,
+  descriptionIds = [],
 }: {
   isEditing: boolean;
   disabled?: boolean;
   offline?: boolean;
+  /** Forklaringene som hører til den deaktiverte knappen. */
+  descriptionIds?: string[];
 }) {
   const { pending } = useFormStatus();
   const t = useTranslations("common");
   const describedBy =
-    [offline ? "report-offline-notice" : null, disabled ? "report-no-units-error" : null]
+    [offline ? "report-offline-notice" : null, ...descriptionIds]
       .filter(Boolean)
       .join(" ") || undefined;
   return (
@@ -118,6 +121,7 @@ export default function ReportForm({
   customerUnits,
   defaultUnitId,
   requiresUnits = true,
+  workOrderStatus,
   technicianName,
   defaultCustomerName,
   initialReport,
@@ -134,6 +138,8 @@ export default function ReportForm({
   defaultUnitId?: string | null;
   /** Når false brukes én anonym oppføring uten enhetsfelter. */
   requiresUnits?: boolean;
+  /** Oppdragets status, så fullføring bare tilbys på åpne oppdrag. */
+  workOrderStatus?: string;
   technicianName?: string;
   /** Oppdragets kontaktperson – forhåndsutfyller kundens signaturnavn. */
   defaultCustomerName?: string;
@@ -159,6 +165,9 @@ export default function ReportForm({
   );
   const [formVersion, setFormVersion] = useState(0);
   const [localDraftRestored, setLocalDraftRestored] = useState(false);
+  // Fullføring er standardvalget når oppdraget fortsatt er åpent. Valget
+  // sendes først med ved en vellykket innsending til serveren.
+  const [completeWorkOrder, setCompleteWorkOrder] = useState(true);
   const t = useTranslations("common");
   const locale = useLocale();
   const formId = useId();
@@ -475,11 +484,45 @@ export default function ReportForm({
     });
   };
 
-  const overallStatus = units.some((u) => u.status === "AVVIK") ? "AVVIK" : "GODKJENT";
+  // Samlet resultat er bare godkjent når hver enhet er eksplisitt godkjent.
+  // Så lenge noen enhet er uvurdert, er resultatet nøytralt – ikke godkjent.
+  const overallStatus =
+    !requiresUnits || units.length === 0
+      ? REPORT_STATUS_UNASSESSED
+      : units.some((unit) => unit.status === "AVVIK")
+        ? "AVVIK"
+        : units.every((unit) => unit.status === "GODKJENT")
+          ? "GODKJENT"
+          : REPORT_STATUS_UNASSESSED;
 
   // En rapport med enheter kan ikke sendes uten minst én enhet. Serveren
   // avviser den også med `mangler-enhet`, men knappen skal aldri invitere til det.
   const missingUnits = requiresUnits && units.length === 0;
+
+  // Hver enhet må være vurdert som Godkjent eller Avvik før innsending. En
+  // uvurdert enhet skal aldri kunne bli en stille godkjenning.
+  const missingAssessment =
+    requiresUnits &&
+    units.some(
+      (unit) => unit.status !== "GODKJENT" && unit.status !== "AVVIK",
+    );
+
+  // Fullføring tilbys bare når oppdraget ikke allerede er avsluttet.
+  const showCompleteWorkOrderOption =
+    workOrderStatus !== "COMPLETED" && workOrderStatus !== "CANCELLED";
+
+  const overallStatusClass =
+    overallStatus === "AVVIK"
+      ? "bg-red-50 border-red-200 text-red-800"
+      : overallStatus === "GODKJENT"
+        ? "bg-green-50 border-green-200 text-green-800"
+        : "bg-gray-50 border-gray-300 text-gray-700";
+  const overallStatusLabel =
+    overallStatus === "AVVIK"
+      ? t("orders.reportForm.overallDeviation")
+      : overallStatus === "GODKJENT"
+        ? t("orders.reportForm.overallApproved")
+        : t("orders.reportForm.overallUnassessed");
 
   // --- Forhåndskontroll før innsending --------------------------------------
   // Rapporten låses når den sendes, så montøren får se en oppsummering og et
@@ -520,7 +563,7 @@ export default function ReportForm({
       return;
     }
     event.preventDefault();
-    if (missingUnits) return;
+    if (missingUnits || missingAssessment) return;
 
     const payload = formRef.current ? readFormPayload(formRef.current) : {};
     const imageFields = new Set(
@@ -550,7 +593,11 @@ export default function ReportForm({
 
   const confirmSubmit = () => {
     setReviewOpen(false);
-    if (!canSubmitReport({ online, missingUnits }) || !formRef.current) return;
+    if (
+      !canSubmitReport({ online, missingUnits, missingAssessment }) ||
+      !formRef.current
+    )
+      return;
     bypassReview.current = true;
     formRef.current.requestSubmit();
     // Hvis nettleservalideringen stopper innsendingen, må neste klikk igjen
@@ -578,6 +625,7 @@ export default function ReportForm({
   const submitErrorMessages: Record<string, string> = {
     "ugyldig-data": t("orders.reportForm.errorInvalidData"),
     "mangler-enhet": t("orders.reportForm.errorMissingUnit"),
+    "mangler-vurdering": t("orders.reportForm.errorMissingAssessment"),
     signatur: t("orders.reportForm.errorSignature"),
     "ugyldig-signaturnavn": t("orders.reportForm.errorInvalidSignerName"),
     locked: t("orders.reportForm.errorLocked"),
@@ -621,6 +669,13 @@ export default function ReportForm({
       <input type="hidden" name="templateId" value={templateId} />
       <input type="hidden" name="unitsJson" value={unitsJson} />
       <input type="hidden" name="status" value={overallStatus} />
+      {showCompleteWorkOrderOption && (
+        <input
+          type="hidden"
+          name="completeWorkOrder"
+          value={completeWorkOrder ? "1" : "0"}
+        />
+      )}
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
 
       <ErrorBanner message={submitErrorMessage} />
@@ -671,10 +726,10 @@ export default function ReportForm({
       {/* SAMLET RESULTAT – bare for maler som bruker enheter. */}
       <div key={formVersion}>
       {visibility.showOverallResult && (
-        <div className={`p-4 rounded-xl border-2 ${overallStatus === "AVVIK" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+        <div className={`p-4 rounded-xl border-2 ${overallStatusClass}`}>
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
-          <p className={`font-black ${overallStatus === "AVVIK" ? "text-red-800" : "text-green-800"}`}>
-            {overallStatus === "AVVIK" ? t("orders.reportForm.overallDeviation") : t("orders.reportForm.overallApproved")}
+          <p className="font-black">
+            {overallStatusLabel}
           </p>
           <p className="text-[11px] text-gray-600 mt-1">{t("orders.reportForm.overallHint")}</p>
         </div>
@@ -710,6 +765,16 @@ export default function ReportForm({
             className="text-sm font-bold text-red-700 bg-red-50 border-2 border-red-200 rounded-xl p-4"
           >
             {t("orders.reportForm.noUnits")}
+          </p>
+        )}
+
+        {missingAssessment && (
+          <p
+            id="report-missing-assessment"
+            role="alert"
+            className="text-sm font-bold text-amber-900 bg-amber-50 border-2 border-amber-300 rounded-xl p-4"
+          >
+            {t("orders.reportForm.missingAssessment")}
           </p>
         )}
 
@@ -807,6 +872,11 @@ export default function ReportForm({
             {visibility.showUnitResult && (
               <fieldset>
                 <legend className={statusLabel}>{t("orders.reportForm.unitResult")}</legend>
+                {unit.status === REPORT_STATUS_UNASSESSED && (
+                  <p className="mb-3 text-xs font-bold text-amber-800">
+                    {t("orders.reportForm.unassessed")}
+                  </p>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label
                     className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
@@ -978,8 +1048,12 @@ export default function ReportForm({
         )}
         <SubmitButton
           isEditing={isEditing}
-          disabled={missingUnits}
+          disabled={missingUnits || missingAssessment}
           offline={!online}
+          descriptionIds={[
+            missingUnits ? "report-no-units-error" : "",
+            missingAssessment ? "report-missing-assessment" : "",
+          ]}
         />
       </div>
 
@@ -992,7 +1066,26 @@ export default function ReportForm({
         danger
         onCancel={() => setReviewOpen(false)}
         onConfirm={confirmSubmit}
-      />
+      >
+        {showCompleteWorkOrderOption && (
+          <label className="flex items-start gap-3 rounded-xl border-2 border-gray-200 bg-gray-50 p-3 text-sm text-gray-900">
+            <input
+              type="checkbox"
+              checked={completeWorkOrder}
+              onChange={(event) => setCompleteWorkOrder(event.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-blue-700"
+            />
+            <span>
+              <span className="block font-bold">
+                {t("orders.reportForm.completeWorkOrder")}
+              </span>
+              <span className="block text-xs text-gray-600">
+                {t("orders.reportForm.completeWorkOrderHint")}
+              </span>
+            </span>
+          </label>
+        )}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={unitToRemove !== null}

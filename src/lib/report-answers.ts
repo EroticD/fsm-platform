@@ -46,6 +46,12 @@ export const REPORT_STATUS_APPROVED = "GODKJENT";
 export const REPORT_STATUS_DEVIATION = "AVVIK";
 
 /**
+ * En enhet er ikke vurdert ennå. Verdien finnes bare i skjemaet og i kladder –
+ * en signert rapport skal alltid ha `GODKJENT` eller `AVVIK` per enhet.
+ */
+export const REPORT_STATUS_UNASSESSED = "UNASSESSED";
+
+/**
  * Rapport uten enheter. En slik rapport har ingen enhet å godkjenne eller
  * registrere avvik på, og skal derfor verken vises som godkjent eller avvik.
  * Den anonyme raden som bærer svarfeltene lagrer denne verdien i `status`.

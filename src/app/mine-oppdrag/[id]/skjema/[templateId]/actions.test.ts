@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     workOrder: { findFirst: vi.fn() },
     report: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
-    reportDraft: { deleteMany: vi.fn() },
+    reportDraft: { deleteMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn() },
     auditLog: { create: vi.fn() },
     product: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
@@ -147,5 +147,22 @@ describe("submitReport", () => {
     await expect(submitReport(formData())).rejects.toThrow(
       "NEXT_REDIRECT:/mine-oppdrag/wo1/skjema/tpl1?returnTo=%2Foppdrag%2Fwo1&error=locked",
     );
+  });
+
+  it("sender montøren tilbake med feil når en enhet ikke er vurdert", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+    const data = formData();
+    data.delete("status__unit-0");
+
+    await expect(submitReport(data)).rejects.toThrow(
+      "NEXT_REDIRECT:/mine-oppdrag/wo1/skjema/tpl1?returnTo=%2Foppdrag%2Fwo1&error=mangler-vurdering",
+    );
+
+    expect(mocks.prisma.report.create).not.toHaveBeenCalled();
+    // Kladden bevares, slik at vurderingen kan fullføres etter retur.
+    expect(mocks.prisma.reportDraft.upsert).toHaveBeenCalled();
   });
 });

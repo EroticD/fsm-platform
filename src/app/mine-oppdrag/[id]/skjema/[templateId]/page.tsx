@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import ReportForm, { type CustomerUnit, type InitialReport } from "./ReportForm";
 import { type TemplateField } from "./FieldInput";
 import ErrorBanner from "@/components/ErrorBanner";
-import { parseJsonObject } from "@/lib/report-answers";
+import { parseJsonObject, REPORT_STATUS_APPROVED, REPORT_STATUS_DEVIATION, REPORT_STATUS_UNASSESSED } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
@@ -173,7 +173,13 @@ export default async function TechnicianFillFormPage({
           label: unit.label,
           serialNumber: unit.serialNumber ?? "",
           location: unit.location ?? "",
-          status: unit.status === "AVVIK" ? "AVVIK" : "GODKJENT",
+          status:
+            unit.status === REPORT_STATUS_DEVIATION
+              ? REPORT_STATUS_DEVIATION
+              : unit.status === REPORT_STATUS_APPROVED
+                ? REPORT_STATUS_APPROVED
+                // Ukjente/eldre verdier skal ikke bli en stille godkjenning.
+                : REPORT_STATUS_UNASSESSED,
           comment: unit.comment ?? "",
           answers: parseJsonObject(unit.answersJson),
         })),
@@ -204,6 +210,7 @@ export default async function TechnicianFillFormPage({
           customerUnits={customerUnits}
           defaultUnitId={workOrder.productId}
           requiresUnits={template.requiresUnits}
+          workOrderStatus={workOrder.status}
           technicianName={user.name || undefined}
           defaultCustomerName={workOrder.contact?.name ?? undefined}
           initialReport={initialReport}

@@ -11,6 +11,7 @@ import { canAccessReportWorkOrder } from "@/lib/report-scope";
 import {
   REPORT_STATUS_APPROVED,
   REPORT_STATUS_DEVIATION,
+  REPORT_STATUS_UNASSESSED,
   REPORT_STATUS_WITHOUT_UNITS,
   isLineCommentKey,
   lineCommentKey,
@@ -816,7 +817,10 @@ export async function saveDraft(
     status: draftRequiresUnits
       ? formData.get(`status__${unit.key}`) === REPORT_STATUS_DEVIATION
         ? REPORT_STATUS_DEVIATION
-        : REPORT_STATUS_APPROVED
+        : formData.get(`status__${unit.key}`) === REPORT_STATUS_APPROVED
+          ? REPORT_STATUS_APPROVED
+          // En kladd skal huske at enheten fortsatt ikke er vurdert.
+          : REPORT_STATUS_UNASSESSED
       : REPORT_STATUS_WITHOUT_UNITS,
     comment: cleanMarkdown(formData.get(`comment__${unit.key}`)),
     answers: readAnswers(formData, fields, unit.key),
@@ -925,6 +929,7 @@ export type SubmitReportError =
   | "ikke-tilgang"
   | "ugyldig-data"
   | "mangler-enhet"
+  | "mangler-vurdering"
   | "ikke-funnet"
   | "kansellert"
   | "locked"
@@ -1087,10 +1092,23 @@ export async function submitReport(
       const label = cleanText(unit.label, { maxLength: LIMITS.title });
       if (!label) continue; // hopper over tomme rader
 
+      // En signert rapport kan ikke inneholde «ikke vurdert». Klienten må ha
+      // valgt Godkjent eller Avvik eksplisitt for hver enhet; ellers avvises
+      // innsendingen før rapporten låses.
+      const rawStatus = formData.get(`status__${unit.key}`);
       const status =
-        formData.get(`status__${unit.key}`) === REPORT_STATUS_DEVIATION
+        rawStatus === REPORT_STATUS_DEVIATION
           ? REPORT_STATUS_DEVIATION
-          : REPORT_STATUS_APPROVED;
+          : rawStatus === REPORT_STATUS_APPROVED
+            ? REPORT_STATUS_APPROVED
+            : null;
+      if (!status) {
+        return {
+          ok: false,
+          error: "mangler-vurdering",
+          returnTo: returnPathFrom(formData, workOrderId),
+        };
+      }
       unitStatus.push(status);
 
       const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
@@ -1184,6 +1202,9 @@ export async function submitReport(
       : REPORT_STATUS_APPROVED
     : REPORT_STATUS_WITHOUT_UNITS;
   const notes = cleanMarkdown(formData.get("notes"));
+  // Fullføring av oppdraget er en bevisst handling fra forhåndskontrollen.
+  // Uten avkrysning røres ikke oppdragets status.
+  const completeWorkOrder = formData.get("completeWorkOrder") === "1";
 
   // Bare enheter kan ha avvik. En rapport uten enheter skal aldri gi
   // utbedringsoppdrag, selv om klienten sender status=AVVIK.
@@ -1392,6 +1413,35 @@ export async function submitReport(
             reportNumber: generatedReportNumber,
           },
         });
+      }
+
+      // Fullfør oppdraget i samme transaksjon som rapporten låses. Den
+      // betingede oppdateringen gjør at et oppdrag som allerede er fullført
+      // eller kansellert ikke endres – uten at rapporten feiler.
+      if (completeWorkOrder) {
+        const completed = await tx.workOrder.updateMany({
+          where: {
+            id: workOrderId,
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          },
+          data: { status: "COMPLETED" },
+        });
+
+        if (completed.count > 0) {
+          await audit(tx, {
+            entityType: "WorkOrder",
+            entityId: workOrderId,
+            action: `${isOffice(user.role) ? "Kontoret" : "Montør"} endret status til: COMPLETED`,
+            actor: { id: user.id, name: user.name, email: user.email },
+            metadata: {
+              from: workOrder.status,
+              to: "COMPLETED",
+              reportId,
+              templateId,
+              via: "report-submit",
+            },
+          });
+        }
       }
 
       // Automatisk utbedringsoppdrag: nøyaktig ett per rapport. Den unike

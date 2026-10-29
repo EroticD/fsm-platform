@@ -4,8 +4,10 @@ import { useState, type DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import {
   assignTechnicianAction,
+  moveTechnicianAction,
   unassignTechnicianAction,
   updateStatusAction,
 } from "./actions";
@@ -22,6 +24,10 @@ import {
 import type { WorkStatus } from "@prisma/client";
 
 type ServerAction = (formData: FormData) => Promise<DispatchActionResult>;
+
+const WORK_ORDER_MIME = "text/work-order-id";
+const TECHNICIAN_MIME = "text/technician-id";
+const UNASSIGNED_LANE = "unassigned";
 
 export default function DispatchBoard({
   days,
@@ -44,8 +50,14 @@ export default function DispatchBoard({
         return t("calendar.dispatch.rowErrorNoAccess");
       case "ugyldig-data":
         return t("calendar.dispatch.rowErrorInvalidData");
+      case "ingen-endring":
+        return t("calendar.dispatch.rowErrorNoChange");
       case "ikke-funnet":
         return t("calendar.dispatch.rowErrorNotFound");
+      case "workorder-locked":
+        return t("calendar.dispatch.rowErrorLocked");
+      case "legal-hold":
+        return t("calendar.dispatch.rowErrorLegalHold");
       default:
         return t("calendar.dispatch.rowErrorUnknown");
     }
@@ -100,20 +112,48 @@ export default function DispatchBoard({
     }
   }
 
+  function sourceTechnicianId(event: DragEvent<HTMLDivElement>): string {
+    const source = event.dataTransfer.getData(TECHNICIAN_MIME);
+    return source === UNASSIGNED_LANE ? "" : source;
+  }
+
+  function draggedWorkOrderId(event: DragEvent<HTMLDivElement>): string {
+    return (
+      event.dataTransfer.getData(WORK_ORDER_MIME) ||
+      event.dataTransfer.getData("text/plain")
+    );
+  }
+
   function dropOnTechnician(
     event: DragEvent<HTMLDivElement>,
     technicianId: string,
   ) {
     event.preventDefault();
     setDragOverLane(null);
-    const workOrderId =
-      event.dataTransfer.getData("text/work-order-id") ||
-      event.dataTransfer.getData("text/plain");
+    const workOrderId = draggedWorkOrderId(event);
     if (!workOrderId) return;
 
+    const fromTechnicianId = sourceTechnicianId(event);
+    // Samme kolonne er en no-op; serveren avviser det også.
+    if (fromTechnicianId === technicianId) return;
+
     const formData = new FormData();
+    formData.set("fromTechnicianId", fromTechnicianId);
     formData.set("technicianId", technicianId);
-    void run(assignTechnicianAction, workOrderId, formData);
+    void run(moveTechnicianAction, workOrderId, formData);
+  }
+
+  function dropOnUnassigned(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOverLane(null);
+    const workOrderId = draggedWorkOrderId(event);
+    const fromTechnicianId = sourceTechnicianId(event);
+    // Kort som allerede står uten montør, har ingenting å fjerne.
+    if (!workOrderId || !fromTechnicianId) return;
+
+    const formData = new FormData();
+    formData.set("fromTechnicianId", fromTechnicianId);
+    void run(moveTechnicianAction, workOrderId, formData);
   }
 
   function renderCard(
@@ -138,12 +178,19 @@ export default function DispatchBoard({
         data-dispatch-row={fieldId}
         draggable
         onDragStart={(event) => {
-          event.dataTransfer.setData("text/work-order-id", workOrder.id);
+          event.dataTransfer.setData(WORK_ORDER_MIME, workOrder.id);
+          event.dataTransfer.setData(
+            TECHNICIAN_MIME,
+            laneKey === UNASSIGNED_LANE ? UNASSIGNED_LANE : laneKey,
+          );
           event.dataTransfer.setData("text/plain", workOrder.id);
-          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.effectAllowed = "move";
+        }}
+        onDragEnd={() => {
+          setDragOverLane(null);
         }}
         aria-busy={pending}
-        className={`rounded-xl border bg-white p-3 shadow-sm transition ${
+        className={`relative rounded-xl border bg-white p-3 shadow-sm transition ${
           pending
             ? "border-blue-400 opacity-70"
             : "border-gray-200 hover:border-blue-300"
@@ -163,9 +210,16 @@ export default function DispatchBoard({
             >
               {workOrder.title}
             </Link>
-            <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
-              {statusLabel}
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                {statusLabel}
+              </span>
+              {workOrder.isOverdue && (
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                  {t("calendar.dispatch.overdue")}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -215,7 +269,7 @@ export default function DispatchBoard({
 
         {available.length > 0 && (
           <form
-            className="mt-2 flex items-center gap-1.5"
+            className="relative mt-2 flex min-w-0 items-center gap-1.5"
             onSubmit={(event) => {
               event.preventDefault();
               const formData = new FormData(event.currentTarget);
@@ -235,7 +289,7 @@ export default function DispatchBoard({
               required
               defaultValue=""
               disabled={pending}
-              className="min-h-8 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600"
+              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600"
             >
               <option value="" disabled>
                 {t("calendar.dispatch.selectTechnician")}
@@ -258,7 +312,7 @@ export default function DispatchBoard({
 
         {workOrder.statusOptions.length > 0 && (
           <form
-            className="mt-2 flex items-center gap-1.5"
+            className="relative mt-2 flex min-w-0 items-center gap-1.5"
             onSubmit={(event) => {
               event.preventDefault();
               const formData = new FormData(event.currentTarget);
@@ -278,7 +332,7 @@ export default function DispatchBoard({
               required
               defaultValue=""
               disabled={pending}
-              className="min-h-8 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600"
+              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600"
             >
               <option value="" disabled>
                 {statusLabel}
@@ -301,6 +355,47 @@ export default function DispatchBoard({
               {t("calendar.dispatch.update")}
             </button>
           </form>
+        )}
+
+        {workOrder.canComplete && (
+          <ConfirmSubmitForm
+            action={(formData) =>
+              run(updateStatusAction, workOrder.id, formData, fieldId)
+            }
+            confirmMessage={t("orders.detail.completeConfirm")}
+            confirmLabel={t("orders.detail.stickyComplete")}
+            className="mt-2 flex min-w-0 items-center gap-1.5"
+          >
+            <input type="hidden" name="status" value="COMPLETED" />
+            <button
+              type="submit"
+              disabled={pending}
+              className="min-h-8 w-full rounded-lg border border-green-200 bg-green-50 px-2.5 text-xs font-bold text-green-800 hover:bg-green-100 disabled:opacity-50"
+            >
+              ✅ {t("orders.detail.stickyComplete")}
+            </button>
+          </ConfirmSubmitForm>
+        )}
+
+        {workOrder.canCancel && (
+          <ConfirmSubmitForm
+            action={(formData) =>
+              run(updateStatusAction, workOrder.id, formData, fieldId)
+            }
+            confirmMessage={t("orders.detail.cancelConfirm")}
+            confirmLabel={t("orders.detail.cancelWorkOrder")}
+            danger
+            className="mt-2 flex min-w-0 items-center gap-1.5"
+          >
+            <input type="hidden" name="status" value="CANCELLED" />
+            <button
+              type="submit"
+              disabled={pending}
+              className="min-h-8 w-full rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+            >
+              {t("orders.detail.cancelWorkOrder")}
+            </button>
+          </ConfirmSubmitForm>
         )}
 
         {errors[workOrder.id] && (
@@ -326,7 +421,7 @@ export default function DispatchBoard({
   }
 
   function renderLane(day: DispatchDay, technician: DispatchTechnician | null) {
-    const laneKey = technician?.id ?? "unassigned";
+    const laneKey = technician?.id ?? UNASSIGNED_LANE;
     const laneId = `${day.date}:${laneKey}`;
     const items = technician
       ? day.workOrders.filter((workOrder) =>
@@ -335,16 +430,19 @@ export default function DispatchBoard({
       : day.workOrders.filter(
           (workOrder) => workOrder.technicians.length === 0,
         );
-    const isDropTarget = Boolean(technician);
+    // Datokolonnene tar alltid imot kort. «Uten montør» er også et bevisst
+    // slippmål: det fjerner kilden montør, men aldri flere montører samtidig.
+    const isDropTarget = true;
 
     return (
       <div
         key={laneId}
+        data-dispatch-lane={laneKey}
         onDragOver={
           isDropTarget
             ? (event) => {
                 event.preventDefault();
-                event.dataTransfer.dropEffect = "copy";
+                event.dataTransfer.dropEffect = "move";
                 setDragOverLane(laneId);
               }
             : undefined
@@ -355,26 +453,35 @@ export default function DispatchBoard({
             : undefined
         }
         onDrop={
-          isDropTarget && technician
-            ? (event) => dropOnTechnician(event, technician.id)
+          isDropTarget
+            ? (event) =>
+                technician
+                  ? dropOnTechnician(event, technician.id)
+                  : dropOnUnassigned(event)
             : undefined
         }
-        className={`flex w-72 shrink-0 flex-col rounded-xl border p-2 ${
+        className={`relative flex w-72 max-w-full shrink-0 flex-col rounded-xl border p-2 ${
           isDropTarget && dragOverLane === laneId
             ? "border-blue-500 bg-blue-50 ring-2 ring-blue-300"
             : "border-gray-200 bg-gray-50"
         }`}
       >
-        <div className="mb-2 flex items-center justify-between gap-2 border-b border-gray-200 px-1 pb-2">
-          <h3 className="truncate text-sm font-bold text-gray-900">
+        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-1 pb-2">
+          <h3 className="min-w-0 truncate text-sm font-bold text-gray-900">
             {technician ? `👷 ${technician.name}` : t("calendar.dispatch.unassignedLane")}
           </h3>
-          <span className="rounded bg-white px-1.5 py-0.5 text-xs font-bold text-gray-700">
+          <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-xs font-bold text-gray-700">
             {items.length}
           </span>
         </div>
 
-        <div className="space-y-2">
+        {!technician && (
+          <p className="mb-2 px-1 text-[11px] font-medium leading-snug text-amber-800">
+            {t("calendar.dispatch.unassignDropHint")}
+          </p>
+        )}
+
+        <div className="relative min-w-0 space-y-2">
           {items.length === 0 ? (
             <p className="px-1 py-4 text-center text-xs italic text-gray-500">
               {technician
@@ -398,10 +505,10 @@ export default function DispatchBoard({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
       <p
         id="dispatch-board-hint"
-        className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-900"
+        className="min-w-0 break-words rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-900"
       >
         {t("calendar.dispatch.boardHint")}
       </p>
@@ -410,23 +517,38 @@ export default function DispatchBoard({
         <section
           key={day.date}
           aria-labelledby={`dispatch-day-${day.date}`}
-          className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4"
+          className={`min-w-0 max-w-full rounded-2xl border bg-white p-3 shadow-sm sm:p-4 ${
+            day.kind === "attention"
+              ? "border-2 border-amber-300 bg-amber-50/40"
+              : "border-gray-200"
+          }`}
         >
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 pb-2">
-            <h2
-              id={`dispatch-day-${day.date}`}
-              className="text-lg font-bold text-gray-900"
-            >
-              📅 {day.label}
-            </h2>
-            <span className="text-xs font-bold text-gray-600">
+          <div className="mb-3 flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 pb-2">
+            <div className="min-w-0">
+              <h2
+                id={`dispatch-day-${day.date}`}
+                className={`break-words text-lg font-bold ${
+                  day.kind === "attention"
+                    ? "text-amber-900"
+                    : "text-gray-900"
+                }`}
+              >
+                {day.kind === "attention" ? "⚠️" : "📅"} {day.label}
+              </h2>
+              {day.kind === "attention" && (
+                <p className="mt-1 text-xs font-medium text-amber-800">
+                  {t("calendar.dispatch.attentionHint")}
+                </p>
+              )}
+            </div>
+            <span className="shrink-0 text-xs font-bold text-gray-600">
               {t("calendar.dispatch.dayCount", {
                 count: day.workOrders.length,
               })}
             </span>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-1">
+          <div className="relative flex min-w-0 max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-1">
             {renderLane(day, null)}
             {technicians.map((technician) => renderLane(day, technician))}
           </div>

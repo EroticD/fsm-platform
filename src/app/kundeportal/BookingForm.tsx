@@ -41,11 +41,15 @@ type BookingEquipment = { id: string; label: string };
  */
 export default function BookingForm({
   minDate,
+  minFromTime = "07:00",
+  minLeadHours = 24,
   defaultContactName,
   defaultContactPhone,
   equipment,
 }: {
   minDate: string;
+  minFromTime?: string;
+  minLeadHours?: number;
   defaultContactName: string;
   defaultContactPhone: string;
   equipment: BookingEquipment[];
@@ -53,9 +57,16 @@ export default function BookingForm({
   const t = useTranslations("common");
   const locale = useLocale();
   const formRef = useRef<HTMLFormElement>(null);
+  const [title, setTitle] = useState("");
   const [requestedDate, setRequestedDate] = useState("");
   const [requestedFrom, setRequestedFrom] = useState("08:00");
   const [requestedTo, setRequestedTo] = useState("12:00");
+  const [equipmentId, setEquipmentId] = useState("");
+  const [contactName, setContactName] = useState(defaultContactName);
+  const [contactPhone, setContactPhone] = useState(defaultContactPhone);
+  // MarkdownEditor holder teksten i egen tilstand. Den må remountes etter en
+  // vellykket sending for å bli blank, men aldri etter en feil.
+  const [formVersion, setFormVersion] = useState(0);
   const [technician, setTechnician] = useState<{
     id: string;
     name: string;
@@ -66,17 +77,42 @@ export default function BookingForm({
       const result = await bookWorkOrderAction(previous, formData);
       if (result.status === "success") {
         // Nullstill både de ukontrollerte feltene og valgt ledig dag, slik at
-        // en ny bestilling starter blankt.
+        // en ny forespørsel starter blankt.
         formRef.current?.reset();
+        setTitle("");
         setRequestedDate("");
         setRequestedFrom("08:00");
         setRequestedTo("12:00");
+        setEquipmentId("");
+        setContactName(defaultContactName);
+        setContactPhone(defaultContactPhone);
         setTechnician(null);
+        setFormVersion((current) => current + 1);
       }
       return result;
     },
     INITIAL_STATE,
   );
+
+  // Serverfeil skal ikke tømme feltene kunden allerede har skrevet. Derfor er
+  // feltene kontrollert og nullstilles bare ved suksess.
+  const leadTimeInvalid =
+    requestedDate !== "" &&
+    (requestedDate < minDate ||
+      (requestedDate === minDate && requestedFrom < minFromTime));
+  const windowInvalid = requestedTo <= requestedFrom;
+  const canSubmit = !pending && !leadTimeInvalid && !windowInvalid;
+
+  const onDateChange = (value: string) => {
+    setRequestedDate(value);
+    if (value === minDate && requestedFrom < minFromTime) {
+      setRequestedFrom(minFromTime);
+      if (requestedTo <= minFromTime) {
+        const next = TIME_OPTIONS.find((time) => time > minFromTime);
+        if (next) setRequestedTo(next);
+      }
+    }
+  };
 
   // Ledighetkortene ligger lenger ned på siden. De sender et hendelsesobjekt
   // i stedet for å dele React-tilstand på tvers av to server-rendrede seksjoner.
@@ -155,6 +191,8 @@ export default function BookingForm({
           name="title"
           required
           maxLength={200}
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
           placeholder={t("portal.booking.titlePlaceholder")}
           className="w-full rounded-xl border border-gray-300 bg-white p-2 text-sm text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
         />
@@ -168,6 +206,7 @@ export default function BookingForm({
           {t("portal.booking.descriptionLabel")}
         </label>
         <MarkdownEditor
+          key={formVersion}
           id="booking-description"
           name="description"
           rows={2}
@@ -180,6 +219,13 @@ export default function BookingForm({
           {t("portal.booking.slotLegend")}
         </legend>
         <p className="text-xs text-gray-600">{t("portal.booking.slotHint")}</p>
+        <p className="text-xs font-bold text-gray-700">
+          {t("portal.booking.leadTimeHint", {
+            hours: minLeadHours,
+            date: formatDateLocalized(minDate, locale),
+            time: minFromTime,
+          })}
+        </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <div>
             <label
@@ -195,7 +241,7 @@ export default function BookingForm({
               required
               min={minDate}
               value={requestedDate}
-              onChange={(event) => setRequestedDate(event.target.value)}
+              onChange={(event) => onDateChange(event.target.value)}
               className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
             />
           </div>
@@ -245,6 +291,23 @@ export default function BookingForm({
           </div>
         </div>
 
+        {leadTimeInvalid && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+          >
+            {t("portal.booking.leadTimeError", { hours: minLeadHours })}
+          </p>
+        )}
+        {windowInvalid && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+          >
+            {t("portal.booking.windowError")}
+          </p>
+        )}
+
         {requestedDate ? (
           <p className="rounded-lg bg-green-100 px-3 py-2 text-xs font-bold text-green-950">
             {technician
@@ -290,7 +353,8 @@ export default function BookingForm({
           <select
             id="booking-equipment"
             name="equipmentId"
-            defaultValue=""
+            value={equipmentId}
+            onChange={(event) => setEquipmentId(event.target.value)}
             className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
           >
             <option value="">{t("portal.booking.equipmentNone")}</option>
@@ -314,7 +378,8 @@ export default function BookingForm({
             name="contactName"
             required
             maxLength={120}
-            defaultValue={defaultContactName}
+            value={contactName}
+            onChange={(event) => setContactName(event.target.value)}
             placeholder={t("portal.booking.contactNamePlaceholder")}
             className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900 placeholder-gray-500"
           />
@@ -334,7 +399,8 @@ export default function BookingForm({
           name="contactPhone"
           required
           maxLength={40}
-          defaultValue={defaultContactPhone}
+          value={contactPhone}
+          onChange={(event) => setContactPhone(event.target.value)}
           placeholder={t("portal.booking.contactPhonePlaceholder")}
           className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900 placeholder-gray-500"
         />
@@ -342,7 +408,7 @@ export default function BookingForm({
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={!canSubmit}
         className="min-h-11 w-full whitespace-nowrap rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
       >
         {pending ? t("portal.booking.submitting") : t("portal.booking.submit")}

@@ -20,7 +20,8 @@ export function buildCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     // Kartfliser fra OpenStreetMap. Bare bilder – ikke script eller data.
     "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://api.maptiler.com https://api.mapbox.com https://*.tiles.mapbox.com",
-    "font-src 'self'",
+    // FullCalendar laster chevron-ikonene (fcicons) som en innebygd data-URL.
+    "font-src 'self' data:",
     "connect-src 'self'",
     "frame-src 'self' blob:",
     "frame-ancestors 'self'",

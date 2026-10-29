@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { osloDayStart, parseDateOnly, toDateOnly, todayInOslo } from "@/lib/dates";
@@ -33,12 +34,59 @@ const BOOKING_DUPLICATE_WINDOW_MS = 10 * 60_000;
 /** Endring av tid er en egen, avgrenset handling per kunde og bestilling. */
 const BOOKING_RESCHEDULE_WINDOW_MS = 15 * 60_000;
 const BOOKING_RESCHEDULE_LIMIT = 5;
-/** Kunden kan endre eller kansellere til denne grensen før ønsket start. */
+/** Kunden kan be om ny tid til denne grensen før ønsket start. */
 export const BOOKING_CHANGE_CUTOFF_HOURS = 24;
+/** Minste ledetid fra forespørselen sendes til ønsket start. */
+export const BOOKING_MIN_LEAD_HOURS = 24;
 /** Hvor langt fram i tid en bestilling kan gjelde. */
 const BOOKING_MAX_DAYS_AHEAD = 365;
-const BOOKING_HISTORY_LIMIT = 20;
+/** Bestillingshistorikken vises i sider, ikke som en stille hard grense. */
+export const PORTAL_BOOKING_PAGE_SIZE = 20;
 const TIME_VALUE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/**
+ * Statusene som regnes som bekreftet av kontoret. Åpne forespørsler
+ * (OPEN/PENDING) skal bare vises under «Dine bestillinger», ikke som
+ * kommende oppdrag.
+ */
+export const PORTAL_CONFIRMED_WORK_ORDER_STATUSES = [
+  "PLANNED",
+  "WAITING",
+  "IN_PROGRESS",
+] as const;
+
+/**
+ * Oppdragsstatusene kundens kansellering kan avlyse direkte. Et oppdrag som
+ * allerede er i gang (IN_PROGRESS) eller avsluttet skal ikke skjules som
+ * kansellert; da varsles kontoret i stedet.
+ */
+export const PORTAL_CANCELLABLE_WORK_ORDER_STATUSES = [
+  "OPEN",
+  "PENDING",
+  "PLANNED",
+  "WAITING",
+] as const;
+
+/**
+ * Kommende-oppdrag-spørringen. Bare bekreftede statuser tas med, og et
+ * oppdrag må fortsatt være aktivt i dag eller senere for å regnes som
+ * kommende. Flerdagersoppdrag som startet tidligere, men varer i dag eller
+ * senere, beholdes.
+ */
+export function portalUpcomingWhere(
+  customerId: string,
+  today: Date,
+): Prisma.WorkOrderWhereInput {
+  return {
+    customerId,
+    deletedAt: null,
+    status: { in: [...PORTAL_CONFIRMED_WORK_ORDER_STATUSES] },
+    OR: [
+      { scheduledFor: { gte: today } },
+      { scheduledTo: { gte: today } },
+    ],
+  };
+}
 
 function idFrom(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, 64) : "";
@@ -87,7 +135,7 @@ function requestedStart(schedule: BookingSchedule): Date {
   );
 }
 
-/** Fristen for å endre eller kansellere bestillingen. */
+/** Fristen for å be om ny tid på bestillingen. */
 export function bookingChangeDeadline(
   requestedDate: Date,
   requestedFrom: string,
@@ -100,7 +148,30 @@ export function bookingChangeDeadline(
   );
 }
 
-function canChangeBooking(
+/** Ønsket start må ligge minst `BOOKING_MIN_LEAD_HOURS` fram i tid. */
+function hasMinimumLeadTime(schedule: BookingSchedule, now = new Date()): boolean {
+  return (
+    requestedStart(schedule).getTime() >=
+    now.getTime() + BOOKING_MIN_LEAD_HOURS * 60 * 60_000
+  );
+}
+
+function isClosedWorkOrderStatus(status: string): boolean {
+  return status === "COMPLETED" || status === "CANCELLED";
+}
+
+/**
+ * En ubekreftet forespørsel kan alltid kanselleres, uavhengig av
+ * 24-timersvinduet. Et bekreftet oppdrag kan også kanselleres, men selve
+ * oppdraget avlyses bare når det ikke er i gang eller avsluttet.
+ */
+function canCancelBooking(status: string, workOrderStatus: string): boolean {
+  if (status !== "PENDING") return false;
+  return !isClosedWorkOrderStatus(workOrderStatus);
+}
+
+/** Ny tid krever fortsatt at endringsfristen og ledetiden er holdt. */
+function canRescheduleBooking(
   status: string,
   workOrderStatus: string,
   requestedDate: Date,
@@ -108,9 +179,8 @@ function canChangeBooking(
   now = new Date(),
 ): boolean {
   if (status !== "PENDING") return false;
-  if (workOrderStatus === "COMPLETED" || workOrderStatus === "CANCELLED") {
-    return false;
-  }
+  if (isClosedWorkOrderStatus(workOrderStatus)) return false;
+  if (workOrderStatus === "IN_PROGRESS") return false;
   return now.getTime() < bookingChangeDeadline(requestedDate, requestedFrom).getTime();
 }
 
@@ -168,7 +238,7 @@ export async function createBooking(
 
   const schedule = parseBookingSchedule(input);
   if (!schedule.ok) return schedule;
-  if (requestedStart(schedule.data).getTime() <= Date.now()) {
+  if (!hasMinimumLeadTime(schedule.data)) {
     return fail("invalid");
   }
 
@@ -417,10 +487,24 @@ export type PortalBooking = {
   contactName: string;
   contactPhone: string;
   createdAt: string;
-  canChange: boolean;
+  canCancel: boolean;
+  canReschedule: boolean;
   changeDeadline: string;
-  workOrder: { id: string; title: string; status: string };
+  workOrder: {
+    id: string;
+    title: string;
+    status: string;
+    scheduledFor: string | null;
+    scheduledTo: string | null;
+  };
   events: PortalBookingEvent[];
+};
+
+export type PortalBookingPage = {
+  items: PortalBooking[];
+  total: number;
+  page: number;
+  totalPages: number;
 };
 
 function bookingDisplayStatus(
@@ -438,21 +522,31 @@ function bookingDisplayStatus(
 /**
  * Kundens egne bestillinger med status og historikk. Spørringen er alltid
  * avgrenset til aktørens `customerId`; en kunde kan ikke se andres saker.
+ * Historikken pagineres med en synlig total, slik at listen ikke stopper
+ * stille etter en fast radgrense.
  */
 export async function getPortalBookingRequests(
   actor: ServiceActor,
-): Promise<ServiceResult<PortalBooking[]>> {
+  options: { page?: number } = {},
+): Promise<ServiceResult<PortalBookingPage>> {
   if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
     return fail("forbidden");
   }
 
+  const where = {
+    customerId: actor.customerId,
+    workOrder: { deletedAt: null },
+  };
+  const total = await prisma.bookingRequest.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / PORTAL_BOOKING_PAGE_SIZE));
+  const requestedPage = Math.max(1, Math.floor(options.page ?? 1));
+  const page = Math.min(requestedPage, totalPages);
+
   const bookings = await prisma.bookingRequest.findMany({
-    where: {
-      customerId: actor.customerId,
-      workOrder: { deletedAt: null },
-    },
+    where,
     orderBy: { createdAt: "desc" },
-    take: BOOKING_HISTORY_LIMIT,
+    skip: (page - 1) * PORTAL_BOOKING_PAGE_SIZE,
+    take: PORTAL_BOOKING_PAGE_SIZE,
     select: {
       id: true,
       reference: true,
@@ -466,7 +560,13 @@ export async function getPortalBookingRequests(
       contactPhone: true,
       createdAt: true,
       workOrder: {
-        select: { id: true, title: true, status: true },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          scheduledFor: true,
+          scheduledTo: true,
+        },
       },
       events: {
         orderBy: { createdAt: "asc" },
@@ -484,8 +584,11 @@ export async function getPortalBookingRequests(
     },
   });
 
-  return ok(
-    bookings.map((booking) => ({
+  return ok({
+    total,
+    page,
+    totalPages,
+    items: bookings.map((booking) => ({
       id: booking.id,
       reference: booking.reference,
       status: booking.status,
@@ -498,7 +601,8 @@ export async function getPortalBookingRequests(
       contactName: booking.contactName,
       contactPhone: booking.contactPhone,
       createdAt: booking.createdAt.toISOString(),
-      canChange: canChangeBooking(
+      canCancel: canCancelBooking(booking.status, booking.workOrder.status),
+      canReschedule: canRescheduleBooking(
         booking.status,
         booking.workOrder.status,
         booking.requestedDate,
@@ -508,7 +612,17 @@ export async function getPortalBookingRequests(
         booking.requestedDate,
         booking.requestedFrom,
       ).toISOString(),
-      workOrder: booking.workOrder,
+      workOrder: {
+        id: booking.workOrder.id,
+        title: booking.workOrder.title,
+        status: booking.workOrder.status,
+        scheduledFor: booking.workOrder.scheduledFor
+          ? toDateOnly(booking.workOrder.scheduledFor)
+          : null,
+        scheduledTo: booking.workOrder.scheduledTo
+          ? toDateOnly(booking.workOrder.scheduledTo)
+          : null,
+      },
       events: booking.events.map((event) => ({
         id: event.id,
         type: event.type,
@@ -520,7 +634,7 @@ export async function getPortalBookingRequests(
         createdAt: event.createdAt.toISOString(),
       })),
     })),
-  );
+  });
 }
 
 type BookingChangeRow = {
@@ -584,31 +698,56 @@ async function ownBooking(
   return ok(booking);
 }
 
-/** Kunden kansellerer sin egen bestilling fram til endringsfristen. */
+/** Kunden kansellerer sin egen bestilling. */
 export async function cancelBooking(
   actor: ServiceActor,
   input: { bookingId: unknown },
-): Promise<ServiceResult<{ status: "cancelled"; reference: string }>> {
+): Promise<
+  ServiceResult<{
+    status: "cancelled";
+    reference: string;
+    /** Oppdraget ble samtidig satt til CANCELLED. */
+    workOrderCancelled: boolean;
+    /** Oppdraget var allerede i gang, så bare forespørselen ble kansellert. */
+    visitInProgress: boolean;
+  }>
+> {
   const booking = await ownBooking(actor, input.bookingId);
   if (!booking.ok) return booking;
 
+  const workOrderStatus = booking.data.workOrder.status;
+  const visitInProgress = workOrderStatus === "IN_PROGRESS";
   if (booking.data.status === "CANCELLED") {
-    return ok({ status: "cancelled", reference: booking.data.reference });
+    return ok({
+      status: "cancelled",
+      reference: booking.data.reference,
+      workOrderCancelled: false,
+      visitInProgress,
+    });
   }
   if (booking.data.workOrder.deletedAt) return fail("not_found");
-  if (
-    !canChangeBooking(
-      booking.data.status,
-      booking.data.workOrder.status,
-      booking.data.requestedDate,
-      booking.data.requestedFrom,
-    )
-  ) {
-    return fail("deadline_passed");
+  // En forespørsel kan alltid kanselleres, også innenfor 24-timersvinduet.
+  // Bare et avsluttet oppdrag er stengt for kansellering.
+  if (!canCancelBooking(booking.data.status, workOrderStatus)) {
+    return fail("invalid");
   }
 
+  const shouldCancelWorkOrder = (
+    PORTAL_CANCELLABLE_WORK_ORDER_STATUSES as readonly string[]
+  ).includes(workOrderStatus);
+
+  let outcome: {
+    changed: boolean;
+    workOrderCancelled: boolean;
+    visitInProgress: boolean;
+  } = {
+    changed: false,
+    workOrderCancelled: false,
+    visitInProgress,
+  };
+
   try {
-    await prisma.$transaction(async (tx) => {
+    outcome = await prisma.$transaction(async (tx) => {
       const updated = await tx.bookingRequest.updateMany({
         where: {
           id: booking.data.id,
@@ -617,25 +756,39 @@ export async function cancelBooking(
         },
         data: { status: "CANCELLED", cancelledAt: new Date() },
       });
-      if (updated.count !== 1) return;
+      if (updated.count !== 1) {
+        return {
+          changed: false,
+          workOrderCancelled: false,
+          visitInProgress,
+        } as const;
+      }
+
+      // Et oppdrag som ikke er i gang eller avsluttet, avlyses i samme
+      // transaksjon som forespørselen. IN_PROGRESS skal fortsatt være synlig
+      // som pågående arbeid; kontoret varsles i stedet.
+      let workOrderCancelled = false;
+      if (shouldCancelWorkOrder) {
+        const cancelledWorkOrder = await tx.workOrder.updateMany({
+          where: {
+            id: booking.data.workOrder.id,
+            customerId: actor.customerId!,
+            status: { in: [...PORTAL_CANCELLABLE_WORK_ORDER_STATUSES] },
+          },
+          data: { status: "CANCELLED" },
+        });
+        workOrderCancelled = cancelledWorkOrder.count === 1;
+      }
 
       await tx.bookingRequestEvent.create({
         data: {
           bookingRequestId: booking.data.id,
           type: "CANCELLED",
+          message: workOrderCancelled
+            ? null
+            : "Oppdraget var allerede i gang eller avsluttet; kontoret er varslet.",
           actorName: actor.name || actor.email || "Kunde",
         },
-      });
-
-      // En ubekreftet bestilling er bare et åpent oppdrag. Er kontoret
-      // allerede i gang, lar vi oppdragets status stå og varsler dem i stedet.
-      await tx.workOrder.updateMany({
-        where: {
-          id: booking.data.workOrder.id,
-          customerId: actor.customerId!,
-          status: "OPEN",
-        },
-        data: { status: "CANCELLED" },
       });
 
       await audit(tx, {
@@ -647,20 +800,48 @@ export async function cancelBooking(
           customerId: actor.customerId,
           workOrderId: booking.data.workOrder.id,
           reference: booking.data.reference,
+          workOrderCancelled,
         },
       });
+
+      return {
+        changed: true,
+        workOrderCancelled,
+        visitInProgress: !workOrderCancelled && visitInProgress,
+      } as const;
     });
   } catch (error) {
     console.error("Databasefeil ved kansellering av bestilling:", error);
     return fail("error");
   }
 
+  if (!outcome.changed) {
+    // En samtidig forespørsel vant race-en og har allerede kansellert saken.
+    return ok({
+      status: "cancelled",
+      reference: booking.data.reference,
+      workOrderCancelled: outcome.workOrderCancelled,
+      visitInProgress: outcome.visitInProgress,
+    });
+  }
+
+  const title = outcome.workOrderCancelled
+    ? "Kunde kansellerte bestilling"
+    : outcome.visitInProgress
+      ? "Kunde kansellerte – oppdraget er i gang"
+      : "Kunde kansellerte bestilling";
+  const body = outcome.workOrderCancelled
+    ? `Bestilling ${booking.data.reference} er kansellert av kunden. Oppdraget er også satt til kansellert.`
+    : outcome.visitInProgress
+      ? `Bestilling ${booking.data.reference} er markert som kansellert av kunden, men oppdraget er allerede i gang. Avtalen er ikke automatisk avlyst – kontoret må følge opp.`
+      : `Bestilling ${booking.data.reference} er kansellert av kunden.`;
+
   try {
     await notifyWorkOrderEvent(
       booking.data.workOrder.id,
       "BOOKING",
-      "Kunde kansellerte bestilling",
-      `Bestilling ${booking.data.reference} er kansellert av kunden.`,
+      title,
+      body,
       `/oppdrag/${booking.data.workOrder.id}`,
       `booking-cancel:${booking.data.id}`,
     );
@@ -668,7 +849,12 @@ export async function cancelBooking(
     console.error("Kunne ikke varsle om kansellert bestilling:", error);
   }
 
-  return ok({ status: "cancelled", reference: booking.data.reference });
+  return ok({
+    status: "cancelled",
+    reference: booking.data.reference,
+    workOrderCancelled: outcome.workOrderCancelled,
+    visitInProgress: outcome.visitInProgress,
+  });
 }
 
 /** Kunden ber om et nytt tidsvindu fram til endringsfristen. */
@@ -703,7 +889,7 @@ export async function rescheduleBooking(
 
   if (booking.data.workOrder.deletedAt) return fail("not_found");
   if (
-    !canChangeBooking(
+    !canRescheduleBooking(
       booking.data.status,
       booking.data.workOrder.status,
       booking.data.requestedDate,
@@ -716,7 +902,8 @@ export async function rescheduleBooking(
   const schedule = parseBookingSchedule(input);
   if (!schedule.ok) return schedule;
 
-  if (requestedStart(schedule.data).getTime() <= Date.now()) {
+  // Ny tid må også ha minst like lang ledetid som en ny forespørsel.
+  if (!hasMinimumLeadTime(schedule.data)) {
     return fail("invalid");
   }
 

@@ -1,19 +1,14 @@
 "use server";
 
-import type { WorkStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireWorkOrderAccess } from "@/lib/access";
-import { hasPermission } from "@/lib/permissions";
 import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
-import { workOrderStatusSchema } from "@/lib/schemas/workOrder";
-import { isOpenStatus } from "@/lib/work-order-status";
-import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 import {
   assignTechnician as assignTechnicianService,
-  auditActor,
+  changeWorkOrderStatus,
+  moveTechnician as moveTechnicianService,
   unassignTechnician as unassignTechnicianService,
 } from "@/server/work-orders";
-import { notifyWorkOrderEvent } from "@/server/notifications";
 import type { DispatchActionResult } from "./types";
 
 const DISPATCH_PATH = "/kalender/dispatch";
@@ -51,6 +46,42 @@ export async function assignTechnicianAction(
   }
 }
 
+/**
+ * Flytter ett kort mellom to kolonner. Kilden sendes med fra DataTransfer, slik
+ * at et slipp fjerner den gamle tildelingen i stedet for å legge til en ny.
+ * Tom `technicianId` betyr at kortet slippes på «Uten montør».
+ */
+export async function moveTechnicianAction(
+  formData: FormData,
+): Promise<DispatchActionResult> {
+  const workOrderId = readId(formData, "workOrderId");
+  const rawFromTechnicianId = readId(formData, "fromTechnicianId");
+  const fromTechnicianId =
+    rawFromTechnicianId === "unassigned" ? "" : rawFromTechnicianId;
+  const toTechnicianId = readId(formData, "technicianId");
+  if (!workOrderId || (!fromTechnicianId && !toTechnicianId)) {
+    return fail("ugyldig-data");
+  }
+
+  const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+  if (!access) return fail("ikke-tilgang");
+
+  try {
+    const result = await moveTechnicianService(
+      access.user,
+      workOrderId,
+      fromTechnicianId,
+      toTechnicianId,
+    );
+    if (!result.ok) return fail(result.error);
+    revalidatePath(DISPATCH_PATH);
+    return { ok: true };
+  } catch (error) {
+    console.error("Feil ved flytting av montør:", error);
+    return fail("ukjent");
+  }
+}
+
 export async function unassignTechnicianAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
@@ -76,61 +107,30 @@ export async function unassignTechnicianAction(
   }
 }
 
+/**
+ * Statusendring fra dispatch bruker samme tjeneste og regler som
+ * oppdragsdetaljen. Fullføring og kansellering krever egen bekreftelse i UI-et;
+ * kansellering krever i tillegg workorders.edit.
+ */
 export async function updateStatusAction(
   formData: FormData,
 ): Promise<DispatchActionResult> {
   const workOrderId = readId(formData, "workOrderId");
-  const parsed = workOrderStatusSchema.safeParse({
-    status: cleanStatus(formData.get("status")),
-  });
-  if (!workOrderId || !parsed.success) return fail("ugyldig-data");
+  const status = cleanStatus(formData.get("status"));
+  if (!workOrderId || !status) return fail("ugyldig-data");
 
   const access = await requireWorkOrderAccess("workorders.update", workOrderId);
   if (!access) return fail("ikke-tilgang");
 
-  // Dispatch-tavla viser bare åpne oppdrag. Om et oppdrag ble lukket i en
-  // annen fane, skal ikke denne handlingen gjenåpne det uten grunn.
-  if (!isOpenStatus(access.workOrder.status as WorkStatus)) {
-    return fail("ugyldig-status");
-  }
-
-  const nextStatus = parsed.data.status as WorkStatus;
-  // Kansellering er en kontorhandling. Dispatch skal ikke kunne omgå
-  // workorders.edit ved å velge CANCELLED i statusfeltet.
-  if (
-    nextStatus === "CANCELLED" &&
-    !hasPermission(access.user, "workorders.edit")
-  ) {
-    return fail("ikke-tilgang");
-  }
-
   try {
-    const result = await transitionWorkOrderStatus({
+    const result = await changeWorkOrderStatus(
+      access.user,
       workOrderId,
-      from: access.workOrder.status as WorkStatus,
-      to: nextStatus,
-      isAdmin: access.user.role === "ADMIN",
-      actor: auditActor(access.user),
-      action: `Kontoret endret status til: ${nextStatus}`,
-    });
+      status,
+      "office",
+      formData.get("reason"),
+    );
     if (!result.ok) return fail(result.error);
-
-    // Samme varsel som den vanlige statusflyten sender ved kansellering.
-    if (nextStatus === "CANCELLED") {
-      try {
-        await notifyWorkOrderEvent(
-          workOrderId,
-          "CANCELLED",
-          "Oppdraget er kansellert",
-          "Oppdraget er kansellert.",
-          `/oppdrag/${workOrderId}`,
-          `cancelled:${workOrderId}`,
-        );
-      } catch (error) {
-        console.error("Kunne ikke sende kanselleringsvarsel:", error);
-      }
-    }
-
     revalidatePath(DISPATCH_PATH);
     return { ok: true };
   } catch (error) {

@@ -14,7 +14,7 @@ describe("buildCsp", () => {
       "default-src 'self'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://api.maptiler.com https://api.mapbox.com https://*.tiles.mapbox.com",
-      "font-src 'self'",
+      "font-src 'self' data:",
       "connect-src 'self'",
       "frame-src 'self' blob:",
       "frame-ancestors 'self'",

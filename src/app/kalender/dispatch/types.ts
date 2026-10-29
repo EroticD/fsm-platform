@@ -19,10 +19,17 @@ export type DispatchWorkOrder = {
   technicians: DispatchTechnician[];
   /** Lovlige neste statuser, beregnet med allowedTransitions på serveren. */
   statusOptions: string[];
+  /** Fullføring og kansellering er egne, bekreftede handlinger. */
+  canComplete: boolean;
+  canCancel: boolean;
+  /** Planlagt før i dag, men fortsatt åpen. */
+  isOverdue: boolean;
 };
 
 export type DispatchDay = {
   date: string;
   label: string;
+  /** «attention» samler forfalte og ufordelte oppdrag utenfor datofilteret. */
+  kind?: "date" | "attention";
   workOrders: DispatchWorkOrder[];
 };

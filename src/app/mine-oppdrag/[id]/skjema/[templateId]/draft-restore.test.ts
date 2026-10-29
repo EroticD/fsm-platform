@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  makeUnit,
   REPORT_WITHOUT_UNITS_KEY,
   restoreLocalDraft,
+  type LocalDraftSnapshot,
   type ReportSeed,
 } from "./draft-restore";
 
@@ -16,6 +18,18 @@ function seed(overrides: Partial<ReportSeed> = {}): ReportSeed {
     ...overrides,
   };
 }
+
+describe("makeUnit", () => {
+  it("starter en ny enhet som ikke vurdert", () => {
+    expect(makeUnit("unit-0").status).toBe("UNASSESSED");
+    expect(makeUnit("unit-0", { status: undefined }).status).toBe("UNASSESSED");
+  });
+
+  it("beholder en eksplisitt vurdering fra kladden", () => {
+    expect(makeUnit("unit-0", { status: "GODKJENT" }).status).toBe("GODKJENT");
+    expect(makeUnit("unit-0", { status: "AVVIK" }).status).toBe("AVVIK");
+  });
+});
 
 describe("restoreLocalDraft", () => {
   it("gjenoppretter alle skjemafelter fra lokal kladd", () => {
@@ -142,6 +156,60 @@ describe("restoreLocalDraft", () => {
     expect(restored?.seed.notes).toBe("servernotat");
     expect(restored?.seed.technicianName).toBe("Server Tekniker");
     expect(restored?.seed.technicianSignatureUrl).toBe("/uploads/tech.png");
+  });
+
+  it("gjenoppretter godkjent status fra en eldre kladd", () => {
+    const restored = restoreLocalDraft({
+      requiresUnits: true,
+      fallback: seed(),
+      snapshot: {
+        state: {
+          counter: 1,
+          units: [
+            {
+              key: "unit-0",
+              productId: "",
+              label: "Pumpe",
+              serialNumber: "",
+              location: "",
+              status: "GODKJENT",
+              comment: "",
+              answers: {},
+            },
+          ],
+        },
+      },
+    });
+
+    expect(restored?.state.units[0].status).toBe("GODKJENT");
+    expect(restored?.seed.units[0].status).toBe("GODKJENT");
+  });
+
+  it("gjenoppretter en eldre kladd uten status som ikke vurdert", () => {
+    const restored = restoreLocalDraft({
+      requiresUnits: true,
+      fallback: seed(),
+      snapshot: {
+        state: {
+          counter: 1,
+          units: [
+            {
+              key: "unit-0",
+              productId: "",
+              label: "Pumpe",
+              serialNumber: "",
+              location: "",
+              // Eldre kladd skrevet før enheter fikk en vurdering.
+              comment: "",
+              answers: {},
+            },
+          ],
+        },
+      } as unknown as LocalDraftSnapshot,
+    });
+
+    expect(restored?.state.units[0].status).toBe("UNASSESSED");
+    expect(restored?.seed.units[0].status).toBe("UNASSESSED");
   });
 
   it("legger svarene i den faste nøkkelen når malen ikke bruker enheter", () => {

@@ -115,6 +115,10 @@ export async function submitReport(formData: FormData) {
       // Kladden bevares, slik at montøren kan legge til enheten og sende på nytt.
       await saveDraftService(user, formData);
       redirectToFormError(formData, "mangler-enhet", result.returnTo);
+    case "mangler-vurdering":
+      // Kladden bevares med de valgene montøren allerede har gjort.
+      await saveDraftService(user, formData);
+      redirectToFormError(formData, "mangler-vurdering", result.returnTo);
     case "signatur":
       await saveDraftService(user, formData);
       redirectToFormError(formData, "signatur", result.returnTo);
