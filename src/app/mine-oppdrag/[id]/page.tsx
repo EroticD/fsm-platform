@@ -22,6 +22,7 @@ import { staffForDepartment, workOrderScope } from "@/lib/access";
 import { statusSelectOptions } from "@/lib/work-order-status";
 import { formatDateRangeLocalized, formatDateTimeLocalized } from "@/lib/dates";
 import { idSchema } from "@/lib/schemas/common";
+import { parseJsonObject, REPORT_STATUS_DEVIATION } from "@/lib/report-answers";
 import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
 import {
   HMS_TYPE_MESSAGE_KEYS,
@@ -35,6 +36,63 @@ import {
   addTemplate,
   updateStatus,
 } from "./actions";
+
+type ProgressUnit = {
+  status?: string | null;
+  answers?: Record<string, unknown>;
+  answersJson?: string | null;
+};
+
+/** Felt-ID-ene i en mal, brukt til å telle besvarte sjekkpunkter. */
+function templateFieldIds(fieldsJson: string | null | undefined): string[] {
+  try {
+    const parsed = JSON.parse(fieldsJson || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((field) =>
+      field && typeof field === "object" && typeof field.id === "string"
+        ? [field.id]
+        : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+function unitAnswers(unit: ProgressUnit): Record<string, unknown> {
+  return unit.answers ?? parseJsonObject(unit.answersJson);
+}
+
+/** Teller felter med en faktisk verdi, på tvers av alle enhetene i malen. */
+function countAnswered(
+  fieldIds: string[],
+  units: ProgressUnit[],
+): number {
+  let answered = 0;
+  for (const unit of units) {
+    const answers = unitAnswers(unit);
+    for (const fieldId of fieldIds) {
+      const value = answers[fieldId];
+      if (
+        value !== undefined &&
+        value !== null &&
+        (typeof value === "string" ? value.trim() !== "" : true)
+      ) {
+        answered += 1;
+      }
+    }
+  }
+  return answered;
+}
+
+function draftUnits(dataJson: string): ProgressUnit[] {
+  const parsed = parseJsonObject(dataJson);
+  return Array.isArray(parsed.units)
+    ? (parsed.units.filter(
+        (unit): unit is ProgressUnit =>
+          Boolean(unit) && typeof unit === "object",
+      ) as ProgressUnit[])
+    : [];
+}
 
 export default async function TechnicianWorkOrderPage({
   params,
@@ -68,7 +126,8 @@ export default async function TechnicianWorkOrderPage({
       },
       contact: true,
       templates: true,
-      reports: true,
+      reports: { include: { units: { orderBy: { sortOrder: "asc" } } } },
+      reportDrafts: { where: { userId: user.id } },
       tags: true,
       workComments: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { id: "desc" } },
@@ -199,6 +258,69 @@ export default async function TechnicianWorkOrderPage({
             label: t("orders.fieldDetail.stickyComplete"),
           }
         : null;
+
+  // Framdrift for sjekklistene. Signerte rapporter vinner over en eventuell
+  // gammel kladd, slik at tellingen alltid viser det som faktisk er lagret.
+  const draftsByTemplate = new Map(
+    (workOrder.reportDrafts ?? []).map((draft) => [draft.templateId, draft]),
+  );
+  let answeredCheckpoints = 0;
+  let totalCheckpoints = 0;
+  let deviationCheckpoints = 0;
+  for (const template of orderedTemplates) {
+    const fieldIds = templateFieldIds(template.fieldsJson);
+    const report = reportsByTemplate.get(template.id);
+    const draft = draftsByTemplate.get(template.id);
+    const units: ProgressUnit[] =
+      report?.units?.length
+        ? report.units
+        : draft && typeof draft.dataJson === "string"
+          ? draftUnits(draft.dataJson)
+          : [];
+    const unitCount = Math.max(units.length, 1);
+    totalCheckpoints += fieldIds.length * unitCount;
+    answeredCheckpoints += countAnswered(fieldIds, units);
+    deviationCheckpoints += units.filter(
+      (unit) => unit.status === REPORT_STATUS_DEVIATION,
+    ).length;
+  }
+  const hasChecklistDraft = orderedTemplates.some((template) =>
+    draftsByTemplate.has(template.id),
+  );
+  const checklistPercent =
+    totalCheckpoints > 0
+      ? Math.round((answeredCheckpoints / totalCheckpoints) * 100)
+      : 0;
+
+  // Hurtighandlinger med ekte lenker – telefon, kart, kunde, utstyr og
+  // dokumentbiblioteket. Handlinger uten data skjules i stedet for å vises
+  // som døde knapper.
+  const contactPhone =
+    workOrder.contact?.phone ||
+    workOrder.customer?.contacts?.find((contact) => contact.phone)?.phone ||
+    workOrder.customer?.phone ||
+    null;
+  const mapQuery = [
+    workOrder.address || workOrder.customer?.address,
+    workOrder.postalCode || workOrder.customer?.postalCode,
+    workOrder.city || workOrder.customer?.city,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const mapsHref = mapQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
+    : null;
+  const customerHref =
+    workOrder.customer?.id && hasPermission(user, "customers.view")
+      ? `/kunder/${workOrder.customer.id}`
+      : null;
+  const unitHref =
+    workOrder.productId && hasPermission(user, "equipment.view")
+      ? `/enheter/${workOrder.productId}`
+      : null;
+  const documentsHref = hasPermission(user, "documents.view")
+    ? `/dokumenter?q=${encodeURIComponent(workOrder.title)}`
+    : null;
 
   /**
    * Fjerner personell og redirecter med en kvittering, slik at siden kan vise
@@ -349,7 +471,7 @@ export default async function TechnicianWorkOrderPage({
                       name="status"
                       defaultValue={workOrder.status}
                       aria-label={t("orders.fieldDetail.statusTitle")}
-                      className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px] min-h-11"
+                      className="border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px] min-h-11"
                     >
                       <option value={workOrder.status} disabled>
                         {statusLabels[workOrder.status]} ({t("orders.fieldDetail.currentStatus")})
@@ -376,23 +498,28 @@ export default async function TechnicianWorkOrderPage({
                     </SubmitButton>
                   </ConfirmSubmitForm>
                   {canCancelNow && (
-                    <ConfirmSubmitForm
-                      action={updateStatus}
-                      confirmMessage={t("orders.fieldDetail.cancelConfirm")}
-                      confirmWhenField="status"
-                      confirmWhenValue="CANCELLED"
-                      danger
-                      className="mt-2 flex items-center gap-2 flex-wrap"
-                    >
-                      <input type="hidden" name="workOrderId" value={workOrderId} />
-                      <input type="hidden" name="status" value="CANCELLED" />
-                      <SubmitButton
-                        pendingLabel={t("orders.fieldDetail.updating")}
-                        className="min-h-11 border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition whitespace-nowrap"
+                    <details className="mt-2 rounded-xl border border-red-200 bg-red-50/50 p-2">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-bold text-red-800 [&::-webkit-details-marker]:hidden">
+                        {t("orders.fieldDetail.moreActions")}
+                      </summary>
+                      <ConfirmSubmitForm
+                        action={updateStatus}
+                        confirmMessage={t("orders.fieldDetail.cancelConfirm")}
+                        confirmWhenField="status"
+                        confirmWhenValue="CANCELLED"
+                        danger
+                        className="mt-2 flex items-center gap-2 flex-wrap"
                       >
-                        {t("orders.fieldDetail.cancelWorkOrder")}
-                      </SubmitButton>
-                    </ConfirmSubmitForm>
+                        <input type="hidden" name="workOrderId" value={workOrderId} />
+                        <input type="hidden" name="status" value="CANCELLED" />
+                        <SubmitButton
+                          pendingLabel={t("orders.fieldDetail.updating")}
+                          className="min-h-11 border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition whitespace-nowrap"
+                        >
+                          {t("orders.fieldDetail.cancelWorkOrder")}
+                        </SubmitButton>
+                      </ConfirmSubmitForm>
+                    </details>
                   )}
                 </>
               ) : (
@@ -412,9 +539,116 @@ export default async function TechnicianWorkOrderPage({
           </div>
         </div>
 
+        {/* HURTIGHANDLINGER – telefon, kart og de viktigste detaljsidene. */}
+        {(contactPhone ||
+          mapsHref ||
+          customerHref ||
+          unitHref ||
+          documentsHref) && (
+          <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="mb-2 text-xs font-black uppercase tracking-wider text-gray-600">
+              {t("orders.fieldDetail.quickActions")}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {contactPhone && (
+                <a
+                  href={`tel:${contactPhone}`}
+                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  📞 {t("orders.fieldDetail.callContact")}
+                </a>
+              )}
+              {mapsHref && (
+                <a
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  🗺️ {t("orders.fieldDetail.map")}
+                  <span className="sr-only"> ({t("orders.fieldDetail.newTab")})</span>
+                </a>
+              )}
+              {customerHref && (
+                <Link
+                  href={customerHref}
+                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  🏢 {t("orders.fieldDetail.customer")}
+                </Link>
+              )}
+              {unitHref && (
+                <Link
+                  href={unitHref}
+                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  🔧 {t("orders.fieldDetail.unit")}
+                </Link>
+              )}
+              {documentsHref && (
+                <Link
+                  href={documentsHref}
+                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                >
+                  📄 {t("orders.fieldDetail.documents")}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* SJEKKLISTER – høyt opp, slik at montøren slipper å scrolle. */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200">
           <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">{t("orders.fieldDetail.checklistsTitle")}</h2>
+
+          {totalCheckpoints > 0 && (
+            <div className="mb-4 space-y-2">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-gray-600">
+                <span>
+                  {t("orders.fieldDetail.checklistProgress", {
+                    answered: answeredCheckpoints,
+                    total: totalCheckpoints,
+                  })}
+                </span>
+                {deviationCheckpoints > 0 && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="text-red-700">
+                      {t("orders.fieldDetail.checklistDeviations", {
+                        count: deviationCheckpoints,
+                      })}
+                    </span>
+                  </>
+                )}
+                <span aria-hidden>·</span>
+                <span
+                  className={
+                    hasChecklistDraft ? "text-blue-700" : "text-gray-500"
+                  }
+                >
+                  {hasChecklistDraft
+                    ? t("orders.fieldDetail.checklistDraftSaved")
+                    : t("orders.fieldDetail.checklistDraftMissing")}
+                </span>
+              </p>
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={totalCheckpoints}
+                aria-valuenow={answeredCheckpoints}
+                aria-label={t("orders.fieldDetail.checklistProgress", {
+                  answered: answeredCheckpoints,
+                  total: totalCheckpoints,
+                })}
+                className="h-1.5 overflow-hidden rounded-full bg-gray-200"
+              >
+                <div
+                  className="h-full rounded-full bg-blue-700 transition-[width]"
+                  style={{ width: `${checklistPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {workOrder.templates.length === 0 ? (
             <p className="text-sm text-gray-600 italic mb-4">{t("orders.fieldDetail.noChecklists")}</p>
@@ -506,16 +740,18 @@ export default async function TechnicianWorkOrderPage({
           )}
 
           {canUpdate && availableTemplates.length > 0 && (
-            <div className="border-t pt-4">
-              <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">{t("orders.fieldDetail.extraChecklist")}</p>
-              <form action={addTemplate} className="flex gap-2 flex-wrap">
+            <details className="border-t pt-4">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-gray-600 [&::-webkit-details-marker]:hidden">
+                ＋ {t("orders.fieldDetail.extraChecklist")}
+              </summary>
+              <form action={addTemplate} className="mt-2 flex gap-2 flex-wrap">
                 <input type="hidden" name="workOrderId" value={workOrderId} />
                 <select
                   name="templateId"
                   required
                   defaultValue=""
                   aria-label={t("orders.fieldDetail.extraChecklist")}
-                  className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11"
+                  className="border-2 border-gray-300 p-2.5 rounded-xl text-base font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectTemplate")}</option>
                   {availableServiceTemplates.length > 0 && (
@@ -537,7 +773,7 @@ export default async function TechnicianWorkOrderPage({
                   {t("orders.fieldDetail.add")}
                 </button>
               </form>
-            </div>
+            </details>
           )}
         </div>
 
@@ -651,16 +887,18 @@ export default async function TechnicianWorkOrderPage({
           </div>
 
           {canUpdate && availableUsers.length > 0 && (
-            <div className="border-t pt-4">
-              <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">{t("orders.fieldDetail.addPersonnel")}</p>
-              <form action={addTechnician} className="flex gap-2 flex-wrap">
+            <details className="border-t pt-4">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-gray-600 [&::-webkit-details-marker]:hidden">
+                ＋ {t("orders.fieldDetail.addPersonnel")}
+              </summary>
+              <form action={addTechnician} className="mt-2 flex gap-2 flex-wrap">
                 <input type="hidden" name="workOrderId" value={workOrderId} />
                 <select
                   name="userId"
                   required
                   defaultValue=""
                   aria-label={t("orders.fieldDetail.addPersonnel")}
-                  className="border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11"
+                  className="border-2 border-gray-300 p-2.5 rounded-xl text-base font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectPerson")}</option>
                   {availableUsers.map(u => (
@@ -671,7 +909,7 @@ export default async function TechnicianWorkOrderPage({
                   {t("orders.fieldDetail.add")}
                 </button>
               </form>
-            </div>
+            </details>
           )}
         </div>
 

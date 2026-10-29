@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getServerSession } from "next-auth/next";
@@ -9,6 +9,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
+import MobileTabBar from "@/components/MobileTabBar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import prisma from "@/lib/prisma";
 import { isSafeLogoUrl } from "@/lib/logo";
@@ -55,8 +56,11 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: "#0F2E4C",
+  // La PWA-en bruke hele skjermen, også under hakk og systemlinjer. Header og
+  // menylokk kompenserer med safe-area-inset slik at innholdet ikke klippes.
+  viewportFit: "cover",
 };
 
 const DEFAULT_PRIMARY_COLOR = "#2563eb";
@@ -71,6 +75,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const t = await getTranslations("common");
   const session = await getServerSession(authOptions);
   const currentUser = await getCurrentUser();
+  const role = currentUser?.role ?? session?.user?.role;
   const permissions = currentUser
     ? Array.from(effectivePermissions(currentUser))
     : [];
@@ -111,7 +116,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <OfflineBanner userId={currentUser?.id} />
             <BrandedHeader
               showNav
-              role={currentUser?.role ?? session?.user?.role}
+              role={role}
               permissions={permissions}
               companyName={companyName}
               logoUrl={logoUrl}
@@ -119,15 +124,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             />
             {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}
-            {isStaff(currentUser?.role ?? session?.user?.role) && (
+            {isStaff(role) && (
               <>
                 <OfflineSessionGuard />
                 <RealtimeRefresh />
               </>
             )}
-            <main id="main-content" className="flex-1">
+            <main
+              id="main-content"
+              className={`flex-1 ${
+                isStaff(role)
+                  ? "pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0"
+                  : ""
+              }`}
+            >
               {children}
             </main>
+            <MobileTabBar role={role} permissions={permissions} />
             <ServiceWorkerRegister />
           </ToastProvider>
         </NextIntlClientProvider>

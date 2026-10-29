@@ -47,30 +47,30 @@ export default async function EditCustomerPage({
   const errorKey = customerErrorMessageKey(error);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-10">
+      <div className="mx-auto max-w-3xl space-y-6">
         
         <ErrorBanner
           message={errorKey ? `⛔ ${t(errorKey)}` : undefined}
         />
 
         {/* HEADER */}
-        <div className="flex justify-between items-center border-b pb-6">
-          <div>
+        <div className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-gray-900">✏️ {t("customers.edit.title")}</h1>
             <p className="text-gray-500 mt-1 text-sm">{t("customers.edit.description", { name: customer.name })}</p>
           </div>
-          <div className="flex gap-3">
-            <Link href={`/kunder/${customerId}`} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+            <Link href={`/kunder/${customerId}`} className="inline-flex max-sm:min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
               &larr; {t("customers.edit.backToDetails")}
             </Link>
-            <Link href="/kunder" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition shadow-sm">
+            <Link href="/kunder" className="inline-flex max-sm:min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-200">
               {t("customers.edit.archive")}
             </Link>
           </div>
         </div>
 
-        <form action={updateCustomer} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+        <form action={updateCustomer} className="min-w-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6 md:p-8 space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
@@ -238,13 +238,13 @@ export default async function EditCustomerPage({
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <Link href={`/kunder/${customerId}`} className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-bold hover:bg-gray-200 transition shadow-sm">
+          <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end">
+            <Link href={`/kunder/${customerId}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gray-100 px-6 py-3 font-bold text-gray-700 shadow-sm transition hover:bg-gray-200">
               {t("customers.edit.cancel")}
             </Link>
             <SubmitButton
               pendingLabel={t("customers.edit.saving")}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-sm"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-sm transition hover:bg-blue-700"
             >
               {t("customers.edit.save")}
             </SubmitButton>

@@ -464,6 +464,8 @@
     "nav": {
       "dashboard": "Dashboard",
       "myWorkOrders": "My work orders",
+      "today": "Today",
+      "customersEquipment": "Customers & equipment",
       "workOrders": "Work orders",
       "calendar": "Calendar",
       "customers": "Customers",

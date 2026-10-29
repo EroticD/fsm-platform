@@ -165,6 +165,15 @@
         "light": "Light",
         "satellite": "Satellite"
       }
+    },
+    "signature": {
+      "pointerHint": "The drawing area is used with a finger or mouse.",
+      "focusHint": "Use Tab to move focus. Escape closes fullscreen.",
+      "keyboardFallback": "Cannot draw? Type the signature",
+      "keyboardHint": "Type the name with the keyboard and create the signature with the button.",
+      "keyboardLabel": "Name for typed signature",
+      "keyboardPlaceholder": "Full name",
+      "keyboardApply": "Use the name as signature"
     }
   }
 }

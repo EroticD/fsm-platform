@@ -24,7 +24,7 @@ export type TemplateField = {
 };
 
 const inputClass =
-  "w-full border-2 border-gray-300 p-3 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700";
+  "w-full border-2 border-gray-300 p-3 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700";
 
 /** Gjør en lagret svarverdi om til tekst, slik at den kan vises i et felt. */
 function asText(value: unknown): string {
@@ -142,6 +142,7 @@ export default function FieldInput({
   onNeedsComment,
   onValueChange,
   workOrderId,
+  anchorId,
 }: {
   field: TemplateField;
   name: string;
@@ -155,6 +156,8 @@ export default function FieldInput({
   onValueChange?: (value: string) => void;
   /** Knytter opplastede bilder til oppdraget, slik at tilgangen kan styres. */
   workOrderId?: string;
+  /** Valgfri anker-id, slik at stegstripen kan hoppe direkte til bildene. */
+  anchorId?: string;
 }) {
   const t = useTranslations("common");
   const fieldId = useId();
@@ -282,13 +285,15 @@ export default function FieldInput({
 
     case "IMAGE":
       return (
-        <ImageUploadField
-          name={name}
-          label={field.label}
-          required={field.required}
-          initialUrls={parseImageUrls(defaultValue)}
-          workOrderId={workOrderId}
-        />
+        <div id={anchorId} className={anchorId ? "scroll-mt-24" : undefined}>
+          <ImageUploadField
+            name={name}
+            label={field.label}
+            required={field.required}
+            initialUrls={parseImageUrls(defaultValue)}
+            workOrderId={workOrderId}
+          />
+        </div>
       );
 
     case "SIGNATURE":
@@ -305,7 +310,7 @@ export default function FieldInput({
             defaultValue={asText(defaultValue)}
             placeholder={t("orders.fieldInput.signaturePlaceholder")}
             onChange={(event) => onValueChange?.(event.target.value)}
-            className="w-full border-2 border-dashed border-blue-400 p-4 rounded-xl text-sm font-bold text-gray-900 bg-blue-50/50 outline-none focus:border-blue-700"
+            className="w-full border-2 border-dashed border-blue-400 p-4 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-blue-50/50 outline-none focus:border-blue-700"
           />
         </div>
       );

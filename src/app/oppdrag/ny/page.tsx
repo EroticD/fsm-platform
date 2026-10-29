@@ -79,14 +79,14 @@ export default async function AdminCreateWorkOrderPage({
         : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
+      <div className="mx-auto min-w-0 max-w-xl space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
           <div>
             <h1 className="text-2xl font-black text-gray-900">{t("orders.new.title")}</h1>
             <p className="text-gray-500 text-sm">{t("orders.new.subtitle")}</p>
           </div>
-          <Link href="/kalender" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition text-sm">
+          <Link href="/kalender" className="inline-flex max-sm:min-h-11 items-center justify-center self-start rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-300 md:self-auto">
             {t("orders.new.backToCalendar")}
           </Link>
         </div>
@@ -96,7 +96,7 @@ export default async function AdminCreateWorkOrderPage({
         <form
           id="office-create-work-order"
           action={createWorkOrder}
-          className="bg-white p-6 rounded-2xl shadow-sm border space-y-5"
+          className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-6 space-y-5"
         >
           <FormValuePersistence
             formId="office-create-work-order"
@@ -207,7 +207,7 @@ export default async function AdminCreateWorkOrderPage({
               {technicians.map(tech => (
                 <label key={tech.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 p-1.5 rounded-lg transition">
                   <input type="checkbox" name="technicianIds" value={tech.id} className="w-4 h-4 text-blue-600 rounded" />
-                  <span className="font-medium text-gray-800 text-sm">
+                  <span className="min-w-0 break-words font-medium text-gray-800 text-sm">
                     {tech.name}
                     {tech.department ? ` (${tech.department.name})` : ""}
                   </span>
@@ -216,38 +216,38 @@ export default async function AdminCreateWorkOrderPage({
             </div>
           </fieldset>
 
-          <fieldset aria-describedby="office-new-templates-hint">
+          <fieldset className="min-w-0" aria-describedby="office-new-templates-hint">
             <legend className="block text-sm font-bold text-gray-700 mb-1">{t("orders.new.templates")}</legend>
             <p id="office-new-templates-hint" className="text-xs text-gray-500 mb-2">{t("orders.new.templatesHint")}</p>
-            <div className="max-h-64 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-3">
+            <div className="min-w-0 max-h-64 overflow-y-auto bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-3">
               {templates.length === 0 && (
                 <p className="text-sm text-gray-500 p-2">{t("orders.new.noTemplates")}</p>
               )}
 
               {serviceTemplates.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-wider px-1">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-black text-blue-900 uppercase tracking-wider px-1">
                     {t("orders.templateGroups.service")}
                   </p>
                   {serviceTemplates.map((template) => (
-                    <label key={template.id} className="flex items-center gap-3 cursor-pointer hover:bg-blue-100 p-2 rounded-lg transition">
-                      <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 text-blue-600 rounded border-gray-300" />
-                      <span className="font-bold text-blue-900 text-sm">{template.title}</span>
+                    <label key={template.id} className="flex min-w-0 flex-wrap items-center gap-2 cursor-pointer hover:bg-blue-100 p-2 rounded-lg transition">
+                      <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 shrink-0 text-blue-600 rounded border-gray-300" />
+                      <span className="min-w-0 break-words font-bold text-blue-900 text-sm">{template.title}</span>
                     </label>
                   ))}
                 </div>
               )}
 
               {hmsTemplates.length > 0 && (
-                <div className="space-y-1 border-t border-indigo-200 pt-2">
-                  <p className="text-[10px] font-black text-indigo-900 uppercase tracking-wider px-1">
+                <div className="min-w-0 space-y-1 border-t border-indigo-200 pt-2">
+                  <p className="text-xs font-black text-indigo-900 uppercase tracking-wider px-1">
                     🛡️ {t("orders.templateGroups.hms")}
                   </p>
                   {hmsTemplates.map((template) => (
-                    <label key={template.id} className="flex items-center gap-3 cursor-pointer hover:bg-indigo-100 p-2 rounded-lg transition">
-                      <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 text-indigo-600 rounded border-gray-300" />
-                      <span className="font-bold text-indigo-900 text-sm">{template.title}</span>
-                      <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                    <label key={template.id} className="flex min-w-0 flex-wrap items-center gap-2 cursor-pointer hover:bg-indigo-100 p-2 rounded-lg transition">
+                      <input type="checkbox" name="templateIds" value={template.id} className="w-4 h-4 shrink-0 text-indigo-600 rounded border-gray-300" />
+                      <span className="min-w-0 break-words font-bold text-indigo-900 text-sm">{template.title}</span>
+                      <span className="max-w-full break-words rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-xs font-black uppercase text-indigo-900">
                         {template.hmsType
                           ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
                           : t("orders.templateGroups.hmsBadge")}

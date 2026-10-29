@@ -118,6 +118,54 @@ describe("loginAction – fail closed for 2FA", () => {
   });
 });
 
+describe("loginAction – rollehjem", () => {
+  beforeEach(() => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+    });
+  });
+
+  it.each([
+    ["TECHNICIAN", "/mine-oppdrag"],
+    ["OFFICE", "/"],
+    ["ADMIN", "/"],
+    ["CUSTOMER", "/kundeportal"],
+  ])("sender %s hjem uten eksplisitt callback", async (role, target) => {
+    mocks.verifyCredentials.mockResolvedValue({
+      status: "ok",
+      user: { ...credentialUser, role },
+    });
+
+    await expect(
+      loginAction(
+        formData({
+          email: credentialUser.email,
+          password: "passord",
+          callbackUrl: "/",
+        }),
+      ),
+    ).rejects.toThrow(`REDIRECT:${target}`);
+  });
+
+  it("respekterer en eksplisitt trygg callback for montører", async () => {
+    mocks.verifyCredentials.mockResolvedValue({
+      status: "ok",
+      user: { ...credentialUser, role: "TECHNICIAN" },
+    });
+
+    await expect(
+      loginAction(
+        formData({
+          email: credentialUser.email,
+          password: "passord",
+          callbackUrl: "/kunder",
+        }),
+      ),
+    ).rejects.toThrow("REDIRECT:/kunder");
+  });
+});
+
 describe("verifyTwoFactorAction – replay-vern", () => {
   beforeEach(() => {
     mocks.readPendingTwoFactor.mockResolvedValue("user-1");
@@ -150,6 +198,25 @@ describe("verifyTwoFactorAction – replay-vern", () => {
     expect(mocks.createSessionCookie).toHaveBeenCalledWith(
       expect.objectContaining({ id: "user-1" }),
     );
+  });
+
+  it("sender en montør til I dag når callback mangler", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "montor@example.test",
+      name: "Montør",
+      role: "TECHNICIAN",
+      sessionVersion: 2,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "HEMMELIGHET",
+      lastTotpTimeStep: 100,
+    });
+    mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 101 });
+
+    await expect(
+      verifyTwoFactorAction(formData({ code: "123456", callbackUrl: "/" })),
+    ).rejects.toThrow("REDIRECT:/mine-oppdrag");
   });
 
   it("avviser en kode som allerede er brukt", async () => {

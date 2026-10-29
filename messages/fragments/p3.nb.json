@@ -165,6 +165,15 @@
         "light": "Lys",
         "satellite": "Satellitt"
       }
+    },
+    "signature": {
+      "pointerHint": "Tegneflaten brukes med finger eller mus.",
+      "focusHint": "Bruk Tab for å flytte fokus. Escape lukker fullskjermen.",
+      "keyboardFallback": "Kan ikke tegne? Skriv signaturen",
+      "keyboardHint": "Skriv navnet med tastaturet og lag signaturen med knappen.",
+      "keyboardLabel": "Navn til tastatursignatur",
+      "keyboardPlaceholder": "Fullt navn",
+      "keyboardApply": "Bruk navnet som signatur"
     }
   }
 }

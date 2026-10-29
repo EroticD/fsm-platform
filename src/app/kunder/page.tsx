@@ -312,7 +312,7 @@ export default async function KunderPage({
             over lenken slik at de fortsatt kan brukes. */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div
-            className="overflow-x-auto"
+            className="hidden overflow-x-auto sm:block"
             role="region"
             aria-label={t("customers.list.title")}
             tabIndex={0}
@@ -455,6 +455,156 @@ export default async function KunderPage({
             </tbody>
           </table>
           </div>
+
+          {/* Under sm blir tabellen en kortliste, slik at kundenavn, kontakt
+              og handlinger ikke krever vannrett scrolling på mobil. */}
+          {customers.length === 0 ? (
+            <div className="p-4 sm:hidden">
+              <EmptyState
+                icon="🏢"
+                title={
+                  search
+                    ? t("customers.list.noMatches", { query: search })
+                    : t("customers.list.empty")
+                }
+                action={
+                  search ? (
+                    <Link
+                      href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                    >
+                      {t("customers.list.reset")}
+                    </Link>
+                  ) : undefined
+                }
+              />
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100 sm:hidden">
+              {customers.map((customer) => {
+                const contact = customer.contacts[0] ?? null;
+                const lastService = customer.workOrder[0];
+                const lastServiceDate =
+                  lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
+
+                return (
+                  <li key={customer.id} className="space-y-3 p-4">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/kunder/${customer.id}`}
+                        className="break-words text-base font-bold text-blue-800 hover:underline"
+                      >
+                        {customer.name}
+                      </Link>
+                      <p className="mt-0.5 break-words text-xs text-gray-600">
+                        {customer.orgNumber || "–"}
+                      </p>
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div className="min-w-0">
+                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
+                          {t("customers.list.city")}
+                        </dt>
+                        <dd className="break-words text-gray-700">
+                          {customer.city || "–"}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
+                          {t("customers.list.contact")}
+                        </dt>
+                        <dd className="break-words text-gray-700">
+                          {contact ? (
+                            <>
+                              <span className="block font-medium text-gray-800">
+                                {contact.name}
+                              </span>
+                              <span className="block text-xs">
+                                {contact.phone || customer.phone || "–"}
+                              </span>
+                            </>
+                          ) : (
+                            customer.phone || t("customers.list.noContact")
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
+                          {t("customers.list.openOrders")}
+                        </dt>
+                        <dd className="font-bold text-gray-700">
+                          {customer._count.workOrder}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
+                          {t("customers.list.lastService")}
+                        </dt>
+                        <dd className="break-words text-gray-700">
+                          {formatDateLocalized(
+                            lastServiceDate,
+                            locale,
+                            undefined,
+                            t("customers.list.neverServiced"),
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                      {showDeleted ? (
+                        <form action={restoreCustomerAction}>
+                          <input type="hidden" name="id" value={customer.id} />
+                          <button
+                            type="submit"
+                            className="inline-flex min-h-11 items-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
+                          >
+                            {t("customers.list.restore")}
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <Link
+                            href={`/kunder/${customer.id}`}
+                            className="inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 text-sm font-bold text-white hover:bg-blue-800"
+                          >
+                            {t("customers.list.viewDetails")}
+                          </Link>
+                          {office && (
+                            <Link
+                              href={`/kunder/${customer.id}/rediger`}
+                              className="inline-flex min-h-11 items-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                            >
+                              {t("customers.list.edit")}
+                            </Link>
+                          )}
+                          {user.role === "ADMIN" && (
+                            <ConfirmSubmitForm
+                              action={deleteCustomerAction}
+                              confirmMessage={t("customers.list.deleteConfirm", {
+                                name: customer.name,
+                              })}
+                              confirmLabel={t("delete")}
+                              danger
+                            >
+                              <input type="hidden" name="id" value={customer.id} />
+                              <button
+                                type="submit"
+                                className="inline-flex min-h-11 items-center rounded-xl border border-red-200 bg-red-50 px-3 text-sm font-bold text-red-700 hover:bg-red-100"
+                              >
+                                {t("customers.list.delete")}
+                              </button>
+                            </ConfirmSubmitForm>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* Sidebladdring */}

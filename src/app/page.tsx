@@ -26,6 +26,7 @@ import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { reportWorkOrderScope } from "@/lib/report-scope";
+import { homePathForRole } from "@/lib/navigation";
 
 // ------------------------------------------------------------------
 // Hjelpere (definert utenfor komponenten slik at render forblir ren)
@@ -960,8 +961,13 @@ export default async function AdminDashboard({
     redirect("/kundeportal");
   }
 
-  // Dashbordet er felles for kontor og montører. Montørene ser de samme
-  // tallene og listene, men hurtighandlingene peker til feltportalen deres.
+  // Montører har «I dag» som hjem. Kontor og administrator beholder
+  // dashbordet; kundeportalbrukere er allerede sendt videre over.
+  const home = homePathForRole(user.role);
+  if (home !== "/") redirect(home);
+
+  // Dashbordet er kontorets flate. Montører er allerede sendt til «I dag»
+  // over, men egendefinerte roller med oppdragstilgang kan fortsatt lande her.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
   const canCreate = hasPermission(user, "workorders.create");
   const canSeeCancelled = user.role !== "TECHNICIAN";

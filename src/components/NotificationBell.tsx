@@ -273,7 +273,7 @@ export default function NotificationBell({ role }: { role?: string }) {
           role="dialog"
           aria-label={t("p3.notifications.popover.title")}
           tabIndex={-1}
-          className="fixed inset-x-4 top-16 z-50 w-auto overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl focus:outline-none sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))]"
+          className="fixed inset-x-4 top-[calc(env(safe-area-inset-top,0px)+4rem)] z-50 w-auto overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl focus:outline-none sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))]"
         >
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
             <h2 className="text-sm font-bold text-gray-900">

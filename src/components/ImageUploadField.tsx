@@ -272,7 +272,9 @@ export default function ImageUploadField({
       case "uploading":
         return t("orders.imageUpload.uploadingFile");
       case "error":
-        return item.error || t("orders.imageUpload.uploadFailedOne", { name: item.name });
+        // Selve feilårsaken samles i én oppsummering under listen. Raden viser
+        // bare at filen feilet, så listen ikke blir full av gjentatt tekst.
+        return t("orders.imageUpload.failedShort");
       default:
         return "✅";
     }
@@ -349,94 +351,74 @@ export default function ImageUploadField({
 
       {items.length > 0 && (
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {doneUrls.length > 0 && (
-              <p className="text-xs font-bold text-green-700">
-                {t("orders.imageUpload.uploaded", { count: doneUrls.length })}
-              </p>
-            )}
-            {failedCount > 0 && (
-              <button
-                type="button"
-                onClick={retryAll}
-                className="inline-flex min-h-11 items-center rounded-lg border border-red-300 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100"
-              >
-                ↻ {t("orders.imageUpload.retryAll")}
-              </button>
-            )}
-          </div>
+          {doneUrls.length > 0 && (
+            <p className="text-xs font-bold text-green-700">
+              {t("orders.imageUpload.uploaded", { count: doneUrls.length })}
+            </p>
+          )}
 
           <ul className="space-y-2">
             {items.map((item, index) => (
               <li
                 key={item.id}
-                className={`flex items-center gap-2 rounded-xl border bg-white p-2 ${
+                className={`flex flex-col gap-2 rounded-xl border bg-white p-2.5 sm:flex-row sm:items-center ${
                   item.status === "error"
                     ? "border-red-300"
                     : "border-gray-200"
                 }`}
               >
-                {item.status === "done" && item.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.url}
-                    alt={t("orders.imageUpload.attachmentAlt", {
-                      number: index + 1,
-                    })}
-                    className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-cover"
-                  />
-                ) : (
-                  <span
-                    aria-hidden="true"
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-lg"
-                  >
-                    {item.status === "error" ? "⚠️" : "📷"}
-                  </span>
-                )}
+                <div className="flex min-w-0 flex-1 items-start gap-2">
+                  {item.status === "done" && item.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.url}
+                      alt={t("orders.imageUpload.attachmentAlt", {
+                        number: index + 1,
+                      })}
+                      className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-cover"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-lg"
+                    >
+                      {item.status === "error" ? "⚠️" : "📷"}
+                    </span>
+                  )}
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-bold text-gray-900">
-                    {item.name}
-                  </p>
-                  <p
-                    className={`text-xs font-bold ${statusClass(item)}`}
-                    role={item.status === "error" ? "alert" : undefined}
-                  >
-                    {statusText(item)}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-xs font-bold text-gray-900">
+                      {item.name}
+                    </p>
+                    <p className={`text-xs font-bold ${statusClass(item)}`}>
+                      {statusText(item)}
+                    </p>
+                  </div>
                 </div>
 
-                {item.status === "done" && item.url && (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center px-2 text-xs font-bold text-blue-700 underline"
-                  >
-                    {t("orders.imageUpload.viewImage")}
-                  </a>
-                )}
+                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
+                  {item.status === "done" && item.url && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-xs font-bold text-blue-700 underline"
+                    >
+                      {t("orders.imageUpload.viewImage")}
+                    </a>
+                  )}
 
-                {item.status === "error" && (
                   <button
                     type="button"
-                    onClick={() => retry(item)}
-                    className="inline-flex min-h-11 items-center rounded-lg border border-blue-300 bg-blue-50 px-2 text-xs font-bold text-blue-800 transition hover:bg-blue-100"
+                    onClick={() => removeItem(item.id)}
+                    aria-label={t("orders.imageUpload.removeFile", {
+                      name: item.name,
+                    })}
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2 text-sm font-bold text-red-700 transition hover:bg-red-100"
                   >
-                    ↻ {t("orders.imageUpload.retry")}
+                    ✕
                   </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => removeItem(item.id)}
-                  aria-label={t("orders.imageUpload.removeFile", {
-                    name: item.name,
-                  })}
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2 text-sm font-bold text-red-700 transition hover:bg-red-100"
-                >
-                  ✕
-                </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -448,16 +430,29 @@ export default function ImageUploadField({
           )}
 
           {failedCount > 0 && (
-            <p id={errorId} role="alert" className="text-xs font-bold text-red-700">
-              ❌{" "}
-              {t("orders.imageUpload.uploadFailedMany", {
-                count: failedCount,
-                names: items
-                  .filter((item) => item.status === "error")
-                  .map((item) => item.name)
-                  .join(", "),
-              })}
-            </p>
+            <div
+              id={errorId}
+              role="alert"
+              className="flex flex-col gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-xs font-bold text-red-700 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="min-w-0 break-words">
+                ❌{" "}
+                {t("orders.imageUpload.uploadFailedMany", {
+                  count: failedCount,
+                  names: items
+                    .filter((item) => item.status === "error")
+                    .map((item) => item.name)
+                    .join(", "),
+                })}
+              </p>
+              <button
+                type="button"
+                onClick={retryAll}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-red-300 bg-white px-3 text-xs font-bold text-red-700 transition hover:bg-red-100"
+              >
+                ↻ {t("orders.imageUpload.retryAll")}
+              </button>
+            </div>
           )}
         </div>
       )}

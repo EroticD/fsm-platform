@@ -1,7 +1,7 @@
 import { defaultPermissionsForRole, type Permission } from "@/lib/permissions";
 
 /**
- * Toppnavigasjonen. Hvert element har en rettighet som kreves for å se det.
+ * Navigasjonen. Hvert element har en rettighet som kreves for å se det.
  *
  * Menyen er data, ikke en fast liste per rolle. Da kan egendefinerte roller
  * verken se eller klikke seg inn på sider de ikke har tilgang til, og nye
@@ -11,8 +11,12 @@ import { defaultPermissionsForRole, type Permission } from "@/lib/permissions";
  *   - primary: hovedarbeidsområdene i toppmenyen på brede skjermer
  *   - menu:    sekundære sider i den alltid tilgjengelige hamburgermenyen
  *   - settings: pinnet nederst i hamburgermenyen, aldri i hovedmenyen
+ *
+ * `audience` skiller feltarbeid fra kontorarbeid. Montører får «I dag» som
+ * hjem, kontoret beholder dashbordet.
  */
 export type NavSection = "primary" | "menu" | "settings";
+export type NavAudience = "field" | "office";
 
 export type NavItem = {
   href: string;
@@ -21,7 +25,25 @@ export type NavItem = {
   /** Én eller flere rettigheter. Minst én må være oppfylt. */
   requires?: Permission | Permission[];
   section?: NavSection;
+  audience?: NavAudience;
 };
+
+/** Hendelsen som åpner den eksisterende menyen fra mobilens bunnlinje. */
+export const OPEN_MENU_EVENT = "fsm:open-menu";
+
+/** Sider som skal stå alene uten app-navigasjon. */
+const AUTH_ROUTES = [
+  "/logg-inn",
+  "/glemt-passord",
+  "/tilbakestill-passord",
+  "/aktiver-konto",
+];
+
+export function isAuthPath(pathname: string): boolean {
+  return AUTH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
 
 export const STAFF_NAV: NavItem[] = [
   {
@@ -30,13 +52,15 @@ export const STAFF_NAV: NavItem[] = [
     icon: "🏠",
     requires: "workorders.view",
     section: "primary",
+    audience: "office",
   },
   {
     href: "/mine-oppdrag",
-    labelKey: "myWorkOrders",
-    icon: "📋",
+    labelKey: "today",
+    icon: "☀️",
     requires: "workorders.view",
     section: "primary",
+    audience: "field",
   },
   {
     href: "/oppdrag",
@@ -60,11 +84,31 @@ export const STAFF_NAV: NavItem[] = [
     section: "primary",
   },
   {
+    href: "/sok",
+    labelKey: "search",
+    icon: "🔍",
+    section: "menu",
+  },
+  {
+    href: "/rapporter",
+    labelKey: "reports",
+    icon: "📊",
+    requires: "reports.view",
+    section: "primary",
+  },
+  {
+    href: "/hms",
+    labelKey: "hms",
+    icon: "🦺",
+    requires: ["templates.view", "reports.view"],
+    section: "menu",
+  },
+  {
     href: "/dokumenter",
     labelKey: "documents",
     icon: "📚",
     requires: "documents.view",
-    section: "primary",
+    section: "menu",
   },
   {
     href: "/kart",
@@ -85,6 +129,14 @@ export const STAFF_NAV: NavItem[] = [
     labelKey: "notifications",
     icon: "🔔",
     section: "menu",
+  },
+  {
+    href: "/mine-oppdrag/kunder",
+    labelKey: "customersEquipment",
+    icon: "🧰",
+    requires: "customers.view",
+    section: "menu",
+    audience: "field",
   },
   {
     href: "/innstillinger",
@@ -124,9 +176,22 @@ export function hasAnyPermission(
 }
 
 /**
+ * Hjemmet til en rolle. Montører starter i feltportalen «I dag», kunder i
+ * kundeportalen, mens kontor og administrator beholder dashbordet.
+ */
+export function homePathForRole(role?: string | null): string {
+  if (role === "TECHNICIAN") return "/mine-oppdrag";
+  if (role === "CUSTOMER") return "/kundeportal";
+  return "/";
+}
+
+/**
  * Filtrerer menyen for en bruker. `permissions` er de effektive
  * rettighetene; tom liste faller tilbake til rollens standardrettigheter når
  * rollen er kjent (brukes av tester og eldre kall).
+ *
+ * Montører ser «I dag» i stedet for dashbordet, og rapportene flyttes ned i
+ * hamburgermenyen slik at hovedlinjen holder seg på fire arbeidsområder.
  */
 export function navItemsFor(
   role?: string | null,
@@ -140,13 +205,19 @@ export function navItemsFor(
   // Administrator ser alt, også når rettighetslista av en eller annen grunn
   // skulle være tom.
   const all = role === "ADMIN" ? new Set(["*"]) : new Set(effective);
+  const audience: NavAudience = role === "TECHNICIAN" ? "field" : "office";
   const allowed = (item: NavItem) =>
-    role === "ADMIN" ? true : hasAnyPermission(all, item.requires);
-  return STAFF_NAV.filter(allowed).map((item) =>
-    item.href === "/oppdrag/ny" && role === "TECHNICIAN"
-      ? { ...item, href: "/mine-oppdrag/ny" }
-      : item,
-  );
+    (!item.audience || item.audience === audience) &&
+    (role === "ADMIN" ? true : hasAnyPermission(all, item.requires));
+  return STAFF_NAV.filter(allowed).map((item) => {
+    if (item.href === "/oppdrag/ny" && role === "TECHNICIAN") {
+      return { ...item, href: "/mine-oppdrag/ny" };
+    }
+    if (item.href === "/rapporter" && role === "TECHNICIAN") {
+      return { ...item, section: "menu" as const };
+    }
+    return item;
+  });
 }
 
 /** Hovedarbeidsområdene som vises i toppmenyen på brede skjermer. */
@@ -167,6 +238,24 @@ export function settingsNavItem(
 }
 
 /**
+ * Fanene i mobilens bunnlinje. «Mer» er ikke et navigasjonselement – den
+ * åpner den eksisterende hovedmenyen – så den legges på av komponenten.
+ */
+export function mobileTabItemsFor(
+  role?: string | null,
+  permissions?: readonly string[] | null,
+): NavItem[] {
+  const items = navItemsFor(role, permissions);
+  const hrefs =
+    role === "TECHNICIAN"
+      ? ["/mine-oppdrag", "/oppdrag", "/varsler"]
+      : ["/", "/oppdrag", "/kalender"];
+  return hrefs
+    .map((href) => items.find((item) => item.href === href))
+    .filter((item): item is NavItem => Boolean(item));
+}
+
+/**
  * Finner elementet som skal markeres som aktivt. Den lengste treffende stien
  * vinner, slik at «/oppdrag/ny» ikke også markerer «/oppdrag».
  */
@@ -184,4 +273,10 @@ export function activeNavHref(
     }
   }
   return match;
+}
+
+/** Er en bunnfane aktiv? Rotnivået matcher bare nøyaktig. */
+export function isMobileTabActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
 }

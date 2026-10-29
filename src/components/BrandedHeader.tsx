@@ -19,21 +19,17 @@ import LogoutButton from "./LogoutButton";
 import { readableTextColor } from "@/lib/colors";
 import {
   activeNavHref,
+  homePathForRole,
+  isAuthPath,
   menuNavFor,
   navItemsFor,
+  OPEN_MENU_EVENT,
   primaryNavFor,
   settingsNavItem,
   type NavItem,
 } from "@/lib/navigation";
 
 const MENU_ID = "app-navigation";
-
-const AUTH_ROUTES = [
-  "/logg-inn",
-  "/glemt-passord",
-  "/tilbakestill-passord",
-  "/aktiver-konto",
-];
 
 const BREADCRUMB_LABELS: Record<string, string> = {
   "mine-oppdrag": "nav.myWorkOrders",
@@ -81,10 +77,10 @@ export default function BrandedHeader({
   const menuRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const lastMenuOpenerRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
   const closeMenu = useCallback(() => setOpenMenuForPath(null), []);
   const isCustomer = role === "CUSTOMER";
-
   const navItems = useMemo(
     () => (showNav ? navItemsFor(role, permissions) : []),
     [role, permissions, showNav],
@@ -95,17 +91,32 @@ export default function BrandedHeader({
   const activeHref = activeNavHref(navItems, pathname);
 
   // Innloggings- og kontosidene skal stå alene uten app-navigasjon.
-  const isAuthRoute = AUTH_ROUTES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  const isAuthRoute = isAuthPath(pathname);
   const showBreadcrumbs =
     showNav &&
     !isCustomer &&
     pathname !== "/" &&
+    pathname !== homePathForRole(role) &&
     !pathname.startsWith("/kundeportal");
 
-  // Fokus flyttes inn i menyen når den åpnes, og tilbake til knappen når den
-  // lukkes. Selve menyen er en dialog, så Tab holder seg innenfor.
+  // Mobilens bunnlinje har ingen egen meny. «Mer» sender denne hendelsen, og
+  // menyen åpnes på nytt med samme dialog, fokusfelle og fokusretur.
+  useEffect(() => {
+    const onOpenMenu = (event: Event) => {
+      if (!showNav || isAuthPath(pathname)) return;
+      const detail = (
+        event as CustomEvent<{ opener?: HTMLElement | null }>
+      ).detail;
+      lastMenuOpenerRef.current = detail?.opener ?? toggleRef.current;
+      setOpenMenuForPath(pathname);
+    };
+    window.addEventListener(OPEN_MENU_EVENT, onOpenMenu);
+    return () => window.removeEventListener(OPEN_MENU_EVENT, onOpenMenu);
+  }, [pathname, showNav]);
+
+  // Fokus flyttes inn i menyen når den åpnes, og tilbake til knappen som
+  // åpnet den når den lukkes. Selve menyen er en dialog, så Tab holder seg
+  // innenfor.
   useEffect(() => {
     if (!isMenuOpen) return;
     closeButtonRef.current?.focus();
@@ -170,7 +181,9 @@ export default function BrandedHeader({
     }
     if (wasOpenRef.current) {
       wasOpenRef.current = false;
-      toggleRef.current?.focus();
+      const opener = lastMenuOpenerRef.current ?? toggleRef.current;
+      lastMenuOpenerRef.current = null;
+      opener?.focus();
     }
   }, [isMenuOpen]);
 
@@ -184,9 +197,9 @@ export default function BrandedHeader({
     <div className="flex flex-col gap-0">
       {/* Topplinje: logo, hovednavigasjon og kontroller. Høyden er fast og
           navigasjonen brytes aldri over to rader. */}
-      <div className="flex h-16 items-center gap-2 border-b border-gray-100 bg-white px-4 sm:px-6 lg:gap-3 lg:px-8">
+      <div className="flex min-h-16 items-center gap-2 border-b border-gray-100 bg-white px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8">
         <Link
-          href={isCustomer ? "/kundeportal" : "/"}
+          href={isCustomer ? "/kundeportal" : homePathForRole(role)}
           className="flex shrink-0 items-center gap-3"
           suppressHydrationWarning
           style={{ color: pc }}
@@ -239,7 +252,14 @@ export default function BrandedHeader({
             <button
               ref={toggleRef}
               type="button"
-              onClick={() => setOpenMenuForPath(isMenuOpen ? null : pathname)}
+              onClick={() => {
+                if (isMenuOpen) {
+                  closeMenu();
+                  return;
+                }
+                lastMenuOpenerRef.current = toggleRef.current;
+                setOpenMenuForPath(pathname);
+              }}
               className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2.5 text-2xl leading-none text-gray-700 transition hover:bg-gray-100"
               aria-label={
                 isMenuOpen
@@ -255,7 +275,7 @@ export default function BrandedHeader({
         </div>
       </div>
 
-      {showBreadcrumbs && <Breadcrumbs pathname={pathname} />}
+      {showBreadcrumbs && <Breadcrumbs pathname={pathname} role={role} />}
 
       {/* Globalt søk (ikke for kundeportalbrukere). På mobil er søket
           sammenklappet som standard, slik at det ikke spiser første skjerm. */}
@@ -303,7 +323,7 @@ export default function BrandedHeader({
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${MENU_ID}-title`}
-            className="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-hidden bg-white shadow-2xl"
+            className="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-hidden bg-white pt-[env(safe-area-inset-top)] shadow-2xl"
           >
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-4">
               <h2
@@ -375,10 +395,13 @@ export default function BrandedHeader({
             </div>
 
             {(!isCustomer || settingsItem) && (
-              <div className="shrink-0 border-t border-gray-200 bg-white p-4">
+              <div className="shrink-0 border-t border-gray-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <div className="flex flex-col gap-2">
                   {!isCustomer && (
-                    <NotificationSoundToggle className="w-full justify-between" />
+                    <>
+                      <LanguageSwitcher />
+                      <NotificationSoundToggle className="w-full justify-between" />
+                    </>
                   )}
                   {settingsItem && (
                     <NavLink
@@ -412,8 +435,14 @@ function breadcrumbLabel(
   segment: string,
   parent: string | undefined,
   translate: (key: string) => string,
+  role?: string,
 ): string {
-  const key = BREADCRUMB_LABELS[segment];
+  const key =
+    segment === "mine-oppdrag" && role === "TECHNICIAN"
+      ? "nav.today"
+      : segment === "kunder" && parent === "mine-oppdrag"
+        ? "nav.customersEquipment"
+        : BREADCRUMB_LABELS[segment];
   if (key) return translate(key);
 
   const decoded = (() => {
@@ -431,10 +460,19 @@ function breadcrumbLabel(
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function Breadcrumbs({ pathname }: { pathname: string }) {
+function Breadcrumbs({
+  pathname,
+  role,
+}: {
+  pathname: string;
+  role?: string;
+}) {
   const t = useTranslations("common");
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return null;
+  const homeHref = homePathForRole(role);
+  const homeLabel =
+    homeHref === "/mine-oppdrag" ? t("nav.today") : t("nav.dashboard");
 
   return (
     <nav
@@ -444,16 +482,21 @@ function Breadcrumbs({ pathname }: { pathname: string }) {
       <ol className="flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
         <li className="shrink-0">
           <Link
-            href="/"
+            href={homeHref}
             className="rounded font-medium transition hover:text-gray-900 hover:underline"
           >
-            {t("nav.dashboard")}
+            {homeLabel}
           </Link>
         </li>
         {segments.map((segment, index) => {
           const isLast = index === segments.length - 1;
           const href = `/${segments.slice(0, index + 1).join("/")}`;
-          const label = breadcrumbLabel(segment, segments[index - 1], t);
+          const label = breadcrumbLabel(
+            segment,
+            segments[index - 1],
+            t,
+            role,
+          );
 
           return (
             <li key={href} className="flex min-w-0 items-center gap-1.5">

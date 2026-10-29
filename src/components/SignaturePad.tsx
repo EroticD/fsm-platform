@@ -44,10 +44,14 @@ export default function SignaturePad({
   const t = useTranslations("common");
   const padRef = useRef<SignatureCanvas>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
   const labelId = useId();
   const nameFieldId = useId();
+  const drawHintId = useId();
   const [expanded, setExpanded] = useState(false);
+  const [typedName, setTypedName] = useState("");
   const [dataUrl, setDataUrl] = useState(initialDataUrl ?? "");
   // Den gjenopprettede signaturen vises som «tidligere» helt til montøren
   // tegner en ny.
@@ -69,6 +73,40 @@ export default function SignaturePad({
   const clear = () => {
     padRef.current?.clear();
     setDataUrl("");
+    setShowExisting(false);
+  };
+
+  /**
+   * Tastaturvennlig alternativ til å tegne: navnet skrives inn og tegnes på et
+   * eget lerret. Resultatet lagres i samme skjulte felt som en tegnet signatur,
+   * så resten av rapportflyten er uendret.
+   */
+  const applyTypedSignature = () => {
+    const name = typedName.trim();
+    if (!name) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 220;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#111827";
+    context.textBaseline = "middle";
+
+    // Krymp skriften til navnet passer, uten å gjøre signaturen uleselig.
+    let fontSize = 52;
+    do {
+      context.font = `italic ${fontSize}px "Segoe Script", "Bradley Hand", cursive`;
+      if (context.measureText(name).width <= canvas.width - 80) break;
+      fontSize -= 2;
+    } while (fontSize > 20);
+    context.fillText(name, 40, canvas.height / 2, canvas.width - 80);
+
+    padRef.current?.clear();
+    setDataUrl(canvas.toDataURL("image/png"));
     setShowExisting(false);
   };
 
@@ -113,18 +151,48 @@ export default function SignaturePad({
     };
   }, []);
 
-  // Lås sidebakgrunnen og gi Escape en vei ut av fullskjermen.
+  // Lås sidebakgrunnen, hold fokus innenfor fullskjermen og gi Escape en vei ut.
+  // Når fullskjermen lukkes, flyttes fokus tilbake til utvid-knappen.
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded) {
+      if (restoreFocusRef.current) {
+        restoreFocusRef.current = false;
+        triggerRef.current?.focus({ preventScroll: true });
+      }
+      return;
+    }
 
+    restoreFocusRef.current = true;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus({ preventScroll: true });
+    triggerRef.current?.focus({ preventScroll: true });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         setExpanded(false);
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!dialogRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -137,6 +205,7 @@ export default function SignaturePad({
 
   return (
     <div
+      ref={dialogRef}
       className={
         expanded
           ? "fixed inset-0 z-[80] flex flex-col gap-3 overflow-y-auto bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
@@ -167,7 +236,7 @@ export default function SignaturePad({
             type="button"
             onClick={() => setExpanded((current) => !current)}
             aria-expanded={expanded}
-            ref={expanded ? closeButtonRef : undefined}
+            ref={triggerRef}
             className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 transition hover:bg-gray-50"
           >
             {expanded
@@ -180,9 +249,10 @@ export default function SignaturePad({
       {helperText && <p className="text-xs text-gray-600">{helperText}</p>}
 
       {expanded && (
-        <p className="text-xs font-bold text-gray-600">
-          {t("components.signature.landscapeHint")}
-        </p>
+        <div className="space-y-1 text-xs font-bold text-gray-600">
+          <p>{t("components.signature.landscapeHint")}</p>
+          <p>{t("p3.signature.focusHint")}</p>
+        </div>
       )}
 
       {existingUrl && showExisting && (
@@ -220,14 +290,44 @@ export default function SignaturePad({
               : "block h-48 w-full sm:h-56",
             style: { touchAction: "none" },
             "aria-label": label,
+            "aria-describedby": drawHintId,
           }}
           onEnd={handleEnd}
         />
       </div>
 
-      <p className="text-xs text-gray-600">
-        {t("components.signature.drawHint")}
+      <p id={drawHintId} className="text-xs text-gray-600">
+        {t("components.signature.drawHint")} {t("p3.signature.pointerHint")}
       </p>
+
+      {/* Tastaturalternativ: tegneflaten er pointer-basert, men navnet kan
+          skrives inn og gjøres om til en signatur uten mus eller finger. */}
+      <details className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+        <summary className="cursor-pointer text-xs font-bold text-gray-700">
+          ⌨️ {t("p3.signature.keyboardFallback")}
+        </summary>
+        <p className="mt-2 text-xs text-gray-600">
+          {t("p3.signature.keyboardHint")}
+        </p>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={typedName}
+            onChange={(event) => setTypedName(event.target.value)}
+            aria-label={t("p3.signature.keyboardLabel")}
+            placeholder={t("p3.signature.keyboardPlaceholder")}
+            className="min-w-0 flex-1 rounded-xl border-2 border-gray-300 bg-white p-2.5 text-base font-bold text-gray-900 focus:border-blue-700 sm:text-sm"
+          />
+          <button
+            type="button"
+            onClick={applyTypedSignature}
+            disabled={typedName.trim() === ""}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t("p3.signature.keyboardApply")}
+          </button>
+        </div>
+      </details>
 
       {nameFieldName && (
         <div className="space-y-1">
@@ -243,7 +343,7 @@ export default function SignaturePad({
             name={nameFieldName}
             defaultValue={defaultName || ""}
             placeholder={t("components.signature.namePlaceholder")}
-            className="w-full rounded-xl border-2 border-gray-300 bg-gray-50 p-2.5 text-sm font-bold text-gray-900 focus:border-blue-700"
+            className="w-full rounded-xl border-2 border-gray-300 bg-gray-50 p-2.5 text-base font-bold text-gray-900 focus:border-blue-700 sm:text-sm"
           />
         </div>
       )}

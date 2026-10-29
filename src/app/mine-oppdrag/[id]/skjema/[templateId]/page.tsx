@@ -10,6 +10,56 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 
+/**
+ * Brødsmulesti for skjemaet. Den peker alltid til oppdraget – ikke til
+ * `/skjema`, som er en mellomnivå-URL uten egen side.
+ */
+function FormBreadcrumb({
+  workOrderId,
+  workOrderTitle,
+  templateTitle,
+  workOrdersLabel,
+  breadcrumbLabel,
+}: {
+  workOrderId: string;
+  workOrderTitle: string;
+  templateTitle: string;
+  workOrdersLabel: string;
+  breadcrumbLabel: string;
+}) {
+  return (
+    <nav
+      aria-label={breadcrumbLabel}
+      className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500"
+    >
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <Link
+          href="/mine-oppdrag"
+          className="rounded font-medium transition hover:text-gray-900 hover:underline"
+        >
+          {workOrdersLabel}
+        </Link>
+        <span aria-hidden className="text-gray-300">/</span>
+      </span>
+      <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+        <Link
+          href={`/mine-oppdrag/${workOrderId}`}
+          className="max-w-[14rem] truncate rounded font-medium transition hover:text-gray-900 hover:underline"
+        >
+          {workOrderTitle}
+        </Link>
+        <span aria-hidden className="text-gray-300">/</span>
+      </span>
+      <span
+        aria-current="page"
+        className="max-w-full truncate font-semibold text-gray-700"
+      >
+        {templateTitle}
+      </span>
+    </nav>
+  );
+}
+
 export default async function TechnicianFillFormPage({
   params,
   searchParams,
@@ -83,9 +133,13 @@ export default async function TechnicianFillFormPage({
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-            <Link href={returnTo} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
-              {t("orders.fieldFormPage.backToWorkOrderShort")}
-            </Link>
+            <FormBreadcrumb
+              workOrderId={workOrderId}
+              workOrderTitle={workOrder.title}
+              templateTitle={template.title}
+              workOrdersLabel={t("nav.myWorkOrders")}
+              breadcrumbLabel={t("components.header.breadcrumb")}
+            />
             <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
             <p className="text-sm text-gray-600 mt-1">
               {t("orders.fieldFormPage.workOrderFor", {
@@ -190,9 +244,13 @@ export default async function TechnicianFillFormPage({
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <Link href={returnTo} className="text-sm text-blue-700 font-bold hover:underline mb-4 inline-block">
-            {t("orders.fieldFormPage.backToWorkOrderShort")}
-          </Link>
+          <FormBreadcrumb
+            workOrderId={workOrderId}
+            workOrderTitle={workOrder.title}
+            templateTitle={template.title}
+            workOrdersLabel={t("nav.myWorkOrders")}
+            breadcrumbLabel={t("components.header.breadcrumb")}
+          />
           <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
           <p className="text-sm text-gray-600 mt-1">
             {t("orders.fieldFormPage.workOrderFor", {

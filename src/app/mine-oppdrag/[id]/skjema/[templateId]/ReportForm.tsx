@@ -66,6 +66,13 @@ function isFieldVisible(
   return answerMatches(answers[field.conditionalFieldId], field.conditionalValue);
 }
 
+/** Et sjekkpunkt teller som besvart når feltet har en faktisk verdi. */
+function hasAnswer(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  return true;
+}
+
 /**
  * Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk.
  *
@@ -622,6 +629,32 @@ export default function ReportForm({
   const statusLabel = "block text-xs font-black uppercase tracking-wider text-gray-600 mb-2";
   const visibility = reportFormSections(requiresUnits);
 
+  // Stegstripen viser hvor langt montøren er, uten å måtte lese hele skjemaet.
+  const checkpointProgress = units.reduce(
+    (progress, unit) => {
+      for (const field of fields) {
+        if (!isFieldVisible(field, unit.answers)) continue;
+        progress.total += 1;
+        if (hasAnswer(unit.answers[field.id])) progress.answered += 1;
+      }
+      return progress;
+    },
+    { answered: 0, total: 0 },
+  );
+  const deviationCount = units.filter((unit) => unit.status === "AVVIK").length;
+  const firstImageFieldId = fields.find((field) => field.type === "IMAGE")?.id;
+  const photosHref = firstImageFieldId ? "#bilder" : "#sjekkpunkter";
+  const draftProgressLabel =
+    draftStatus === "saving"
+      ? t("orders.reportForm.stepDraftSaving")
+      : draftStatus === "error"
+        ? t("orders.reportForm.stepDraftError")
+        : draftStatus === "offline"
+          ? t("orders.reportForm.stepDraftOffline")
+          : draftStatus === "saved"
+            ? t("orders.reportForm.stepDraftSaved")
+            : t("orders.reportForm.stepDraftIdle");
+
   const submitErrorMessages: Record<string, string> = {
     "ugyldig-data": t("orders.reportForm.errorInvalidData"),
     "mangler-enhet": t("orders.reportForm.errorMissingUnit"),
@@ -663,7 +696,7 @@ export default function ReportForm({
       onChange={scheduleSave}
       onInput={scheduleSave}
       onSubmit={handleSubmit}
-      className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-8"
+      className="report-form bg-white p-5 sm:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-8"
     >
       <input type="hidden" name="workOrderId" value={workOrderId} />
       <input type="hidden" name="templateId" value={templateId} />
@@ -711,6 +744,81 @@ export default function ReportForm({
         </button>
       </div>
 
+      {/* Kompakt stegstripe: hopp til sjekkpunkter, bilder eller signering. */}
+      <nav
+        aria-label={t("orders.reportForm.stepsLabel")}
+        className="rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2.5"
+      >
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-bold">
+          <a href="#sjekkpunkter" className="text-blue-700 hover:underline">
+            ✓ {t("orders.reportForm.stepCheckpoints")}
+          </a>
+          <span aria-hidden className="text-gray-300">·</span>
+          <a href={photosHref} className="text-blue-700 hover:underline">
+            📷 {t("orders.reportForm.stepPhotos")}
+          </a>
+          <span aria-hidden className="text-gray-300">·</span>
+          <a href="#signer" className="text-blue-700 hover:underline">
+            ✍️ {t("orders.reportForm.stepSignatures")}
+          </a>
+        </div>
+        <div
+          className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-gray-600"
+          aria-live="polite"
+        >
+          <span>
+            {t("orders.reportForm.stepProgress", {
+              answered: checkpointProgress.answered,
+              total: checkpointProgress.total,
+            })}
+          </span>
+          {deviationCount > 0 && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="text-red-700">
+                {t("orders.reportForm.stepDeviations", {
+                  count: deviationCount,
+                })}
+              </span>
+            </>
+          )}
+          <span aria-hidden>·</span>
+          <span
+            className={
+              draftStatus === "error"
+                ? "text-red-700"
+                : draftStatus === "offline"
+                  ? "text-amber-800"
+                  : "text-gray-600"
+            }
+          >
+            {draftProgressLabel}
+          </span>
+        </div>
+        {checkpointProgress.total > 0 && (
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={checkpointProgress.total}
+            aria-valuenow={checkpointProgress.answered}
+            aria-label={t("orders.reportForm.stepProgress", {
+              answered: checkpointProgress.answered,
+              total: checkpointProgress.total,
+            })}
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200"
+          >
+            <div
+              className="h-full rounded-full bg-blue-700 transition-[width]"
+              style={{
+                width: `${Math.round(
+                  (checkpointProgress.answered / checkpointProgress.total) * 100,
+                )}%`,
+              }}
+            />
+          </div>
+        )}
+      </nav>
+
       {(initialDraft || localDraftRestored) && (
         <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm font-medium">
           {t("orders.reportForm.draftRestored")}
@@ -736,7 +844,10 @@ export default function ReportForm({
       )}
 
       {/* ENHETER – eller sjekkpunkter for en rapport uten enheter */}
-      <div className="space-y-4 border-t-2 border-b-2 border-gray-200 py-6">
+      <div
+        id="sjekkpunkter"
+        className="scroll-mt-24 space-y-4 border-t-2 border-b-2 border-gray-200 py-6"
+      >
         {requiresUnits ? (
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
@@ -788,84 +899,16 @@ export default function ReportForm({
             }
           >
             {requiresUnits && (
-              <>
-                <div className="flex justify-between items-center gap-3">
-                  <h3 className="font-black text-gray-900">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
-                  <button
-                    type="button"
-                    onClick={() => setUnitToRemove(unit.key)}
-                    className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap"
-                  >
-                    {t("orders.reportForm.removeUnit")}
-                  </button>
-                </div>
-
-                {customerUnits.length > 0 && (
-                  <div>
-                    <label htmlFor={`${formId}-${unit.key}-product`} className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
-                    <select
-                      id={`${formId}-${unit.key}-product`}
-                      value={unit.productId}
-                      onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
-                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-                    >
-                      <option value="">{t("orders.reportForm.newUnit")}</option>
-                      {customerUnits.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.model}
-                          {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
-                          {u.location ? ` – ${u.location}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label htmlFor={`${formId}-${unit.key}-label`} className={statusLabel}>{t("orders.reportForm.labelField")}</label>
-                    <input
-                      id={`${formId}-${unit.key}-label`}
-                      type="text"
-                      required
-                      value={unit.label}
-                      onChange={(e) => patchUnit(unit.key, { label: e.target.value })}
-                      placeholder={t("orders.reportForm.labelPlaceholder")}
-                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={`${formId}-${unit.key}-serial`} className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
-                    <input
-                      id={`${formId}-${unit.key}-serial`}
-                      type="text"
-                      value={unit.serialNumber}
-                      onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
-                      placeholder={t("orders.reportForm.serialNumberPlaceholder")}
-                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={`${formId}-${unit.key}-location`} className={statusLabel}>{t("orders.reportForm.location")}</label>
-                    <input
-                      id={`${formId}-${unit.key}-location`}
-                      type="text"
-                      value={unit.location}
-                      onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
-                      placeholder={t("orders.reportForm.locationPlaceholder")}
-                      className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
-                    />
-                  </div>
-                </div>
-
-                {unit.productId ? (
-                  <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
-                ) : (
-                  unit.label.trim() !== "" && (
-                    <p className="text-[11px] font-bold text-blue-700">{t("orders.reportForm.newUnitSaved")}</p>
-                  )
-                )}
-              </>
+              <div className="flex justify-between items-center gap-3">
+                <h3 className="font-black text-gray-900">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
+                <button
+                  type="button"
+                  onClick={() => setUnitToRemove(unit.key)}
+                  className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap"
+                >
+                  {t("orders.reportForm.removeUnit")}
+                </button>
+              </div>
             )}
 
             {/* RESULTAT – enhetsstatus finnes bare når malen bruker enheter. */}
@@ -938,6 +981,11 @@ export default function ReportForm({
                         })
                       }
                       workOrderId={workOrderId}
+                      anchorId={
+                        field.type === "IMAGE" && field.id === firstImageFieldId
+                          ? "bilder"
+                          : undefined
+                      }
                     />
                   ))}
               </div>
@@ -983,6 +1031,92 @@ export default function ReportForm({
                 />
               </div>
             )}
+
+            {/* Enhetsmetadata er sjelden i felt. På mobil ligger den derfor
+                sammenklappet under sjekkpunktene, mens den er synlig på desktop. */}
+            {requiresUnits && (
+              <details className="group rounded-xl border border-gray-200 bg-gray-50/70">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-gray-800 sm:hidden [&::-webkit-details-marker]:hidden">
+                  <span>🔧 {t("orders.reportForm.unitDetails")}</span>
+                  <span aria-hidden className="text-xs text-gray-500 group-open:hidden">＋</span>
+                  <span aria-hidden className="hidden text-xs text-gray-500 group-open:inline">−</span>
+                </summary>
+                <div className="hidden space-y-3 border-t border-gray-200 p-3 group-open:block sm:block sm:border-0 sm:p-0">
+                  {customerUnits.length > 0 && (
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-product`} className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
+                      <select
+                        id={`${formId}-${unit.key}-product`}
+                        value={unit.productId}
+                        onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
+                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                      >
+                        <option value="">{t("orders.reportForm.newUnit")}</option>
+                        {customerUnits.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.model}
+                            {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
+                            {u.location ? ` – ${u.location}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-label`} className={statusLabel}>{t("orders.reportForm.labelField")}</label>
+                      <input
+                        id={`${formId}-${unit.key}-label`}
+                        type="text"
+                        required
+                        value={unit.label}
+                        onChange={(e) => patchUnit(unit.key, { label: e.target.value })}
+                        onInvalid={(e) => {
+                          // Åpne enhetsdetaljene når et påkrevd felt skjuler seg
+                          // bak den sammenklappede seksjonen på mobil.
+                          const details =
+                            e.currentTarget.closest<HTMLDetailsElement>("details");
+                          if (details) details.open = true;
+                        }}
+                        placeholder={t("orders.reportForm.labelPlaceholder")}
+                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-serial`} className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
+                      <input
+                        id={`${formId}-${unit.key}-serial`}
+                        type="text"
+                        value={unit.serialNumber}
+                        onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
+                        placeholder={t("orders.reportForm.serialNumberPlaceholder")}
+                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-location`} className={statusLabel}>{t("orders.reportForm.location")}</label>
+                      <input
+                        id={`${formId}-${unit.key}-location`}
+                        type="text"
+                        value={unit.location}
+                        onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
+                        placeholder={t("orders.reportForm.locationPlaceholder")}
+                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                      />
+                    </div>
+                  </div>
+
+                  {unit.productId ? (
+                    <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
+                  ) : (
+                    unit.label.trim() !== "" && (
+                      <p className="text-[11px] font-bold text-blue-700">{t("orders.reportForm.newUnitSaved")}</p>
+                    )
+                  )}
+                </div>
+              </details>
+            )}
           </div>
         ))}
       </div>
@@ -1002,7 +1136,10 @@ export default function ReportForm({
       </div>
 
       {/* SIGNATURER */}
-      <div className="border-t-2 border-b-2 border-gray-200 py-6 space-y-6">
+      <div
+        id="signer"
+        className="scroll-mt-24 border-t-2 border-b-2 border-gray-200 py-6 space-y-6"
+      >
         <div>
           <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.signatures")}</h2>
           <p className="text-[11px] text-gray-500">
@@ -1034,8 +1171,9 @@ export default function ReportForm({
       </div>
       </div>
 
-      {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd. */}
-      <div className="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd.
+          CSS-en skjuler den mens et felt har fokus, se globals.css. */}
+      <div className="report-sticky-submit sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         {!online && (
           <p
             id="report-offline-notice"

@@ -11,8 +11,8 @@ export default async function NotificationSettingsPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-5 p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-3 border-b border-gray-200 pb-4">
-        <div>
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">{t("p3.notificationSettings.title")}</h1>
           <p className="text-sm text-gray-600">
             {t("p3.notificationSettings.description")}
@@ -20,7 +20,7 @@ export default async function NotificationSettingsPage() {
         </div>
         <Link
           href="/varsler"
-          className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+          className="inline-flex max-sm:min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 sm:w-auto"
         >
           {t("p3.notificationSettings.toNotifications")}
         </Link>

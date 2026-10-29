@@ -136,7 +136,7 @@ export default async function SearchAnalyticsView({
                   {t("searchAdmin.topQueries.empty")}
                 </p>
               ) : (
-                <div className="mt-4 overflow-x-auto" tabIndex={0}>
+                <div className="mt-4 overflow-x-auto" role="region" aria-label={t("searchAdmin.topQueries.title")} tabIndex={0}>
                   <table className="w-full text-left text-sm">
                     <caption className="sr-only">
                       {t("searchAdmin.topQueries.title")}
@@ -183,7 +183,7 @@ export default async function SearchAnalyticsView({
                   {t("searchAdmin.topZeroQueries.empty")}
                 </p>
               ) : (
-                <div className="mt-4 overflow-x-auto" tabIndex={0}>
+                <div className="mt-4 overflow-x-auto" role="region" aria-label={t("searchAdmin.topZeroQueries.title")} tabIndex={0}>
                   <table className="w-full text-left text-sm">
                     <caption className="sr-only">
                       {t("searchAdmin.topZeroQueries.title")}
@@ -226,7 +226,7 @@ export default async function SearchAnalyticsView({
             <p className="mt-1 text-sm text-gray-500">
               {t("searchAdmin.daily.description")}
             </p>
-            <div className="mt-4 overflow-x-auto" tabIndex={0}>
+            <div className="mt-4 hidden overflow-x-auto sm:block" role="region" aria-label={t("searchAdmin.daily.caption")} tabIndex={0}>
               <table className="w-full min-w-[36rem] text-left text-sm">
                 <caption className="sr-only">
                   {t("searchAdmin.daily.caption")}
@@ -286,6 +286,56 @@ export default async function SearchAnalyticsView({
                 </tbody>
               </table>
             </div>
+
+            {/* På mobil vises dagstallene som kort, uten vannrett scrolling. */}
+            <ul className="mt-4 divide-y divide-gray-100 sm:hidden">
+              {data.daily.map((row) => (
+                <li key={row.date} className="space-y-2 py-3 first:pt-0 last:pb-0">
+                  <time
+                    dateTime={row.date}
+                    className="text-sm font-bold text-gray-900"
+                  >
+                    {formatDateLocalized(row.date, locale)}
+                  </time>
+                  <dl className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <dt className="font-bold uppercase tracking-wider text-gray-500">
+                        {t("searchAdmin.daily.count")}
+                      </dt>
+                      <dd className="mt-0.5 font-bold text-gray-900">
+                        {formatSearchCount(row.count, locale)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-bold uppercase tracking-wider text-gray-500">
+                        {t("searchAdmin.daily.zeroResults")}
+                      </dt>
+                      <dd className="mt-0.5 text-gray-700">
+                        {formatSearchCount(row.zeroResultCount, locale)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-2 flex-1 rounded-full bg-gray-100"
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="h-2 rounded-full bg-blue-600"
+                        style={{
+                          width: `${barWidthPercent(row.count, busiestDay)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="sr-only">
+                      {t("searchAdmin.daily.barLabel", {
+                        count: formatSearchCount(row.count, locale),
+                      })}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </section>
         </>
       )}

@@ -14,6 +14,7 @@ import {
 } from "@/lib/session-token";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
+import { homePathForRole } from "@/lib/navigation";
 import { clientIpFrom } from "@/lib/client-ip";
 import { cleanEmail } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
@@ -31,6 +32,9 @@ export async function loginAction(formData: FormData): Promise<never> {
       ? (formData.get("callbackUrl") as string)
       : null
   );
+  // Skjemaet sender alltid med en skjult callbackUrl. Bare en faktisk
+  // mellomlagret destinasjon skal overstyre rollens hjem.
+  const hasExplicitCallback = callbackUrl !== "/";
 
   const fail = (error: string): string => {
     const params = new URLSearchParams({ error });
@@ -96,7 +100,9 @@ export async function loginAction(formData: FormData): Promise<never> {
   }
 
   await createSessionCookie(result.user);
-  redirect(callbackUrl);
+  redirect(
+    hasExplicitCallback ? callbackUrl : homePathForRole(result.user.role)
+  );
 }
 
 /**
@@ -109,6 +115,7 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
       ? (formData.get("callbackUrl") as string)
       : null
   );
+  const hasExplicitCallback = callbackUrl !== "/";
 
   const fail = (error: string): string => {
     const params = new URLSearchParams({ error });
@@ -175,7 +182,7 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
     sessionVersion: user.sessionVersion,
   });
 
-  redirect(callbackUrl);
+  redirect(hasExplicitCallback ? callbackUrl : homePathForRole(user.role));
 }
 
 /**
@@ -191,6 +198,7 @@ export async function verifyRecoveryCodeAction(
       ? (formData.get("callbackUrl") as string)
       : null,
   );
+  const hasExplicitCallback = callbackUrl !== "/";
 
   const fail = (error: string, recovery = false): string => {
     const params = new URLSearchParams({ error });
@@ -260,5 +268,5 @@ export async function verifyRecoveryCodeAction(
     sessionVersion: user.sessionVersion,
   });
 
-  redirect(callbackUrl);
+  redirect(hasExplicitCallback ? callbackUrl : homePathForRole(user.role));
 }

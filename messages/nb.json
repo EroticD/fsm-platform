@@ -464,6 +464,8 @@
     "nav": {
       "dashboard": "Dashbord",
       "myWorkOrders": "Mine oppdrag",
+      "today": "I dag",
+      "customersEquipment": "Kunder & utstyr",
       "workOrders": "Oppdrag",
       "calendar": "Kalender",
       "customers": "Kunder",

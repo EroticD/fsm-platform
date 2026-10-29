@@ -347,8 +347,9 @@ export default async function HmsPage({
                 </p>
               </div>
             ) : (
-              <div className="mt-4 overflow-x-auto" tabIndex={0}>
-                <table className="w-full min-w-[720px] text-left text-sm">
+              <>
+              <div className="mt-4 hidden overflow-x-auto sm:block" role="region" aria-label={t("hms.recent.title")} tabIndex={0}>
+                <table className="w-full text-left text-sm">
                   <caption className="sr-only">{t("hms.recent.title")}</caption>
                   <thead>
                     <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
@@ -428,6 +429,71 @@ export default async function HmsPage({
                   </tbody>
                 </table>
               </div>
+
+              {/* På mobil blir den brede tabellen korte, stablede rader. */}
+              <ul className="mt-4 divide-y divide-gray-100 sm:hidden">
+                {recentReports.map((report) => (
+                  <li key={report.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <Link
+                        href={workOrderHref(report.workOrder.id)}
+                        className="min-w-0 break-words font-bold text-blue-800 hover:underline"
+                      >
+                        {report.workOrder.title}
+                      </Link>
+                      <StatusBadge status={report.workOrder.status} />
+                    </div>
+                    <p className="break-words text-xs text-gray-600">
+                      {report.workOrder.customerId
+                        ? `🏢 ${report.workOrder.customerName || t("hms.customerWorkOrder")}`
+                        : `🏠 ${t("hms.internalWorkOrder")}`}
+                      {report.workOrder.orderNumber
+                        ? ` • #${report.workOrder.orderNumber}`
+                        : ""}
+                    </p>
+                    <dl className="space-y-1 text-xs">
+                      <div className="flex flex-wrap gap-x-2">
+                        <dt className="font-bold text-gray-700">
+                          {t("hms.recent.report")}:
+                        </dt>
+                        <dd className="min-w-0 break-words text-gray-900">
+                          {report.reportName || t("hms.recent.unknownReport")}
+                          {" • "}
+                          {typeLabel(report.hmsType)}
+                        </dd>
+                      </div>
+                      <div className="flex flex-wrap gap-x-2">
+                        <dt className="font-bold text-gray-700">
+                          {t("hms.recent.completed")}:
+                        </dt>
+                        <dd className="text-gray-700">
+                          {formatDateLocalized(
+                            report.completedAt,
+                            locale,
+                            undefined,
+                            t("hms.recent.noDate"),
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="flex flex-wrap gap-3 text-xs font-bold">
+                      <Link
+                        href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
+                        className="inline-flex min-h-11 items-center text-blue-800 hover:underline"
+                      >
+                        📄 {t("hms.recent.viewPdf")}
+                      </Link>
+                      <Link
+                        href={workOrderHref(report.workOrder.id)}
+                        className="inline-flex min-h-11 items-center text-gray-700 hover:underline"
+                      >
+                        📂 {t("hms.recent.openWorkOrder")}
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              </>
             )}
           </section>
         )}
