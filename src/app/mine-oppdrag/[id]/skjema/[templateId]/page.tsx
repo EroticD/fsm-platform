@@ -45,6 +45,8 @@ export default async function TechnicianFillFormPage({
       customer: {
         include: { products: { orderBy: { model: "asc" } } },
       },
+      // Oppdragets kontaktperson er standard kundenavn i signaturfeltet.
+      contact: { select: { name: true } },
       templates: { where: { id: templateId } },
     },
   });
@@ -203,6 +205,7 @@ export default async function TechnicianFillFormPage({
           defaultUnitId={workOrder.productId}
           requiresUnits={template.requiresUnits}
           technicianName={user.name || undefined}
+          defaultCustomerName={workOrder.contact?.name ?? undefined}
           initialReport={initialReport}
           initialDraft={initialDraft}
           draftUpdatedAt={draft?.updatedAt.toISOString()}

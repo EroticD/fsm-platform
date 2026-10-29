@@ -528,6 +528,7 @@
       "errorInvalidData": "⛔ Rapporten mangler eller har ugyldige opplysninger. Rett opp feltene under og prøv igjen.",
       "errorMissingUnit": "⛔ Rapporten mangler enhet. Legg til minst én enhet og prøv igjen.",
       "errorSignature": "⛔ Signeringen feilet. Prøv å signere på nytt, eller kontakt en administrator.",
+      "errorInvalidSignerName": "⛔ Signeringsnavnet må være en av kontaktpersonene/teknikerne på oppdraget.",
       "errorLocked": "🔒 Rapporten er låst og ble ikke sendt inn. En administrator må låse den opp først.",
       "errorLegalHold": "⛔ Rapporten er fryst av bevaringsplikt og kan ikke sendes inn.",
       "errorGeneric": "⛔ Rapporten kunne ikke sendes inn. Sjekk feltene og prøv igjen.",

@@ -25,6 +25,7 @@ import { getCurrentUser } from "@/lib/session";
 import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
+import { reportWorkOrderScope } from "@/lib/report-scope";
 
 // ------------------------------------------------------------------
 // Hjelpere (definert utenfor komponenten slik at render forblir ren)
@@ -249,12 +250,14 @@ const FIELD_ACTIONS = [
 
 async function DashboardKpis({
   scope,
+  reportScope,
   visibleStatus,
   organisationScope,
   dateContext,
   locale,
 }: {
   scope: Prisma.WorkOrderWhereInput;
+  reportScope: Prisma.WorkOrderWhereInput;
   visibleStatus: Prisma.WorkOrderWhereInput;
   organisationScope: Prisma.CustomerWhereInput;
   dateContext: DateContext;
@@ -290,7 +293,7 @@ async function DashboardKpis({
       where: {
         deletedAt: null,
         completedAt: { gte: startOfMonth },
-        workOrder: scope,
+        workOrder: { deletedAt: null, ...reportScope },
       },
     }),
     prisma.customer.count({ where: organisationScope }),
@@ -995,6 +998,7 @@ export default async function AdminDashboard({
     ? {}
     : { status: { not: "CANCELLED" } };
   const scope = workOrderScope(user);
+  const reportScope = reportWorkOrderScope(user);
   // Kunde- og enhets-KPI-ene skal følge samme avdelingssperre som oppdragene.
   // Administrator ser hele organisasjonen; andre ser egen avdeling.
   const organisationScope: Prisma.CustomerWhereInput = {
@@ -1069,6 +1073,7 @@ export default async function AdminDashboard({
         <Suspense fallback={<KpiSectionFallback label={loadingLabel} />}>
           <DashboardKpis
             scope={scope}
+            reportScope={reportScope}
             visibleStatus={visibleStatus}
             organisationScope={organisationScope}
             dateContext={dateContext}

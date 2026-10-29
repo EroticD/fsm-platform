@@ -119,6 +119,7 @@ export default function ReportForm({
   defaultUnitId,
   requiresUnits = true,
   technicianName,
+  defaultCustomerName,
   initialReport,
   initialDraft,
   draftUpdatedAt,
@@ -134,6 +135,8 @@ export default function ReportForm({
   /** Når false brukes én anonym oppføring uten enhetsfelter. */
   requiresUnits?: boolean;
   technicianName?: string;
+  /** Oppdragets kontaktperson – forhåndsutfyller kundens signaturnavn. */
+  defaultCustomerName?: string;
   initialReport?: InitialReport;
   /** Autolagret kladd – brukes hvis den finnes, ellers den lagrede rapporten. */
   initialDraft?: InitialReport;
@@ -576,6 +579,7 @@ export default function ReportForm({
     "ugyldig-data": t("orders.reportForm.errorInvalidData"),
     "mangler-enhet": t("orders.reportForm.errorMissingUnit"),
     signatur: t("orders.reportForm.errorSignature"),
+    "ugyldig-signaturnavn": t("orders.reportForm.errorInvalidSignerName"),
     locked: t("orders.reportForm.errorLocked"),
     "legal-hold": t("orders.reportForm.errorLegalHold"),
   };
@@ -948,7 +952,9 @@ export default function ReportForm({
           <SignaturePad
             name="customerSignature"
             nameFieldName="customerName"
-            defaultName={seed?.customerName ?? undefined}
+            defaultName={
+              seed?.customerName?.trim() ? seed.customerName : defaultCustomerName
+            }
             label={t("orders.reportForm.customerSignature")}
             helperText={t("orders.reportForm.customerHelper")}
             existingUrl={seed?.customerSignatureUrl}

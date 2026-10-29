@@ -341,11 +341,15 @@
         },
         "reports_view": {
           "label": "Se rapporter",
-          "description": "Se og laste ned servicerapporter fra alle avdelinger."
+          "description": "Se og laste ned servicerapporter fra egen avdeling."
         },
         "reports_write": {
           "label": "Fylle ut rapporter",
           "description": "Fylle ut og lagre sjekklister på oppdrag i egen avdeling."
+        },
+        "reports_viewAllDepartments": {
+          "label": "Se rapporter fra alle avdelinger",
+          "description": "Se og laste ned rapporter fra andre avdelinger enn egen. Administrator har alltid denne tilgangen."
         },
         "documents_view": {
           "label": "Se dokumenter",

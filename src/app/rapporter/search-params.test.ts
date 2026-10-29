@@ -98,6 +98,24 @@ describe("reportListWhere", () => {
     const where = reportListWhere(filters());
     expect(where.AND).toHaveLength(1);
   });
+
+  it("legger rapportomfanget på oppdraget uten å overstyre filtrene", () => {
+    const where = reportListWhere(filters({ q: "pumpe" }), false, {
+      departmentId: "dep-a",
+      department: { isActive: true },
+      deletedAt: null,
+    });
+
+    const parts = where.AND as Array<Record<string, unknown>>;
+    expect(parts).toContainEqual({
+      workOrder: {
+        departmentId: "dep-a",
+        department: { isActive: true },
+        deletedAt: null,
+      },
+    });
+    expect(JSON.stringify(parts)).toContain('"contains":"pumpe"');
+  });
 });
 
 describe("reportListOrderBy", () => {

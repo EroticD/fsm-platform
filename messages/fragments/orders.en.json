@@ -528,6 +528,7 @@
       "errorInvalidData": "⛔ The report is missing or contains invalid information. Correct the fields below and try again.",
       "errorMissingUnit": "⛔ The report is missing a unit. Add at least one unit and try again.",
       "errorSignature": "⛔ Signing failed. Try signing again, or contact an administrator.",
+      "errorInvalidSignerName": "⛔ The signer name must be one of the work order's contact persons or technicians.",
       "errorLocked": "🔒 The report is locked and was not submitted. An administrator must unlock it first.",
       "errorLegalHold": "⛔ The report is frozen by legal hold and cannot be submitted.",
       "errorGeneric": "⛔ The report could not be submitted. Check the fields and try again.",

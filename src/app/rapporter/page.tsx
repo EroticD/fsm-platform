@@ -7,6 +7,7 @@ import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder, staffWhere } from "@/lib/access";
+import { reportWorkOrderScope } from "@/lib/report-scope";
 import {
   reportDisplayName,
   reportUnitSummary,
@@ -79,11 +80,13 @@ export default async function ReportsPage({
   const rawParams = await searchParams;
   const filters = parseReportListParams(rawParams);
   const excludeCancelled = user.role === "TECHNICIAN";
-  const where = reportListWhere(filters, excludeCancelled);
+  const reportScope = reportWorkOrderScope(user);
+  const where = reportListWhere(filters, excludeCancelled, reportScope);
 
-  // Rapporter er delbare på tvers av avdelinger for ansatte med reports.view.
-  // Oppdragslistene er fortsatt avdelingsavgrensede, og oppdragslenken under
-  // vises bare når brukeren faktisk har tilgang til oppdraget.
+  // Rapporter vises på tvers av avdelinger bare for administrator og ansatte
+  // som er eksplisitt gitt reports.viewAllDepartments. Oppdragslistene er
+  // fortsatt avdelingsavgrensede, og oppdragslenken under vises bare når
+  // brukeren faktisk har tilgang til oppdraget.
   const total = await prisma.report.count({ where });
   const pageParam = Array.isArray(rawParams.side)
     ? rawParams.side[0]
@@ -117,16 +120,22 @@ export default async function ReportsPage({
       where: reportListWhere(
         { ...filters, range: "denne-maneden" },
         excludeCancelled,
+        reportScope,
       ),
     }),
     prisma.report.count({
       where: reportListWhere(
         { ...filters, range: "forrige-maned" },
         excludeCancelled,
+        reportScope,
       ),
     }),
     prisma.report.count({
-      where: reportListWhere({ ...filters, range: "alle" }, excludeCancelled),
+      where: reportListWhere(
+        { ...filters, range: "alle" },
+        excludeCancelled,
+        reportScope,
+      ),
     }),
   ]);
 

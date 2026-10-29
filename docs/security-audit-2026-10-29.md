@@ -13,7 +13,10 @@ recovery, offline caches, and lifecycle gaps after deletion/deactivation.
 ## Remediation status (2026-10-29, branch `security/hardening-0.7.6`)
 
 **Fixed:** SEC-01–SEC-09, SEC-10–SEC-14, SEC-16–SEC-20, SEC-22–SEC-27,
-SEC-29–SEC-31, SEC-33–SEC-39.
+SEC-29–SEC-31, SEC-33–SEC-39. Cross-department report visibility is now an
+explicit `reports.viewAllDepartments` permission (off for all roles except
+ADMIN), and signer names are validated against the work order contact,
+customer contacts, assigned technicians and the acting user.
 
 **Partially fixed / mitigated:**
 - **SEC-15** — JSON/form routes have hard limits; uploads are gated to four
@@ -24,14 +27,17 @@ SEC-29–SEC-31, SEC-33–SEC-39.
 - **SEC-32** — reset/activation error redirects no longer re-embed tokens; the
   initial email link still carries the token in the query string.
 - **SEC-11** — signature reuse across reports and arbitrary same-order uploads
-  are blocked; signer names are still free text (needs a delegation model).
+  are blocked; signer names are validated against known people. No explicit
+  delegation record is stored.
 - **SEC-18** — separate migration/runtime DB URLs are supported and documented,
   but not enforced; existing single-user deployments still work.
+- **SEC-40** — local drafts now expire after 7 days and page caches after 8
+  hours; at-rest encryption/PIN is still not implemented.
 
-**Deferred / requires product decision:** cross-department report visibility,
-mandatory 2FA for admins, customer erasure/anonymisation, server-side booking
-availability enforcement, map provider key exposure, and encryption/PIN for
-offline drafts at rest (SEC-40).
+**Deferred / requires product decision:** mandatory 2FA for admins, customer
+erasure/anonymisation, server-side booking availability enforcement, map
+provider key exposure, and PDF active-content sanitisation. Secure defaults for
+these are documented in `SECURITY.md` (“Standardvalg”).
 
 
 ---

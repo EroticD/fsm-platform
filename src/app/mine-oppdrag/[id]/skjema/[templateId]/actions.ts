@@ -118,6 +118,10 @@ export async function submitReport(formData: FormData) {
     case "signatur":
       await saveDraftService(user, formData);
       redirectToFormError(formData, "signatur", result.returnTo);
+    case "ugyldig-signaturnavn":
+      // Behold skjemaet som kladd slik at montøren kan rette signaturnavnet.
+      await saveDraftService(user, formData);
+      redirectToFormError(formData, "ugyldig-signaturnavn", result.returnTo);
     case "locked":
       redirectToFormError(formData, "locked", result.returnTo);
     case "legal-hold":

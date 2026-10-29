@@ -58,6 +58,20 @@ standalone-bygget. Sjekk gjerne at en ny `.env`-variant faktisk er ignorert:
 git check-ignore -v .env.production
 ```
 
+## Standardverdier
+
+Utgangspunktet er de sikre standardvalgene i
+[`SECURITY.md`](../SECURITY.md#standardvalg). Det som påvirker den daglige
+driften:
+
+| Område | Standard | Slik overstyrer du |
+| --- | --- | --- |
+| Offline | 8 timers sidecache og 7 dagers lokale rapportkladder | `NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS` (valgfri, bygges inn i klienten) |
+| Database | Én rolle for både app og migrasjoner | `DATABASE_RUNTIME_URL` og `DATABASE_MIGRATION_URL`, se «Databaseroller» |
+| Backup | Produksjon nekter å ta backup uten `BACKUP_AGE_RECIPIENT` | `REQUIRE_BACKUP_ENCRYPTION=true` krever kryptering også lokalt |
+| Opplasting | 4 samtidige kroppslesinger per instans og 50 MB per PDF | `UPLOAD_BODY_CONCURRENCY` og `UPLOAD_MAX_DOCUMENT_MB`; proxyen må fortsatt sette egne grenser |
+| 2FA | Valgfritt, men anbefalt for `ADMIN` og `OFFICE` | Brukeren slår det på under Innstillinger → Sikkerhet; administrator kan nullstille |
+
 ## Minne og swap (1 GB Droplet)
 
 Compose-grensene er dimensjonert for en 1 GB Droplet:

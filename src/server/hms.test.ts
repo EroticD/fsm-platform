@@ -232,6 +232,27 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
     );
   });
 
+  it("lar reports.viewAllDepartments se HMS-rapporter fra alle avdelinger", async () => {
+    await getHmsOverview(
+      actor([
+        "templates.view",
+        "reports.view",
+        "workorders.view",
+        "reports.viewAllDepartments",
+      ]),
+    );
+
+    expect(mocks.prisma.report.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          templateCategory: "HMS",
+          deletedAt: null,
+          workOrder: { deletedAt: null, department: { isActive: true } },
+        },
+      }),
+    );
+  });
+
   it("skjuler HMS-rapporter på kansellerte oppdrag for montører", async () => {
     const result = await getHmsOverview(
       actor(["templates.view", "reports.view"], { role: "TECHNICIAN" }),
@@ -257,7 +278,7 @@ describe("getHmsOverview – HMS-dokumentasjon", () => {
         where: {
           templateCategory: "HMS",
           deletedAt: null,
-          workOrder: { deletedAt: null },
+          workOrder: { deletedAt: null, department: { isActive: true } },
         },
       }),
     );

@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  EXPIRED_DRAFT_FAILURE_REASON,
   enqueueOutbox,
+  getOfflineDraft,
   listDraftsForUser,
   listOutbox,
   listOutboxForUser,
+  OFFLINE_DRAFT_MAX_AGE_DAYS,
+  OFFLINE_DRAFT_MAX_AGE_MS,
   putOfflineDraft,
 } from "./db";
 import { MAX_OUTBOX_PAYLOAD_BYTES } from "./outbox-order";
@@ -22,6 +26,18 @@ function installFakeIndexedDb() {
     return {
       put(value: Row) {
         values.set(value.id ?? value.key ?? "", value);
+      },
+      get(key: string) {
+        const request = {
+          result: null as unknown,
+          onsuccess: null as (() => void) | null,
+          onerror: null as (() => void) | null,
+        };
+        setTimeout(() => {
+          request.result = values.get(key);
+          request.onsuccess?.();
+        }, 0);
+        return request;
       },
       delete(key: string) {
         values.delete(key);
@@ -119,9 +135,11 @@ function installFakeIndexedDb() {
   return stores;
 }
 
+let stores: ReturnType<typeof installFakeIndexedDb>;
+
 beforeEach(() => {
   vi.unstubAllGlobals();
-  installFakeIndexedDb();
+  stores = installFakeIndexedDb();
 });
 
 describe("enqueueOutbox", () => {
@@ -181,13 +199,14 @@ describe("enqueueOutbox", () => {
 
 describe("listDraftsForUser", () => {
   it("returnerer bare brukerens egne kladder", async () => {
+    const now = Date.now();
     await putOfflineDraft({
       key: "u1:wo1:tpl1",
       userId: "u1",
       workOrderId: "wo1",
       templateId: "tpl1",
       payload: JSON.stringify({ notes: "a" }),
-      updatedAt: 1,
+      updatedAt: now - 1_000,
     });
     await putOfflineDraft({
       key: "u2:wo1:tpl1",
@@ -195,11 +214,109 @@ describe("listDraftsForUser", () => {
       workOrderId: "wo1",
       templateId: "tpl1",
       payload: JSON.stringify({ notes: "b" }),
-      updatedAt: 2,
+      updatedAt: now - 500,
     });
 
-    const drafts = await listDraftsForUser("u1");
+    const drafts = await listDraftsForUser("u1", now);
     expect(drafts).toHaveLength(1);
     expect(drafts[0].key).toBe("u1:wo1:tpl1");
+  });
+});
+
+describe("utløp for lokale kladder", () => {
+  const now = 1_800_000_000_000;
+
+  function draft(overrides: {
+    key: string;
+    workOrderId: string;
+    updatedAt: number;
+  }) {
+    return {
+      userId: "u1",
+      templateId: "tpl1",
+      payload: JSON.stringify({ notes: overrides.key }),
+      ...overrides,
+    };
+  }
+
+  it("beholder en kladd på grensen og ignorerer en som er ett millisekund eldre", async () => {
+    expect(OFFLINE_DRAFT_MAX_AGE_MS).toBe(
+      OFFLINE_DRAFT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const boundary = now - OFFLINE_DRAFT_MAX_AGE_MS;
+    await putOfflineDraft(
+      draft({ key: "u1:wo1:tpl1", workOrderId: "wo1", updatedAt: boundary }),
+    );
+    await putOfflineDraft(
+      draft({ key: "u1:wo2:tpl1", workOrderId: "wo2", updatedAt: boundary - 1 }),
+    );
+
+    const drafts = await listDraftsForUser("u1", now);
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].key).toBe("u1:wo1:tpl1");
+    expect(stores.get("drafts")?.has("u1:wo2:tpl1")).toBe(false);
+    await expect(
+      getOfflineDraft("u1:wo2:tpl1", now),
+    ).resolves.toBeNull();
+  });
+
+  it("ignorerer og rydder en utløpt kladd ved direkte oppslag", async () => {
+    await putOfflineDraft(
+      draft({
+        key: "u1:wo1:tpl1",
+        workOrderId: "wo1",
+        updatedAt: now - OFFLINE_DRAFT_MAX_AGE_MS - 1,
+      }),
+    );
+
+    await expect(getOfflineDraft("u1:wo1:tpl1", now)).resolves.toBeNull();
+    expect(stores.get("drafts")?.has("u1:wo1:tpl1")).toBe(false);
+  });
+
+  it("beholder outbox-oppføringen, men markerer den som utløpt", async () => {
+    await putOfflineDraft(
+      draft({
+        key: "u1:wo1:tpl1",
+        workOrderId: "wo1",
+        updatedAt: now - OFFLINE_DRAFT_MAX_AGE_MS - 1,
+      }),
+    );
+    await enqueueOutbox(
+      JSON.stringify({
+        workOrderId: "wo1",
+        templateId: "tpl1",
+        notes: "gammel",
+      }),
+      "u1",
+    );
+
+    await expect(listDraftsForUser("u1", now)).resolves.toEqual([]);
+
+    const items = await listOutboxForUser("u1");
+    expect(items).toHaveLength(1);
+    expect(items[0].failedAt).toBeGreaterThan(0);
+    expect(items[0].failureReason).toBe(EXPIRED_DRAFT_FAILURE_REASON);
+  });
+
+  it("markerer ikke en fersk kladds outbox-oppføring som feilet", async () => {
+    await putOfflineDraft(
+      draft({
+        key: "u1:wo1:tpl1",
+        workOrderId: "wo1",
+        updatedAt: now - OFFLINE_DRAFT_MAX_AGE_MS,
+      }),
+    );
+    await enqueueOutbox(
+      JSON.stringify({ workOrderId: "wo1", templateId: "tpl1" }),
+      "u1",
+    );
+
+    await expect(listDraftsForUser("u1", now)).resolves.toHaveLength(1);
+
+    const items = await listOutboxForUser("u1");
+    expect(items).toHaveLength(1);
+    expect(items[0].failedAt).toBeUndefined();
+    expect(items[0].failureReason).toBeUndefined();
   });
 });

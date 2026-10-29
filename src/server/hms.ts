@@ -2,6 +2,7 @@ import type { HmsFormType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { AccessUser } from "@/lib/access";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
+import { reportWorkOrderScope } from "@/lib/report-scope";
 import {
   can,
   fail,
@@ -132,17 +133,18 @@ export async function getHmsOverview(
       }))
     : [];
 
-  // Rapporter er felles på tvers av avdelinger i rapportlisten, men HMS-siden
-  // er en oppdragsoversikt og følger derfor samme avdelingssperre som
-  // oppdragene. Montører skal i tillegg ikke se HMS-dokumentasjon på
-  // kansellerte oppdrag – samme regel som rapportlisten og PDF-visningen.
+  // Rapporter følger rapportomfanget: alle avdelinger for administrator og
+  // roller med `reports.viewAllDepartments`, ellers egen avdeling. Montører
+  // skal i tillegg ikke se HMS-dokumentasjon på kansellerte oppdrag – samme
+  // regel som rapportlisten og PDF-visningen.
   const reports = canViewReports
     ? await prisma.report.findMany({
         where: {
           templateCategory: "HMS",
           deletedAt: null,
           workOrder: {
-            ...workOrderScopeFor(actor),
+            deletedAt: null,
+            ...reportWorkOrderScope(actor),
             ...(actor.role === "TECHNICIAN"
               ? { status: { not: "CANCELLED" as const } }
               : {}),

@@ -248,10 +248,10 @@ export async function markDraftSynced(input: {
  * ble avvist fordi outboxen var utilgjengelig) legges i køen før sending.
  */
 async function enqueueUnsyncedDrafts(userId: string): Promise<void> {
-  const [drafts, outbox] = await Promise.all([
-    listDraftsForUser(userId),
-    listOutboxForUser(userId),
-  ]);
+  // Les kladdene først: listingen rydder eventuelle utløpte kladder og
+  // markerer tilhørende outbox-oppføringer som feilet før køen leses.
+  const drafts = await listDraftsForUser(userId);
+  const outbox = await listOutboxForUser(userId);
   const newestByReport = new Map<string, number>();
   for (const item of outbox) {
     const identity = itemReportIdentity(item);
@@ -287,10 +287,10 @@ export async function pendingDraftSummary(
 ): Promise<DraftSummary> {
   if (!userId) return { pending: 0, failed: 0 };
 
-  const [drafts, outbox] = await Promise.all([
-    listDraftsForUser(userId),
-    listOutboxForUser(userId),
-  ]);
+  // Les kladdene først, slik at utløpte kladder rekker å markere outboxen som
+  // feilet før oppføringene telles.
+  const drafts = await listDraftsForUser(userId);
+  const outbox = await listOutboxForUser(userId);
   const pendingKeys = new Set<string>();
   const failedKeys = new Set<string>();
 

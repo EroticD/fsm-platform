@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import type { AccessUser } from "@/lib/access";
+import { canAccessReportWorkOrder } from "@/lib/report-scope";
 import {
   parseRevisionUnits,
   type RevisionSnapshotSource,
@@ -11,9 +12,10 @@ import {
  * Lesetjeneste for rapportrevisjoner.
  *
  * Revisjonene er uforanderlige øyeblikksbilder. Tjenesten skriver aldri, og
- * bruker samme tilgangsregler som PDF-viseren: ansatte med `reports.view` ser
- * rapporter på tvers av avdelinger, mens kundeportalbrukere bare ser rapporter
- * som tilhører deres egen kunde. Mykt slettede rapporter og oppdrag er skjult.
+ * bruker samme tilgangsregler som PDF-viseren: ansatte ser rapporter i egen
+ * avdeling, mens administrator og roller med `reports.viewAllDepartments` ser
+ * rapporter på tvers av avdelinger. Kundeportalbrukere ser bare rapporter som
+ * tilhører deres egen kunde. Mykt slettede rapporter og oppdrag er skjult.
  */
 
 type Actor = AccessUser | null;
@@ -106,6 +108,8 @@ const REPORT_ACCESS_SELECT = {
       status: true,
       scheduledFor: true,
       customerId: true,
+      departmentId: true,
+      department: { select: { isActive: true } },
       deletedAt: true,
       customer: { select: { name: true, deletedAt: true } },
     },
@@ -131,6 +135,8 @@ type AccessibleReport = {
     status: string;
     scheduledFor: Date | null;
     customerId: string | null;
+    departmentId: string | null;
+    department: { isActive: boolean } | null;
     deletedAt: Date | null;
     customer: { name: string; deletedAt: Date | null } | null;
   };
@@ -142,6 +148,9 @@ function canViewWorkOrder(
   workOrder: {
     customerId: string | null;
     status: string;
+    departmentId: string | null;
+    department?: { isActive: boolean } | null;
+    departmentIsActive?: boolean | null;
     customer?: { deletedAt: Date | null } | null;
   },
 ): boolean {
@@ -159,6 +168,15 @@ function canViewWorkOrder(
   }
 
   if (!hasPermission(viewer, "reports.view")) return false;
+  if (
+    !canAccessReportWorkOrder(viewer, {
+      departmentId: workOrder.departmentId,
+      departmentIsActive:
+        workOrder.departmentIsActive ?? workOrder.department?.isActive,
+    })
+  ) {
+    return false;
+  }
   // Kansellerte oppdrag er lukket for montørene, også revisjonene.
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return false;
@@ -415,6 +433,8 @@ export async function getWorkOrderRevisionOverview(
       status: true,
       scheduledFor: true,
       customerId: true,
+      departmentId: true,
+      department: { select: { isActive: true } },
       customer: { select: { name: true, deletedAt: true } },
       reports: {
         where: { deletedAt: null },

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
+import { canAccessReportWorkOrder } from "@/lib/report-scope";
 
 /** Bare interne stier godtas som «tilbake»-mål. */
 function safeReturnTo(value: string | undefined): string | null {
@@ -34,6 +35,8 @@ export default async function ReportViewerPage({
       id: true,
       title: true,
       customerId: true,
+      departmentId: true,
+      department: { select: { isActive: true } },
       status: true,
       customer: { select: { id: true, name: true } },
     },
@@ -60,9 +63,18 @@ export default async function ReportViewerPage({
   if (viewer.role !== "CUSTOMER" && !hasPermission(viewer, "reports.view")) {
     redirect("/");
   }
-  // Ansatte med reports.view kan åpne rapporter fra alle avdelinger, selv om
-  // selve oppdraget ikke er synlig i oppdragslistene deres. Kansellerte
-  // oppdrag er fortsatt lukket for montørene, også rapportene deres.
+  // Ansatte ser bare rapporter i egen avdeling med mindre de er eksplisitt gitt
+  // reports.viewAllDepartments. Administrator ser alle. Kansellerte oppdrag er
+  // fortsatt lukket for montørene, også rapportene deres.
+  if (
+    viewer.role !== "CUSTOMER" &&
+    !canAccessReportWorkOrder(viewer, {
+      departmentId: workOrder.departmentId,
+      departmentIsActive: workOrder.department?.isActive,
+    })
+  ) {
+    redirect("/rapporter");
+  }
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     redirect("/rapporter");
   }

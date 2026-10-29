@@ -56,6 +56,8 @@ function reportRow(overrides: Record<string, unknown> = {}) {
       status: "COMPLETED",
       scheduledFor: new Date("2026-01-02T00:00:00Z"),
       customerId: "cust-1",
+      departmentId: "dep-a",
+      department: { isActive: true },
       deletedAt: null,
       customer: { name: "Kunde AS", deletedAt: null },
     },
@@ -167,6 +169,76 @@ describe("listReportRevisions – tilgang", () => {
       actor({ role: "TECHNICIAN" }),
       "rep1",
     );
+
+    expect(result).toEqual({ ok: false, error: "forbidden" });
+  });
+
+  it("lar ansatte lese revisjoner i egen avdeling", async () => {
+    mocks.prisma.report.findFirst.mockResolvedValue(reportRow());
+
+    const result = await listReportRevisions(actor(), "rep1");
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("nekter revisjoner fra en annen avdeling uten reports.viewAllDepartments", async () => {
+    mocks.prisma.report.findFirst.mockResolvedValue(
+      reportRow({
+        workOrder: { ...reportRow().workOrder, departmentId: "dep-b" },
+      }),
+    );
+
+    const result = await listReportRevisions(actor(), "rep1");
+
+    expect(result).toEqual({ ok: false, error: "forbidden" });
+    expect(mocks.prisma.reportRevision.findMany).not.toHaveBeenCalled();
+  });
+
+  it("lar ansatte med reports.viewAllDepartments lese en annen avdeling", async () => {
+    mocks.prisma.report.findFirst.mockResolvedValue(
+      reportRow({
+        workOrder: { ...reportRow().workOrder, departmentId: "dep-b" },
+      }),
+    );
+
+    const result = await listReportRevisions(
+      actor({
+        roleDefinition: {
+          permissions: ["reports.view", "reports.viewAllDepartments"],
+        },
+      } as never),
+      "rep1",
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("lar administrator lese revisjoner i en annen avdeling", async () => {
+    mocks.prisma.report.findFirst.mockResolvedValue(
+      reportRow({
+        workOrder: { ...reportRow().workOrder, departmentId: "dep-b" },
+      }),
+    );
+
+    const result = await listReportRevisions(
+      actor({ role: "ADMIN", roleDefinition: null } as never),
+      "rep1",
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("nekter revisjoner i en deaktivert avdeling", async () => {
+    mocks.prisma.report.findFirst.mockResolvedValue(
+      reportRow({
+        workOrder: {
+          ...reportRow().workOrder,
+          department: { isActive: false },
+        },
+      }),
+    );
+
+    const result = await listReportRevisions(actor(), "rep1");
 
     expect(result).toEqual({ ok: false, error: "forbidden" });
   });

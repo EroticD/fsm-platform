@@ -1882,10 +1882,11 @@ describe("getReportPdfForViewer", () => {
     expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
   });
 
-  it("lar ansatte hente en opplåst rapport", async () => {
+  it("lar ansatte hente en opplåst rapport i egen avdeling", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
-      departmentId: "dep-b",
+      departmentId: "dep-a",
+      department: { isActive: true },
       status: "OPEN",
       customer: { deletedAt: null },
       reports: [{ id: "r1", isLocked: false }],
@@ -1896,18 +1897,73 @@ describe("getReportPdfForViewer", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
-  it("lar ansatt med reports.view hente rapport fra en annen avdeling", async () => {
+  it("avviser ansatt uten reports.viewAllDepartments i en annen avdeling", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
       departmentId: "dep-b",
+      department: { isActive: true },
       status: "OPEN",
       reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(actor(), "wo1");
 
+    expect(result).toMatchObject({ ok: false, status: 403 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("lar ansatt med reports.viewAllDepartments hente rapport fra en annen avdeling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      department: { isActive: true },
+      status: "OPEN",
+      reports: [{ id: "r1", isLocked: true }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({
+        roleDefinition: {
+          permissions: ["reports.view", "reports.viewAllDepartments"],
+        },
+      }),
+      "wo1",
+    );
+
     expect(result).toMatchObject({ ok: true });
     expect(mocks.getOrRenderReportPdf).toHaveBeenCalledWith("wo1", undefined);
+  });
+
+  it("lar administrator hente rapport fra en annen avdeling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      department: { isActive: true },
+      status: "OPEN",
+      reports: [{ id: "r1", isLocked: true }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "ADMIN", roleDefinition: null }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it("avviser rapport i en deaktivert avdeling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-a",
+      department: { isActive: false },
+      status: "OPEN",
+      reports: [{ id: "r1", isLocked: true }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1");
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
   });
 
   it("slår bare opp ikke-slettede oppdrag og rapporter", async () => {
@@ -1943,6 +1999,8 @@ describe("getReportPdfForViewer", () => {
   it("avviser montør på et kansellert oppdrag", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
+      departmentId: "dep-a",
+      department: { isActive: true },
       status: "CANCELLED",
       reports: [{ id: "r1", isLocked: true }],
     });
@@ -1955,7 +2013,8 @@ describe("getReportPdfForViewer", () => {
   it("rendrer bare den valgte rapporten når den tilhører oppdraget", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
-      departmentId: "dep-b",
+      departmentId: "dep-a",
+      department: { isActive: true },
       status: "OPEN",
       reports: [
         { id: "r1", isLocked: true },
@@ -1976,7 +2035,8 @@ describe("getReportPdfForViewer", () => {
   it("avviser en rapport-id som ikke tilhører oppdraget", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
-      departmentId: "dep-b",
+      departmentId: "dep-a",
+      department: { isActive: true },
       status: "OPEN",
       reports: [{ id: "r1", isLocked: true }],
     });
@@ -2072,5 +2132,203 @@ describe("betingede felt og bevaringsplikt", () => {
 
     expect(result).toEqual({ ok: false });
     expect(mocks.prisma.reportDraft.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("signaturnavn", () => {
+  function workOrderWithSigners() {
+    return {
+      ...workOrder(),
+      contact: { name: "Kontakt Person" },
+      technicians: [{ name: "Ola Tekniker" }],
+      customer: {
+        name: "Kunde AS",
+        contacts: [{ name: "Annen Kontakt" }],
+      },
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.storeDataImage.mockResolvedValue("/uploads/signatur.png");
+    mocks.deleteUploadIfOwned.mockResolvedValue(undefined);
+    mocks.notifyWorkOrderEvent.mockResolvedValue(1);
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+  });
+
+  it("godtar kundens kontaktperson som kundenavn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    const tx = withTransaction();
+    const data = formData();
+    data.set("customerName", "  kontakt person ");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ customerName: "kontakt person" }),
+      select: { id: true },
+    });
+  });
+
+  it("godtar en annen kontaktperson hos kunden", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    withTransaction();
+    const data = formData();
+    data.set("customerName", "ANNEN KONTAKT");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+  });
+
+  it("godtar kundens firmanavn som kundenavn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    withTransaction();
+    const data = formData();
+    data.set("customerName", "Kunde AS");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+  });
+
+  it("avviser ukjent kundenavn når kunden har kontakter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    const data = formData();
+    data.set("customerName", "Ukjent Person");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-signaturnavn",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("godtar innlogget bruker eller tildelt tekniker som teknikernavn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    withTransaction();
+
+    const byActor = formData();
+    byActor.set("technicianName", " kari ");
+    expect(await submitReport(actor(), byActor)).toEqual({
+      ok: true,
+      returnTo: "/oppdrag/wo1",
+    });
+
+    const byAssigned = formData();
+    byAssigned.set("technicianName", "OLA TEKNIKER");
+    expect(await submitReport(actor(), byAssigned)).toEqual({
+      ok: true,
+      returnTo: "/oppdrag/wo1",
+    });
+  });
+
+  it("avviser ukjent teknikernavn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    const data = formData();
+    data.set("technicianName", "Ukjent Tekniker");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-signaturnavn",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("godtar samme person som både tekniker og kunde", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      contact: { name: "Ola Tekniker" },
+      technicians: [{ name: "Ola Tekniker" }],
+      customer: { name: "Kunde AS", contacts: [] },
+    });
+    withTransaction();
+    const data = formData();
+    data.set("technicianName", "Ola Tekniker");
+    data.set("customerName", "Ola Tekniker");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+  });
+
+  it("tillater fritt kundenavn når oppdraget mangler kontakter og kundenavn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      contact: null,
+      technicians: [],
+      customer: null,
+    });
+    withTransaction();
+    const data = formData();
+    data.set("technicianName", "Kari");
+    data.set("customerName", "Vilkårlig Navn");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+  });
+
+  it("beholder lagrede navn når skjemaet ikke sender navn", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      legalHold: false,
+      technicianSignatureUrl: null,
+      technicianName: "Gammel Tekniker",
+      customerSignatureUrl: null,
+      customerName: "Gammel Kunde",
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () =>
+            revisionSource({
+              technicianName: "Gammel Tekniker",
+              customerName: "Gammel Kunde",
+            }),
+          ),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+    const data = formData();
+    data.set("technicianName", "");
+    data.set("customerName", "");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(tx.report.update).toHaveBeenCalledWith({
+      where: { id: "r1" },
+      data: expect.objectContaining({
+        technicianName: "Gammel Tekniker",
+        customerName: "Gammel Kunde",
+      }),
+    });
+  });
+
+  it("validerer ikke signaturnavn ved kladdelagring", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrderWithSigners());
+    mocks.prisma.reportDraft.findUnique.mockResolvedValue(null);
+    mocks.prisma.reportDraft.upsert.mockResolvedValue({});
+    const data = formData();
+    data.set("technicianName", "Ukjent Tekniker");
+    data.set("customerName", "Ukjent Kunde");
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.reportDraft.upsert).toHaveBeenCalled();
   });
 });

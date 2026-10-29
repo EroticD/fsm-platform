@@ -19,6 +19,7 @@ export const PERMISSION_KEYS = [
   "equipment.manage",
   "reports.view",
   "reports.write",
+  "reports.viewAllDepartments",
   "documents.view",
   "documents.manage",
   "templates.view",
@@ -136,13 +137,20 @@ const PERMISSION_DEFINITIONS: Omit<
     key: "reports.view",
     group: "Rapporter og dokumenter",
     label: "Se rapporter",
-    description: "Se og laste ned servicerapporter fra alle avdelinger.",
+    description: "Se og laste ned servicerapporter fra egen avdeling.",
   },
   {
     key: "reports.write",
     group: "Rapporter og dokumenter",
     label: "Fylle ut rapporter",
     description: "Fylle ut og lagre sjekklister på oppdrag i egen avdeling.",
+  },
+  {
+    key: "reports.viewAllDepartments",
+    group: "Rapporter og dokumenter",
+    label: "Se rapporter fra alle avdelinger",
+    description:
+      "Se og laste ned rapporter fra andre avdelinger enn egen. Administrator har alltid denne tilgangen.",
   },
   {
     key: "documents.view",

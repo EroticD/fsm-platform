@@ -399,6 +399,34 @@ describe("searchReports", () => {
     expect(lastSql().text).not.toContain("'CANCELLED'");
   });
 
+  it("avgrenser søket til en aktiv avdeling når kalleren ber om det", async () => {
+    await searchReports("pumpe", {
+      limit: 5,
+      includeCancelled: true,
+      departmentId: "dep-a",
+    });
+
+    const sql = lastSql();
+    expect(sql.text).toContain('w."departmentId" = ');
+    expect(sql.text).toContain('FROM "Department" d');
+    expect(sql.text).toContain('d."isActive"');
+    expect(sql.text).not.toContain("dep-a");
+    expect(sql.values).toContain("dep-a");
+  });
+
+  it("gir ingen treff når aktøren ikke har noen avdeling", async () => {
+    await searchReports("pumpe", {
+      limit: 5,
+      includeCancelled: true,
+      departmentId: null,
+    });
+
+    const sql = lastSql();
+    expect(sql.text).toContain("1 = 0");
+    expect(sql.text).toContain('FROM "Department" d');
+    expect(sql.text).toContain('d."isActive"');
+  });
+
   it("returnerer ingen treff for et tomt søkeord", async () => {
     await expect(
       searchReports(" --- ", { limit: 5, includeCancelled: false }),

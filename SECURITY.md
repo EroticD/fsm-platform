@@ -33,10 +33,29 @@ Aktuelle områder:
 - PDF-generering og tekstuttrekk/OCR
 - XSS, SQL-injeksjon og lekkasje av hemmeligheter eller persondata
 
+## Standardvalg
+
+Disse standardene er valgt for å være sikre uten å låse driften. Overstyr dem
+bare bevisst, og dokumenter hvorfor.
+
+| Område | Standard |
+| --- | --- |
+| Rapporter på tvers av avdelinger | **Av** for alle roller unntatt `ADMIN`. Roller som skal se alle avdelinger, må få `reports.viewAllDepartments` eksplisitt. |
+| To-trinns verifisering | Valgfritt. Anbefales for `ADMIN` og `OFFICE`, men tvinges ikke for å unngå innlåsing. Administrator kan nullstille 2FA. |
+| Offline | Sidecache i 8 timer og lokale rapportkladder i 7 dager. Brukeren kan forkaste kladdene eksplisitt. |
+| Bookinger | Forespørsler, ikke reservasjoner; kontoret bekrefter. Serveren håndhever eierskap, frister og rate limits. Ledig tid er veiledende. |
+| PDF | Leveres som vedlegg. Aktivt innhold strippes ikke; skann eller sanitér filene eksternt. |
+| Opplasting | Maks 4 samtidige kroppslesinger per instans og 50 MB per PDF. Proxyen må håndheve grenser for kropp, tilkoblinger og tidsavbrudd. |
+| Database | Én databasebruker som standard. Valgfri deling i migrasjons- og runtime-rolle er dokumentert i `docs/OPERATIONS.md`. |
+| Backup | Produksjon feiler lukket uten age-kryptering (`BACKUP_AGE_RECIPIENT`). |
+| Kartnøkkel | Bruk en domenebegrenset publishable-token, ikke en hemmelig servernøkkel. |
+| Reset- og invitasjonslenker | Første e-postlenke inneholder tokenet (vanlig standard). Feilomdirigeringer inneholder det ikke. |
+
 ## Sikkerhetsnotater for drift
 
 - To-trinns verifisering (TOTP) er tilgjengelig for alle innloggede under
-  Innstillinger → Sikkerhet. Oppfordre administratorer til å slå det på.
+  Innstillinger → Sikkerhet. Den er valgfri som standard for å unngå innlåsing,
+  men anbefales for `ADMIN` og `OFFICE`. Administrator kan nullstille 2FA.
 - Innlogging, passordnullstilling, 2FA-innstillinger, opplasting, søk,
   kommentarer, PDF-visning, kundeportal-booking og iCal har
   hastighetsbegrensning. Tellerne ligger i databasen og deles mellom
@@ -45,8 +64,9 @@ Aktuelle områder:
   databasepassordet hvis de kan ha vært eksponert.
 - Kjør bak en reverse proxy med TLS, og sett `NEXTAUTH_URL` til den offentlige
   `https://`-adressen.
-- Begrens størrelsen på forespørsler i proxyen. Appen godtar inntil 100 MB per
-  opplasting.
+- Begrens størrelsen på forespørsler i proxyen. Appen godtar inntil 55 MB per
+  opplasting (50 MB PDF pluss multipart-overhead) og leser maks 4 samtidige
+  kropper per instans. Proxyen må også begrense tilkoblinger og tidsavbrudd.
 - Jobbkøen for PDF-tekst/OCR og rate limits ligger i databasen og fungerer med
   flere app-instanser. PDF-renderingen har en prosesslokal semaphore (maks 2
   samtidige per instans).

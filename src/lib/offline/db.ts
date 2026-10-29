@@ -7,6 +7,7 @@
  */
 import {
   isAttemptLimitReached,
+  isOutboxTerminal,
   isPayloadWithinLimit,
   itemReportIdentity,
   payloadReportIdentity,
@@ -20,6 +21,52 @@ const DB_NAME = "fsm-offline";
 const DB_VERSION = 1;
 const DRAFT_STORE = "drafts";
 const OUTBOX_STORE = "outbox";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_OFFLINE_DRAFT_MAX_AGE_DAYS = 7;
+
+/**
+ * Standard maksimal alder for lokale rapportkladder.
+ *
+ * En kladd som har ligget urørt lenger enn dette, kan mangle endringer som er
+ * gjort på serveren og skal ikke sendes automatisk. Den ryddes derfor bort når
+ * den leses eller listes. En eventuell outbox-oppføring for samme rapport
+ * beholdes, men markeres som feilet med `EXPIRED_DRAFT_FAILURE_REASON`, slik
+ * at brukeren kan velge å prøve igjen eller forkaste den bevisst.
+ *
+ * Kan overstyres med `NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS` ved bygg fordi
+ * verdien brukes i nettleseren.
+ */
+export const OFFLINE_DRAFT_MAX_AGE_DAYS = (() => {
+  const configured = Number(
+    process.env.NEXT_PUBLIC_OFFLINE_DRAFT_MAX_AGE_DAYS,
+  );
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_OFFLINE_DRAFT_MAX_AGE_DAYS;
+})();
+
+export const OFFLINE_DRAFT_MAX_AGE_MS =
+  OFFLINE_DRAFT_MAX_AGE_DAYS * DAY_MS;
+
+/** Årsakskode for outbox-oppføringer som mistet sin lokale kladd til utløp. */
+export const EXPIRED_DRAFT_FAILURE_REASON = "draft-expired";
+
+/**
+ * Er kladden eldre enn maksimal alder? Grensen er inklusiv: en kladd som er
+ * nøyaktig `OFFLINE_DRAFT_MAX_AGE_MS` gammel, regnes fortsatt som fersk.
+ * Manglende eller ugyldig tidsstempel regnes som utløpt, mens et tidspunkt i
+ * fremtiden beholdes (klokkejustering skal ikke slette brukerens arbeid).
+ */
+export function isOfflineDraftExpired(
+  updatedAt: number,
+  now = Date.now(),
+): boolean {
+  if (!Number.isFinite(updatedAt) || updatedAt <= 0 || !Number.isFinite(now)) {
+    return true;
+  }
+  return now - updatedAt > OFFLINE_DRAFT_MAX_AGE_MS;
+}
 
 export type OfflineDraft = {
   key: string;
@@ -147,13 +194,70 @@ export async function putOfflineDraft(draft: OfflineDraft): Promise<void> {
   });
 }
 
+/** Sletter flere kladder i én transaksjon. */
+async function deleteDrafts(keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+  await withStore(DRAFT_STORE, "readwrite", async (store) => {
+    for (const key of keys) store.delete(key);
+    return undefined;
+  });
+}
+
+/**
+ * Markerer ventende outbox-oppføringer for en utløpt kladd som terminale.
+ * Selve oppføringen slettes ikke: payloaden er brukerens eneste kopi når den
+ * lokale kladden er ryddet, og skal kunne forsøkes eller forkastes bevisst.
+ */
+async function markOutboxExpiredForDraft(draft: OfflineDraft): Promise<void> {
+  const identity: ReportIdentity = {
+    workOrderId: draft.workOrderId,
+    templateId: draft.templateId,
+  };
+  await withStore(OUTBOX_STORE, "readwrite", async (store) => {
+    const items =
+      (await requestResult<OutboxItem[]>(store.getAll())) ?? [];
+    const failedAt = Date.now();
+    for (const item of items) {
+      if (item.userId !== draft.userId || isOutboxTerminal(item)) continue;
+      const itemIdentity = itemReportIdentity(item);
+      if (!itemIdentity || !sameReport(itemIdentity, identity)) continue;
+      store.put({
+        ...item,
+        failedAt,
+        failureReason: EXPIRED_DRAFT_FAILURE_REASON,
+        nextAttemptAt: 0,
+      });
+    }
+    return undefined;
+  });
+}
+
+/**
+ * Rydder utløpte kladder og sørger for at en eventuell outbox-oppføring
+ * fortsatt er synlig som feilet. Outboxen markeres før kladden slettes, slik
+ * at et avbrutt ryddeforsøk ikke kan etterlate en automatisk sendbar gammel
+ * payload uten lokal kladd.
+ */
+async function expireDrafts(drafts: OfflineDraft[]): Promise<void> {
+  if (drafts.length === 0) return;
+  for (const draft of drafts) {
+    await markOutboxExpiredForDraft(draft);
+  }
+  await deleteDrafts(drafts.map((draft) => draft.key));
+}
+
 export async function getOfflineDraft(
   key: string,
+  now = Date.now(),
 ): Promise<OfflineDraft | null> {
   const result = await withStore(DRAFT_STORE, "readonly", async (store) =>
     requestResult<OfflineDraft | undefined>(store.get(key)),
   );
-  return result ?? null;
+  const draft = result ?? null;
+  if (!draft) return null;
+  if (!isOfflineDraftExpired(draft.updatedAt, now)) return draft;
+  await expireDrafts([draft]);
+  return null;
 }
 
 export async function deleteOfflineDraft(key: string): Promise<void> {
@@ -165,11 +269,20 @@ export async function deleteOfflineDraft(key: string): Promise<void> {
 
 export async function listDraftsForUser(
   userId: string,
+  now = Date.now(),
 ): Promise<OfflineDraft[]> {
   const result = await withStore(DRAFT_STORE, "readonly", async (store) =>
     requestResult<OfflineDraft[]>(store.getAll()),
   );
-  return (result ?? []).filter((draft) => draft.userId === userId);
+  const drafts = (result ?? []).filter((draft) => draft.userId === userId);
+  const fresh = drafts.filter(
+    (draft) => !isOfflineDraftExpired(draft.updatedAt, now),
+  );
+  const expired = drafts.filter((draft) =>
+    isOfflineDraftExpired(draft.updatedAt, now),
+  );
+  await expireDrafts(expired);
+  return fresh;
 }
 
 /**

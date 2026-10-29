@@ -341,11 +341,15 @@
         },
         "reports_view": {
           "label": "View reports",
-          "description": "View and download service reports from all departments."
+          "description": "View and download service reports from your own department."
         },
         "reports_write": {
           "label": "Fill in reports",
           "description": "Fill in and save checklists on work orders in your own department."
+        },
+        "reports_viewAllDepartments": {
+          "label": "View reports from all departments",
+          "description": "View and download reports from departments other than your own. Administrators always have this access."
         },
         "documents_view": {
           "label": "View documents",

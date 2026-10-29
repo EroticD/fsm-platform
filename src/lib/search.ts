@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/dates";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import { departmentUsersScope, workOrderScope, type AccessUser } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
+import { canViewAllDepartmentReports } from "@/lib/report-scope";
 import {
   parseSearchFilters,
   workOrderFilterWhere,
@@ -261,6 +262,11 @@ export async function performSearch(
   const canWorkOrders = hasPermission(user, "workorders.view");
   const canEquipment = hasPermission(user, "equipment.view");
   const canReports = hasPermission(user, "reports.view");
+  // Uten reports.viewAllDepartments er også rapportsøket avdelingssperret.
+  // `undefined` slår av filteret for dem som ser hele organisasjonen.
+  const reportDepartmentId = canViewAllDepartmentReports(user)
+    ? undefined
+    : user.departmentId ?? null;
   const canUsers = hasPermission(user, "users.view");
   // Det finnes ingen egen leservisning for maler; treffene lenker til editoren.
   const canTemplates = hasPermission(user, "templates.manage");
@@ -409,6 +415,7 @@ export async function performSearch(
           offset: (page - 1) * pageSize,
           includeCancelled,
           filters,
+          departmentId: reportDepartmentId,
         })
       : [];
 
@@ -422,6 +429,7 @@ export async function performSearch(
       offset: 0,
       includeCancelled,
       filters,
+      departmentId: reportDepartmentId,
     });
     reportTotal = probe[0]?.total ?? 0;
   }

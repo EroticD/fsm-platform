@@ -340,6 +340,35 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
     });
   });
 
+  it("lar reports.viewAllDepartments se rapportenheter fra alle avdelinger", async () => {
+    const crossDepartment = actor({
+      roleDefinition: {
+        permissions: [...officePermissions, "reports.viewAllDepartments"],
+      },
+    });
+
+    await getCustomerDetail(crossDepartment, "kunde-1", {
+      tab: "enheter",
+      orderPage: 1,
+    });
+
+    const args = mocks.prisma.product.findMany.mock.calls[0][0] as {
+      include: {
+        reportUnits: { where: { report: { workOrder: unknown } } };
+      };
+    };
+    const scope = JSON.stringify(args.include.reportUnits.where);
+    expect(scope).toContain('"deletedAt":null');
+    expect(scope).not.toContain('"departmentId"');
+
+    const countArgs = mocks.prisma.report.count.mock.calls[0][0] as {
+      where: unknown;
+    };
+    const countScope = JSON.stringify(countArgs.where);
+    expect(countScope).toContain('"customerId":"kunde-1"');
+    expect(countScope).not.toContain('"departmentId"');
+  });
+
   it("skjuler kansellerte oppdrag i montørens rapportenheter", async () => {
     await getCustomerDetail(technicianWithReports(), "kunde-1", {
       tab: "enheter",

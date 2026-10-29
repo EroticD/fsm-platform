@@ -21,6 +21,24 @@ describe("rettigheter", () => {
     expect(defaultPermissionsForRole("OFFICE")).not.toContain("audit.view");
   });
 
+  it("gir ikke rapporttilgang på tvers av avdelinger som standard", () => {
+    expect(defaultPermissionsForRole("OFFICE")).not.toContain(
+      "reports.viewAllDepartments",
+    );
+    expect(defaultPermissionsForRole("TECHNICIAN")).not.toContain(
+      "reports.viewAllDepartments",
+    );
+    expect(defaultPermissionsForRole("ADMIN")).toContain(
+      "reports.viewAllDepartments",
+    );
+    expect(
+      hasPermission(
+        { role: "ADMIN", isActive: true, permissions: [] },
+        "reports.viewAllDepartments",
+      ),
+    ).toBe(true);
+  });
+
   it("gir montør feltrettigheter, men ikke administrasjon", () => {
     const technician = { role: "TECHNICIAN", isActive: true, permissions: [] };
     expect(hasPermission(technician, "workorders.update")).toBe(true);

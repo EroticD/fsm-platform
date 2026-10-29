@@ -271,6 +271,12 @@ export type ReportSearchOptions = {
   limit: number;
   includeCancelled: boolean;
   filters?: import("./search-filters").SearchFilters;
+  /**
+   * Avdelingssperre for rapporten. `undefined` betyr alle avdelinger (bare
+   * administrator og `reports.viewAllDepartments`). `null` betyr ingen
+   * avdeling og gir aldri treff.
+   */
+  departmentId?: string | null;
   /** Hopp over så mange rangerte treff (1-basert side konverteres av kalleren). */
   offset?: number;
 };
@@ -366,6 +372,23 @@ export async function searchReports(
   if (!options.includeCancelled) {
     conditions.push(Prisma.sql`w."status" <> 'CANCELLED'::"WorkStatus"`);
   }
+  if (options.departmentId !== undefined) {
+    if (options.departmentId === null) {
+      // Aktøren har ingen avdeling og ser derfor ingen rapporter.
+      conditions.push(Prisma.sql`1 = 0`);
+    } else {
+      conditions.push(
+        Prisma.sql`w."departmentId" = ${options.departmentId}`,
+      );
+    }
+  }
+  // Inaktive avdelinger er stengt for rapportsøk, også for globale lesere.
+  conditions.push(
+    Prisma.sql`EXISTS (
+      SELECT 1 FROM "Department" d
+      WHERE d."id" = w."departmentId" AND d."isActive"
+    )`,
+  );
   if (filters.status) {
     conditions.push(Prisma.sql`w."status" = ${filters.status}::"WorkStatus"`);
   }

@@ -98,12 +98,19 @@ export function parseReportListParams(params: ParamInput): ReportListParams {
 /**
  * Filteret for listen. `reportWhereFor` står for tidsrom, kategori, sletting og
  * montør-/kanselleringsregelen; de ekstra filtrene legges ved siden av.
+ * `workOrderScope` er rapportomfanget for aktøren, slik at ansatte uten
+ * `reports.viewAllDepartments` bare ser egen avdeling.
  */
 export function reportListWhere(
   filters: ReportListFilters,
   excludeCancelled = false,
+  workOrderScope?: Prisma.WorkOrderWhereInput,
 ): Prisma.ReportWhereInput {
   const extra: Prisma.ReportWhereInput[] = [];
+
+  if (workOrderScope && Object.keys(workOrderScope).length > 0) {
+    extra.push({ workOrder: workOrderScope });
+  }
 
   if (filters.customer) {
     extra.push({ workOrder: { customerId: filters.customer } });

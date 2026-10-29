@@ -7,6 +7,7 @@ import { notifyWorkOrderEvent } from "./notifications";
 import { hasPermission } from "@/lib/permissions";
 import { isOffice } from "@/lib/session";
 import { workOrderScope, type AccessUser } from "@/lib/access";
+import { canAccessReportWorkOrder } from "@/lib/report-scope";
 import {
   REPORT_STATUS_APPROVED,
   REPORT_STATUS_DEVIATION,
@@ -42,6 +43,37 @@ const SIGNATURE_UPLOAD_MIME = /^image\/(png|jpe?g|webp)$/i;
 
 /** Kladden skal ikke kunne gjøre listespørringer og backups vilkårlig tunge. */
 const MAX_DRAFT_JSON_LENGTH = 1_000_000;
+
+/** Normaliserer et personnavn før sammenligning: trimmet, uten ekstra mellomrom, små bokstaver. */
+function normalizePersonName(value: string | null | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** Bygger et sett med kjente, normaliserte personnavn. Tomme navn ignoreres. */
+function knownPersonNames(values: Array<string | null | undefined>): Set<string> {
+  const names = new Set<string>();
+  for (const value of values) {
+    const normalized = normalizePersonName(value);
+    if (normalized) names.add(normalized);
+  }
+  return names;
+}
+
+/**
+ * Et oppgitt signaturnavn må være kjent på oppdraget. Når ingen kjente navn
+ * finnes, kan kunden skrive fritt (eldre data uten kontaktperson/kundenavn).
+ * Teknikernavn krever derimot alltid en kjent person.
+ */
+function isKnownSignerName(
+  value: string | null,
+  known: Set<string>,
+  allowFreeTextWhenEmpty: boolean,
+): boolean {
+  const normalized = normalizePersonName(value);
+  if (!normalized) return true;
+  if (known.size === 0) return allowFreeTextWhenEmpty;
+  return known.has(normalized);
+}
 
 /**
  * Leser en signatur fra skjemaet. Nye signaturer kommer som data-URL fra
@@ -897,7 +929,8 @@ export type SubmitReportError =
   | "kansellert"
   | "locked"
   | "legal-hold"
-  | "signatur";
+  | "signatur"
+  | "ugyldig-signaturnavn";
 
 export type SubmitReportResult =
   | { ok: true; returnTo: string; remediationWorkOrderId?: string }
@@ -942,7 +975,19 @@ export async function submitReport(
       ...workOrderScope(user),
       templates: { some: { id: templateId } },
     },
-    include: { templates: { where: { id: templateId } } },
+    include: {
+      templates: { where: { id: templateId } },
+      // Signaturnavnene valideres mot personene som faktisk er knyttet til
+      // oppdraget, ikke mot fri tekst fra klienten.
+      contact: { select: { name: true } },
+      technicians: { select: { name: true } },
+      customer: {
+        select: {
+          name: true,
+          contacts: { select: { name: true } },
+        },
+      },
+    },
   });
   if (!workOrder) return { ok: false, error: "ikke-funnet" };
   if (workOrder.legalHold) {
@@ -990,6 +1035,37 @@ export async function submitReport(
     return {
       ok: false,
       error: "locked",
+      returnTo: returnPathFrom(formData, workOrderId),
+    };
+  }
+
+  // Signaturnavnene må være personer som faktisk er knyttet til oppdraget.
+  // Kladden kan lagres med ufullstendige navn; denne kontrollen gjelder bare
+  // den endelige innsendingen.
+  const technicianName =
+    cleanText(formData.get("technicianName"), { maxLength: LIMITS.title }) || null;
+  const customerName =
+    cleanText(formData.get("customerName"), { maxLength: LIMITS.title }) || null;
+
+  const knownTechnicianNames = knownPersonNames([
+    user.name,
+    ...(workOrder.technicians ?? []).map((technician) => technician.name),
+  ]);
+  const knownCustomerNames = knownPersonNames([
+    workOrder.contact?.name,
+    workOrder.customer?.name,
+    ...(workOrder.customer?.contacts ?? []).map((contact) => contact.name),
+  ]);
+
+  if (
+    !isKnownSignerName(technicianName, knownTechnicianNames, false) ||
+    // Eldre oppdrag kan mangle både kontaktperson og kundenavn. Da må kunden
+    // fortsatt kunne skrive navnet sitt fritt.
+    !isKnownSignerName(customerName, knownCustomerNames, true)
+  ) {
+    return {
+      ok: false,
+      error: "ugyldig-signaturnavn",
       returnTo: returnPathFrom(formData, workOrderId),
     };
   }
@@ -1099,9 +1175,6 @@ export async function submitReport(
     return { ok: false, error: "ugyldig-data", returnTo: returnPathFrom(formData, workOrderId) };
   }
 
-  const text = (name: string) =>
-    cleanText(formData.get(name), { maxLength: LIMITS.title }) || null;
-
   // Rapporten er "godkjent" bare når ingen av enhetene har avvik. Uten enheter
   // finnes det ingen godkjenning eller avvik å utlede – da lagres en nøytral
   // status som visningen kjenner igjen.
@@ -1164,9 +1237,9 @@ export async function submitReport(
       unitCount: unitRows.length,
     }),
     technicianSignatureUrl,
-    technicianName: text("technicianName") ?? existing?.technicianName ?? null,
+    technicianName: technicianName ?? existing?.technicianName ?? null,
     customerSignatureUrl,
-    customerName: text("customerName") ?? existing?.customerName ?? null,
+    customerName: customerName ?? existing?.customerName ?? null,
     // Frys malen slik den var da rapporten ble signert.
     templateTitle: template.title,
     // Rapportnavnet og enhetsvalget fryses også, slik at PDF og lister viser
@@ -1583,8 +1656,10 @@ export type ReportPdfResult =
  * Slår opp og eventuelt rendrer PDF-en for et oppdrag.
  *
  * Tilgangskontrollen ligger her, ikke bare i ruten: kundeportalbrukere ser
- * bare egne oppdrag, montører ser ikke kansellerte oppdrag, og andre må ha
- * `reports.view`. Meldingene er de samme som ruten har brukt.
+ * bare egne oppdrag, montører ser ikke kansellerte oppdrag, og ansatte må ha
+ * `reports.view` i tillegg til tilgang til rapportens avdeling. Bare
+ * administrator og roller med `reports.viewAllDepartments` ser rapporter fra
+ * andre avdelinger. Meldingene er de samme som ruten har brukt.
  *
  * Med `reportId` må rapporten faktisk tilhøre oppdraget. Da rendres bare den
  * ene sjekklisten i stedet for den kombinerte oppdrags-PDF-en.
@@ -1603,12 +1678,14 @@ export async function getReportPdfForViewer(
   }
 
   // Mykt slettede oppdrag og rapporter er ikke lenger lesbare. Kunde ser egen
-  // kunde, ansatte ser egen avdeling (canAccessWorkOrder under).
+  // kunde, ansatte ser rapporter i egen avdeling med mindre de har
+  // reports.viewAllDepartments.
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, deletedAt: null },
     select: {
       customerId: true,
       departmentId: true,
+      department: { select: { isActive: true } },
       status: true,
       customer: { select: { deletedAt: true } },
       reports: {
@@ -1634,6 +1711,13 @@ export async function getReportPdfForViewer(
     ) {
       return { ok: false, status: 403, message: "Ingen tilgang" };
     }
+  } else if (
+    !canAccessReportWorkOrder(viewer, {
+      departmentId: workOrder.departmentId,
+      departmentIsActive: workOrder.department?.isActive,
+    })
+  ) {
+    return { ok: false, status: 403, message: "Ingen tilgang" };
   }
   if (viewer.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
     return { ok: false, status: 403, message: "Ingen tilgang" };

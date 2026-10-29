@@ -49,6 +49,7 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import { reportWorkOrderScope } from "@/lib/report-scope";
 
 /** Bare filer som ligger i opplastingsmappen kan knyttes til en kunde. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
@@ -69,14 +70,18 @@ export const CUSTOMER_ACTIVE_STATUSES: WorkStatus[] = [
 const ACTIVE_STATUSES = CUSTOMER_ACTIVE_STATUSES;
 
 /**
- * Rapportene på kundekortet og i enhetshistorikken følger samme regel som
- * rapportlisten: montører skal ikke se rapporter fra kansellerte oppdrag.
- * Kontor og administrator beholder historikken.
+ * Rapportene på kundekortet og i enhetshistorikken følger rapportomfanget:
+ * bare administrator og roller med `reports.viewAllDepartments` ser rapporter
+ * fra andre avdelinger. Montører skal i tillegg ikke se rapporter fra
+ * kansellerte oppdrag, mens kontor og administrator beholder historikken.
  */
 function reportWorkOrderScopeFor(
   actor: ServiceActor,
 ): Prisma.WorkOrderWhereInput {
-  const scope = workOrderScopeFor(actor);
+  const scope: Prisma.WorkOrderWhereInput = {
+    deletedAt: null,
+    ...reportWorkOrderScope(actor),
+  };
   if (actor.role !== "TECHNICIAN") return scope;
   return { AND: [scope, { status: { not: "CANCELLED" } }] };
 }
@@ -274,12 +279,18 @@ export async function getCustomerDetail(
     customerId,
     AND: [workOrderScopeFor(actor), ...statusFilter],
   };
+  // Rapporter på kundekortet følger rapportomfanget, ikke oppdragslisten:
+  // bare administrator og reports.viewAllDepartments ser andre avdelinger.
+  const reportOrderWhere: Prisma.WorkOrderWhereInput = {
+    customerId,
+    ...reportWorkOrderScopeFor(actor),
+  };
 
   // Aktivitetsstrømmen skal vise alt som faktisk har skjedd med kunden:
   // kundekortet, oppdragene, rapportene og kontaktpersonene. Revisjonsloggen
   // har ingen kunde-relasjon, så vi henter et begrenset utvalg id-er først.
-  // Oppdragene er avdelingssperret, og rapportene krever i tillegg
-  // reports.view. Dermed lekker ikke andre avdelingers historikk inn.
+  // Oppdragene er avdelingssperret, og rapportene følger rapportomfanget i
+  // tillegg til reports.view. Dermed lekker ikke andre avdelingers historikk inn.
   const loadActivity = currentTab === "oversikt" || loadMerTab;
   let activityWorkOrderIds: string[] = [];
   let activityReportWorkOrders = new Map<string, string>();
@@ -294,7 +305,7 @@ export async function getCustomerDetail(
       }),
       canViewReports
         ? prisma.report.findMany({
-            where: { deletedAt: null, workOrder: orderWhere },
+            where: { deletedAt: null, workOrder: reportOrderWhere },
             orderBy: { completedAt: "desc" },
             take: CUSTOMER_ACTIVITY_ENTITY_LIMIT,
             select: { id: true, workOrderId: true },
@@ -479,7 +490,7 @@ export async function getCustomerDetail(
       where: { AND: [orderWhere, { status: "COMPLETED" }] },
     }),
     prisma.report.count({
-      where: { deletedAt: null, workOrder: orderWhere },
+      where: { deletedAt: null, workOrder: reportOrderWhere },
     }),
     prisma.workOrder.findFirst({
       where: {

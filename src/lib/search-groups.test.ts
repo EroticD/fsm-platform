@@ -270,6 +270,48 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
     // Totalen kommer fra SQL-tellingen, ikke fra de få radene som vises.
     expect(reportGroup?.total).toBe(7);
   });
+
+  it("avgrenser rapportsøket til egen avdeling uten reports.viewAllDepartments", async () => {
+    const office = {
+      id: "user-2",
+      role: "OFFICE",
+      isActive: true,
+      departmentId: "dept-2",
+      customerId: null,
+      permissions: [],
+      permissionsCustomized: false,
+      roleDefinition: { permissions: ["reports.view"] },
+    } as unknown as AccessUser;
+
+    await performSearch("pumpe", { user: office });
+
+    const reportArgs = mocks.searchReports.mock.calls[0][1] as {
+      departmentId?: string | null;
+    };
+    expect(reportArgs.departmentId).toBe("dept-2");
+  });
+
+  it("søker i alle avdelinger med reports.viewAllDepartments", async () => {
+    const office = {
+      id: "user-2",
+      role: "OFFICE",
+      isActive: true,
+      departmentId: "dept-2",
+      customerId: null,
+      permissions: [],
+      permissionsCustomized: false,
+      roleDefinition: {
+        permissions: ["reports.view", "reports.viewAllDepartments"],
+      },
+    } as unknown as AccessUser;
+
+    await performSearch("pumpe", { user: office });
+
+    const reportArgs = mocks.searchReports.mock.calls[0][1] as {
+      departmentId?: string | null;
+    };
+    expect(reportArgs.departmentId).toBeUndefined();
+  });
 });
 
 describe("performSearch – filtre, tellinger og rangering", () => {
