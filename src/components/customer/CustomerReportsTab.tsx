@@ -69,19 +69,23 @@ export default async function CustomerReportsTab({
   const listHref = `/rapporter?vis=alle&kunde=${encodeURIComponent(customerId)}`;
 
   return (
-    <div className="space-y-4 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 pb-3">
-        <div>
-          <h2 className="text-lg font-black text-gray-900">
-            📋 {t("customers.reports.title")}
+    <div className="space-y-4 rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4 shadow-[0_1px_2px_rgba(20,17,11,0.05)] [--focus-ring:var(--ink,#101310)] sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+            />
+            <span className="min-w-0">{t("customers.reports.title")}</span>
           </h2>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
             {t("customers.reports.description")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {totalReports > 0 && (
-            <span className="font-bold text-gray-500">
+            <span className="font-bold text-[var(--muted,#62685f)]">
               {t("customers.reports.showing", {
                 shown: reports.length,
                 total: totalReports,
@@ -90,7 +94,7 @@ export default async function CustomerReportsTab({
           )}
           <Link
             href={listHref}
-            className="font-bold text-blue-700 hover:underline"
+            className="inline-flex min-h-11 items-center rounded-full border border-[var(--ink,#101310)] px-3 font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
           >
             {t("customers.reports.allReports")} →
           </Link>
@@ -98,11 +102,11 @@ export default async function CustomerReportsTab({
       </div>
 
       {reports.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-6 text-center">
-          <p className="font-bold text-gray-700">
+        <div className="rounded-2xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-center">
+          <p className="font-bold text-[var(--ink,#101310)]">
             {t("customers.reports.empty")}
           </p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
             {t("customers.reports.emptyHint")}
           </p>
         </div>
@@ -140,17 +144,17 @@ export default async function CustomerReportsTab({
             return (
               <article
                 key={report.id}
-                className="rounded-2xl border-2 border-gray-200 bg-gray-50 p-3 transition hover:border-blue-300 sm:p-4"
+                className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[#b9ae98] sm:p-4"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-black text-gray-900 sm:text-base">
+                    <h3 className="truncate text-sm font-extrabold text-[var(--ink,#101310)] sm:text-base">
                       {reportDisplayName(
                         report,
                         t("orders.reportsPage.defaultTitle"),
                       )}
                     </h3>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
                       📅{" "}
                       {formatDateLocalized(
                         report.completedAt,
@@ -173,10 +177,10 @@ export default async function CustomerReportsTab({
 
                   <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                      className={`inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-bold ${
                         report.isLocked
-                          ? "border-gray-200 bg-gray-100 text-gray-700"
-                          : "border-amber-200 bg-amber-50 text-amber-800"
+                          ? "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]"
+                          : "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
                       }`}
                       title={lockTitle}
                     >
@@ -185,10 +189,10 @@ export default async function CustomerReportsTab({
                         : t("customers.reports.openForEdit")}
                     </span>
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                      className={`inline-flex min-h-6 items-center rounded-full border px-2 py-0.5 text-xs font-bold ${
                         acknowledgement.acknowledged
-                          ? "border-green-200 bg-green-50 text-green-800"
-                          : "border-gray-200 bg-white text-gray-600"
+                          ? "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]"
+                          : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]"
                       }`}
                       title={
                         acknowledgement.by
@@ -210,7 +214,7 @@ export default async function CustomerReportsTab({
                   </div>
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--muted,#62685f)]">
                   {summary.usesUnits ? (
                     <>
                       <span className="font-bold">
@@ -235,7 +239,7 @@ export default async function CustomerReportsTab({
                         </span>
                       )}
                       {summary.deviationCount > 0 && (
-                        <span className="font-bold text-red-800">
+                        <span className="font-bold text-[#a92a12]">
                           {t("customers.reports.deviations", {
                             count: summary.deviationCount,
                           })}
@@ -243,14 +247,14 @@ export default async function CustomerReportsTab({
                       )}
                     </>
                   ) : (
-                    <span className="text-gray-500">
+                    <span className="text-[#7a7468]">
                       {t("customers.reports.noUnits")}
                     </span>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-2">
-                  <span className="text-xs font-bold text-gray-600">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line,#dedcd1)] pt-3">
+                  <span className="text-xs font-bold text-[var(--muted,#62685f)]">
                     ✍️{" "}
                     {report.technicianName ||
                       report.lockedByName ||
@@ -259,13 +263,13 @@ export default async function CustomerReportsTab({
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={viewerHref}
-                      className="rounded-xl bg-blue-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-800"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 text-xs font-bold text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-none"
                     >
                       {t("customers.reports.openReport")}
                     </Link>
                     <Link
                       href={revisionsHref}
-                      className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-100"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] bg-transparent px-4 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                     >
                       {report.revision > 0
                         ? t("customers.reports.revisions", {
@@ -280,12 +284,15 @@ export default async function CustomerReportsTab({
           })}
 
           {totalReports > reports.length && (
-            <p className="pt-1 text-center text-xs text-gray-500">
+            <p className="pt-1 text-center text-xs text-[var(--muted,#62685f)]">
               {t("customers.reports.showing", {
                 shown: reports.length,
                 total: totalReports,
               })}{" "}
-              <Link href={listHref} className="font-bold text-blue-700 hover:underline">
+              <Link
+                href={listHref}
+                className="inline-flex min-h-11 items-center font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+              >
                 {t("customers.reports.allReports")} →
               </Link>
             </p>

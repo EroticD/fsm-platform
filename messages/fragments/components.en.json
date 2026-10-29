@@ -272,7 +272,14 @@
       "breadcrumb": "Breadcrumb",
       "details": "Details",
       "work": "Work",
-      "more": "More"
+      "more": "More",
+      "officeNavigation": "Office navigation",
+      "officeWorkspace": "Office",
+      "adminWorkspace": "Administration",
+      "workspace": "Workspace",
+      "tools": "Tools",
+      "signedInAs": "Signed in as",
+      "user": "User"
     },
     "language": {
       "change": "Change language"

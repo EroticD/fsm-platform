@@ -5,7 +5,6 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import CustomerToast from "@/components/customer/CustomerToast";
@@ -27,6 +26,35 @@ import {
 } from "@/lib/search-filters";
 import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import { searchWorkOrderIds } from "@/lib/search-sql";
+
+// Command Center-verdier. Fallbackene matcher office-card/signal-button/
+// ink-button-tokenene, slik at flaten står riktig også før de er lastet.
+const CARD = "office-card";
+const INK_BUTTON =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const EYEBROW =
+  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
+const MUTED = "text-[var(--muted,#62685f)]";
+
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  OPEN: "statusOpen",
+  PENDING: "statusPending",
+  PLANNED: "statusPlanned",
+  IN_PROGRESS: "statusInProgress",
+  WAITING: "statusWaiting",
+  COMPLETED: "statusCompleted",
+  CANCELLED: "statusCancelled",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  IN_PROGRESS:
+    "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]",
+  COMPLETED: "border-[#a9c96a] bg-[#eef7d6] text-[#283509]",
+  CANCELLED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
+  WAITING: "border-[#e4c98f] bg-[#fdf5e4] text-[#7a4f0c]",
+};
 
 // ---------------------------------------------------------------------------
 // Hjelpere (utenfor komponenten slik at render forblir ren)
@@ -357,48 +385,83 @@ export default async function WorkOrdersPage({
     return `/oppdrag${qs ? `?${qs}` : ""}`;
   };
 
+  const statusLabels: Record<string, string> = {
+    OPEN: t(STATUS_LABEL_KEYS.OPEN),
+    PENDING: t(STATUS_LABEL_KEYS.PENDING),
+    PLANNED: t(STATUS_LABEL_KEYS.PLANNED),
+    IN_PROGRESS: t(STATUS_LABEL_KEYS.IN_PROGRESS),
+    WAITING: t(STATUS_LABEL_KEYS.WAITING),
+    COMPLETED: t(STATUS_LABEL_KEYS.COMPLETED),
+    CANCELLED: t(STATUS_LABEL_KEYS.CANCELLED),
+  };
+
+  const statusPill = (status: string) => (
+    <span
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold ${
+        STATUS_TONE[status] ?? "border-[var(--line,#d8d3c5)] bg-white"
+      }`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+      {statusLabels[status] ?? status}
+    </span>
+  );
+
+  const tagChips = (
+    tags: { id: string; name: string; color: string | null }[],
+  ) =>
+    tags.map((tag) => (
+      <span
+        key={tag.id}
+        className="rounded-full px-1.5 py-0.5 text-xs font-bold"
+        suppressHydrationWarning
+        style={{
+          backgroundColor: tag.color || "#3b82f6",
+          color: readableTextColor(tag.color || "#3b82f6"),
+        }}
+      >
+        {tag.name}
+      </span>
+    ));
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-5">
+    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl space-y-4">
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900">
-              {activeView.icon} {t(activeView.labelKey)}
-            </h1>
-            <p className="text-gray-500 mt-1 text-sm font-medium">
-              {t(activeView.descriptionKey)}
-              {" • "}
-              <span className="font-bold text-gray-700">
+        <header className="flex flex-col gap-3 border-b border-[var(--line,#d8d3c5)] pb-3 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className={EYEBROW}>{t("metadata.routes.oppdrag")}</p>
+            <h1 className="mt-0.5 flex items-baseline gap-2 text-3xl font-black tracking-tight md:text-4xl">
+              <span className="truncate">{t(activeView.labelKey)}</span>
+              <span className="text-sm font-bold tabular-nums text-[#5e6356]">
                 {t("orders.list.total", { count: total })}
               </span>
+            </h1>
+            <p className={`mt-1 max-w-2xl text-sm ${MUTED}`}>
+              {t(activeView.descriptionKey)}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <div className="flex w-full flex-wrap gap-2 md:w-auto">
             {user.role === "ADMIN" && (
               <Link
                 href="/oppdrag/slettede"
-                className="flex-1 md:flex-none text-center bg-white border-2 border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm whitespace-nowrap"
+                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk,#b42318)] md:flex-none"
               >
-                🗑️ {t("orders.detail.deletedOrders")}
+                {t("orders.detail.deletedOrders")}
               </Link>
             )}
-            <Link
-              href="/"
-              className="flex-1 md:flex-none text-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-            >
+            <Link href="/" className={`${INK_BUTTON} flex-1 md:flex-none`}>
               {t("orders.list.backToDashboard")}
             </Link>
             {canCreate && (
               <Link
                 href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
-                className="flex-1 md:flex-none text-center bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+                className={`${SIGNAL_BUTTON} flex-1 md:flex-none`}
               >
                 {t("orders.list.newWorkOrder")}
               </Link>
             )}
           </div>
-        </div>
+        </header>
 
         {feedbackKey ? (
           <CustomerToast message={t(feedbackKey)} tone="success" />
@@ -406,7 +469,7 @@ export default async function WorkOrdersPage({
         <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
 
         {/* FILTRE */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
+        <section className={`${CARD} space-y-3 p-3 sm:p-4`}>
           <OrderViewTabs
             ariaLabel={t("orders.list.viewsLabel")}
             activeKey={view}
@@ -431,11 +494,11 @@ export default async function WorkOrdersPage({
               aria-label={t("orders.list.search")}
               defaultValue={search}
               placeholder={t("orders.list.searchPlaceholder")}
-              className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+              className="min-w-[14rem] flex-1 rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#131711)] outline-none transition placeholder:text-[#7b8071] focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
             />
             <button
               type="submit"
-              className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--ink,#131711)] px-4 py-2 text-xs font-bold text-[var(--paper,#fbfaf4)] transition hover:opacity-85"
             >
               {t("orders.list.search")}
             </button>
@@ -443,7 +506,7 @@ export default async function WorkOrdersPage({
               <Link
                 href={resetLinkFor()}
                 prefetch={false}
-                className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
+                className={INK_BUTTON}
               >
                 {t("orders.list.reset")}
               </Link>
@@ -451,9 +514,7 @@ export default async function WorkOrdersPage({
           </form>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-black uppercase tracking-wider text-gray-500">
-              {t("orders.list.sortLabel")}
-            </span>
+            <span className={EYEBROW}>{t("orders.list.sortLabel")}</span>
             {SORT_OPTIONS.map((option) => {
               const active = sort === option.key;
               return (
@@ -462,10 +523,10 @@ export default async function WorkOrdersPage({
                   href={sortLinkFor(option.key)}
                   prefetch={false}
                   aria-current={active ? "true" : undefined}
-                  className={`rounded-full border-2 px-3 py-1.5 font-bold transition ${
+                  className={`rounded-full border px-3 py-1.5 font-bold transition ${
                     active
-                      ? "border-gray-900 bg-gray-900 text-white"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                      ? "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]"
+                      : "border-[var(--line,#d8d3c5)] bg-white text-[var(--ink,#131711)] hover:border-[var(--ink,#131711)]"
                   }`}
                 >
                   {t(option.labelKey)}
@@ -476,110 +537,251 @@ export default async function WorkOrdersPage({
 
           {tagFilter ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="bg-blue-50 border-2 border-blue-200 text-blue-900 px-3 py-1.5 rounded-xl font-bold">
-                🏷️ {t("orders.list.filterTag", { tag: tagFilter })}
+              <span className="rounded-full border border-[#dfc98b] bg-[#fdf5e4] px-3 py-1.5 text-xs font-bold text-[#6b4808]">
+                {t("orders.list.filterTag", { tag: tagFilter })}
               </span>
               <Link
                 href={linkFor(view, false)}
                 prefetch={false}
-                className="text-blue-700 font-bold hover:underline"
+                className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
               >
                 {t("orders.list.clearTag")}
               </Link>
             </div>
           ) : null}
-        </div>
+        </section>
 
         {/* LISTE */}
         {orders.length === 0 ? (
-          <EmptyState
-            icon="📂"
-            title={t("orders.list.emptyTitle")}
-            description={
-              search
-                ? t("orders.list.emptySearch", { query: search })
-                : tagFilter
-                  ? t("orders.list.emptyTag", { tag: tagFilter })
-                  : t("orders.list.emptyHint")
-            }
-            action={
-              search || tagFilter ? (
-                <Link
-                  href={resetLinkFor()}
-                  prefetch={false}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
-                >
-                  {t("orders.list.reset")}
-                </Link>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="space-y-2">
-            {orders.map((wo) => {
-              const address = formatAddress(wo.customer);
-              return (
-              <Link
-                key={wo.id}
-                href={`/oppdrag/${wo.id}`}
-                prefetch={false}
-                className="block bg-white p-3 sm:p-4 rounded-2xl border-2 border-gray-200 hover:border-blue-400 hover:shadow-md transition"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-black text-gray-900 truncate">{wo.title}</p>
-                      {wo.orderNumber ? (
-                        <span className="text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          {t("orders.list.orderNumber")} {wo.orderNumber}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      🏢 {wo.customer?.name || t("orders.list.noCustomer")}
-                      {address ? ` • 📍 ${address}` : ""}
-                      {" • 📅 "}
-                      {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("orders.list.noDate")}
-                    </p>
-                    {wo.tags && wo.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {wo.tags.map((tag) => (
-                          <span
-                            key={tag.id}
-                            className="text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
-                            suppressHydrationWarning
-                            style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
-                          >
-                            🏷️ {tag.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <StatusBadge status={wo.status} />
-                </div>
-
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] font-bold">
-                  <span className={wo.technicians.length === 0 ? "text-amber-700" : "text-gray-600"}>
-                    {wo.technicians.length === 0
-                      ? t("orders.list.unassigned")
-                      : `👷 ${wo.technicians.map((tech) => tech.name).filter(Boolean).join(", ")}`}
-                  </span>
-                  <span className="text-gray-600">
-                    {t("orders.list.checklists", {
-                      done: wo.reports.length,
-                      total: wo.templates.length,
-                    })}
-                  </span>
-                  {wo.scheduledFor && new Date(wo.scheduledTo || wo.scheduledFor) < dates.startOfToday &&
-                    !CLOSED_STATUSES.includes(wo.status) && (
-                      <span className="text-red-700">{t("orders.list.overdue")}</span>
-                    )}
-                </div>
-              </Link>
-              );
-            })}
+          <div className={`${CARD} p-6`}>
+            <EmptyState
+              icon="✓"
+              title={t("orders.list.emptyTitle")}
+              description={
+                search
+                  ? t("orders.list.emptySearch", { query: search })
+                  : tagFilter
+                    ? t("orders.list.emptyTag", { tag: tagFilter })
+                    : t("orders.list.emptyHint")
+              }
+              action={
+                search || tagFilter ? (
+                  <Link href={resetLinkFor()} prefetch={false} className={SIGNAL_BUTTON}>
+                    {t("orders.list.reset")}
+                  </Link>
+                ) : undefined
+              }
+            />
           </div>
+        ) : (
+          <>
+            {/* Desktop: tett tabell inne i ett office-kort. */}
+            <section className={`${CARD} hidden overflow-hidden md:block`}>
+              <div className="overflow-x-auto">
+                <table className="office-table">
+                  <thead>
+                    <tr className="bg-[var(--ink,#101310)]">
+                      {[
+                        t("orders.list.table.date"),
+                        t("orders.list.table.order"),
+                        t("orders.list.table.status"),
+                        t("orders.list.table.technician"),
+                        t("orders.list.table.tags"),
+                        t("orders.list.table.action"),
+                      ].map((label, index) => (
+                        <th
+                          key={label}
+                          scope="col"
+                          style={{
+                            color: "var(--paper, #f2efe6)",
+                            borderBottomColor: "var(--signal, #d8ff3e)",
+                            borderBottomWidth: "2px",
+                            fontSize: "0.75rem",
+                            textAlign: index === 5 ? "right" : "left",
+                          }}
+                          className="whitespace-nowrap"
+                        >
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((wo) => {
+                      const address = formatAddress(wo.customer);
+                      const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
+                      const overdue =
+                        scheduledEnd !== null &&
+                        scheduledEnd < dates.startOfToday &&
+                        !CLOSED_STATUSES.includes(wo.status);
+                      return (
+                        <tr
+                          key={wo.id}
+                          className="border-b border-[var(--line,#d8d3c5)] transition last:border-0 hover:bg-[#f4f7e8]"
+                        >
+                          <td className="whitespace-nowrap px-3 py-2 align-top">
+                            <span className="block text-xs font-bold tabular-nums">
+                              {formatDateRangeLocalized(
+                                wo.scheduledFor,
+                                wo.scheduledTo,
+                                locale,
+                              ) || t("orders.list.noDate")}
+                            </span>
+                            {overdue ? (
+                              <span className="mt-0.5 block text-xs font-bold text-[var(--risk-text,#b42318)]">
+                                {t("orders.list.overdue")}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="max-w-[22rem] px-3 py-2 align-top">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Link
+                                href={`/oppdrag/${wo.id}`}
+                                prefetch={false}
+                                className="line-clamp-2 font-bold leading-5 text-[var(--ink,#131711)] hover:underline"
+                              >
+                                {wo.title}
+                              </Link>
+                              {wo.orderNumber ? (
+                                <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
+                                  {t("orders.list.orderNumber")} {wo.orderNumber}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-[#5e6356]">
+                              {wo.customer?.name || t("orders.list.noCustomer")}
+                              {address ? ` · ${address}` : ""}
+                            </p>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 align-top">
+                            {statusPill(wo.status)}
+                          </td>
+                          <td className="max-w-[10rem] px-3 py-2 align-top text-xs">
+                            {wo.technicians.length === 0 ? (
+                              <span className="font-bold text-[var(--risk-text,#b42318)]">
+                                {t("orders.list.unassigned")}
+                              </span>
+                            ) : (
+                              <span className="block truncate font-bold">
+                                {wo.technicians
+                                  .map((tech) => tech.name)
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </span>
+                            )}
+                          </td>
+                          <td className="max-w-[12rem] px-3 py-2 align-top">
+                            <div className="flex flex-wrap gap-1">
+                              {wo.tags.length > 0 ? (
+                                tagChips(wo.tags)
+                              ) : (
+                                <span className="text-xs text-[#8a8f80]">—</span>
+                              )}
+                            </div>
+                            <span className="mt-0.5 block text-xs font-bold text-[#5e6356]">
+                              {t("orders.list.checklists", {
+                                done: wo.reports.length,
+                                total: wo.templates.length,
+                              })}
+                            </span>
+                          </td>
+                          <td
+                            className="whitespace-nowrap"
+                            style={{ textAlign: "right" }}
+                          >
+                            <Link
+                              href={`/oppdrag/${wo.id}`}
+                              prefetch={false}
+                              className="inline-flex items-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2 py-1 text-xs font-bold transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+                            >
+                              {t("orders.list.openOrder")} →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* Mobil: kompakte rader i stedet for tabell. */}
+            <section className={`${CARD} overflow-hidden md:hidden`}>
+              <div className="divide-y divide-[var(--line,#d8d3c5)]">
+                {orders.map((wo) => {
+                  const address = formatAddress(wo.customer);
+                  const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
+                  const overdue =
+                    scheduledEnd !== null &&
+                    scheduledEnd < dates.startOfToday &&
+                    !CLOSED_STATUSES.includes(wo.status);
+                  return (
+                    <Link
+                      key={wo.id}
+                      href={`/oppdrag/${wo.id}`}
+                      prefetch={false}
+                      className="block px-3 py-2.5 transition hover:bg-[#f4f7e8]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p
+                            className={`text-xs font-bold tabular-nums ${
+                              overdue ? "text-[var(--risk-text,#b42318)]" : MUTED
+                            }`}
+                          >
+                            {formatDateRangeLocalized(
+                              wo.scheduledFor,
+                              wo.scheduledTo,
+                              locale,
+                            ) || t("orders.list.noDate")}
+                            {overdue ? ` · ${t("orders.list.overdue")}` : ""}
+                          </p>
+                          <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-5">
+                            {wo.title}
+                          </p>
+                          <p className="truncate text-xs text-[#5e6356]">
+                            {wo.customer?.name || t("orders.list.noCustomer")}
+                            {address ? ` · ${address}` : ""}
+                          </p>
+                        </div>
+                        {statusPill(wo.status)}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold">
+                        <span
+                          className={
+                            wo.technicians.length === 0
+                              ? "text-[var(--risk-text,#b42318)]"
+                              : "text-[#3d4237]"
+                          }
+                        >
+                          {wo.technicians.length === 0
+                            ? t("orders.list.unassigned")
+                            : wo.technicians
+                                .map((tech) => tech.name)
+                                .filter(Boolean)
+                                .join(", ")}
+                        </span>
+                        <span className="text-[#5e6356]">
+                          {t("orders.list.checklists", {
+                            done: wo.reports.length,
+                            total: wo.templates.length,
+                          })}
+                        </span>
+                      </div>
+                      {wo.tags.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {tagChips(wo.tags)}
+                        </div>
+                      ) : null}
+                      <span className="mt-1 block text-right text-xs font-bold text-[var(--ink,#131711)]">
+                        {t("orders.list.openOrder")} →
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          </>
         )}
 
         {/* SIDEBLADDRING */}

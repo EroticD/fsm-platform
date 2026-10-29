@@ -24,7 +24,7 @@ export type TemplateField = {
 };
 
 const inputClass =
-  "w-full border-2 border-gray-300 p-3 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700";
+  "w-full border-2 border-line p-3 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success";
 
 /** Gjør en lagret svarverdi om til tekst, slik at den kan vises i et felt. */
 function asText(value: unknown): string {
@@ -69,8 +69,8 @@ function StatusInput({
   }, [value, triggers, onNeedsComment]);
 
   return (
-    <fieldset className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 space-y-3">
-      <legend className="block text-sm font-black text-gray-900">
+    <fieldset className="bg-white/50 p-4 rounded-xl border-2 border-line space-y-3">
+      <legend className="block text-sm font-black text-ink">
         🧭 {field.label} {field.required && <span className="text-red-500">*</span>}
       </legend>
 
@@ -82,7 +82,7 @@ function StatusInput({
             ? negative
               ? "border-red-500 bg-red-50"
               : "border-green-600 bg-green-50"
-            : "border-gray-300 bg-white hover:bg-gray-50";
+            : "border-line bg-white hover:bg-white";
           return (
             <label
               key={option}
@@ -99,9 +99,9 @@ function StatusInput({
                   setValue(option);
                   onValueChange?.(option);
                 }}
-                className="w-5 h-5 text-blue-700"
+                className="w-5 h-5 text-success"
               />
-              <span className="font-bold text-gray-900 text-sm">{option}</span>
+              <span className="font-bold text-ink text-sm">{option}</span>
             </label>
           );
         })}
@@ -164,7 +164,7 @@ export default function FieldInput({
   switch (field.type) {
     case "CHECKBOX":
       return (
-        <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-blue-50 transition bg-gray-50">
+        <label className="flex items-center gap-3 p-4 border-2 border-line rounded-xl cursor-pointer hover:bg-white transition bg-white/50">
           <input
             type="checkbox"
             name={name}
@@ -180,9 +180,9 @@ export default function FieldInput({
             onChange={(event) =>
               onValueChange?.(event.target.checked ? "true" : "false")
             }
-            className="w-6 h-6 text-blue-700 rounded border-gray-300 focus:ring-blue-700"
+            className="w-6 h-6 text-success rounded border-line focus:ring-success"
           />
-          <span className="font-bold text-gray-900">
+          <span className="font-bold text-ink">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </span>
         </label>
@@ -204,7 +204,7 @@ export default function FieldInput({
     case "TEXTAREA":
       return (
         <div>
-          <label htmlFor={`${fieldId}-textarea`} className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-textarea`} className="block text-sm font-black text-ink mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <MarkdownEditor
@@ -222,7 +222,7 @@ export default function FieldInput({
     case "NUMBER":
       return (
         <div>
-          <label htmlFor={`${fieldId}-number`} className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-number`} className="block text-sm font-black text-ink mb-2">
             🔢 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -242,7 +242,7 @@ export default function FieldInput({
     case "DATE":
       return (
         <div>
-          <label htmlFor={`${fieldId}-date`} className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-date`} className="block text-sm font-black text-ink mb-2">
             📅 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -260,7 +260,7 @@ export default function FieldInput({
     case "SELECT":
       return (
         <div>
-          <label htmlFor={`${fieldId}-select`} className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-select`} className="block text-sm font-black text-ink mb-2">
             📂 {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
@@ -299,7 +299,7 @@ export default function FieldInput({
     case "SIGNATURE":
       return (
         <div>
-          <label htmlFor={`${fieldId}-signature`} className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-signature`} className="block text-sm font-black text-ink mb-2">
             ✍️ {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -310,7 +310,7 @@ export default function FieldInput({
             defaultValue={asText(defaultValue)}
             placeholder={t("orders.fieldInput.signaturePlaceholder")}
             onChange={(event) => onValueChange?.(event.target.value)}
-            className="w-full border-2 border-dashed border-blue-400 p-4 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-blue-50/50 outline-none focus:border-blue-700"
+            className="w-full border-2 border-dashed border-success p-4 rounded-xl text-base sm:text-sm font-bold text-ink bg-signal/10 outline-none focus:border-success"
           />
         </div>
       );
@@ -318,7 +318,7 @@ export default function FieldInput({
     default:
       return (
         <div>
-          <label htmlFor={`${fieldId}-text`} className="block text-sm font-black text-gray-900 mb-2">
+          <label htmlFor={`${fieldId}-text`} className="block text-sm font-black text-ink mb-2">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input

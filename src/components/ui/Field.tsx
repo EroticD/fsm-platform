@@ -50,12 +50,12 @@ export default function Field({
     <div className={className}>
       <label
         htmlFor={controlId}
-        className="block text-sm font-semibold text-gray-900"
+        className="block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
       >
         {label}
       </label>
       {hint && (
-        <p id={hintId} className="mt-1 text-xs text-gray-600">
+        <p id={hintId} className="mt-1 text-xs text-[var(--muted,#62685f)]">
           {hint}
         </p>
       )}
@@ -67,7 +67,11 @@ export default function Field({
         </FieldContext.Provider>
       </div>
       {error && (
-        <p id={errorId} role="alert" className="mt-1 text-xs font-semibold text-danger">
+        <p
+          id={errorId}
+          role="alert"
+          className="mt-1 text-xs font-bold text-[#a92a12]"
+        >
           {error}
         </p>
       )}

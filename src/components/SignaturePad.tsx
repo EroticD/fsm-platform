@@ -208,8 +208,8 @@ export default function SignaturePad({
       ref={dialogRef}
       className={
         expanded
-          ? "fixed inset-0 z-[80] flex flex-col gap-3 overflow-y-auto bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
-          : "space-y-2"
+          ? "field-app fixed inset-0 z-[80] flex flex-col gap-3 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
+          : "space-y-2 text-ink"
       }
       role={expanded ? "dialog" : undefined}
       aria-modal={expanded ? true : undefined}
@@ -218,7 +218,9 @@ export default function SignaturePad({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label
           id={labelId}
-          className="block text-sm font-black text-gray-900"
+          className={`block text-sm font-black ${
+            expanded ? "text-paper" : "text-ink"
+          }`}
         >
           {label}
         </label>
@@ -227,7 +229,11 @@ export default function SignaturePad({
             <button
               type="button"
               onClick={clear}
-              className="inline-flex min-h-11 items-center rounded-lg bg-gray-100 px-3 text-xs font-bold text-gray-700 transition hover:bg-gray-200"
+              className={`inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-bold transition ${
+                expanded
+                  ? "bg-white/10 text-paper hover:bg-white/20"
+                  : "bg-white/50 text-ink hover:bg-white/70"
+              }`}
             >
               🧹 {t("components.signature.clear")}
             </button>
@@ -237,7 +243,11 @@ export default function SignaturePad({
             onClick={() => setExpanded((current) => !current)}
             aria-expanded={expanded}
             ref={triggerRef}
-            className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-800 transition hover:bg-gray-50"
+            className={`inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-bold transition ${
+              expanded
+                ? "signal-button"
+                : "border border-line bg-white text-ink hover:bg-white"
+            }`}
           >
             {expanded
               ? `✕ ${t("components.signature.closeFullscreen")}`
@@ -246,18 +256,26 @@ export default function SignaturePad({
         </div>
       </div>
 
-      {helperText && <p className="text-xs text-gray-600">{helperText}</p>}
+      {helperText && (
+        <p
+          className={`text-xs ${
+            expanded ? "text-paper/70" : "text-muted"
+          }`}
+        >
+          {helperText}
+        </p>
+      )}
 
       {expanded && (
-        <div className="space-y-1 text-xs font-bold text-gray-600">
+        <div className="space-y-1 text-xs font-bold text-paper/70">
           <p>{t("components.signature.landscapeHint")}</p>
           <p>{t("p3.signature.focusHint")}</p>
         </div>
       )}
 
       {existingUrl && showExisting && (
-        <div className="rounded-xl border-2 border-gray-200 bg-white p-3">
-          <p className="mb-2 text-xs font-black uppercase tracking-wider text-gray-600">
+        <div className="rounded-xl border-2 border-line bg-paper p-3 text-ink">
+          <p className="mb-2 text-xs font-black uppercase tracking-wider text-muted">
             {t("components.signature.previous")}
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -266,7 +284,7 @@ export default function SignaturePad({
             alt={t("components.signature.previousAlt", { label })}
             className="h-16 object-contain"
           />
-          <p className="mt-2 text-xs text-gray-600">
+          <p className="mt-2 text-xs text-muted">
             {t("components.signature.keep")}
           </p>
         </div>
@@ -276,8 +294,8 @@ export default function SignaturePad({
         ref={canvasWrapRef}
         className={
           expanded
-            ? "min-h-[180px] flex-1 rounded-xl border-2 border-dashed border-gray-300 bg-white"
-            : "overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-white"
+            ? "min-h-[180px] flex-1 rounded-xl border-2 border-dashed border-signal/50 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
+            : "overflow-hidden rounded-xl border-2 border-dashed border-line bg-white"
         }
       >
         <SignatureCanvas
@@ -296,17 +314,34 @@ export default function SignaturePad({
         />
       </div>
 
-      <p id={drawHintId} className="text-xs text-gray-600">
+      <p
+        id={drawHintId}
+        className={`text-xs ${expanded ? "text-paper/70" : "text-muted"}`}
+      >
         {t("components.signature.drawHint")} {t("p3.signature.pointerHint")}
       </p>
 
       {/* Tastaturalternativ: tegneflaten er pointer-basert, men navnet kan
           skrives inn og gjøres om til en signatur uten mus eller finger. */}
-      <details className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <summary className="cursor-pointer text-xs font-bold text-gray-700">
+      <details
+        className={`rounded-xl border p-3 ${
+          expanded
+            ? "border-[#2a3328] bg-field-card"
+            : "border-line bg-white/50"
+        }`}
+      >
+        <summary
+          className={`cursor-pointer text-xs font-bold ${
+            expanded ? "text-paper" : "text-ink"
+          }`}
+        >
           ⌨️ {t("p3.signature.keyboardFallback")}
         </summary>
-        <p className="mt-2 text-xs text-gray-600">
+        <p
+          className={`mt-2 text-xs ${
+            expanded ? "text-paper/70" : "text-muted"
+          }`}
+        >
           {t("p3.signature.keyboardHint")}
         </p>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -316,13 +351,21 @@ export default function SignaturePad({
             onChange={(event) => setTypedName(event.target.value)}
             aria-label={t("p3.signature.keyboardLabel")}
             placeholder={t("p3.signature.keyboardPlaceholder")}
-            className="min-w-0 flex-1 rounded-xl border-2 border-gray-300 bg-white p-2.5 text-base font-bold text-gray-900 focus:border-blue-700 sm:text-sm"
+            className={`min-w-0 flex-1 rounded-xl border-2 p-2.5 text-base font-bold sm:text-sm ${
+              expanded
+                ? "border-[#2a3328] bg-field text-paper placeholder:text-paper/65! focus:border-signal"
+                : "border-line bg-white text-ink focus:border-success"
+            }`}
           />
           <button
             type="button"
             onClick={applyTypedSignature}
             disabled={typedName.trim() === ""}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              expanded
+                ? "signal-button"
+                : "ink-button"
+            }`}
           >
             {t("p3.signature.keyboardApply")}
           </button>
@@ -333,7 +376,9 @@ export default function SignaturePad({
         <div className="space-y-1">
           <label
             htmlFor={nameFieldId}
-            className="block text-xs font-bold text-gray-700"
+            className={`block text-xs font-bold ${
+              expanded ? "text-paper/90" : "text-ink"
+            }`}
           >
             {t("components.signature.nameLabel")}
           </label>
@@ -343,7 +388,11 @@ export default function SignaturePad({
             name={nameFieldName}
             defaultValue={defaultName || ""}
             placeholder={t("components.signature.namePlaceholder")}
-            className="w-full rounded-xl border-2 border-gray-300 bg-gray-50 p-2.5 text-base font-bold text-gray-900 focus:border-blue-700 sm:text-sm"
+            className={`w-full rounded-xl border-2 p-2.5 text-base font-bold sm:text-sm ${
+              expanded
+                ? "border-[#2a3328] bg-field-card text-paper placeholder:text-paper/65! focus:border-signal"
+                : "border-line bg-white text-ink focus:border-success"
+            }`}
           />
         </div>
       )}
@@ -352,15 +401,27 @@ export default function SignaturePad({
       <input type="hidden" name={name} value={dataUrl} />
 
       {dataUrl ? (
-        <p className="text-xs font-bold text-green-700">
+        <p
+          className={`text-xs font-bold ${
+            expanded ? "text-signal" : "text-success"
+          }`}
+        >
           {t("components.signature.registered")}
         </p>
       ) : existingUrl ? (
-        <p className="text-xs text-gray-600">
+        <p
+          className={`text-xs ${
+            expanded ? "text-paper/70" : "text-muted"
+          }`}
+        >
           {t("components.signature.keepHint")}
         </p>
       ) : (
-        <p className="text-xs text-gray-600">
+        <p
+          className={`text-xs ${
+            expanded ? "text-paper/70" : "text-muted"
+          }`}
+        >
           {t("components.signature.notSigned")}
         </p>
       )}

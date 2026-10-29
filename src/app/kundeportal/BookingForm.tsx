@@ -4,6 +4,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatDateLocalized } from "@/lib/dates";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import Button from "@/components/ui/Button";
+import { controlClassName } from "@/components/ui/controlStyles";
 import {
   PORTAL_SLOT_EVENT,
   type PortalSlotDetail,
@@ -142,7 +144,7 @@ export default function BookingForm({
       {state.status === "success" && (
         <div
           role="status"
-          className="space-y-2 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-green-950"
+          className="space-y-2 rounded-2xl border border-[#b9cdb4] bg-[#eaf3e4] px-4 py-3 text-[#24502f]"
         >
           <p className="text-base font-black">
             {state.duplicate
@@ -162,7 +164,7 @@ export default function BookingForm({
           </div>
           <a
             href="#bestillinger"
-            className="inline-flex min-h-11 items-center text-sm font-bold text-green-900 underline"
+            className="inline-flex min-h-11 items-center text-sm font-bold text-[#24502f] underline decoration-[#24502f] decoration-2 underline-offset-4"
           >
             {t("portal.booking.seeRequests")}
           </a>
@@ -172,7 +174,7 @@ export default function BookingForm({
       {state.status === "error" && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800"
+          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-sm font-bold text-[#a92a12]"
         >
           {t(ERROR_KEYS[state.reason] ?? "portal.booking.errors.generic")}
         </p>
@@ -181,7 +183,7 @@ export default function BookingForm({
       <div>
         <label
           htmlFor="booking-title"
-          className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-700"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
         >
           {t("portal.booking.titleLabel")}
         </label>
@@ -194,14 +196,14 @@ export default function BookingForm({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder={t("portal.booking.titlePlaceholder")}
-          className="w-full rounded-xl border border-gray-300 bg-white p-2 text-sm text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+          className={controlClassName()}
         />
       </div>
 
       <div>
         <label
           htmlFor="booking-description"
-          className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-700"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
         >
           {t("portal.booking.descriptionLabel")}
         </label>
@@ -214,12 +216,14 @@ export default function BookingForm({
         />
       </div>
 
-      <fieldset className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-        <legend className="px-1 text-sm font-bold text-gray-900">
+      <fieldset className="space-y-3 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4">
+        <legend className="px-1 text-sm font-bold text-[var(--ink,#101310)]">
           {t("portal.booking.slotLegend")}
         </legend>
-        <p className="text-xs text-gray-600">{t("portal.booking.slotHint")}</p>
-        <p className="text-xs font-bold text-gray-700">
+        <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
+          {t("portal.booking.slotHint")}
+        </p>
+        <p className="text-xs font-bold leading-5 text-[var(--muted,#62685f)]">
           {t("portal.booking.leadTimeHint", {
             hours: minLeadHours,
             date: formatDateLocalized(minDate, locale),
@@ -230,7 +234,7 @@ export default function BookingForm({
           <div>
             <label
               htmlFor="booking-date"
-              className="mb-1 block text-xs font-bold text-gray-700"
+              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
             >
               {t("portal.booking.dateLabel")}
             </label>
@@ -242,13 +246,13 @@ export default function BookingForm({
               min={minDate}
               value={requestedDate}
               onChange={(event) => onDateChange(event.target.value)}
-              className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+              className={controlClassName("min-h-11")}
             />
           </div>
           <div>
             <label
               htmlFor="booking-from"
-              className="mb-1 block text-xs font-bold text-gray-700"
+              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
             >
               {t("portal.booking.fromLabel")}
             </label>
@@ -258,7 +262,7 @@ export default function BookingForm({
               required
               value={requestedFrom}
               onChange={(event) => setRequestedFrom(event.target.value)}
-              className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+              className={controlClassName("min-h-11")}
             >
               {TIME_OPTIONS.map((time) => (
                 <option key={time} value={time}>
@@ -270,7 +274,7 @@ export default function BookingForm({
           <div>
             <label
               htmlFor="booking-to"
-              className="mb-1 block text-xs font-bold text-gray-700"
+              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
             >
               {t("portal.booking.toLabel")}
             </label>
@@ -280,7 +284,7 @@ export default function BookingForm({
               required
               value={requestedTo}
               onChange={(event) => setRequestedTo(event.target.value)}
-              className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+              className={controlClassName("min-h-11")}
             >
               {TIME_OPTIONS.map((time) => (
                 <option key={time} value={time}>
@@ -294,7 +298,7 @@ export default function BookingForm({
         {leadTimeInvalid && (
           <p
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+            className="rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
           >
             {t("portal.booking.leadTimeError", { hours: minLeadHours })}
           </p>
@@ -302,14 +306,14 @@ export default function BookingForm({
         {windowInvalid && (
           <p
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+            className="rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
           >
             {t("portal.booking.windowError")}
           </p>
         )}
 
         {requestedDate ? (
-          <p className="rounded-lg bg-green-100 px-3 py-2 text-xs font-bold text-green-950">
+          <p className="rounded-lg border border-[#c7d98e] bg-[#f3fbd1] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]">
             {technician
               ? t("portal.booking.selectedSlot", {
                   technician: technician.name || t("portal.availability.unknownName"),
@@ -333,7 +337,9 @@ export default function BookingForm({
             )}
           </p>
         ) : (
-          <p className="text-xs text-gray-600">{t("portal.booking.dateHint")}</p>
+          <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
+            {t("portal.booking.dateHint")}
+          </p>
         )}
         <input
           type="hidden"
@@ -346,7 +352,7 @@ export default function BookingForm({
         <div>
           <label
             htmlFor="booking-equipment"
-            className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-700"
+            className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
           >
             {t("portal.booking.equipmentLabel")}
           </label>
@@ -355,7 +361,7 @@ export default function BookingForm({
             name="equipmentId"
             value={equipmentId}
             onChange={(event) => setEquipmentId(event.target.value)}
-            className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+            className={controlClassName("min-h-11")}
           >
             <option value="">{t("portal.booking.equipmentNone")}</option>
             {equipment.map((item) => (
@@ -368,7 +374,7 @@ export default function BookingForm({
         <div>
           <label
             htmlFor="booking-contact-name"
-            className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-700"
+            className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
           >
             {t("portal.booking.contactNameLabel")}
           </label>
@@ -381,7 +387,7 @@ export default function BookingForm({
             value={contactName}
             onChange={(event) => setContactName(event.target.value)}
             placeholder={t("portal.booking.contactNamePlaceholder")}
-            className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900 placeholder-gray-500"
+            className={controlClassName("min-h-11")}
           />
         </div>
       </div>
@@ -389,7 +395,7 @@ export default function BookingForm({
       <div>
         <label
           htmlFor="booking-contact-phone"
-          className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-700"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
         >
           {t("portal.booking.contactPhoneLabel")}
         </label>
@@ -402,17 +408,18 @@ export default function BookingForm({
           value={contactPhone}
           onChange={(event) => setContactPhone(event.target.value)}
           placeholder={t("portal.booking.contactPhonePlaceholder")}
-          className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900 placeholder-gray-500"
+          className={controlClassName("min-h-11")}
         />
       </div>
 
-      <button
+      <Button
         type="submit"
         disabled={!canSubmit}
-        className="min-h-11 w-full whitespace-nowrap rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+        pending={pending}
+        className="w-full whitespace-nowrap"
       >
         {pending ? t("portal.booking.submitting") : t("portal.booking.submit")}
-      </button>
+      </Button>
     </form>
   );
 }

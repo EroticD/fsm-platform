@@ -1,6 +1,10 @@
 {
   "dashboard": {
     "greeting": "Welcome, {name} 👋",
+    "planningTitle": "Planning",
+    "planningEyebrow": "Operations",
+    "planningSubtitle": "Daily queue for {name}",
+    "planningDate": "Day plan",
     "adminOf": "You are managing {companyName}",
     "primaryKpisTitle": "Exceptions needing action",
     "queue": {
@@ -13,7 +17,28 @@
       "viewAllOverdue": "View all overdue",
       "viewAllToday": "View all today",
       "viewAllUnassigned": "View all unassigned",
-      "openDispatch": "Open dispatch"
+      "openDispatch": "Open dispatch",
+      "date": "Date",
+      "order": "Work order",
+      "customer": "Customer",
+      "status": "Status",
+      "technician": "Technician",
+      "action": "Action",
+      "open": "Open"
+    },
+    "nextAction": {
+      "title": "Next action",
+      "assign": "Assign technician",
+      "open": "Open work order",
+      "emptyTitle": "No overdue work orders",
+      "emptyDescription": "The queue is up to date. The next job is today or later.",
+      "allOverdue": "View all overdue"
+    },
+    "team": {
+      "title": "Team today",
+      "empty": "No technicians are scheduled today.",
+      "load": "{count} work orders",
+      "viewToday": "Today's work orders"
     },
     "allOrders": "All work orders",
     "keyFigures": "Key figures",
@@ -52,7 +77,7 @@
       "noDate": "No date",
       "unassigned": "Not assigned"
     },
-    "activityTitle": "📋 Recent activity",
+    "activityTitle": "Recent activity",
     "viewAllActivity": "View all activity",
     "noActivity": "No activity registered.",
     "unknownUser": "Unknown"

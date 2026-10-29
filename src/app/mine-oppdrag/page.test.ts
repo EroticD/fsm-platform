@@ -97,6 +97,7 @@ function row(overrides: Record<string, unknown> = {}) {
       email: "kari@example.test",
     },
     tags: [],
+    templates: [{ id: "tpl-1", title: "Service" }],
     reportDrafts: [
       {
         templateId: "tpl-1",
@@ -219,6 +220,63 @@ describe("/mine-oppdrag – feltets I dag", () => {
     expect(wheres[3].technicians).toEqual({ none: {} });
     // Historikken er fullførte oppdrag.
     expect(wheres[4].status).toBe("COMPLETED");
+  });
+
+  it("løfter neste jobb til helten med tid, adresse og startskjema", async () => {
+    queue(
+      {
+        today: [
+          row({ reportDrafts: [] }),
+          row({ id: "wo-2", title: "Andre jobb" }),
+        ],
+      },
+      { today: 2 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).toContain("orders.fieldList.nextJob");
+    expect(html).toContain("orders.fieldList.startForm");
+    expect(html).toContain("field-app");
+    expect(html).toContain("field-hero");
+    expect(html).toContain("field-cta");
+    expect(html).toContain("field-sheet");
+    expect(html).toContain("09:00");
+    expect(html).toContain("Storgata 1");
+    expect(html).toContain("1/2");
+    expect(html).toContain("/mine-oppdrag/wo-1/skjema/tpl-1");
+    expect(html).toContain("orders.fieldList.draftBadge");
+    // Helten erstatter dagens første kort, så jobben skal ikke listes to ganger.
+    expect(html.split("Service på port").length - 1).toBe(1);
+    expect(html).toContain("Andre jobb");
+  });
+
+  it("legger resten av dagen og kommende jobber i papirarket «Senere i dag»", async () => {
+    queue(
+      {
+        today: [
+          row(),
+          row({ id: "wo-2", title: "Andre jobb", reportDrafts: [] }),
+        ],
+        later: [
+          row({
+            id: "wo-3",
+            title: "Senere jobb",
+            reportDrafts: [],
+            scheduledFor: new Date("2026-10-30T00:00:00.000Z"),
+          }),
+        ],
+      },
+      { today: 2, later: 1 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).toContain("orders.fieldList.laterToday");
+    expect(html).toContain("orders.fieldList.laterTodayHint");
+    expect(html).toContain("/mine-oppdrag/wo-3");
+    expect(html.split("Senere jobb").length - 1).toBeGreaterThan(0);
+    expect(html.split("Service på port").length - 1).toBe(1);
   });
 
   it("beholder historikken og lar den ikke fylle prioritetsstakken", async () => {

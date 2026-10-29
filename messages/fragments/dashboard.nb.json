@@ -1,6 +1,10 @@
 {
   "dashboard": {
     "greeting": "Velkommen, {name} 👋",
+    "planningTitle": "Planlegging",
+    "planningEyebrow": "Drift",
+    "planningSubtitle": "Daglig kø for {name}",
+    "planningDate": "Dagsplan",
     "adminOf": "Du administrerer {companyName}",
     "primaryKpisTitle": "Unntak som krever handling",
     "queue": {
@@ -13,7 +17,28 @@
       "viewAllOverdue": "Se alle forfalte",
       "viewAllToday": "Se alle i dag",
       "viewAllUnassigned": "Se alle ikke tildelte",
-      "openDispatch": "Åpne dispatch"
+      "openDispatch": "Åpne dispatch",
+      "date": "Dato",
+      "order": "Oppdrag",
+      "customer": "Kunde",
+      "status": "Status",
+      "technician": "Montør",
+      "action": "Handling",
+      "open": "Åpne"
+    },
+    "nextAction": {
+      "title": "Neste handling",
+      "assign": "Tildel montør",
+      "open": "Åpne oppdrag",
+      "emptyTitle": "Ingen forfalte oppdrag",
+      "emptyDescription": "Køen er ajour. Neste oppdrag ligger i dag eller senere.",
+      "allOverdue": "Se alle forfalte"
+    },
+    "team": {
+      "title": "Team i dag",
+      "empty": "Ingen montører er satt opp i dag.",
+      "load": "{count} oppdrag",
+      "viewToday": "Dagens oppdrag"
     },
     "allOrders": "Alle oppdrag",
     "keyFigures": "Nøkkeltall",
@@ -52,7 +77,7 @@
       "noDate": "Ingen dato",
       "unassigned": "Ikke tildelt"
     },
-    "activityTitle": "📋 Siste aktivitet",
+    "activityTitle": "Siste aktivitet",
     "viewAllActivity": "Se all aktivitet",
     "noActivity": "Ingen aktivitet registrert.",
     "unknownUser": "Ukjent"

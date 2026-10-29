@@ -2,6 +2,7 @@
   "portal": {
     "noAccessTitle": "No access",
     "noAccessDesc": "Your user is not linked to a customer account.",
+    "headerEyebrow": "Customer portal",
     "headerTitle": "My Company: {customerName}",
     "headerWelcome": "Welcome to your customer portal, {userName}!",
     "home": "Home",

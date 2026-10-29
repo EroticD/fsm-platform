@@ -53,19 +53,25 @@ const BREADCRUMB_LABELS: Record<string, string> = {
 export default function BrandedHeader({
   title,
   showNav = true,
+  railMode = false,
   role,
   permissions,
   companyName = "FSM System",
   logoUrl = null,
   primaryColor = "#2563eb",
+  userName = null,
+  userEmail = null,
 }: {
   title?: string;
   showNav?: boolean;
+  railMode?: boolean;
   role?: string;
   permissions?: string[];
   companyName?: string;
   logoUrl?: string | null;
   primaryColor?: string;
+  userName?: string | null;
+  userEmail?: string | null;
 }) {
   const t = useTranslations("common");
   // Menyen husker hvilken side den ble åpnet fra. Navigerer man videre til en
@@ -81,6 +87,11 @@ export default function BrandedHeader({
   const wasOpenRef = useRef(false);
   const closeMenu = useCallback(() => setOpenMenuForPath(null), []);
   const isCustomer = role === "CUSTOMER";
+  // Montørene får feltmodus: mørk, kompakt topplinje og mørk bunnlinje.
+  // Kontor og administrasjon får venstrelinjen, og topplinjen blir en tynn
+  // arbeidslinje uten logo og uten den gamle hovedmenyen.
+  const isField = role === "TECHNICIAN";
+  const isRail = railMode;
   const navItems = useMemo(
     () => (showNav ? navItemsFor(role, permissions) : []),
     [role, permissions, showNav],
@@ -98,6 +109,8 @@ export default function BrandedHeader({
     pathname !== "/" &&
     pathname !== homePathForRole(role) &&
     !pathname.startsWith("/kundeportal");
+  const showInlineBreadcrumb =
+    showNav && !isCustomer && (isRail || isField);
 
   // Mobilens bunnlinje har ingen egen meny. «Mer» sender denne hendelsen, og
   // menyen åpnes på nytt med samme dialog, fokusfelle og fokusretur.
@@ -193,16 +206,27 @@ export default function BrandedHeader({
   const pc = primaryColor || "#2563eb";
   const activeTextColor = readableTextColor(pc);
 
+  const searchTone = isField
+    ? "border-[#2a3328] bg-[var(--field)]"
+    : "border-[var(--line)] bg-[var(--surface)]";
+
   return (
-    <div className="flex flex-col gap-0">
-      {/* Topplinje: logo, hovednavigasjon og kontroller. Høyden er fast og
-          navigasjonen brytes aldri over to rader. */}
-      <header className="flex min-h-16 items-center gap-2 border-b border-border-card bg-surface px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8">
+    <div className={`flex flex-col gap-0 ${isRail ? "lg:pl-[248px]" : ""}`}>
+      {/* Topplinje. I kontormodus er dette en tynn arbeidslinje uten logo –
+          merkevaren og hovednavigasjonen bor i venstrelinjen. I feltmodus er
+          den mørk og kompakt. Øvrige roller beholder den lyse topplinjen. */}
+      <header
+        className={`flex min-h-16 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8 ${
+          isField
+            ? "border-[#2a3328] bg-[var(--field)] text-[var(--paper)]"
+            : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]"
+        }`}
+      >
         <Link
           href={isCustomer ? "/kundeportal" : homePathForRole(role)}
-          className="flex shrink-0 items-center gap-3"
+          className={`flex shrink-0 items-center gap-3 ${isRail ? "lg:hidden" : ""}`}
           suppressHydrationWarning
-          style={{ color: pc }}
+          style={{ color: isField ? "var(--signal)" : pc }}
         >
           {logoUrl ? (
             <img
@@ -212,28 +236,59 @@ export default function BrandedHeader({
             />
           ) : (
             <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white shadow-sm"
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg font-bold shadow-sm ${
+                isField ? "bg-[var(--signal)] text-[var(--ink)]" : "text-white"
+              }`}
               suppressHydrationWarning
-              style={{ backgroundColor: pc }}
+              style={isField ? undefined : { backgroundColor: pc }}
             >
               {company.charAt(0).toUpperCase()}
             </div>
           )}
           <div className="hidden max-w-[180px] sm:block lg:hidden xl:block">
             {title && (
-              <h1 className="text-xl font-black text-gray-900">{title}</h1>
+              <h1
+                className={`text-xl font-black ${
+                  isField ? "text-[var(--paper)]" : "text-gray-900"
+                }`}
+              >
+                {title}
+              </h1>
             )}
             {!logoUrl && (
-              <p className="truncate text-xs font-semibold uppercase tracking-wider text-gray-700">
+              <p
+                className={`truncate text-xs font-semibold uppercase tracking-wider ${
+                  isField ? "text-white/60" : "text-gray-700"
+                }`}
+              >
                 {company}
               </p>
             )}
           </div>
         </Link>
 
-        {/* Hovednavigasjonen på brede skjermer: bare arbeidsområdene. Kart,
-            nytt oppdrag og varsler bor i hamburgermenyen. */}
-        {showNav && (
+        {/* Kompakt brødsmulesti/tittel i topplinjen når venstrelinjen eller
+            feltmodus eier navigasjonen. */}
+        {showInlineBreadcrumb && (
+          <div className="hidden min-w-0 flex-1 items-center lg:flex">
+            <BreadcrumbTrail
+              pathname={pathname}
+              role={role}
+              tone={isField ? "field" : "light"}
+            />
+          </div>
+        )}
+
+        {/* Globalt søk i selve topplinjen på brede skjermer. */}
+        {showNav && !isCustomer && (isRail || isField) && (
+          <div className="hidden w-full max-w-[21rem] shrink-0 lg:block">
+            <GlobalSearch />
+          </div>
+        )}
+
+        {/* Den gamle hovedmenyen brukes fortsatt av kundeportalen og
+            eventuelle egendefinerte roller uten venstrelinje. */}
+        {showNav && !isRail && !isField && (
           <div className="hidden min-w-0 flex-1 justify-center lg:flex">
             <GlobalNavDesktop
               items={primaryItems}
@@ -244,10 +299,20 @@ export default function BrandedHeader({
           </div>
         )}
 
-        {/* Språk, varsler og meny er tilgjengelig på alle bredder. */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+        {/* Språk, varsler, bruker og meny er tilgjengelig på alle bredder. */}
+        <div
+          className={`ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 ${
+            isField ? "field-shell-controls" : ""
+          }`}
+        >
           <NotificationBell role={role} />
           <LanguageSwitcher />
+          {isRail && (
+            <RailUserControl
+              name={userName}
+              email={userEmail}
+            />
+          )}
           {showNav && (
             <button
               ref={toggleRef}
@@ -275,38 +340,90 @@ export default function BrandedHeader({
         </div>
       </header>
 
-      {showBreadcrumbs && <Breadcrumbs pathname={pathname} role={role} />}
+      {showBreadcrumbs && (
+        <Breadcrumbs
+          pathname={pathname}
+          role={role}
+          tone={isField ? "field" : "light"}
+          className={(isRail || isField) ? "lg:hidden" : undefined}
+        />
+      )}
 
-      {/* Globalt søk (ikke for kundeportalbrukere). På mobil er søket
-          sammenklappet som standard, slik at det ikke spiser første skjerm. */}
+      {/* Globalt søk (ikke for kundeportalbrukere). Med venstrelinje eller
+          feltmodus ligger søket i topplinjen på brede skjermer, og vises som
+          en egen rad på små og mellomstore skjermer. På mobil er det
+          sammenklappet som standard. */}
       {showNav && !isCustomer && (
-        <>
-          <div className="hidden bg-white px-4 pb-4 pt-3 sm:block sm:px-6 lg:px-8">
-            <GlobalSearch />
-          </div>
-          <div className="bg-white px-4 pb-3 pt-3 sm:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileSearchOpen((open) => !open)}
-              aria-expanded={mobileSearchOpen}
-              aria-controls="mobile-global-search"
-              className="flex min-h-11 w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+        isRail || isField ? (
+          <>
+            <div
+              className={`hidden border-b px-4 pb-3 pt-3 sm:block sm:px-6 lg:hidden ${searchTone}`}
             >
-              <span aria-hidden>🔍</span>
-              <span className="flex-1 truncate">
-                {t("components.header.search")}
-              </span>
-              <span aria-hidden className="text-xs text-gray-400">
-                {mobileSearchOpen ? "▲" : "▼"}
-              </span>
-            </button>
-            {mobileSearchOpen && (
-              <div id="mobile-global-search" className="mt-2">
-                <GlobalSearch />
-              </div>
-            )}
-          </div>
-        </>
+              <GlobalSearch />
+            </div>
+            <div
+              className={`border-b px-4 pb-3 pt-3 sm:hidden ${searchTone}`}
+            >
+              <button
+                type="button"
+                onClick={() => setMobileSearchOpen((open) => !open)}
+                aria-expanded={mobileSearchOpen}
+                aria-controls="mobile-global-search"
+                className={`flex min-h-11 w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-bold transition ${
+                  isField
+                    ? "border-[#2a3328] bg-[var(--field-card)] text-[var(--paper)] hover:bg-white/5"
+                    : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <span aria-hidden>🔍</span>
+                <span className="flex-1 truncate">
+                  {t("components.header.search")}
+                </span>
+                <span
+                  aria-hidden
+                  className={`text-xs ${
+                    isField ? "text-white/40" : "text-gray-400"
+                  }`}
+                >
+                  {mobileSearchOpen ? "▲" : "▼"}
+                </span>
+              </button>
+              {mobileSearchOpen && (
+                <div id="mobile-global-search" className="mt-2">
+                  <GlobalSearch />
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="hidden bg-white px-4 pb-4 pt-3 sm:block sm:px-6 lg:px-8">
+              <GlobalSearch />
+            </div>
+            <div className="bg-white px-4 pb-3 pt-3 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileSearchOpen((open) => !open)}
+                aria-expanded={mobileSearchOpen}
+                aria-controls="mobile-global-search"
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+              >
+                <span aria-hidden>🔍</span>
+                <span className="flex-1 truncate">
+                  {t("components.header.search")}
+                </span>
+                <span aria-hidden className="text-xs text-gray-400">
+                  {mobileSearchOpen ? "▲" : "▼"}
+                </span>
+              </button>
+              {mobileSearchOpen && (
+                <div id="mobile-global-search" className="mt-2">
+                  <GlobalSearch />
+                </div>
+              )}
+            </div>
+          </>
+        )
       )}
 
       {/* Menyen er et ekte overlegg med dempet bakgrunn og låst sidescroll.
@@ -356,7 +473,7 @@ export default function BrandedHeader({
               ) : (
                 <>
                   {primaryItems.length > 0 && (
-                    <div className="lg:hidden">
+                    <div className={isField ? undefined : "lg:hidden"}>
                       <MenuHeading>
                         {t("components.header.work")}
                       </MenuHeading>
@@ -463,69 +580,173 @@ function breadcrumbLabel(
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function Breadcrumbs({
+type BreadcrumbTone = "light" | "field";
+
+function BreadcrumbItems({
   pathname,
   role,
+  tone,
 }: {
   pathname: string;
   role?: string;
+  tone: BreadcrumbTone;
+}) {
+  const t = useTranslations("common");
+  const allSegments = pathname.split("/").filter(Boolean);
+  const homeHref = homePathForRole(role);
+  const homeLabel =
+    homeHref === "/mine-oppdrag" ? t("nav.today") : t("nav.dashboard");
+  // På hjemflaten til rollen (for eksempel /mine-oppdrag for montører) skal
+  // brødsmulestien vise hjemmet én gang, ikke «I dag / I dag».
+  const isHomePath = pathname === homeHref;
+  const segments = isHomePath ? [] : allSegments;
+  const textClass =
+    tone === "field" ? "text-white/55" : "text-[var(--muted)]";
+  const linkClass =
+    tone === "field"
+      ? "hover:text-[var(--paper)] hover:underline"
+      : "hover:text-[var(--ink)] hover:underline";
+  const separatorClass =
+    tone === "field" ? "text-white/25" : "text-[var(--muted)]/45";
+  const currentClass =
+    tone === "field"
+      ? "font-semibold text-[var(--paper)]"
+      : "font-semibold text-[var(--ink)]";
+
+  return (
+    <ol
+      className={`flex min-w-0 items-center gap-1.5 text-xs ${textClass}`}
+    >
+      <li className="flex min-w-0 shrink-0 items-center gap-1.5">
+        {segments.length === 0 ? (
+          <span aria-current="page" className={`truncate ${currentClass}`}>
+            {homeLabel}
+          </span>
+        ) : (
+          <Link
+            href={homeHref}
+            className={`rounded font-medium transition ${linkClass}`}
+          >
+            {homeLabel}
+          </Link>
+        )}
+      </li>
+      {segments.map((segment, index) => {
+        const isLast = index === segments.length - 1;
+        const href = `/${segments.slice(0, index + 1).join("/")}`;
+        const label = breadcrumbLabel(
+          segment,
+          segments[index - 1],
+          t,
+          role,
+        );
+
+        return (
+          <li key={href} className="flex min-w-0 items-center gap-1.5">
+            <span aria-hidden className={separatorClass}>
+              /
+            </span>
+            {isLast ? (
+              <span
+                aria-current="page"
+                className={`truncate ${currentClass}`}
+              >
+                {label}
+              </span>
+            ) : (
+              <Link
+                href={href}
+                className={`truncate rounded transition ${linkClass}`}
+              >
+                {label}
+              </Link>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Breadcrumbs({
+  pathname,
+  role,
+  tone = "light",
+  className,
+}: {
+  pathname: string;
+  role?: string;
+  tone?: BreadcrumbTone;
+  className?: string;
 }) {
   const t = useTranslations("common");
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return null;
-  const homeHref = homePathForRole(role);
-  const homeLabel =
-    homeHref === "/mine-oppdrag" ? t("nav.today") : t("nav.dashboard");
 
   return (
     <nav
       aria-label={t("components.header.breadcrumb")}
-      className="border-b border-gray-100 bg-gray-50/60 px-4 py-1.5 sm:px-6 lg:px-8"
+      className={`border-b px-4 py-1.5 sm:px-6 lg:px-8 ${
+        tone === "field"
+          ? "border-[#2a3328] bg-[var(--field)]"
+          : "border-[var(--line)] bg-[var(--surface)]"
+      } ${className ?? ""}`}
     >
-      <ol className="flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
-        <li className="shrink-0">
-          <Link
-            href={homeHref}
-            className="rounded font-medium transition hover:text-gray-900 hover:underline"
-          >
-            {homeLabel}
-          </Link>
-        </li>
-        {segments.map((segment, index) => {
-          const isLast = index === segments.length - 1;
-          const href = `/${segments.slice(0, index + 1).join("/")}`;
-          const label = breadcrumbLabel(
-            segment,
-            segments[index - 1],
-            t,
-            role,
-          );
-
-          return (
-            <li key={href} className="flex min-w-0 items-center gap-1.5">
-              <span aria-hidden className="text-gray-300">
-                /
-              </span>
-              {isLast ? (
-                <span
-                  aria-current="page"
-                  className="truncate font-semibold text-gray-700"
-                >
-                  {label}
-                </span>
-              ) : (
-                <Link
-                  href={href}
-                  className="truncate rounded transition hover:text-gray-900 hover:underline"
-                >
-                  {label}
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      <BreadcrumbItems pathname={pathname} role={role} tone={tone} />
     </nav>
+  );
+}
+
+/** Brødsmulestien som ligger inne i den kompakte topplinjen på brede skjermer. */
+function BreadcrumbTrail({
+  pathname,
+  role,
+  tone,
+}: {
+  pathname: string;
+  role?: string;
+  tone: BreadcrumbTone;
+}) {
+  const t = useTranslations("common");
+  return (
+    <nav aria-label={t("components.header.breadcrumb")} className="min-w-0">
+      <BreadcrumbItems pathname={pathname} role={role} tone={tone} />
+    </nav>
+  );
+}
+
+/** Kompakt brukerkontroll i kontorets topplinje. */
+function RailUserControl({
+  name,
+  email,
+}: {
+  name?: string | null;
+  email?: string | null;
+}) {
+  const t = useTranslations("common");
+  const displayName = name?.trim() || email?.trim() || t("components.header.user");
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || t("components.header.user");
+
+  return (
+    <Link
+      href="/innstillinger"
+      title={`${t("components.header.signedInAs")}: ${displayName}`}
+      className="hidden min-h-11 min-w-11 items-center gap-2 rounded-xl px-1.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-black/5 lg:flex"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[10px] font-bold text-[var(--paper)]">
+        {initials}
+      </span>
+      <span className="sr-only xl:hidden">{displayName}</span>
+      <span className="hidden max-w-[8rem] truncate xl:block">
+        {displayName}
+      </span>
+    </Link>
   );
 }
 

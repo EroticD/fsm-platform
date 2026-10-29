@@ -103,10 +103,10 @@ function SubmitButton({
       disabled={pending || disabled || offline}
       aria-disabled={pending || disabled || offline}
       aria-describedby={describedBy}
-      className={`w-full py-4 rounded-xl font-black text-lg transition flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+      className={`w-full transition disabled:opacity-80! disabled:cursor-not-allowed ${
         offline
-          ? "bg-gray-400 text-white shadow-none"
-          : "bg-blue-700 text-white hover:bg-blue-800 shadow-md"
+          ? "flex min-h-14 items-center justify-center gap-2 rounded-xl bg-white/10 py-4 font-black text-paper/80 shadow-none"
+          : "field-cta shadow-[0_16px_36px_rgba(217,255,67,0.18)]"
       }`}
     >
       {pending
@@ -520,10 +520,10 @@ export default function ReportForm({
 
   const overallStatusClass =
     overallStatus === "AVVIK"
-      ? "bg-red-50 border-red-200 text-red-800"
+      ? "bg-risk/10 border-risk/40 text-risk"
       : overallStatus === "GODKJENT"
-        ? "bg-green-50 border-green-200 text-green-800"
-        : "bg-gray-50 border-gray-300 text-gray-700";
+        ? "bg-signal/10 border-signal/40 text-signal"
+        : "field-card text-paper/70";
   const overallStatusLabel =
     overallStatus === "AVVIK"
       ? t("orders.reportForm.overallDeviation")
@@ -696,7 +696,7 @@ export default function ReportForm({
       onChange={scheduleSave}
       onInput={scheduleSave}
       onSubmit={handleSubmit}
-      className="report-form bg-white p-5 sm:p-8 rounded-2xl shadow-sm border-2 border-gray-200 space-y-8"
+      className="report-form space-y-5"
     >
       <input type="hidden" name="workOrderId" value={workOrderId} />
       <input type="hidden" name="templateId" value={templateId} />
@@ -714,56 +714,97 @@ export default function ReportForm({
       <ErrorBanner message={submitErrorMessage} />
 
       {/* Status for autolagret kladd */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
-        <span
-          className={
-            draftStatus === "error"
-              ? "text-red-700"
-              : draftStatus === "saving"
-                ? "text-blue-700"
-                : "text-gray-500"
-          }
-        >
-          {draftStatus === "saving" && t("orders.reportForm.draftSaving")}
-          {draftStatus === "saved" &&
-            (draftSavedAt
-              ? t("orders.reportForm.draftSavedAt", {
-                  time: draftSavedAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
-                })
-              : t("orders.reportForm.draftSaved"))}
-          {draftStatus === "error" && t("orders.reportForm.draftError")}
-          {draftStatus === "offline" && t("orders.reportForm.draftOffline")}
-          {draftStatus === "idle" && t("orders.reportForm.draftIdle")}
-        </span>
-        <button
-          type="button"
-          onClick={() => void saveDraftNow()}
-          className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition"
-        >
-          {t("orders.reportForm.saveDraftNow")}
-        </button>
-      </div>
+      <section className="field-card p-4 shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-bold">
+          <span
+            className={`inline-flex items-center gap-2 ${
+              draftStatus === "error"
+                ? "text-risk"
+                : draftStatus === "saving"
+                  ? "text-signal"
+                  : draftStatus === "offline"
+                    ? "text-signal"
+                    : "text-paper/70"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`h-2 w-2 rounded-full ${
+                draftStatus === "error"
+                  ? "bg-risk"
+                  : draftStatus === "saving"
+                    ? "bg-signal"
+                    : draftStatus === "offline"
+                      ? "bg-signal"
+                      : "bg-success"
+              }`}
+            />
+            {draftStatus === "saving" && t("orders.reportForm.draftSaving")}
+            {draftStatus === "saved" &&
+              (draftSavedAt
+                ? t("orders.reportForm.draftSavedAt", {
+                    time: draftSavedAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
+                  })
+                : t("orders.reportForm.draftSaved"))}
+            {draftStatus === "error" && t("orders.reportForm.draftError")}
+            {draftStatus === "offline" && t("orders.reportForm.draftOffline")}
+            {draftStatus === "idle" && t("orders.reportForm.draftIdle")}
+          </span>
+          <button
+            type="button"
+            onClick={() => void saveDraftNow()}
+            className="min-h-11 rounded-xl border border-[#2a3328] bg-white/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
+          >
+            {t("orders.reportForm.saveDraftNow")}
+          </button>
+        </div>
+      </section>
 
-      {/* Kompakt stegstripe: hopp til sjekkpunkter, bilder eller signering. */}
+      {/* Tydelig 3-stegsstripe: sjekkpunkter, bilder og signering. */}
       <nav
         aria-label={t("orders.reportForm.stepsLabel")}
-        className="rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2.5"
+        className="field-card p-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] sm:p-4"
       >
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-bold">
-          <a href="#sjekkpunkter" className="text-blue-700 hover:underline">
-            ✓ {t("orders.reportForm.stepCheckpoints")}
+        <div className="grid grid-cols-3 gap-2">
+          <a
+            href="#sjekkpunkter"
+            className="rounded-xl border border-[#2a3328] bg-field p-3 transition hover:border-signal/60 hover:bg-white/[0.08]"
+          >
+            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-paper/55">
+              {t("orders.reportForm.stepNumber", { number: 1 })}
+            </span>
+            <span className="mt-1 flex items-center gap-1.5 text-sm font-black text-paper">
+              <span className="text-signal" aria-hidden>✓</span>
+              <span className="truncate">{t("orders.reportForm.stepCheckpoints")}</span>
+            </span>
           </a>
-          <span aria-hidden className="text-gray-300">·</span>
-          <a href={photosHref} className="text-blue-700 hover:underline">
-            📷 {t("orders.reportForm.stepPhotos")}
+          <a
+            href={photosHref}
+            className="rounded-xl border border-[#2a3328] bg-field p-3 transition hover:border-signal/60 hover:bg-white/[0.08]"
+          >
+            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-paper/55">
+              {t("orders.reportForm.stepNumber", { number: 2 })}
+            </span>
+            <span className="mt-1 flex items-center gap-1.5 text-sm font-black text-paper">
+              <span aria-hidden>📷</span>
+              <span className="truncate">{t("orders.reportForm.stepPhotos")}</span>
+            </span>
           </a>
-          <span aria-hidden className="text-gray-300">·</span>
-          <a href="#signer" className="text-blue-700 hover:underline">
-            ✍️ {t("orders.reportForm.stepSignatures")}
+          <a
+            href="#signer"
+            className="rounded-xl border border-[#2a3328] bg-field p-3 transition hover:border-signal/60 hover:bg-white/[0.08]"
+          >
+            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-paper/55">
+              {t("orders.reportForm.stepNumber", { number: 3 })}
+            </span>
+            <span className="mt-1 flex items-center gap-1.5 text-sm font-black text-paper">
+              <span aria-hidden>✍️</span>
+              <span className="truncate">{t("orders.reportForm.stepSignatures")}</span>
+            </span>
           </a>
         </div>
         <div
-          className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-gray-600"
+          className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-paper/70"
           aria-live="polite"
         >
           <span>
@@ -775,7 +816,7 @@ export default function ReportForm({
           {deviationCount > 0 && (
             <>
               <span aria-hidden>·</span>
-              <span className="text-red-700">
+              <span className="text-risk">
                 {t("orders.reportForm.stepDeviations", {
                   count: deviationCount,
                 })}
@@ -786,10 +827,10 @@ export default function ReportForm({
           <span
             className={
               draftStatus === "error"
-                ? "text-red-700"
+                ? "text-risk"
                 : draftStatus === "offline"
-                  ? "text-amber-800"
-                  : "text-gray-600"
+                  ? "text-signal"
+                  : "text-paper/70"
             }
           >
             {draftProgressLabel}
@@ -805,10 +846,10 @@ export default function ReportForm({
               answered: checkpointProgress.answered,
               total: checkpointProgress.total,
             })}
-            className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200"
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"
           >
             <div
-              className="h-full rounded-full bg-blue-700 transition-[width]"
+              className="h-full rounded-full bg-signal transition-[width]"
               style={{
                 width: `${Math.round(
                   (checkpointProgress.answered / checkpointProgress.total) * 100,
@@ -834,38 +875,38 @@ export default function ReportForm({
       {/* SAMLET RESULTAT – bare for maler som bruker enheter. */}
       <div key={formVersion}>
       {visibility.showOverallResult && (
-        <div className={`p-4 rounded-xl border-2 ${overallStatusClass}`}>
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">{t("orders.reportForm.overallResult")}</p>
+        <div className={`p-4 rounded-2xl border-2 shadow-[0_18px_40px_rgba(0,0,0,0.16)] ${overallStatusClass}`}>
+          <p className="text-[10px] font-black uppercase tracking-wider opacity-70 mb-1">{t("orders.reportForm.overallResult")}</p>
           <p className="font-black">
             {overallStatusLabel}
           </p>
-          <p className="text-[11px] text-gray-600 mt-1">{t("orders.reportForm.overallHint")}</p>
+          <p className="text-[11px] opacity-70 mt-1">{t("orders.reportForm.overallHint")}</p>
         </div>
       )}
 
       {/* ENHETER – eller sjekkpunkter for en rapport uten enheter */}
       <div
         id="sjekkpunkter"
-        className="scroll-mt-24 space-y-4 border-t-2 border-b-2 border-gray-200 py-6"
+        className="scroll-mt-24 space-y-4 py-2"
       >
         {requiresUnits ? (
           <div className="flex flex-wrap justify-between items-start gap-3">
             <div>
-              <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.unitsTitle")}</h2>
-              <p className="text-[11px] text-gray-500">{t("orders.reportForm.unitsHint")}</p>
+              <h2 className="text-lg font-black text-paper">{t("orders.reportForm.unitsTitle")}</h2>
+              <p className="text-[11px] text-paper/70">{t("orders.reportForm.unitsHint")}</p>
             </div>
             <button
               type="button"
               onClick={addUnit}
-              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+              className="bg-signal text-ink px-4 py-2 rounded-xl text-sm font-black hover:brightness-95 transition shadow-sm whitespace-nowrap"
             >
               {t("orders.reportForm.addUnit")}
             </button>
           </div>
         ) : (
           <div>
-            <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.checkpoints")}</h2>
-            <p className="text-[11px] text-gray-500">{t("orders.reportForm.reportNoUnitsHint")}</p>
+            <h2 className="text-lg font-black text-paper">{t("orders.reportForm.checkpoints")}</h2>
+            <p className="text-[11px] text-paper/70">{t("orders.reportForm.reportNoUnitsHint")}</p>
           </div>
         )}
 
@@ -892,19 +933,15 @@ export default function ReportForm({
         {units.map((unit, index) => (
           <div
             key={unit.key}
-            className={
-              requiresUnits
-                ? "border-2 border-gray-200 rounded-2xl p-4 sm:p-5 bg-white space-y-4"
-                : "bg-white space-y-4"
-            }
+            className="field-sheet p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 space-y-4"
           >
             {requiresUnits && (
               <div className="flex justify-between items-center gap-3">
-                <h3 className="font-black text-gray-900">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
+                <h3 className="font-black text-ink">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
                 <button
                   type="button"
                   onClick={() => setUnitToRemove(unit.key)}
-                  className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap"
+                  className="text-[11px] font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
                 >
                   {t("orders.reportForm.removeUnit")}
                 </button>
@@ -923,7 +960,7 @@ export default function ReportForm({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label
                     className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
-                      unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-gray-300 hover:bg-green-50"
+                      unit.status === "GODKJENT" ? "border-green-600 bg-green-50" : "border-line hover:bg-success/10"
                     }`}
                   >
                     <input
@@ -934,12 +971,12 @@ export default function ReportForm({
                       onChange={() => patchUnit(unit.key, { status: "GODKJENT" })}
                       className="w-5 h-5 text-green-600"
                     />
-                    <span className="font-bold text-gray-900">{t("orders.reportForm.approved")}</span>
+                    <span className="font-bold text-ink">{t("orders.reportForm.approved")}</span>
                   </label>
 
                   <label
                     className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition bg-white ${
-                      unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-gray-300 hover:bg-red-50"
+                      unit.status === "AVVIK" ? "border-red-600 bg-red-50" : "border-line hover:bg-risk/10"
                     }`}
                   >
                     <input
@@ -950,7 +987,7 @@ export default function ReportForm({
                       onChange={() => patchUnit(unit.key, { status: "AVVIK" })}
                       className="w-5 h-5 text-red-600"
                     />
-                    <span className="font-bold text-gray-900">{t("orders.reportForm.deviation")}</span>
+                    <span className="font-bold text-ink">{t("orders.reportForm.deviation")}</span>
                   </label>
                 </div>
               </fieldset>
@@ -1008,7 +1045,7 @@ export default function ReportForm({
                     <button
                       type="button"
                       onClick={() => patchUnit(unit.key, { status: "AVVIK" })}
-                      className="bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-amber-700 transition"
+                      className="signal-button text-xs"
                     >
                       {t("orders.reportForm.setDeviation")}
                     </button>
@@ -1035,13 +1072,13 @@ export default function ReportForm({
             {/* Enhetsmetadata er sjelden i felt. På mobil ligger den derfor
                 sammenklappet under sjekkpunktene, mens den er synlig på desktop. */}
             {requiresUnits && (
-              <details className="group rounded-xl border border-gray-200 bg-gray-50/70">
+              <details className="group rounded-xl border border-line bg-white/40">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-gray-800 sm:hidden [&::-webkit-details-marker]:hidden">
                   <span>🔧 {t("orders.reportForm.unitDetails")}</span>
                   <span aria-hidden className="text-xs text-gray-500 group-open:hidden">＋</span>
                   <span aria-hidden className="hidden text-xs text-gray-500 group-open:inline">−</span>
                 </summary>
-                <div className="hidden space-y-3 border-t border-gray-200 p-3 group-open:block sm:block sm:border-0 sm:p-0">
+                <div className="hidden space-y-3 border-t border-line p-3 group-open:block sm:block sm:border-0 sm:p-0">
                   {customerUnits.length > 0 && (
                     <div>
                       <label htmlFor={`${formId}-${unit.key}-product`} className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
@@ -1049,7 +1086,7 @@ export default function ReportForm({
                         id={`${formId}-${unit.key}-product`}
                         value={unit.productId}
                         onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
-                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       >
                         <option value="">{t("orders.reportForm.newUnit")}</option>
                         {customerUnits.map((u) => (
@@ -1080,7 +1117,7 @@ export default function ReportForm({
                           if (details) details.open = true;
                         }}
                         placeholder={t("orders.reportForm.labelPlaceholder")}
-                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       />
                     </div>
                     <div>
@@ -1091,7 +1128,7 @@ export default function ReportForm({
                         value={unit.serialNumber}
                         onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
                         placeholder={t("orders.reportForm.serialNumberPlaceholder")}
-                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       />
                     </div>
                     <div>
@@ -1102,7 +1139,7 @@ export default function ReportForm({
                         value={unit.location}
                         onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
                         placeholder={t("orders.reportForm.locationPlaceholder")}
-                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-700"
+                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       />
                     </div>
                   </div>
@@ -1111,7 +1148,7 @@ export default function ReportForm({
                     <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
                   ) : (
                     unit.label.trim() !== "" && (
-                      <p className="text-[11px] font-bold text-blue-700">{t("orders.reportForm.newUnitSaved")}</p>
+                      <p className="text-[11px] font-bold text-success">{t("orders.reportForm.newUnitSaved")}</p>
                     )
                   )}
                 </div>
@@ -1122,8 +1159,8 @@ export default function ReportForm({
       </div>
 
       {/* GENERELLE NOTATER */}
-      <div>
-        <label htmlFor={`${formId}-notes`} className="block text-sm font-black text-gray-900 mb-2 uppercase tracking-wider">
+      <div className="field-sheet p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5">
+        <label htmlFor={`${formId}-notes`} className="block text-sm font-black text-ink mb-2 uppercase tracking-wider">
           {t("orders.reportForm.generalNotes")}
         </label>
         <MarkdownEditor
@@ -1138,11 +1175,11 @@ export default function ReportForm({
       {/* SIGNATURER */}
       <div
         id="signer"
-        className="scroll-mt-24 border-t-2 border-b-2 border-gray-200 py-6 space-y-6"
+        className="field-sheet scroll-mt-24 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 space-y-6"
       >
         <div>
-          <h2 className="text-lg font-black text-gray-900">{t("orders.reportForm.signatures")}</h2>
-          <p className="text-[11px] text-gray-500">
+          <h2 className="text-lg font-black text-ink">{t("orders.reportForm.signatures")}</h2>
+          <p className="text-[11px] text-muted">
             {t("orders.reportForm.signaturesHint")}
           </p>
         </div>
@@ -1173,13 +1210,13 @@ export default function ReportForm({
 
       {/* Sticky lagreknapp på mobil, så skjemaet kan fylles ut med én hånd.
           CSS-en skjuler den mens et felt har fokus, se globals.css. */}
-      <div className="report-sticky-submit sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div className="report-sticky-submit sticky bottom-0 z-20 -mx-4 border-t border-[#2a3328] bg-field/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         {!online && (
           <p
             id="report-offline-notice"
             role="status"
             aria-live="polite"
-            className="mb-2 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900"
+            className="mb-2 rounded-xl border border-signal/40 bg-signal/10 px-3 py-2 text-sm font-bold text-signal"
           >
             {t("orders.reportForm.offlineNotice")}
           </p>
@@ -1206,7 +1243,7 @@ export default function ReportForm({
         onConfirm={confirmSubmit}
       >
         {showCompleteWorkOrderOption && (
-          <label className="flex items-start gap-3 rounded-xl border-2 border-gray-200 bg-gray-50 p-3 text-sm text-gray-900">
+          <label className="flex items-start gap-3 rounded-xl border-2 border-line bg-white/50 p-3 text-sm text-ink">
             <input
               type="checkbox"
               checked={completeWorkOrder}

@@ -30,29 +30,29 @@ function FormBreadcrumb({
   return (
     <nav
       aria-label={breadcrumbLabel}
-      className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500"
+      className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-paper/60"
     >
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
         <Link
           href="/mine-oppdrag"
-          className="rounded font-medium transition hover:text-gray-900 hover:underline"
+          className="rounded font-medium transition hover:text-paper hover:underline"
         >
           {workOrdersLabel}
         </Link>
-        <span aria-hidden className="text-gray-300">/</span>
+        <span aria-hidden className="text-paper/30">/</span>
       </span>
       <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
         <Link
           href={`/mine-oppdrag/${workOrderId}`}
-          className="max-w-[14rem] truncate rounded font-medium transition hover:text-gray-900 hover:underline"
+          className="max-w-[14rem] truncate rounded font-medium transition hover:text-paper hover:underline"
         >
           {workOrderTitle}
         </Link>
-        <span aria-hidden className="text-gray-300">/</span>
+        <span aria-hidden className="text-paper/30">/</span>
       </span>
       <span
         aria-current="page"
-        className="max-w-full truncate font-semibold text-gray-700"
+        className="max-w-full truncate font-semibold text-paper"
       >
         {templateTitle}
       </span>
@@ -110,12 +110,14 @@ export default async function TechnicianFillFormPage({
 
   if (!workOrder || !template) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">{t("orders.fieldFormPage.loadErrorTitle")}</h1>
-        <p className="text-gray-500 mb-6">{t("orders.fieldFormPage.loadErrorText")}</p>
-        <Link href={`/mine-oppdrag/${workOrderId}`} className="bg-blue-700 text-white px-6 py-3 rounded-xl font-bold">
-          {t("orders.fieldFormPage.backToWorkOrder")}
-        </Link>
+      <div className="field-app min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <div className="field-sheet w-full max-w-lg p-6 text-left shadow-[0_24px_70px_rgba(0,0,0,0.3)]">
+          <h1 className="text-xl font-black text-ink mb-2">{t("orders.fieldFormPage.loadErrorTitle")}</h1>
+          <p className="text-muted mb-6">{t("orders.fieldFormPage.loadErrorText")}</p>
+          <Link href={`/mine-oppdrag/${workOrderId}`} className="inline-flex min-h-11 items-center rounded-xl bg-signal px-6 py-3 font-black text-ink">
+            {t("orders.fieldFormPage.backToWorkOrder")}
+          </Link>
+        </div>
       </div>
     );
   }
@@ -130,9 +132,9 @@ export default async function TechnicianFillFormPage({
   // Låst rapport: skjemaet er ikke tilgjengelig før en administrator låser opp.
   if (existing?.isLocked) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+      <div className="field-app min-h-screen p-4 pb-32 sm:p-6 md:p-8">
+        <div className="max-w-2xl mx-auto space-y-5">
+          <div className="field-hero p-5 shadow-[0_24px_70px_rgba(0,0,0,0.35)] sm:p-6">
             <FormBreadcrumb
               workOrderId={workOrderId}
               workOrderTitle={workOrder.title}
@@ -140,8 +142,8 @@ export default async function TechnicianFillFormPage({
               workOrdersLabel={t("nav.myWorkOrders")}
               breadcrumbLabel={t("components.header.breadcrumb")}
             />
-            <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <h1 className="text-2xl font-black text-paper">{template.title}</h1>
+            <p className="text-sm text-paper/70 mt-1">
               {t("orders.fieldFormPage.workOrderFor", {
                 title: workOrder.title,
                 customer: workOrder.customer?.name || t("orders.fieldFormPage.noCustomer"),
@@ -153,21 +155,21 @@ export default async function TechnicianFillFormPage({
             message={error === "locked" ? t("orders.reportForm.errorLocked") : undefined}
           />
 
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 space-y-4">
-            <h2 className="text-lg font-black text-amber-900">{t("orders.fieldFormPage.lockedTitle")}</h2>
-            <p className="text-sm text-amber-900">
+          <div className="field-sheet p-6 space-y-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+            <h2 className="text-lg font-black text-warning">{t("orders.fieldFormPage.lockedTitle")}</h2>
+            <p className="text-sm text-muted">
               {t("orders.fieldFormPage.lockedText")}
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
               <Link
                 href={`/rapporter/${workOrderId}`}
-                className="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm"
+                className="inline-flex min-h-11 items-center bg-signal text-ink px-5 py-2.5 rounded-xl text-sm font-black hover:brightness-95 transition shadow-sm"
               >
                 {t("orders.fieldFormPage.openPdf")}
               </Link>
               <Link
                 href={returnTo}
-                className="bg-white border-2 border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm"
+                className="inline-flex min-h-11 items-center bg-white border-2 border-line text-ink px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-white/50 transition shadow-sm"
               >
                 {t("orders.fieldFormPage.backToWorkOrder")}
               </Link>
@@ -241,9 +243,9 @@ export default async function TechnicianFillFormPage({
     : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+    <div className="field-app min-h-screen p-4 pb-40 sm:p-6 md:p-8 sm:pb-10">
+      <div className="max-w-3xl mx-auto space-y-5">
+        <div className="field-hero p-5 shadow-[0_24px_70px_rgba(0,0,0,0.35)] sm:p-6">
           <FormBreadcrumb
             workOrderId={workOrderId}
             workOrderTitle={workOrder.title}
@@ -251,8 +253,8 @@ export default async function TechnicianFillFormPage({
             workOrdersLabel={t("nav.myWorkOrders")}
             breadcrumbLabel={t("components.header.breadcrumb")}
           />
-          <h1 className="text-2xl font-black text-gray-900">{template.title}</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-black text-paper">{template.title}</h1>
+          <p className="text-sm text-paper/70 mt-1">
             {t("orders.fieldFormPage.workOrderFor", {
               title: workOrder.title,
               customer: workOrder.customer?.name || t("orders.fieldFormPage.noCustomer"),

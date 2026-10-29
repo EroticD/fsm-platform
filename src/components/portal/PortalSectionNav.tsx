@@ -43,10 +43,10 @@ export default function PortalSectionNav() {
   }, []);
 
   return (
-    <div className="sticky top-0 z-30 -mx-1 mt-6 rounded-xl border border-gray-200 bg-gray-50/95 px-1 py-1 shadow-sm backdrop-blur">
+    <div className="sticky top-2 z-30 mt-6 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1 shadow-[0_2px_10px_rgba(20,17,11,0.06)] backdrop-blur">
       <nav
         aria-label={t("portal.sectionNav.label")}
-        className="-mx-1 flex gap-1 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-1 overflow-x-auto overscroll-x-contain px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {SECTIONS.map((section) => {
           const isActive = active === section.id;
@@ -56,10 +56,10 @@ export default function PortalSectionNav() {
               href={`#${section.id}`}
               onClick={() => setActive(section.id)}
               aria-current={isActive ? "location" : undefined}
-              className={`flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm font-bold transition-colors ${
+              className={`flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-bold transition-colors ${
                 isActive
-                  ? "bg-[var(--primary-color)] text-[var(--primary-foreground)] shadow-sm"
-                  : "text-gray-700 hover:bg-gray-200"
+                  ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)]"
+                  : "border-transparent text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
               }`}
             >
               {t(`portal.sectionNav.${section.labelKey}`)}

@@ -41,16 +41,22 @@ export default function AvailabilityBoard({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-gray-700">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-[var(--muted,#62685f)]">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-green-600" aria-hidden="true" />
+          <span
+            className="h-2.5 w-2.5 rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
+            aria-hidden="true"
+          />
           {t("portal.availability.free")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden="true" />
+          <span
+            className="h-2.5 w-2.5 rounded-full bg-[var(--risk,#f04427)]"
+            aria-hidden="true"
+          />
           {t("portal.availability.busy")}
         </span>
-        <span className="font-medium text-gray-600">
+        <span className="font-medium text-[var(--muted,#62685f)]">
           {t("portal.availability.pickHint")}
         </span>
       </div>
@@ -59,9 +65,9 @@ export default function AvailabilityBoard({
         {technicians.map((technician) => (
           <article
             key={technician.id}
-            className="rounded-xl border border-gray-200 bg-gray-50 p-3"
+            className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
           >
-            <h3 className="text-sm font-black text-gray-900">
+            <h3 className="text-sm font-extrabold text-[var(--ink,#101310)]">
               {technician.name || t("portal.availability.unknownName")}
             </h3>
             <div className="mt-2 grid grid-cols-7 gap-1">
@@ -87,10 +93,10 @@ export default function AvailabilityBoard({
                         date: fullDate,
                       },
                     )}
-                    className={`flex min-h-14 flex-col items-center justify-center rounded-lg border px-0.5 py-1 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                    className={`flex min-h-14 flex-col items-center justify-center rounded-lg border px-0.5 py-1 text-center transition ${
                       day.busy
-                        ? "cursor-not-allowed border-amber-200 bg-amber-50 text-amber-900"
-                        : "cursor-pointer border-green-200 bg-green-50 text-green-950 hover:border-green-400 hover:bg-green-100"
+                        ? "cursor-not-allowed border-[#e7c1ad] bg-[#fbe9df] text-[#8a3511]"
+                        : "cursor-pointer border-[#c7d98e] bg-[#f3fbd1] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)] hover:bg-[var(--signal,#d8ff3e)]"
                     }`}
                   >
                     <span className="text-xs font-bold leading-tight">
@@ -102,7 +108,9 @@ export default function AvailabilityBoard({
                     <span
                       aria-hidden="true"
                       className={`mt-1 h-1.5 w-1.5 rounded-full ${
-                        day.busy ? "bg-amber-500" : "bg-green-600"
+                        day.busy
+                          ? "bg-[var(--risk,#f04427)]"
+                          : "bg-[#6d8f1f]"
                       }`}
                     />
                     <span className="sr-only">

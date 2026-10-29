@@ -37,6 +37,19 @@ import {
   updateStatus,
 } from "./actions";
 
+/** Field Pulse-flater. Samme verdier som app-skallet, skrevet direkte. */
+const FIELD_APP = "field-app";
+const FIELD_PANEL =
+  "field-card shadow-[0_20px_50px_rgba(0,0,0,0.28)]";
+const PAPER_CARD =
+  "field-sheet p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-6";
+const PAPER_INNER =
+  "rounded-xl border border-line bg-white/50 p-3 sm:p-4";
+const LIME_BUTTON =
+  "signal-button text-sm shadow-sm";
+const DARK_BUTTON =
+  "inline-flex min-h-11 items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 px-3 py-2 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-white/10";
+
 type ProgressUnit = {
   status?: string | null;
   answers?: Record<string, unknown>;
@@ -147,12 +160,14 @@ export default async function TechnicianWorkOrderPage({
 
   if (!workOrder) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("orders.fieldDetail.notFoundTitle")}</h1>
-        <p className="text-gray-600 mb-4">{t("orders.fieldDetail.notFoundText")}</p>
-        <Link href="/mine-oppdrag" className="inline-flex min-h-11 items-center bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
-          {t("orders.fieldDetail.backToOverview")}
-        </Link>
+      <div className={`min-h-screen ${FIELD_APP} flex flex-col items-center justify-center p-4 pb-32 sm:p-6`}>
+        <div className="field-sheet w-full max-w-lg p-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.3)]">
+          <h1 className="text-2xl font-black text-ink mb-2">{t("orders.fieldDetail.notFoundTitle")}</h1>
+          <p className="text-muted mb-4">{t("orders.fieldDetail.notFoundText")}</p>
+          <Link href="/mine-oppdrag" className={LIME_BUTTON}>
+            {t("orders.fieldDetail.backToOverview")}
+          </Link>
+        </div>
       </div>
     );
   }
@@ -243,14 +258,22 @@ export default async function TechnicianWorkOrderPage({
   const hasAnyReport = orderedTemplates.some((template) =>
     reportsByTemplate.has(template.id),
   );
+  // Kladden avgjør om CTA-en skal si «Fortsett» eller «Start».
+  const draftsByTemplate = new Map(
+    (workOrder.reportDrafts ?? []).map((draft) => [draft.templateId, draft]),
+  );
+  const hasChecklistDraft = orderedTemplates.some((template) =>
+    draftsByTemplate.has(template.id),
+  );
   const canOpenChecklist = canWriteReports && canUpdate;
   const stickyAction =
     canOpenChecklist && nextTemplate
       ? {
           href: `/mine-oppdrag/${workOrderId}/skjema/${nextTemplate.id}`,
-          label: hasAnyReport
-            ? t("orders.fieldDetail.stickyContinueForm")
-            : t("orders.fieldDetail.stickyStartForm"),
+          label:
+            hasAnyReport || hasChecklistDraft
+              ? t("orders.fieldDetail.stickyContinueForm")
+              : t("orders.fieldDetail.stickyStartForm"),
         }
       : !isClosed && canUpdate
         ? {
@@ -261,9 +284,6 @@ export default async function TechnicianWorkOrderPage({
 
   // Framdrift for sjekklistene. Signerte rapporter vinner over en eventuell
   // gammel kladd, slik at tellingen alltid viser det som faktisk er lagret.
-  const draftsByTemplate = new Map(
-    (workOrder.reportDrafts ?? []).map((draft) => [draft.templateId, draft]),
-  );
   let answeredCheckpoints = 0;
   let totalCheckpoints = 0;
   let deviationCheckpoints = 0;
@@ -284,9 +304,6 @@ export default async function TechnicianWorkOrderPage({
       (unit) => unit.status === REPORT_STATUS_DEVIATION,
     ).length;
   }
-  const hasChecklistDraft = orderedTemplates.some((template) =>
-    draftsByTemplate.has(template.id),
-  );
   const checklistPercent =
     totalCheckpoints > 0
       ? Math.round((answeredCheckpoints / totalCheckpoints) * 100)
@@ -315,9 +332,11 @@ export default async function TechnicianWorkOrderPage({
       ? `/kunder/${workOrder.customer.id}`
       : null;
   const unitHref =
-    workOrder.productId && hasPermission(user, "equipment.view")
+    hasPermission(user, "equipment.view") && workOrder.productId
       ? `/enheter/${workOrder.productId}`
-      : null;
+      : hasPermission(user, "equipment.view") && workOrder.customer?.id
+        ? `/kunder/${workOrder.customer.id}?tab=utstyr`
+        : null;
   const documentsHref = hasPermission(user, "documents.view")
     ? `/dokumenter?q=${encodeURIComponent(workOrder.title)}`
     : null;
@@ -378,17 +397,54 @@ export default async function TechnicianWorkOrderPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-28 sm:p-6 sm:pb-6">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className={`min-h-screen ${FIELD_APP} p-4 pb-48 sm:p-6 sm:pb-10`}>
+      <div className="max-w-3xl mx-auto space-y-5">
 
-        {/* HEADER */}
-        <div className="flex justify-between items-start gap-3 border-b border-gray-300 pb-4">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900">{workOrder.title}</h1>
-            <p className="text-sm text-gray-600 mt-1">🏢 {workOrder.customer?.name || t("orders.fieldDetail.internalOrder")}</p>
-            <p className="text-xs text-gray-600 font-bold mt-1">{t("orders.fieldDetail.department", { name: workOrder.department.name })}</p>
+        {/* HEADER – mørk jobbflate med status, kunde og dato. */}
+        <header className="field-hero relative overflow-hidden p-5 shadow-[0_24px_70px_rgba(0,0,0,0.35)] sm:p-6">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-signal/15 blur-3xl"
+          />
+          <div className="relative">
+            <div className="flex items-start justify-between gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-signal/25 bg-field px-3 py-1 text-[11px] font-black uppercase tracking-wider text-signal">
+                <span className="h-1.5 w-1.5 rounded-full bg-signal" />
+                {statusLabels[workOrder.status]}
+              </span>
+              <Link href="/mine-oppdrag" className={DARK_BUTTON}>
+                {t("orders.fieldDetail.back")}
+              </Link>
+            </div>
+
+            <h1 className="mt-4 text-2xl font-black leading-tight tracking-tight text-paper sm:text-3xl">
+              {workOrder.title}
+            </h1>
+            <p className="mt-2 text-sm font-bold text-paper/90">
+              🏢 {workOrder.customer?.name || t("orders.fieldDetail.internalOrder")}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+              <span className="rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
+                {t("orders.fieldDetail.department", {
+                  name: workOrder.department.name,
+                })}
+              </span>
+              <span className="rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
+                📅{" "}
+                {formatDateRangeLocalized(
+                  workOrder.scheduledFor,
+                  workOrder.scheduledTo,
+                  locale,
+                ) || t("orders.fieldDetail.noDate")}
+              </span>
+              {workOrder.orderNumber && (
+                <span className="rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
+                  {t("orders.list.orderNumber")} {workOrder.orderNumber}
+                </span>
+              )}
+            </div>
             {workOrder.tags && workOrder.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-3">
                 {workOrder.tags.map((tag: any) => (
                   <span
                     key={tag.id}
@@ -402,10 +458,7 @@ export default async function TechnicianWorkOrderPage({
               </div>
             )}
           </div>
-          <Link href="/mine-oppdrag" className="inline-flex min-h-11 shrink-0 items-center bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-bold border-2 border-gray-200 shadow-sm hover:bg-gray-100 transition">
-            {t("orders.fieldDetail.back")}
-          </Link>
-        </div>
+        </header>
 
         {restored && (
           <CustomerToast
@@ -435,14 +488,72 @@ export default async function TechnicianWorkOrderPage({
           />
         )}
 
-        {/* STATUS & DATO – rett under headeren, sammen med sjekklistene. */}
-        <div id="status" className="scroll-mt-4 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+        {/* HURTIGHANDLINGER – telefon, kart og de viktigste detaljsidene. */}
+        {(contactPhone ||
+          mapsHref ||
+          customerHref ||
+          unitHref ||
+          documentsHref) && (
+          <div className={`${FIELD_PANEL} p-4 sm:p-5`}>
+            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-paper/60">
+              {t("orders.fieldDetail.quickActions")}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {contactPhone && (
+                <a
+                  href={`tel:${contactPhone}`}
+                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                >
+                  📞 {t("orders.fieldDetail.callContact")}
+                </a>
+              )}
+              {mapsHref && (
+                <a
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                >
+                  🗺️ {t("orders.fieldDetail.map")}
+                  <span className="sr-only"> ({t("orders.fieldDetail.newTab")})</span>
+                </a>
+              )}
+              {customerHref && (
+                <Link
+                  href={customerHref}
+                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                >
+                  🏢 {t("orders.fieldDetail.customer")}
+                </Link>
+              )}
+              {unitHref && (
+                <Link
+                  href={unitHref}
+                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                >
+                  🔧 {t("orders.fieldDetail.unit")}
+                </Link>
+              )}
+              {documentsHref && (
+                <Link
+                  href={documentsHref}
+                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                >
+                  📄 {t("orders.fieldDetail.documents")}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STATUS & DATO – mørk statusflate under hurtighandlingene. */}
+        <div id="status" className={`scroll-mt-4 ${FIELD_PANEL} p-4 sm:p-6`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 
             <div>
-              <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">{t("orders.fieldDetail.statusTitle")}</p>
+              <p className="text-xs font-black text-paper/60 uppercase tracking-wider mb-2">{t("orders.fieldDetail.statusTitle")}</p>
               {isClosed ? (
-                <p className="text-sm text-gray-600 italic">
+                <p className="text-sm text-paper/70 italic">
                   {t("orders.errors.workOrderLocked")}
                 </p>
               ) : canUpdate ? (
@@ -471,7 +582,7 @@ export default async function TechnicianWorkOrderPage({
                       name="status"
                       defaultValue={workOrder.status}
                       aria-label={t("orders.fieldDetail.statusTitle")}
-                      className="border-2 border-gray-300 p-2.5 rounded-xl text-base sm:text-sm font-bold text-gray-900 bg-gray-50 outline-none focus:border-blue-600 min-w-[180px] min-h-11"
+                      className="border-2 border-[#2a3328] p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-paper outline-none focus:border-signal min-w-[180px] min-h-11"
                     >
                       <option value={workOrder.status} disabled>
                         {statusLabels[workOrder.status]} ({t("orders.fieldDetail.currentStatus")})
@@ -485,21 +596,21 @@ export default async function TechnicianWorkOrderPage({
                     <SubmitButton
                       disabled
                       pendingLabel={t("orders.fieldDetail.updating")}
-                      className="status-submit-disabled min-h-11 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap"
+                      className="status-submit-disabled min-h-11 bg-white/10 text-paper/70 px-4 py-2.5 rounded-xl text-sm font-bold transition whitespace-nowrap"
                     >
                       {t("orders.fieldDetail.update")}
                     </SubmitButton>
                     <SubmitButton
                       disabled={statusOptions.length === 0}
                       pendingLabel={t("orders.fieldDetail.updating")}
-                      className="status-submit-ready min-h-11 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition whitespace-nowrap"
+                      className="status-submit-ready signal-button text-sm whitespace-nowrap"
                     >
                       {t("orders.fieldDetail.update")}
                     </SubmitButton>
                   </ConfirmSubmitForm>
                   {canCancelNow && (
-                    <details className="mt-2 rounded-xl border border-red-200 bg-red-50/50 p-2">
-                      <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-bold text-red-800 [&::-webkit-details-marker]:hidden">
+                    <details className="mt-2 rounded-xl border border-risk/40 bg-risk/10 p-2">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-bold text-risk [&::-webkit-details-marker]:hidden">
                         {t("orders.fieldDetail.moreActions")}
                       </summary>
                       <ConfirmSubmitForm
@@ -514,7 +625,7 @@ export default async function TechnicianWorkOrderPage({
                         <input type="hidden" name="status" value="CANCELLED" />
                         <SubmitButton
                           pendingLabel={t("orders.fieldDetail.updating")}
-                          className="min-h-11 border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition whitespace-nowrap"
+                          className="min-h-11 border-2 border-risk/40 bg-risk/10 text-risk px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-risk/15 transition whitespace-nowrap"
                         >
                           {t("orders.fieldDetail.cancelWorkOrder")}
                         </SubmitButton>
@@ -523,15 +634,15 @@ export default async function TechnicianWorkOrderPage({
                   )}
                 </>
               ) : (
-                <p className="text-sm text-gray-600 italic">
+                <p className="text-sm text-paper/70 italic">
                   {t("orders.fieldDetail.noStatusPermission")}
                 </p>
               )}
             </div>
 
             <div>
-              <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">{t("orders.fieldDetail.scheduledDate")}</p>
-              <p className="font-bold text-gray-900 bg-gray-50 p-2.5 border-2 border-gray-200 rounded-xl inline-block w-full">
+              <p className="text-xs font-black text-paper/60 uppercase tracking-wider mb-2">{t("orders.fieldDetail.scheduledDate")}</p>
+              <p className="font-bold text-paper bg-field p-2.5 border-2 border-[#2a3328] rounded-xl inline-block w-full">
                 📅 {formatDateRangeLocalized(workOrder.scheduledFor, workOrder.scheduledTo, locale) || t("orders.fieldDetail.noDate")}
               </p>
             </div>
@@ -539,71 +650,22 @@ export default async function TechnicianWorkOrderPage({
           </div>
         </div>
 
-        {/* HURTIGHANDLINGER – telefon, kart og de viktigste detaljsidene. */}
-        {(contactPhone ||
-          mapsHref ||
-          customerHref ||
-          unitHref ||
-          documentsHref) && (
-          <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="mb-2 text-xs font-black uppercase tracking-wider text-gray-600">
-              {t("orders.fieldDetail.quickActions")}
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {contactPhone && (
-                <a
-                  href={`tel:${contactPhone}`}
-                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  📞 {t("orders.fieldDetail.callContact")}
-                </a>
-              )}
-              {mapsHref && (
-                <a
-                  href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  🗺️ {t("orders.fieldDetail.map")}
-                  <span className="sr-only"> ({t("orders.fieldDetail.newTab")})</span>
-                </a>
-              )}
-              {customerHref && (
-                <Link
-                  href={customerHref}
-                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  🏢 {t("orders.fieldDetail.customer")}
+        {/* SJEKKLISTER – papirark på mørk bunn, høyt opp. */}
+        <div className={PAPER_CARD}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-2">
+            <h2 className="font-black text-lg text-ink">{t("orders.fieldDetail.checklistsTitle")}</h2>
+            {stickyAction && (
+              <div className="hidden sm:block">
+                <Link href={stickyAction.href} className={LIME_BUTTON}>
+                  {stickyAction.label}
                 </Link>
-              )}
-              {unitHref && (
-                <Link
-                  href={unitHref}
-                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  🔧 {t("orders.fieldDetail.unit")}
-                </Link>
-              )}
-              {documentsHref && (
-                <Link
-                  href={documentsHref}
-                  className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                >
-                  📄 {t("orders.fieldDetail.documents")}
-                </Link>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* SJEKKLISTER – høyt opp, slik at montøren slipper å scrolle. */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200">
-          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">{t("orders.fieldDetail.checklistsTitle")}</h2>
 
           {totalCheckpoints > 0 && (
             <div className="mb-4 space-y-2">
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-gray-600">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-muted">
                 <span>
                   {t("orders.fieldDetail.checklistProgress", {
                     answered: answeredCheckpoints,
@@ -613,7 +675,7 @@ export default async function TechnicianWorkOrderPage({
                 {deviationCheckpoints > 0 && (
                   <>
                     <span aria-hidden>·</span>
-                    <span className="text-red-700">
+                    <span className="text-risk">
                       {t("orders.fieldDetail.checklistDeviations", {
                         count: deviationCheckpoints,
                       })}
@@ -623,7 +685,7 @@ export default async function TechnicianWorkOrderPage({
                 <span aria-hidden>·</span>
                 <span
                   className={
-                    hasChecklistDraft ? "text-blue-700" : "text-gray-500"
+                    hasChecklistDraft ? "text-success" : "text-muted"
                   }
                 >
                   {hasChecklistDraft
@@ -640,10 +702,10 @@ export default async function TechnicianWorkOrderPage({
                   answered: answeredCheckpoints,
                   total: totalCheckpoints,
                 })}
-                className="h-1.5 overflow-hidden rounded-full bg-gray-200"
+                className="h-1.5 overflow-hidden rounded-full bg-line"
               >
                 <div
-                  className="h-full rounded-full bg-blue-700 transition-[width]"
+                  className="h-full rounded-full bg-success transition-[width]"
                   style={{ width: `${checklistPercent}%` }}
                 />
               </div>
@@ -651,7 +713,7 @@ export default async function TechnicianWorkOrderPage({
           )}
 
           {workOrder.templates.length === 0 ? (
-            <p className="text-sm text-gray-600 italic mb-4">{t("orders.fieldDetail.noChecklists")}</p>
+            <p className="text-sm text-muted italic mb-4">{t("orders.fieldDetail.noChecklists")}</p>
           ) : (
             <div className="space-y-3 mb-6">
               {orderedTemplates.map((template, templateIndex) => {
@@ -670,30 +732,30 @@ export default async function TechnicianWorkOrderPage({
                       <span className="h-px flex-1 bg-indigo-200" />
                     </div>
                   )}
-                  <div className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
-                    <span className={`font-bold text-sm ${report ? 'text-green-900' : 'text-blue-900'} flex items-center gap-2 flex-wrap`}>
+                  <div className={`flex flex-wrap justify-between items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition ${report ? 'bg-signal/20 border-success/30' : 'bg-white/50 border-line'}`}>
+                    <span className={`font-bold text-sm ${report ? 'text-ink' : 'text-ink'} flex items-center gap-2 flex-wrap`}>
                       {template.title}
                       {isHmsTemplate(template) && (
-                        <span className="bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        <span className="bg-white/10 text-paper border border-white/20 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
                           🛡️ {template.hmsType
                             ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
                             : t("orders.templateGroups.hmsBadge")}
                         </span>
                       )}
                       {canViewReports && report?.reportNumber && (
-                        <span className="bg-white text-gray-700 border border-gray-300 text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="bg-white text-ink border border-line text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.reportNumber", {
                             number: report.reportNumber,
                           })}
                         </span>
                       )}
                       {report?.isLocked && (
-                        <span className="bg-gray-800 text-white text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="bg-white/5 text-paper text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.locked")}
                         </span>
                       )}
                       {report && !report.isLocked && (
-                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="bg-signal/10 text-warning border border-warning/40 text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {t("orders.fieldDetail.unlocked")}
                         </span>
                       )}
@@ -706,7 +768,7 @@ export default async function TechnicianWorkOrderPage({
                             href={`/rapporter/${workOrderId}?rapport=${report.id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                            className="ink-button text-xs shadow-sm whitespace-nowrap"
                           >
                             {t("orders.fieldDetail.openReport")}
                           </Link>
@@ -714,7 +776,7 @@ export default async function TechnicianWorkOrderPage({
                         {canWriteReports && canUpdate && !report.isLocked && (
                           <Link
                             href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
-                            className="inline-flex min-h-11 items-center bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-amber-800 shadow-sm transition whitespace-nowrap"
+                            className="signal-button text-xs shadow-sm whitespace-nowrap"
                           >
                             {t("orders.fieldDetail.edit")}
                           </Link>
@@ -723,12 +785,12 @@ export default async function TechnicianWorkOrderPage({
                     ) : canWriteReports && canUpdate ? (
                       <Link
                         href={`/mine-oppdrag/${workOrderId}/skjema/${template.id}`}
-                        className="inline-flex min-h-11 items-center bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-800 shadow-sm transition whitespace-nowrap"
+                        className="signal-button text-xs shadow-sm whitespace-nowrap"
                       >
                         {t("orders.fieldDetail.fillForm")}
                       </Link>
                     ) : (
-                      <span className="text-xs font-bold text-gray-600">
+                      <span className="text-xs font-bold text-muted">
                         {t("orders.fieldDetail.waitingFill")}
                       </span>
                     )}
@@ -740,8 +802,8 @@ export default async function TechnicianWorkOrderPage({
           )}
 
           {canUpdate && availableTemplates.length > 0 && (
-            <details className="border-t pt-4">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-gray-600 [&::-webkit-details-marker]:hidden">
+            <details className="border-t border-line pt-4">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
                 ＋ {t("orders.fieldDetail.extraChecklist")}
               </summary>
               <form action={addTemplate} className="mt-2 flex gap-2 flex-wrap">
@@ -751,7 +813,7 @@ export default async function TechnicianWorkOrderPage({
                   required
                   defaultValue=""
                   aria-label={t("orders.fieldDetail.extraChecklist")}
-                  className="border-2 border-gray-300 p-2.5 rounded-xl text-base font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
+                  className="border-2 border-line p-2.5 rounded-xl text-base font-bold text-ink bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectTemplate")}</option>
                   {availableServiceTemplates.length > 0 && (
@@ -769,7 +831,7 @@ export default async function TechnicianWorkOrderPage({
                     </optgroup>
                   )}
                 </select>
-                <button type="submit" className="min-h-11 bg-gray-200 text-gray-800 px-4 py-2.5 rounded-xl text-sm font-black hover:bg-gray-300 transition shadow-sm whitespace-nowrap">
+                <button type="submit" className={`${DARK_BUTTON} whitespace-nowrap`}>
                   {t("orders.fieldDetail.add")}
                 </button>
               </form>
@@ -778,13 +840,13 @@ export default async function TechnicianWorkOrderPage({
         </div>
 
         {/* ARBEIDSBESKRIVELSE */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">{t("orders.fieldDetail.descriptionTitle")}</h2>
-          <div className="bg-blue-50/60 border-2 border-blue-200 p-3 sm:p-4 rounded-xl">
+        <div className={PAPER_CARD}>
+          <h2 className="text-xs font-black text-muted uppercase tracking-wider mb-2">{t("orders.fieldDetail.descriptionTitle")}</h2>
+          <div className={PAPER_INNER}>
             {workOrder.description ? (
-              <MarkdownView value={workOrder.description} className="text-gray-900 font-medium" />
+              <MarkdownView value={workOrder.description} className="text-ink font-medium" />
             ) : (
-              <p className="text-sm text-gray-900 font-medium">
+              <p className="text-sm text-muted font-medium">
                 {t("orders.fieldDetail.noDescription")}
               </p>
             )}
@@ -792,12 +854,12 @@ export default async function TechnicianWorkOrderPage({
         </div>
 
         {/* KOMMENTARER / LOGG – editoren er kollapset bak en knapp. */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
-          <h2 className="font-black text-lg text-gray-900 border-b pb-2">{t("orders.fieldDetail.commentsTitle")}</h2>
+        <div className={`${PAPER_CARD} space-y-4`}>
+          <h2 className="font-black text-lg text-ink border-b border-line pb-2">{t("orders.fieldDetail.commentsTitle")}</h2>
 
           {canUpdate && (
             <details className="rounded-xl">
-              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-xl bg-blue-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 [&::-webkit-details-marker]:hidden">
+              <summary className="ink-button cursor-pointer list-none text-sm shadow-sm [&::-webkit-details-marker]:hidden">
                 {t("orders.fieldDetail.writeComment")}
               </summary>
               <form action={addComment} className="mt-3 space-y-3">
@@ -809,7 +871,7 @@ export default async function TechnicianWorkOrderPage({
                   placeholder={t("orders.fieldDetail.commentPlaceholder")}
                 />
                 <div className="flex justify-end">
-                  <button type="submit" className="min-h-11 bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap">
+                  <button type="submit" className="signal-button text-sm shadow-sm whitespace-nowrap">
                     {t("orders.fieldDetail.addComment")}
                   </button>
                 </div>
@@ -818,17 +880,17 @@ export default async function TechnicianWorkOrderPage({
           )}
 
           {/* Liste over tidligere kommentarer */}
-          <div className="space-y-3 pt-4 border-t border-gray-200">
+          <div className="space-y-3 pt-4 border-t border-line">
             {workOrder.workComments.length === 0 ? (
-              <p className="text-sm text-gray-600 italic">{t("orders.fieldDetail.noComments")}</p>
+              <p className="text-sm text-muted italic">{t("orders.fieldDetail.noComments")}</p>
             ) : (
               workOrder.workComments.map((comment: any) => (
-                <div key={comment.id} className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 space-y-1">
-                  <div className="flex justify-between items-center text-xs text-gray-600 font-bold">
+                <div key={comment.id} className="bg-white/50 p-3 sm:p-4 rounded-xl border border-line space-y-1">
+                  <div className="flex justify-between items-center text-xs text-muted font-bold">
                     <span>{comment.authorName || t("orders.fieldDetail.unknownAuthor")}</span>
                     <span>{formatDateTimeLocalized(comment.createdAt, locale)}</span>
                   </div>
-                  <div className="text-sm text-gray-900 font-medium">
+                  <div className="text-sm text-ink font-medium">
                     <MarkdownView value={comment.content} />
                   </div>
                 </div>
@@ -838,21 +900,21 @@ export default async function TechnicianWorkOrderPage({
         </div>
 
         {/* TILDELTE MONTØRER & KONTOR */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
-          <h2 className="font-black text-lg text-gray-900 border-b pb-2">{t("orders.fieldDetail.personnelTitle")}</h2>
+        <div className={`${PAPER_CARD} space-y-4`}>
+          <h2 className="font-black text-lg text-ink border-b border-line pb-2">{t("orders.fieldDetail.personnelTitle")}</h2>
 
           <div className="space-y-2">
             {workOrder.technicians.length === 0 ? (
-              <p className="text-sm text-red-700 font-bold">{t("orders.fieldDetail.noPersonnel")}</p>
+              <p className="text-sm text-risk font-bold">{t("orders.fieldDetail.noPersonnel")}</p>
             ) : (
               <div className="space-y-2">
                 {workOrder.technicians.map((tech: any) => (
-                  <div key={tech.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200 gap-2 min-w-0">
+                  <div key={tech.id} className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-line gap-2 min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-success flex-shrink-0"></span>
                       <div className="min-w-0">
-                        <p className="font-black text-gray-900 text-sm truncate">{tech.name} {tech.id === user.id ? <span className="text-xs text-blue-700">{t("orders.fieldDetail.you")}</span> : ""}</p>
-                        <p className="text-xs text-gray-600">{tech.role === 'ADMIN' ? t("orders.fieldDetail.roleAdmin") : tech.role === 'OFFICE' ? t("orders.fieldDetail.roleOffice") : t("orders.fieldDetail.roleTechnician")}</p>
+                        <p className="font-black text-ink text-sm truncate">{tech.name} {tech.id === user.id ? <span className="text-xs text-success">{t("orders.fieldDetail.you")}</span> : ""}</p>
+                        <p className="text-xs text-muted">{tech.role === 'ADMIN' ? t("orders.fieldDetail.roleAdmin") : tech.role === 'OFFICE' ? t("orders.fieldDetail.roleOffice") : t("orders.fieldDetail.roleTechnician")}</p>
                       </div>
                     </div>
 
@@ -887,8 +949,8 @@ export default async function TechnicianWorkOrderPage({
           </div>
 
           {canUpdate && availableUsers.length > 0 && (
-            <details className="border-t pt-4">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-gray-600 [&::-webkit-details-marker]:hidden">
+            <details className="border-t border-line pt-4">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
                 ＋ {t("orders.fieldDetail.addPersonnel")}
               </summary>
               <form action={addTechnician} className="mt-2 flex gap-2 flex-wrap">
@@ -898,14 +960,14 @@ export default async function TechnicianWorkOrderPage({
                   required
                   defaultValue=""
                   aria-label={t("orders.fieldDetail.addPersonnel")}
-                  className="border-2 border-gray-300 p-2.5 rounded-xl text-base font-bold text-gray-900 bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
+                  className="border-2 border-line p-2.5 rounded-xl text-base font-bold text-ink bg-white flex-1 outline-none shadow-sm min-w-[200px] min-h-11 sm:text-sm"
                 >
                   <option value="" disabled>{t("orders.fieldDetail.selectPerson")}</option>
                   {availableUsers.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'ADMIN' ? t("orders.fieldDetail.roleAdmin") : u.role === 'OFFICE' ? t("orders.fieldDetail.roleOffice") : u.role === 'TECHNICIAN' ? t("orders.fieldDetail.roleTechnician") : u.role === 'CUSTOMER' ? t("orders.fieldDetail.roleCustomer") : t("orders.fieldDetail.roleStandard")})</option>
                   ))}
                 </select>
-                <button type="submit" className="min-h-11 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
+                <button type="submit" className={`${DARK_BUTTON} whitespace-nowrap`}>
                   {t("orders.fieldDetail.add")}
                 </button>
               </form>
@@ -914,12 +976,12 @@ export default async function TechnicianWorkOrderPage({
         </div>
 
         {/* LOKASJON & KONTAKTPERSON */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="font-black text-lg text-gray-900 mb-4 border-b pb-2">{t("orders.fieldDetail.locationTitle")}</h2>
-          <div className="text-sm text-gray-800 space-y-4">
+        <div className={PAPER_CARD}>
+          <h2 className="font-black text-lg text-ink mb-4 border-b border-line pb-2">{t("orders.fieldDetail.locationTitle")}</h2>
+          <div className="text-sm text-ink space-y-4">
             <div>
-              <p className="text-gray-900">
-                <strong>{t("orders.fieldDetail.address")}</strong>
+              <p className="text-ink">
+                <strong>{t("orders.fieldDetail.address")}</strong>{" "}
                 <GoogleMapsLink
                   address={workOrder.address ?? workOrder.customer?.address}
                   postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
@@ -932,38 +994,38 @@ export default async function TechnicianWorkOrderPage({
               {workOrder.customer?.phone && (
                 <p className="mt-1">
                   <strong>{t("orders.fieldDetail.companyPhone")}</strong>{" "}
-                  <a href={`tel:${workOrder.customer?.phone}`} className="inline-flex min-h-11 items-center text-blue-700 font-bold hover:underline">{workOrder.customer?.phone}</a>
+                  <a href={`tel:${workOrder.customer?.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.customer?.phone}</a>
                 </p>
               )}
             </div>
 
             {workOrder.contact ? (
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
-                <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-1">{t("orders.fieldDetail.contactTitle")}</p>
-                <p className="font-black text-gray-900 text-base">{workOrder.contact.name}</p>
+              <div className="bg-white/50 p-3 sm:p-4 rounded-xl border border-line">
+                <p className="text-xs font-black text-muted uppercase tracking-wider mb-1">{t("orders.fieldDetail.contactTitle")}</p>
+                <p className="font-black text-ink text-base">{workOrder.contact.name}</p>
                 <div className="mt-2 space-y-1 text-sm">
-                  {workOrder.contact.phone && <p>📞 <a href={`tel:${workOrder.contact.phone}`} className="inline-flex min-h-11 items-center text-blue-700 font-bold hover:underline">{workOrder.contact.phone}</a></p>}
-                  {workOrder.contact.email && <p>✉️ <a href={`mailto:${workOrder.contact.email}`} className="inline-flex min-h-11 items-center text-blue-700 font-bold hover:underline">{workOrder.contact.email}</a></p>}
+                  {workOrder.contact.phone && <p>📞 <a href={`tel:${workOrder.contact.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.contact.phone}</a></p>}
+                  {workOrder.contact.email && <p>✉️ <a href={`mailto:${workOrder.contact.email}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.contact.email}</a></p>}
                 </div>
               </div>
             ) : workOrder.customer?.contacts && workOrder.customer?.contacts.length > 0 ? (
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
-                <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-3">{t("orders.fieldDetail.customerContacts")}</p>
-                <div className="space-y-3 divide-y divide-gray-200">
+              <div className="bg-white/50 p-3 sm:p-4 rounded-xl border border-line">
+                <p className="text-xs font-black text-muted uppercase tracking-wider mb-3">{t("orders.fieldDetail.customerContacts")}</p>
+                <div className="space-y-3 divide-y divide-line">
                   {workOrder.customer?.contacts.map((c: any) => (
                     <div key={c.id} className="pt-3 first:pt-0">
-                      <p className="font-black text-gray-900">{c.name} {c.role ? <span className="text-gray-600 font-normal">({c.role})</span> : ""}</p>
+                      <p className="font-black text-ink">{c.name} {c.role ? <span className="text-muted font-normal">({c.role})</span> : ""}</p>
                       <div className="mt-1 space-y-0.5 text-sm">
-                        {c.phone && <p>📞 <a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center text-blue-700 font-bold hover:underline">{c.phone}</a></p>}
-                        {c.email && <p>✉️ <a href={`mailto:${c.email}`} className="inline-flex min-h-11 items-center text-blue-700 font-bold hover:underline">{c.email}</a></p>}
+                        {c.phone && <p>📞 <a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{c.phone}</a></p>}
+                        {c.email && <p>✉️ <a href={`mailto:${c.email}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{c.email}</a></p>}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <p className="text-xs text-gray-600 italic">{t("orders.fieldDetail.noContact")}</p>
+              <div className="bg-white/50 p-3 rounded-xl border border-line">
+                <p className="text-xs text-muted italic">{t("orders.fieldDetail.noContact")}</p>
               </div>
             )}
           </div>
@@ -982,8 +1044,8 @@ export default async function TechnicianWorkOrderPage({
         />
 
         {/* Audit log */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-          <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.fieldDetail.auditLog")}</h2>
+        <div className={PAPER_CARD}>
+          <h2 className="font-black text-ink mb-3 border-b border-line pb-2">{t("orders.fieldDetail.auditLog")}</h2>
           <AuditLogTable logs={auditLogs} />
         </div>
       </div>
@@ -993,7 +1055,7 @@ export default async function TechnicianWorkOrderPage({
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+8rem)] z-50 mx-auto flex max-w-md items-center gap-2 rounded-xl border-2 border-gray-700 bg-gray-900 px-3 py-2 text-sm font-bold text-white shadow-xl sm:bottom-4"
+          className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+10.5rem)] z-50 mx-auto flex max-w-md items-center gap-2 rounded-2xl field-card px-3 py-2 text-sm font-bold shadow-xl sm:bottom-4"
         >
           <p className="min-w-0 flex-1">
             {t("orders.fieldDetail.removedToast", {
@@ -1004,7 +1066,7 @@ export default async function TechnicianWorkOrderPage({
             <input type="hidden" name="userId" value={removedUser.id} />
             <SubmitButton
               pendingLabel={t("orders.fieldDetail.undoing")}
-              className="inline-flex min-h-11 items-center rounded-lg bg-white px-3 text-sm font-black text-gray-900 hover:bg-gray-100"
+              className="signal-button text-sm"
             >
               {t("orders.fieldDetail.undo")}
             </SubmitButton>
@@ -1012,19 +1074,19 @@ export default async function TechnicianWorkOrderPage({
           <Link
             href={`/mine-oppdrag/${workOrderId}`}
             aria-label={t("orders.fieldDetail.dismiss")}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-white hover:bg-white/10"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-paper hover:bg-white/10"
           >
             ✕
           </Link>
         </div>
       )}
 
-      {/* Sticky handlingslinje på mobil. */}
+      {/* Sticky handlingslinje på mobil, over bunnmenyen. */}
       {stickyAction && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-gray-200 bg-white/95 p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden">
+        <div className="field-sticky-cta fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-[#2a3328] bg-field/95 p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.28)] backdrop-blur sm:hidden">
           <Link
             href={stickyAction.href}
-            className="flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-700 px-4 text-base font-black text-white shadow-sm transition hover:bg-blue-800"
+            className="field-cta w-full"
           >
             {stickyAction.label}
           </Link>

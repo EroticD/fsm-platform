@@ -281,26 +281,26 @@ export default function ImageUploadField({
   };
   const statusClass = (item: UploadItem) =>
     item.status === "error"
-      ? "text-red-700"
+      ? "text-risk"
       : item.status === "done"
-        ? "text-green-700"
+        ? "text-success"
         : item.status === "uploading"
-          ? "text-blue-700"
-          : "text-gray-600";
+          ? "text-success"
+          : "text-muted";
 
   return (
-    <div className="space-y-3 rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
-      <p className="block text-sm font-black text-gray-900">
+    <div className="field-card space-y-3 p-4">
+      <p className="block text-sm font-black text-paper">
         📷 {label}{" "}
         {required && doneUrls.length === 0 && (
-          <span className="text-red-600">*</span>
+          <span className="text-risk">*</span>
         )}
       </p>
 
       <div className="flex flex-wrap gap-2">
         <label
           htmlFor={cameraId}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-blue-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+          className="signal-button cursor-pointer text-sm shadow-sm"
         >
           {t("orders.imageUpload.takePhoto")}
         </label>
@@ -316,7 +316,7 @@ export default function ImageUploadField({
 
         <label
           htmlFor={galleryId}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border-2 border-blue-300 bg-white px-4 text-sm font-bold text-blue-800 shadow-sm transition hover:bg-blue-100"
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 px-4 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
         >
           {t("orders.imageUpload.choosePhoto")}
         </label>
@@ -333,17 +333,17 @@ export default function ImageUploadField({
         />
       </div>
 
-      <p id={hintId} className="text-xs text-gray-600">
+      <p id={hintId} className="text-xs text-paper/70">
         {t("orders.imageUpload.hint")}
       </p>
-      <p className="text-xs font-bold text-gray-700">
+      <p className="text-xs font-bold text-paper/90">
         {t("orders.imageUpload.networkRequired")}
       </p>
 
       {!online && (
         <p
           role="status"
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900"
+          className="rounded-lg border border-signal/40 bg-signal/10 px-3 py-2 text-xs font-bold text-signal"
         >
           ⚠️ {t("orders.imageUpload.offline")}
         </p>
@@ -352,7 +352,7 @@ export default function ImageUploadField({
       {items.length > 0 && (
         <div className="space-y-2">
           {doneUrls.length > 0 && (
-            <p className="text-xs font-bold text-green-700">
+            <p className="text-xs font-bold text-signal">
               {t("orders.imageUpload.uploaded", { count: doneUrls.length })}
             </p>
           )}
@@ -361,10 +361,10 @@ export default function ImageUploadField({
             {items.map((item, index) => (
               <li
                 key={item.id}
-                className={`flex flex-col gap-2 rounded-xl border bg-white p-2.5 sm:flex-row sm:items-center ${
+                className={`flex flex-col gap-2 rounded-xl border bg-paper p-2.5 text-ink sm:flex-row sm:items-center ${
                   item.status === "error"
-                    ? "border-red-300"
-                    : "border-gray-200"
+                    ? "border-risk/30"
+                    : "border-line"
                 }`}
               >
                 <div className="flex min-w-0 flex-1 items-start gap-2">
@@ -375,19 +375,19 @@ export default function ImageUploadField({
                       alt={t("orders.imageUpload.attachmentAlt", {
                         number: index + 1,
                       })}
-                      className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-cover"
+                      className="h-12 w-12 shrink-0 rounded-lg border border-line object-cover"
                     />
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-lg"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/50 text-lg"
                     >
                       {item.status === "error" ? "⚠️" : "📷"}
                     </span>
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <p className="break-words text-xs font-bold text-gray-900">
+                    <p className="break-words text-xs font-bold text-ink">
                       {item.name}
                     </p>
                     <p className={`text-xs font-bold ${statusClass(item)}`}>
@@ -402,7 +402,7 @@ export default function ImageUploadField({
                       href={item.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-xs font-bold text-blue-700 underline"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-xs font-bold text-success underline"
                     >
                       {t("orders.imageUpload.viewImage")}
                     </a>
@@ -414,7 +414,7 @@ export default function ImageUploadField({
                     aria-label={t("orders.imageUpload.removeFile", {
                       name: item.name,
                     })}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-risk/30 bg-risk/10 px-2 text-sm font-bold text-risk transition hover:bg-risk/15"
                   >
                     ✕
                   </button>
@@ -424,7 +424,7 @@ export default function ImageUploadField({
           </ul>
 
           {busy && (
-            <p className="text-xs font-bold text-blue-700" aria-live="polite">
+            <p className="text-xs font-bold text-signal" aria-live="polite">
               {t("orders.imageUpload.uploadingShort")}
             </p>
           )}
@@ -433,7 +433,7 @@ export default function ImageUploadField({
             <div
               id={errorId}
               role="alert"
-              className="flex flex-col gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-xs font-bold text-red-700 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-xl border border-risk/50 bg-risk/10 p-3 text-xs font-bold text-risk sm:flex-row sm:items-center sm:justify-between"
             >
               <p className="min-w-0 break-words">
                 ❌{" "}
@@ -448,7 +448,7 @@ export default function ImageUploadField({
               <button
                 type="button"
                 onClick={retryAll}
-                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-red-300 bg-white px-3 text-xs font-bold text-red-700 transition hover:bg-red-100"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-risk/30/50 bg-paper px-3 text-xs font-bold text-risk transition hover:bg-risk/15"
               >
                 ↻ {t("orders.imageUpload.retryAll")}
               </button>

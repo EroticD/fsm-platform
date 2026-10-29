@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import Button from "@/components/ui/Button";
 
 export default function SubmitButton({
   idleLabel,
@@ -12,14 +13,13 @@ export default function SubmitButton({
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <Button
       type="submit"
-      disabled={pending}
-      className="w-full text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-60"
+      pending={pending}
+      className="w-full"
       suppressHydrationWarning
-      style={{ backgroundColor: "var(--primary-color)" }}
     >
       {pending ? pendingLabel : idleLabel}
-    </button>
+    </Button>
   );
 }

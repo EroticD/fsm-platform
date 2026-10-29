@@ -6,6 +6,8 @@ import {
   requestContactUpdateAction,
   type PortalFormState,
 } from "@/app/kundeportal/report-actions";
+import Button from "@/components/ui/Button";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 const INITIAL_STATE: PortalFormState = { status: "idle" };
 
@@ -32,19 +34,22 @@ export default function ContactUpdateForm() {
     <form
       ref={formRef}
       action={formAction}
-      className="mt-4 space-y-2 border-t border-gray-200 pt-4"
+      className="mt-4 space-y-2 border-t border-[var(--line,#dedcd1)] pt-4"
     >
-      <label htmlFor="contact-update-message" className="block text-sm font-bold text-gray-700">
+      <label
+        htmlFor="contact-update-message"
+        className="block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
+      >
         {t("p3.portalReports.requestUpdate")}
       </label>
-      <p className="text-xs text-gray-600">
+      <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
         {t("p3.portalReports.requestUpdateExplain")}
       </p>
 
       {state.status === "success" && (
         <p
           role="status"
-          className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm font-bold text-green-900"
+          className="rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-sm font-bold text-[#24502f]"
         >
           {t("p3.portalReports.requestUpdateSuccess")}
         </p>
@@ -52,7 +57,7 @@ export default function ContactUpdateForm() {
       {state.status === "error" && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800"
+          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-sm font-bold text-[#a92a12]"
         >
           {t(ERROR_KEYS[state.reason] ?? "p3.portalReports.requestUpdateError")}
         </p>
@@ -63,17 +68,13 @@ export default function ContactUpdateForm() {
         name="message"
         rows={2}
         placeholder={t("p3.portalReports.requestUpdatePlaceholder")}
-        className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900"
+        className={controlClassName()}
       />
-      <button
-        type="submit"
-        disabled={pending}
-        className="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-60"
-      >
+      <Button type="submit" variant="secondary" pending={pending}>
         {pending
           ? t("p3.portalReports.requestUpdateSending")
           : t("p3.portalReports.requestUpdateButton")}
-      </button>
+      </Button>
     </form>
   );
 }

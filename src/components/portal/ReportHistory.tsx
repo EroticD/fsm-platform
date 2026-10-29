@@ -4,6 +4,7 @@ import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { getPortalReportHistory } from "@/server/portal";
 import { reportDisplayName } from "@/lib/report-display";
+import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import AcknowledgeReportForm from "./AcknowledgeReportForm";
 
 type ReportView = {
@@ -70,35 +71,41 @@ export default async function ReportHistory({
   return (
     <section
       id="rapporter"
-      className="scroll-mt-20 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+      className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
-        <h2 className="text-lg font-bold text-gray-900">
-          {t("p3.portalReports.title")}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
+        <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+          />
+          <span>{t("p3.portalReports.title")}</span>
         </h2>
-        <span className="text-xs text-gray-600">
+        <span className="text-xs text-[var(--muted,#62685f)]">
           {t("p3.portalReports.count", { count: data.total })}
         </span>
       </div>
 
       <p
         id="kvittering-hjelp"
-        className="mb-4 rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-900"
+        className="mb-4 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs leading-5 text-[var(--muted,#62685f)]"
       >
         {t("p3.portalReports.acknowledgeExplain")}
       </p>
 
       {data.items.length === 0 ? (
-        <p className="text-sm italic text-gray-500">
+        <p className="text-sm italic text-[var(--muted,#62685f)]">
           {t("p3.portalReports.empty")}
         </p>
       ) : (
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-[var(--line,#dedcd1)]">
           {data.items.map((workOrder) => (
             <li key={workOrder.id} className="space-y-4 py-4">
               <div>
-                <p className="font-bold text-gray-900">{workOrder.title}</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-bold text-[var(--ink,#101310)]">
+                  {workOrder.title}
+                </p>
+                <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
                   {t("p3.portalReports.workOrderPerformed", {
                     date: formatDateLocalized(
                       workOrder.scheduledFor,
@@ -116,7 +123,7 @@ export default async function ReportHistory({
               </div>
 
               {workOrder.reports.length === 0 ? (
-                <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600">
+                <p className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--muted,#62685f)]">
                   {t("p3.portalReports.noReport")}
                 </p>
               ) : (
@@ -124,14 +131,14 @@ export default async function ReportHistory({
                   {workOrder.reports.map((report) => (
                     <li
                       key={report.id}
-                      className="space-y-2 rounded-xl border border-gray-100 bg-gray-50/60 p-3"
+                      className={`${brandInset} space-y-2 p-3`}
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <p className="font-bold text-gray-900">
+                          <p className="font-bold text-[var(--ink,#101310)]">
                             {reportDisplayName(report, workOrder.title)}
                           </p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
                             {t("p3.portalReports.performed", {
                               date: formatDateLocalized(
                                 report.completedAt || workOrder.scheduledFor,
@@ -158,14 +165,14 @@ export default async function ReportHistory({
                         <div className="flex flex-wrap gap-2">
                           <Link
                             href={`/api/rapporter/${workOrder.id}/pdf?rapport=${encodeURIComponent(report.id)}`}
-                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                           >
                             {t("p3.portalReports.download")}
                           </Link>
                           {report.revision > 0 && (
                             <Link
                               href={`/rapporter/${workOrder.id}/revisjoner?rapport=${report.id}`}
-                              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                             >
                               {t("p3.portalReports.history")}
                             </Link>
@@ -174,7 +181,7 @@ export default async function ReportHistory({
                       </div>
 
                       {report.customerAcknowledgedAt ? (
-                        <div className="rounded-xl bg-green-50 px-3 py-2 text-xs text-green-900">
+                        <div className="rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-xs text-[#24502f]">
                           <p className="font-bold">
                             {t("p3.portalReports.acknowledged", {
                               date: formatDateLocalized(report.customerAcknowledgedAt, locale),
@@ -205,16 +212,16 @@ export default async function ReportHistory({
       )}
 
       {data.totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-gray-100 pt-3 text-xs font-bold">
+        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-[var(--line,#dedcd1)] pt-3 text-xs font-bold">
           {data.page > 1 && (
             <Link
               href={pageLink(data.page - 1)}
-              className="text-blue-700 hover:underline"
+              className="inline-flex min-h-11 items-center text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
             >
               &larr; {t("p3.portalReports.previous")}
             </Link>
           )}
-          <span className="text-gray-500">
+          <span className="text-[var(--muted,#62685f)]">
             {t("p3.portalReports.pageOf", {
               page: data.page,
               pages: data.totalPages,
@@ -223,7 +230,7 @@ export default async function ReportHistory({
           {data.page < data.totalPages && (
             <Link
               href={pageLink(data.page + 1)}
-              className="text-blue-700 hover:underline"
+              className="inline-flex min-h-11 items-center text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
             >
               {t("p3.portalReports.next")} &rarr;
             </Link>

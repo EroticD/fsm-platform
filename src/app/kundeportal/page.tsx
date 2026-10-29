@@ -20,6 +20,7 @@ import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
 import PortalSectionNav from "@/components/portal/PortalSectionNav";
 import StatusBadge from "@/components/StatusBadge";
+import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import {
   BOOKING_MIN_LEAD_HOURS,
   PORTAL_BOOKING_PAGE_SIZE,
@@ -109,10 +110,18 @@ export default async function KundeportalPage({
 
   if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow border text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">{t("portal.noAccessTitle")}</h1>
-          <p className="text-gray-600">{t("portal.noAccessDesc")}</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)]">
+        <div className="w-full max-w-md rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center shadow-[0_1px_2px_rgba(20,17,11,0.05)]">
+          <span
+            aria-hidden="true"
+            className="mx-auto mb-4 block h-1 w-10 rounded-full bg-[var(--risk,#f04427)]"
+          />
+          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-[#a92a12]">
+            {t("portal.noAccessTitle")}
+          </h1>
+          <p className="text-sm leading-6 text-[var(--muted,#62685f)]">
+            {t("portal.noAccessDesc")}
+          </p>
         </div>
       </div>
     );
@@ -130,10 +139,18 @@ export default async function KundeportalPage({
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow border text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">{t("portal.noAccessTitle")}</h1>
-          <p className="text-gray-600">{t("portal.noAccessDesc")}</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)]">
+        <div className="w-full max-w-md rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center shadow-[0_1px_2px_rgba(20,17,11,0.05)]">
+          <span
+            aria-hidden="true"
+            className="mx-auto mb-4 block h-1 w-10 rounded-full bg-[var(--risk,#f04427)]"
+          />
+          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-[#a92a12]">
+            {t("portal.noAccessTitle")}
+          </h1>
+          <p className="text-sm leading-6 text-[var(--muted,#62685f)]">
+            {t("portal.noAccessDesc")}
+          </p>
         </div>
       </div>
     );
@@ -306,50 +323,78 @@ export default async function KundeportalPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        
+    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] px-4 py-5 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-5xl space-y-6">
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4" style={{ borderBottomColor: customer.brandColor || "#2563eb" }}>
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t("portal.headerTitle", { customerName: customer.name })}</h1>
-              <p className="text-gray-500">{t("portal.headerWelcome", { userName: user.name ?? user.email ?? "" })}</p>
+        <header className="relative overflow-hidden rounded-[20px] border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-5 py-6 text-[var(--paper,#f2efe6)] shadow-[4px_4px_0_var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)] sm:px-7 sm:py-7">
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
+          />
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#cfc8b9]">
+                {t("portal.headerEyebrow")}
+              </p>
+              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[var(--paper,#f2efe6)] md:text-3xl">
+                {t("portal.headerTitle", { customerName: customer.name })}
+              </h1>
+              <p className="mt-1 text-sm leading-6 text-[#ded8ca]">
+                {t("portal.headerWelcome", {
+                  userName: user.name ?? user.email ?? "",
+                })}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Link
+                href="/"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
+              >
+                &larr; {t("portal.home")}
+              </Link>
+              <Link
+                href="/innstillinger?tab=sikkerhet"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
+              >
+                🔐 {t("nav.accountSecurity")}
+              </Link>
+              <Link
+                href="/kundeportal"
+                className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--signal,#d8ff3e)] bg-[var(--signal,#d8ff3e)] px-4 text-sm font-bold text-[var(--ink,#101310)] shadow-[2px_2px_0_#f2efe6] transition hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_#f2efe6] sm:col-span-1"
+              >
+                {t("portal.refresh")}
+              </Link>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href="/" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm whitespace-nowrap">
-              &larr; {t("portal.home")}
-            </Link>
-            <Link href="/kundeportal" className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg font-bold hover:opacity-90 transition whitespace-nowrap text-sm">
-              {t("portal.refresh")}
-            </Link>
-          </div>
-        </div>
+        </header>
 
         {/* OVERSIKT: neste avtale, ventende saker og rapportkvitteringer */}
         <section
           id="oversikt"
           aria-labelledby="oversikt-title"
-          className="scroll-mt-20 pt-6"
+          className="scroll-mt-24 pt-1"
         >
           <h2
             id="oversikt-title"
-            className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500"
+            className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted,#62685f)]"
           >
             {t("portal.summary.title")}
           </h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Link
               href="#kommende"
-              className="group col-span-2 flex min-h-28 min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary-color)] hover:shadow-md lg:col-span-1"
+              className={`${brandCard} group relative col-span-2 flex min-h-32 min-w-0 flex-col overflow-hidden p-4 transition hover:-translate-y-0.5 hover:border-[#b9ae98] hover:shadow-[0_4px_14px_rgba(20,17,11,0.08)] lg:col-span-1`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-0 top-0 h-1 bg-[var(--signal,#d8ff3e)]"
+              />
+              <p className="text-xs font-bold uppercase leading-4 tracking-[0.1em] text-[var(--muted,#62685f)]">
                 {t("portal.summary.nextAppointment")}
               </p>
               {nextAppointment ? (
                 <>
-                  <p className="mt-1 truncate text-base font-black text-gray-900">
+                  <p className="mt-1 truncate text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
                     {formatDateLocalized(
                       nextAppointment.scheduledFor ??
                         nextAppointment.scheduledTo,
@@ -358,69 +403,77 @@ export default async function KundeportalPage({
                       t("portal.summary.noDate"),
                     )}
                   </p>
-                  <p className="truncate text-xs font-semibold text-gray-600">
+                  <p className="truncate text-xs font-semibold text-[var(--muted,#62685f)]">
                     {nextAppointment.title}
                   </p>
                 </>
               ) : (
-                <p className="mt-1 text-base font-black text-gray-900">
+                <p className="mt-1 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
                   {t("portal.summary.noConfirmed")}
                 </p>
               )}
-              <span className="mt-auto pt-2 text-xs font-bold text-blue-700 group-hover:underline">
-                {t("portal.summary.seeUpcoming")} &rarr;
+              <span className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-bold text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                {t("portal.summary.seeUpcoming")} <span aria-hidden="true">→</span>
               </span>
             </Link>
 
             <Link
               href="#bestillinger"
-              className="group flex min-h-28 min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary-color)] hover:shadow-md"
+              className={`${brandCard} group relative flex min-h-32 min-w-0 flex-col overflow-hidden p-4 transition hover:-translate-y-0.5 hover:border-[#b9ae98] hover:shadow-[0_4px_14px_rgba(20,17,11,0.08)]`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-0 top-0 h-1 bg-[#d97706]"
+              />
+              <p className="text-xs font-bold uppercase leading-4 tracking-[0.1em] text-[var(--muted,#62685f)]">
                 {t("portal.summary.pending")}
               </p>
-              <p className="mt-1 text-3xl font-black tabular-nums text-gray-900">
+              <p className="mt-1 text-3xl font-extrabold leading-none tracking-tight text-[var(--ink,#101310)] tabular-nums">
                 {pendingRequestCount}
               </p>
-              <p className="text-xs font-semibold text-gray-600">
+              <p className="text-xs font-semibold text-[var(--muted,#62685f)]">
                 {pendingRequestCount > 0
                   ? t("portal.summary.pendingHint")
                   : t("portal.summary.pendingNone")}
               </p>
-              <span className="mt-auto pt-2 text-xs font-bold text-blue-700 group-hover:underline">
-                {t("portal.summary.seeBookings")} &rarr;
+              <span className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-bold text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                {t("portal.summary.seeBookings")} <span aria-hidden="true">→</span>
               </span>
             </Link>
 
             <Link
               href="#rapporter"
-              className="group flex min-h-28 min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[var(--primary-color)] hover:shadow-md"
+              className={`${brandCard} group relative flex min-h-32 min-w-0 flex-col overflow-hidden p-4 transition hover:-translate-y-0.5 hover:border-[#b9ae98] hover:shadow-[0_4px_14px_rgba(20,17,11,0.08)]`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-0 top-0 h-1 bg-[var(--ink,#101310)]"
+              />
+              <p className="text-xs font-bold uppercase leading-4 tracking-[0.1em] text-[var(--muted,#62685f)]">
                 {t("portal.summary.reports")}
               </p>
-              <p className="mt-1 text-3xl font-black tabular-nums text-gray-900">
+              <p className="mt-1 text-3xl font-extrabold leading-none tracking-tight text-[var(--ink,#101310)] tabular-nums">
                 {reportsAwaitingAck}
               </p>
-              <p className="text-xs font-semibold text-gray-600">
+              <p className="text-xs font-semibold text-[var(--muted,#62685f)]">
                 {reportsAwaitingAck > 0
                   ? t("portal.summary.reportsHint")
                   : t("portal.summary.reportsNone")}
               </p>
-              <span className="mt-auto pt-2 text-xs font-bold text-blue-700 group-hover:underline">
-                {t("portal.summary.seeReports")} &rarr;
+              <span className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-bold text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                {t("portal.summary.seeReports")} <span aria-hidden="true">→</span>
               </span>
             </Link>
 
             <Link
               href="#bestillinger"
-              className="col-span-2 flex min-h-20 items-center justify-between gap-3 rounded-xl bg-[var(--primary-color)] px-4 py-4 text-[var(--primary-foreground)] shadow-sm transition hover:opacity-90 lg:col-span-1"
+              className="col-span-2 flex min-h-20 items-center justify-between gap-3 rounded-card border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 py-4 text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--ink,#101310)] lg:col-span-1"
             >
-              <span className="text-base font-black">
+              <span className="text-base font-extrabold">
                 {t("portal.summary.cta")}
               </span>
-              <span aria-hidden className="text-xl">
-                &rarr;
+              <span aria-hidden="true" className="text-xl">
+                →
               </span>
             </Link>
           </div>
@@ -428,73 +481,126 @@ export default async function KundeportalPage({
 
         <PortalSectionNav />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* VENSTRE: Utstyr & Avtaler */}
-          <div className="lg:col-span-1 space-y-6">
-            
+          <div className="space-y-6 lg:col-span-1">
             {/* Registrert utstyr */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
-              <h2 className="font-bold text-lg text-gray-900 border-b pb-2">🔧 {t("portal.equipment.title")}</h2>
+            <section className={`${brandCard} space-y-4 p-4 sm:p-5`}>
+              <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+                />
+                <span>{t("portal.equipment.title")}</span>
+              </h2>
               <div className="space-y-3">
                 {customer.products.length === 0 ? (
-                  <p className="text-gray-500 italic text-sm">{t("portal.equipment.empty")}</p>
+                  <p className="text-sm italic text-[var(--muted,#62685f)]">
+                    {t("portal.equipment.empty")}
+                  </p>
                 ) : (
-                  customer.products.map(product => (
-                    <div key={product.id} className="bg-gray-50 p-3 rounded border flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-gray-800 text-sm">{product.model}</p>
-                        <p className="text-xs text-gray-500">{t("portal.equipment.serial", { serial: product.serialNumber || "–" })}</p>
+                  customer.products.map((product) => (
+                    <div
+                      key={product.id}
+                      className={`${brandInset} flex items-center justify-between gap-3 p-3`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                          {product.model}
+                        </p>
+                        <p className="text-xs text-[var(--muted,#62685f)]">
+                          {t("portal.equipment.serial", {
+                            serial: product.serialNumber || "–",
+                          })}
+                        </p>
                       </div>
-                      <span className="text-xs bg-white px-2 py-1 rounded text-gray-600 border">{product.location || t("portal.equipment.unknownBuilding")}</span>
+                      <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 py-1 text-xs font-semibold text-[var(--muted,#62685f)]">
+                        {product.location ||
+                          t("portal.equipment.unknownBuilding")}
+                      </span>
                     </div>
                   ))
                 )}
               </div>
-            </div>
+            </section>
 
             {/* Serviceavtaler */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="font-bold text-lg text-gray-900 border-b pb-2">📄 {t("portal.contracts.title")}</h2>
+            <section className={`${brandCard} space-y-4 p-4 sm:p-5`}>
+              <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+                />
+                <span>{t("portal.contracts.title")}</span>
+              </h2>
               <div className="space-y-3">
                 {customer.contracts.length === 0 ? (
-                  <p className="text-gray-500 italic text-sm">{t("portal.contracts.empty")}</p>
+                  <p className="text-sm italic text-[var(--muted,#62685f)]">
+                    {t("portal.contracts.empty")}
+                  </p>
                 ) : (
-                  customer.contracts.map(contract => (
-                    <div key={contract.id} className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                  customer.contracts.map((contract) => (
+                    <div key={contract.id} className={`${brandInset} p-3`}>
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-bold text-blue-900 text-sm">{contract.title}</p>
+                        <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                          {contract.title}
+                        </p>
                         {!contract.isActive && (
-                          <span className="text-xs font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                          <span className="inline-flex min-h-6 items-center rounded-full border border-[#e2cf9b] bg-[#fbf1d2] px-2 py-0.5 text-xs font-bold uppercase text-[#6b4a05]">
                             {t("portal.contracts.paused")}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-blue-700">
-                        {t("portal.contracts.start", { date: formatDateLocalized(contract.startDate, locale, undefined, "–") })} •{" "}
-                        {t("portal.contracts.interval", { interval: t("portal.contracts.months", { count: contract.intervalMonths }) })}
+                      <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+                        {t("portal.contracts.start", {
+                          date: formatDateLocalized(
+                            contract.startDate,
+                            locale,
+                            undefined,
+                            "–",
+                          ),
+                        })}{" "}
+                        •{" "}
+                        {t("portal.contracts.interval", {
+                          interval: t("portal.contracts.months", {
+                            count: contract.intervalMonths,
+                          }),
+                        })}
                       </p>
-                      <p className="text-xs text-blue-700">
-                        {t("portal.contracts.next", { date: formatDateLocalized(contract.nextServiceDate, locale, undefined, "–") })}
+                      <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
+                        {t("portal.contracts.next", {
+                          date: formatDateLocalized(
+                            contract.nextServiceDate,
+                            locale,
+                            undefined,
+                            "–",
+                          ),
+                        })}
                       </p>
                     </div>
                   ))
                 )}
               </div>
-            </div>
-
+            </section>
           </div>
 
           {/* HOYRE: Oppdrag & Booking */}
-          <div className="lg:col-span-2 space-y-6">
-            
+          <div className="space-y-6 lg:col-span-2">
             {/* SEND NY FORESPØRSEL */}
-            <div
+            <section
               id="bestillinger"
-              className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200"
+              className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
             >
-              <h2 className="font-bold text-lg text-gray-900 border-b border-gray-200 pb-2 mb-4">📅 {t("portal.booking.title")}</h2>
-              <p className="text-gray-600 text-sm mb-4">{t("portal.booking.desc")}</p>
+              <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+                />
+                <span>{t("portal.booking.title")}</span>
+              </h2>
+              <p className="mb-4 mt-2 text-sm leading-6 text-[var(--muted,#62685f)]">
+                {t("portal.booking.desc")}
+              </p>
               <BookingForm
                 minDate={minimumStart.date}
                 minFromTime={minimumStart.from}
@@ -524,52 +630,75 @@ export default async function KundeportalPage({
                 labels={paginationLabels(t)}
                 className="pt-3"
               />
-            </div>
+            </section>
 
             {/* KOMMENDE OPPDRAG */}
-            <div id="kommende" className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-4 border-b pb-2">
-                <div>
-                  <h2 className="font-bold text-lg text-gray-900">📅 {t("portal.upcoming.title")}</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">{t("portal.upcoming.desc")}</p>
+            <section
+              id="kommende"
+              className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
+            >
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
+                <div className="min-w-0">
+                  <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+                    />
+                    <span>{t("portal.upcoming.title")}</span>
+                  </h2>
+                  <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+                    {t("portal.upcoming.desc")}
+                  </p>
                 </div>
                 <a
                   href="/api/kundeportal/export"
-                  className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                 >
                   ⬇️ {t("portal.upcoming.export")}
                 </a>
               </div>
 
               {upcomingTotal === 0 ? (
-                <div className="bg-gray-50 p-6 rounded-xl border border-dashed border-gray-200 text-center">
-                  <p className="text-gray-500 italic text-sm">{t("portal.upcoming.empty")}</p>
+                <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-center">
+                  <p className="text-sm italic text-[var(--muted,#62685f)]">
+                    {t("portal.upcoming.empty")}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {upcomingWorkOrders.map(wo => (
-                    <div key={wo.id} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{wo.title}</p>
-                          <p className="text-xs text-gray-500">
-                            📅 {formatDateLocalized(wo.scheduledFor, locale, undefined, t("portal.upcoming.noDate"))}
+                  {upcomingWorkOrders.map((wo) => (
+                    <article key={wo.id} className={`${brandInset} p-3`}>
+                      <div className="mb-2 flex flex-wrap justify-between items-start gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                            {wo.title}
+                          </p>
+                          <p className="text-xs text-[var(--muted,#62685f)]">
+                            📅{" "}
+                            {formatDateLocalized(
+                              wo.scheduledFor,
+                              locale,
+                              undefined,
+                              t("portal.upcoming.noDate"),
+                            )}
                           </p>
                         </div>
                         <StatusBadge status={wo.status} />
                       </div>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-[var(--muted,#62685f)]">
                         🏢 {customer.name}
                         {wo.technicians.length > 0 && (
-                          <span className="text-blue-600 font-bold ml-1">• {wo.technicians.map(t => t.name).join(", ")}</span>
+                          <span className="ml-1 font-bold text-[var(--ink,#101310)]">
+                            • {wo.technicians.map((tech) => tech.name).join(", ")}
+                          </span>
                         )}
                       </p>
                       {wo.description && (
-                        <p className="text-xs text-gray-700 italic mt-1">
+                        <p className="mt-1 text-xs italic leading-5 text-[var(--muted,#62685f)]">
                           {markdownToPlainText(wo.description)}
                         </p>
                       )}
-                    </div>
+                    </article>
                   ))}
                 </div>
               )}
@@ -588,30 +717,35 @@ export default async function KundeportalPage({
                 })}
                 className="pt-3"
               />
-            </div>
-
+            </section>
           </div>
         </div>
 
-        <div className="mt-6">
-          <ReportHistory
-            page={reportPage}
-            upcomingPage={upcomingPage}
-            historyPage={historyPage}
-          />
-        </div>
+        <ReportHistory
+          page={reportPage}
+          upcomingPage={upcomingPage}
+          historyPage={historyPage}
+        />
 
         {/* TEKNIKERTILGJENGELIGHET – neste 7 dager */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mt-6">
-          <div className="mb-4 border-b pb-2">
-            <h2 className="font-bold text-lg text-gray-900">🗓️ {t("portal.availability.title")}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+        <section className={`${brandCard} p-4 sm:p-5`}>
+          <div className="mb-4 border-b border-[var(--line,#dedcd1)] pb-3">
+            <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              <span>{t("portal.availability.title")}</span>
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
               {t("portal.availability.desc")}
             </p>
           </div>
 
           {technicians.length === 0 ? (
-            <p className="text-gray-600 italic text-sm">{t("portal.availability.empty")}</p>
+            <p className="text-sm italic text-[var(--muted,#62685f)]">
+              {t("portal.availability.empty")}
+            </p>
           ) : (
             <AvailabilityBoard
               technicians={technicians.map((tech) => ({
@@ -619,70 +753,107 @@ export default async function KundeportalPage({
                 name: tech.name ?? "",
                 days: days.map((day) => ({
                   date: dateKey(day),
-                  busy: busyByTechnician.get(tech.id)?.has(dateKey(day)) ?? false,
+                  busy:
+                    busyByTechnician.get(tech.id)?.has(dateKey(day)) ?? false,
                 })),
               }))}
             />
           )}
-          <p className="mt-3 text-sm text-gray-700">
+          <p className="mt-3 text-sm leading-6 text-[var(--muted,#62685f)]">
             {t("portal.availability.note")}
           </p>
-        </div>
+        </section>
 
         {/* KONTAKTINFO: avdeling, ansvarlig montør og oppdateringsskjema */}
         <section
           id="kontakt"
           aria-labelledby="kontakt-title"
-          className="scroll-mt-20 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mt-6"
+          className={`${brandCard} scroll-mt-24 p-4 sm:p-5`}
         >
           <h2
             id="kontakt-title"
-            className="font-bold text-gray-900 mb-4 border-b pb-2"
+            className="mb-4 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]"
           >
-            🏢 {t("portal.contact.title")}
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+            />
+            <span>{t("portal.contact.title")}</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Avdeling / lokasjon */}
-            <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                {customer.department ? t("portal.contact.department") : t("portal.contact.company")}
+            <div className={`${brandInset} p-3`}>
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted,#62685f)]">
+                {customer.department
+                  ? t("portal.contact.department")
+                  : t("portal.contact.company")}
               </p>
-              <p className="text-sm text-gray-900 font-bold">
+              <p className="text-sm font-bold text-[var(--ink,#101310)]">
                 {customer.department?.name || customer.name}
               </p>
               {customer.department ? (
                 <>
-                  {(customer.department.address || customer.department.city) && (
-                    <p className="text-sm text-gray-700 mt-1">
+                  {(customer.department.address ||
+                    customer.department.city) && (
+                    <p className="mt-1 text-sm leading-6 text-[var(--muted,#62685f)]">
                       {customer.department.address || ""}
-                      {customer.department.postalCode ? `, ${customer.department.postalCode}` : ""}
-                      {customer.department.city ? ` ${customer.department.city}` : ""}
+                      {customer.department.postalCode
+                        ? `, ${customer.department.postalCode}`
+                        : ""}
+                      {customer.department.city
+                        ? ` ${customer.department.city}`
+                        : ""}
                     </p>
                   )}
                   {customer.department.phone && (
-                    <p className="text-sm mt-1">
-                      📞 <a href={`tel:${customer.department.phone}`} className="text-blue-600 font-bold hover:underline">{customer.department.phone}</a>
+                    <p className="mt-1 text-sm">
+                      📞{" "}
+                      <a
+                        href={`tel:${customer.department.phone}`}
+                        className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      >
+                        {customer.department.phone}
+                      </a>
                     </p>
                   )}
                   {customer.department.email && (
                     <p className="text-sm">
-                      ✉️ <a href={`mailto:${customer.department.email}`} className="text-blue-600 font-bold hover:underline">{customer.department.email}</a>
+                      ✉️{" "}
+                      <a
+                        href={`mailto:${customer.department.email}`}
+                        className="break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      >
+                        {customer.department.email}
+                      </a>
                     </p>
                   )}
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-gray-700 mt-1">
-                    {customer.address || t("portal.contact.notProvided")} {customer.postalCode || ""} {customer.city || ""}
+                  <p className="mt-1 text-sm leading-6 text-[var(--muted,#62685f)]">
+                    {customer.address || t("portal.contact.notProvided")}{" "}
+                    {customer.postalCode || ""} {customer.city || ""}
                   </p>
                   {customer.phone && (
-                    <p className="text-sm mt-1">
-                      📞 <a href={`tel:${customer.phone}`} className="text-blue-600 font-bold hover:underline">{customer.phone}</a>
+                    <p className="mt-1 text-sm">
+                      📞{" "}
+                      <a
+                        href={`tel:${customer.phone}`}
+                        className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      >
+                        {customer.phone}
+                      </a>
                     </p>
                   )}
                   {customer.email && (
                     <p className="text-sm">
-                      ✉️ <a href={`mailto:${customer.email}`} className="text-blue-600 font-bold hover:underline">{customer.email}</a>
+                      ✉️{" "}
+                      <a
+                        href={`mailto:${customer.email}`}
+                        className="break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      >
+                        {customer.email}
+                      </a>
                     </p>
                   )}
                 </>
@@ -690,31 +861,48 @@ export default async function KundeportalPage({
             </div>
 
             {/* Ansvarlig montør */}
-            <div className="bg-gray-50 p-3 rounded border">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("portal.contact.responsible")}</p>
+            <div className={`${brandInset} p-3`}>
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted,#62685f)]">
+                {t("portal.contact.responsible")}
+              </p>
               {customer.responsibleTechnician ? (
                 <>
-                  <p className="text-sm text-gray-900 font-bold">{customer.responsibleTechnician.name}</p>
+                  <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                    {customer.responsibleTechnician.name}
+                  </p>
                   {customer.responsibleTechnician.phone && (
-                    <p className="text-sm mt-1">
-                      📞 <a href={`tel:${customer.responsibleTechnician.phone}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.phone}</a>
+                    <p className="mt-1 text-sm">
+                      📞{" "}
+                      <a
+                        href={`tel:${customer.responsibleTechnician.phone}`}
+                        className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      >
+                        {customer.responsibleTechnician.phone}
+                      </a>
                     </p>
                   )}
                   {customer.responsibleTechnician.email && (
                     <p className="text-sm">
-                      ✉️ <a href={`mailto:${customer.responsibleTechnician.email}`} className="text-blue-600 font-bold hover:underline">{customer.responsibleTechnician.email}</a>
+                      ✉️{" "}
+                      <a
+                        href={`mailto:${customer.responsibleTechnician.email}`}
+                        className="break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      >
+                        {customer.responsibleTechnician.email}
+                      </a>
                     </p>
                   )}
                 </>
               ) : (
-                <p className="text-sm text-gray-500">{t("portal.contact.noResponsible")}</p>
+                <p className="text-sm text-[var(--muted,#62685f)]">
+                  {t("portal.contact.noResponsible")}
+                </p>
               )}
             </div>
           </div>
 
           <ContactUpdateForm />
         </section>
-
       </div>
     </div>
   );

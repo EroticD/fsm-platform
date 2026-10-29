@@ -65,6 +65,10 @@ function listSelect(userId: string) {
     },
     contact: { select: { id: true, name: true, phone: true, email: true } },
     tags: { select: { id: true, name: true, color: true } },
+    templates: {
+      select: { id: true, title: true },
+      orderBy: { title: "asc" as const },
+    },
     reportDrafts: {
       where: { userId },
       orderBy: { updatedAt: "desc" as const },
@@ -79,27 +83,44 @@ type ListWorkOrder = Prisma.WorkOrderGetPayload<{
 }>;
 
 type CardTone = "default" | "overdue" | "available" | "history";
+type CardSurface = "dark" | "paper";
+
+/** Field Pulse-flatene. */
+const DARK_APP = "field-app";
 
 const CARD_TONES: Record<CardTone, string> = {
-  default: "border-gray-200 bg-white hover:border-blue-300",
-  overdue: "border-red-200 bg-red-50/30 hover:border-red-300",
-  available: "border-amber-200 bg-amber-50/40 hover:border-amber-300",
-  history: "border-gray-200 bg-white hover:border-gray-300",
+  default: "field-card transition hover:brightness-110",
+  overdue: "field-card ring-1 ring-risk/30 transition hover:brightness-110",
+  available:
+    "field-card ring-1 ring-signal/25 transition hover:brightness-110",
+  history: "field-sheet transition hover:brightness-105",
 };
 
-const BADGE_TONES: Record<string, string> = {
-  red: "bg-red-100 text-red-900",
-  amber: "bg-amber-100 text-amber-900",
-  blue: "bg-blue-100 text-blue-900",
-  gray: "bg-gray-100 text-gray-700",
+const PAPER_CARD_TONES: Record<CardTone, string> = {
+  default: "field-sheet transition hover:brightness-105",
+  overdue: "field-sheet ring-1 ring-risk/25 transition hover:brightness-105",
+  available:
+    "field-sheet ring-1 ring-signal/25 transition hover:brightness-105",
+  history: "field-sheet transition hover:brightness-105",
 };
 
-const LOAD_MORE_TONES: Record<keyof typeof BADGE_TONES, string> = {
-  red: "border-red-300 text-red-900 hover:bg-red-50",
-  amber: "border-amber-300 text-amber-900 hover:bg-amber-50",
-  blue: "border-blue-200 text-blue-800 hover:bg-blue-50",
-  gray: "border-gray-300 text-gray-800 hover:bg-gray-50",
-};
+const BADGE_TONES = {
+  risk: "bg-risk text-ink",
+  signal: "bg-signal text-ink",
+  neutral: "bg-white/10 text-paper/85",
+} as const;
+
+function jobTimeLabel(value: Date | null, locale: string): string {
+  if (!value) return "09:00";
+  const hours = value.getUTCHours();
+  const minutes = value.getUTCMinutes();
+  // Datoene i feltportalen er rene kalenderdatoer. Da viser vi feltets faste
+  // oppmøtetid i stedet for en misvisende 00:00.
+  if (hours === 0 && minutes === 0) return "09:00";
+  return (
+    formatDateLocalized(value, locale, { timeStyle: "short" }) || "09:00"
+  );
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const [t, user] = await Promise.all([
@@ -140,10 +161,10 @@ function PrioritySection({
 }) {
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 px-1">
         <h2
           id={`${id}-title`}
-          className="text-lg font-black text-gray-900"
+          className="text-sm font-black uppercase tracking-[0.18em] text-paper/80"
         >
           {title}
         </h2>
@@ -154,12 +175,50 @@ function PrioritySection({
         </span>
       </div>
       {count === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-600">
+        <p className="field-card px-4 py-3 text-sm font-medium text-paper/70">
           {empty}
         </p>
       ) : (
         children
       )}
+    </section>
+  );
+}
+
+function PaperSheet({
+  id,
+  title,
+  count,
+  hint,
+  children,
+}: {
+  id: string;
+  title: string;
+  count?: number;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      aria-labelledby={id ? `${id}-title` : undefined}
+      className="field-sheet p-4 shadow-[0_22px_50px_rgba(0,0,0,0.22)] sm:p-5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2
+          id={id ? `${id}-title` : undefined}
+          className="text-lg font-black tracking-tight text-ink"
+        >
+          {title}
+        </h2>
+        {typeof count === "number" && (
+          <span className="rounded-full bg-white/60 px-2.5 py-1 text-xs font-black text-ink">
+            {count}
+          </span>
+        )}
+      </div>
+      {hint && <p className="mt-1 text-xs font-medium text-muted">{hint}</p>}
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -387,7 +446,41 @@ export default async function TechnicianDashboard({
           ? t("orders.fieldList.claimError")
           : "";
 
-  const renderCard = (wo: ListWorkOrder, tone: CardTone = "default") => {
+  const hero = todayVisible[0] ?? laterVisible[0] ?? null;
+  const heroIsToday = Boolean(hero && todayVisible[0]?.id === hero.id);
+  const todayAfterHero = todayVisible.slice(heroIsToday ? 1 : 0);
+  const laterAfterHero =
+    hero && !heroIsToday ? laterVisible.slice(1) : laterVisible;
+  const laterSheetCount =
+    Math.max(0, todayTotal - (heroIsToday ? 1 : 0)) +
+    Math.max(0, laterTotal - (hero && !heroIsToday ? 1 : 0));
+  const heroAddress = hero ? effectiveAddress(hero) : null;
+  const heroPhone =
+    hero?.contact?.phone?.trim() || hero?.customer?.phone?.trim() || "";
+  const heroDraft = hero?.reportDrafts[0];
+  const heroTemplateId = heroDraft?.templateId ?? hero?.templates[0]?.id;
+  const heroHref = hero
+    ? heroTemplateId
+      ? `/mine-oppdrag/${hero.id}/skjema/${heroTemplateId}`
+      : `/mine-oppdrag/${hero.id}`
+    : "";
+  const heroDateLabel = hero
+    ? formatDateLocalized(hero.scheduledFor, locale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }) || t("orders.fieldList.noDate")
+    : "";
+  const heroTime = jobTimeLabel(hero?.scheduledFor ?? null, locale);
+  const heroDraftTime = heroDraft
+    ? formatDateLocalized(heroDraft.updatedAt, locale, { timeStyle: "short" })
+    : "";
+
+  const renderCard = (
+    wo: ListWorkOrder,
+    tone: CardTone = "default",
+    surface: CardSurface = "dark",
+  ) => {
     const detailHref = `/mine-oppdrag/${wo.id}`;
     const address = effectiveAddress(wo);
     const contact = wo.contact;
@@ -401,11 +494,29 @@ export default async function TechnicianDashboard({
     const dateLabel =
       formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) ||
       t("orders.fieldList.noDate");
+    const onPaper = surface === "paper";
+    const titleClass = onPaper ? "text-ink" : "text-paper";
+    const mutedClass = onPaper ? "text-muted" : "text-paper/70";
+    const metaChip = onPaper
+      ? "bg-white/60 text-ink"
+      : "bg-white/[0.07] text-paper/80";
+    const phoneClass = onPaper
+      ? "border-line bg-white text-success hover:bg-signal/15"
+      : "border-signal/35 bg-signal/10 text-signal hover:bg-signal/20";
+    const mapClass = onPaper
+      ? "border-line bg-white text-ink hover:bg-white/70"
+      : "border-[#2a3328] bg-white/5 text-paper/90 hover:border-signal/60";
+    const footerClass = onPaper ? "border-line" : "border-[#2a3328]";
+    const openClass = onPaper ? "text-success" : "text-signal";
+    const cardTone = onPaper ? PAPER_CARD_TONES[tone] : CARD_TONES[tone];
+    const focusOffset = onPaper
+      ? "focus-within:ring-success"
+      : "focus-within:ring-signal";
 
     return (
       <article
         key={wo.id}
-        className={`relative rounded-2xl border-2 p-3 shadow-sm transition focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 sm:p-4 ${CARD_TONES[tone]}`}
+        className={`relative rounded-2xl border-2 p-3 shadow-sm transition focus-within:ring-2 focus-within:ring-offset-2 ${focusOffset} ${cardTone}`}
       >
         {/* Hele kortet er én lenke. Interaktive snarveier ligger over med
             pointer-events, slik at vi slipper lenker inne i lenker. */}
@@ -418,7 +529,9 @@ export default async function TechnicianDashboard({
         />
         <div className="pointer-events-none relative z-10 flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="line-clamp-2 min-w-0 flex-1 text-base font-black leading-snug text-gray-900">
+            <h3
+              className={`line-clamp-2 min-w-0 flex-1 text-[15px] font-black leading-snug ${titleClass}`}
+            >
               {wo.title}
             </h3>
             <span className="shrink-0 self-start">
@@ -426,24 +539,24 @@ export default async function TechnicianDashboard({
             </span>
           </div>
 
-          <p className="text-xs font-medium text-gray-600">
+          <p className={`text-xs font-medium ${mutedClass}`}>
             🏢 {wo.customer?.name || t("orders.reportsPage.noCustomer")}
             {wo.orderNumber && (
-              <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 font-bold text-gray-700">
+              <span className={`ml-2 rounded px-1.5 py-0.5 font-bold ${metaChip}`}>
                 {t("orders.list.orderNumber")} {wo.orderNumber}
               </span>
             )}
           </p>
 
           {contact && (
-            <p className="text-xs font-medium text-gray-600">
+            <p className={`text-xs font-medium ${mutedClass}`}>
               👤 {contact.name}
               {contact.phone ? ` · 📞 ${contact.phone}` : ""}
             </p>
           )}
 
           {address.query && (
-            <p className="text-xs font-medium text-gray-600">
+            <p className={`text-xs font-medium ${mutedClass}`}>
               📍 {address.query}
             </p>
           )}
@@ -469,7 +582,7 @@ export default async function TechnicianDashboard({
           {draft && (
             <Link
               href={`/mine-oppdrag/${wo.id}/skjema/${draft.templateId}`}
-              className="pointer-events-auto relative z-20 inline-flex w-fit items-center gap-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-900 transition hover:bg-blue-100"
+              className="signal-button pointer-events-auto relative z-20 w-fit text-xs shadow-sm"
             >
               {t("orders.fieldList.draftBadge", { time: draftTime })}
               <span aria-hidden>·</span>
@@ -482,7 +595,7 @@ export default async function TechnicianDashboard({
               <a
                 href={`tel:${phone}`}
                 aria-label={t("orders.fieldList.callPhone", { phone })}
-                className="pointer-events-auto relative z-20 inline-flex min-h-11 items-center gap-1 rounded-xl border-2 border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-800 transition hover:bg-blue-100"
+                className={`pointer-events-auto relative z-20 inline-flex min-h-11 items-center gap-1 rounded-xl border-2 px-3 text-xs font-bold transition ${phoneClass}`}
               >
                 📞 {t("orders.fieldList.call")}
               </a>
@@ -494,7 +607,7 @@ export default async function TechnicianDashboard({
                 city={address.city}
                 label={t("orders.fieldList.showMap")}
                 newTabLabel={t("orders.fieldList.newTab")}
-                className="pointer-events-auto relative z-20 inline-flex min-h-11 items-center rounded-xl border-2 border-gray-200 bg-white px-3 text-xs font-bold no-underline hover:bg-gray-50"
+                className={`pointer-events-auto relative z-20 inline-flex min-h-11 items-center rounded-xl border-2 px-3 text-xs font-bold no-underline transition ${mapClass}`}
               />
             )}
             {tone === "available" && canClaim && (
@@ -505,7 +618,7 @@ export default async function TechnicianDashboard({
                 <input type="hidden" name="workOrderId" value={wo.id} />
                 <SubmitButton
                   pendingLabel={t("orders.fieldList.takingWorkOrder")}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-amber-800"
+                  className="signal-button text-sm shadow-sm"
                 >
                   {t("orders.fieldList.takeWorkOrder")}
                 </SubmitButton>
@@ -513,11 +626,13 @@ export default async function TechnicianDashboard({
             )}
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 text-xs font-medium text-gray-600">
-            <span className="rounded-lg bg-gray-100 px-2 py-1 font-bold text-gray-700">
+          <div
+            className={`mt-1 flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs font-medium ${footerClass} ${mutedClass}`}
+          >
+            <span className={`rounded-lg px-2 py-1 font-bold ${metaChip}`}>
               📅 {dateLabel}
             </span>
-            <span className="font-black text-blue-700">
+            <span className={`font-black ${openClass}`}>
               {t("orders.fieldList.openWorkOrder")}
             </span>
           </div>
@@ -530,14 +645,16 @@ export default async function TechnicianDashboard({
     key: "a" | "u" | "h",
     current: number,
     total: number,
-    tone: keyof typeof BADGE_TONES,
+    surface: CardSurface = "dark",
   ) => {
     if (total <= current) return null;
     return (
       <p className="text-center">
         <Link
           href={moreHref(key, current, total)}
-          className={`inline-flex min-h-11 items-center rounded-xl border-2 bg-white px-5 py-2.5 text-sm font-bold ${LOAD_MORE_TONES[tone]}`}
+          className={`inline-flex min-h-11 items-center px-5 py-2.5 text-sm font-bold transition hover:brightness-105 ${
+            surface === "paper" ? "field-sheet" : "field-card"
+          }`}
         >
           {t("orders.fieldList.loadMore", {
             count: Math.min(LIST_PAGE_SIZE, total - current),
@@ -547,50 +664,184 @@ export default async function TechnicianDashboard({
     );
   };
 
+  const todayLabel =
+    formatDateLocalized(startOfToday, locale, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    }) || "";
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-24 sm:p-6">
+    <div
+      className={`min-h-screen ${DARK_APP} p-4 pb-32 sm:p-6 sm:pb-12`}
+    >
       <div className="mx-auto max-w-3xl space-y-6">
         {resolvedParams.claimed && (
           <CustomerToast message={t("orders.fieldList.claimed")} />
         )}
 
-        {/* HEADER */}
-        <div className="flex flex-col justify-between gap-3 border-b border-gray-300 pb-4 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-xl font-black text-gray-900 sm:text-2xl">
+        {/* STATUSLINJE */}
+        <header className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black uppercase tracking-[0.22em] text-paper/60">
+              <span className="inline-flex h-2 w-2 rounded-full bg-signal shadow-[0_0_0_4px_rgba(217,255,67,0.12)]" />
               {isFieldHome
-                ? t("orders.fieldList.todayPageTitle")
+                ? t("orders.fieldList.fieldMode")
                 : t("nav.myWorkOrders")}
-            </h1>
-            <p className="text-sm font-medium text-gray-600">
+              <span aria-hidden className="text-paper/30">·</span>
+              <span className="normal-case tracking-normal text-paper/80">
+                {todayLabel}
+              </span>
+            </p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-paper sm:text-3xl">
               {t("orders.fieldList.greeting", {
                 name: user.name || t("orders.detail.roleTechnician"),
               })}
+            </h1>
+            <p className="mt-1 text-xs font-bold text-paper/70">
               {user.department
-                ? ` • ${t("orders.fieldList.department", { name: user.department.name })}`
-                : ` • ${t("orders.fieldList.noDepartment")}`}
+                ? t("orders.fieldList.department", {
+                    name: user.department.name,
+                  })
+                : t("orders.fieldList.noDepartment")}
             </p>
           </div>
-          <LogoutButton className="min-h-11 whitespace-nowrap rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-100 disabled:opacity-60">
+          <LogoutButton className="min-h-11 shrink-0 rounded-xl border border-[#2a3328] bg-field-card px-3 py-2 text-xs font-bold text-paper/85 shadow-sm transition hover:bg-white/10 disabled:opacity-60">
             {t("orders.fieldList.logOut")}
           </LogoutButton>
-        </div>
+        </header>
 
         {claimError && (
           <div
             role="alert"
-            className="rounded-2xl border-2 border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800"
+            className="rounded-2xl border-2 border-risk/50 bg-risk/10 p-3 text-sm font-bold text-risk"
           >
             {claimError}
           </div>
         )}
 
+        {/* NESTE JOBB – det viktigste valget på hele skjermen. */}
+        {hero ? (
+          <section className="field-hero relative overflow-hidden p-5 shadow-[0_24px_70px_rgba(0,0,0,0.35)] sm:p-6">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-signal/15 blur-3xl"
+            />
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-signal">
+                    {t("orders.fieldList.nextJob")}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-paper/70">
+                    {heroDateLabel}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="rounded-xl border border-signal/25 bg-field px-3 py-1.5 text-lg font-black leading-none text-signal">
+                    {heroTime}
+                  </span>
+                  <span
+                    aria-label={t("orders.fieldList.jobPosition", {
+                      current: 1,
+                      total: Math.max(assignedTotal, 1),
+                    })}
+                    className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[11px] font-black text-paper/80"
+                  >
+                    1/{Math.max(assignedTotal, 1)}
+                  </span>
+                </div>
+              </div>
+
+              <h2 className="mt-4 text-2xl font-black leading-tight tracking-tight text-paper sm:text-3xl">
+                {hero.title}
+              </h2>
+              <p className="mt-2 text-sm font-bold text-paper/90">
+                🏢 {hero.customer?.name || t("orders.reportsPage.noCustomer")}
+              </p>
+              {heroAddress?.query && (
+                <p className="mt-1 text-sm font-medium text-paper/70">
+                  📍 {heroAddress.query}
+                </p>
+              )}
+              {hero.contact && (
+                <p className="mt-1 text-xs font-medium text-paper/55">
+                  👤 {hero.contact.name}
+                </p>
+              )}
+
+              {heroDraft && (
+                <Link
+                  href={`/mine-oppdrag/${hero.id}/skjema/${heroDraft.templateId}`}
+                  className="signal-button mt-3 w-fit text-xs shadow-sm"
+                >
+                  {t("orders.fieldList.draftBadge", { time: heroDraftTime })}
+                  <span aria-hidden>·</span>
+                  {t("orders.fieldList.draftContinue")}
+                </Link>
+              )}
+
+              <div className="mt-5 space-y-2">
+                <Link
+                  href={heroHref}
+                  className="field-cta w-full justify-between px-5 text-lg shadow-[0_16px_36px_rgba(217,255,67,0.16)]"
+                >
+                  <span>
+                    {!heroTemplateId
+                      ? t("orders.fieldList.openJob")
+                      : heroDraft
+                        ? t("orders.fieldList.continueForm")
+                        : t("orders.fieldList.startForm")}
+                  </span>
+                  <span aria-hidden className="text-2xl">→</span>
+                </Link>
+
+                <div className="flex gap-2">
+                  {heroPhone && (
+                    <a
+                      href={`tel:${heroPhone}`}
+                      aria-label={t("orders.fieldList.callPhone", {
+                        phone: heroPhone,
+                      })}
+                      className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper transition hover:border-signal/60 hover:bg-white/10"
+                    >
+                      📞 {t("orders.fieldList.call")}
+                    </a>
+                  )}
+                  {heroAddress?.query && (
+                    <GoogleMapsLink
+                      address={heroAddress.address}
+                      postalCode={heroAddress.postalCode}
+                      city={heroAddress.city}
+                      label={`🗺️ ${t("orders.fieldList.showMap")}`}
+                      newTabLabel={t("orders.fieldList.newTab")}
+                      className="inline-flex min-h-14 flex-1 items-center justify-center rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper no-underline transition hover:border-signal/60 hover:bg-white/10"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="field-card p-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-signal">
+              {t("orders.fieldList.nextJob")}
+            </p>
+            <p className="mt-2 text-xl font-black text-paper">
+              {t("orders.fieldList.heroEmpty")}
+            </p>
+            <p className="mt-1 text-sm font-medium text-paper/70">
+              {t("orders.fieldList.heroEmptyHint")}
+            </p>
+          </section>
+        )}
+
         {/* SØKEFELT */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="field-card p-2">
           <form
             method="GET"
             action="/mine-oppdrag"
-            className="flex flex-wrap gap-2 sm:gap-3"
+            className="flex flex-wrap gap-2"
           >
             <input
               type="text"
@@ -598,18 +849,18 @@ export default async function TechnicianDashboard({
               aria-label={t("orders.fieldList.search")}
               defaultValue={searchQuery}
               placeholder={t("orders.fieldList.searchPlaceholder")}
-              className="min-w-[200px] flex-1 rounded-xl border-2 border-gray-200 bg-gray-50 p-3 text-sm font-bold text-gray-900 outline-none focus:border-blue-600"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#2a3328] bg-field px-3 text-sm font-bold text-paper outline-none transition placeholder:text-paper/65! focus:border-signal"
             />
             <button
               type="submit"
-              className="min-h-11 whitespace-nowrap rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+              className="min-h-11 whitespace-nowrap rounded-xl bg-white/10 px-5 text-sm font-bold text-paper transition hover:bg-white/15"
             >
               {t("orders.fieldList.search")}
             </button>
             {searchQuery && (
               <Link
                 href="/mine-oppdrag"
-                className="flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-200"
+                className="flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-[#2a3328] px-4 text-sm font-bold text-paper/80 transition hover:bg-white/10"
               >
                 {t("orders.fieldList.reset")}
               </Link>
@@ -620,14 +871,14 @@ export default async function TechnicianDashboard({
         {/* Tomtilstanden skal aldri påstå at det ikke finnes jobb når det
             ligger ledige oppdrag og venter på en montør. */}
         {assignedTotal === 0 && unassignedTotal > 0 && (
-          <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-bold text-amber-950">
+          <div className="field-card ring-1 ring-signal/40 p-4">
+            <p className="text-sm font-bold text-signal">
               {t("orders.fieldList.assignedEmptyWithAvailable")}
             </p>
             {canClaim && (
               <a
                 href="#ledige"
-                className="mt-2 inline-flex min-h-11 items-center rounded-xl bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-amber-800"
+                className="signal-button mt-2 text-sm shadow-sm"
               >
                 {t("orders.fieldList.takeWorkOrderCta")}
               </a>
@@ -636,84 +887,84 @@ export default async function TechnicianDashboard({
         )}
 
         {assignedTotal === 0 && unassignedTotal === 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 text-center">
-            <p className="text-sm italic text-gray-600">
+          <div className="field-card p-4 text-center">
+            <p className="text-sm italic text-paper/70">
               {t("orders.fieldList.noActive")}
             </p>
           </div>
         )}
 
-        {/* PRIORITETSSTAKK: forfalt først, deretter dagens, ledige og senere. */}
+        {/* PRIORITETSSTAKK: forfalt og ledige er kompakte mørke kort. */}
         <div className="space-y-6">
           <PrioritySection
             id="forfalt"
-            title={t("orders.fieldList.priorityOverdue")}
+            title={t("orders.fieldList.priorityOverdueShort")}
             count={overdueTotal}
             empty={t("orders.fieldList.overdueEmpty")}
-            tone="red"
+            tone="risk"
           >
-            <div className="space-y-3">
+            <div className="space-y-2">
               {overdueVisible.map((wo) => renderCard(wo, "overdue"))}
             </div>
-            {loadMore("a", assignedLimit, overdueTotal, "red")}
-          </PrioritySection>
-
-          <PrioritySection
-            id="idag"
-            title={t("orders.fieldList.priorityToday")}
-            count={todayTotal}
-            empty={t("orders.fieldList.todayEmpty")}
-            tone="blue"
-          >
-            <div className="space-y-3">
-              {todayVisible.map((wo) => renderCard(wo, "default"))}
-            </div>
-            {loadMore("a", assignedLimit, todayTotal, "blue")}
+            {loadMore("a", assignedLimit, overdueTotal)}
           </PrioritySection>
 
           <PrioritySection
             id="ledige"
-            title={t("orders.fieldList.priorityAvailable")}
+            title={t("orders.fieldList.priorityAvailableShort")}
             count={unassignedTotal}
             empty={t("orders.fieldList.availableEmpty")}
-            tone="amber"
+            tone="signal"
           >
-            <p className="text-xs font-medium text-gray-600">
+            <p className="px-1 text-xs font-medium text-paper/70">
               {t("orders.fieldList.availableDescription")}
             </p>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {unassignedVisible.map((wo) => renderCard(wo, "available"))}
             </div>
-            {loadMore("u", unassignedLimit, unassignedTotal, "amber")}
-          </PrioritySection>
-
-          <PrioritySection
-            id="senere"
-            title={t("orders.fieldList.priorityLater")}
-            count={laterTotal}
-            empty={t("orders.fieldList.laterEmpty")}
-            tone="gray"
-          >
-            <div className="space-y-3">
-              {laterVisible.map((wo) => renderCard(wo, "default"))}
-            </div>
-            {loadMore("a", assignedLimit, laterTotal, "gray")}
+            {loadMore("u", unassignedLimit, unassignedTotal)}
           </PrioritySection>
         </div>
 
+        {/* SENERE I DAG – papirark med resten av dagen og kommende jobber. */}
+        <PaperSheet
+          id="senere"
+          title={t("orders.fieldList.laterToday")}
+          count={laterSheetCount}
+          hint={t("orders.fieldList.laterTodayHint")}
+        >
+          {laterSheetCount === 0 ? (
+            <p className="rounded-xl border border-dashed border-line px-4 py-3 text-sm font-medium text-muted">
+              {t("orders.fieldList.laterEmpty")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {todayAfterHero.map((wo) =>
+                renderCard(wo, "default", "paper"),
+              )}
+              {laterAfterHero.map((wo) =>
+                renderCard(wo, "default", "paper"),
+              )}
+            </div>
+          )}
+          {loadMore("a", assignedLimit, laterTotal, "paper")}
+        </PaperSheet>
+
         {/* HISTORIKK: fullførte oppdrag holdes utenfor prioritetsstakken. */}
         {completedTotal > 0 && (
-          <div className="space-y-4 border-t border-gray-200 pt-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-black text-gray-900">
-                {t("orders.fieldList.historyTitle", { count: completedTotal })}
-              </h2>
+          <PaperSheet
+            id="historikk"
+            title={t("orders.fieldList.historyTitle", {
+              count: completedTotal,
+            })}
+          >
+            <div className="space-y-2">
+              {completedAssigned.map((wo) =>
+                renderCard(wo, "history", "paper"),
+              )}
             </div>
-            <div className="space-y-3">
-              {completedAssigned.map((wo) => renderCard(wo, "history"))}
-            </div>
-            {loadMore("h", historyLimit, completedTotal, "gray")}
-          </div>
+            {loadMore("h", historyLimit, completedTotal, "paper")}
+          </PaperSheet>
         )}
       </div>
     </div>

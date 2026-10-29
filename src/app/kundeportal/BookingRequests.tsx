@@ -8,6 +8,8 @@ import {
   formatDateTimeLocalized,
 } from "@/lib/dates";
 import type { PortalBooking } from "@/server/portal";
+import Button from "@/components/ui/Button";
+import { controlClassName } from "@/components/ui/controlStyles";
 import {
   cancelBookingAction,
   rescheduleBookingAction,
@@ -27,10 +29,12 @@ const ERROR_KEYS: Record<string, string> = {
 };
 
 const STATUS_CLASSES: Record<PortalBooking["displayStatus"], string> = {
-  pending: "border-amber-200 bg-amber-100 text-amber-950",
-  confirmed: "border-blue-200 bg-blue-100 text-blue-950",
-  completed: "border-green-200 bg-green-100 text-green-950",
-  cancelled: "border-gray-300 bg-gray-100 text-gray-700",
+  pending: "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]",
+  confirmed:
+    "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
+  completed: "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]",
+  cancelled:
+    "border-[#e7b7a4] bg-[#fae8e0] text-[#a92a12]",
 };
 
 const TIME_OPTIONS = Array.from({ length: 23 }, (_, index) => {
@@ -50,10 +54,12 @@ function EventList({ booking }: { booking: PortalBooking }) {
   };
 
   return (
-    <ol className="space-y-1 text-xs text-gray-700">
+    <ol className="space-y-1 text-xs leading-5 text-[var(--muted,#62685f)]">
       {booking.events.map((event) => (
         <li key={event.id} className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-bold text-gray-900">{labels[event.type]}</span>
+          <span className="font-bold text-[var(--ink,#101310)]">
+            {labels[event.type]}
+          </span>
           <time dateTime={event.createdAt}>
             {formatDateTimeLocalized(event.createdAt, locale)}
           </time>
@@ -132,20 +138,20 @@ function BookingRequestCard({
         : null;
 
   return (
-    <article className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+    <article className="space-y-3 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-black text-gray-900">
+        <div className="min-w-0">
+          <p className="text-sm font-extrabold text-[var(--ink,#101310)]">
             {booking.workOrder.title}
           </p>
-          <p className="text-xs font-bold text-gray-600">
+          <p className="text-xs font-bold text-[var(--muted,#62685f)]">
             {t("portal.bookingRequests.reference", {
               reference: booking.reference,
             })}
           </p>
         </div>
         <span
-          className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_CLASSES[cancelled ? "cancelled" : booking.displayStatus]}`}
+          className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_CLASSES[cancelled ? "cancelled" : booking.displayStatus]}`}
         >
           {t(
             `portal.bookingRequests.status.${cancelled ? "cancelled" : booking.displayStatus}`,
@@ -153,10 +159,10 @@ function BookingRequestCard({
         </span>
       </div>
 
-      <dl className="grid gap-1 text-xs text-gray-700 sm:grid-cols-2">
+      <dl className="grid gap-1 text-xs leading-5 text-[var(--muted,#62685f)] sm:grid-cols-2">
         {isConfirmed ? (
           <div>
-            <dt className="inline font-bold text-gray-900">
+            <dt className="inline font-bold text-[var(--ink,#101310)]">
               {t("portal.bookingRequests.confirmedLabel")}{" "}
             </dt>
             <dd className="inline">
@@ -171,7 +177,7 @@ function BookingRequestCard({
           </div>
         ) : (
           <div>
-            <dt className="inline font-bold text-gray-900">
+            <dt className="inline font-bold text-[var(--ink,#101310)]">
               {t("portal.bookingRequests.requestedLabel")}{" "}
             </dt>
             <dd className="inline">
@@ -185,7 +191,7 @@ function BookingRequestCard({
         )}
         {booking.equipmentLabel && (
           <div>
-            <dt className="inline font-bold text-gray-900">
+            <dt className="inline font-bold text-[var(--ink,#101310)]">
               {t("portal.bookingRequests.equipmentLabel")}{" "}
             </dt>
             <dd className="inline">{booking.equipmentLabel}</dd>
@@ -193,14 +199,14 @@ function BookingRequestCard({
         )}
         {booking.preferredTechnicianName && (
           <div>
-            <dt className="inline font-bold text-gray-900">
+            <dt className="inline font-bold text-[var(--ink,#101310)]">
               {t("portal.bookingRequests.technicianLabel")}{" "}
             </dt>
             <dd className="inline">{booking.preferredTechnicianName}</dd>
           </div>
         )}
         <div>
-          <dt className="inline font-bold text-gray-900">
+          <dt className="inline font-bold text-[var(--ink,#101310)]">
             {t("portal.bookingRequests.contactLabel")}{" "}
           </dt>
           <dd className="inline">
@@ -208,7 +214,7 @@ function BookingRequestCard({
           </dd>
         </div>
         <div>
-          <dt className="inline font-bold text-gray-900">
+          <dt className="inline font-bold text-[var(--ink,#101310)]">
             {t("portal.bookingRequests.createdLabel")}{" "}
           </dt>
           <dd className="inline">
@@ -217,8 +223,8 @@ function BookingRequestCard({
         </div>
       </dl>
 
-      <div className="border-t border-gray-200 pt-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-gray-600">
+      <div className="border-t border-[var(--line,#dedcd1)] pt-2">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted,#62685f)]">
           {t("portal.bookingRequests.historyTitle")}
         </p>
         <EventList booking={booking} />
@@ -227,13 +233,13 @@ function BookingRequestCard({
       {changeError && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
         >
           {t(ERROR_KEYS[changeError.reason] ?? "portal.booking.errors.generic")}
         </p>
       )}
       {cancelState.status === "success" && (
-        <p role="status" className="text-xs font-bold text-green-900">
+        <p role="status" className="text-xs font-bold text-[#24502f]">
           {t(
             cancelState.visitInProgress
               ? "portal.bookingRequests.cancelInProgressSuccess"
@@ -242,7 +248,7 @@ function BookingRequestCard({
         </p>
       )}
       {rescheduleState.status === "success" && (
-        <p role="status" className="text-xs font-bold text-green-900">
+        <p role="status" className="text-xs font-bold text-[#24502f]">
           {t("portal.bookingRequests.rescheduleSuccess")}
         </p>
       )}
@@ -250,21 +256,21 @@ function BookingRequestCard({
       {!cancelled &&
         booking.displayStatus !== "completed" &&
         (canCancel || canReschedule) && (
-          <div className="space-y-3 border-t border-gray-200 pt-3">
+          <div className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
             {isConfirmed && inProgress && (
-              <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950">
+              <p className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-3 py-2 text-xs font-bold text-[#6b4a05]">
                 {t("portal.bookingRequests.inProgressNotice")}
               </p>
             )}
             {canReschedule && (
-              <p className="text-xs text-gray-700">
+              <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
                 {t("portal.bookingRequests.deadline", {
                   date: formatDateTimeLocalized(booking.changeDeadline, locale),
                 })}
               </p>
             )}
             {!isConfirmed && !canReschedule && (
-              <p className="text-xs text-gray-700">
+              <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
                 {t("portal.bookingRequests.pendingCancelNote")}
               </p>
             )}
@@ -272,20 +278,20 @@ function BookingRequestCard({
             {!confirmCancel ? (
               <div className="flex flex-wrap gap-2">
                 {canReschedule && (
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => setShowReschedule((current) => !current)}
                     aria-expanded={showReschedule}
-                    className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100"
                   >
                     {t("portal.bookingRequests.rescheduleButton")}
-                  </button>
+                  </Button>
                 )}
                 {canCancel && (
                   <button
                     type="button"
                     onClick={() => setConfirmCancel(true)}
-                    className="min-h-11 rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--risk,#f04427)] bg-transparent px-4 text-sm font-bold text-[#a92a12] transition hover:bg-[#fae8e0]"
                   >
                     {t(
                       isConfirmed
@@ -296,9 +302,12 @@ function BookingRequestCard({
                 )}
               </div>
             ) : (
-              <form action={cancelAction} className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
+              <form
+                action={cancelAction}
+                className="space-y-2 rounded-xl border border-[#e7b7a4] bg-[#fae8e0] p-3"
+              >
                 <input type="hidden" name="bookingId" value={booking.id} />
-                <p className="text-sm font-bold text-red-900">
+                <p className="text-sm font-bold leading-6 text-[#8f2d0c]">
                   {t(
                     isConfirmed
                       ? inProgress
@@ -308,22 +317,22 @@ function BookingRequestCard({
                   )}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="submit"
-                    disabled={cancelPending}
-                    className="min-h-11 rounded-xl bg-red-700 px-3 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
+                    variant="danger"
+                    pending={cancelPending}
                   >
                     {cancelPending
                       ? t("portal.bookingRequests.cancelPending")
                       : t("portal.bookingRequests.cancelConfirmButton")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => setConfirmCancel(false)}
-                    className="min-h-11 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100"
                   >
                     {t("portal.bookingRequests.keepButton")}
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -332,17 +341,17 @@ function BookingRequestCard({
               <form
                 ref={rescheduleFormRef}
                 action={rescheduleAction}
-                className="space-y-2 rounded-xl border border-gray-200 bg-white p-3"
+                className="space-y-3 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3"
               >
                 <input type="hidden" name="bookingId" value={booking.id} />
-                <p className="text-sm font-bold text-gray-900">
+                <p className="text-sm font-bold text-[var(--ink,#101310)]">
                   {t("portal.bookingRequests.rescheduleTitle")}
                 </p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
                     <label
                       htmlFor={`reschedule-date-${booking.id}`}
-                      className="mb-1 block text-xs font-bold text-gray-700"
+                      className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
                     >
                       {t("portal.booking.dateLabel")}
                     </label>
@@ -354,13 +363,13 @@ function BookingRequestCard({
                       min={minDate}
                       value={rescheduleDate}
                       onChange={(event) => setRescheduleDate(event.target.value)}
-                      className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+                      className={controlClassName("min-h-11")}
                     />
                   </div>
                   <div>
                     <label
                       htmlFor={`reschedule-from-${booking.id}`}
-                      className="mb-1 block text-xs font-bold text-gray-700"
+                      className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
                     >
                       {t("portal.booking.fromLabel")}
                     </label>
@@ -370,7 +379,7 @@ function BookingRequestCard({
                       required
                       value={rescheduleFrom}
                       onChange={(event) => setRescheduleFrom(event.target.value)}
-                      className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+                      className={controlClassName("min-h-11")}
                     >
                       {TIME_OPTIONS.map((time) => (
                         <option key={time} value={time}>
@@ -382,7 +391,7 @@ function BookingRequestCard({
                   <div>
                     <label
                       htmlFor={`reschedule-to-${booking.id}`}
-                      className="mb-1 block text-xs font-bold text-gray-700"
+                      className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
                     >
                       {t("portal.booking.toLabel")}
                     </label>
@@ -392,7 +401,7 @@ function BookingRequestCard({
                       required
                       value={rescheduleTo}
                       onChange={(event) => setRescheduleTo(event.target.value)}
-                      className="min-h-11 w-full rounded-xl border border-gray-300 bg-white px-2 text-sm text-gray-900"
+                      className={controlClassName("min-h-11")}
                     >
                       {TIME_OPTIONS.map((time) => (
                         <option key={time} value={time}>
@@ -405,7 +414,7 @@ function BookingRequestCard({
                 {rescheduleLeadInvalid && (
                   <p
                     role="alert"
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+                    className="rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
                   >
                     {t("portal.bookingRequests.leadTimeError", {
                       hours: minLeadHours,
@@ -415,20 +424,20 @@ function BookingRequestCard({
                 {rescheduleWindowInvalid && (
                   <p
                     role="alert"
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+                    className="rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
                   >
                     {t("portal.booking.windowError")}
                   </p>
                 )}
-                <button
+                <Button
                   type="submit"
                   disabled={!canSubmitReschedule}
-                  className="min-h-11 rounded-xl bg-[var(--primary-color)] px-3 py-2 text-sm font-bold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+                  pending={reschedulePending}
                 >
                   {reschedulePending
                     ? t("portal.bookingRequests.reschedulePending")
                     : t("portal.bookingRequests.rescheduleSubmit")}
-                </button>
+                </Button>
               </form>
             )}
           </div>
@@ -454,20 +463,20 @@ export default function BookingRequests({
   const t = useTranslations("common");
 
   return (
-    <section id="bestillinger" className="mt-6 space-y-3 border-t border-gray-200 pt-5">
+    <section className="mt-6 space-y-3 border-t border-[var(--line,#dedcd1)] pt-5">
       <div>
-        <h3 className="text-base font-black text-gray-900">
+        <h3 className="text-base font-extrabold text-[var(--ink,#101310)]">
           {t("portal.bookingRequests.title")}
         </h3>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
           {t("portal.bookingRequests.desc")}
         </p>
         {summary && (
-          <p className="mt-1 text-xs font-bold text-gray-600">{summary}</p>
+          <p className="mt-1 text-xs font-bold text-[var(--muted,#62685f)]">{summary}</p>
         )}
       </div>
       {bookings.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-600">
+        <p className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-4 py-6 text-center text-sm text-[var(--muted,#62685f)]">
           {t("portal.bookingRequests.empty")}
         </p>
       ) : (

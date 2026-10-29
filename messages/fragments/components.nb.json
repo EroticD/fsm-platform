@@ -272,7 +272,14 @@
       "breadcrumb": "Brødsmulesti",
       "details": "Detaljer",
       "work": "Arbeid",
-      "more": "Mer"
+      "more": "Mer",
+      "officeNavigation": "Kontornavigasjon",
+      "officeWorkspace": "Kontor",
+      "adminWorkspace": "Administrasjon",
+      "workspace": "Arbeidsområde",
+      "tools": "Verktøy",
+      "signedInAs": "Innlogget som",
+      "user": "Bruker"
     },
     "language": {
       "change": "Endre språk"

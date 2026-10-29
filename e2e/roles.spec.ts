@@ -41,16 +41,18 @@ test("office: dashbord, oppdrag, kunder, dokumenter og rapporter", async ({
 
   // Hovednavigasjonen er bare synlig på brede skjermer.
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.getByRole("heading", { name: /Velkommen,/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Planlegging/ })).toBeVisible();
   await expect(
     page
-      .getByRole("navigation", { name: "Meny" })
+      .getByRole("navigation", { name: "Arbeidsområde" })
       .getByRole("link", { name: /Dashbord/ }),
   ).toBeVisible();
 
   await page.goto("/oppdrag");
   await expect(
-    page.getByText("Service – automatiske dører", { exact: true }),
+    page
+      .getByRole("link", { name: "Service – automatiske dører" })
+      .first(),
   ).toBeVisible();
 
   await page.goto("/kunder");
@@ -105,7 +107,7 @@ test("office: innstillinger ligger bare i menyen, og ansattefanen er tilgjengeli
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   const primaryNav = page
-    .getByRole("navigation", { name: "Meny" })
+    .getByRole("navigation", { name: "Arbeidsområde" })
     .first();
   await expect(primaryNav).toBeVisible();
   await expect(primaryNav.getByRole("link")).toHaveCount(5);
@@ -142,14 +144,18 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
   expect(await loginAsRole(page, "technician")).toBe(true);
 
   await page.goto("/mine-oppdrag");
-  const orderLink = page
-    .getByRole("link", {
-      name: /Service – automatiske dører/,
-    })
+  await expect(
+    page.getByRole("heading", { name: "Service – automatiske dører" }),
+  ).toBeVisible();
+  // Heroen er en egen lenke til skjemaet; hent oppdrags-id-en og gå til
+  // detaljsiden for å verifisere statusvalgene.
+  const heroCta = page
+    .getByRole("link", { name: /Start skjema|Fortsett skjema/ })
     .first();
-  await expect(orderLink).toBeVisible();
-  await orderLink.click();
-  await expect(page).toHaveURL(/\/mine-oppdrag\/[^/]+$/);
+  const href = await heroCta.getAttribute("href");
+  const workOrderId = href?.match(/\/mine-oppdrag\/([^/]+)\//)?.[1];
+  expect(workOrderId).toBeTruthy();
+  await page.goto(`/mine-oppdrag/${workOrderId}`);
   await expect(
     page.getByRole("heading", { name: "Service – automatiske dører" }),
   ).toBeVisible();

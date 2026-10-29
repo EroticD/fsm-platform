@@ -1,15 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Open_Sans } from "next/font/google";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
-import { getCurrentUser, isStaff } from "@/lib/session";
+import { getCurrentUser, isOffice, isStaff } from "@/lib/session";
 import { effectivePermissions } from "@/lib/permissions";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
 import MobileTabBar from "@/components/MobileTabBar";
+import OfficeRail from "@/components/OfficeRail";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import prisma from "@/lib/prisma";
 import { isSafeLogoUrl } from "@/lib/logo";
@@ -19,14 +20,10 @@ import OfflineBanner from "@/components/OfflineBanner";
 import OfflineSessionGuard from "@/components/OfflineSessionGuard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const openSans = Open_Sans({
+  variable: "--font-open-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -92,14 +89,29 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     branding?.logoUrl && isSafeLogoUrl(branding.logoUrl)
       ? branding.logoUrl
       : null;
+  // Kontor og administrasjon får den faste venstrelisten. Montørene får
+  // feltmodus med mørk topp og mørk bunnlinje. Kundeportalen og innlogging
+  // beholder den lyse, enkle rammen.
+  const officeMode = isOffice(role);
+  const fieldMode = role === "TECHNICIAN";
+  const userName = currentUser?.name || session?.user?.name || null;
+  const userEmail = currentUser?.email || session?.user?.email || null;
 
   return (
     <html
       lang={locale}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${openSans.variable} h-full antialiased ${
+        fieldMode ? "field-app" : "office-app"
+      }`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body
+        className={`min-h-full flex flex-col ${
+          fieldMode ? "field-app" : "office-app"
+        }`}
+        data-mode={fieldMode ? "field" : undefined}
+        suppressHydrationWarning
+      >
         <style
           dangerouslySetInnerHTML={{
             __html: `:root{--primary-color:${primaryColor};--primary-foreground:${primaryForeground};}`,
@@ -114,13 +126,26 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
             <OfflineBanner userId={currentUser?.id} />
+            {officeMode && (
+              <OfficeRail
+                role={role}
+                permissions={permissions}
+                companyName={companyName}
+                logoUrl={logoUrl}
+                userName={userName}
+                userEmail={userEmail}
+              />
+            )}
             <BrandedHeader
               showNav
+              railMode={officeMode}
               role={role}
               permissions={permissions}
               companyName={companyName}
               logoUrl={logoUrl}
               primaryColor={primaryColor}
+              userName={userName}
+              userEmail={userEmail}
             />
             {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}
@@ -133,10 +158,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <main
               id="main-content"
               className={`flex-1 ${
-                isStaff(role)
-                  ? "pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0"
-                  : ""
-              }`}
+                fieldMode
+                  ? "pb-[calc(4.5rem_+_env(safe-area-inset-bottom))]"
+                  : isStaff(role)
+                    ? "pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0"
+                    : ""
+              } ${officeMode ? "lg:pl-[248px]" : ""}`}
             >
               {children}
             </main>

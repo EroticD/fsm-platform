@@ -18,6 +18,29 @@
   /* Kortflatens kant. Holdes som egen token slik at Card-primitiven og
      eksisterende kort bruker samme farge. */
   --border-card: #e5e7eb;
+
+  /* Hybridskallet: Command Center (kontor) og Field Pulse (felt).
+     Fargene er bevisst få og harde, slik at signalgult alltid betyr handling
+     og rødt alltid betyr risiko – også i nye flater som andre agenter bygger. */
+  --ink: #101310;
+  --paper: #f2efe6;
+  --signal: #d8ff3e;
+  --risk: #f04427;
+  --risk-text: #b42318;
+  --muted: #62685f;
+  --line: #dedcd1;
+  --canvas: #f4f5f2;
+  --office-rail: #111711;
+  --field: #0b0e0b;
+  --field-card: #151a14;
+  --surface: #fffdf8;
+
+  /* Open Sans lastes med next/font og eksponeres på <html>. Mono holdes som
+     systemets egen stack, slik at serienumre og koder ikke krever en ekstra
+     fontnedlasting. */
+  --font-sans: var(--font-open-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 /*
@@ -52,8 +75,11 @@
   --color-primary: var(--primary-color);
   --color-primary-foreground: var(--primary-foreground);
   --color-focus-ring: var(--focus-ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-open-sans);
+  /* Felt-appen bruker systemets monospace. Da slipper vi en ekstra
+     fontnedlasting for serienumre, koder og tekniske verdier. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 /*
@@ -65,8 +91,21 @@
   --radius-control: 0.75rem;
   --radius-card: 1rem;
   --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --color-surface: #ffffff;
+  --color-surface: var(--surface);
   --color-border-card: var(--border-card);
+  /* Tilgjengelige Tailwind-utilities for hybridskallet: bg-ink, text-paper,
+     border-line, bg-signal, bg-field-card osv. */
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-signal: var(--signal);
+  --color-risk: var(--risk-text);
+  --color-risk-text: var(--risk-text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-canvas: var(--canvas);
+  --color-office-rail: var(--office-rail);
+  --color-field: var(--field);
+  --color-field-card: var(--field-card);
   /* Tailwind-utility for den minste tillatte tekststørrelsen (12 px). */
   --text-2xs: 0.75rem;
   --text-2xs--line-height: 1rem;
@@ -76,7 +115,7 @@
   --color-info: #1d4ed8;
   --color-info-surface: #eff6ff;
   --color-info-border: #bfdbfe;
-  --color-success: #15803d;
+  --color-success: #166534;
   --color-success-surface: #f0fdf4;
   --color-success-border: #bbf7d0;
   --color-warning: #b45309;
@@ -90,8 +129,226 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+  font-family: var(--font-open-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
+}
+
+/* -------------------------------------------------------------------------
+ * Hybridskallet
+ *
+ * Kontorflatene («Command Center») er lyse, kompakte og rolige. Feltflatene
+ * («Field Pulse») er mørke med høy kontrast, slik at de er lesbare utendørs.
+ * Signalgulet brukes bare til handling og aktiv tilstand – aldri som pynt.
+ * ---------------------------------------------------------------------- */
+
+.office-app {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.office-card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  box-shadow:
+    0 1px 2px rgb(16 19 16 / 0.04),
+    0 10px 28px -18px rgb(16 19 16 / 0.22);
+}
+
+/* Kompakte tabeller og listelister på kontorflatene. Fungerer både på
+   <table class="office-table"> og på en liste som er merket med klassen. */
+.office-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.office-table :is(th, td) {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.office-table th {
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.office-table td {
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.office-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.office-table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--paper) 55%, transparent);
+}
+
+.office-table caption {
+  padding: 0 0.75rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+.signal-button,
+.ink-button,
+.field-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.signal-button {
+  min-height: 44px;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  background-color: var(--signal);
+  color: var(--ink);
+}
+
+.signal-button:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--signal) 86%, var(--ink));
+}
+
+.signal-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ink-button {
+  min-height: 44px;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  background-color: var(--ink);
+  color: var(--paper);
+}
+
+.ink-button:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--ink) 88%, var(--paper));
+}
+
+.ink-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.field-app {
+  --focus-ring: var(--signal);
+  background-color: var(--field);
+  color: var(--paper);
+  font-family: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.field-hero,
+.field-card {
+  background-color: var(--field-card);
+  border: 1px solid #2a3328;
+  border-radius: 16px;
+  color: var(--paper);
+}
+
+.field-hero {
+  box-shadow: 0 18px 42px -30px rgb(0 0 0 / 0.9);
+}
+
+.field-sheet {
+  background-color: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+}
+
+.field-cta {
+  min-height: 56px;
+  padding: 0.875rem 1.25rem;
+  border-radius: 12px;
+  background-color: var(--signal);
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.field-cta:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--signal) 86%, var(--ink));
+}
+
+.field-cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Den faste, mørke kontorlisten. Fokusringen er papirfarget, slik at den er
+   tydelig både mot den mørke bakgrunnen og mot den lime aktive flaten. */
+.office-rail {
+  --focus-ring: var(--paper);
+  background-color: var(--office-rail);
+  color: var(--paper);
+}
+
+.rail-link {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  color: color-mix(in srgb, var(--paper) 66%, transparent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.rail-link:hover {
+  background-color: rgb(255 255 255 / 0.07);
+  color: var(--paper);
+}
+
+.rail-active,
+.rail-active:hover {
+  background-color: var(--signal);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Kontrollene i den mørke felttoppen beholder komponentenes egne ikoner,
+   men får papirfarge og en mørk hoverflate. Barna er direkte etterkommere,
+   slik at popover-panelet inni bjella fortsatt er lyst og lesbart. */
+.field-shell-controls > button,
+.field-shell-controls > div > button {
+  color: var(--paper);
+}
+
+.field-shell-controls > button {
+  border-color: #2a3328;
+  background-color: transparent;
+}
+
+.field-shell-controls > button:hover,
+.field-shell-controls > div > button:hover {
+  background-color: rgb(255 255 255 / 0.08);
+  color: var(--paper);
 }
 
 /* Plassholdere skal ha samme lesbare gråtoner som hjelpetekst (4,5:1).

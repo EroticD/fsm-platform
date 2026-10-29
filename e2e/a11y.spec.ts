@@ -57,7 +57,7 @@ async function expectNoBlockingA11yIssues(page: Page, context?: string) {
     | Awaited<ReturnType<InstanceType<typeof AxeBuilder>["analyze"]>>
     | undefined;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.waitForLoadState("networkidle").catch(() => undefined);
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => undefined);
     try {
       results = await new AxeBuilder({ page }).withTags(A11Y_TAGS).analyze();
       break;
@@ -307,7 +307,7 @@ test("tekniker: oppdragsdetalen har ingen blokkerende a11y-brudd", async ({
   await page.goto("/mine-oppdrag");
   const workOrderHref = await firstHref(
     page,
-    'a[href^="/mine-oppdrag/"]:not([href="/mine-oppdrag"]):not([href="/mine-oppdrag/ny"])',
+    'a[href^="/mine-oppdrag/"]:not([href="/mine-oppdrag"]):not([href="/mine-oppdrag/ny"]):not([href*="/skjema/"])',
   );
   if (!workOrderHref) {
     test.skip(true, "Fant ingen oppdrag for teknikeren");

@@ -6,6 +6,8 @@ import {
   acknowledgeReportAction,
   type PortalFormState,
 } from "@/app/kundeportal/report-actions";
+import Button from "@/components/ui/Button";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 const INITIAL_STATE: PortalFormState = { status: "idle" };
 
@@ -46,7 +48,7 @@ export default function AcknowledgeReportForm({
       {state.status === "success" && (
         <p
           role="status"
-          className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-bold text-green-900"
+          className="rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] px-3 py-2 text-xs font-bold text-[#24502f]"
         >
           {t("p3.portalReports.acknowledgeSuccess")}
         </p>
@@ -54,7 +56,7 @@ export default function AcknowledgeReportForm({
       {state.status === "error" && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800"
+          className="rounded-xl border border-[#e7b7a4] bg-[#fae8e0] px-3 py-2 text-xs font-bold text-[#a92a12]"
         >
           {t(ERROR_KEYS[state.reason] ?? "p3.portalReports.acknowledgeError")}
         </p>
@@ -66,18 +68,17 @@ export default function AcknowledgeReportForm({
           aria-label={t("p3.portalReports.commentPlaceholder")}
           aria-describedby="kvittering-hjelp"
           placeholder={t("p3.portalReports.commentPlaceholder")}
-          className="min-h-11 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900"
+          className={controlClassName("min-h-11 flex-1")}
         />
-        <button
+        <Button
           type="submit"
-          disabled={pending}
+          pending={pending}
           aria-describedby="kvittering-hjelp"
-          className="min-h-11 rounded-xl bg-[var(--primary-color)] px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
         >
           {pending
             ? t("p3.portalReports.acknowledging")
             : t("p3.portalReports.acknowledge")}
-        </button>
+        </Button>
       </div>
     </form>
   );

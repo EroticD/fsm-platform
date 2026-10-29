@@ -4,12 +4,15 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md";
 
 const VARIANTS: Record<ButtonVariant, string> = {
+  // Lime er alltid en signalflate med blekksvart tekst, aldri hvit tekst.
   primary:
-    "bg-primary text-primary-foreground shadow-sm hover:opacity-90 active:opacity-100",
+    "signal-button border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--ink,#101310)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
   secondary:
-    "border border-gray-300 bg-surface text-gray-900 shadow-sm hover:bg-gray-50",
-  ghost: "text-gray-700 hover:bg-gray-100",
-  danger: "bg-danger text-white shadow-sm hover:bg-red-800",
+    "border border-[var(--ink,#101310)] bg-transparent text-[var(--ink,#101310)] hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]",
+  ghost:
+    "text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]",
+  danger:
+    "border border-[var(--risk,#f04427)] bg-[var(--risk,#f04427)] text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] hover:bg-[#d33218]",
 };
 
 const SIZES: Record<ButtonSize, string> = {
@@ -42,7 +45,7 @@ export default function Button({
       disabled={disabled || pending}
       aria-busy={pending || undefined}
       data-pending={pending || undefined}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-control text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] text-sm font-bold transition [--focus-ring:var(--ink,#101310)] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
     >
       {pending && (
         <span

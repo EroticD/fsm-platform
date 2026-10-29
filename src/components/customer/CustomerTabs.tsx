@@ -92,10 +92,10 @@ export default function CustomerTabs({
   }, [syncScrollState]);
 
   const arrowClass =
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-lg font-black text-gray-600 shadow-sm transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:pointer-events-none";
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-lg font-black text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:pointer-events-none";
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 [--focus-ring:var(--ink,#101310)]">
       <button
         type="button"
         onClick={() => scrollByPage(-1)}
@@ -111,7 +111,7 @@ export default function CustomerTabs({
         ref={navRef}
         aria-label={label}
         onScroll={syncScrollState}
-        className="flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth rounded-2xl border-2 border-gray-200 bg-white p-1 shadow-sm [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent"
+        className="flex min-w-0 flex-1 gap-1 overflow-x-auto scroll-smooth rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1 shadow-[0_1px_2px_rgba(20,17,11,0.05)] [scrollbar-color:#cfc7b7_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#cfc7b7] [&::-webkit-scrollbar-track]:bg-transparent"
       >
         {tabs.map((entry) => {
           const active = currentKey === entry.key;
@@ -122,10 +122,10 @@ export default function CustomerTabs({
               href={entry.href}
               scroll={false}
               aria-current={active ? "page" : undefined}
-              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold whitespace-nowrap transition sm:px-4 sm:text-sm ${
+              className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-bold whitespace-nowrap transition sm:px-4 sm:text-sm ${
                 active
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)]"
+                  : "border-transparent text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
               }`}
             >
               <span>{entry.label}</span>
@@ -133,8 +133,8 @@ export default function CustomerTabs({
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
                     active
-                      ? "bg-white/20 text-white"
-                      : "bg-gray-100 text-gray-600"
+                      ? "bg-[#101310]/10 text-[var(--ink,#101310)]"
+                      : "border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
                   }`}
                 >
                   {entry.count}

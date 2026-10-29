@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import ErrorBanner from "@/components/ErrorBanner";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
 
@@ -52,18 +53,27 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-sm border border-gray-100 p-8">
-        <div className="flex flex-col items-center mb-6">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:p-6">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[20px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_2px_0_rgba(20,17,11,0.08),0_18px_40px_rgba(20,17,11,0.08)] sm:p-8">
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
+        />
+        <div className="mb-6 flex flex-col items-center">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-sm mb-3"
+            className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-xl font-bold text-[var(--paper,#f2efe6)] shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
             suppressHydrationWarning
-            style={{ backgroundColor: "var(--primary-color)" }}
           >
             {companyName.charAt(0).toUpperCase()}
+            <span
+              aria-hidden="true"
+              className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("loginTitle")}</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            {t("loginTitle")}
+          </h1>
+          <p className="mt-1 text-center text-sm leading-6 text-[var(--muted,#62685f)]">
             {t("loginDescCompany", { companyName })}
           </p>
         </div>
@@ -82,7 +92,7 @@ export default async function LoginPage({
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-bold text-gray-700 mb-1"
+              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
             >
               {t("emailLabel")}
             </label>
@@ -95,14 +105,14 @@ export default async function LoginPage({
               placeholder={t("emailPlaceholder")}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "login-error" : undefined}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
+              className={controlClassName("min-h-11")}
             />
           </div>
 
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-bold text-gray-700 mb-1"
+              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
             >
               {t("passwordLabel")}
             </label>
@@ -115,7 +125,7 @@ export default async function LoginPage({
               placeholder="••••••••"
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "login-error" : undefined}
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
+              className={controlClassName("min-h-11")}
             />
           </div>
 
@@ -125,7 +135,7 @@ export default async function LoginPage({
         <div className="text-center mt-6">
           <Link
             href="/glemt-passord"
-            className="text-sm font-medium text-gray-500 hover:text-gray-800 transition"
+            className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:decoration-[var(--ink,#101310)]"
           >
             {t("forgotPassword")}
           </Link>

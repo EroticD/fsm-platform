@@ -2,6 +2,7 @@
   "portal": {
     "noAccessTitle": "Ingen tilgang",
     "noAccessDesc": "Brukeren din er ikke koblet til en kundekonto.",
+    "headerEyebrow": "Kundeportal",
     "headerTitle": "Min Bedrift: {customerName}",
     "headerWelcome": "Velkommen til din kundeportal, {userName}!",
     "home": "Hjem",

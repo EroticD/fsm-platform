@@ -14,9 +14,9 @@ export type OrderViewTab = {
 /**
  * Fanestripen på oppdragslisten.
  *
- * På mobil er den en horisontal stripe; den aktive fanen rulles inn i viewport
- * slik at man alltid ser valget selv når listen er bredere enn skjermen. På
- * desktop brytes fanene over flere linjer i stedet for å klippes.
+ * Aktiv fane er mørk ink med lime understrek. På mobil er stripen horisontal
+ * og ruller den aktive fanen inn i viewport; på desktop brytes fanene over
+ * flere linjer i stedet for å klippes.
  */
 export default function OrderViewTabs({
   tabs,
@@ -51,9 +51,9 @@ export default function OrderViewTabs({
         role="region"
         aria-label={ariaLabel}
         tabIndex={0}
-        className="-mx-1 overflow-x-auto px-1 pb-2 pr-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 [scrollbar-width:thin] md:overflow-visible md:pb-0 md:pr-0"
+        className="-mx-1 overflow-x-auto px-1 pb-1 pr-9 [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal,#c8f135)] focus-visible:ring-offset-2 md:overflow-visible md:pb-0 md:pr-0"
       >
-        <div className="flex w-max gap-2 md:w-full md:flex-wrap">
+        <div className="flex w-max gap-1 border-b border-[var(--line,#d8d3c5)] md:w-full md:flex-wrap">
           {tabs.map((tab) => {
             const active = tab.key === activeKey;
             return (
@@ -63,21 +63,18 @@ export default function OrderViewTabs({
                 href={tab.href}
                 prefetch={false}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-bold transition whitespace-nowrap ${
+                className={`-mb-px flex items-center gap-1.5 whitespace-nowrap rounded-t-md border-b-[3px] px-2.5 py-2 text-xs font-bold transition ${
                   active
-                    ? "bg-blue-700 border-blue-700 text-white shadow-sm"
-                    : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+                    ? "border-[var(--signal,#c8f135)] bg-[var(--ink,#131711)] text-[var(--paper,#fbfaf4)]"
+                    : "border-transparent text-[var(--ink,#131711)] hover:border-[var(--line,#d8d3c5)] hover:bg-white/70"
                 }`}
               >
-                <span className="leading-none" aria-hidden>
-                  {tab.icon}
-                </span>
                 <span>{tab.label}</span>
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
+                  className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums ${
                     active
-                      ? "bg-white text-blue-800 ring-1 ring-inset ring-blue-200"
-                      : "bg-white border border-gray-200 text-gray-600"
+                      ? "bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]"
+                      : "border border-[var(--line,#d8d3c5)] bg-white text-[#5e6356]"
                   }`}
                 >
                   {tab.count}
@@ -89,7 +86,7 @@ export default function OrderViewTabs({
       </div>
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent md:hidden"
+        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--canvas,#f2efe6)] via-[var(--canvas,#f2efe6)]/80 to-transparent md:hidden"
       />
     </div>
   );

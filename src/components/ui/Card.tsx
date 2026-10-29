@@ -1,4 +1,5 @@
 import type { HTMLAttributes } from "react";
+import { brandCard } from "./brandStyles";
 
 export type CardElement = "div" | "section" | "article";
 
@@ -11,10 +12,5 @@ export default function Card({
   className = "",
   ...props
 }: HTMLAttributes<HTMLDivElement> & { as?: CardElement }) {
-  return (
-    <Tag
-      className={`rounded-card border border-border-card bg-surface shadow-card ${className}`}
-      {...props}
-    />
-  );
+  return <Tag className={`${brandCard} ${className}`} {...props} />;
 }
