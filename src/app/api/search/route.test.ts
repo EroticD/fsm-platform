@@ -92,11 +92,13 @@ describe("/api/search", () => {
     );
     expect(mocks.logSearch).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "u1",
         query: "pumpe",
         resultCount: 3,
         latencyMs: 12,
       }),
+    );
+    expect(mocks.logSearch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "u1" }),
     );
   });
 

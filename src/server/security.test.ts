@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
   },
   allowRequestDb: vi.fn(),
   resetRateLimitDb: vi.fn(),
-  verifyTotp: vi.fn(),
+  verifyTotpStep: vi.fn(),
+  acceptTotpTimeStep: vi.fn(),
   createTotpSecret: vi.fn(() => "NY-HEMMELIGHET"),
   replaceRecoveryCodes: vi.fn(async () => ["AAAA-BBBB", "CCCC-DDDD"]),
 }));
@@ -23,7 +24,8 @@ vi.mock("@/lib/rate-limit-db", () => ({
 }));
 vi.mock("@/lib/two-factor", () => ({
   createTotpSecret: mocks.createTotpSecret,
-  verifyTotp: mocks.verifyTotp,
+  verifyTotpStep: mocks.verifyTotpStep,
+  acceptTotpTimeStep: mocks.acceptTotpTimeStep,
   TWO_FACTOR_SETUP_TTL_MS: 10 * 60_000,
 }));
 vi.mock("@/lib/two-factor-recovery", () => ({
@@ -99,9 +101,13 @@ beforeEach(() => {
       return null;
     },
   );
-  mocks.verifyTotp.mockImplementation(
-    (_secret: string, token: string) => token === CORRECT_CODE,
+  mocks.verifyTotpStep.mockImplementation(
+    (_secret: string, token: string) =>
+      token === CORRECT_CODE
+        ? { valid: true, timeStep: 12345 }
+        : { valid: false },
   );
+  mocks.acceptTotpTimeStep.mockResolvedValue(true);
 });
 
 describe("2FA-innstillinger – rate limiting", () => {
@@ -123,7 +129,7 @@ describe("2FA-innstillinger – rate limiting", () => {
     ).resolves.toEqual({ ok: false, reason: "rate_limited" });
 
     // Den sjette forespørselen skal stoppes før koden i det hele tatt sjekkes.
-    expect(mocks.verifyTotp).toHaveBeenCalledTimes(5);
+    expect(mocks.verifyTotpStep).toHaveBeenCalledTimes(5);
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
 
@@ -184,6 +190,7 @@ describe("2FA-innstillinger – verifisering", () => {
         isTwoFactorEnabled: false,
         twoFactorSecret: null,
         twoFactorSetupStartedAt: null,
+        lastTotpTimeStep: null,
         sessionVersion: { increment: 1 },
       },
       select: { sessionVersion: true },
@@ -255,6 +262,20 @@ describe("2FA-innstillinger – verifisering", () => {
     });
   });
 
+  it("avviser en TOTP-kode som allerede er godtatt", async () => {
+    mocks.acceptTotpTimeStep.mockResolvedValue(false);
+
+    await expect(
+      confirmTwoFactorSetup(actor, {
+        password: CORRECT_PASSWORD,
+        code: CORRECT_CODE,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "invalid_code" });
+
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+    expect(mocks.replaceRecoveryCodes).not.toHaveBeenCalled();
+  });
+
   it("krever passord på nytt når oppsettet bekreftes", async () => {
     await expect(
       confirmTwoFactorSetup(actor, {
@@ -263,7 +284,7 @@ describe("2FA-innstillinger – verifisering", () => {
       }),
     ).resolves.toEqual({ ok: false, reason: "invalid_password" });
 
-    expect(mocks.verifyTotp).not.toHaveBeenCalled();
+    expect(mocks.verifyTotpStep).not.toHaveBeenCalled();
     expect(mocks.prisma.user.update).not.toHaveBeenCalled();
   });
 
@@ -286,7 +307,7 @@ describe("2FA-innstillinger – verifisering", () => {
       }),
     ).resolves.toEqual({ ok: false, reason: "setup-expired" });
 
-    expect(mocks.verifyTotp).not.toHaveBeenCalled();
+    expect(mocks.verifyTotpStep).not.toHaveBeenCalled();
     expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user-1", twoFactorSetupStartedAt: startedAt },
       data: { twoFactorSecret: null, twoFactorSetupStartedAt: null },
@@ -326,6 +347,7 @@ describe("2FA-innstillinger – verifisering", () => {
       data: {
         twoFactorSecret: "NY-HEMMELIGHET",
         twoFactorSetupStartedAt: expect.any(Date),
+        lastTotpTimeStep: null,
         isTwoFactorEnabled: false,
       },
     });
@@ -396,6 +418,7 @@ describe("2FA-innstillinger – verifisering", () => {
       data: {
         twoFactorSecret: null,
         twoFactorSetupStartedAt: null,
+        lastTotpTimeStep: null,
         isTwoFactorEnabled: false,
         sessionVersion: { increment: 1 },
       },

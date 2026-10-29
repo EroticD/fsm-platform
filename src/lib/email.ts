@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { LIMITS, cleanColor, cleanText, escapeHtml } from "@/lib/sanitize";
 import { formatDate } from "@/lib/dates";
 import { isSafeLogoUrl } from "@/lib/logo";
+import { neutralizeUrls } from "@/lib/neutralize-urls";
 
 /** Gjør en opplastet logo til en absolutt URL som e-postklienten kan hente. */
 function safeEmailLogoUrl(value: string | null | undefined): string {
@@ -41,7 +42,13 @@ function createTransporter() {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587"),
+    // Port 465 bruker implicit TLS og har secure=true. På 587 krever vi
+    // STARTTLS, slik at passord og melding aldri kan sendes ukryptert.
     secure: process.env.SMTP_SECURE === "true",
+    requireTLS: true,
+    tls: {
+      minVersion: "TLSv1.2",
+    },
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -51,6 +58,11 @@ function createTransporter() {
     greetingTimeout: 8000,
     socketTimeout: 15000,
   });
+}
+
+/** Delt SMTP-transport for alle e-postflyter (inkl. glemt passord). */
+export function createSmtpTransport() {
+  return createTransporter();
 }
 
 /**
@@ -91,8 +103,8 @@ export async function sendNotificationEmail(
         ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height: 32px; object-fit: contain;" />` : `<strong style="color: white; font-size: 18px;">${companyName}</strong>`}
       </div>
       <div style="border: 1px solid #e5e7eb; border-top: 0; padding: 24px; border-radius: 0 0 12px 12px;">
-        <h1 style="font-size: 20px; margin: 0 0 12px;">${escapeHtml(subject)}</h1>
-        <p style="font-size: 14px; line-height: 1.6; color: #374151;">${escapeHtml(body).replace(/\n/g, "<br />")}</p>
+        <h1 style="font-size: 20px; margin: 0 0 12px;">${escapeHtml(neutralizeUrls(subject))}</h1>
+        <p style="font-size: 14px; line-height: 1.6; color: #374151;">${escapeHtml(neutralizeUrls(body)).replace(/\n/g, "<br />")}</p>
         ${link ? `<p style="margin-top: 20px;"><a href="${link}" style="background: ${primaryColor}; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">Åpne i FSM</a></p>` : ""}
       </div>
       <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-top: 16px;">${companyName}</p>
@@ -147,12 +159,12 @@ export async function sendWorkOrderReport(
 
       <table style="width: 100%; margin-bottom: 30px; font-size: 14px;">
         <tr>
-          <td style="padding-bottom: 10px;"><strong>Kunde:</strong><br/>${escapeHtml(workOrder.customer.name)}</td>
+          <td style="padding-bottom: 10px;"><strong>Kunde:</strong><br/>${escapeHtml(neutralizeUrls(workOrder.customer.name))}</td>
           <td style="padding-bottom: 10px;"><strong>Dato for utførelse:</strong><br/>${formatDate(new Date())}</td>
         </tr>
         <tr>
-          <td><strong>Oppdragstittel:</strong><br/>${escapeHtml(workOrder.title)}</td>
-          <td><strong>Utført av:</strong><br/>${workOrder.technicians.map((t: any) => escapeHtml(t.name)).join(", ")}</td>
+          <td><strong>Oppdragstittel:</strong><br/>${escapeHtml(neutralizeUrls(workOrder.title))}</td>
+          <td><strong>Utført av:</strong><br/>${workOrder.technicians.map((t: any) => escapeHtml(neutralizeUrls(t.name))).join(", ")}</td>
         </tr>
       </table>
 
@@ -168,12 +180,12 @@ export async function sendWorkOrderReport(
         <tbody>
           ${Object.entries(checklistData).map(([label, data]: any) => `
             <tr>
-              <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(label)}</td>
+              <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6;">${escapeHtml(neutralizeUrls(label))}</td>
               <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: ${data.status ? '#16a34a' : '#dc2626'};">
                 ${data.status ? '✅ OK' : '❌ Avvik'}
               </td>
               <td style="padding: 12px 15px; border-bottom: 1px solid #f3f4f6; color: #4b5563;">
-                ${escapeHtml(data.comment) || "-"}${data.photoUrl ? '<br/><span style="font-size: 10px; color: ${primaryColor};">(Bilde vedlagt i systemet)</span>' : ''}
+                ${escapeHtml(neutralizeUrls(data.comment)) || "-"}${data.photoUrl ? '<br/><span style="font-size: 10px; color: ${primaryColor};">(Bilde vedlagt i systemet)</span>' : ''}
               </td>
             </tr>
           `).join("")}
@@ -182,13 +194,13 @@ export async function sendWorkOrderReport(
 
       <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #e2e8f0;">
         <h3 style="margin-top: 0; color: #334155; font-size: 16px;">Montørens sluttkommentar</h3>
-        <p style="color: #475569; margin-bottom: 0; line-height: 1.5;">${escapeHtml(comments) || "Ingen kommentar."}</p>
+        <p style="color: #475569; margin-bottom: 0; line-height: 1.5;">${escapeHtml(neutralizeUrls(comments)) || "Ingen kommentar."}</p>
       </div>
 
       <div style="margin-top: 30px;">
         <h3 style="color: #374151; font-size: 16px; margin-bottom: 5px;">Kundesignatur</h3>
         <p style="color: #111827; font-weight: bold; font-size: 18px; font-family: 'Brush Script MT', cursive, sans-serif; margin-top: 5px;">
-          ${escapeHtml(signatureName) || "Ikke signert"}
+          ${escapeHtml(neutralizeUrls(signatureName)) || "Ikke signert"}
         </p>
         <p style="font-size: 11px; color: #9ca3af;">Signert digitalt på lokasjon.</p>
       </div>
@@ -203,7 +215,7 @@ export async function sendWorkOrderReport(
     await transporter.sendMail({
       from: `"${companyName}" <${process.env.SMTP_USER}>`,
       to: customerEmail,
-      subject: `Servicerapport - ${escapeHtml(workOrder.title)}`,
+      subject: `Servicerapport - ${escapeHtml(neutralizeUrls(workOrder.title))}`,
       html: htmlContent,
     });
     console.log("✅ Servicerapport sendt på e-post");
@@ -245,7 +257,7 @@ export async function sendInviteEmail(
       </div>
 
       <p style="color: #374151; font-size: 15px; line-height: 1.6;">
-        Hei${name ? ` ${escapeHtml(name.split(" ")[0])}` : ""},<br/>
+        Hei${name ? ` ${escapeHtml(neutralizeUrls(name.split(" ")[0]))}` : ""},<br/>
         det er opprettet en konto til deg hos ${companyName}. Klikk på knappen under for å sette ditt eget passord.
       </p>
 
@@ -316,10 +328,12 @@ export async function sendBookingNotification(
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
   const transporter = createTransporter();
 
-  const safeTitle = escapeHtml(booking.title);
-  const safeCustomer = escapeHtml(booking.customerName);
-  const safeBookedBy = escapeHtml(booking.bookedBy);
-  const safeDescription = booking.description ? escapeHtml(booking.description) : "";
+  const safeTitle = escapeHtml(neutralizeUrls(booking.title));
+  const safeCustomer = escapeHtml(neutralizeUrls(booking.customerName));
+  const safeBookedBy = escapeHtml(neutralizeUrls(booking.bookedBy));
+  const safeDescription = booking.description
+    ? escapeHtml(neutralizeUrls(booking.description))
+    : "";
 
   const shell = (heading: string, body: string) => `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">

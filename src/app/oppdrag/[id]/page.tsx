@@ -44,6 +44,7 @@ import {
   isHmsTemplate,
   splitTemplatesByCategory,
 } from "@/lib/template-categories";
+import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
 
 type ReportField = {
   id: string;
@@ -399,6 +400,12 @@ export default async function AdminWorkOrderPage({
     redirect("/oppdrag");
   }
 
+  // Bare en faktisk låst rapport for denne malen gir kvittering og rydding.
+  const reportSubmittedVerified = verifiedSubmittedTemplateId(
+    reportSubmitted,
+    workOrder.reports,
+  );
+
   const isAdmin = user.role === "ADMIN";
   const isClosed =
     workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED";
@@ -634,11 +641,12 @@ export default async function AdminWorkOrderPage({
           </div>
         )}
 
-        {reportSubmitted && (
+        {reportSubmittedVerified && (
           <ReportSubmissionCleanup
             userId={user.id}
             workOrderId={workOrder.id}
-            templateId={reportSubmitted}
+            templateId={reportSubmittedVerified}
+            verified
           />
         )}
 

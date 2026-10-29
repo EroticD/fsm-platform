@@ -24,10 +24,16 @@ export default function ReportSubmissionCleanup({
   userId,
   workOrderId,
   templateId,
+  verified,
 }: {
   userId: string;
   workOrderId: string;
   templateId: string;
+  /**
+   * Må være bekreftet av serveren: en låst rapport for denne malen finnes på
+   * oppdraget. Query-parameteren alene er ikke nok.
+   */
+  verified: boolean;
 }) {
   const t = useTranslations("common");
   const pathname = usePathname();
@@ -39,6 +45,7 @@ export default function ReportSubmissionCleanup({
     : `/mine-oppdrag/${workOrderId}`;
 
   useEffect(() => {
+    if (!verified) return;
     let active = true;
     void (async () => {
       try {
@@ -60,7 +67,7 @@ export default function ReportSubmissionCleanup({
     return () => {
       active = false;
     };
-  }, [templateId, userId, workOrderId]);
+  }, [templateId, userId, verified, workOrderId]);
 
   const dismiss = () => {
     setVisible(false);
@@ -75,7 +82,7 @@ export default function ReportSubmissionCleanup({
     }
   };
 
-  if (!visible) return null;
+  if (!verified || !visible) return null;
 
   return (
     <div

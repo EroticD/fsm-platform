@@ -5,7 +5,9 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(() => true),
   assertSameOrigin: vi.fn(() => true),
   allowRequestDb: vi.fn(async () => ({ allowed: true, retryAfterSeconds: 0 })),
-  updateWorkOrderDate: vi.fn(async () => ({ ok: true })),
+  updateWorkOrderDate: vi.fn(
+    async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true }),
+  ),
 }));
 
 vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
@@ -88,8 +90,23 @@ describe("PATCH /api/oppdrag/[id]/date", () => {
     );
   });
 
-  it("avviser Content-Length over 64 KB før parsing", async () => {
+  it("oversetter bevaringsplikt til 403", async () => {
+    mocks.updateWorkOrderDate.mockResolvedValue({
+      ok: false,
+      error: "legal-hold",
+    });
+
     const response = await PATCH(
+      request(JSON.stringify({ newDate: "2026-01-02" }), {
+        "content-type": "application/json",
+      }),
+      params,
+    );
+
+    expect(response?.status).toBe(403);
+  });
+
+  it("avviser Content-Length over 64 KB før parsing", async () => {    const response = await PATCH(
       request("{}", {
         "content-type": "application/json",
         "content-length": String(JSON_BODY_LIMIT + 1),

@@ -22,6 +22,9 @@ export function uploadStoredName(url: string | null | undefined): string | null 
 
 export type UploadOwnership = {
   ownerType: string;
+  ownerId?: string | null;
+  departmentId?: string | null;
+  customerId?: string | null;
   uploadedById: string | null;
 };
 
@@ -48,13 +51,26 @@ export async function loadUploadOwnerships(
 
   const rows = await prisma.upload.findMany({
     where: { storedName: { in: storedNames } },
-    select: { storedName: true, ownerType: true, uploadedById: true },
+    select: {
+      storedName: true,
+      ownerType: true,
+      ownerId: true,
+      departmentId: true,
+      customerId: true,
+      uploadedById: true,
+    },
   });
 
   return new Map(
     rows.map((row) => [
       row.storedName,
-      { ownerType: row.ownerType, uploadedById: row.uploadedById },
+      {
+        ownerType: row.ownerType,
+        ownerId: row.ownerId,
+        departmentId: row.departmentId,
+        customerId: row.customerId,
+        uploadedById: row.uploadedById,
+      },
     ]),
   );
 }

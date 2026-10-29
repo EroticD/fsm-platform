@@ -1,7 +1,7 @@
 // i18n-ignore-file: revisjonsloggen lagrer stabile, ferdig formaterte norske
 // handlingsstrenger (med tittel/navn flettet inn). De oversettes ved visning i
 // `src/lib/audit-actions.ts`; lagrede rader endres ikke.
-import type { WorkStatus } from "@prisma/client";
+import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
@@ -85,6 +85,7 @@ export type UpdateDateError =
   | "ugyldig-sluttdato"
   | "sluttdato-for-startdato"
   | "ikke-funnet"
+  | "legal-hold"
   | "ukjent";
 
 export type UpdateDateResult =
@@ -99,7 +100,34 @@ type WorkOrderAccess = {
   departmentId: string;
   customerId: string | null;
   status: string;
+  legalHold: boolean;
 };
+
+/**
+ * Bevaringsplikt og lukket status fryser oppdragets metadata. Kommentarer er
+ * bevisst ikke omfattet: de er additive og endrer ikke det som er bevart.
+ */
+function mutationBlocked(
+  workOrder: { status: string; legalHold: boolean } | null | undefined,
+): WorkOrderError | null {
+  if (!workOrder) return "ikke-funnet";
+  if (workOrder.legalHold) return "legal-hold";
+  if (isClosedStatus(workOrder.status as WorkStatus)) return "workorder-locked";
+  return null;
+}
+
+/** Sjekker bevaringsplikt/lås på nytt inne i transaksjonen. */
+async function mutationBlockedInTransaction(
+  tx: Prisma.TransactionClient,
+  user: AccessUser,
+  workOrderId: string,
+): Promise<WorkOrderError | null> {
+  const current = await tx.workOrder.findFirst({
+    where: { id: workOrderId, ...workOrderScope(user) },
+    select: { status: true, legalHold: true },
+  });
+  return mutationBlocked(current);
+}
 
 /** Aktøren slik revisjonsloggen vil ha den. */
 export function auditActor(user: AccessUser) {
@@ -132,6 +160,7 @@ async function requireAccess(
       departmentId: true,
       customerId: true,
       status: true,
+      legalHold: true,
     },
   });
   if (!workOrder) return null;
@@ -432,6 +461,7 @@ export async function updateWorkOrder(
       departmentId: true,
       customerId: true,
       status: true,
+      legalHold: true,
       orderNumber: true,
       orderNumberNormalized: true,
       address: true,
@@ -449,6 +479,11 @@ export async function updateWorkOrder(
   });
   if (!currentWorkOrder) return { ok: false, error: "ikke-tilgang" };
 
+  // Bevaringsplikten fryser alle metadataendringer. Et fullført eller
+  // kansellert oppdrag er låst historikk.
+  if (currentWorkOrder.legalHold) {
+    return { ok: false, error: "legal-hold" };
+  }
   // Et fullført oppdrag er låst. Rapporter kan være låst uten at oppdraget er
   // fullført; det skal ikke hindre redigering.
   if (["COMPLETED", "CANCELLED"].includes(currentWorkOrder.status)) {
@@ -576,7 +611,14 @@ export async function updateWorkOrder(
         : null;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const blocked = await prisma.$transaction(async (tx) => {
+      const finalGuard = await mutationBlockedInTransaction(
+        tx,
+        user,
+        workOrderId,
+      );
+      if (finalGuard) return finalGuard;
+
       await tx.workOrder.update({
         where: { id: workOrderId },
         data: {
@@ -642,7 +684,9 @@ export async function updateWorkOrder(
         where: { ownerType: "WORK_ORDER", ownerId: workOrderId },
         data: { departmentId, customerId: nextCustomerId },
       });
+      return null;
     });
+    if (blocked) return { ok: false, error: blocked };
   } catch (error) {
     if (isUniqueViolation(error)) {
       return { ok: false, error: "duplikat-ordrenummer" };
@@ -759,12 +803,14 @@ export async function updateWorkOrderDate(
     where: { id: workOrderId, ...workOrderScope(user) },
     select: {
       status: true,
+      legalHold: true,
       title: true,
       scheduledFor: true,
       scheduledTo: true,
     },
   });
   if (!existing) return { ok: false, error: "ikke-funnet" };
+  if (existing.legalHold) return { ok: false, error: "legal-hold" };
   if (["COMPLETED", "CANCELLED"].includes(existing.status)) {
     return { ok: false, error: "ikke-funnet" };
   }
@@ -796,16 +842,18 @@ export async function updateWorkOrderDate(
   try {
     const updated = await prisma.$transaction(async (tx) => {
       const before = await tx.workOrder.findFirst({
-        where: {
-          id: workOrderId,
-          ...workOrderScope(user),
-          ...(user.role === "TECHNICIAN"
-            ? { status: { not: "CANCELLED" as const } }
-            : {}),
+        where: { id: workOrderId, ...workOrderScope(user) },
+        select: {
+          id: true,
+          status: true,
+          legalHold: true,
+          scheduledFor: true,
+          scheduledTo: true,
         },
-        select: { id: true, scheduledFor: true, scheduledTo: true },
       });
       if (!before) return { count: 0 };
+      if (before.legalHold) return { legalHold: true } as const;
+      if (isClosedStatus(before.status as WorkStatus)) return { count: 0 };
 
       // Mangler `newEnd`, flyttes hele intervallet: samme antall dager som før.
       // Da kan scheduledTo aldri havne før scheduledFor.
@@ -824,7 +872,11 @@ export async function updateWorkOrderDate(
       }
 
       const result = await tx.workOrder.updateMany({
-        where: { id: before.id },
+        where: {
+          id: before.id,
+          legalHold: false,
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
+        },
         data: { scheduledFor, scheduledTo: nextScheduledTo },
       });
 
@@ -848,6 +900,9 @@ export async function updateWorkOrderDate(
 
     if ("invalidRange" in updated && updated.invalidRange) {
       return { ok: false, error: "sluttdato-for-startdato" };
+    }
+    if ("legalHold" in updated && updated.legalHold) {
+      return { ok: false, error: "legal-hold" };
     }
     if (updated.count === 0) return { ok: false, error: "ikke-funnet" };
     try {
@@ -882,6 +937,7 @@ export async function addTemplate(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, permission, workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.legalHold) return { ok: false, error: "legal-hold" };
   if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
 
   const parsed = workOrderTemplateSchema.safeParse({
@@ -890,7 +946,10 @@ export async function addTemplate(
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
   const templateId = parsed.data.templateId;
 
-  await prisma.$transaction(async (tx) => {
+  const blocked = await prisma.$transaction(async (tx) => {
+    const finalGuard = await mutationBlockedInTransaction(tx, user, workOrderId);
+    if (finalGuard) return finalGuard;
+
     await tx.workOrder.update({
       where: { id: workOrderId },
       data: { templates: { connect: { id: templateId } } },
@@ -903,7 +962,9 @@ export async function addTemplate(
       actor: auditActor(user),
       metadata: { templateId },
     });
+    return null;
   });
+  if (blocked) return { ok: false, error: blocked };
 
   return { ok: true };
 }
@@ -951,11 +1012,15 @@ export async function setTags(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.legalHold) return { ok: false, error: "legal-hold" };
   if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
 
   const tagNames = cleanTagNames(rawTagNames);
 
-  await prisma.$transaction(async (tx) => {
+  const blocked = await prisma.$transaction(async (tx) => {
+    const finalGuard = await mutationBlockedInTransaction(tx, user, workOrderId);
+    if (finalGuard) return finalGuard;
+
     await tx.workOrder.update({
       where: { id: workOrderId },
       data: {
@@ -975,7 +1040,9 @@ export async function setTags(
       actor: auditActor(user),
       metadata: { tags: tagNames },
     });
+    return null;
   });
+  if (blocked) return { ok: false, error: blocked };
 
   return { ok: true };
 }
@@ -988,6 +1055,7 @@ export async function setContact(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.legalHold) return { ok: false, error: "legal-hold" };
   if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
@@ -1006,7 +1074,10 @@ export async function setContact(
     contactName = contact.name;
   }
 
-  await prisma.$transaction(async (tx) => {
+  const blocked = await prisma.$transaction(async (tx) => {
+    const finalGuard = await mutationBlockedInTransaction(tx, user, workOrderId);
+    if (finalGuard) return finalGuard;
+
     await tx.workOrder.update({
       where: { id: workOrderId },
       data: { contactId: contactId || null },
@@ -1020,7 +1091,9 @@ export async function setContact(
       actor: auditActor(user),
       metadata: contactId ? { contactId } : undefined,
     });
+    return null;
   });
+  if (blocked) return { ok: false, error: blocked };
 
   return { ok: true };
 }
@@ -1038,6 +1111,7 @@ export async function addContactToCustomer(
 ): Promise<AddContactResult> {
   const access = await requireAccess(user, "workorders.edit", workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.legalHold) return { ok: false, error: "legal-hold" };
   if (["COMPLETED", "CANCELLED"].includes(access.status)) return { ok: false, error: "workorder-locked" };
   if (!hasPermission(user, "customers.manage")) {
     return { ok: false, error: "ikke-tilgang" };
@@ -1052,7 +1126,10 @@ export async function addContactToCustomer(
   const role = cleanText(input.role, { maxLength: LIMITS.short });
   if (!name) return { ok: false, error: "ugyldig-data" };
 
-  const contactId = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    const finalGuard = await mutationBlockedInTransaction(tx, user, workOrderId);
+    if (finalGuard) return { blocked: finalGuard } as const;
+
     const contact = await tx.contact.create({
       data: {
         name,
@@ -1078,10 +1155,13 @@ export async function addContactToCustomer(
       metadata: { contactId: contact.id, customerId },
     });
 
-    return contact.id;
+    return { contactId: contact.id } as const;
   });
 
-  return { ok: true, contactId, customerId };
+  if ("blocked" in result) {
+    return { ok: false, error: result.blocked ?? "ukjent" };
+  }
+  return { ok: true, contactId: result.contactId, customerId };
 }
 
 type TechnicianChange = {
@@ -1102,6 +1182,10 @@ async function changeTechnician(
 ): Promise<WorkOrderResult> {
   const access = await requireAccess(user, options.permission, workOrderId);
   if (!access || !user) return { ok: false, error: "ikke-tilgang" };
+  if (access.legalHold) return { ok: false, error: "legal-hold" };
+  if (["COMPLETED", "CANCELLED"].includes(access.status)) {
+    return { ok: false, error: "workorder-locked" };
+  }
 
   const userId = rawId(rawUserId);
   if (!userId) return { ok: false, error: "ugyldig-data" };
@@ -1112,7 +1196,10 @@ async function changeTechnician(
   });
   if (!target) return { ok: false, error: "ugyldig-data" };
 
-  await prisma.$transaction(async (tx) => {
+  const blocked = await prisma.$transaction(async (tx) => {
+    const finalGuard = await mutationBlockedInTransaction(tx, user, workOrderId);
+    if (finalGuard) return finalGuard;
+
     await tx.workOrder.update({
       where: { id: workOrderId },
       data: {
@@ -1130,7 +1217,9 @@ async function changeTechnician(
       metadata:
         options.mode === "connect" ? { technicianId: userId } : { userId },
     });
+    return null;
   });
+  if (blocked) return { ok: false, error: blocked };
 
   if (options.mode === "connect") {
     try {

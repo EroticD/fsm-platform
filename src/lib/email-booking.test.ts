@@ -126,4 +126,21 @@ describe("sendBookingNotification", () => {
     expect(result).toEqual({ officeSent: 0, customerSent: false });
     expect(mocks.sendMail).not.toHaveBeenCalled();
   });
+
+  it("nøytraliserer URL-er i brukerstyrt tittel og beskrivelse", async () => {
+    await sendBookingNotification("dep-a", null, {
+      ...booking,
+      title: "Se https://phish.test",
+      description: "Gå til www.evil.test eller evil.test/path",
+    });
+
+    const mail = mocks.sendMail.mock.calls[0][0] as {
+      subject: string;
+      html: string;
+    };
+    expect(mail.subject).not.toContain("phish.test");
+    expect(mail.html).not.toContain("phish.test");
+    expect(mail.html).not.toContain("evil.test");
+    expect(mail.html).toContain("[lenke fjernet]");
+  });
 });

@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  bumpSessionVersion: vi.fn(),
+  clearRecoveryCodesForDisplay: vi.fn(),
+}));
+
 vi.mock("@/lib/credentials", () => ({
   verifyCredentials: vi.fn(),
 }));
+vi.mock("@/lib/session", () => ({
+  bumpSessionVersion: mocks.bumpSessionVersion,
+}));
+vi.mock("@/lib/session-token", () => ({
+  clearRecoveryCodesForDisplay: mocks.clearRecoveryCodesForDisplay,
+}));
 
-import { authOptions } from "./auth-options";
+import { authOptions, SESSION_ABSOLUTE_MAX_AGE } from "./auth-options";
 import { verifyCredentials } from "@/lib/credentials";
 
 const mockedVerify = vi.mocked(verifyCredentials);
@@ -99,5 +110,68 @@ describe("NextAuth authorize", () => {
     } finally {
       process.env.TRUST_PROXY = original;
     }
+  });
+});
+
+describe("jwt callback", () => {
+  const jwt = authOptions.callbacks!.jwt!;
+
+  it("setter absolutt starttid ved innlogging", async () => {
+    const token = await jwt({
+      token: {},
+      user: { id: "u1", role: "OFFICE", sessionVersion: 2 },
+    } as never);
+
+    expect(token).toMatchObject({
+      id: "u1",
+      role: "OFFICE",
+      sessionVersion: 2,
+      sessionIssuedAt: expect.any(Number),
+    });
+  });
+
+  it("avviser en økt som er eldre enn absolutt levetid", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = await jwt({
+      token: {
+        id: "u1",
+        sessionIssuedAt: now - SESSION_ABSOLUTE_MAX_AGE - 1,
+      },
+    } as never);
+
+    expect(token).toBeNull();
+  });
+
+  it("fornyer en økt som fortsatt er innenfor levetiden", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = await jwt({
+      token: {
+        id: "u1",
+        role: "OFFICE",
+        sessionVersion: 2,
+        sessionIssuedAt: now - 60,
+      },
+    } as never);
+
+    expect(token).toMatchObject({ id: "u1", role: "OFFICE" });
+  });
+});
+
+describe("signOut event", () => {
+  beforeEach(() => {
+    mocks.bumpSessionVersion.mockReset();
+    mocks.clearRecoveryCodesForDisplay.mockReset();
+    mocks.bumpSessionVersion.mockResolvedValue(3);
+    mocks.clearRecoveryCodesForDisplay.mockResolvedValue(undefined);
+  });
+
+  it("ugyldiggjør brukerens JWTs og rydder visningscookien", async () => {
+    await authOptions.events!.signOut!({
+      token: { id: "u1" },
+      session: {},
+    } as never);
+
+    expect(mocks.bumpSessionVersion).toHaveBeenCalledWith("u1");
+    expect(mocks.clearRecoveryCodesForDisplay).toHaveBeenCalled();
   });
 });

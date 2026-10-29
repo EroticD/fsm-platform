@@ -728,6 +728,8 @@ describe("reports-tjenesten", () => {
         storedName: "bilde.png",
         ownerType: "WORK_ORDER",
         ownerId: "wo1",
+        departmentId: "dep-a",
+        customerId: null,
         uploadedById: "u1",
       },
     ]);
@@ -757,6 +759,75 @@ describe("reports-tjenesten", () => {
       f_text: "Viktig tekst",
       f_image: '["/uploads/bilde.png"]',
     });
+  });
+
+  it("filtrerer opplastings-URL-er i alle svarfelt, ikke bare bildefelt", async () => {
+    const mixedTemplate = {
+      id: "tpl-mixed",
+      title: "Tekst og bilde",
+      reportName: "Tekst og bilde",
+      category: "SERVICE",
+      hmsType: null,
+      requiresUnits: true,
+      fieldsJson: JSON.stringify([
+        { id: "f_text", type: "TEXT", label: "Tekst", required: false },
+        { id: "f_image", type: "IMAGE", label: "Bilde", required: false },
+      ]),
+    };
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      templates: [mixedTemplate],
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.upload.findMany.mockResolvedValue([
+      {
+        storedName: "ok.png",
+        ownerType: "WORK_ORDER",
+        ownerId: "wo1",
+        departmentId: "dep-a",
+        customerId: null,
+        uploadedById: "u1",
+      },
+      {
+        storedName: "fremmed.png",
+        ownerType: "WORK_ORDER",
+        ownerId: "annet-oppdrag",
+        departmentId: "dep-a",
+        customerId: null,
+        uploadedById: "u1",
+      },
+    ]);
+    const tx = withTransaction();
+    const data = new FormData();
+    data.set("workOrderId", "wo1");
+    data.set("templateId", mixedTemplate.id);
+    data.set("unitsJson", JSON.stringify([{ key: "unit-0", label: "Pumpe" }]));
+    data.set("status__unit-0", "GODKJENT");
+    data.set(
+      "answer__unit-0__f_text",
+      '["/uploads/ok.png","/uploads/fremmed.png"]',
+    );
+    data.set(
+      "answer__unit-0__f_image",
+      '["/uploads/ok.png","/uploads/fremmed.png"]',
+    );
+
+    const result = await submitReport(actor(), data);
+
+    expect(result.ok).toBe(true);
+    const create = (
+      tx.report.create as unknown as {
+        mock: {
+          calls: Array<[{ data: { units: { create: Array<{ answersJson: string }> } } }]>;
+        };
+      }
+    ).mock.calls[0][0];
+    const answers = JSON.parse(create.data.units.create[0].answersJson) as {
+      f_text: string;
+      f_image: string;
+    };
+    expect(answers.f_text).not.toContain("fremmed.png");
+    expect(answers.f_image).toBe('["/uploads/ok.png"]');
   });
 
   it("ignorerer klientens avviksstatus og lagrer nøytral status uten enheter", async () => {
@@ -923,6 +994,7 @@ describe("reports-tjenesten", () => {
       ownerType: "USER",
       ownerId: "u1",
       uploadedById: "u1",
+      mimeType: "image/png",
     });
     mocks.prisma.upload.update.mockResolvedValue({});
     const tx = withTransaction();
@@ -982,6 +1054,126 @@ describe("reports-tjenesten", () => {
 
     expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
     expect(tx.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ technicianSignatureUrl: null }),
+      }),
+    );
+  });
+
+  it("avviser en WORK_ORDER-fil fra samme oppdrag som signatur", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "WORK_ORDER",
+      ownerId: "wo1",
+      uploadedById: "u1",
+      mimeType: "image/png",
+    });
+    const tx = withTransaction();
+    const data = formData();
+    data.set("technicianSignature", "/uploads/oppdragsfil.png");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.upload.update).not.toHaveBeenCalled();
+    expect(tx.report.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ technicianSignatureUrl: null }),
+      }),
+    );
+  });
+
+  it("avviser gjenbruk av en signatur som allerede er brukt på en annen rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "USER",
+      ownerId: "u1",
+      uploadedById: "u1",
+      mimeType: "image/png",
+    });
+    mocks.prisma.report.findFirst.mockResolvedValue({ id: "r-other" });
+    const tx = withTransaction();
+    const data = formData();
+    data.set("technicianSignature", "/uploads/gjenbrukt.png");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.report.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { technicianSignatureUrl: "/uploads/gjenbrukt.png" },
+            { customerSignatureUrl: "/uploads/gjenbrukt.png" },
+          ],
+        }),
+      }),
+    );
+    expect(mocks.prisma.upload.update).not.toHaveBeenCalled();
+    expect(tx.report.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ technicianSignatureUrl: null }),
+      }),
+    );
+  });
+
+  it("godtar samme signaturverdi når rapporten redigeres", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue({
+      id: "r1",
+      isLocked: false,
+      technicianSignatureUrl: "/uploads/egen.png",
+      technicianName: "Kari",
+      customerSignatureUrl: null,
+      customerName: null,
+    });
+    const tx = withTransaction(
+      txClient({
+        report: {
+          findUnique: vi.fn(async () => revisionSource()),
+          updateMany: vi.fn(async () => ({ count: 1 })),
+          update: vi.fn(async () => ({})),
+          create: vi.fn(async () => ({ id: "r1" })),
+        },
+      }),
+    );
+    const data = formData();
+    data.set("technicianSignature", "/uploads/egen.png");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.upload.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.report.findFirst).not.toHaveBeenCalled();
+    expect(tx.report.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          technicianSignatureUrl: "/uploads/egen.png",
+        }),
+      }),
+    );
+  });
+
+  it("avviser en signaturfil som ikke er et bilde", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.upload.findUnique.mockResolvedValue({
+      ownerType: "USER",
+      ownerId: "u1",
+      uploadedById: "u1",
+      mimeType: "application/pdf",
+    });
+    const tx = withTransaction();
+    const data = formData();
+    data.set("technicianSignature", "/uploads/ikke-bilde.pdf");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({ ok: true, returnTo: "/oppdrag/wo1" });
+    expect(mocks.prisma.upload.update).not.toHaveBeenCalled();
+    expect(tx.report.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ technicianSignatureUrl: null }),
       }),
@@ -1588,7 +1780,7 @@ describe("getReportPdfForViewer", () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: null,
       status: "OPEN",
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(
@@ -1603,7 +1795,7 @@ describe("getReportPdfForViewer", () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-2",
       status: "OPEN",
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(
@@ -1621,7 +1813,7 @@ describe("getReportPdfForViewer", () => {
       departmentId: "dep-b",
       status: "OPEN",
       customer: { deletedAt: new Date() },
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(
@@ -1639,7 +1831,7 @@ describe("getReportPdfForViewer", () => {
       departmentId: "dep-b",
       status: "OPEN",
       customer: { deletedAt: null },
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(
@@ -1650,12 +1842,66 @@ describe("getReportPdfForViewer", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
+  it("avviser CUSTOMER som henter en opplåst rapport med kjent URL", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      customer: { deletedAt: null },
+      reports: [{ id: "r1", isLocked: false }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "CUSTOMER", customerId: "kunde-1" }),
+      "wo1",
+      "r1",
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 404 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("avviser CUSTOMER når den kombinerte PDF-en inneholder en opplåst rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      customer: { deletedAt: null },
+      reports: [
+        { id: "r1", isLocked: true },
+        { id: "r2", isLocked: false },
+      ],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "CUSTOMER", customerId: "kunde-1" }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 404 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("lar ansatte hente en opplåst rapport", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      customer: { deletedAt: null },
+      reports: [{ id: "r1", isLocked: false }],
+    });
+
+    const result = await getReportPdfForViewer(actor(), "wo1", "r1");
+
+    expect(result).toMatchObject({ ok: true });
+  });
+
   it("lar ansatt med reports.view hente rapport fra en annen avdeling", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
       departmentId: "dep-b",
       status: "OPEN",
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(actor(), "wo1");
@@ -1669,7 +1915,7 @@ describe("getReportPdfForViewer", () => {
       customerId: "kunde-1",
       departmentId: "dep-b",
       status: "OPEN",
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     await getReportPdfForViewer(actor(), "wo1");
@@ -1698,7 +1944,7 @@ describe("getReportPdfForViewer", () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",
       status: "CANCELLED",
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(actor(), "wo1");
@@ -1711,7 +1957,10 @@ describe("getReportPdfForViewer", () => {
       customerId: "kunde-1",
       departmentId: "dep-b",
       status: "OPEN",
-      reports: [{ id: "r1" }, { id: "r2" }],
+      reports: [
+        { id: "r1", isLocked: true },
+        { id: "r2", isLocked: true },
+      ],
     });
 
     const result = await getReportPdfForViewer(actor(), "wo1", "r2");
@@ -1729,7 +1978,7 @@ describe("getReportPdfForViewer", () => {
       customerId: "kunde-1",
       departmentId: "dep-b",
       status: "OPEN",
-      reports: [{ id: "r1" }],
+      reports: [{ id: "r1", isLocked: true }],
     });
 
     const result = await getReportPdfForViewer(actor(), "wo1", "fremmed");

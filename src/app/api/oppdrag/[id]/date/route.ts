@@ -68,6 +68,11 @@ export async function PATCH(
       );
     case "ikke-funnet":
       return NextResponse.json({ error: "Oppdraget finnes ikke" }, { status: 404 });
+    case "legal-hold":
+      return NextResponse.json(
+        { error: "Oppdraget har bevaringsplikt og kan ikke flyttes" },
+        { status: 403 },
+      );
     case "ukjent":
       return NextResponse.json(
         { error: "Kunne ikke oppdatere dato" },

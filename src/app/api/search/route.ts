@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { performSearch } from "@/lib/search";
 import { parseSearchFilters } from "@/lib/search-filters";
-import { normalizeSearchText } from "@/lib/fuzzy";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { logSearch } from "@/server/search-analytics";
@@ -49,12 +48,11 @@ export async function GET(request: Request) {
     filters,
   });
 
-  // Analysen er best effort og skal aldri påvirke søkeresultatet.
+  // Analysen er best effort og skal aldri påvirke søkeresultatet. Verken
+  // bruker-id eller rå søketekst lagres; tjenestelaget maskerer før insert.
   if (q) {
     await logSearch({
-      userId: currentUser.id,
       query: q,
-      normalizedQuery: normalizeSearchText(q),
       resultCount: results.total,
       latencyMs: results.tookMs ?? Date.now() - started,
       filters,

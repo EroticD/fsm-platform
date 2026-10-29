@@ -52,9 +52,8 @@ beforeEach(() => {
 });
 
 describe("logSearch", () => {
-  it("lagrer normalisert søk, treff, tid og filtre", async () => {
+  it("lagrer normalisert søk, treff, tid og filtre uten brukerkobling", async () => {
     await logSearch({
-      userId: "u1",
       query: "  Årlig Service  ",
       resultCount: 4,
       latencyMs: 17,
@@ -63,7 +62,6 @@ describe("logSearch", () => {
 
     expect(mocks.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        userId: "u1",
         query: "Årlig Service",
         normalizedQuery: "arlig service",
         resultCount: 4,
@@ -71,6 +69,27 @@ describe("logSearch", () => {
         filters: { status: "COMPLETED", customer: "cust-1" },
       }),
     });
+    const data = mocks.create.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data).not.toHaveProperty("userId");
+  });
+
+  it("maskerer personopplysninger før query og normalizedQuery lagres", async () => {
+    await logSearch({
+      query: "kunde kari@example.com tlf 12 34 56 78 org 123 456 789",
+      resultCount: 1,
+      latencyMs: 3,
+    });
+
+    const data = mocks.create.mock.calls[0][0].data as {
+      query: string;
+      normalizedQuery: string;
+    };
+    expect(data.query).toBe(
+      "kunde [epost] tlf [telefon] org [orgnr]",
+    );
+    expect(data.normalizedQuery).toBe(
+      "kunde epost tlf telefon org orgnr",
+    );
   });
 
   it("kapper lange søk og dropper tomme", async () => {
@@ -133,6 +152,24 @@ describe("getSearchAnalytics", () => {
     ]);
     expect(result.data.daily).toEqual([
       { date: "2026-10-01", count: 7, zeroResultCount: 2 },
+    ]);
+  });
+
+  it("maskerer søketekst også når den leses ut", async () => {
+    mocks.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    mocks.groupBy
+      .mockResolvedValueOnce([
+        {
+          normalizedQuery: "kari@example.com",
+          _min: { query: "Kari@Example.com" },
+          _count: { _all: 1 },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const result = await getSearchAnalytics(actor([], { role: "ADMIN" }), 7);
+    expect(result.ok && result.data.topQueries).toEqual([
+      { query: "[epost]", count: 1 },
     ]);
   });
 

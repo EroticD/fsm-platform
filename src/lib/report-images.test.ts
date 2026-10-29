@@ -137,12 +137,19 @@ describe("buildPdfImages – eierskap", () => {
       {
         storedName: "11111111-1111-4111-8111-111111111111.png",
         ownerType: "WORK_ORDER",
+        ownerId: "wo1",
+        departmentId: "dep-a",
+        customerId: null,
         uploadedById: "tekniker",
       },
     ]);
 
     const images = await buildPdfImages([
-      { url: reportImage, ownerTypes: REPORT_IMAGE_OWNER_TYPES },
+      {
+        url: reportImage,
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+        workOrder: { id: "wo1", departmentId: "dep-a", customerId: null },
+      },
     ]);
 
     expect(mocks.prisma.upload.findMany).toHaveBeenCalledWith({
@@ -151,7 +158,14 @@ describe("buildPdfImages – eierskap", () => {
           in: ["11111111-1111-4111-8111-111111111111.png"],
         },
       },
-      select: { storedName: true, ownerType: true, uploadedById: true },
+      select: {
+        storedName: true,
+        ownerType: true,
+        ownerId: true,
+        departmentId: true,
+        customerId: true,
+        uploadedById: true,
+      },
     });
     expect(mocks.readFile).toHaveBeenCalledTimes(1);
     expect(images[reportImage]).toMatchObject({
@@ -161,11 +175,83 @@ describe("buildPdfImages – eierskap", () => {
     });
   });
 
+  it("leser ikke et rapportbilde som eies av et annet oppdrag", async () => {
+    mocks.prisma.upload.findMany.mockResolvedValue([
+      {
+        storedName: "11111111-1111-4111-8111-111111111111.png",
+        ownerType: "WORK_ORDER",
+        ownerId: "annet-oppdrag",
+        departmentId: "dep-a",
+        customerId: null,
+        uploadedById: "tekniker",
+      },
+    ]);
+
+    const images = await buildPdfImages([
+      {
+        url: reportImage,
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+        workOrder: { id: "wo1", departmentId: "dep-a", customerId: null },
+      },
+    ]);
+
+    expect(images).toEqual({});
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it("leser ikke et rapportbilde fra feil avdeling eller kunde", async () => {
+    mocks.prisma.upload.findMany.mockResolvedValue([
+      {
+        storedName: "11111111-1111-4111-8111-111111111111.png",
+        ownerType: "WORK_ORDER",
+        ownerId: "wo1",
+        departmentId: "dep-b",
+        customerId: "annen-kunde",
+        uploadedById: "tekniker",
+      },
+    ]);
+
+    const images = await buildPdfImages([
+      {
+        url: reportImage,
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+        workOrder: { id: "wo1", departmentId: "dep-a", customerId: "kunde-1" },
+      },
+    ]);
+
+    expect(images).toEqual({});
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
+  it("feiler lukket når rapportbildet mangler oppdragskontekst", async () => {
+    mocks.prisma.upload.findMany.mockResolvedValue([
+      {
+        storedName: "11111111-1111-4111-8111-111111111111.png",
+        ownerType: "WORK_ORDER",
+        ownerId: "wo1",
+        departmentId: "dep-a",
+        customerId: null,
+        uploadedById: "tekniker",
+      },
+    ]);
+
+    const images = await buildPdfImages([
+      { url: reportImage, ownerTypes: REPORT_IMAGE_OWNER_TYPES },
+    ]);
+
+    expect(images).toEqual({});
+    expect(mocks.readFile).not.toHaveBeenCalled();
+  });
+
   it("leser ikke en fil som mangler opplastingsrad", async () => {
     mocks.prisma.upload.findMany.mockResolvedValue([]);
 
     const images = await buildPdfImages([
-      { url: reportImage, ownerTypes: REPORT_IMAGE_OWNER_TYPES },
+      {
+        url: reportImage,
+        ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+        workOrder: { id: "wo1", departmentId: "dep-a", customerId: null },
+      },
     ]);
 
     expect(images).toEqual({});

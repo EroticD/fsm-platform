@@ -24,14 +24,19 @@ const mocks = vi.hoisted(() => ({
     },
     bookingRequestEvent: { create: vi.fn() },
     report: { update: vi.fn(), updateMany: vi.fn() },
+    $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  allowRequestDb: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/rate-limit-db", () => ({
+  allowRequestDb: mocks.allowRequestDb,
+}));
 vi.mock("./notifications", () => ({
   notifyUser: vi.fn(),
   notifyWorkOrderEvent: mocks.notifyWorkOrderEvent,
@@ -75,6 +80,10 @@ beforeEach(() => {
   mocks.prisma.bookingRequestEvent.create.mockResolvedValue({ id: "ev-1" });
   mocks.prisma.report.update.mockResolvedValue({});
   mocks.prisma.report.updateMany.mockResolvedValue({ count: 1 });
+  mocks.allowRequestDb.mockResolvedValue({
+    allowed: true,
+    retryAfterSeconds: 0,
+  });
   mocks.notifyWorkOrderEvent.mockResolvedValue(1);
 });
 
@@ -438,6 +447,11 @@ describe("kundeportaltjenesten", () => {
         requestedTo: "11:00",
       },
     });
+    expect(mocks.allowRequestDb).toHaveBeenCalledWith(
+      "booking-reschedule:u1:br-1",
+      5,
+      15 * 60_000,
+    );
     expect(mocks.prisma.bookingRequest.update).toHaveBeenCalledWith({
       where: { id: "br-1" },
       data: expect.objectContaining({ requestedFrom: "09:00", requestedTo: "11:00" }),
@@ -452,6 +466,64 @@ describe("kundeportaltjenesten", () => {
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "RESCHEDULED" }),
     });
+    expect(mocks.notifyWorkOrderEvent).toHaveBeenCalledWith(
+      "wo1",
+      "BOOKING",
+      "Kunde ba om ny tid",
+      expect.any(String),
+      "/oppdrag/wo1",
+      `booking-reschedule:br-1:${newDate}:09:00:11:00`,
+    );
+  });
+
+  it("er en no-op når tidsvinduet er uendret", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
+    const sameDate = toDateOnly(requestedDate);
+
+    const result = await rescheduleBooking(customer(), {
+      bookingId: "br-1",
+      requestedDate: sameDate,
+      requestedFrom: "08:00",
+      requestedTo: "12:00",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        status: "rescheduled",
+        reference: "B-1",
+        requestedDate: sameDate,
+        requestedFrom: "08:00",
+        requestedTo: "12:00",
+      },
+    });
+    expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+
+  it("avviser ny-tid-forespørsler over rate-grensen", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
+    mocks.allowRequestDb.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 600,
+    });
+    const newDate = toDateOnly(
+      addDaysUtc(parseDateOnly(todayInOslo())!, 10),
+    );
+
+    const result = await rescheduleBooking(customer(), {
+      bookingId: "br-1",
+      requestedDate: newDate,
+      requestedFrom: "09:00",
+      requestedTo: "11:00",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "rate_limited" });
+    expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
   });
 
   it("avviser ny tid når oppdraget er flyttet til en annen kunde", async () => {

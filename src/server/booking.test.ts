@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     user: { findFirst: vi.fn() },
     bookingRequest: { create: vi.fn() },
     bookingRequestEvent: { create: vi.fn() },
+    $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -204,7 +205,11 @@ describe("createBooking", () => {
 
     expect(result).toEqual({ ok: false, reason: "conflict" });
     expect(mocks.prisma.workOrder.count).toHaveBeenCalledWith({
-      where: { customerId: "cust-1", status: "OPEN", deletedAt: null },
+      where: {
+        customerId: "cust-1",
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+        deletedAt: null,
+      },
     });
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
   });
@@ -233,6 +238,8 @@ describe("createBooking", () => {
     );
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
     expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+    expect(mocks.prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("oppretter oppdrag og revisjonslogg i samme transaksjon", async () => {
@@ -246,6 +253,7 @@ describe("createBooking", () => {
       data: { id: "wo-1", reference: "B-TEST-1" },
     });
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: booking.title,
@@ -272,6 +280,17 @@ describe("createBooking", () => {
       "/oppdrag/wo-1",
       "booking:wo-1",
     );
+  });
+
+  it("nøytraliserer lenker i bestillingsvarselet", async () => {
+    await createBooking(customer(), {
+      ...booking,
+      title: "Se https://phish.test",
+    });
+
+    const body = mocks.notifyWorkOrderEvent.mock.calls[0][3] as string;
+    expect(body).not.toContain("phish.test");
+    expect(body).toContain("[lenke fjernet]");
   });
 
   it("ruller tilbake begge skrivingene når revisjonsloggen feiler", async () => {

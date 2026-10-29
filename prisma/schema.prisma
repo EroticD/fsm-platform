@@ -74,6 +74,10 @@ model User {
   // avvises, slik at en gammel hemmelighet ikke kan bekreftes senere.
   twoFactorSetupStartedAt DateTime?
 
+  // Siste TOTP-tidssteg som ble godtatt. Neste verifisering må ligge etter
+  // dette, ellers kan samme 30-sekundskode brukes om igjen.
+  lastTotpTimeStep Int?
+
   // Konto må aktiveres manuelt av en administrator før innlogging er tillatt
   isActive Boolean @default(false)
 
@@ -114,7 +118,6 @@ model User {
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
   savedSearches           SavedSearch[]
-  searchLogs              SearchLog[]
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
 
   @@index([departmentId])
@@ -862,11 +865,10 @@ model SavedSearch {
 }
 
 /// Anonymisert nok for intern analyse, men beholder søketeksten slik at
-/// nulltreff og populære søk kan forbedres. Slettes sammen med brukeren.
+/// nulltreff og populære søk kan forbedres. Søketeksten maskeres før lagring,
+/// og raden har ingen kobling til brukeren som søkte.
 model SearchLog {
   id              String   @id @default(cuid())
-  userId          String?
-  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   query           String
   normalizedQuery String
   resultCount     Int
@@ -877,7 +879,6 @@ model SearchLog {
   @@index([createdAt])
   @@index([resultCount, createdAt])
   @@index([normalizedQuery, createdAt])
-  @@index([userId, createdAt])
 }
 
 model Branding {

@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { verifyCredentials } from "@/lib/credentials";
-import { verifyTotp } from "@/lib/two-factor";
+import { verifyTotpStep, acceptTotpTimeStep } from "@/lib/two-factor";
 import { consumeRecoveryCode } from "@/lib/two-factor-recovery";
 import {
   clearPendingTwoFactor,
@@ -138,6 +138,7 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
       isActive: true,
       isTwoFactorEnabled: true,
       twoFactorSecret: true,
+      lastTotpTimeStep: true,
     },
   });
 
@@ -146,7 +147,21 @@ export async function verifyTwoFactorAction(formData: FormData): Promise<never> 
     redirect(fail("TwoFactorExpired"));
   }
 
-  if (!verifyTotp(user.twoFactorSecret, code)) {
+  const verification = verifyTotpStep(
+    user.twoFactorSecret,
+    code,
+    user.lastTotpTimeStep,
+  );
+  if (!verification.valid) {
+    redirect(fail("InvalidTwoFactor"));
+  }
+
+  // Tidssteget lagres atomisk, slik at samme kode ikke kan brukes to ganger
+  // selv om to forespørsler kommer samtidig.
+  const accepted = await prisma.$transaction((tx) =>
+    acceptTotpTimeStep(tx, user.id, verification.timeStep),
+  );
+  if (!accepted) {
     redirect(fail("InvalidTwoFactor"));
   }
 

@@ -36,13 +36,20 @@ vi.mock("@/lib/departments", () => ({
 }));
 
 import {
+  addComment,
+  addContactToCustomer,
+  addTechnician,
+  addTemplate,
   assignTechnician,
   changeWorkOrderStatus,
   cloneWorkOrder,
   createWorkOrder,
   deleteWorkOrder,
+  removeTechnician,
   restoreWorkOrder,
+  setContact,
   setReportLegalHold,
+  setTags,
   setWorkOrderLegalHold,
   updateWorkOrderDate,
   updateWorkOrder,
@@ -68,7 +75,13 @@ function txClient() {
   return {
     workOrder: {
       create: vi.fn(async () => ({ id: "wo-new" })),
-      findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null),
+      findFirst: vi.fn(
+        async (): Promise<Record<string, unknown> | null> => ({
+          id: "wo-1",
+          status: "OPEN",
+          legalHold: false,
+        }),
+      ),
       update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 1 })),
       delete: vi.fn(async () => ({})),
@@ -1294,6 +1307,148 @@ describe("work-orders-tjenesten", () => {
       select: { id: true },
     });
   });
+
+  it("avviser alle metadataendringer når oppdraget har bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "IN_PROGRESS",
+      legalHold: true,
+      orderNumber: null,
+      orderNumberNormalized: null,
+      reports: [],
+      bookingRequest: null,
+    });
+
+    const office = actor();
+    const technician = actor({ role: "TECHNICIAN" });
+
+    await expect(
+      updateWorkOrder(office, "wo-1", {
+        title: "Ny tittel",
+        description: "",
+        departmentId: "dep-a",
+        customerId: "cust-1",
+        contactId: "",
+        scheduledFor: "2026-10-24",
+        scheduledTo: "",
+        technicianIds: [],
+        tagNames: [],
+      }),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+
+    await expect(
+      updateWorkOrderDate(office, "wo-1", { newDate: "2026-10-25" }),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+
+    await expect(
+      addTemplate(office, "wo-1", "tpl-1", "workorders.edit"),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+
+    await expect(setTags(office, "wo-1", ["service"])).resolves.toEqual({
+      ok: false,
+      error: "legal-hold",
+    });
+
+    await expect(setContact(office, "wo-1", "")).resolves.toEqual({
+      ok: false,
+      error: "legal-hold",
+    });
+
+    await expect(
+      addContactToCustomer(office, "wo-1", {
+        name: "Kari",
+        email: "",
+        phone: "",
+        role: "",
+      }),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+
+    await expect(
+      assignTechnician(office, "wo-1", "tech-1"),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+    await expect(
+      addTechnician(technician, "wo-1", "tech-1"),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+    await expect(
+      removeTechnician(technician, "wo-1", "tech-1"),
+    ).resolves.toEqual({ ok: false, error: "legal-hold" });
+
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lar additive kommentarer være lov under bevaringsplikt", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      status: "IN_PROGRESS",
+      legalHold: true,
+    });
+    const tx = withTransaction();
+
+    const result = await addComment(actor(), "wo-1", "Kunden ringte");
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.comment.create).toHaveBeenCalled();
+  });
+
+  it("avviser tildeling og fjerning på lukkede oppdrag for kontor og montør", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "COMPLETED",
+      legalHold: false,
+    });
+
+    await expect(
+      assignTechnician(actor(), "wo-1", "tech-1"),
+    ).resolves.toEqual({ ok: false, error: "workorder-locked" });
+    await expect(
+      addTechnician(actor({ role: "TECHNICIAN" }), "wo-1", "tech-1"),
+    ).resolves.toEqual({ ok: false, error: "workorder-locked" });
+
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "CANCELLED",
+      legalHold: false,
+    });
+    await expect(
+      removeTechnician(actor(), "wo-1", "tech-1"),
+    ).resolves.toEqual({ ok: false, error: "workorder-locked" });
+
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("sjekker lukket status på nytt i transaksjonen ved tildeling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+    });
+    mocks.prisma.user.findFirst.mockResolvedValue({ id: "tech-1", name: "Tore" });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      status: "COMPLETED",
+      legalHold: false,
+    });
+
+    const result = await assignTechnician(actor(), "wo-1", "tech-1");
+
+    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(tx.workOrder.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateWorkOrderDate – flerdagsoppdrag", () => {
@@ -1323,7 +1478,11 @@ describe("updateWorkOrderDate – flerdagsoppdrag", () => {
 
     expect(result).toEqual({ ok: true });
     expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: "wo-1" },
+      where: {
+        id: "wo-1",
+        legalHold: false,
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
       data: {
         scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
         scheduledTo: new Date("2026-11-04T00:00:00.000Z"),
@@ -1346,7 +1505,11 @@ describe("updateWorkOrderDate – flerdagsoppdrag", () => {
 
     expect(result).toEqual({ ok: true });
     expect(tx.workOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: "wo-1" },
+      where: {
+        id: "wo-1",
+        legalHold: false,
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
       data: {
         scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
         scheduledTo: null,

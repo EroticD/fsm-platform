@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
 import Link from "next/link";
+import { createSmtpTransport } from "@/lib/email";
 import { hashToken } from "@/lib/invite";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { clientIpFrom } from "@/lib/client-ip";
@@ -74,11 +74,7 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
       if (process.env.SMTP_HOST && process.env.SMTP_USER) {
         try {
           const tr = await getTranslations("common");
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT || "587"),
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-          });
+          const transporter = createSmtpTransport();
           await transporter.sendMail({
             from: '"System" <no-reply@dittsystem.no>',
             to: email,

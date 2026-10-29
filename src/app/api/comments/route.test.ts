@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   workOrderFindFirst: vi.fn(async () => ({ id: "wo-1" })),
   commentCreate: vi.fn(async () => ({ id: "c1" })),
   auditCreate: vi.fn(async () => ({ id: "a1" })),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
@@ -22,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
     workOrder: { findFirst: mocks.workOrderFindFirst },
     comment: { create: mocks.commentCreate },
     auditLog: { create: mocks.auditCreate },
+    $transaction: mocks.transaction,
   },
 }));
 
@@ -59,9 +61,40 @@ beforeEach(() => {
   mocks.hasPermission.mockReturnValue(true);
   mocks.allowRequestDb.mockResolvedValue({ allowed: true, retryAfterSeconds: 0 });
   mocks.assertSameOrigin.mockReturnValue(true);
+  mocks.transaction.mockImplementation(
+    async (callback: (tx: unknown) => unknown) =>
+      callback({
+        comment: { create: mocks.commentCreate },
+        auditLog: { create: mocks.auditCreate },
+      }),
+  );
 });
 
 describe("POST /api/comments – kroppsgrense", () => {
+  it("skriver kommentar og revisjonsrad i samme transaksjon", async () => {
+    const response = await POST(
+      request(
+        JSON.stringify({
+          entityType: "workOrder",
+          entityId: "wo-1",
+          content: "Hei",
+        }),
+        { "content-type": "application/json" },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.commentCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        actorId: "u1",
+        metadata: { commentId: "c1" },
+      }),
+    });
+  });
   it("avviser Content-Length over 64 KB før kommentaren parses", async () => {
     const response = await POST(
       request(JSON.stringify({ entityType: "workOrder", entityId: "wo-1", content: "hei" }), {

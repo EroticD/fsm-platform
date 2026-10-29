@@ -1,7 +1,15 @@
 import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/credentials";
 import { clientIpFrom } from "@/lib/client-ip";
+
+/**
+ * Absolutt levetid for en innlogging, uavhengig av aktivitet. NextAuth
+ * fornyer `exp` hver gang sesjonen leses, så uten dette ville en aktiv økt
+ * kunne leve evig. Verdien lagres i tokenet ved innlogging.
+ */
+export const SESSION_ABSOLUTE_MAX_AGE = 7 * 24 * 60 * 60;
 
 /**
  * NextAuth gir `request.headers` som enten et Headers-objekt eller et vanlig
@@ -101,7 +109,24 @@ export const authOptions: NextAuthOptions = {
      * utlogging. Ryddingen er best-effort: en feilet cookie-sletting skal ikke
      * hindre selve utloggingen.
      */
-    async signOut() {
+    async signOut({ token }) {
+      // En utlogget JWT skal ikke kunne gjenbrukes hvis den er kopiert. Vi
+      // øker øktversjonen, slik at alle JWTs for brukeren blir ugyldige.
+      const userId =
+        typeof token?.id === "string"
+          ? token.id
+          : typeof token?.sub === "string"
+            ? token.sub
+            : null;
+      if (userId) {
+        try {
+          const { bumpSessionVersion } = await import("@/lib/session");
+          await bumpSessionVersion(userId);
+        } catch {
+          // Utloggingen skal fullføres selv om databasen ikke svarer.
+        }
+      }
+
       try {
         const { clearRecoveryCodesForDisplay } = await import(
           "@/lib/session-token"
@@ -118,10 +143,31 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.id = user.id;
         token.sessionVersion = user.sessionVersion;
+        // Dette er det absolutte starttidspunktet. NextAuths egen `iat`
+        // overskrives ved hver fornyelse, så den kan ikke brukes alene.
+        token.sessionIssuedAt = Math.floor(Date.now() / 1000);
       }
+
+      if (typeof token.sessionIssuedAt !== "number") {
+        // Eldre tokens uten feltet får fristen regnet fra første gangs bruk
+        // etter oppgraderingen, i stedet for å bli avvist umiddelbart.
+        token.sessionIssuedAt = Math.floor(Date.now() / 1000);
+      }
+
+      const issuedAt = token.sessionIssuedAt as number;
+      const age = Math.floor(Date.now() / 1000) - issuedAt;
+      if (age > SESSION_ABSOLUTE_MAX_AGE) {
+        // Null gjør at NextAuth avviser sesjonen og sletter cookien. Typen i
+        // NextAuth 4 tillater ikke null, men runtime håndterer det.
+        return null as unknown as JWT;
+      }
+
       return token;
     },
     async session({ session, token }) {
+      // Et utløpt token gir ingen bruker-id, og getCurrentUser() avviser da
+      // økten. Vi unngår å kaste feil i selve sesjonskallet.
+      if (!token) return session;
       if (session.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;

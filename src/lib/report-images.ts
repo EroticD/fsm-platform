@@ -68,6 +68,16 @@ export function resolvePdfImageSource(
 export type PdfImageRequest = {
   url: string;
   ownerTypes: readonly UploadOwnerType[];
+  /**
+   * Rapporteringsbilder må tilhøre rapportens oppdrag. Når feltet er satt,
+   * kontrolleres eier-id, avdeling og kunde i tillegg til eiertypen. Merkede
+   * logoer har ingen oppdragstilknytning og utelater feltet.
+   */
+  workOrder?: {
+    id: string;
+    departmentId?: string | null;
+    customerId?: string | null;
+  };
 };
 
 type ReportLike = {
@@ -203,7 +213,32 @@ export async function buildPdfImages(
   for (const [url, request] of unique) {
     const storedName = uploadStoredName(url);
     const upload = storedName ? ownerships.get(storedName) : undefined;
-    if (hasAllowedOwner(upload, request.ownerTypes)) urls.push(url);
+    if (!hasAllowedOwner(upload, request.ownerTypes)) continue;
+
+    // Rapporteringsbilder må eies av nøyaktig rapportens oppdrag. En fil med
+    // riktig eiertype, men fra et annet oppdrag/kunde/avdeling, skal ikke
+    // kunne leses inn i PDF-en. Uten oppdragskontekst feiler vi lukket.
+    if (request.ownerTypes.includes("WORK_ORDER")) {
+      const scope = request.workOrder;
+      if (
+        !scope ||
+        upload.ownerType !== "WORK_ORDER" ||
+        upload.ownerId !== scope.id
+      ) {
+        continue;
+      }
+      if (
+        scope.departmentId !== undefined &&
+        upload.departmentId !== scope.departmentId
+      ) {
+        continue;
+      }
+      if (scope.customerId !== undefined && upload.customerId !== scope.customerId) {
+        continue;
+      }
+    }
+
+    urls.push(url);
   }
 
   const scaled: (readonly [string, PdfImage])[] = [];

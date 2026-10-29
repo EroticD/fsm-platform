@@ -4,9 +4,11 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     user: { findUnique: vi.fn() },
     auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
   verifyCredentials: vi.fn(),
-  verifyTotp: vi.fn(),
+  verifyTotpStep: vi.fn(),
+  acceptTotpTimeStep: vi.fn(),
   setPendingTwoFactor: vi.fn(),
   readPendingTwoFactor: vi.fn(),
   clearPendingTwoFactor: vi.fn(),
@@ -23,7 +25,10 @@ vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/credentials", () => ({
   verifyCredentials: mocks.verifyCredentials,
 }));
-vi.mock("@/lib/two-factor", () => ({ verifyTotp: mocks.verifyTotp }));
+vi.mock("@/lib/two-factor", () => ({
+  verifyTotpStep: mocks.verifyTotpStep,
+  acceptTotpTimeStep: mocks.acceptTotpTimeStep,
+}));
 vi.mock("@/lib/session-token", () => ({
   setPendingTwoFactor: mocks.setPendingTwoFactor,
   readPendingTwoFactor: mocks.readPendingTwoFactor,
@@ -37,7 +42,7 @@ vi.mock("@/lib/rate-limit-db", () => ({
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
-import { loginAction } from "./actions";
+import { loginAction, verifyTwoFactorAction } from "./actions";
 import { safeRelativeTarget } from "@/lib/safe-redirect";
 
 function formData(values: Record<string, string>): FormData {
@@ -59,6 +64,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.headers.mockResolvedValue(new Headers());
   mocks.prisma.auditLog.create.mockResolvedValue({});
+  mocks.prisma.$transaction.mockImplementation(
+    async (callback: (tx: unknown) => unknown) => callback({}),
+  );
+  mocks.acceptTotpTimeStep.mockResolvedValue(true);
+  mocks.allowRequestDb.mockResolvedValue({
+    allowed: true,
+    retryAfterSeconds: 0,
+  });
   mocks.verifyCredentials.mockResolvedValue({
     status: "ok",
     user: credentialUser,
@@ -102,6 +115,53 @@ describe("loginAction – fail closed for 2FA", () => {
 
     expect(mocks.setPendingTwoFactor).toHaveBeenCalledWith("user-1");
     expect(mocks.createSessionCookie).not.toHaveBeenCalled();
+  });
+});
+
+describe("verifyTwoFactorAction – replay-vern", () => {
+  beforeEach(() => {
+    mocks.readPendingTwoFactor.mockResolvedValue("user-1");
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "kari@example.test",
+      name: "Kari",
+      role: "OFFICE",
+      sessionVersion: 2,
+      isActive: true,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "HEMMELIGHET",
+      lastTotpTimeStep: 100,
+    });
+  });
+
+  it("godtar en ny kode og lagrer tidssteget", async () => {
+    mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 101 });
+
+    await expect(
+      verifyTwoFactorAction(formData({ code: "123456" })),
+    ).rejects.toThrow("REDIRECT:/");
+
+    expect(mocks.verifyTotpStep).toHaveBeenCalledWith(
+      "HEMMELIGHET",
+      "123456",
+      100,
+    );
+    expect(mocks.acceptTotpTimeStep).toHaveBeenCalledWith(expect.anything(), "user-1", 101);
+    expect(mocks.createSessionCookie).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "user-1" }),
+    );
+  });
+
+  it("avviser en kode som allerede er brukt", async () => {
+    mocks.verifyTotpStep.mockReturnValue({ valid: true, timeStep: 100 });
+    mocks.acceptTotpTimeStep.mockResolvedValue(false);
+
+    await expect(
+      verifyTwoFactorAction(formData({ code: "123456" })),
+    ).rejects.toThrow("REDIRECT:/logg-inn/2fa?error=InvalidTwoFactor");
+
+    expect(mocks.createSessionCookie).not.toHaveBeenCalled();
+    expect(mocks.resetRateLimitDb).not.toHaveBeenCalled();
   });
 });
 

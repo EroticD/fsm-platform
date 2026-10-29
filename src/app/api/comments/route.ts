@@ -3,6 +3,7 @@ import { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
 import { LIMITS, cleanMarkdown, cleanText } from "@/lib/sanitize";
+import { audit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
@@ -116,17 +117,20 @@ export async function POST(request: Request) {
     if (entityType === "customer") data.customerId = entityId;
     if (entityType === "contact") data.contactId = entityId;
 
-    const comment = await prisma.comment.create({
-      data,
-    });
+    const comment = await prisma.$transaction(async (tx) => {
+      const created = await tx.comment.create({ data });
 
-    await prisma.auditLog.create({
-      data: {
+      // Kommentaren og revisjonsraden skrives i samme transaksjon, med
+      // forfatterens faktiske id. Da finnes det ingen kommentar uten logg.
+      await audit(tx, {
         entityType: entityType.charAt(0).toUpperCase() + entityType.slice(1),
         entityId,
         action: `La til kommentar: "${markdownToPlainText(content).slice(0, 50)}..."`,
-        userName: user.name || "Ukjent",
-      },
+        actor: { id: user.id, name: user.name, email: user.email },
+        metadata: { commentId: created.id },
+      });
+
+      return created;
     });
 
     return NextResponse.json({ success: true, comment });

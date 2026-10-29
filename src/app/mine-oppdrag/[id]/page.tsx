@@ -22,6 +22,7 @@ import { staffForDepartment, workOrderScope } from "@/lib/access";
 import { statusSelectOptions } from "@/lib/work-order-status";
 import { formatDateRangeLocalized, formatDateTimeLocalized } from "@/lib/dates";
 import { idSchema } from "@/lib/schemas/common";
+import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
 import {
   HMS_TYPE_MESSAGE_KEYS,
   isHmsTemplate,
@@ -100,6 +101,13 @@ export default async function TechnicianWorkOrderPage({
   // Kansellerte oppdrag er avsluttet og skal ikke vises i feltportalen.
   // De finnes fortsatt som historikk på kundesiden.
   if (workOrder.status === "CANCELLED") redirect("/mine-oppdrag");
+
+  // En kvittering krever en faktisk låst rapport for denne malen. En gjettet
+  // query-parameter skal verken rydde kladder eller vise suksessbanneret.
+  const reportSubmittedVerified = verifiedSubmittedTemplateId(
+    reportSubmitted,
+    workOrder.reports,
+  );
 
   const isAdmin = user.role === "ADMIN";
   const canUpdate = hasPermission(user, "workorders.update");
@@ -296,11 +304,12 @@ export default async function TechnicianWorkOrderPage({
           <ErrorBanner message={t("orders.errors.generic")} />
         )}
 
-        {reportSubmitted && (
+        {reportSubmittedVerified && (
           <ReportSubmissionCleanup
             userId={user.id}
             workOrderId={workOrderId}
-            templateId={reportSubmitted}
+            templateId={reportSubmittedVerified}
+            verified
           />
         )}
 

@@ -9,6 +9,7 @@ import {
   notificationHrefForUser,
 } from "@/lib/notification-links";
 import { cleanText } from "@/lib/sanitize";
+import { neutralizeUrls } from "@/lib/neutralize-urls";
 import { publishRealtime } from "@/lib/realtime";
 import {
   fail,
@@ -66,8 +67,7 @@ const FALLBACK_SOURCE_LABEL = "Systemvarsel";
 function sanitizeSourceLabel(value: unknown): string {
   const text = cleanText(value, { maxLength: SOURCE_LABEL_MAX });
   if (!text) return "";
-  return text
-    .replace(/\b(?:https?:\/\/|www\.)\S+/gi, "")
+  return neutralizeUrls(text, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, SOURCE_LABEL_MAX);
@@ -95,7 +95,7 @@ function emailBodyWithSource(notification: {
   sourceLabel?: string | null;
   body?: string | null;
 }): string {
-  const body = notification.body ?? "";
+  const body = neutralizeUrls(notification.body ?? "");
   const source = sanitizeSourceLabel(notification.sourceLabel);
   if (!source) return body;
   return body ? `${source}\n\n${body}` : source;
@@ -403,8 +403,11 @@ export async function notifyUser(
       data: {
         userId: input.userId,
         type: input.type,
-        title: input.title.slice(0, 200),
-        body: input.body?.slice(0, 4000) ?? null,
+        // Titler og brødtekst kan inneholde oppdragstitler eller meldinger fra
+        // kundeportalen. URL-er nøytraliseres før lagring, slik at de verken
+        // blir klikkbare i varsellisten eller i e-posten.
+        title: neutralizeUrls(input.title).slice(0, 200),
+        body: input.body ? neutralizeUrls(input.body).slice(0, 4000) : null,
         sourceLabel: sourceLabel || null,
         href: isSafeNotificationHref(input.href)
           ? input.href.slice(0, 500)

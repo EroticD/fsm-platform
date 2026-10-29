@@ -126,6 +126,23 @@ describe("varseltjenesten", () => {
     });
   });
 
+  it("nøytraliserer URL-er i tittel og brødtekst", async () => {
+    await notifyUser({
+      userId: "u1",
+      type: "CONTACT_UPDATE",
+      title: "Se https://evil.test",
+      body: "Klikk på www.evil.test eller evil.test/path",
+    });
+
+    expect(mocks.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        title: "Se [lenke fjernet]",
+        body: "Klikk på [lenke fjernet] eller [lenke fjernet]",
+      }),
+      select: { id: true },
+    });
+  });
+
   it("utleder kilde fra oppdragslenken når den mangler", async () => {
     mocks.prisma.workOrder.findUnique.mockResolvedValue({
       title: "testoppdrag",
@@ -363,6 +380,28 @@ describe("varseltjenesten", () => {
       "Du er tildelt et oppdrag",
       "Oppdrag: testoppdrag · Biniam\n\n«testoppdrag» er tildelt deg.",
       "/mine-oppdrag/wo1",
+    );
+  });
+
+  it("nøytraliserer URL-er i gamle varseltekster før e-post", async () => {
+    mocks.prisma.notification.findMany.mockResolvedValue([
+      {
+        id: "n1",
+        title: "Kontaktinfo",
+        body: "Se https://evil.test",
+        href: "/kunder/cust1",
+        emailAttempts: 0,
+        user: { email: "kari@example.test", role: "OFFICE" },
+      },
+    ]);
+
+    await processPendingNotificationEmails();
+
+    expect(mocks.sendNotificationEmail).toHaveBeenCalledWith(
+      "kari@example.test",
+      "Kontaktinfo",
+      "Se [lenke fjernet]",
+      "/kunder/cust1",
     );
   });
 

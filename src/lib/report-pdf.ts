@@ -93,9 +93,51 @@ export async function renderReportPdf(
   // Signaturer og opplastet logo tas med, slik at PDF-motoren slipper å hente
   // dem fra det innloggingsbeskyttede /uploads over HTTP.
   const record = (data ?? {}) as {
+    workOrder?: {
+      id?: string | null;
+      departmentId?: string | null;
+      customerId?: string | null;
+    } | null;
     reports?: Parameters<typeof collectReportImageUrls>[0];
   };
   const reportImageUrls = collectReportImageUrls(record.reports);
+
+  // Bildene må valideres mot rapportens oppdrag. Den levende PDF-en har
+  // avdeling/kunde i arbeidsoppdraget; revisjons-PDF-en har bare id, så de
+  // hentes inn når de mangler.
+  let workOrderScope: {
+    id: string;
+    departmentId?: string | null;
+    customerId?: string | null;
+  } | null = null;
+  if (record.workOrder?.id) {
+    const scope = {
+      id: record.workOrder.id,
+      departmentId: record.workOrder.departmentId,
+      customerId: record.workOrder.customerId,
+    };
+    if (
+      (scope.departmentId === undefined || scope.customerId === undefined) &&
+      reportImageUrls.length > 0
+    ) {
+      const fresh = await prisma.workOrder
+        .findUnique({
+          where: { id: scope.id },
+          select: { departmentId: true, customerId: true },
+        })
+        .catch(() => null);
+      if (fresh) {
+        scope.departmentId = fresh.departmentId;
+        scope.customerId = fresh.customerId;
+      }
+    }
+    // Uten både avdeling og kunde kan eierskapet ikke verifiseres fullt ut.
+    // Da utelates bildene heller enn å falle tilbake til eiertype alene.
+    workOrderScope =
+      scope.departmentId === undefined || scope.customerId === undefined
+        ? null
+        : scope;
+  }
 
   // Logoen må være lastet opp som merkevare. En fil uten `Upload`-rad – eller
   // en fil som tilhører et oppdrag, en kunde eller en bruker – skal verken
@@ -108,10 +150,13 @@ export async function renderReportPdf(
   const safeLogoUrl = logoIsOwned ? logoUrl : null;
 
   const imageRequests = [
-    ...reportImageUrls.map((url) => ({
-      url,
-      ownerTypes: REPORT_IMAGE_OWNER_TYPES,
-    })),
+    ...(workOrderScope
+      ? reportImageUrls.map((url) => ({
+          url,
+          ownerTypes: REPORT_IMAGE_OWNER_TYPES,
+          workOrder: workOrderScope!,
+        }))
+      : []),
     ...(safeLogoUrl
       ? [{ url: safeLogoUrl, ownerTypes: BRANDING_LOGO_OWNER_TYPES }]
       : []),

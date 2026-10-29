@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { csvCell } from "@/lib/csv";
+import { allowRequestDb } from "@/lib/rate-limit-db";
+
+/** Maks antall rader i én eksport, slik at minnebruken er forutsigbar. */
+const EXPORT_ROW_CAP = 5000;
+/** Maks fem eksporter per bruker i timen. */
+const EXPORT_RATE_LIMIT = 5;
+const EXPORT_RATE_WINDOW_MS = 60 * 60_000;
 
 /**
  * Eksporterer kundens egne oppdrag som CSV. Bare kundeportalbrukere med en
@@ -23,9 +30,27 @@ export async function GET() {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
   }
 
+  const limit = await allowRequestDb(
+    `portal-export:${user.id}`,
+    EXPORT_RATE_LIMIT,
+    EXPORT_RATE_WINDOW_MS,
+  );
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "For mange eksporter. Prøv igjen senere." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
+  }
+
   const workOrders = await prisma.workOrder.findMany({
     where: { customerId: user.customerId, deletedAt: null },
     orderBy: { scheduledFor: "desc" },
+    // Hent én ekstra rad for å oppdage at kunden har mer enn taket, uten å
+    // laste hele historikken i minnet.
+    take: EXPORT_ROW_CAP + 1,
     select: {
       title: true,
       status: true,
@@ -35,6 +60,14 @@ export async function GET() {
       contact: { select: { name: true } },
     },
   });
+  if (workOrders.length > EXPORT_ROW_CAP) {
+    return NextResponse.json(
+      {
+        error: `Eksporten er begrenset til ${EXPORT_ROW_CAP} oppdrag. Kontakt oss for et større uttrekk.`,
+      },
+      { status: 413 },
+    );
+  }
 
   const header = ["Tittel", "Status", "Fra dato", "Til dato", "Booket av", "Kontaktperson"];
   const rows = workOrders.map((wo) =>

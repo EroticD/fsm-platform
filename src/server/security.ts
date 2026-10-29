@@ -4,9 +4,10 @@ import { audit } from "@/lib/audit";
 import { allowRequestDb, resetRateLimitDb } from "@/lib/rate-limit-db";
 import { cleanText } from "@/lib/sanitize";
 import {
+  acceptTotpTimeStep,
   createTotpSecret,
   TWO_FACTOR_SETUP_TTL_MS,
-  verifyTotp,
+  verifyTotpStep,
 } from "@/lib/two-factor";
 import { replaceRecoveryCodes } from "@/lib/two-factor-recovery";
 import { clearCalendarToken } from "./calendar-feed";
@@ -168,6 +169,8 @@ export async function startTwoFactorSetup(
         data: {
           twoFactorSecret: secret,
           twoFactorSetupStartedAt: new Date(),
+          // En ny hemmelighet starter uten tidligere godtatte steg.
+          lastTotpTimeStep: null,
           isTwoFactorEnabled: false,
         },
       });
@@ -205,7 +208,11 @@ export async function confirmTwoFactorSetup(
   const code = cleanText(input.code, { maxLength: 10 });
   const dbUser = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { twoFactorSecret: true, twoFactorSetupStartedAt: true },
+    select: {
+      twoFactorSecret: true,
+      twoFactorSetupStartedAt: true,
+      lastTotpTimeStep: true,
+    },
   });
 
   if (!dbUser?.twoFactorSecret) {
@@ -239,12 +246,24 @@ export async function confirmTwoFactorSetup(
     return securityFail("setup-expired");
   }
 
-  if (!verifyTotp(dbUser.twoFactorSecret, code)) {
+  const verification = verifyTotpStep(
+    dbUser.twoFactorSecret,
+    code,
+    dbUser.lastTotpTimeStep,
+  );
+  if (!verification.valid) {
     await auditFailure(actor, "totp_confirm");
     return securityFail("invalid_code");
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    // Replay-vernet og aktiveringen ligger i samme transaksjon. En kode som
+    // allerede er brukt, gir ingen endring.
+    if (
+      !(await acceptTotpTimeStep(tx, actor.id, verification.timeStep))
+    ) {
+      return null;
+    }
     const user = await tx.user.update({
       where: { id: actor.id },
       data: {
@@ -266,6 +285,11 @@ export async function confirmTwoFactorSetup(
     });
     return { user, recoveryCodes };
   });
+
+  if (!updated) {
+    await auditFailure(actor, "totp_confirm_replay");
+    return securityFail("invalid_code");
+  }
 
   await resetRateLimit(actor.id, ip);
   return securityOk({
@@ -301,6 +325,7 @@ export async function cancelTwoFactorSetup(
         data: {
           twoFactorSecret: null,
           twoFactorSetupStartedAt: null,
+          lastTotpTimeStep: null,
           isTwoFactorEnabled: false,
           sessionVersion: { increment: 1 },
         },
@@ -339,25 +364,36 @@ export async function disableTwoFactor(
   const code = cleanText(input.code, { maxLength: 10 });
   const dbUser = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { twoFactorSecret: true, isTwoFactorEnabled: true },
+    select: {
+      twoFactorSecret: true,
+      isTwoFactorEnabled: true,
+      lastTotpTimeStep: true,
+    },
   });
 
-  if (
-    !dbUser?.isTwoFactorEnabled ||
-    !dbUser.twoFactorSecret ||
-    !verifyTotp(dbUser.twoFactorSecret, code)
-  ) {
+  const verification =
+    dbUser?.isTwoFactorEnabled && dbUser.twoFactorSecret
+      ? verifyTotpStep(dbUser.twoFactorSecret, code, dbUser.lastTotpTimeStep)
+      : { valid: false as const };
+
+  if (!verification.valid) {
     await auditFailure(actor, "totp_disable");
     return securityFail("invalid_code");
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    if (
+      !(await acceptTotpTimeStep(tx, actor.id, verification.timeStep))
+    ) {
+      return null;
+    }
     const user = await tx.user.update({
       where: { id: actor.id },
       data: {
         isTwoFactorEnabled: false,
         twoFactorSecret: null,
         twoFactorSetupStartedAt: null,
+        lastTotpTimeStep: null,
         sessionVersion: { increment: 1 },
       },
       select: { sessionVersion: true },
@@ -373,6 +409,11 @@ export async function disableTwoFactor(
     });
     return user;
   });
+
+  if (!updated) {
+    await auditFailure(actor, "totp_disable_replay");
+    return securityFail("invalid_code");
+  }
 
   await resetRateLimit(actor.id, ip);
   return securityOk({ sessionVersion: updated.sessionVersion });
@@ -394,19 +435,33 @@ export async function regenerateRecoveryCodes(
   // Nye koder gir bare mening når 2FA faktisk er aktivert.
   const state = await prisma.user.findUnique({
     where: { id: actor.id },
-    select: { isTwoFactorEnabled: true, twoFactorSecret: true },
+    select: {
+      isTwoFactorEnabled: true,
+      twoFactorSecret: true,
+      lastTotpTimeStep: true,
+    },
   });
   if (!state?.isTwoFactorEnabled || !state.twoFactorSecret) {
     return securityFail("forbidden");
   }
 
   const code = cleanText(input.code, { maxLength: 10 });
-  if (!verifyTotp(state.twoFactorSecret, code)) {
+  const verification = verifyTotpStep(
+    state.twoFactorSecret,
+    code,
+    state.lastTotpTimeStep,
+  );
+  if (!verification.valid) {
     await auditFailure(actor, "totp_recovery_codes");
     return securityFail("invalid_code");
   }
 
   const recoveryCodes = await prisma.$transaction(async (tx) => {
+    if (
+      !(await acceptTotpTimeStep(tx, actor.id, verification.timeStep))
+    ) {
+      return null;
+    }
     const codes = await replaceRecoveryCodes(tx, actor.id);
     await audit(tx, {
       entityType: "User",
@@ -416,6 +471,11 @@ export async function regenerateRecoveryCodes(
     });
     return codes;
   });
+
+  if (!recoveryCodes) {
+    await auditFailure(actor, "totp_recovery_codes_replay");
+    return securityFail("invalid_code");
+  }
 
   await resetRateLimit(actor.id, ip);
   return securityOk({ recoveryCodes });

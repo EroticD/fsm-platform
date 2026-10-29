@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { normalizeSearchText } from "@/lib/fuzzy";
 import { parseSearchFilters, type SearchFilters } from "@/lib/search-filters";
+import { redactSearchQuery } from "@/lib/search-analytics-redact";
 import { can, fail, isAdminActor, ok, type ServiceActor, type ServiceResult } from "./actor";
 
 /**
@@ -9,17 +10,17 @@ import { can, fail, isAdminActor, ok, type ServiceActor, type ServiceResult } fr
  *
  * Logging er «best effort»: en feil i analyseinnsettingen skal aldri gjøre at
  * selve søket feiler. Analysen er bare tilgjengelig for brukere med
- * `audit.view` eller administrator.
+ * `audit.view` eller administrator. Søketeksten maskeres før lagring, og
+ * loggen kobles aldri til brukeren som søkte.
  */
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_DAYS = 365;
 const DEFAULT_DAYS = 30;
+const TOP_QUERY_LIMIT = 10;
 
 export type SearchLogInput = {
-  userId?: string | null;
   query: string;
-  normalizedQuery?: string;
   resultCount: number;
   latencyMs: number;
   filters?: SearchFilters | null;
@@ -45,7 +46,12 @@ export type SearchAnalytics = {
 
 /** Skriver én søkelogg. Feiler stille, og kapper query/filtre. */
 export async function logSearch(input: SearchLogInput): Promise<void> {
-  const query = String(input.query ?? "").trim().slice(0, MAX_QUERY_LENGTH);
+  // Masker personopplysninger før teksten havner i databasen. Normaliseringen
+  // gjøres etter maskeringen, slik at e-post og telefonnummer ikke kan snike
+  // seg inn via en ferdig normalisert variant.
+  const query = redactSearchQuery(String(input.query ?? ""))
+    .trim()
+    .slice(0, MAX_QUERY_LENGTH);
   if (!query) return;
 
   const filters = parseSearchFilters(
@@ -56,12 +62,8 @@ export async function logSearch(input: SearchLogInput): Promise<void> {
   try {
     await prisma.searchLog.create({
       data: {
-        userId: input.userId ?? null,
         query,
-        normalizedQuery: (input.normalizedQuery ?? normalizeSearchText(query)).slice(
-          0,
-          MAX_QUERY_LENGTH,
-        ),
+        normalizedQuery: normalizeSearchText(query).slice(0, MAX_QUERY_LENGTH),
         resultCount: Math.max(0, Math.trunc(Number(input.resultCount) || 0)),
         latencyMs: Math.max(0, Math.trunc(Number(input.latencyMs) || 0)),
         filters: hasFilters ? (filters as Prisma.InputJsonValue) : Prisma.DbNull,
@@ -99,7 +101,7 @@ export async function getSearchAnalytics(
         _count: { _all: true },
         _min: { query: true },
         orderBy: { _count: { normalizedQuery: "desc" } },
-        take: 10,
+        take: TOP_QUERY_LIMIT,
       }),
       prisma.searchLog.groupBy({
         by: ["normalizedQuery"],
@@ -107,7 +109,7 @@ export async function getSearchAnalytics(
         _count: { _all: true },
         _min: { query: true },
         orderBy: { _count: { normalizedQuery: "desc" } },
-        take: 10,
+        take: TOP_QUERY_LIMIT,
       }),
       prisma.$queryRaw<Array<{ date: Date | string; count: bigint | number; zero_count: bigint | number }>>(
         // Dato og intervall er parametrisert. Ingen brukertekst går inn i SQL-en.
@@ -131,11 +133,17 @@ export async function getSearchAnalytics(
     zeroResultRate: totalSearches > 0 ? zeroResultCount / totalSearches : 0,
     averageLatencyMs: Math.round(latency._avg.latencyMs ?? 0),
     topQueries: top.map((row) => ({
-      query: row._min?.query ?? row.normalizedQuery,
+      query: redactSearchQuery(row._min?.query ?? row.normalizedQuery).slice(
+        0,
+        MAX_QUERY_LENGTH,
+      ),
       count: row._count._all,
     })),
     topZeroResultQueries: topZero.map((row) => ({
-      query: row._min?.query ?? row.normalizedQuery,
+      query: redactSearchQuery(row._min?.query ?? row.normalizedQuery).slice(
+        0,
+        MAX_QUERY_LENGTH,
+      ),
       count: row._count._all,
     })),
     daily: dailyRows.map((row) => ({

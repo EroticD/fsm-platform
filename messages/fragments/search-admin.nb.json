@@ -7,7 +7,7 @@
     "period": "Tidsrom",
     "days": "{days} dager",
     "privacyTitle": "Bare for revisjon og administrator",
-    "privacyBody": "Søketermer kan inneholde kundedata, navn og annen personinformasjon. Analysen er derfor bare tilgjengelig for brukere med revisjons- eller administratorrettigheter. Rå bruker-ID-er vises ikke.",
+    "privacyBody": "Søketermer maskeres for e-post, telefonnummer, organisasjonsnummer og lange tallrekker før de lagres. Analysen er derfor bare tilgjengelig for brukere med revisjons- eller administratorrettigheter, og søkene kobles ikke til brukeren som søkte.",
     "stats": {
       "total": "Søk totalt",
       "zeroResults": "Nulltreff",

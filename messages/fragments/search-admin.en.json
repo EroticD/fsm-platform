@@ -7,7 +7,7 @@
     "period": "Period",
     "days": "{days} days",
     "privacyTitle": "Audit and administrator access only",
-    "privacyBody": "Search terms can contain customer data, names and other personal information. This analysis is therefore only available to users with audit or administrator permissions. Raw user IDs are not shown.",
+    "privacyBody": "Search terms are masked for email addresses, phone numbers, organisation numbers and long digit sequences before they are stored. This analysis is therefore only available to users with audit or administrator permissions, and searches are not linked to the user who searched.",
     "stats": {
       "total": "Total searches",
       "zeroResults": "Zero results",

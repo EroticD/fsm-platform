@@ -4,6 +4,7 @@ import { osloDayStart, parseDateOnly, toDateOnly, todayInOslo } from "@/lib/date
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { neutralizeUrls } from "@/lib/neutralize-urls";
 import {
   LIMITS,
   cleanMarkdown,
@@ -29,6 +30,9 @@ const BOOKING_IP_LIMIT = 10;
 const BOOKING_OPEN_LIMIT = 5;
 /** Like bestillinger innenfor dette vinduet regnes som samme hendelse. */
 const BOOKING_DUPLICATE_WINDOW_MS = 10 * 60_000;
+/** Endring av tid er en egen, avgrenset handling per kunde og bestilling. */
+const BOOKING_RESCHEDULE_WINDOW_MS = 15 * 60_000;
+const BOOKING_RESCHEDULE_LIMIT = 5;
 /** Kunden kan endre eller kansellere til denne grensen før ønsket start. */
 export const BOOKING_CHANGE_CUTOFF_HOURS = 24;
 /** Hvor langt fram i tid en bestilling kan gjelde. */
@@ -225,49 +229,67 @@ export async function createBooking(
     if (!ipLimit.allowed) return fail("rate_limited");
   }
 
-  // Samme tittel, beskrivelse og ønsket tid like etter forrige bestilling er
-  // nesten alltid et dobbeltklikk. Da returneres den eksisterende saken uten
-  // ny varsling eller e-post.
-  const duplicate = await prisma.workOrder.findFirst({
-    where: {
-      customerId,
-      title,
-      description,
-      deletedAt: null,
-      createdAt: { gte: new Date(Date.now() - BOOKING_DUPLICATE_WINDOW_MS) },
-      bookingRequest: {
-        is: {
-          requestedDate: schedule.data.requestedDate,
-          requestedFrom: schedule.data.requestedFrom,
-          requestedTo: schedule.data.requestedTo,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      bookingRequest: { select: { reference: true } },
-    },
-  });
-  if (duplicate) {
-    return ok({
-      id: duplicate.id,
-      reference: duplicate.bookingRequest?.reference ?? bookingReference(duplicate.id),
-      duplicate: true,
-    });
-  }
-
-  const openBookings = await prisma.workOrder.count({
-    where: { customerId, status: "OPEN", deletedAt: null },
-  });
-  if (openBookings >= BOOKING_OPEN_LIMIT) return fail("conflict");
-
   // Finnes ingen aktiv avdeling, kan bestillingen ikke opprettes.
   if (!departmentId) return fail("error");
 
-  let created: { id: string; reference: string };
+  // Duplikatsjekk, åpen-grense og opprettelse må skje under samme lås. Ellers
+  // kan to samtidige dobbeltklikk begge se «ingen duplikat» og begge opprette
+  // et oppdrag, og åpen-grensen kan telles før den andre har skrevet.
+  let outcome:
+    | { kind: "created"; id: string; reference: string }
+    | { kind: "duplicate"; id: string; reference: string }
+    | { kind: "conflict" };
   try {
-    created = await prisma.$transaction(async (tx) => {
+    outcome = await prisma.$transaction(async (tx) => {
+      // Låsen er per kunde og slippes automatisk ved commit/rollback.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:${customerId}`}))`;
+
+      // Samme tittel, beskrivelse og ønsket tid like etter forrige bestilling
+      // er nesten alltid et dobbeltklikk. Da returneres den eksisterende saken
+      // uten ny varsling eller e-post.
+      const duplicate = await tx.workOrder.findFirst({
+        where: {
+          customerId,
+          title,
+          description,
+          deletedAt: null,
+          createdAt: { gte: new Date(Date.now() - BOOKING_DUPLICATE_WINDOW_MS) },
+          bookingRequest: {
+            is: {
+              requestedDate: schedule.data.requestedDate,
+              requestedFrom: schedule.data.requestedFrom,
+              requestedTo: schedule.data.requestedTo,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          bookingRequest: { select: { reference: true } },
+        },
+      });
+      if (duplicate) {
+        return {
+          kind: "duplicate",
+          id: duplicate.id,
+          reference:
+            duplicate.bookingRequest?.reference ?? bookingReference(duplicate.id),
+        } as const;
+      }
+
+      // Grensen gjelder alle saker som ikke er avsluttet – ikke bare OPEN.
+      // Et bestilt oppdrag kan stå i PENDING/PLANNED uten å være ferdig.
+      const openBookings = await tx.workOrder.count({
+        where: {
+          customerId,
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          deletedAt: null,
+        },
+      });
+      if (openBookings >= BOOKING_OPEN_LIMIT) {
+        return { kind: "conflict" } as const;
+      }
+
       const workOrder = await tx.workOrder.create({
         data: {
           title,
@@ -325,7 +347,11 @@ export async function createBooking(
         },
       });
 
-      return { id: workOrder.id, reference: booking.reference };
+      return {
+        kind: "created",
+        id: workOrder.id,
+        reference: booking.reference,
+      } as const;
     });
   } catch (error) {
     // Transaksjonen ruller tilbake både oppdraget og revisjonsloggen.
@@ -338,6 +364,16 @@ export async function createBooking(
     return fail("error");
   }
 
+  if (outcome.kind === "conflict") return fail("conflict");
+  if (outcome.kind === "duplicate") {
+    return ok({
+      id: outcome.id,
+      reference: outcome.reference,
+      duplicate: true,
+    });
+  }
+  const created = { id: outcome.id, reference: outcome.reference };
+
   // Varselet legges i køen (in-app + e-post sendes av jobbworkeren), slik at
   // treg SMTP ikke blokkerer bestillingen. Bare kontoret i destinasjons-
   // avdelingen varsles.
@@ -346,7 +382,7 @@ export async function createBooking(
       created.id,
       "BOOKING",
       "Ny bestilling fra kundeportal",
-      `Kunden har booket «${title}» (${created.reference}). Ønsket tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
+      `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
       `/oppdrag/${created.id}`,
       `booking:${created.id}`,
     );
@@ -656,6 +692,15 @@ export async function rescheduleBooking(
   const booking = await ownBooking(actor, input.bookingId);
   if (!booking.ok) return booking;
 
+  // Endring av tid utløser varsler til kontoret. Begrens antallet per kunde og
+  // bestilling, slik at en gjentatt forespørsel ikke kan fylle varselkøen.
+  const limit = await allowRequestDb(
+    `booking-reschedule:${actor.id}:${booking.data.id}`,
+    BOOKING_RESCHEDULE_LIMIT,
+    BOOKING_RESCHEDULE_WINDOW_MS,
+  );
+  if (!limit.allowed) return fail("rate_limited");
+
   if (booking.data.workOrder.deletedAt) return fail("not_found");
   if (
     !canChangeBooking(
@@ -673,6 +718,23 @@ export async function rescheduleBooking(
 
   if (requestedStart(schedule.data).getTime() <= Date.now()) {
     return fail("invalid");
+  }
+
+  // Uendret tidsvindu er ikke en endring. Da skal verken historikk, varsel
+  // eller oppdragets plan røres.
+  const unchanged =
+    toDateOnly(booking.data.requestedDate) ===
+      toDateOnly(schedule.data.requestedDate) &&
+    booking.data.requestedFrom === schedule.data.requestedFrom &&
+    booking.data.requestedTo === schedule.data.requestedTo;
+  if (unchanged) {
+    return ok({
+      status: "rescheduled",
+      reference: booking.data.reference,
+      requestedDate: toDateOnly(schedule.data.requestedDate),
+      requestedFrom: schedule.data.requestedFrom,
+      requestedTo: schedule.data.requestedTo,
+    });
   }
 
   try {
@@ -734,7 +796,7 @@ export async function rescheduleBooking(
       "Kunde ba om ny tid",
       `Bestilling ${booking.data.reference}: ønsket ny tid ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
       `/oppdrag/${booking.data.workOrder.id}`,
-      `booking-reschedule:${booking.data.id}:${Date.now()}`,
+      `booking-reschedule:${booking.data.id}:${toDateOnly(schedule.data.requestedDate)}:${schedule.data.requestedFrom}:${schedule.data.requestedTo}`,
     );
   } catch (error) {
     console.error("Kunne ikke varsle om ny-tid-forespørsel:", error);
@@ -862,8 +924,8 @@ export async function requestContactUpdate(
       type: "CONTACT_UPDATE",
       title: "Kunde ber om oppdatert kontaktinformasjon",
       body:
-        message ||
-        `Kunden ${customer.name} ber om oppdatering av kontaktinformasjon.`,
+        neutralizeUrls(message) ||
+        `Kunden ${neutralizeUrls(customer.name)} ber om oppdatering av kontaktinformasjon.`,
       href: `/kunder/${customer.id}`,
       sourceLabel: `Kunde: ${customer.name}`,
       dedupeKey: `contact-update:${customer.id}:${toDateOnly(new Date())}:${user.id}`,

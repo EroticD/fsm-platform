@@ -37,6 +37,8 @@ type Actor = AccessUser | null;
 
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
 const SIGNATURE_DATA_URL = /^data:image\/(png|jpe?g|webp);base64,/i;
+/** Signaturer skal være ekte bilder – ikke PDF-er eller andre vedlegg. */
+const SIGNATURE_UPLOAD_MIME = /^image\/(png|jpe?g|webp)$/i;
 
 /** Kladden skal ikke kunne gjøre listespørringer og backups vilkårlig tunge. */
 const MAX_DRAFT_JSON_LENGTH = 1_000_000;
@@ -60,6 +62,11 @@ function acceptedSignature(value: unknown): string {
 /**
  * Lagrer en ny data-URL som fil, eller beholder en eksisterende opplastings-
  * adresse. Tomt felt betyr «behold signaturen som ligger der».
+ *
+ * En lagret `/uploads/...`-adresse godtas bare når den er nøyaktig samme
+ * signatur som rapporten allerede har, eller når den er en privat kladdesignatur
+ * eid av den som signerer. En vilkårlig `WORK_ORDER`-fil fra samme oppdrag er
+ * ikke en signatur: den kan være en annen rapports kundesignatur.
  */
 async function resolveSignature(
   value: unknown,
@@ -76,20 +83,46 @@ async function resolveSignature(
   if (!accepted) return fallback ?? null;
   if (accepted.startsWith("data:")) return storeDataImage(accepted, ctx);
 
-  // En allerede lagret URL må tilhøre dette oppdraget, eller være en privat
-  // opplasting fra samme bruker. Ellers kunne en klient aliaset inn en fil fra
-  // et annet oppdrag/kunde i en signert rapport.
+  // Samme verdi som rapporten allerede har: en opplåst rapport kan sendes inn
+  // på nytt uten at signaturen tegnes på nytt.
+  if (fallback && accepted === fallback) return accepted;
+
   const storedName = accepted.slice("/uploads/".length);
   const upload = await prisma.upload.findUnique({
     where: { storedName },
-    select: { ownerType: true, ownerId: true, uploadedById: true },
+    select: {
+      ownerType: true,
+      ownerId: true,
+      uploadedById: true,
+      mimeType: true,
+    },
   });
-  if (!upload) return fallback ?? null;
-
-  if (upload.ownerType === "WORK_ORDER" && upload.ownerId === ctx.ownerId) {
-    return accepted;
+  // Filen må finnes og være et bilde. Metadata alene er ikke nok.
+  if (!upload || !SIGNATURE_UPLOAD_MIME.test(upload.mimeType ?? "")) {
+    return fallback ?? null;
   }
-  if (upload.ownerType === "USER" && upload.uploadedById === ctx.uploadedById) {
+
+  // En signatur kan bare brukes én gang. Er verdien allerede lagret på en
+  // rapport – også i det motsatte signaturfeltet – avvises den. Samme verdi
+  // som denne rapporten allerede har, er håndtert som fallback over.
+  const usedByReport = await prisma.report.findFirst({
+    where: {
+      OR: [
+        { technicianSignatureUrl: accepted },
+        { customerSignatureUrl: accepted },
+      ],
+    },
+    select: { id: true },
+  });
+  if (usedByReport) return fallback ?? null;
+
+  // En privat kladdesignatur eies av brukeren. Først når den brukes i en
+  // signert rapport, tar oppdraget over eierskapet.
+  if (
+    upload.ownerType === "USER" &&
+    upload.ownerId === ctx.uploadedById &&
+    upload.uploadedById === ctx.uploadedById
+  ) {
     await prisma.upload.update({
       where: { storedName },
       data: {
@@ -505,14 +538,13 @@ function readAnswers(formData: FormData, fields: TemplateField[], key: string) {
 }
 
 /**
- * Fjerner bilde-URL-er som ikke tilhører dette oppdraget (eller er en privat
- * opplasting fra samme bruker). Uten dette kan en klient legge inn en
- * `/uploads/...`-adresse fra en annen kunde i et bildefelt, og få filen vist i
- * rapporten og PDF-en.
+ * Fjerner `/uploads/...`-adresser som ikke tilhører dette oppdraget (eller er
+ * en privat opplasting fra samme bruker) fra alle svarfelt – ikke bare
+ * `IMAGE`-felt. En tekstverdi som peker på en fil fra en annen kunde skal ikke
+ * kunne bli et vedlegg i rapporten eller PDF-en.
  */
 async function filterOwnedImageAnswers(
   unitRows: Array<{ answersJson: string }>,
-  fields: TemplateField[],
   ctx: {
     ownerId: string;
     departmentId: string;
@@ -520,33 +552,38 @@ async function filterOwnedImageAnswers(
     uploadedById: string;
   },
 ): Promise<void> {
-  // Bare faktiske bildefelt skal gjennom bilde-ACL. Tall, datoer, tekst og
-  // andre svar er vanlige strenger og må aldri tolkes som URL-er – det var
-  // årsaken til at gamle rapporter fikk «[]» i stedet for verdien.
-  const imageFieldIds = new Set(
-    fields.filter((field) => field.type === "IMAGE").map((field) => field.id),
-  );
-  if (imageFieldIds.size === 0) return;
+  const parsedRows = unitRows.map((row) => {
+    try {
+      return JSON.parse(row.answersJson) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  });
 
   const names = new Set<string>();
-  for (const row of unitRows) {
-    try {
-      const answers = JSON.parse(row.answersJson) as Record<string, unknown>;
-      for (const [key, value] of Object.entries(answers)) {
-        if (!imageFieldIds.has(key) || typeof value !== "string") continue;
-        for (const url of parseImageUrls(value)) {
-          if (url.startsWith("/uploads/")) {
-            names.add(url.slice("/uploads/".length));
-          }
+  for (const answers of parsedRows) {
+    if (!answers) continue;
+    for (const value of Object.values(answers)) {
+      if (typeof value !== "string") continue;
+      for (const url of parseImageUrls(value)) {
+        if (url.startsWith("/uploads/")) {
+          names.add(url.slice("/uploads/".length));
         }
       }
-    } catch {}
+    }
   }
   if (names.size === 0) return;
 
   const uploads = await prisma.upload.findMany({
     where: { storedName: { in: [...names] } },
-    select: { storedName: true, ownerType: true, ownerId: true, uploadedById: true },
+    select: {
+      storedName: true,
+      ownerType: true,
+      ownerId: true,
+      departmentId: true,
+      customerId: true,
+      uploadedById: true,
+    },
   });
   const byName = new Map(uploads.map((upload) => [upload.storedName, upload]));
 
@@ -555,11 +592,23 @@ async function filterOwnedImageAnswers(
     const upload = byName.get(name);
     if (!upload) continue;
 
-    if (upload.ownerType === "WORK_ORDER" && upload.ownerId === ctx.ownerId) {
+    // En oppdragsfil må tilhøre nøyaktig dette oppdraget, denne avdelingen og
+    // denne kunden. Eiertypen alene er ikke nok: to oppdrag kan dele eierform.
+    if (
+      upload.ownerType === "WORK_ORDER" &&
+      upload.ownerId === ctx.ownerId &&
+      upload.departmentId === ctx.departmentId &&
+      upload.customerId === ctx.customerId
+    ) {
       allowed.add(`/uploads/${name}`);
       continue;
     }
-    if (upload.ownerType === "USER" && upload.uploadedById === ctx.uploadedById) {
+    // Kladdesignaturer eies av brukeren og overtas av oppdraget ved innsending.
+    if (
+      upload.ownerType === "USER" &&
+      upload.ownerId === ctx.uploadedById &&
+      upload.uploadedById === ctx.uploadedById
+    ) {
       await prisma.upload.update({
         where: { storedName: name },
         data: {
@@ -573,22 +622,29 @@ async function filterOwnedImageAnswers(
     }
   }
 
-  for (const row of unitRows) {
-    try {
-      const answers = JSON.parse(row.answersJson) as Record<string, unknown>;
-      let changed = false;
-      for (const [key, value] of Object.entries(answers)) {
-        if (!imageFieldIds.has(key) || typeof value !== "string") continue;
-        const urls = parseImageUrls(value);
-        if (urls.length === 0) continue;
-        const filtered = urls.filter((url) => allowed.has(url));
-        if (filtered.length !== urls.length) {
-          answers[key] = JSON.stringify(filtered);
-          changed = true;
-        }
+  for (const [index, answers] of parsedRows.entries()) {
+    if (!answers) continue;
+    let changed = false;
+    for (const [key, value] of Object.entries(answers)) {
+      if (typeof value !== "string") continue;
+      const urls = parseImageUrls(value);
+      if (!urls.some((url) => url.startsWith("/uploads/"))) continue;
+
+      // Bare opplastings-URL-er er underlagt ACL-en. Vanlige tekstverdier i en
+      // JSON-liste skal bevares som de er.
+      const filtered = urls.filter(
+        (url) => !url.startsWith("/uploads/") || allowed.has(url),
+      );
+      if (filtered.length === urls.length) continue;
+
+      if (value.trim().startsWith("[")) {
+        answers[key] = JSON.stringify(filtered);
+      } else {
+        answers[key] = filtered[0] ?? "";
       }
-      if (changed) row.answersJson = JSON.stringify(answers);
-    } catch {}
+      changed = true;
+    }
+    if (changed) unitRows[index].answersJson = JSON.stringify(answers);
   }
 }
 
@@ -1001,7 +1057,7 @@ export async function submitReport(
 
   // Bildefeltene kan inneholde URL-er fra andre oppdrag/kunder. Fjern dem før
   // rapporten lagres, slik at PDF-en ikke lekker filer brukeren ikke eier.
-  await filterOwnedImageAnswers(unitRows, fields, {
+  await filterOwnedImageAnswers(unitRows, {
     ownerId: workOrderId,
     departmentId: workOrder.departmentId,
     customerId: workOrder.customerId,
@@ -1555,7 +1611,10 @@ export async function getReportPdfForViewer(
       departmentId: true,
       status: true,
       customer: { select: { deletedAt: true } },
-      reports: { where: { deletedAt: null }, select: { id: true } },
+      reports: {
+        where: { deletedAt: null },
+        select: { id: true, isLocked: true },
+      },
     },
   });
 
@@ -1591,7 +1650,17 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 404, message: "Fant ikke rapporten" };
   }
 
-  // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
+  // Kunder skal bare kunne hente ferdig signerte rapporter. En opplåst
+  // rapport er under retting og vises ikke i portalen; en kjent URL skal
+  // heller ikke omgå den regelen. Ansatte med reports.view ser den fortsatt.
+  if (viewer.role === "CUSTOMER") {
+    const visibleReports = reportId
+      ? workOrder.reports.filter((report) => report.id === reportId)
+      : workOrder.reports;
+    if (visibleReports.some((report) => !report.isLocked)) {
+      return { ok: false, status: 404, message: "Fant ikke rapporten" };
+    }
+  }  // Bilder ligger som /uploads/... og må gjøres absolutte for PDF-motoren.
   // Bare konfigurert adresse brukes – aldri Host/X-Forwarded-Host, som en
   // klient kan sette for å styre PDF-motoren mot en annen origin.
   const baseUrl = process.env.APP_URL ?? process.env.NEXTAUTH_URL;
