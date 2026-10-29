@@ -3,16 +3,16 @@
     "list": {
       "views": {
         "alle": {
-          "label": "All",
-          "description": "All work orders in the system."
+          "label": "Active",
+          "description": "Active work orders – completed and cancelled ones are in the history."
         },
         "apne": {
-          "label": "Open",
-          "description": "Work orders that are not completed or cancelled."
+          "label": "New",
+          "description": "Work orders that have not been planned or started yet."
         },
         "venter": {
-          "label": "Waiting to start",
-          "description": "Open work orders that have not been started yet."
+          "label": "Not started",
+          "description": "Open, waiting and planned work orders that have not been started."
         },
         "pagaaende": {
           "label": "In progress",
@@ -60,7 +60,10 @@
       "overdue": "⚠️ Overdue",
       "previous": "← Previous",
       "next": "Next →",
-      "page": "Page {page} of {pages}"
+      "page": "Page {page} of {pages}",
+      "sortLabel": "Sort",
+      "sortUrgency": "Most urgent first",
+      "sortNewest": "Newest first"
     },
     "new": {
       "title": "➕ Create new work order",
@@ -129,13 +132,20 @@
       "notFoundTitle": "The work order does not exist",
       "goToDashboard": "Go to the dashboard",
       "saveTags": "💾 Save tags",
+      "editTags": "Edit tags",
+      "noDate": "No date selected",
+      "noAddress": "No address registered",
+      "assign": "Assign",
+      "moveDate": "Move date",
+      "completeWorkOrder": "Complete",
       "department": "🏷️ Department: {name}",
       "noCustomer": "No customer",
       "internalOrder": "Internal work order",
       "orphanReport": "Report without template",
       "editWorkOrder": "✏️ Edit work order",
-      "deleteConfirm": "Delete the work order “{title}”? All reports, comments and attachments for the work order will be deleted. This cannot be undone.",
-      "deleteWorkOrder": "🗑️ Delete work order",
+      "deleteConfirm": "Move the work order “{title}” to the trash? Reports, comments and attachments are kept, and an administrator can restore the work order.",
+      "deleteWorkOrder": "🗑️ Move to trash",
+      "moveToTrash": "Move to trash",
       "back": "← Back",
       "descriptionTitle": "Work description",
       "noDescription": "No description added.",
@@ -219,10 +229,14 @@
       "unlockReason": "Reason for unlocking",
       "unlockReasonPlaceholder": "Describe what needs to be corrected",
       "unlockReasonRequired": "You must provide a reason for unlocking.",
-      "deletedOrders": "Deleted work orders",
+      "deletedOrders": "Trash",
       "restore": "Restore",
-      "noDeletedOrders": "No deleted work orders.",
-      "deletedAt": "Deleted {date}",
+      "noDeletedOrders": "The trash is empty.",
+      "deletedAt": "Moved to trash {date}",
+      "deletedInfoTitle": "Trash and restore",
+      "deletedInfo": "Deleted work orders are soft-deleted. Reports, comments and attachments are kept, and an administrator can restore the work order here.",
+      "deletedRetention": "Work orders without reports may be removed automatically after the retention period (365 days by default). Work orders with reports are kept until they are deleted manually. Legal hold stops all automatic deletion.",
+      "restored": "The work order has been restored.",
       "cloneWorkOrder": "📋 Clone work order",
       "completedLocked": "This work order is completed and locked. You can add comments or clone it into a new work order.",
       "reopenReason": "Reason for reopening / status change",
@@ -673,7 +687,25 @@
       "duplicateOrderNumber": "⛔ The order number is already in use in this department. Use a different number.",
       "customerChangeBlocked": "⛔ The customer cannot be changed because the work order has reports or a booking.",
       "tooManyTags": "Too many tags.",
-      "tooManyRows": "Too many selected rows."
+      "tooManyRows": "Too many selected rows.",
+      "forbidden": "⛔ You do not have permission for this action.",
+      "notFound": "⛔ The work order does not exist or has already been deleted."
+    },
+    "feedback": {
+      "deleted": "The work order has been moved to the trash.",
+      "restored": "The work order has been restored.",
+      "statusUpdated": "The status has been updated.",
+      "technicianAssigned": "The technician has been assigned.",
+      "technicianRemoved": "The technician has been removed from the work order.",
+      "contactSelected": "The contact person has been updated.",
+      "contactAdded": "The contact person has been added.",
+      "templateAdded": "The checklist has been added.",
+      "tagsSaved": "The tags have been saved.",
+      "reportLockUpdated": "The report lock has been updated.",
+      "legalHoldUpdated": "The legal hold has been updated.",
+      "reportLegalHoldUpdated": "The report legal hold has been updated.",
+      "workOrderUpdated": "The work order has been updated.",
+      "cloned": "The work order has been cloned."
     },
     "reportsPage": {
       "title": "Service reports",

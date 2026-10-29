@@ -23,5 +23,5 @@ export async function restoreWorkOrder(formData: FormData) {
 
   revalidatePath("/oppdrag");
   revalidatePath("/oppdrag/slettede");
-  redirect("/oppdrag/slettede");
+  redirect("/oppdrag/slettede?ok=gjenopprettet");
 }

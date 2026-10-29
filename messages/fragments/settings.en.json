@@ -2,7 +2,9 @@
   "settings": {
     "title": "Settings",
     "subtitle": "Manage the system, branding and forms.",
+    "subtitleReadOnly": "View reports and manage your own account.",
     "backToDashboard": "Back to Dashboard",
+    "tabsHint": "Swipe sideways to see all tabs.",
     "tabs": {
       "branding": "Branding",
       "employees": "Employees & Roles",
@@ -125,6 +127,9 @@
       "descriptionPlaceholder": "What the role is used for",
       "permissions": "Permissions",
       "keyInfo": "The role gets a fixed key based on its name. The key is used internally and does not change if you later change the display name.",
+      "selectedPermissions": "Selected permissions",
+      "noPermissions": "No permissions selected",
+      "requiresPermission": "Requires {permission}",
       "create": "Create role",
       "system": "System",
       "stats": "{users} users • {permissions} permissions",

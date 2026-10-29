@@ -19,6 +19,7 @@ import {
 
 type CalendarViewParam = {
   view: string;
+  visParam: string;
   active: CalendarTabKey;
   titleKey: string;
   subtitleKey: string;
@@ -28,23 +29,30 @@ type CalendarViewParam = {
 const CALENDAR_VIEWS: Record<string, CalendarViewParam> = {
   maned: {
     view: "dayGridMonth",
+    visParam: "maned",
     active: "month",
     titleKey: "calendar.month.title",
     subtitleKey: "calendar.month.subtitle",
   },
   uke: {
     view: "dayGridWeek",
+    visParam: "uke",
     active: "week",
     titleKey: "calendar.week.title",
     subtitleKey: "calendar.week.subtitle",
   },
   "2uker": {
     view: "biweekly",
+    visParam: "2uker",
     active: "biweekly",
     titleKey: "calendar.biweekly.title",
     subtitleKey: "calendar.biweekly.subtitle",
   },
 };
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -54,17 +62,31 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vis?: string | string[] }>;
+  searchParams: Promise<{
+    vis?: string | string[];
+    dato?: string | string[];
+    tekniker?: string | string[];
+    status?: string | string[];
+    ufordelt?: string | string[];
+  }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const params = await searchParams;
-  const vis = Array.isArray(params.vis) ? params.vis[0] : params.vis;
+  const vis = firstParam(params.vis);
   const calendarView = vis ? CALENDAR_VIEWS[vis] : undefined;
   if (calendarView) {
-    return <CalendarViewPage {...calendarView} />;
+    return (
+      <CalendarViewPage
+        {...calendarView}
+        date={firstParam(params.dato)}
+        technician={firstParam(params.tekniker)}
+        status={firstParam(params.status)}
+        unassigned={firstParam(params.ufordelt)}
+      />
+    );
   }
 
   const t = await getTranslations("common");

@@ -78,6 +78,15 @@ export default async function SettingsPage({
   const canStats = hasPermission(user, "reports.view");
   const canUseSettings =
     canBranding || canMap || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
+  // Lesetilgang til statistikk/aktivitetslogg er ikke det samme som å kunne
+  // administrere systemet. Tekstene skal ikke love mer enn rettighetene.
+  const canManageSettings =
+    canBranding ||
+    canMap ||
+    canTemplates ||
+    canDocuments ||
+    isAdmin ||
+    hasPermission(user, "users.manage");
 
   // Vent på searchParams (kreves i nyere Next.js) og sett standardfane.
   // Sikkerhetsfanen er åpen for alle innloggede, slik at også montører kan
@@ -147,7 +156,11 @@ export default async function SettingsPage({
       <div className="max-w-4xl mx-auto space-y-6">
         <PageHeader
           title={t("settings.title")}
-          subtitle={t("settings.subtitle")}
+          subtitle={
+            canManageSettings
+              ? t("settings.subtitle")
+              : t("settings.subtitleReadOnly")
+          }
           icon="⚙️"
           actions={
             <Link href="/" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">

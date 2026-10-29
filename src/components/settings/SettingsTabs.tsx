@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type SettingsTabsProps = {
   currentTab: string;
@@ -20,7 +23,7 @@ const linkClass = (active: boolean) =>
       : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
   }`;
 
-export default async function SettingsTabs({
+export default function SettingsTabs({
   currentTab,
   canBranding,
   canMap,
@@ -31,67 +34,160 @@ export default async function SettingsTabs({
   canStats,
   isAdmin,
 }: SettingsTabsProps) {
-  const t = await getTranslations("common");
+  const t = useTranslations("common");
+  const navRef = useRef<HTMLElement>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
+  const [isScrollable, setIsScrollable] = useState(false);
+
+  // Avgjør om fanelisten faktisk er lengre enn plassen. Hintet om å sveipe
+  // skal bare vises når det finnes skjulte faner.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const update = () =>
+      setIsScrollable(nav.scrollWidth > nav.clientWidth + 1);
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(nav);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // På mobil ligger fanene i en vannrett liste. Når brukeren kommer inn via
+  // en dyp lenke (f.eks. ?tab=roller), skal den aktive fanen rulles synlig
+  // uten at siden hopper vertikalt. På desktop wrapper listen i stedet.
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = activeRef.current;
+    if (!nav || !active || !isScrollable) return;
+
+    const targetLeft =
+      active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
+    nav.scrollTo({ left: Math.max(0, targetLeft), behavior: "auto" });
+  }, [currentTab, isScrollable]);
 
   return (
-    <nav
-      aria-label={t("settings.title")}
-      data-settings-tabs
-      className="-mx-1 flex gap-x-1 overflow-x-auto overscroll-x-contain border-b border-gray-200 px-1 pb-px [scrollbar-width:thin]"
-    >
-      {canBranding && (
-        <Link href="?tab=branding" className={linkClass(currentTab === "branding")} aria-current={currentTab === "branding" ? "page" : undefined}>
-          🎨 {t("settings.tabs.branding")}
+    <div>
+      <nav
+        ref={navRef}
+        aria-label={t("settings.title")}
+        data-settings-tabs
+        className="-mx-1 flex flex-wrap gap-x-1 border-b border-gray-200 px-1 pb-px max-md:flex-nowrap max-md:overflow-x-auto max-md:overscroll-x-contain max-md:[scrollbar-width:thin]"
+      >
+        {canBranding && (
+          <Link
+            href="?tab=branding"
+            ref={currentTab === "branding" ? activeRef : undefined}
+            className={linkClass(currentTab === "branding")}
+            aria-current={currentTab === "branding" ? "page" : undefined}
+          >
+            🎨 {t("settings.tabs.branding")}
+          </Link>
+        )}
+        {canMap && (
+          <Link
+            href="?tab=kart"
+            ref={currentTab === "kart" ? activeRef : undefined}
+            className={linkClass(currentTab === "kart")}
+            aria-current={currentTab === "kart" ? "page" : undefined}
+          >
+            🗺️ {t("settings.tabs.map")}
+          </Link>
+        )}
+        {canUsers && (
+          <Link
+            href="?tab=ansatte"
+            ref={currentTab === "ansatte" ? activeRef : undefined}
+            className={linkClass(currentTab === "ansatte")}
+            aria-current={currentTab === "ansatte" ? "page" : undefined}
+          >
+            👥 {t("settings.tabs.employees")}
+          </Link>
+        )}
+        {canTemplates && (
+          <Link
+            href="?tab=maler"
+            ref={currentTab === "maler" ? activeRef : undefined}
+            className={linkClass(currentTab === "maler")}
+            aria-current={currentTab === "maler" ? "page" : undefined}
+          >
+            📋 {t("settings.tabs.templates")}
+          </Link>
+        )}
+        {(canTemplates || canDocuments) && (
+          <Link
+            href="?tab=tags"
+            ref={currentTab === "tags" ? activeRef : undefined}
+            className={linkClass(currentTab === "tags")}
+            aria-current={currentTab === "tags" ? "page" : undefined}
+          >
+            🏷️ {t("settings.tabs.tags")}
+          </Link>
+        )}
+        {canAudit && (
+          <Link
+            href="?tab=auditlog"
+            ref={currentTab === "auditlog" ? activeRef : undefined}
+            className={linkClass(currentTab === "auditlog")}
+            aria-current={currentTab === "auditlog" ? "page" : undefined}
+          >
+            📋 {t("settings.tabs.auditLog")}
+          </Link>
+        )}
+        {canAudit && (
+          <Link href="/sok/analyse" className={linkClass(false)}>
+            📈 {t("searchAdmin.linkLabel")}
+          </Link>
+        )}
+        {canStats && (
+          <Link
+            href="?tab=statistikk"
+            ref={currentTab === "statistikk" ? activeRef : undefined}
+            className={linkClass(currentTab === "statistikk")}
+            aria-current={currentTab === "statistikk" ? "page" : undefined}
+          >
+            📊 {t("settings.tabs.statistics")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=roller"
+            ref={currentTab === "roller" ? activeRef : undefined}
+            className={linkClass(currentTab === "roller")}
+            aria-current={currentTab === "roller" ? "page" : undefined}
+          >
+            🔐 {t("settings.tabs.roles")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=avdelinger"
+            ref={currentTab === "avdelinger" ? activeRef : undefined}
+            className={linkClass(currentTab === "avdelinger")}
+            aria-current={currentTab === "avdelinger" ? "page" : undefined}
+          >
+            🏷️ {t("settings.tabs.departments")}
+          </Link>
+        )}
+        <Link
+          href="?tab=sikkerhet"
+          ref={currentTab === "sikkerhet" ? activeRef : undefined}
+          className={linkClass(currentTab === "sikkerhet")}
+          aria-current={currentTab === "sikkerhet" ? "page" : undefined}
+        >
+          🔐 {t("settings.tabs.security")}
         </Link>
+      </nav>
+      {isScrollable && (
+        <p className="mt-1.5 text-xs text-gray-600 md:hidden">
+          {t("settings.tabsHint")}
+        </p>
       )}
-      {canMap && (
-        <Link href="?tab=kart" className={linkClass(currentTab === "kart")} aria-current={currentTab === "kart" ? "page" : undefined}>
-          🗺️ {t("settings.tabs.map")}
-        </Link>
-      )}
-      {canUsers && (
-        <Link href="?tab=ansatte" className={linkClass(currentTab === "ansatte")} aria-current={currentTab === "ansatte" ? "page" : undefined}>
-          👥 {t("settings.tabs.employees")}
-        </Link>
-      )}
-      {canTemplates && (
-        <Link href="?tab=maler" className={linkClass(currentTab === "maler")} aria-current={currentTab === "maler" ? "page" : undefined}>
-          📋 {t("settings.tabs.templates")}
-        </Link>
-      )}
-      {(canTemplates || canDocuments) && (
-        <Link href="?tab=tags" className={linkClass(currentTab === "tags")} aria-current={currentTab === "tags" ? "page" : undefined}>
-          🏷️ {t("settings.tabs.tags")}
-        </Link>
-      )}
-      {canAudit && (
-        <Link href="?tab=auditlog" className={linkClass(currentTab === "auditlog")} aria-current={currentTab === "auditlog" ? "page" : undefined}>
-          📋 {t("settings.tabs.auditLog")}
-        </Link>
-      )}
-      {canAudit && (
-        <Link href="/sok/analyse" className={linkClass(false)}>
-          📈 {t("searchAdmin.linkLabel")}
-        </Link>
-      )}
-      {canStats && (
-        <Link href="?tab=statistikk" className={linkClass(currentTab === "statistikk")} aria-current={currentTab === "statistikk" ? "page" : undefined}>
-          📊 {t("settings.tabs.statistics")}
-        </Link>
-      )}
-      {isAdmin && (
-        <Link href="?tab=roller" className={linkClass(currentTab === "roller")} aria-current={currentTab === "roller" ? "page" : undefined}>
-          🔐 {t("settings.tabs.roles")}
-        </Link>
-      )}
-      {isAdmin && (
-        <Link href="?tab=avdelinger" className={linkClass(currentTab === "avdelinger")} aria-current={currentTab === "avdelinger" ? "page" : undefined}>
-          🏷️ {t("settings.tabs.departments")}
-        </Link>
-      )}
-      <Link href="?tab=sikkerhet" className={linkClass(currentTab === "sikkerhet")} aria-current={currentTab === "sikkerhet" ? "page" : undefined}>
-        🔐 {t("settings.tabs.security")}
-      </Link>
-    </nav>
+    </div>
   );
 }

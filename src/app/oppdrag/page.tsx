@@ -7,7 +7,10 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
+import ErrorBanner from "@/components/ErrorBanner";
+import CustomerToast from "@/components/customer/CustomerToast";
 import Pagination, { paginationLabels } from "@/components/Pagination";
+import OrderViewTabs from "./ViewTabs";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
@@ -30,10 +33,41 @@ import { searchWorkOrderIds } from "@/lib/search-sql";
 // ---------------------------------------------------------------------------
 
 // Samme definisjoner som dashbordet bruker, slik at tallene stemmer.
-const ACTIVE_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING", "IN_PROGRESS"];
+// «Nye» er oppdrag som ennå ikke er planlagt eller satt i gang. Den er et
+// bevisst snevrere utvalg enn «Aktive», som også tar med påbegynte oppdrag.
+const NEW_STATUSES: WorkStatus[] = ["OPEN", "PENDING"];
 const AWAITING_STATUSES: WorkStatus[] = ["OPEN", "PENDING", "PLANNED", "WAITING"];
 const CLOSED_STATUSES: WorkStatus[] = ["COMPLETED", "CANCELLED"];
 const PAGE_SIZE = 20;
+
+type SortKey = "urgency" | "newest";
+
+const SORT_OPTIONS: Array<{ key: SortKey; labelKey: string }> = [
+  { key: "urgency", labelKey: "orders.list.sortUrgency" },
+  { key: "newest", labelKey: "orders.list.sortNewest" },
+];
+
+const LIST_FEEDBACK_MESSAGE_KEYS: Record<string, string> = {
+  slettet: "orders.feedback.deleted",
+  gjenopprettet: "orders.feedback.restored",
+};
+
+const LIST_ERROR_MESSAGE_KEYS: Record<string, string> = {
+  "ugyldig-data": "orders.errors.invalidData",
+  "ikke-tilgang": "orders.errors.forbidden",
+  "ikke-funnet": "orders.errors.notFound",
+  "workorder-locked": "orders.errors.workOrderLocked",
+  "legal-hold": "orders.errors.legalHold",
+  ukjent: "orders.errors.generic",
+};
+
+function isSortKey(value: string | undefined): value is SortKey {
+  return value === "urgency" || value === "newest";
+}
+
+function defaultSortFor(view: ViewKey): SortKey {
+  return view === "fullforte" || view === "kansellerte" ? "newest" : "urgency";
+}
 
 // Samme datogrenser som dashbordet: rene kalenderdatoer i Oslo, ikke
 // serverens lokale tidssone. Ellers kan «i dag» bli feil rundt midnatt.
@@ -52,7 +86,7 @@ const VIEWS = [
   {
     key: "apne",
     labelKey: "orders.list.views.apne.label",
-    icon: "🔄",
+    icon: "🆕",
     descriptionKey: "orders.list.views.apne.description",
   },
   {
@@ -112,7 +146,8 @@ function whereFor(
 ): Prisma.WorkOrderWhereInput {
   switch (view) {
     case "apne":
-      return { status: { in: ACTIVE_STATUSES } };
+      // «Nye» er oppdrag som ikke er planlagt eller påbegynt ennå.
+      return { status: { in: NEW_STATUSES } };
     case "venter":
       return { status: { in: AWAITING_STATUSES } };
     case "pagaaende":
@@ -144,10 +179,21 @@ function whereFor(
   }
 }
 
-/** Forfalte og dagens oppdrag leses nedenfra og opp, resten nyeste først. */
-function orderByFor(view: ViewKey): Prisma.WorkOrderOrderByWithRelationInput[] {
-  if (view === "forfalte" || view === "idag") return [{ scheduledFor: "asc" }];
-  return [{ scheduledFor: { sort: "desc", nulls: "last" } }];
+/**
+ * Standardrekkefølgen er «haster først»: forfalte og dagens oppdrag før
+ * framtidige, og udaterte helt til slutt. Historikkfanene viser nyeste først.
+ * Brukeren kan velge «Nyeste først» for de aktive fanene også.
+ */
+function orderByFor(
+  sort: SortKey,
+): Prisma.WorkOrderOrderByWithRelationInput[] {
+  if (sort === "newest") {
+    return [{ createdAt: "desc" }];
+  }
+  return [
+    { scheduledFor: { sort: "asc", nulls: "last" } },
+    { createdAt: "desc" },
+  ];
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -158,7 +204,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function WorkOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vis?: string; q?: string; side?: string; tag?: string }>;
+  searchParams: Promise<{
+    vis?: string;
+    q?: string;
+    side?: string;
+    tag?: string;
+    sort?: string;
+    error?: string;
+    ok?: string;
+  }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -171,14 +225,19 @@ export default async function WorkOrdersPage({
   const office = user.role === "ADMIN" || user.role === "OFFICE";
   const canCreate = hasPermission(user, "workorders.create");
 
-  const { vis, q, side, tag } = await searchParams;
+  const { vis, q, side, tag, sort: rawSort, error, ok } = await searchParams;
   const requestedView: ViewKey = vis && isViewKey(vis) ? vis : "alle";
   // Kansellerte oppdrag er historikk for kontoret; montørene skal ikke se dem.
   const view: ViewKey =
     !office && requestedView === "kansellerte" ? "alle" : requestedView;
+  const sort: SortKey = isSortKey(rawSort) ? rawSort : defaultSortFor(view);
   const search = q?.trim() || "";
   const tagFilter = tag?.trim() || "";
   const requestedPage = Math.max(1, parseInt(side?.toString() || "1", 10) || 1);
+  const feedbackKey = ok ? LIST_FEEDBACK_MESSAGE_KEYS[ok] : undefined;
+  const errorKey = error
+    ? (LIST_ERROR_MESSAGE_KEYS[error] ?? "orders.errors.generic")
+    : undefined;
 
   const dates = getDateContext();
 
@@ -233,7 +292,7 @@ export default async function WorkOrdersPage({
 
   const orders = await prisma.workOrder.findMany({
     where: activeWhere,
-    orderBy: orderByFor(view),
+    orderBy: orderByFor(sort),
     take: PAGE_SIZE,
     skip: (page - 1) * PAGE_SIZE,
     include: {
@@ -253,7 +312,7 @@ export default async function WorkOrdersPage({
     alle: statusGroups
       .filter((group) => !CLOSED_STATUSES.includes(group.status))
       .reduce((sum, group) => sum + group._count._all, 0),
-    apne: sumStatuses(ACTIVE_STATUSES),
+    apne: sumStatuses(NEW_STATUSES),
     venter: sumStatuses(AWAITING_STATUSES),
     pagaaende: countByStatus("IN_PROGRESS"),
     idag: todayCount,
@@ -273,6 +332,27 @@ export default async function WorkOrdersPage({
     if (key !== "alle") params.set("vis", key);
     if (search) params.set("q", search);
     if (includeTag && tagFilter) params.set("tag", tagFilter);
+    // Bevar et eksplisitt sorteringsvalg når brukeren bytter visning.
+    if (isSortKey(rawSort)) params.set("sort", rawSort);
+    const qs = params.toString();
+    return `/oppdrag${qs ? `?${qs}` : ""}`;
+  };
+
+  const sortLinkFor = (key: SortKey) => {
+    const params = new URLSearchParams();
+    if (view !== "alle") params.set("vis", view);
+    if (search) params.set("q", search);
+    if (tagFilter) params.set("tag", tagFilter);
+    if (key !== defaultSortFor(view)) params.set("sort", key);
+    const qs = params.toString();
+    return `/oppdrag${qs ? `?${qs}` : ""}`;
+  };
+
+  /** Nullstiller søk og tag, men beholder visning og et eksplisitt sorteringsvalg. */
+  const resetLinkFor = () => {
+    const params = new URLSearchParams();
+    if (view !== "alle") params.set("vis", view);
+    if (isSortKey(rawSort)) params.set("sort", rawSort);
     const qs = params.toString();
     return `/oppdrag${qs ? `?${qs}` : ""}`;
   };
@@ -320,51 +400,31 @@ export default async function WorkOrdersPage({
           </div>
         </div>
 
+        {feedbackKey ? (
+          <CustomerToast message={t(feedbackKey)} tone="success" />
+        ) : null}
+        <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
+
         {/* FILTRE */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-          <div className="relative">
-            <div
-              role="region"
-              aria-label={t("orders.list.viewsLabel")}
-              tabIndex={0}
-              className="-mx-1 overflow-x-auto px-1 pb-2 pr-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 [scrollbar-width:thin]"
-            >
-              <div className="flex gap-2 w-max">
-                {availableViews.map((v) => {
-                  const active = v.key === view;
-                  return (
-                    <Link
-                      key={v.key}
-                      href={linkFor(v.key)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
-                        active
-                          ? "bg-blue-700 border-blue-700 text-white shadow-sm"
-                          : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
-                      }`}
-                    >
-                      <span className="leading-none" aria-hidden>{v.icon}</span>
-                      <span>{t(v.labelKey)}</span>
-                      <span
-                        className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${
-                          active ? "bg-white text-blue-800 ring-1 ring-inset ring-blue-200" : "bg-white border border-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {viewCounts[v.key]}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent"
-            />
-          </div>
+          <OrderViewTabs
+            ariaLabel={t("orders.list.viewsLabel")}
+            activeKey={view}
+            tabs={availableViews.map((v) => ({
+              key: v.key,
+              label: t(v.labelKey),
+              icon: v.icon,
+              count: viewCounts[v.key],
+              href: linkFor(v.key),
+            }))}
+          />
 
           <form method="GET" action="/oppdrag" className="flex flex-wrap gap-2">
             <input type="hidden" name="vis" value={view} />
             {tagFilter ? <input type="hidden" name="tag" value={tagFilter} /> : null}
+            {isSortKey(rawSort) ? (
+              <input type="hidden" name="sort" value={rawSort} />
+            ) : null}
             <input
               type="search"
               name="q"
@@ -381,13 +441,36 @@ export default async function WorkOrdersPage({
             </button>
             {search || tagFilter ? (
               <Link
-                href={linkFor(view, false)}
+                href={resetLinkFor()}
                 className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
               >
                 {t("orders.list.reset")}
               </Link>
             ) : null}
           </form>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-black uppercase tracking-wider text-gray-500">
+              {t("orders.list.sortLabel")}
+            </span>
+            {SORT_OPTIONS.map((option) => {
+              const active = sort === option.key;
+              return (
+                <Link
+                  key={option.key}
+                  href={sortLinkFor(option.key)}
+                  aria-current={active ? "true" : undefined}
+                  className={`rounded-full border-2 px-3 py-1.5 font-bold transition ${
+                    active
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                  }`}
+                >
+                  {t(option.labelKey)}
+                </Link>
+              );
+            })}
+          </div>
 
           {tagFilter ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -419,7 +502,7 @@ export default async function WorkOrdersPage({
             action={
               search || tagFilter ? (
                 <Link
-                  href={linkFor(view, false)}
+                  href={resetLinkFor()}
                   className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
                 >
                   {t("orders.list.reset")}

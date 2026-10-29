@@ -34,7 +34,8 @@ import {
   updateStatus,
 } from "./actions";
 import StatusBadge from "@/components/StatusBadge";
-import { formatDateLocalized } from "@/lib/dates";
+import CustomerToast from "@/components/customer/CustomerToast";
+import { formatDateLocalized, formatDateRangeLocalized, parseDateOnly, todayInOslo } from "@/lib/dates";
 import {
   reportAcknowledgement,
   reportDisplayName,
@@ -63,6 +64,23 @@ type ReportUnitView = {
   status: string;
   answersJson: string;
   comment: string | null;
+};
+
+/** Handlingskoder action-wrappers redirecter tilbake med etter vellykket lagring. */
+const DETAIL_FEEDBACK_MESSAGE_KEYS: Record<string, string> = {
+  tags: "orders.feedback.tagsSaved",
+  status: "orders.feedback.statusUpdated",
+  montor: "orders.feedback.technicianAssigned",
+  "montor-fjernet": "orders.feedback.technicianRemoved",
+  kontakt: "orders.feedback.contactSelected",
+  "kontakt-lagt-til": "orders.feedback.contactAdded",
+  sjekkliste: "orders.feedback.templateAdded",
+  "rapport-las": "orders.feedback.reportLockUpdated",
+  bevaring: "orders.feedback.legalHoldUpdated",
+  "rapport-bevaring": "orders.feedback.reportLegalHoldUpdated",
+  klonet: "orders.feedback.cloned",
+  oppdatert: "orders.feedback.workOrderUpdated",
+  dato: "orders.feedback.workOrderUpdated",
 };
 
 async function ReportContent({ report, template }: { report: any; template: any }) {
@@ -345,11 +363,11 @@ export default async function AdminWorkOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; reportSubmitted?: string }>;
+  searchParams: Promise<{ error?: string; reportSubmitted?: string; ok?: string }>;
 }) {
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
-  const { error, reportSubmitted } = await searchParams;
+  const { error, reportSubmitted, ok } = await searchParams;
   const t = await getTranslations("common");
   const locale = await getLocale();
 
@@ -490,153 +508,316 @@ export default async function AdminWorkOrderPage({
   });
   const availableTechnicians = staffUsers.filter(u => !workOrder.technicians.some((tech) => tech.id === u.id));
 
+  const scheduledLabel = formatDateRangeLocalized(
+    workOrder.scheduledFor,
+    workOrder.scheduledTo,
+    locale,
+  );
+  const scheduledEnd = workOrder.scheduledTo ?? workOrder.scheduledFor;
+  const startOfToday = parseDateOnly(todayInOslo()) ?? new Date();
+  const isOverdue = Boolean(
+    scheduledEnd && !isClosed && scheduledEnd < startOfToday,
+  );
+  const hasAddress = Boolean(
+    workOrder.address ?? workOrder.customer?.address,
+  );
+  const feedbackKey = ok ? DETAIL_FEEDBACK_MESSAGE_KEYS[ok] : undefined;
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
-        {/* HEADER MED REDIGERINGS-KNAPP */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-xl md:text-3xl font-black text-gray-900">{workOrder.title}</h1>
-              <StatusBadge status={workOrder.status} />
-              {workOrder.legalHold && (
-                <span
-                  className="bg-red-100 border-2 border-red-300 text-red-900 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide"
-                  title={t("orders.detail.legalHoldHint")}
-                >
-                  🔒 {t("orders.detail.legalHoldBadge")}
-                </span>
-              )}
-              {!workOrder.legalHold &&
-                workOrder.reports.some((report) => report.legalHold) && (
+        {/* HEADER: status, dato, kunde/adresse/kontakt, montører og primærhandlinger */}
+        <header className="space-y-3 border-b border-gray-300 pb-4">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-xl font-black text-gray-900 md:text-3xl">{workOrder.title}</h1>
+                <StatusBadge status={workOrder.status} />
+                {workOrder.legalHold && (
                   <span
-                    className="bg-red-50 border-2 border-red-300 text-red-900 px-3 py-1 rounded-full text-xs font-bold"
-                    title={t("orders.detail.legalHoldReportHint")}
+                    className="rounded-full border-2 border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900"
+                    title={t("orders.detail.legalHoldHint")}
                   >
-                    🔒 {t("orders.detail.legalHoldReportBadge")}
+                    🔒 {t("orders.detail.legalHoldBadge")}
                   </span>
                 )}
-            </div>
-            {/* Tags */}
-            {canEdit ? (
-              <form action={setTags} className="mb-3 space-y-2">
-                <input type="hidden" name="workOrderId" value={workOrder.id} />
-                <TagSelector
-                  allTags={allTags}
-                  selectedTagNames={workOrder.tags.map((tag: any) => tag.name)}
-                />
-                <button type="submit" className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm">
-                  {t("orders.detail.saveTags")}
-                </button>
-              </form>
-            ) : (
-              workOrder.tags && workOrder.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {workOrder.tags.map((tag: any) => (
+                {!workOrder.legalHold &&
+                  workOrder.reports.some((report) => report.legalHold) && (
+                    <span
+                      className="rounded-full border-2 border-red-300 bg-red-50 px-3 py-1 text-xs font-bold text-red-900"
+                      title={t("orders.detail.legalHoldReportHint")}
+                    >
+                      🔒 {t("orders.detail.legalHoldReportBadge")}
+                    </span>
+                  )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 ${
+                    isOverdue
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : "border-gray-200 bg-white text-gray-700"
+                  }`}
+                >
+                  📅 {scheduledLabel || t("orders.detail.noDate")}
+                </span>
+                {isOverdue && (
+                  <span className="rounded-full border-2 border-red-200 bg-red-50 px-3 py-1 text-red-800">
+                    ⚠️ {t("orders.list.overdue")}
+                  </span>
+                )}
+                {workOrder.orderNumber && (
+                  <span className="rounded-full border-2 border-blue-100 bg-blue-50 px-3 py-1 text-blue-900">
+                    {t("orders.detail.orderNumber")}: {workOrder.orderNumber}
+                  </span>
+                )}
+                <span className="rounded-full border-2 border-gray-200 bg-gray-50 px-3 py-1 text-gray-600">
+                  {t("orders.detail.department", { name: workOrder.department.name })}
+                </span>
+              </div>
+
+              <div className="space-y-1 text-sm text-gray-700">
+                <p>
+                  🏢{" "}
+                  {workOrder.customer ? (
+                    <Link
+                      href={`/kunder/${workOrder.customerId}`}
+                      className="font-bold text-blue-700 hover:underline"
+                    >
+                      {workOrder.customer.name}
+                    </Link>
+                  ) : (
+                    <span className="font-bold text-gray-800">
+                      {t("orders.detail.internalOrder")}
+                    </span>
+                  )}
+                </p>
+                <p>
+                  📍{" "}
+                  {hasAddress ? (
+                    <GoogleMapsLink
+                      address={workOrder.address ?? workOrder.customer?.address}
+                      postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
+                      city={workOrder.city ?? workOrder.customer?.city}
+                    />
+                  ) : (
+                    <span className="text-gray-500 italic">{t("orders.detail.noAddress")}</span>
+                  )}
+                </p>
+                <p>
+                  👤{" "}
+                  {workOrder.contact ? (
+                    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-bold text-gray-900">{workOrder.contact.name}</span>
+                      {workOrder.contact.phone && (
+                        <a
+                          href={`tel:${workOrder.contact.phone}`}
+                          className="font-bold text-blue-700 hover:underline"
+                        >
+                          📞 {workOrder.contact.phone}
+                        </a>
+                      )}
+                      {workOrder.contact.email && (
+                        <a
+                          href={`mailto:${workOrder.contact.email}`}
+                          className="font-bold text-blue-700 hover:underline"
+                        >
+                          ✉️ {workOrder.contact.email}
+                        </a>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 italic">{t("orders.detail.noContact")}</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                  {t("orders.detail.techniciansTitle")}
+                </span>
+                {workOrder.technicians.length > 0 ? (
+                  workOrder.technicians.map((tech) => (
+                    <a
+                      key={tech.id}
+                      href="#tildel"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-green-900 hover:border-green-400"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden />
+                      {tech.name}
+                    </a>
+                  ))
+                ) : (
+                  <a
+                    href="#tildel"
+                    className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-900 hover:border-amber-400"
+                  >
+                    ⚠️ {t("orders.detail.noTechnicians")}
+                  </a>
+                )}
+              </div>
+
+              {workOrder.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {workOrder.tags.map((tag) => (
                     <span
                       key={tag.id}
-                      className="text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm"
+                      className="rounded-full px-2.5 py-1 text-xs font-bold text-white shadow-sm"
                       suppressHydrationWarning
-                      style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
+                      style={{
+                        backgroundColor: tag.color || "#3b82f6",
+                        color: readableTextColor(tag.color || "#3b82f6"),
+                      }}
                     >
                       🏷️ {tag.name}
                     </span>
                   ))}
                 </div>
-              )
-            )}
-            <p className="text-gray-600 font-medium">🏢{" "}
-              {workOrder.customer ? (
-                <Link href={`/kunder/${workOrder.customerId}`} className="hover:underline font-bold text-blue-700">{workOrder.customer.name}</Link>
-              ) : (
-                <span className="font-bold text-gray-800">{t("orders.detail.internalOrder")}</span>
               )}
-            </p>
-            <p className="text-xs text-gray-500 font-bold mt-1">{t("orders.detail.department", { name: workOrder.department.name })}</p>
-            {workOrder.orderNumber && (
-              <p className="text-xs text-gray-600 font-bold mt-1">
-                {t("orders.detail.orderNumber")}: {workOrder.orderNumber}
-              </p>
-            )}
-          </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {canEdit && (
-              <Link
-                href={`/oppdrag/${workOrder.id}/rediger`}
-                className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm flex items-center gap-2"
-              >
-                {t("orders.detail.editWorkOrder")}
-              </Link>
-            )}
-            {canCreate && isClosed && (
-              <form action={cloneWorkOrder}>
-                <input type="hidden" name="workOrderId" value={workOrder.id} />
-                <button
-                  type="submit"
-                  className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm"
+              {canEdit && (
+                <details className="rounded-xl border-2 border-gray-200 bg-gray-50">
+                  <summary className="cursor-pointer select-none px-3 py-2 text-xs font-black text-blue-800">
+                    🏷️ {t("orders.detail.editTags")} ({workOrder.tags.length})
+                  </summary>
+                  <form action={setTags} className="space-y-2 border-t-2 border-gray-100 p-3">
+                    <input type="hidden" name="workOrderId" value={workOrder.id} />
+                    {/* TagSelector viser egne valgknapper. Den separate «valgte tags»-
+                        forhåndsvisningen skjules her for å unngå dobbelt visning. */}
+                    <div className="[&>div>div.border-t]:hidden">
+                      <TagSelector
+                        allTags={allTags}
+                        selectedTagNames={workOrder.tags.map((tag) => tag.name)}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800"
+                    >
+                      {t("orders.detail.saveTags")}
+                    </button>
+                  </form>
+                </details>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-start gap-2 lg:max-w-md lg:justify-end">
+              {canAssign && (
+                <a
+                  href="#tildel"
+                  className="rounded-xl border-2 border-blue-200 bg-white px-4 py-2.5 text-sm font-bold text-blue-800 shadow-sm transition hover:bg-blue-50"
                 >
-                  {t("orders.detail.cloneWorkOrder")}
-                </button>
-              </form>
-            )}
-            {isAdmin && (
-              <form action={setWorkOrderLegalHold}>
-                <input type="hidden" name="workOrderId" value={workOrder.id} />
-                <input
-                  type="hidden"
-                  name="hold"
-                  value={workOrder.legalHold ? "false" : "true"}
-                />
-                {workOrder.legalHold && (
+                  👷 {t("orders.detail.assign")}
+                </a>
+              )}
+              {canEdit && (
+                <>
+                  <Link
+                    href={`/oppdrag/${workOrder.id}/rediger`}
+                    className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800"
+                  >
+                    {t("orders.detail.editWorkOrder")}
+                  </Link>
+                  <Link
+                    href={`/oppdrag/${workOrder.id}/rediger#office-edit-scheduled-for`}
+                    className="rounded-xl border-2 border-blue-200 bg-white px-4 py-2.5 text-sm font-bold text-blue-800 shadow-sm transition hover:bg-blue-50"
+                  >
+                    📅 {t("orders.detail.moveDate")}
+                  </Link>
+                </>
+              )}
+              {canUpdate && !isClosed && statusOptions.includes("COMPLETED") && (
+                <ConfirmSubmitForm
+                  action={updateStatus}
+                  confirmMessage={t("orders.detail.completeConfirm")}
+                >
+                  <input type="hidden" name="workOrderId" value={workOrder.id} />
+                  <input type="hidden" name="status" value="COMPLETED" />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-green-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-800"
+                  >
+                    ✅ {t("orders.detail.completeWorkOrder")}
+                  </button>
+                </ConfirmSubmitForm>
+              )}
+              {canCreate && isClosed && (
+                <form action={cloneWorkOrder}>
+                  <input type="hidden" name="workOrderId" value={workOrder.id} />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
+                  >
+                    {t("orders.detail.cloneWorkOrder")}
+                  </button>
+                </form>
+              )}
+              {isAdmin && (
+                <form action={setWorkOrderLegalHold} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="workOrderId" value={workOrder.id} />
                   <input
-                    type="text"
-                    name="reason"
-                    required
-                    maxLength={1000}
-                    placeholder={t("orders.detail.legalHoldReleaseReason")}
-                    aria-label={t("orders.detail.legalHoldReleaseReason")}
-                    title={t("orders.detail.legalHoldReleaseReasonHint")}
-                    className="min-w-[12rem] rounded-xl border-2 border-red-300 bg-white px-3 py-2 text-xs font-medium text-gray-900 outline-none focus:border-red-500"
+                    type="hidden"
+                    name="hold"
+                    value={workOrder.legalHold ? "false" : "true"}
                   />
-                )}
-                <button
-                  type="submit"
-                  title={t("orders.detail.legalHoldHint")}
-                  className={
-                    workOrder.legalHold
-                      ? "bg-red-100 border-2 border-red-300 text-red-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-200 transition shadow-sm"
-                      : "bg-white border-2 border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-50 transition shadow-sm"
-                  }
+                  {workOrder.legalHold && (
+                    <input
+                      type="text"
+                      name="reason"
+                      required
+                      maxLength={1000}
+                      placeholder={t("orders.detail.legalHoldReleaseReason")}
+                      aria-label={t("orders.detail.legalHoldReleaseReason")}
+                      title={t("orders.detail.legalHoldReleaseReasonHint")}
+                      className="min-w-[12rem] rounded-xl border-2 border-red-300 bg-white px-3 py-2 text-xs font-medium text-gray-900 outline-none focus:border-red-500"
+                    />
+                  )}
+                  <button
+                    type="submit"
+                    title={t("orders.detail.legalHoldHint")}
+                    className={
+                      workOrder.legalHold
+                        ? "rounded-xl border-2 border-red-300 bg-red-100 px-4 py-2.5 text-sm font-bold text-red-900 shadow-sm transition hover:bg-red-200"
+                        : "rounded-xl border-2 border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-900 shadow-sm transition hover:bg-amber-50"
+                    }
+                  >
+                    {workOrder.legalHold
+                      ? t("orders.detail.legalHoldDisable")
+                      : t("orders.detail.legalHoldEnable")}
+                  </button>
+                </form>
+              )}
+              {canDeleteWorkOrder && (
+                <ConfirmSubmitForm
+                  action={deleteWorkOrder}
+                  confirmMessage={t("orders.detail.deleteConfirm", { title: workOrder.title })}
+                  confirmLabel={t("orders.detail.moveToTrash")}
+                  danger
                 >
-                  {workOrder.legalHold
-                    ? t("orders.detail.legalHoldDisable")
-                    : t("orders.detail.legalHoldEnable")}
-                </button>
-              </form>
-            )}
-            {canDeleteWorkOrder && (
-              <ConfirmSubmitForm
-                action={deleteWorkOrder}
-                confirmMessage={t("orders.detail.deleteConfirm", { title: workOrder.title })}
-                confirmLabel={t("delete")}
-                danger
+                  <input type="hidden" name="workOrderId" value={workOrder.id} />
+                  <button
+                    type="submit"
+                    className="rounded-xl border-2 border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-700 shadow-sm transition hover:bg-red-50"
+                  >
+                    {t("orders.detail.deleteWorkOrder")}
+                  </button>
+                </ConfirmSubmitForm>
+              )}
+              <Link
+                href="/"
+                className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-100"
               >
-                <input type="hidden" name="workOrderId" value={workOrder.id} />
-                <button
-                  type="submit"
-                  className="bg-white border-2 border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition shadow-sm"
-                >
-                  {t("orders.detail.deleteWorkOrder")}
-                </button>
-              </ConfirmSubmitForm>
-            )}
-            <Link href="/" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm">
-              {t("orders.detail.back")}
-            </Link>
+                {t("orders.detail.back")}
+              </Link>
+            </div>
           </div>
-        </div>
+        </header>
+
+        {feedbackKey ? (
+          <CustomerToast message={t(feedbackKey)} tone="success" />
+        ) : null}
 
         {error === "locked" && (
           <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 rounded-2xl px-5 py-4 text-sm font-bold">
@@ -674,7 +855,252 @@ export default async function AdminWorkOrderPage({
         <div className="space-y-6">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6 lg:col-start-3 lg:row-start-1">
+
+              <div id="status" className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.changeStatus")}</h2>
+                {isClosed && (
+                  <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+                    {t("orders.detail.closedLocked")}
+                  </p>
+                )}
+                {canUpdate && (!isClosed || isAdmin) ? (
+                  <>
+                    {/*
+                      Uten en egen klientkomponent kan vi ikke lese select-verdien
+                      i React. CSS-en bytter derfor mellom en deaktivert knapp
+                      (gjeldende status valgt) og den aktive knappen (ny status
+                      valgt). Dagens status er dessuten disabled og kan ikke
+                      velges på nytt.
+                    */}
+                    <style>{`
+                      .status-form .status-submit-ready { display: none; }
+                      .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-disabled { display: none; }
+                      .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-ready { display: inline-block; }
+                    `}</style>
+                    <ConfirmSubmitForm
+                      action={updateStatus}
+                      confirmMessage={t("orders.detail.completeConfirm")}
+                      confirmWhenField="status"
+                      confirmWhenValue="COMPLETED"
+                      className="status-form flex flex-col gap-3"
+                    >
+                      <input type="hidden" name="workOrderId" value={workOrder.id} />
+                      <select
+                        name="status"
+                        defaultValue={workOrder.status}
+                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
+                      >
+                        <option value={workOrder.status} disabled>
+                          {statusLabels[workOrder.status]} ({t("orders.detail.currentStatus")})
+                        </option>
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {statusLabels[status]}
+                          </option>
+                        ))}
+                      </select>
+                      {isAdmin && isClosed && (
+                        <label className="text-xs font-bold text-gray-600">
+                          {t("orders.detail.reopenReason")}
+                          <textarea
+                            name="reason"
+                            rows={2}
+                            maxLength={1000}
+                            required={isClosed}
+                            placeholder={t("orders.detail.reopenReasonPlaceholder")}
+                            className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
+                          />
+                        </label>
+                      )}
+                      <SubmitButton
+                        disabled
+                        pendingLabel={t("orders.detail.updatingStatus")}
+                        className="status-submit-disabled w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
+                      >
+                        {t("orders.detail.updateStatus")}
+                      </SubmitButton>
+                      <SubmitButton
+                        disabled={statusOptions.length === 0}
+                        pendingLabel={t("orders.detail.updatingStatus")}
+                        className="status-submit-ready w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
+                      >
+                        {t("orders.detail.updateStatus")}
+                      </SubmitButton>
+                    </ConfirmSubmitForm>
+                    {canCancelNow && (
+                      <ConfirmSubmitForm
+                        action={updateStatus}
+                        confirmMessage={t("orders.detail.cancelConfirm")}
+                        confirmWhenField="status"
+                        confirmWhenValue="CANCELLED"
+                        danger
+                        className="mt-3 flex flex-col gap-2"
+                      >
+                        <input type="hidden" name="workOrderId" value={workOrder.id} />
+                        <input type="hidden" name="status" value="CANCELLED" />
+                        {isAdmin && isClosed && (
+                          <label className="text-xs font-bold text-gray-600">
+                            {t("orders.detail.cancelReason")}
+                            <textarea
+                              name="reason"
+                              rows={2}
+                              maxLength={1000}
+                              required
+                              placeholder={t("orders.detail.cancelReasonPlaceholder")}
+                              className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
+                            />
+                          </label>
+                        )}
+                        <SubmitButton
+                          pendingLabel={t("orders.detail.updatingStatus")}
+                          className="w-full border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition shadow-sm whitespace-nowrap"
+                        >
+                          {t("orders.detail.cancelWorkOrder")}
+                        </SubmitButton>
+                      </ConfirmSubmitForm>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">
+                    {t("orders.detail.noStatusPermission")}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.locationTitle")}</h2>
+                <div className="space-y-2 text-gray-800 mb-4">
+                  <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.internalOrder")}</p>
+                  <p><strong>{t("orders.detail.address")}</strong>
+                    <GoogleMapsLink
+                      address={workOrder.address ?? workOrder.customer?.address}
+                      postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
+                      city={workOrder.city ?? workOrder.customer?.city}
+                    />
+                  </p>
+                </div>
+
+                {workOrder.contact ? (
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border-2 border-gray-200">
+                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1">{t("orders.detail.contact")}</p>
+                    <p className="font-black text-gray-900">{workOrder.contact.name}</p>
+                    <p className="text-gray-600">📞 <a href={`tel:${workOrder.contact.phone}`} className="text-blue-700 font-bold hover:underline">{workOrder.contact.phone || "-"}</a></p>
+                    <p className="text-gray-600">✉️ <a href={`mailto:${workOrder.contact.email}`} className="text-blue-700 font-bold hover:underline">{workOrder.contact.email || "-"}</a></p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">{t("orders.detail.noContact")}</p>
+                )}
+
+                {workOrder.creatorName && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    <strong>{t("orders.detail.createdBy")}</strong> {workOrder.creatorName}
+                  </p>
+                )}
+
+                {canEdit && canManageCustomers && workOrder.customer && (
+                  <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
+                    <form action={setContact} className="flex flex-col sm:flex-row gap-2">
+                      <input type="hidden" name="workOrderId" value={workOrder.id} />
+                      <select
+                        name="contactId"
+                        defaultValue={workOrder.contactId || ""}
+                        className="flex-1 min-w-0 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                      >
+                        <option value="">{t("orders.edit.noContact")}</option>
+                        {workOrder.customer.contacts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{c.role ? ` (${c.role})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap flex-shrink-0">
+                        {t("orders.detail.saveContact")}
+                      </button>
+                    </form>
+
+                    <details className="rounded-xl border-2 border-gray-200 bg-gray-50">
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-black text-blue-800 select-none">
+                        {t("orders.detail.newContact")}
+                      </summary>
+                      <form action={addContactToCustomer} className="space-y-2 p-3 pt-1">
+                        <input type="hidden" name="workOrderId" value={workOrder.id} />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input required name="name" placeholder={t("orders.detail.namePlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                          <input name="role" placeholder={t("orders.detail.rolePlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                          <input type="email" name="email" placeholder={t("orders.detail.emailPlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                          <input type="tel" name="phone" placeholder={t("orders.detail.phonePlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+                        </div>
+                        <button type="submit" className="w-full bg-gray-900 text-white py-2 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm">
+                          {t("orders.detail.addAndSelect")}
+                        </button>
+                      </form>
+                    </details>
+                  </div>
+                )}
+              </div>
+
+              <div id="tildel" className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
+                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.techniciansTitle")}</h2>
+                {workOrder.technicians.length > 0 ? (
+                  <div className="space-y-2">
+                    {workOrder.technicians.map(tech => (
+                      <div key={tech.id} className="bg-gray-50 p-2.5 rounded-xl font-bold text-gray-900 flex items-center gap-2 border-2 border-gray-200 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                        <span className="flex-1 min-w-0 truncate">{tech.name}</span>
+                        {canAssign && (
+                          <form action={unassignTechnician} className="flex-shrink-0">
+                            <input type="hidden" name="workOrderId" value={workOrder.id} />
+                            <input type="hidden" name="technicianId" value={tech.id} />
+                            <button type="submit" className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
+                              {t("orders.detail.remove")}
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-red-600 font-bold">{t("orders.detail.noTechnicians")}</p>
+                )}
+
+                {canAssign && availableTechnicians.length > 0 && (
+                  <form action={assignTechnician} className="flex flex-col sm:flex-row gap-2 mt-4 border-t-2 border-gray-100 pt-4">
+                    <input type="hidden" name="workOrderId" value={workOrder.id} />
+                    <select
+                      name="technicianId"
+                      required
+                      defaultValue=""
+                      className="flex-1 min-w-0 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
+                    >
+                      <option value="" disabled>{t("orders.detail.selectTechnician")}</option>
+                      {availableTechnicians.map((tech) => (
+                        <option key={tech.id} value={tech.id}>
+                          {tech.name} ({tech.role === 'ADMIN' ? t("orders.detail.roleAdmin") : tech.role === 'OFFICE' ? t("orders.detail.roleOffice") : t("orders.detail.roleTechnician")})
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap flex-shrink-0">
+                      {t("orders.detail.addTechnician")}
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              <WorkOrderAttachments
+                workOrderId={workOrderId}
+                attachments={workOrder.attachments.map((a) => ({
+                  id: a.id,
+                  fileName: a.fileName,
+                  dataUrl: a.dataUrl,
+                }))}
+                canUpload={canModify}
+                canDelete={isAdmin && !isClosed}
+              />
+
+            </div>
+
+            <div className="space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
                 <h2 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">{t("orders.detail.descriptionTitle")}</h2>
@@ -1000,265 +1426,22 @@ export default async function AdminWorkOrderPage({
                   )}
                 </div>
 
-              {/* Kommentarer */}
-              <CommentSection
-                entityType="workOrder"
-                entityId={workOrderId}
-                existingComments={workOrder.workComments?.map(c => ({
-                  id: c.id,
-                  content: c.content,
-                  authorName: c.authorName,
-                  createdAt: c.createdAt.toISOString(),
-                })) || []}
-                currentUserName={user?.name || null}
-                canWrite={canUpdate}
-              />
-
-            </div>
-
-            <div className="space-y-6">
-
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.changeStatus")}</h2>
-                {isClosed && (
-                  <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
-                    {t("orders.detail.closedLocked")}
-                  </p>
-                )}
-                {canUpdate && (!isClosed || isAdmin) ? (
-                  <>
-                    {/*
-                      Uten en egen klientkomponent kan vi ikke lese select-verdien
-                      i React. CSS-en bytter derfor mellom en deaktivert knapp
-                      (gjeldende status valgt) og den aktive knappen (ny status
-                      valgt). Dagens status er dessuten disabled og kan ikke
-                      velges på nytt.
-                    */}
-                    <style>{`
-                      .status-form .status-submit-ready { display: none; }
-                      .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-disabled { display: none; }
-                      .status-form:has(select[name="status"] option:checked:not([value="${workOrder.status}"])) .status-submit-ready { display: inline-block; }
-                    `}</style>
-                    <ConfirmSubmitForm
-                      action={updateStatus}
-                      confirmMessage={t("orders.detail.completeConfirm")}
-                      confirmWhenField="status"
-                      confirmWhenValue="COMPLETED"
-                      className="status-form flex flex-col gap-3"
-                    >
-                      <input type="hidden" name="workOrderId" value={workOrder.id} />
-                      <select
-                        name="status"
-                        defaultValue={workOrder.status}
-                        className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-gray-50 outline-none shadow-sm"
-                      >
-                        <option value={workOrder.status} disabled>
-                          {statusLabels[workOrder.status]} ({t("orders.detail.currentStatus")})
-                        </option>
-                        {statusOptions.map((status) => (
-                          <option key={status} value={status}>
-                            {statusLabels[status]}
-                          </option>
-                        ))}
-                      </select>
-                      {isAdmin && isClosed && (
-                        <label className="text-xs font-bold text-gray-600">
-                          {t("orders.detail.reopenReason")}
-                          <textarea
-                            name="reason"
-                            rows={2}
-                            maxLength={1000}
-                            required={isClosed}
-                            placeholder={t("orders.detail.reopenReasonPlaceholder")}
-                            className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
-                          />
-                        </label>
-                      )}
-                      <SubmitButton
-                        disabled
-                        pendingLabel={t("orders.detail.updatingStatus")}
-                        className="status-submit-disabled w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
-                      >
-                        {t("orders.detail.updateStatus")}
-                      </SubmitButton>
-                      <SubmitButton
-                        disabled={statusOptions.length === 0}
-                        pendingLabel={t("orders.detail.updatingStatus")}
-                        className="status-submit-ready w-full bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm whitespace-nowrap"
-                      >
-                        {t("orders.detail.updateStatus")}
-                      </SubmitButton>
-                    </ConfirmSubmitForm>
-                    {canCancelNow && (
-                      <ConfirmSubmitForm
-                        action={updateStatus}
-                        confirmMessage={t("orders.detail.cancelConfirm")}
-                        confirmWhenField="status"
-                        confirmWhenValue="CANCELLED"
-                        danger
-                        className="mt-3 flex flex-col gap-2"
-                      >
-                        <input type="hidden" name="workOrderId" value={workOrder.id} />
-                        <input type="hidden" name="status" value="CANCELLED" />
-                        {isAdmin && isClosed && (
-                          <label className="text-xs font-bold text-gray-600">
-                            {t("orders.detail.cancelReason")}
-                            <textarea
-                              name="reason"
-                              rows={2}
-                              maxLength={1000}
-                              required
-                              placeholder={t("orders.detail.cancelReasonPlaceholder")}
-                              className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-600"
-                            />
-                          </label>
-                        )}
-                        <SubmitButton
-                          pendingLabel={t("orders.detail.updatingStatus")}
-                          className="w-full border-2 border-red-200 bg-white text-red-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 transition shadow-sm whitespace-nowrap"
-                        >
-                          {t("orders.detail.cancelWorkOrder")}
-                        </SubmitButton>
-                      </ConfirmSubmitForm>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">
-                    {t("orders.detail.noStatusPermission")}
-                  </p>
-                )}
+              {/* Kommentarer ligger etter status/montører i DOM og tabulatorrekkefølge,
+                  men fortsatt under hovedkolonnen visuelt på desktop. */}
+              <div>
+                <CommentSection
+                  entityType="workOrder"
+                  entityId={workOrderId}
+                  existingComments={workOrder.workComments?.map(c => ({
+                    id: c.id,
+                    content: c.content,
+                    authorName: c.authorName,
+                    createdAt: c.createdAt.toISOString(),
+                  })) || []}
+                  currentUserName={user?.name || null}
+                  canWrite={canUpdate}
+                />
               </div>
-
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
-                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.locationTitle")}</h2>
-                <div className="space-y-2 text-gray-800 mb-4">
-                  <p><strong>{t("orders.detail.company")}</strong> {workOrder.customer?.name || t("orders.detail.internalOrder")}</p>
-                  <p><strong>{t("orders.detail.address")}</strong>
-                    <GoogleMapsLink
-                      address={workOrder.address ?? workOrder.customer?.address}
-                      postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
-                      city={workOrder.city ?? workOrder.customer?.city}
-                    />
-                  </p>
-                </div>
-
-                {workOrder.contact ? (
-                  <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border-2 border-gray-200">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1">{t("orders.detail.contact")}</p>
-                    <p className="font-black text-gray-900">{workOrder.contact.name}</p>
-                    <p className="text-gray-600">📞 <a href={`tel:${workOrder.contact.phone}`} className="text-blue-700 font-bold hover:underline">{workOrder.contact.phone || "-"}</a></p>
-                    <p className="text-gray-600">✉️ <a href={`mailto:${workOrder.contact.email}`} className="text-blue-700 font-bold hover:underline">{workOrder.contact.email || "-"}</a></p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500 italic">{t("orders.detail.noContact")}</p>
-                )}
-
-                {workOrder.creatorName && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    <strong>{t("orders.detail.createdBy")}</strong> {workOrder.creatorName}
-                  </p>
-                )}
-
-                {canEdit && canManageCustomers && workOrder.customer && (
-                  <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
-                    <form action={setContact} className="flex flex-col sm:flex-row gap-2">
-                      <input type="hidden" name="workOrderId" value={workOrder.id} />
-                      <select
-                        name="contactId"
-                        defaultValue={workOrder.contactId || ""}
-                        className="flex-1 min-w-0 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-                      >
-                        <option value="">{t("orders.edit.noContact")}</option>
-                        {workOrder.customer.contacts.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}{c.role ? ` (${c.role})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap flex-shrink-0">
-                        {t("orders.detail.saveContact")}
-                      </button>
-                    </form>
-
-                    <details className="rounded-xl border-2 border-gray-200 bg-gray-50">
-                      <summary className="cursor-pointer px-3 py-2 text-xs font-black text-blue-800 select-none">
-                        {t("orders.detail.newContact")}
-                      </summary>
-                      <form action={addContactToCustomer} className="space-y-2 p-3 pt-1">
-                        <input type="hidden" name="workOrderId" value={workOrder.id} />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <input required name="name" placeholder={t("orders.detail.namePlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                          <input name="role" placeholder={t("orders.detail.rolePlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                          <input type="email" name="email" placeholder={t("orders.detail.emailPlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                          <input type="tel" name="phone" placeholder={t("orders.detail.phonePlaceholder")} className="border-2 border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
-                        </div>
-                        <button type="submit" className="w-full bg-gray-900 text-white py-2 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-sm">
-                          {t("orders.detail.addAndSelect")}
-                        </button>
-                      </form>
-                    </details>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 text-sm">
-                <h2 className="font-black text-gray-900 mb-3 border-b pb-2">{t("orders.detail.techniciansTitle")}</h2>
-                {workOrder.technicians.length > 0 ? (
-                  <div className="space-y-2">
-                    {workOrder.technicians.map(tech => (
-                      <div key={tech.id} className="bg-gray-50 p-2.5 rounded-xl font-bold text-gray-900 flex items-center gap-2 border-2 border-gray-200 min-w-0">
-                        <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
-                        <span className="flex-1 min-w-0 truncate">{tech.name}</span>
-                        {canAssign && (
-                          <form action={unassignTechnician} className="flex-shrink-0">
-                            <input type="hidden" name="workOrderId" value={workOrder.id} />
-                            <input type="hidden" name="technicianId" value={tech.id} />
-                            <button type="submit" className="text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-200 transition whitespace-nowrap">
-                              {t("orders.detail.remove")}
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-red-600 font-bold">{t("orders.detail.noTechnicians")}</p>
-                )}
-
-                {canAssign && availableTechnicians.length > 0 && (
-                  <form action={assignTechnician} className="flex flex-col sm:flex-row gap-2 mt-4 border-t-2 border-gray-100 pt-4">
-                    <input type="hidden" name="workOrderId" value={workOrder.id} />
-                    <select
-                      name="technicianId"
-                      required
-                      defaultValue=""
-                      className="flex-1 min-w-0 border-2 border-gray-300 p-2.5 rounded-xl text-sm font-bold text-gray-900 bg-white outline-none focus:border-blue-700"
-                    >
-                      <option value="" disabled>{t("orders.detail.selectTechnician")}</option>
-                      {availableTechnicians.map((tech) => (
-                        <option key={tech.id} value={tech.id}>
-                          {tech.name} ({tech.role === 'ADMIN' ? t("orders.detail.roleAdmin") : tech.role === 'OFFICE' ? t("orders.detail.roleOffice") : t("orders.detail.roleTechnician")})
-                        </option>
-                      ))}
-                    </select>
-                    <button type="submit" className="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap flex-shrink-0">
-                      {t("orders.detail.addTechnician")}
-                    </button>
-                  </form>
-                )}
-              </div>
-
-              <WorkOrderAttachments
-                workOrderId={workOrderId}
-                attachments={workOrder.attachments.map((a) => ({
-                  id: a.id,
-                  fileName: a.fileName,
-                  dataUrl: a.dataUrl,
-                }))}
-                canUpload={canModify}
-                canDelete={isAdmin && !isClosed}
-              />
-
             </div>
           </div>
 

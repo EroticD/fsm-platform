@@ -4,19 +4,36 @@ import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
+import ErrorBanner from "@/components/ErrorBanner";
 import { restoreWorkOrder } from "./actions";
+
+const DELETED_ERROR_MESSAGE_KEYS: Record<string, string> = {
+  "ugyldig-data": "orders.errors.invalidData",
+  "ikke-tilgang": "orders.errors.forbidden",
+  "ikke-funnet": "orders.errors.notFound",
+  ukjent: "orders.errors.generic",
+};
 
 /**
  * Gjenoppretting av mykt slettede oppdrag. Siden er administrator-only og
  * viser bare rader som fortsatt er innenfor bevaringsperioden.
  */
-export default async function DeletedWorkOrdersPage() {
+export default async function DeletedWorkOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (user.role !== "ADMIN") redirect("/oppdrag");
 
+  const { error, ok } = await searchParams;
   const t = await getTranslations("common");
   const locale = await getLocale();
+  const errorKey = error
+    ? (DELETED_ERROR_MESSAGE_KEYS[error] ?? "orders.errors.generic")
+    : undefined;
+  const restored = ok === "gjenopprettet";
 
   const orders = await prisma.workOrder.findMany({
     where: { deletedAt: { not: null } },
@@ -44,6 +61,24 @@ export default async function DeletedWorkOrdersPage() {
           >
             {t("orders.list.backToDashboard")}
           </Link>
+        </div>
+
+        <ErrorBanner message={errorKey ? t(errorKey) : undefined} />
+
+        {restored && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-2xl border-2 border-green-200 bg-green-50 px-5 py-4 text-sm font-bold text-green-900"
+          >
+            ✅ {t("orders.detail.restored")}
+          </div>
+        )}
+
+        <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-black">{t("orders.detail.deletedInfoTitle")}</p>
+          <p className="mt-1">{t("orders.detail.deletedInfo")}</p>
+          <p className="mt-1 text-xs font-medium">{t("orders.detail.deletedRetention")}</p>
         </div>
 
         {orders.length === 0 ? (

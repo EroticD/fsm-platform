@@ -1,39 +1,60 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import FullCalendarClient from "@/app/kalender/FullCalendarClient";
+import CalendarFilters from "@/app/kalender/CalendarFilters";
 import CalendarTabs from "@/app/kalender/CalendarTabs";
-import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
 import { toCalendarEvent } from "@/lib/calendar-events";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { workOrderScope } from "@/lib/access";
-import { addMonthsUtc, parseDateOnly, todayInOslo } from "@/lib/dates";
-import type { CalendarTabKey } from "@/lib/calendar-tabs";
+import { staffScope, workOrderScope } from "@/lib/access";
 import {
-  WORK_ORDER_STATUS_LABEL_KEYS,
-  WORK_ORDER_STATUS_ORDER,
-} from "@/lib/work-order-status-colors";
+  addMonthsUtc,
+  formatDateLocalized,
+  parseDateOnly,
+  toDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
+import {
+  normalizeCalendarDate,
+  type CalendarTabKey,
+  type CalendarTabQuery,
+} from "@/lib/calendar-tabs";
+import { WORK_ORDER_STATUS_ORDER } from "@/lib/work-order-status-colors";
 
 /**
  * Felles implementasjon for måned-, uke- og to-ukersvisningen. Alle tre nås
  * via `/kalender?vis=...`, slik at visningsbyttet og URL-en alltid stemmer.
+ *
+ * `dato` er ankerdatoen for visningen. FullCalendar oppdaterer den ved
+ * navigering, slik at refresh, deling og tilbake-navigering beholder perioden.
  */
 export default async function CalendarViewPage({
   view,
+  visParam,
   active,
   titleKey,
   subtitleKey,
+  date,
+  technician,
+  status,
+  unassigned,
 }: {
   view: string;
+  visParam: string;
   active: CalendarTabKey;
   titleKey: string;
   subtitleKey: string;
+  date?: string;
+  technician?: string;
+  status?: string;
+  unassigned?: string;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.view")) redirect("/");
+
   const canCreate = hasPermission(user, "workorders.create");
   // Dato-API-et krever workorders.update, ikke workorders.edit. Montørene skal
   // kunne flytte feltjobber i egen avdeling, så kalenderen tilbyr dra-og-slipp
@@ -44,25 +65,57 @@ export default async function CalendarViewPage({
   const canDispatch = hasPermission(user, "workorders.assign");
   const canReports = hasPermission(user, "reports.view");
   const t = await getTranslations("common");
+  const locale = await getLocale();
+
+  const today = todayInOslo();
+  const initialDate = normalizeCalendarDate(date, today);
+  const todayDate = parseDateOnly(today) ?? new Date();
 
   // Hent oppdrag i en bred datoøk (6 måneder bakover og fremover), slik at
-  // FullCalendar kan navigere uten å hente nye data for hver visning.
-  const today = parseDateOnly(todayInOslo()) ?? new Date();
-  const sixMonthsAgo = addMonthsUtc(today, -6);
-  const sixMonthsAhead = addMonthsUtc(today, 6);
+  // FullCalendar kan navigere uten å hente nye data for hver visning. Både
+  // vinduet og 1000-grensen vises for brukeren lenger ned.
+  const sixMonthsAgo = addMonthsUtc(todayDate, -6);
+  const sixMonthsAhead = addMonthsUtc(todayDate, 6);
+  const windowStart = toDateOnly(sixMonthsAgo);
+  const windowEnd = toDateOnly(sixMonthsAhead);
+
+  const technicians = await prisma.user.findMany({
+    where: staffScope(user),
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+    take: 200,
+  });
+
+  // Ukjente verdier i URL-en skal ikke gi en tom kalender uten forklaring.
+  const technicianFilter = technicians.some(
+    (candidate) => candidate.id === technician,
+  )
+    ? technician ?? ""
+    : "";
+  const requestedStatus = status?.trim().toUpperCase() ?? "";
+  const statusFilter =
+    WORK_ORDER_STATUS_ORDER.find(
+      (candidate) =>
+        candidate === requestedStatus && candidate !== "CANCELLED",
+    ) ?? "";
+  const unassignedFilter = canDispatch && unassigned === "1";
 
   const workOrders = await prisma.workOrder.findMany({
     where: {
       AND: [
         workOrderScope(user),
         {
-          status: { not: "CANCELLED" },
+          status: statusFilter || { not: "CANCELLED" },
           scheduledFor: { not: null, lte: sixMonthsAhead },
           OR: [
             { scheduledFor: { gte: sixMonthsAgo } },
             // Tar med oppdrag som startet før vinduet og varer inn i det.
             { scheduledTo: { gte: sixMonthsAgo } },
           ],
+          ...(technicianFilter
+            ? { technicians: { some: { id: technicianFilter } } }
+            : {}),
+          ...(unassignedFilter ? { technicians: { none: {} } } : {}),
         },
       ],
     },
@@ -76,25 +129,28 @@ export default async function CalendarViewPage({
     take: 1000,
   });
 
-  const events = workOrders.flatMap((wo) => {
-    const event = toCalendarEvent(wo);
-    return event ? [event] : [];
+  const events = workOrders.flatMap((workOrder) => {
+    const event = toCalendarEvent(workOrder);
+    return event
+      ? [
+          {
+            ...event,
+            extendedProps: {
+              ...event.extendedProps,
+              status: workOrder.status,
+            },
+          },
+        ]
+      : [];
   });
 
-  const statusCounts = new Map<string, number>();
-  for (const workOrder of workOrders) {
-    statusCounts.set(
-      workOrder.status,
-      (statusCounts.get(workOrder.status) ?? 0) + 1,
-    );
-  }
-  const legendItems = WORK_ORDER_STATUS_ORDER.filter(
-    (status) => status !== "CANCELLED",
-  ).map((status) => ({
-    status,
-    label: t(WORK_ORDER_STATUS_LABEL_KEYS[status]),
-    count: statusCounts.get(status) ?? 0,
-  }));
+  const truncated = workOrders.length >= 1000;
+  const tabQuery: CalendarTabQuery = {
+    date: initialDate,
+    technician: technicianFilter,
+    status: statusFilter,
+    unassigned: unassignedFilter,
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
@@ -133,16 +189,48 @@ export default async function CalendarViewPage({
           active={active}
           canDispatch={canDispatch}
           canReports={canReports}
+          query={tabQuery}
         />
 
-        <WorkOrderStatusLegend
-          title={t("calendar.legend.title")}
-          items={legendItems}
+        <CalendarFilters
+          visParam={visParam}
+          date={initialDate}
+          technician={technicianFilter}
+          status={statusFilter}
+          unassigned={unassignedFilter}
+          technicians={technicians}
+          showUnassigned={canDispatch}
         />
+
+        <div
+          className={`rounded-xl border px-3 py-2 text-xs sm:px-4 ${
+            truncated
+              ? "border-amber-300 bg-amber-50 text-amber-900"
+              : "border-gray-200 bg-white text-gray-600"
+          }`}
+          role="note"
+        >
+          <p>
+            {t("calendar.window.notice", {
+              from: formatDateLocalized(windowStart, locale),
+              to: formatDateLocalized(windowEnd, locale),
+            })}
+          </p>
+          {truncated && (
+            <p className="mt-1 font-semibold">
+              {t("calendar.window.truncated")}
+            </p>
+          )}
+        </div>
 
         <FullCalendarClient
           events={events}
           view={view}
+          initialDate={initialDate}
+          visParam={visParam}
+          technician={technicianFilter || undefined}
+          status={statusFilter || undefined}
+          unassigned={unassignedFilter}
           weekNumbers={true}
           canEdit={canReschedule}
           canOpenEditor={canEdit}

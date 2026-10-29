@@ -171,6 +171,58 @@ function snippetText(snippet: string | null | undefined): string | null {
     .trim();
 }
 
+const MAX_FOLDER_DEPTH = 50;
+
+/**
+ * Bygger visningsstier for dokument- og mappetreff. Antall ID-er er avgrenset
+ * av søkesiden, og hvert nivå hentes med `take`, slik at oppslaget aldri blir
+ * ubegrenset.
+ */
+async function folderPathLookup(
+  folderIds: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const byId = new Map<
+    string,
+    { id: string; name: string; parentId: string | null }
+  >();
+  let pending = [
+    ...new Set(folderIds.filter((id): id is string => Boolean(id))),
+  ];
+
+  for (
+    let depth = 0;
+    depth < MAX_FOLDER_DEPTH && pending.length > 0;
+    depth++
+  ) {
+    const rows = await prisma.documentFolder.findMany({
+      where: { id: { in: pending } },
+      select: { id: true, name: true, parentId: true },
+      take: 200,
+    });
+    const next = new Set<string>();
+    for (const row of rows) {
+      if (byId.has(row.id)) continue;
+      byId.set(row.id, row);
+      if (row.parentId) next.add(row.parentId);
+    }
+    pending = [...next];
+  }
+
+  const paths = new Map<string, string>();
+  for (const id of byId.keys()) {
+    const names: string[] = [];
+    let current = byId.get(id);
+    let guard = 0;
+    while (current && guard < MAX_FOLDER_DEPTH) {
+      names.unshift(current.name);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+      guard++;
+    }
+    paths.set(id, names.join(" / "));
+  }
+  return paths;
+}
+
 function clampInt(value: number | undefined, fallback: number, min: number, max: number) {
   const parsed = Number.isFinite(value) ? Math.trunc(value as number) : fallback;
   return Math.min(Math.max(parsed, min), max);
@@ -732,6 +784,7 @@ export async function performSearch(
         description: true,
         fileName: true,
         filePath: true,
+        folderId: true,
         tags: { select: { name: true } },
       },
       take: fetchLimit,
@@ -769,6 +822,10 @@ export async function performSearch(
   ]);
 
   const documentById = new Map(documentRows.map((hit) => [hit.id, hit]));
+  const folderPaths = await folderPathLookup([
+    ...documents.map((document) => document.folderId),
+    ...folders.map((folder) => folder.id),
+  ]);
 
   // Ekte kandidattall fra SQL (COUNT(*) OVER()). For grupper som slår sammen
   // flere kilder er unionen aldri større enn summen, men kildetallet er nok
@@ -1060,14 +1117,23 @@ export async function performSearch(
         const directHref = singleReport
           ? `/api/rapporter/${r.workOrderId}/pdf`
           : `/api/rapporter/${r.workOrderId}/pdf?rapport=${encodeURIComponent(r.id)}`;
+        // Rapportnavnet skal være hovedtittelen; oppdragets tittel er en
+        // egen, merket undertitteldel så de ikke blandes sammen.
+        const reportName =
+          r.name ?? r.templateTitle ?? r.template?.title ?? r.workOrder.title;
         return {
           id: r.id,
           title: joinInfo([
             r.reportNumber ? `#${r.reportNumber}` : null,
-            r.name ?? r.templateTitle ?? r.template?.title,
-            r.workOrder.title,
+            reportName,
           ]),
           subtitleParts: subtitleParts(
+            r.workOrder.title && reportName !== r.workOrder.title
+              ? {
+                  key: "components.search.subtitles.workOrderTitle",
+                  params: { title: r.workOrder.title },
+                }
+              : null,
             r.workOrder.customer?.name
               ? { text: r.workOrder.customer.name }
               : null,
@@ -1190,7 +1256,14 @@ export async function performSearch(
       items: rankedFolders.map(({ item: f, score }) => ({
         id: f.id,
         title: f.name,
-        subtitleKey: "components.search.subtitles.folderHint",
+        subtitleParts: subtitleParts(
+          folderPaths.get(f.id)
+            ? {
+                key: "components.search.subtitles.folderPath",
+                params: { path: folderPaths.get(f.id) as string },
+              }
+            : { key: "components.search.subtitles.folderHint" },
+        ),
         href: `/dokumenter?folder=${f.id}`,
         score,
       })),
@@ -1212,10 +1285,19 @@ export async function performSearch(
         const documentSnippet =
           d.description?.slice(0, 60) ??
           snippetText(hit?.snippet)?.slice(0, 80);
+        const documentFolderPath = d.folderId
+          ? folderPaths.get(d.folderId)
+          : null;
         return {
           id: d.id,
           title: d.title,
           subtitleParts: subtitleParts(
+            documentFolderPath
+              ? {
+                  key: "components.search.subtitles.folderPath",
+                  params: { path: documentFolderPath },
+                }
+              : { key: "documents.browser.root" },
             d.tags.length > 0
               ? {
                   key: "components.search.subtitles.tags",

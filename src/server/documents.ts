@@ -54,10 +54,17 @@ export type DocumentLibraryParams = {
   deleted?: boolean;
   /**
    * Når dette er satt, begrenses både tekstsøk og tag-filter til mappen.
-   * Uten flagget er søk og tag-filter globale (men mappe-blaing er fortsatt
-   * begrenset til mappen).
+   *
+   * Uten søk/filter viser roten hele biblioteket. `onlyFolder` på rot betyr
+   * derfor «bare løse filer i roten». Inne i en mappe er mappen fortsatt
+   * rammen for blaing, uavhengig av flagget.
    */
   onlyFolder?: boolean;
+  /**
+   * Når dette er satt, skal hele biblioteket vises selv om en mappe er valgt.
+   * Brukes av det synlige søkeomfanget («Hele biblioteket»).
+   */
+  libraryScope?: boolean;
 };
 
 type FolderRow = { id: string; name: string; parentId: string | null };
@@ -212,9 +219,14 @@ export async function getDocumentLibrary(
   ]);
 
   const filtering = Boolean(searchQuery || tagFilter);
-  // Søk og tag-filter er globale som standard. «Kun denne mappen» gjør begge
-  // filterne mappespesifikke. Uten filter er mappen fortsatt rammen for blaing.
-  const useFolderScope = Boolean(params.onlyFolder) || !filtering;
+  // Uten søk/filter er roten hele biblioteket, mens en valgt mappe fortsatt er
+  // rammen for blaing. Med søk/filter styrer «Denne mappen»/«Hele biblioteket»
+  // om søket begrenses til mappen.
+  const useFolderScope = params.libraryScope
+    ? false
+    : filtering
+      ? Boolean(params.onlyFolder)
+      : Boolean(folderId) || Boolean(params.onlyFolder);
   const docWhere: Prisma.DocumentWhereInput = {
     ...(useFolderScope ? { folderId } : {}),
     deletedAt: deletedFilter,
@@ -230,72 +242,131 @@ export async function getDocumentLibrary(
     docWhere.tags = { some: { name: tagFilter } };
   }
 
-  const [documentRows, totalDocuments, detailDocument] = await Promise.all([
-    prisma.document.findMany({
-      where: docWhere,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        fileName: true,
-        filePath: true,
-        fileSize: true,
-        mimeType: true,
-        folderId: true,
-        uploadedBy: true,
-        tags: { select: { id: true, name: true, color: true } },
-      },
-      orderBy: { title: "asc" },
-      take: DOCUMENT_PAGE_SIZE,
-      skip: (page - 1) * DOCUMENT_PAGE_SIZE,
-    }),
-    prisma.document.count({ where: docWhere }),
-    params.documentId
-      ? prisma.document.findFirst({
-          where: { id: params.documentId, deletedAt: deletedFilter },
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            fileName: true,
-            filePath: true,
-            fileSize: true,
-            mimeType: true,
-            folderId: true,
-            uploadedBy: true,
-            tags: { select: { id: true, name: true, color: true } },
-            // Versjoner lastes bare når dokumentet faktisk åpnes i detalj.
-            versions: {
-              orderBy: { createdAt: "desc" },
-              take: 50,
-              select: {
-                id: true,
-                fileName: true,
-                filePath: true,
-                fileSize: true,
-                createdAt: true,
-                createdBy: true,
+  const [documentRows, totalDocuments, detailDocument, folderCountRows] =
+    await Promise.all([
+      prisma.document.findMany({
+        where: docWhere,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          fileName: true,
+          filePath: true,
+          fileSize: true,
+          mimeType: true,
+          folderId: true,
+          uploadedBy: true,
+          tags: { select: { id: true, name: true, color: true } },
+        },
+        orderBy: { title: "asc" },
+        take: DOCUMENT_PAGE_SIZE,
+        skip: (page - 1) * DOCUMENT_PAGE_SIZE,
+      }),
+      prisma.document.count({ where: docWhere }),
+      params.documentId
+        ? prisma.document.findFirst({
+            where: { id: params.documentId, deletedAt: deletedFilter },
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              fileName: true,
+              filePath: true,
+              fileSize: true,
+              mimeType: true,
+              folderId: true,
+              uploadedBy: true,
+              tags: { select: { id: true, name: true, color: true } },
+              // Versjoner lastes bare når dokumentet faktisk åpnes i detalj.
+              versions: {
+                orderBy: { createdAt: "desc" },
+                take: 50,
+                select: {
+                  id: true,
+                  fileName: true,
+                  filePath: true,
+                  fileSize: true,
+                  createdAt: true,
+                  createdBy: true,
+                },
               },
             },
-          },
-        })
-      : Promise.resolve(null),
-  ]);
+          })
+        : Promise.resolve(null),
+      // Direkte dokumentantall per mappe. Brukes til mappe-kortene og det
+      // samlede bibliotektallet uten én telling per mappe.
+      prisma.document.groupBy({
+        by: ["folderId"],
+        where: { deletedAt: deletedFilter },
+        _count: { _all: true },
+      }),
+    ]);
 
   // Når søket går på tvers av mapper, viser hver rad hvor dokumentet ligger.
+  // Detaljvisningen får også sti, uansett hvilken mappe brukeren kom fra.
   const pathMap =
-    !useFolderScope && filtering
-      ? await folderPathMap(documentRows.map((doc) => doc.folderId))
+    !useFolderScope || detailDocument?.folderId
+      ? await folderPathMap([
+          ...documentRows.map((doc) => doc.folderId),
+          detailDocument?.folderId ?? null,
+        ])
       : null;
   const documents = documentRows.map((doc) => ({
     ...doc,
     folderPath:
       pathMap && doc.folderId ? pathMap.get(doc.folderId) ?? null : null,
   }));
+  const detailWithPath = detailDocument
+    ? {
+        ...detailDocument,
+        folderPath: detailDocument.folderId
+          ? pathMap?.get(detailDocument.folderId) ?? null
+          : null,
+      }
+    : null;
+
+  const directFolderCounts = new Map<string, number>();
+  let libraryTotal = 0;
+  let rootDocumentCount = 0;
+  for (const row of folderCountRows) {
+    const count = Number(row._count._all) || 0;
+    libraryTotal += count;
+    if (row.folderId) directFolderCounts.set(row.folderId, count);
+    else rootDocumentCount += count;
+  }
+
+  // Mappekortene viser antall dokumenter i hele undermappen, ikke bare de som
+  // ligger direkte i mappen. Da ser en tom overmappe med innhold fortsatt riktig ut.
+  const childFolderIds = new Map<string, string[]>();
+  for (const folder of allFolders) {
+    if (!folder.parentId) continue;
+    const siblings = childFolderIds.get(folder.parentId) ?? [];
+    siblings.push(folder.id);
+    childFolderIds.set(folder.parentId, siblings);
+  }
+  const subtreeCounts = new Map<string, number>();
+  const counting = new Set<string>();
+  function subtreeDocumentCount(folderIdToCount: string): number {
+    const cached = subtreeCounts.get(folderIdToCount);
+    if (cached !== undefined) return cached;
+    if (counting.has(folderIdToCount)) return 0;
+    counting.add(folderIdToCount);
+    const children = childFolderIds.get(folderIdToCount) ?? [];
+    const total =
+      (directFolderCounts.get(folderIdToCount) ?? 0) +
+      children.reduce((sum, childId) => sum + subtreeDocumentCount(childId), 0);
+    counting.delete(folderIdToCount);
+    subtreeCounts.set(folderIdToCount, total);
+    return total;
+  }
+  const folderDocumentCounts: Record<string, number> = {};
+  for (const folder of allFolders) {
+    folderDocumentCounts[folder.id] = subtreeDocumentCount(folder.id);
+  }
 
   // Sørg for at mappen som vises (og detaljens mappe) alltid finnes i
   // nedtrekkslisten, ellers kan et lagre uten endringer flytte dokumentet.
-  const visibleFolderIds = [folderId, detailDocument?.folderId].filter(
+  const visibleFolderIds = [folderId, detailWithPath?.folderId].filter(
     (id): id is string => Boolean(id),
   );
   const folderOptions = [...allFolders];
@@ -323,9 +394,12 @@ export async function getDocumentLibrary(
     documents,
     totalDocuments,
     totalPages: Math.max(1, Math.ceil(totalDocuments / DOCUMENT_PAGE_SIZE)),
-    detailDocument,
+    detailDocument: detailWithPath,
     folderOptions,
     allTags,
+    libraryTotal,
+    rootDocumentCount,
+    folderDocumentCounts,
   });
 }
 

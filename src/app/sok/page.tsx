@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { hasPermission } from "@/lib/permissions";
 import { staffWhere, type AccessUser } from "@/lib/access";
 import { performSearch, type SearchItem, type SearchResults } from "@/lib/search";
-import { hasActiveFilters } from "@/lib/search-filters";
+import { hasActiveFilters, type SearchFilters } from "@/lib/search-filters";
+import { formatDateLocalized } from "@/lib/dates";
 import { listSavedSearches, type SavedSearch } from "@/server/saved-searches";
 import PageHeader from "@/components/PageHeader";
 import SectionCard from "@/components/SectionCard";
 import HighlightedText from "@/components/search/HighlightedText";
 import RecentSearches from "@/components/search/RecentSearches";
+import { formatSearchSubtitle } from "@/components/search/search-subtitle";
 import SearchFiltersForm from "./SearchFiltersForm";
 import SavedSearchesPanel from "./SavedSearchesPanel";
 import FilterHiddenInputs from "./FilterHiddenInputs";
@@ -38,24 +40,6 @@ const SAVED_MESSAGES: Record<
   ugyldig: { key: "components.search.saved.invalid", tone: "error" },
   feil: { key: "components.search.saved.error", tone: "error" },
 };
-
-type SearchTranslator = (
-  key: string,
-  values?: Record<string, string | number>,
-) => string;
-
-/** Setter sammen en undertittel fra i18n-deler og rå data. */
-function subtitleFor(item: SearchItem, t: SearchTranslator): string | undefined {
-  if (item.subtitleParts?.length) {
-    const text = item.subtitleParts
-      .map((part) => (part.key ? t(part.key, part.params) : part.text))
-      .filter(Boolean)
-      .join(" • ");
-    return text || undefined;
-  }
-  if (item.subtitleKey) return t(item.subtitleKey, item.subtitleParams);
-  return item.subtitle;
-}
 
 function ResultLink({
   item,
@@ -120,10 +104,13 @@ export default async function SearchResultsPage({
   const resolvedParams = await searchParams;
   const { query, page, filters } = parseSearchPageParams(resolvedParams);
   const t = await getTranslations("common");
+  const locale = await getLocale();
   const tl = t as unknown as (
     key: string,
     values?: Record<string, string | number>,
   ) => string;
+  const subtitleFor = (item: SearchItem) =>
+    formatSearchSubtitle(item, tl, locale);
 
   const groupLabel = (kind: string) =>
     GROUP_KEYS[kind] ? tl(GROUP_KEYS[kind]) : kind;
@@ -216,9 +203,124 @@ export default async function SearchResultsPage({
   const singleType =
     filters.types?.length === 1 ? filters.types[0] : undefined;
   // Topp treff er globale for søket og vises derfor bare på første side.
+  // Tagger og mapper er navigasjonshjelpere, ikke innholdstreff; de skal ikke
+  // ta plassene fra kunder, oppdrag, rapporter og dokumenter.
+  const topHitGroups = results.groups.filter(
+    (group) => group.kind !== "tag" && group.kind !== "folder",
+  );
   const topHits =
-    results.groups.length > 1 && page === 1 ? bestHits(results.groups, 5) : [];
+    results.groups.length > 1 && page === 1 ? bestHits(topHitGroups, 5) : [];
+  const topHitKeys = new Set(
+    topHits.map((hit) => `${hit.kind}:${hit.id}`),
+  );
+  // Unngå at samme treff vises både under «Beste treff» og i gruppen sin.
+  const visibleGroups = results.groups.map((group) => {
+    if (page !== 1 || topHitKeys.size === 0) {
+      return { group, items: group.items, hidden: 0 };
+    }
+    const items = group.items.filter(
+      (item) => !topHitKeys.has(`${group.kind}:${item.id}`),
+    );
+    return { group, items, hidden: group.items.length - items.length };
+  });
   const canUseFilters = hasActiveFilters(filters);
+
+  function hrefWithFilters(next: SearchFilters): string {
+    return buildSearchHref({ q: query, filters: next });
+  }
+
+  function typeFilterHref(kind: string): string {
+    const current = filters.types ?? [];
+    const types = current.includes(kind)
+      ? current.filter((value) => value !== kind)
+      : [...current, kind];
+    return hrefWithFilters({
+      ...filters,
+      types: types.length > 0 ? types : undefined,
+    });
+  }
+
+  const activeFilterChips: Array<{
+    key: string;
+    label: string;
+    href: string;
+  }> = [];
+
+  for (const kind of filters.types ?? []) {
+    activeFilterChips.push({
+      key: `type-${kind}`,
+      label: groupLabel(kind),
+      href: typeFilterHref(kind),
+    });
+  }
+  if (filters.status) {
+    activeFilterChips.push({
+      key: "status",
+      label: `${t("components.search.filters.status")}: ${tl(
+        `components.search.statuses.${filters.status}`,
+      )}`,
+      href: hrefWithFilters({ ...filters, status: undefined }),
+    });
+  }
+  if (filters.customer) {
+    const customerName =
+      customers.find((customer) => customer.id === filters.customer)?.name ??
+      filters.customer;
+    activeFilterChips.push({
+      key: "customer",
+      label: `${t("components.search.filters.customer")}: ${customerName}`,
+      href: hrefWithFilters({ ...filters, customer: undefined }),
+    });
+  }
+  if (filters.technician) {
+    const technicianName =
+      technicianOptions.find(
+        (technician) => technician.id === filters.technician,
+      )?.name ?? filters.technician;
+    activeFilterChips.push({
+      key: "technician",
+      label: `${t("components.search.filters.technician")}: ${technicianName}`,
+      href: hrefWithFilters({ ...filters, technician: undefined }),
+    });
+  }
+  if (filters.dateFrom) {
+    activeFilterChips.push({
+      key: "dateFrom",
+      label: `${t("components.search.filters.dateFrom")}: ${formatDateLocalized(
+        filters.dateFrom,
+        locale,
+        { dateStyle: "medium" },
+      )}`,
+      href: hrefWithFilters({ ...filters, dateFrom: undefined }),
+    });
+  }
+  if (filters.dateTo) {
+    activeFilterChips.push({
+      key: "dateTo",
+      label: `${t("components.search.filters.dateTo")}: ${formatDateLocalized(
+        filters.dateTo,
+        locale,
+        { dateStyle: "medium" },
+      )}`,
+      href: hrefWithFilters({ ...filters, dateTo: undefined }),
+    });
+  }
+  if (filters.tag) {
+    activeFilterChips.push({
+      key: "tag",
+      label: `${t("components.search.filters.tag")}: ${filters.tag}`,
+      href: hrefWithFilters({ ...filters, tag: undefined }),
+    });
+  }
+  if (filters.hmsType) {
+    activeFilterChips.push({
+      key: "hmsType",
+      label: `${t("components.search.filters.hmsType")}: ${tl(
+        `components.search.hmsTypes.${filters.hmsType}`,
+      )}`,
+      href: hrefWithFilters({ ...filters, hmsType: undefined }),
+    });
+  }
 
   const lagre =
     typeof resolvedParams.lagre === "string" ? resolvedParams.lagre : undefined;
@@ -492,6 +594,71 @@ export default async function SearchResultsPage({
                   className="p-4 sm:p-5"
                 />
 
+                {canUseFilters && (
+                  <section
+                    aria-label={t("components.search.filtersActive")}
+                    className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50/60 p-3 sm:p-4"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wide text-blue-900">
+                      {t("components.search.filters.title")}
+                    </span>
+                    {activeFilterChips.map((chip) => (
+                      <Link
+                        key={chip.key}
+                        href={chip.href}
+                        aria-label={t("components.search.removeFilter", {
+                          label: chip.label,
+                        })}
+                        className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-bold text-blue-800 transition hover:border-blue-400 hover:bg-blue-100"
+                      >
+                        {chip.label}
+                        <span aria-hidden className="text-blue-500">
+                          ×
+                        </span>
+                      </Link>
+                    ))}
+                    <Link
+                      href={buildSearchHref({ q: query })}
+                      className="ml-auto text-xs font-bold text-blue-800 hover:underline"
+                    >
+                      {t("components.search.filters.clear")}
+                    </Link>
+                  </section>
+                )}
+
+                {results.groups.length > 0 && (
+                  <nav
+                    aria-label={t("components.search.filters.types")}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                      {t("components.search.filters.types")}
+                    </span>
+                    {results.groups.map((group) => {
+                      const active = filters.types?.includes(group.kind) ?? false;
+                      return (
+                        <Link
+                          key={group.kind}
+                          href={typeFilterHref(group.kind)}
+                          aria-current={active ? "true" : undefined}
+                          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold transition ${
+                            active
+                              ? "border-blue-700 bg-blue-700 text-white"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                          }`}
+                        >
+                          <span aria-hidden>{group.icon}</span>
+                          {groupLabel(group.kind)}
+                          <span className={active ? "text-blue-100" : "text-gray-500"}>
+                            ({group.total}
+                            {group.capped ? "+" : ""})
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                )}
+
                 {paginationBar()}
 
                 {results.total === 0 ? (
@@ -531,7 +698,7 @@ export default async function SearchResultsPage({
                                 item={hit}
                                 query={query}
                                 directLabel={directLabelFor(hit)}
-                                subtitle={subtitleFor(hit, tl)}
+                                subtitle={subtitleFor(hit)}
                               />
                             </div>
                           ))}
@@ -539,7 +706,7 @@ export default async function SearchResultsPage({
                       </section>
                     )}
 
-                    {results.groups.map((group) => {
+                    {visibleGroups.map(({ group, items, hidden }) => {
                       const range = groupRange(group, page, SEARCH_PAGE_SIZE);
                       const headingId = `search-group-${group.kind}`;
 
@@ -571,19 +738,30 @@ export default async function SearchResultsPage({
                             )}
                           </div>
 
-                          {group.items.length === 0 ? (
-                            <p className="mt-3 text-sm text-gray-500">
-                              {t("components.search.groupEmptyPage")}
+                          {hidden > 0 && (
+                            <p className="mt-2 text-xs font-bold text-blue-700">
+                              ⭐{" "}
+                              {t("components.search.bestHitsOverlap", {
+                                count: hidden,
+                              })}
                             </p>
+                          )}
+
+                          {items.length === 0 ? (
+                            hidden === 0 ? (
+                              <p className="mt-3 text-sm text-gray-500">
+                                {t("components.search.groupEmptyPage")}
+                              </p>
+                            ) : null
                           ) : (
                             <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
-                              {group.items.map((item) => (
+                              {items.map((item) => (
                                 <ResultLink
                                   key={`${group.kind}-${item.id}`}
                                   item={item}
                                   query={query}
                                   directLabel={directLabelFor(item)}
-                                  subtitle={subtitleFor(item, tl)}
+                                  subtitle={subtitleFor(item)}
                                 />
                               ))}
                             </div>

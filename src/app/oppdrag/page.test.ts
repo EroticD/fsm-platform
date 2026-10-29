@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-type QueryArgs = { where?: unknown };
+type QueryArgs = { where?: unknown; orderBy?: unknown };
 
 const mocks = vi.hoisted(() => ({
   redirect: vi.fn((url: string): never => {
@@ -54,7 +54,7 @@ const officeUser = {
   roleDefinition: { permissions: ["workorders.view"] },
 };
 
-function render(params: { vis?: string; q?: string; tag?: string; side?: string } = {}) {
+function render(params: { vis?: string; q?: string; tag?: string; side?: string; sort?: string } = {}) {
   return WorkOrdersPage({ searchParams: Promise.resolve(params) });
 }
 
@@ -128,5 +128,32 @@ describe("/oppdrag fanetall", () => {
     expect(mocks.findMany.mock.calls[0][0].where).toEqual(
       mocks.count.mock.calls[3][0].where,
     );
+  });
+});
+
+describe("/oppdrag sortering", () => {
+  it("sorterer aktive visninger med forfalte/dagens først og udaterte sist", async () => {
+    await render();
+
+    expect(mocks.findMany.mock.calls[0][0].orderBy).toEqual([
+      { scheduledFor: { sort: "asc", nulls: "last" } },
+      { createdAt: "desc" },
+    ]);
+  });
+
+  it("bruker nyeste først i historikkvisningene", async () => {
+    await render({ vis: "fullforte" });
+
+    expect(mocks.findMany.mock.calls[0][0].orderBy).toEqual([
+      { createdAt: "desc" },
+    ]);
+  });
+
+  it("lar brukeren velge nyeste først også for aktive visninger", async () => {
+    await render({ vis: "alle", sort: "newest" });
+
+    expect(mocks.findMany.mock.calls[0][0].orderBy).toEqual([
+      { createdAt: "desc" },
+    ]);
   });
 });

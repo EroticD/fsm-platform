@@ -23,12 +23,22 @@ const FullCalendarView = dynamic(() => import("./FullCalendarView"), {
 export default function FullCalendarClient({ 
   events,
   view = 'dayGridWeek',
+  initialDate,
+  visParam,
+  technician,
+  status,
+  unassigned,
   weekNumbers = true,
   canEdit = false,
   canOpenEditor = canEdit,
 }: { 
   events: CalendarEventData[];
   view?: string;
+  initialDate: string;
+  visParam: string;
+  technician?: string;
+  status?: string;
+  unassigned?: boolean;
   weekNumbers?: boolean;
   canEdit?: boolean;
   canOpenEditor?: boolean;
@@ -37,6 +47,11 @@ export default function FullCalendarClient({
     <FullCalendarView
       events={events}
       view={view}
+      initialDate={initialDate}
+      visParam={visParam}
+      technician={technician}
+      status={status}
+      unassigned={unassigned}
       weekNumbers={weekNumbers}
       canEdit={canEdit}
       canOpenEditor={canOpenEditor}

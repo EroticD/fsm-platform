@@ -14,8 +14,9 @@ const TONES: Record<KpiTone, string> = {
 /**
  * Tallkort brukt på dashbordene. Er `href` satt blir hele kortet en lenke.
  *
- * `compact` brukes til sekundære nøkkeltall: mindre, nøytralt og uten
- * heveeffekt, slik at det ikke konkurrerer med unntakene som krever handling.
+ * `compact` brukes til unntaksstripen og sekundære nøkkeltall: mindre kort
+ * uten heveeffekt, slik at de ikke konkurrerer med den prioriterte køen.
+ * Fargetonen følger `tone`, også i kompakt modus.
  */
 export default function KpiCard({
   icon,
@@ -38,14 +39,14 @@ export default function KpiCard({
     const body = (
       <>
         <div className="min-w-0">
-          <div className="truncate text-[10px] font-bold uppercase tracking-wide text-gray-500">
+          <div className="line-clamp-2 text-2xs font-bold uppercase leading-tight tracking-wide">
             {label}
           </div>
-          <div className="mt-0.5 text-lg font-black leading-tight text-gray-900">
+          <div className="mt-0.5 text-xl font-black leading-tight">
             {value}
           </div>
           {sub ? (
-            <div className="truncate text-[10px] font-medium text-gray-500">
+            <div className="line-clamp-2 text-2xs font-medium leading-tight opacity-80">
               {sub}
             </div>
           ) : null}
@@ -56,10 +57,8 @@ export default function KpiCard({
       </>
     );
 
-    const cls = `flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-2.5 py-2 transition-colors ${
-      href
-        ? "bg-white hover:border-blue-300 hover:bg-blue-50/60"
-        : "cursor-default bg-white/70"
+    const cls = `flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 transition-shadow ${TONES[tone]} ${
+      href ? "shadow-sm hover:shadow-md" : "cursor-default"
     }`;
 
     return href ? (

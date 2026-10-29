@@ -37,6 +37,7 @@ export async function setTemplate(formData: FormData) {
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=sjekkliste`);
 }
 
 export async function setContact(formData: FormData) {
@@ -52,6 +53,7 @@ export async function setContact(formData: FormData) {
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=kontakt`);
 }
 
 export async function addContactToCustomer(formData: FormData) {
@@ -69,6 +71,7 @@ export async function addContactToCustomer(formData: FormData) {
 
   revalidatePath(`/oppdrag/${workOrderId}`);
   revalidatePath(`/kunder/${result.customerId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=kontakt-lagt-til`);
 }
 
 export async function assignTechnician(formData: FormData) {
@@ -84,6 +87,7 @@ export async function assignTechnician(formData: FormData) {
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=montor`);
 }
 
 export async function unassignTechnician(formData: FormData) {
@@ -99,6 +103,7 @@ export async function unassignTechnician(formData: FormData) {
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=montor-fjernet`);
 }
 
 export async function updateStatus(formData: FormData) {
@@ -116,6 +121,7 @@ export async function updateStatus(formData: FormData) {
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=status`);
 }
 
 export async function setTags(formData: FormData) {
@@ -131,6 +137,7 @@ export async function setTags(formData: FormData) {
   if (!result.ok) redirect(`/oppdrag/${workOrderId}?error=${result.error}`);
 
   revalidatePath(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=tags`);
 }
 
 export async function setReportLock(formData: FormData) {
@@ -149,6 +156,7 @@ export async function setReportLock(formData: FormData) {
 
   revalidatePath(`/oppdrag/${workOrderId}`);
   revalidatePath(`/rapporter/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=rapport-las`);
 }
 
 /** Kloner et oppdrag til et nytt, redigerbart oppdrag. */
@@ -162,7 +170,7 @@ export async function cloneWorkOrder(formData: FormData) {
 
   revalidatePath("/oppdrag");
   revalidatePath("/");
-  redirect(`/oppdrag/${result.id}`);
+  redirect(`/oppdrag/${result.id}?ok=klonet`);
 }
 
 /**
@@ -184,6 +192,7 @@ export async function setWorkOrderLegalHold(formData: FormData) {
 
   revalidatePath(`/oppdrag/${workOrderId}`);
   revalidatePath("/oppdrag");
+  redirect(`/oppdrag/${workOrderId}?ok=bevaring`);
 }
 
 /** Bevaringsplikt på en enkelt rapport. Bare administrator. */
@@ -204,10 +213,12 @@ export async function setReportLegalHold(formData: FormData) {
 
   revalidatePath(`/oppdrag/${workOrderId}`);
   revalidatePath("/rapporter");
+  redirect(`/oppdrag/${workOrderId}?ok=rapport-bevaring`);
 }
 
 /**
- * Sletter et oppdrag med rapporter, kommentarer og vedlegg.
+ * Flytter et oppdrag til papirkurven sammen med rapporter, kommentarer og
+ * vedlegg. Selve slettingen er myk og kan gjenopprettes av administrator.
  *
  * Krever `workorders.delete`, og tjenestelaget kontrollerer avdelingsgrensen,
  * bevaringsplikt og regelen om lukkede oppdrag. Slettingen og revisjonsloggen
@@ -225,5 +236,5 @@ export async function deleteWorkOrder(formData: FormData) {
   revalidatePath("/oppdrag");
   revalidatePath("/rapporter");
   revalidatePath("/kalender");
-  redirect("/oppdrag");
+  redirect("/oppdrag?ok=slettet");
 }

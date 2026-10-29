@@ -3,16 +3,16 @@
     "list": {
       "views": {
         "alle": {
-          "label": "Alle",
-          "description": "Alle oppdrag i systemet."
+          "label": "Aktive",
+          "description": "Aktive oppdrag – fullførte og kansellerte ligger i historikken."
         },
         "apne": {
-          "label": "Åpne",
-          "description": "Oppdrag som ikke er fullført eller kansellert."
+          "label": "Nye",
+          "description": "Oppdrag som ennå ikke er planlagt eller satt i gang."
         },
         "venter": {
-          "label": "Venter på oppstart",
-          "description": "Åpne oppdrag som ennå ikke er satt i gang."
+          "label": "Ikke startet",
+          "description": "Åpne, ventende og planlagte oppdrag som ikke er påbegynt."
         },
         "pagaaende": {
           "label": "Påbegynt",
@@ -60,7 +60,10 @@
       "overdue": "⚠️ Forfalt",
       "previous": "← Forrige",
       "next": "Neste →",
-      "page": "Side {page} av {pages}"
+      "page": "Side {page} av {pages}",
+      "sortLabel": "Sortering",
+      "sortUrgency": "Haster først",
+      "sortNewest": "Nyeste først"
     },
     "new": {
       "title": "➕ Opprett nytt oppdrag",
@@ -129,13 +132,20 @@
       "notFoundTitle": "Oppdraget finnes ikke",
       "goToDashboard": "Gå til dashbordet",
       "saveTags": "💾 Lagre tags",
+      "editTags": "Rediger tags",
+      "noDate": "Ingen dato valgt",
+      "noAddress": "Ingen adresse registrert",
+      "assign": "Tildel",
+      "moveDate": "Flytt dato",
+      "completeWorkOrder": "Fullfør",
       "department": "🏷️ Avdeling: {name}",
       "noCustomer": "Uten kunde",
       "internalOrder": "Internt oppdrag",
       "orphanReport": "Rapport uten mal",
       "editWorkOrder": "✏️ Rediger oppdrag",
-      "deleteConfirm": "Slette oppdraget «{title}»? Alle rapporter, kommentarer og vedlegg til oppdraget blir slettet. Dette kan ikke angres.",
-      "deleteWorkOrder": "🗑️ Slett oppdrag",
+      "deleteConfirm": "Flytte oppdraget «{title}» til papirkurven? Rapporter, kommentarer og vedlegg beholdes, og oppdraget kan gjenopprettes av en administrator.",
+      "deleteWorkOrder": "🗑️ Flytt til papirkurv",
+      "moveToTrash": "Flytt til papirkurv",
       "back": "← Tilbake",
       "descriptionTitle": "Arbeidsbeskrivelse",
       "noDescription": "Ingen beskrivelse lagt til.",
@@ -219,10 +229,14 @@
       "unlockReason": "Årsak til opplåsing",
       "unlockReasonPlaceholder": "Beskriv hva som skal rettes",
       "unlockReasonRequired": "Du må oppgi en årsak til opplåsingen.",
-      "deletedOrders": "Slettede oppdrag",
+      "deletedOrders": "Papirkurv",
       "restore": "Gjenopprett",
-      "noDeletedOrders": "Ingen slettede oppdrag.",
-      "deletedAt": "Slettet {date}",
+      "noDeletedOrders": "Papirkurven er tom.",
+      "deletedAt": "Flyttet til papirkurv {date}",
+      "deletedInfoTitle": "Papirkurv og gjenoppretting",
+      "deletedInfo": "Slettede oppdrag er mykt slettet. Rapporter, kommentarer og vedlegg beholdes, og en administrator kan gjenopprette oppdraget herfra.",
+      "deletedRetention": "Oppdrag uten rapporter kan bli fjernet automatisk etter bevaringsperioden (365 dager som standard). Oppdrag med rapporter beholdes til de slettes manuelt. Bevaringsplikt stopper all automatisk sletting.",
+      "restored": "Oppdraget er gjenopprettet.",
       "cloneWorkOrder": "📋 Klon oppdrag",
       "completedLocked": "Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
       "reopenReason": "Grunn til gjenåpning / statusendring",
@@ -673,7 +687,25 @@
       "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer.",
       "customerChangeBlocked": "⛔ Kunden kan ikke endres fordi oppdraget har rapporter eller en bestilling.",
       "tooManyTags": "For mange tags.",
-      "tooManyRows": "For mange valgte rader."
+      "tooManyRows": "For mange valgte rader.",
+      "forbidden": "⛔ Du har ikke tilgang til denne handlingen.",
+      "notFound": "⛔ Oppdraget finnes ikke eller er allerede slettet."
+    },
+    "feedback": {
+      "deleted": "Oppdraget er flyttet til papirkurven.",
+      "restored": "Oppdraget er gjenopprettet.",
+      "statusUpdated": "Statusen er oppdatert.",
+      "technicianAssigned": "Montøren er tildelt.",
+      "technicianRemoved": "Montøren er fjernet fra oppdraget.",
+      "contactSelected": "Kontaktpersonen er oppdatert.",
+      "contactAdded": "Kontaktpersonen er lagt til.",
+      "templateAdded": "Sjekklisten er lagt til.",
+      "tagsSaved": "Tagene er lagret.",
+      "reportLockUpdated": "Rapportlåsen er oppdatert.",
+      "legalHoldUpdated": "Bevaringsplikten er oppdatert.",
+      "reportLegalHoldUpdated": "Bevaringsplikten på rapporten er oppdatert.",
+      "workOrderUpdated": "Oppdraget er oppdatert.",
+      "cloned": "Oppdraget er klonet."
     },
     "reportsPage": {
       "title": "Servicerapporter",

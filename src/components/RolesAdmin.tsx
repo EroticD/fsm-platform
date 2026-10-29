@@ -46,6 +46,14 @@ export default async function RolesAdmin({
     permissions: PERMISSIONS.filter((permission) => permission.group === group),
   }));
 
+  const reportsViewLabel = t(
+    "settings.permissions.items.reports_view.label",
+  );
+  const permissionLabel = (key: string) => {
+    const definition = PERMISSIONS.find((permission) => permission.key === key);
+    return definition ? t(definition.labelKey) : key;
+  };
+
   const lockedRole = (key: string) => key === "ADMIN" || key === "CUSTOMER";
   const messageText =
     message && ROLE_MESSAGE_CODES.has(message)
@@ -115,6 +123,13 @@ export default async function RolesAdmin({
                           <span className="block text-xs text-gray-600">
                             {t(permission.descriptionKey)}
                           </span>
+                          {permission.key === "reports.viewAllDepartments" && (
+                            <span className="mt-0.5 block rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                              {t("settings.roles.requiresPermission", {
+                                permission: reportsViewLabel,
+                              })}
+                            </span>
+                          )}
                         </span>
                       </label>
                     ))}
@@ -180,6 +195,30 @@ export default async function RolesAdmin({
                       permissions: role.permissions.length,
                     })}
                   </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-gray-600">
+                    <span className="font-semibold text-gray-500">
+                      {t("settings.roles.selectedPermissions")}:
+                    </span>
+                    {role.permissions.length === 0 ? (
+                      <span>{t("settings.roles.noPermissions")}</span>
+                    ) : (
+                      <>
+                        {role.permissions.slice(0, 6).map((permissionKey) => (
+                          <span
+                            key={permissionKey}
+                            className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-700"
+                          >
+                            {permissionLabel(permissionKey)}
+                          </span>
+                        ))}
+                        {role.permissions.length > 6 && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-bold text-gray-700">
+                            +{role.permissions.length - 6}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {!role.isSystem && (
@@ -281,6 +320,13 @@ export default async function RolesAdmin({
                                   <span className="block text-xs text-gray-600">
                                     {t(permission.descriptionKey)}
                                   </span>
+                                  {permission.key === "reports.viewAllDepartments" && (
+                                    <span className="mt-0.5 block rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                                      {t("settings.roles.requiresPermission", {
+                                        permission: reportsViewLabel,
+                                      })}
+                                    </span>
+                                  )}
                                 </span>
                               </label>
                             ))}

@@ -16,7 +16,23 @@
       "viewSwitcher": "Bytt kalendervisning"
     },
     "legend": {
-      "title": "Statusfarger"
+      "title": "Statusfarger",
+      "visibleTitle": "Statusfarger i vist periode"
+    },
+    "filters": {
+      "title": "Filtrer kalenderen",
+      "technician": "Montør",
+      "allTechnicians": "Alle montører",
+      "unnamedTechnician": "Uten navn",
+      "status": "Status",
+      "allStatuses": "Alle statuser",
+      "unassigned": "Uten montør",
+      "apply": "Bruk filter",
+      "reset": "Nullstill"
+    },
+    "window": {
+      "notice": "Oppdrag hentes fra {from} til {to} (±6 måneder). Perioder utenfor vinduet kan mangle oppdrag.",
+      "truncated": "Maks 1000 oppdrag er lastet. Noen oppdrag i denne perioden vises ikke."
     },
     "page": {
       "title": "📅 Planlegging & Kontroll",

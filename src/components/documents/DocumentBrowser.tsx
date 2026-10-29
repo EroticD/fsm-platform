@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { readableTextColor } from "@/lib/colors";
@@ -36,6 +36,8 @@ type DocumentBrowserProps = {
   searchQuery: string;
   tagFilter: string;
   onlyFolder: boolean;
+  /** Intern retursti fra søket, f.eks. /sok?q=pumpe. */
+  returnTo: string | null;
   page: number;
   office: boolean;
   isAdmin: boolean;
@@ -122,6 +124,11 @@ function FolderMenu({
   >("closed");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (mode === "rename") renameInputRef.current?.focus();
+  }, [mode]);
 
   if (!office && !isAdmin) return null;
 
@@ -252,7 +259,7 @@ function FolderMenu({
                   required
                   maxLength={200}
                   defaultValue={folder.name}
-                  autoFocus
+                  ref={renameInputRef}
                   className="mt-1 w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 bg-white"
                 />
               </label>
@@ -360,6 +367,7 @@ export default function DocumentBrowser({
   searchQuery,
   tagFilter,
   onlyFolder,
+  returnTo,
   page,
   office,
   isAdmin,
@@ -393,17 +401,32 @@ export default function DocumentBrowser({
     detailDocument,
     folderOptions,
     allTags,
+    libraryTotal,
+    rootDocumentCount,
+    folderDocumentCounts,
   } = data;
 
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [panel, setPanel] = useState<null | "folder" | "upload" | "bulk">(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [scope, setScope] = useState<"folder" | "library">(
+    onlyFolder ? "folder" : "library",
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMoveTarget, setBulkMoveTarget] = useState("");
+  const [confirmBulkMove, setConfirmBulkMove] = useState(false);
+  const [undoMove, setUndoMove] = useState<{
+    groups: Array<{ folderId: string | null; ids: string[] }>;
+    destination: string;
+  } | null>(null);
   const [bulkResult, setBulkResult] = useState<
     DocumentBulkMutationResult | { error: string } | null
   >(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const searchFormRef = useRef<HTMLFormElement>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const formContext: DocumentFormContext = {
     folderId,
@@ -415,18 +438,41 @@ export default function DocumentBrowser({
 
   const filtering = Boolean(searchQuery || tagFilter);
   const globalSearch = filtering && !onlyFolder;
+  const libraryScope = Boolean(folderId) && !onlyFolder;
+  const showFolderPath = !onlyFolder;
+  const activeFilterCount =
+    (searchQuery ? 1 : 0) + (tagFilter ? 1 : 0);
+  const emptyTitle =
+    searchQuery || tagFilter
+      ? t("documents.browser.empty")
+      : folderId
+        ? t("documents.browser.empty")
+        : onlyFolder
+          ? t("documents.browser.emptyRootFiles")
+          : t("documents.browser.emptyLibrary");
+  const emptyHint =
+    searchQuery || tagFilter
+      ? t("documents.browser.emptyFiltered")
+      : !folderId && onlyFolder
+        ? t("documents.browser.emptyRootFilesHint")
+        : t("documents.browser.emptyUpload");
   const currentPage = clampPage(page, totalPages);
   const canSelect = !showDeleted && (office || isAdmin);
   const allVisibleSelected =
     documents.length > 0 &&
     documents.every((document) => selected.has(document.id));
 
+  function addScope(params: URLSearchParams) {
+    if (libraryScope) params.set("scope", "library");
+    else if (onlyFolder) params.set("scope", "folder");
+  }
+
   function contextParams() {
     const params = new URLSearchParams();
     if (folderId) params.set("folder", folderId);
     if (searchQuery) params.set("q", searchQuery);
     if (tagFilter) params.set("tag", tagFilter);
-    if (onlyFolder) params.set("scope", "folder");
+    addScope(params);
     return params;
   }
 
@@ -435,12 +481,12 @@ export default function DocumentBrowser({
     if (fid) params.set("folder", fid);
     if (searchQuery) params.set("q", searchQuery);
     if (tagFilter) params.set("tag", tagFilter);
-    if (onlyFolder) params.set("scope", "folder");
+    addScope(params);
     const qs = params.toString();
     return `/dokumenter${qs ? `?${qs}` : ""}`;
   };
 
-  const resetLink = () => resetHref(folderId, onlyFolder);
+  const resetLink = () => resetHref(folderId, onlyFolder, libraryScope);
 
   const toggleTagLink = (tagName: string) =>
     toggleTagHref(tagName, {
@@ -448,6 +494,7 @@ export default function DocumentBrowser({
       searchQuery,
       tagFilter,
       onlyFolder,
+      libraryScope,
     });
 
   const pageLink = (nextPage: number) => {
@@ -460,6 +507,7 @@ export default function DocumentBrowser({
   const docLink = (id: string) => {
     const params = contextParams();
     if (page > 1) params.set("page", String(page));
+    if (returnTo) params.set("returnTo", returnTo);
     params.set("doc", id);
     return `/dokumenter?${params.toString()}`;
   };
@@ -471,6 +519,16 @@ export default function DocumentBrowser({
     const qs = params.toString();
     return `/dokumenter${qs ? `?${qs}` : ""}`;
   };
+
+  // Når et søketreff åpner detaljvisningen, skal dokumentet være synlig med
+  // én gang – ikke ligge under filterpanelet og mappekortene.
+  useEffect(() => {
+    if (!detailDocument) return;
+    const frame = window.requestAnimationFrame(() => {
+      detailRef.current?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [detailDocument]);
 
   function toggleSelected(id: string) {
     setBulkResult(null);
@@ -512,11 +570,13 @@ export default function DocumentBrowser({
   function handleBulkResponse(
     result: DocumentBulkMutationActionResult,
     clearSelection = true,
+    clearUndo = true,
   ) {
     if (!result.ok) {
       setBulkResult({ error: t(errorKey(result.reason)) });
       return;
     }
+    if (clearUndo) setUndoMove(null);
     setBulkResult(result);
     const failedIds = result.results
       .filter((item) => item.status === "failed")
@@ -529,16 +589,92 @@ export default function DocumentBrowser({
     router.refresh();
   }
 
-  async function submitBulkMove(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  const moveDestinationLabel =
+    bulkMoveTarget === "__root__"
+      ? t("documents.folders.root")
+      : folderOptions.find((folder) => folder.id === bulkMoveTarget)?.name ??
+        "";
+
+  async function submitBulkMove() {
+    if (!bulkMoveTarget) return;
     setBulkBusy(true);
-    const formData = new FormData(e.currentTarget);
+    setConfirmBulkMove(false);
+    setUndoMove(null);
+
+    const previousFolders = new Map<string, string | null>();
+    for (const document of documents) {
+      if (selected.has(document.id)) {
+        previousFolders.set(document.id, document.folderId);
+      }
+    }
+
+    const formData = new FormData();
+    formData.set("folderId", bulkMoveTarget === "__root__" ? "" : bulkMoveTarget);
     for (const id of selected) formData.append("ids", id);
+
     try {
       const result = await bulkMoveDocumentsAction(formData);
-      handleBulkResponse(result);
+      if (result.ok) {
+        // Bare dokumentene som faktisk ble flyttet kan angres. Grupper på
+        // opprinnelig mappe, slik at hver mappe flyttes tilbake i ett kall.
+        const movedIds = result.results
+          .filter((item) => item.status === "ok")
+          .map((item) => item.id);
+        const groups = new Map<
+          string,
+          { folderId: string | null; ids: string[] }
+        >();
+        for (const id of movedIds) {
+          const folder = previousFolders.get(id) ?? null;
+          const key = folder ?? "__root__";
+          const group = groups.get(key) ?? { folderId: folder, ids: [] };
+          group.ids.push(id);
+          groups.set(key, group);
+        }
+        if (groups.size > 0) {
+          setUndoMove({
+            groups: [...groups.values()],
+            destination: moveDestinationLabel,
+          });
+        }
+        setBulkMoveTarget("");
+      }
+      handleBulkResponse(result, true, false);
     } catch {
       setBulkResult({ error: t("documents.errors.generic") });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function undoLastMove() {
+    if (!undoMove) return;
+    setBulkBusy(true);
+    let succeeded = 0;
+    let failed = 0;
+    try {
+      for (const group of undoMove.groups) {
+        const formData = new FormData();
+        formData.set("folderId", group.folderId ?? "");
+        for (const id of group.ids) formData.append("ids", id);
+        const result = await bulkMoveDocumentsAction(formData);
+        if (result.ok) {
+          succeeded += result.succeeded;
+          failed += result.failed;
+        } else {
+          failed += group.ids.length;
+        }
+      }
+      setUndoMove(null);
+      if (failed > 0) {
+        setBulkResult({ error: t("documents.bulkActions.undoFailed") });
+      } else {
+        setBulkResult({ succeeded, failed: 0, results: [] });
+        setSelected(new Set());
+      }
+      router.refresh();
+    } catch {
+      setBulkResult({ error: t("documents.bulkActions.undoFailed") });
     } finally {
       setBulkBusy(false);
     }
@@ -547,6 +683,7 @@ export default function DocumentBrowser({
   async function submitBulkTag(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBulkBusy(true);
+    setUndoMove(null);
     const formData = new FormData(e.currentTarget);
     for (const id of selected) formData.append("ids", id);
     try {
@@ -562,6 +699,7 @@ export default function DocumentBrowser({
   async function submitBulkDelete() {
     setBulkBusy(true);
     setConfirmBulkDelete(false);
+    setUndoMove(null);
     const formData = new FormData();
     for (const id of selected) formData.append("ids", id);
     try {
@@ -588,73 +726,157 @@ export default function DocumentBrowser({
         </div>
       )}
 
-      {/* SØK + TAG-FILTER */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200 space-y-3">
-        <form method="GET" action="/dokumenter" className="flex flex-wrap gap-2">
-          {folderId && <input type="hidden" name="folder" value={folderId} />}
-          {tagFilter && <input type="hidden" name="tag" value={tagFilter} />}
-          <input
-            type="search"
-            name="q"
-            defaultValue={searchQuery}
-            aria-label={t("documents.browser.searchPlaceholder")}
-            placeholder={t("documents.browser.searchPlaceholder")}
-            className="flex-1 min-w-[14rem] border-2 border-gray-200 p-2.5 rounded-xl text-sm font-medium text-gray-900 bg-gray-50 focus:border-blue-700"
-          />
-          <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition">
-            {t("documents.browser.search")}
-          </button>
-          {(searchQuery || tagFilter) && (
-            <Link
-              href={resetLink()}
-              className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
-            >
-              {t("documents.browser.reset")}
-            </Link>
-          )}
-          <label className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              name="scope"
-              value="folder"
-              defaultChecked={onlyFolder}
-              className="h-4 w-4"
-            />
-            {t("documents.browser.onlyFolder")}
-          </label>
-        </form>
+      {/* SØK + TAG-FILTER – alltid synlig på desktop, sammenklappet på mobil */}
+      <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-expanded={filtersOpen}
+          aria-controls="document-search-panel"
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-800 transition hover:bg-gray-100 lg:hidden"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span aria-hidden>⚙️</span>
+            <span className="truncate">
+              {activeFilterCount > 0
+                ? t("documents.browser.filterToggleActive", {
+                    count: activeFilterCount,
+                  })
+                : t("documents.browser.filterToggle")}
+            </span>
+          </span>
+          <span aria-hidden className="shrink-0 text-xs text-gray-400">
+            {filtersOpen ? "▲" : "▼"}
+          </span>
+        </button>
 
-        {globalSearch && (
-          <p className="bg-blue-50 border-2 border-blue-200 text-blue-900 px-4 py-2.5 rounded-xl text-xs font-bold">
-            🔎 {t("documents.browser.globalSearchNotice")}
-          </p>
-        )}
-        {filtering && onlyFolder && (
-          <p className="bg-blue-50 border-2 border-blue-200 text-blue-900 px-4 py-2.5 rounded-xl text-xs font-bold">
-            🔎 {t("documents.browser.folderScopeNotice")}
-          </p>
-        )}
-
-        {/* Tag-filter chips */}
-        {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider self-center">{t("documents.browser.tagFilter")}</span>
-            {allTags.map((tag) => (
-              <Link
-                key={tag.id}
-                href={toggleTagLink(tag.name)}
-                className={`px-3 py-1 rounded-full text-xs font-bold border-2 transition ${
-                  tagFilter === tag.name
-                    ? "text-white border-transparent"
-                    : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                }`}
-                style={tagFilter === tag.name ? { backgroundColor: tag.color } : {}}
+        <div
+          id="document-search-panel"
+          className={`${filtersOpen ? "mt-3 block" : "mt-3 hidden lg:block"} space-y-3`}
+        >
+          <form
+            ref={searchFormRef}
+            method="GET"
+            action="/dokumenter"
+            className="space-y-3"
+          >
+            {folderId && <input type="hidden" name="folder" value={folderId} />}
+            {tagFilter && <input type="hidden" name="tag" value={tagFilter} />}
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="search"
+                name="q"
+                defaultValue={searchQuery}
+                aria-label={t("documents.browser.searchPlaceholder")}
+                placeholder={t("documents.browser.searchPlaceholder")}
+                className="min-w-0 flex-1 basis-56 rounded-xl border-2 border-gray-200 bg-gray-50 p-2.5 text-sm font-medium text-gray-900 focus:border-blue-700"
+              />
+              <button
+                type="submit"
+                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-gray-800"
               >
-                🏷️ {tag.name}
-              </Link>
-            ))}
-          </div>
-        )}
+                {t("documents.browser.search")}
+              </button>
+              {(searchQuery || tagFilter) && (
+                <Link
+                  href={resetLink()}
+                  className="rounded-xl bg-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
+                >
+                  {t("documents.browser.reset")}
+                </Link>
+              )}
+            </div>
+
+            <fieldset className="flex flex-wrap items-center gap-2">
+              <legend className="sr-only">
+                {t("documents.browser.scopeLabel")}
+              </legend>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                {t("documents.browser.scopeLabel")}
+              </span>
+              <div className="inline-flex rounded-xl border-2 border-gray-200 bg-gray-50 p-0.5">
+                <label
+                  className={`cursor-pointer rounded-[10px] px-3 py-1.5 text-xs font-bold transition ${
+                    scope === "folder"
+                      ? "bg-blue-700 text-white shadow-sm"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="scope"
+                    value="folder"
+                    checked={scope === "folder"}
+                    onChange={() => {
+                      setScope("folder");
+                      searchFormRef.current?.requestSubmit();
+                    }}
+                    className="sr-only"
+                  />
+                  {t("documents.browser.scopeFolder")}
+                </label>
+                <label
+                  className={`cursor-pointer rounded-[10px] px-3 py-1.5 text-xs font-bold transition ${
+                    scope === "library"
+                      ? "bg-blue-700 text-white shadow-sm"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="scope"
+                    value="library"
+                    checked={scope === "library"}
+                    onChange={() => {
+                      setScope("library");
+                      searchFormRef.current?.requestSubmit();
+                    }}
+                    className="sr-only"
+                  />
+                  {t("documents.browser.scopeLibrary")}
+                </label>
+              </div>
+            </fieldset>
+          </form>
+
+          {globalSearch && (
+            <p className="rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-900">
+              🔎 {t("documents.browser.globalSearchNotice")}
+            </p>
+          )}
+          {filtering && onlyFolder && (
+            <p className="rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-900">
+              🔎 {t("documents.browser.folderScopeNotice")}
+            </p>
+          )}
+
+          {/* Tag-filter chips */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+              <span className="self-center text-xs font-bold uppercase tracking-wider text-gray-500">
+                {t("documents.browser.tagFilter")}
+              </span>
+              {allTags.map((tag) => (
+                <Link
+                  key={tag.id}
+                  href={toggleTagLink(tag.name)}
+                  className={`rounded-full border-2 px-3 py-1 text-xs font-bold transition ${
+                    tagFilter === tag.name
+                      ? "border-transparent text-white"
+                      : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                  }`}
+                  style={
+                    tagFilter === tag.name
+                      ? { backgroundColor: tag.color }
+                      : {}
+                  }
+                >
+                  🏷️ {tag.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* STICKY VERKTØYLINJE – alltid over dokumentlisten */}
@@ -806,23 +1028,53 @@ export default function DocumentBrowser({
       </div>
 
       {/* BREADCRUMB */}
-      <div className="flex items-center gap-2 text-sm font-bold text-gray-600 flex-wrap">
-        <Link href={folderLink(null)} className="hover:text-blue-700 transition">📁 {t("documents.browser.root")}</Link>
+      <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-600">
+        <Link href={folderLink(null)} className="transition hover:text-blue-700">
+          📚 {t("documents.browser.allDocuments")}
+        </Link>
         {breadcrumb.map((folder, index) => (
           <span key={folder.id} className="flex items-center gap-2">
             <span className="text-gray-400">/</span>
             {index === breadcrumb.length - 1 ? (
               <span className="text-gray-900">{folder.name}</span>
             ) : (
-              <Link href={folderLink(folder.id)} className="hover:text-blue-700 transition">{folder.name}</Link>
+              <Link href={folderLink(folder.id)} className="transition hover:text-blue-700">
+                {folder.name}
+              </Link>
             )}
           </span>
         ))}
       </div>
 
+      {!folderId && (
+        <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h2 className="text-base font-black text-gray-900">
+              📚 {t("documents.browser.allDocuments")}
+            </h2>
+            <p className="text-sm font-bold text-gray-700">
+              {t("documents.browser.allDocumentsCount", {
+                count: libraryTotal,
+              })}
+            </p>
+          </div>
+          <p className="mt-1 text-xs font-bold text-blue-800">
+            {t("documents.browser.rootFilesCount", {
+              count: rootDocumentCount,
+            })}
+          </p>
+          <p className="mt-2 text-sm text-gray-600">
+            {t("documents.browser.libraryHint")}
+          </p>
+        </div>
+      )}
+
       {/* DOKUMENTDETALJ – versjoner og filbytte */}
       {detailDocument && (
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200 space-y-4">
+        <div
+          ref={detailRef}
+          className="scroll-mt-24 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200 space-y-4"
+        >
           <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
             <div className="min-w-0">
               <h2 className="font-black text-gray-900 truncate">🗂️ {detailDocument.title}</h2>
@@ -834,12 +1086,23 @@ export default function DocumentBrowser({
                     })}`
                   : ` • ${t("documents.browser.noPreviousVersions")}`}
               </p>
+              <p className="mt-1 text-xs font-bold text-blue-700">
+                {t("documents.browser.folderPath", {
+                  path:
+                    detailDocument.folderPath ??
+                    t("documents.browser.root"),
+                })}
+              </p>
             </div>
             <Link
-              href={pageLink(page)}
+              href={returnTo ?? pageLink(page)}
               className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
             >
-              ✕ {t("documents.browser.close")}
+              {returnTo
+                ? returnTo.startsWith("/sok")
+                  ? t("documents.browser.backToSearch")
+                  : t("documents.browser.backToContext")
+                : `✕ ${t("documents.browser.close")}`}
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -920,68 +1183,85 @@ export default function DocumentBrowser({
         </div>
       )}
 
-      {/* UNDERMAPPER */}
-      {subFolders.length > 0 && (
-        <div>
-          <h2 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">{t("documents.browser.subfolders")}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {subFolders.map((folder) => (
-              <div
-                key={folder.id}
-                className="relative rounded-2xl border-2 border-gray-200 bg-white shadow-sm transition hover:border-blue-400 hover:shadow-md"
-              >
-                <Link
-                  href={folderLink(folder.id)}
-                  className="block p-4 text-center"
+      <div className="flex flex-col gap-6">
+        {/* UNDERMAPPER */}
+        {subFolders.length > 0 && !libraryScope && (
+          <div className={folderId ? undefined : "order-2 lg:order-1"}>
+            <h2 className="mb-3 text-sm font-black uppercase tracking-wider text-gray-500">
+              {folderId
+                ? t("documents.browser.subfolders")
+                : t("documents.browser.rootFolders")}
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {subFolders.map((folder) => (
+                <div
+                  key={folder.id}
+                  className="relative rounded-2xl border-2 border-gray-200 bg-white shadow-sm transition hover:border-blue-400 hover:shadow-md"
                 >
-                  <div className="text-3xl mb-1">📁</div>
-                  <p className="font-bold text-gray-900 text-sm truncate">{folder.name}</p>
-                </Link>
-                <div className="absolute right-1.5 top-1.5">
-                  <FolderMenu
-                    folder={folder}
-                    allFolders={folderOptions}
-                    office={office}
-                    isAdmin={isAdmin}
-                    renameFolderAction={renameFolderAction}
-                    moveFolderAction={moveFolderAction}
-                    deleteFolderAction={deleteFolderAction}
-                  />
+                  <Link
+                    href={folderLink(folder.id)}
+                    className="block p-4 text-center"
+                  >
+                    <div className="mb-1 text-3xl">📁</div>
+                    <p className="truncate text-sm font-bold text-gray-900">{folder.name}</p>
+                    <p
+                      className="mt-0.5 text-xs font-semibold text-gray-500"
+                      title={t("documents.browser.folderCountHint")}
+                    >
+                      {t("documents.browser.folderCount", {
+                        count: folderDocumentCounts[folder.id] ?? 0,
+                      })}
+                    </p>
+                  </Link>
+                  <div className="absolute right-1.5 top-1.5">
+                    <FolderMenu
+                      folder={folder}
+                      allFolders={folderOptions}
+                      office={office}
+                      isAdmin={isAdmin}
+                      renameFolderAction={renameFolderAction}
+                      moveFolderAction={moveFolderAction}
+                      deleteFolderAction={deleteFolderAction}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* DOKUMENTER */}
-      <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-black text-gray-500 uppercase tracking-wider">
-            {t("documents.browser.documents", { count: totalDocuments })}
-          </h2>
-          {canSelect && documents.length > 0 && (
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-600">
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={toggleAll}
-                disabled={bulkBusy}
-                className="h-4 w-4"
-              />
-              {t("documents.bulkActions.selectAll")}
-            </label>
-          )}
-        </div>
+        {/* DOKUMENTER */}
+        <div className={folderId ? undefined : "order-1 lg:order-2"}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-black uppercase tracking-wider text-gray-500">
+              {(!folderId && !onlyFolder) || libraryScope
+                ? t("documents.browser.allDocumentsHeading", {
+                    count: totalDocuments,
+                  })
+                : !folderId && onlyFolder
+                  ? t("documents.browser.rootFilesHeading", {
+                      count: totalDocuments,
+                    })
+                  : t("documents.browser.documents", { count: totalDocuments })}
+            </h2>
+            {canSelect && documents.length > 0 && (
+              <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleAll}
+                  disabled={bulkBusy}
+                  className="h-4 w-4"
+                />
+                {t("documents.bulkActions.selectAll")}
+              </label>
+            )}
+          </div>
 
         {documents.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">{t("documents.browser.empty")}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {searchQuery || tagFilter
-                ? t("documents.browser.emptyFiltered")
-                : t("documents.browser.emptyUpload")}
-            </p>
+            <p className="text-gray-600 font-bold">{emptyTitle}</p>
+            <p className="mt-1 text-xs text-gray-500">{emptyHint}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -1016,7 +1296,7 @@ export default function DocumentBrowser({
                       {doc.description && (
                         <p className="text-xs text-gray-600 mt-1 line-clamp-2">{doc.description}</p>
                       )}
-                      {globalSearch && (
+                      {showFolderPath && (
                         <p className="mt-1 text-xs font-bold text-blue-700">
                           📁 {doc.folderPath ?? t("documents.browser.root")}
                         </p>
@@ -1096,7 +1376,7 @@ export default function DocumentBrowser({
                             <input type="hidden" name="id" value={doc.id} />
                             <button
                               type="submit"
-                              className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition whitespace-nowrap"
+                              className="text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition whitespace-nowrap"
                             >
                               🗑️ {t("documents.browser.delete")}
                             </button>
@@ -1124,6 +1404,7 @@ export default function DocumentBrowser({
           })}`}
           className="mt-3"
         />
+        </div>
       </div>
 
       {/* STICKY HANDLINGSSTOLPE FOR MERKEDE DOKUMENTER */}
@@ -1136,21 +1417,29 @@ export default function DocumentBrowser({
               </span>
               <button
                 type="button"
-                onClick={() => setSelected(new Set())}
+                onClick={() => {
+                  setSelected(new Set());
+                  setBulkMoveTarget("");
+                }}
                 className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl"
               >
                 {t("documents.bulkActions.clear")}
               </button>
 
               {office && (
-                <form onSubmit={submitBulkMove} className="flex items-center gap-1">
+                <div className="flex items-center gap-1">
                   <select
-                    name="folderId"
-                    defaultValue=""
+                    value={bulkMoveTarget}
+                    onChange={(event) => setBulkMoveTarget(event.target.value)}
                     aria-label={t("documents.bulkActions.moveTo")}
                     className="border border-gray-300 p-2 rounded-xl text-xs text-gray-900 bg-white"
                   >
-                    <option value="">{t("documents.folders.root")}</option>
+                    <option value="" disabled>
+                      {t("documents.bulkActions.moveDestination")}
+                    </option>
+                    <option value="__root__">
+                      {t("documents.folders.root")}
+                    </option>
                     {folderOptions.map((folder) => (
                       <option key={folder.id} value={folder.id}>
                         {folder.name}
@@ -1158,13 +1447,14 @@ export default function DocumentBrowser({
                     ))}
                   </select>
                   <button
-                    type="submit"
-                    disabled={bulkBusy}
-                    className="text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded-xl disabled:opacity-50"
+                    type="button"
+                    onClick={() => setConfirmBulkMove(true)}
+                    disabled={bulkBusy || !bulkMoveTarget}
+                    className="text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded-xl disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t("documents.bulkActions.move")}
                   </button>
-                </form>
+                </div>
               )}
 
               {office && allTags.length > 0 && (
@@ -1253,17 +1543,51 @@ export default function DocumentBrowser({
                     </>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setBulkResult(null)}
-                  className="text-xs font-bold text-gray-500 hover:text-gray-800"
-                >
-                  {t("documents.bulkActions.dismiss")}
-                </button>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {undoMove && !("error" in bulkResult) && (
+                    <button
+                      type="button"
+                      onClick={undoLastMove}
+                      disabled={bulkBusy}
+                      title={t("documents.bulkActions.moveUndoTarget", {
+                        destination: undoMove.destination,
+                      })}
+                      className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                    >
+                      ↩️ {t("documents.bulkActions.moveUndo")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkResult(null);
+                      setUndoMove(null);
+                    }}
+                    className="text-xs font-bold text-gray-500 hover:text-gray-800"
+                  >
+                    {t("documents.bulkActions.dismiss")}
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
+      )}
+
+      {confirmBulkMove && (
+        <ConfirmDialog
+          open
+          title={t("documents.bulkActions.moveConfirmTitle")}
+          description={t("documents.bulkActions.moveConfirmDescription", {
+            count: selected.size,
+            folder: moveDestinationLabel,
+          })}
+          confirmLabel={t("documents.bulkActions.move")}
+          cancelLabel={t("documents.folders.cancel")}
+          busy={bulkBusy}
+          onCancel={() => setConfirmBulkMove(false)}
+          onConfirm={submitBulkMove}
+        />
       )}
 
       {confirmBulkDelete && (

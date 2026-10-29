@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
+import prisma from "@/lib/prisma";
+import { workOrderScope } from "@/lib/access";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { parsePage } from "@/lib/pagination";
 import {
+  CUSTOMER_ACTIVE_STATUSES,
   CUSTOMER_ORDER_PAGE_SIZE,
   getCustomerDetail,
   resolveCustomerTab,
@@ -12,6 +16,7 @@ import {
 } from "@/server/customers";
 import CustomerOverviewTab from "@/components/customer/CustomerOverviewTab";
 import CustomerOrdersTab from "@/components/customer/CustomerOrdersTab";
+import CustomerReportsTab from "@/components/customer/CustomerReportsTab";
 import CustomerContractsTab from "@/components/customer/CustomerContractsTab";
 import CustomerUnitsTab from "@/components/customer/CustomerUnitsTab";
 import CustomerContactsTab from "@/components/customer/CustomerContactsTab";
@@ -19,6 +24,8 @@ import CustomerPortalTab from "@/components/customer/CustomerPortalTab";
 import CustomerActivityTab from "@/components/customer/CustomerActivityTab";
 import CustomerAttachments from "@/components/CustomerAttachments";
 import CustomerSectionScroll from "@/components/customer/CustomerSectionScroll";
+import CustomerTabs from "@/components/customer/CustomerTabs";
+import CustomerOrdersReportsSwitch from "@/components/customer/CustomerOrdersReportsSwitch";
 import CustomerToast from "@/components/customer/CustomerToast";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import EmptyState from "@/components/EmptyState";
@@ -53,13 +60,14 @@ export default async function CustomerDetailPage({
     error?: string;
     status?: string;
     tab?: string;
+    vis?: string;
     side?: string;
     enhet?: string;
   }>;
 }) {
   const resolvedParams = await params;
   const customerId = resolvedParams.id;
-  const { error, status, tab, side, enhet } = await searchParams;
+  const { error, status, tab, vis, side, enhet } = await searchParams;
   const orderPage = parsePage(side);
   const unitQuery = enhet?.trim().slice(0, 120) ?? "";
   const t = await getTranslations("common");
@@ -89,9 +97,18 @@ export default async function CustomerDetailPage({
     "mer",
   ];
   const resolvedTab = resolveCustomerTab(tab);
-  const currentTab: CustomerTab = availableTabs.includes(resolvedTab.tab)
-    ? resolvedTab.tab
-    : "oversikt";
+  // «?tab=rapporter» er en eldre/alternativ inngang til rapportvisningen.
+  // Den løses til Oppdrag-fanen med rapportsegmentet valgt.
+  const reportsAlias = (tab ?? "").trim().toLowerCase() === "rapporter";
+  const currentTab: CustomerTab = reportsAlias
+    ? "oppdrag"
+    : availableTabs.includes(resolvedTab.tab)
+      ? resolvedTab.tab
+      : "oversikt";
+  const showCustomerReports =
+    currentTab === "oppdrag" &&
+    canViewReports &&
+    (reportsAlias || vis === "rapporter");
   const merSection =
     currentTab === "mer" && resolvedTab.section !== "portal"
       ? resolvedTab.section
@@ -124,6 +141,44 @@ export default async function CustomerDetailPage({
 
   const data = result.data;
   const { customer } = data;
+
+  // Forfalte oppdrag hentes bare på oversikten. Spørringen bruker samme
+  // oppdragsomfang som kundekortet, slik at avdelingssperren gjelder også
+  // «forfalt»-tallet.
+  let overdueCount = 0;
+  let overdueOrders: Array<{
+    id: string;
+    title: string;
+    scheduledFor: Date | null;
+    status: string;
+  }> = [];
+  if (currentTab === "oversikt") {
+    const overdueWhere: Prisma.WorkOrderWhereInput = {
+      AND: [
+        { customerId },
+        workOrderScope(user),
+        { status: { in: CUSTOMER_ACTIVE_STATUSES } },
+        { scheduledFor: { lt: new Date() } },
+      ],
+    };
+    [overdueCount, overdueOrders] = await Promise.all([
+      prisma.workOrder.count({ where: overdueWhere }),
+      prisma.workOrder.findMany({
+        where: overdueWhere,
+        orderBy: { scheduledFor: "asc" },
+        take: 3,
+        select: {
+          id: true,
+          title: true,
+          scheduledFor: true,
+          status: true,
+        },
+      }),
+    ]);
+  }
+  const activePortalCount = data.portalUsers.filter(
+    (portalUser) => portalUser.isActive,
+  ).length;
 
   // Nøkkelen lagres som hash. Den rå invitasjonslenken vises bare i
   // sideinnholdet rett etter at handlingen er utført.
@@ -237,38 +292,23 @@ export default async function CustomerDetailPage({
         />
 
         {/* FANER (TABS) */}
-        <nav
-          aria-label={t("customers.detail.tabs.label")}
-          className="flex gap-1 bg-white border-2 border-gray-200 rounded-2xl p-1 shadow-sm overflow-x-auto"
-          tabIndex={0}
-        >
-          {tabMeta.map((entry) => (
-            <Link
-              key={entry.key}
-              href={tabHref(entry.key)}
-              scroll={false}
-              aria-current={currentTab === entry.key ? "page" : undefined}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition ${
-                currentTab === entry.key
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              <span>{entry.label}</span>
-              {entry.count !== undefined && (
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
-                    currentTab === entry.key
-                      ? "bg-white/20 text-white"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {entry.count}
-                </span>
-              )}
-            </Link>
-          ))}
-        </nav>
+        <CustomerTabs
+          tabs={tabMeta.map((entry) => ({
+            ...entry,
+            href: tabHref(entry.key),
+          }))}
+          currentKey={currentTab}
+          label={t("customers.detail.tabs.label")}
+        />
+
+        {currentTab === "oppdrag" && canViewReports && (
+          <CustomerOrdersReportsSwitch
+            active={showCustomerReports ? "reports" : "orders"}
+            ordersHref={tabHref("oppdrag")}
+            reportsHref="?tab=oppdrag&vis=rapporter"
+            reportCount={data.reportCount}
+          />
+        )}
 
         {currentTab === "oversikt" && (
           <CustomerOverviewTab
@@ -281,22 +321,31 @@ export default async function CustomerDetailPage({
             reportCount={data.reportCount}
             nextOrder={data.nextOrder}
             portalUserCount={data.portalUsers.length}
+            activePortalCount={activePortalCount}
+            overdueCount={overdueCount}
+            overdueOrders={overdueOrders}
             recentOrders={data.recentOrders}
             recentActivity={data.recentActivity}
           />
         )}
 
-        {currentTab === "oppdrag" && (
-          <CustomerOrdersTab
-            customerId={customerId}
-            canCreateWorkOrders={canCreateWorkOrders}
-            totalOrders={data.totalOrders}
-            visibleWorkOrders={data.visibleWorkOrders}
-            orderTotalPages={data.orderTotalPages}
-            orderPage={orderPage}
-            pageSize={CUSTOMER_ORDER_PAGE_SIZE}
-          />
-        )}
+        {currentTab === "oppdrag" &&
+          (showCustomerReports ? (
+            <CustomerReportsTab
+              customerId={customerId}
+              user={user}
+            />
+          ) : (
+            <CustomerOrdersTab
+              customerId={customerId}
+              canCreateWorkOrders={canCreateWorkOrders}
+              totalOrders={data.totalOrders}
+              visibleWorkOrders={data.visibleWorkOrders}
+              orderTotalPages={data.orderTotalPages}
+              orderPage={orderPage}
+              pageSize={CUSTOMER_ORDER_PAGE_SIZE}
+            />
+          ))}
 
         {currentTab === "avtaler" && (
           <CustomerContractsTab

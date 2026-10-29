@@ -1,4 +1,15 @@
 {
+  "components": {
+    "search": {
+      "removeFilter": "Fjern filteret {label}",
+      "bestHitsOverlap": "{count} vist blant beste treff",
+      "searchFieldShortcut": "Gå til søkefeltet",
+      "subtitles": {
+        "workOrderTitle": "Oppdrag: {title}",
+        "folderPath": "📁 {path}"
+      }
+    }
+  },
   "searchAdmin": {
     "linkLabel": "Søkeanalyse",
     "title": "Søkeanalyse",

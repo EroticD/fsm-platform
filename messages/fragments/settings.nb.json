@@ -2,7 +2,9 @@
   "settings": {
     "title": "Innstillinger",
     "subtitle": "Administrer systemet, merkevare og skjemaer.",
+    "subtitleReadOnly": "Se oversikter og administrer din egen konto.",
     "backToDashboard": "Tilbake til Dashbord",
+    "tabsHint": "Sveip sidelengs for å se alle fanene.",
     "tabs": {
       "branding": "Merkevare",
       "employees": "Ansatte & Roller",
@@ -125,6 +127,9 @@
       "descriptionPlaceholder": "Hva rollen brukes til",
       "permissions": "Rettigheter",
       "keyInfo": "Rollen får en fast nøkkel basert på navnet. Nøkkelen brukes internt og endres ikke hvis du senere endrer visningsnavnet.",
+      "selectedPermissions": "Valgte rettigheter",
+      "noPermissions": "Ingen rettigheter valgt",
+      "requiresPermission": "Krever {permission}",
       "create": "Opprett rolle",
       "system": "System",
       "stats": "{users} brukere • {permissions} rettigheter",

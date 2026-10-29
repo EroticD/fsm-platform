@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/permissions";
 import { parsePage } from "@/lib/pagination";
 import { getDocumentLibrary } from "@/server/documents";
 import DocumentBrowser from "@/components/documents/DocumentBrowser";
+import { safeDocumentReturnTo } from "@/components/documents/document-links";
 import PageHeader from "@/components/PageHeader";
 import {
   bulkCreateDocuments,
@@ -41,6 +42,7 @@ export default async function DocumentsPage({
     scope?: string;
     page?: string;
     doc?: string;
+    returnTo?: string;
     error?: string;
     slettet?: string;
   }>;
@@ -58,7 +60,15 @@ export default async function DocumentsPage({
   const folderId = resolved.folder || null;
   const searchQuery = resolved.q?.trim() || "";
   const tagFilter = resolved.tag || "";
-  const onlyFolder = resolved.scope === "folder";
+  // Søkeomfanget er eksplisitt, men standarden følger konteksten: inne i en
+  // mappe søker vi i mappen, på rot i hele biblioteket. `scope=folder` på rot
+  // gir bare løse rotfiler.
+  const scopeParam = resolved.scope ?? "";
+  const onlyFolder = folderId
+    ? scopeParam !== "library"
+    : scopeParam === "folder";
+  const libraryScope = Boolean(folderId) && scopeParam === "library";
+  const returnTo = safeDocumentReturnTo(resolved.returnTo);
   const error = resolved.error;
   const page = parsePage(resolved.page);
   const showDeleted = resolved.slettet === "1" && isAdmin;
@@ -71,6 +81,7 @@ export default async function DocumentsPage({
     documentId: resolved.doc || null,
     deleted: showDeleted,
     onlyFolder,
+    libraryScope,
   });
   if (!result.ok) redirect("/");
 
@@ -101,12 +112,14 @@ export default async function DocumentsPage({
             page,
             onlyFolder,
             showDeleted,
+            returnTo,
           ])}
           data={result.data}
           folderId={folderId}
           searchQuery={searchQuery}
           tagFilter={tagFilter}
           onlyFolder={onlyFolder}
+          returnTo={returnTo}
           page={page}
           office={office}
           isAdmin={isAdmin}

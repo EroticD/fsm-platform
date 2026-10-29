@@ -1,4 +1,15 @@
 {
+  "components": {
+    "search": {
+      "removeFilter": "Remove the {label} filter",
+      "bestHitsOverlap": "{count} shown in best matches",
+      "searchFieldShortcut": "Go to the search field",
+      "subtitles": {
+        "workOrderTitle": "Work order: {title}",
+        "folderPath": "📁 {path}"
+      }
+    }
+  },
   "searchAdmin": {
     "linkLabel": "Search analytics",
     "title": "Search analytics",

@@ -16,7 +16,23 @@
       "viewSwitcher": "Switch calendar view"
     },
     "legend": {
-      "title": "Status colours"
+      "title": "Status colours",
+      "visibleTitle": "Status colours in the visible period"
+    },
+    "filters": {
+      "title": "Filter the calendar",
+      "technician": "Technician",
+      "allTechnicians": "All technicians",
+      "unnamedTechnician": "Unnamed",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "unassigned": "No technician",
+      "apply": "Apply filter",
+      "reset": "Reset"
+    },
+    "window": {
+      "notice": "Work orders are loaded from {from} to {to} (±6 months). Periods outside the window may be missing work orders.",
+      "truncated": "A maximum of 1000 work orders is loaded. Some work orders in this period are not shown."
     },
     "page": {
       "title": "📅 Planning & Control",

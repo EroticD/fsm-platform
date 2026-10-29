@@ -45,5 +45,5 @@ export async function updateWorkOrder(formData: FormData) {
 
   revalidatePath(`/oppdrag/${workOrderId}`);
   revalidatePath(`/`);
-  redirect(`/oppdrag/${workOrderId}`);
+  redirect(`/oppdrag/${workOrderId}?ok=oppdatert`);
 }

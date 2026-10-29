@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import {
   calendarTabsFor,
   type CalendarTabKey,
+  type CalendarTabQuery,
 } from "@/lib/calendar-tabs";
 
 /**
@@ -13,13 +14,15 @@ export default async function CalendarTabs({
   active,
   canDispatch,
   canReports,
+  query,
 }: {
   active: CalendarTabKey;
   canDispatch: boolean;
   canReports: boolean;
+  query?: CalendarTabQuery;
 }) {
   const t = await getTranslations("common");
-  const tabs = calendarTabsFor({ canDispatch, canReports });
+  const tabs = calendarTabsFor({ canDispatch, canReports, query });
 
   return (
     <nav

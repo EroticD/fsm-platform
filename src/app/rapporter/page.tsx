@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
@@ -9,6 +10,7 @@ import { hasPermission } from "@/lib/permissions";
 import { canAccessWorkOrder, staffWhere } from "@/lib/access";
 import { reportWorkOrderScope } from "@/lib/report-scope";
 import {
+  reportAcknowledgement,
   reportDisplayName,
   reportUnitSummary,
 } from "@/lib/report-display";
@@ -57,6 +59,32 @@ const SORTS = [
   labelKey: string;
 }>;
 
+type AcknowledgementFilter = "ja" | "nei" | null;
+
+/** Kvitteringsfilteret holdes utenfor de delte søkeparametrene. */
+function readAcknowledgementFilter(
+  value: string | string[] | undefined,
+): AcknowledgementFilter {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "ja" || raw === "nei" ? raw : null;
+}
+
+function acknowledgementWhere(
+  filter: Exclude<AcknowledgementFilter, null>,
+): Prisma.ReportWhereInput {
+  return filter === "ja"
+    ? { customerAcknowledgedAt: { not: null } }
+    : { customerAcknowledgedAt: null };
+}
+
+function withAcknowledgementFilter(
+  href: string,
+  filter: AcknowledgementFilter,
+): string {
+  if (!filter) return href;
+  return `${href}${href.includes("?") ? "&" : "?"}kvittering=${filter}`;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
   return { title: t("metadata.routes.rapporter") };
@@ -79,9 +107,28 @@ export default async function ReportsPage({
 
   const rawParams = await searchParams;
   const filters = parseReportListParams(rawParams);
+  const acknowledgementFilter = readAcknowledgementFilter(
+    rawParams.kvittering,
+  );
+  const acknowledgementClause = acknowledgementFilter
+    ? acknowledgementWhere(acknowledgementFilter)
+    : null;
   const excludeCancelled = user.role === "TECHNICIAN";
   const reportScope = reportWorkOrderScope(user);
-  const where = reportListWhere(filters, excludeCancelled, reportScope);
+  const baseWhere = reportListWhere(filters, excludeCancelled, reportScope);
+  const where: Prisma.ReportWhereInput = acknowledgementClause
+    ? { AND: [baseWhere, acknowledgementClause] }
+    : baseWhere;
+  const whereForRange = (range: ReportRangeKey): Prisma.ReportWhereInput => {
+    const rangeWhere = reportListWhere(
+      { ...filters, range },
+      excludeCancelled,
+      reportScope,
+    );
+    return acknowledgementClause
+      ? { AND: [rangeWhere, acknowledgementClause] }
+      : rangeWhere;
+  };
 
   // Rapporter vises på tvers av avdelinger bare for administrator og ansatte
   // som er eksplisitt gitt reports.viewAllDepartments. Oppdragslistene er
@@ -113,30 +160,12 @@ export default async function ReportsPage({
             customer: { select: { name: true } },
           },
         },
-        units: { select: { id: true, status: true } },
+        units: { select: { id: true, status: true, label: true } },
       },
     }),
-    prisma.report.count({
-      where: reportListWhere(
-        { ...filters, range: "denne-maneden" },
-        excludeCancelled,
-        reportScope,
-      ),
-    }),
-    prisma.report.count({
-      where: reportListWhere(
-        { ...filters, range: "forrige-maned" },
-        excludeCancelled,
-        reportScope,
-      ),
-    }),
-    prisma.report.count({
-      where: reportListWhere(
-        { ...filters, range: "alle" },
-        excludeCancelled,
-        reportScope,
-      ),
-    }),
+    prisma.report.count({ where: whereForRange("denne-maneden") }),
+    prisma.report.count({ where: whereForRange("forrige-maned") }),
+    prisma.report.count({ where: whereForRange("alle") }),
   ]);
 
   const showCustomers = hasPermission(user, "customers.view");
@@ -184,7 +213,12 @@ export default async function ReportsPage({
   const listHref = (
     overrides: Partial<ReportListFilters> = {},
     page?: number,
-  ) => reportListHref({ filters, overrides, page });
+    ack: AcknowledgementFilter = acknowledgementFilter,
+  ) =>
+    withAcknowledgementFilter(
+      reportListHref({ filters, overrides, page }),
+      ack,
+    );
 
   const rangeLabel = (key: ReportRangeKey) =>
     key === "denne-maneden"
@@ -204,16 +238,21 @@ export default async function ReportsPage({
       filters.technician ||
       filters.deviationOnly ||
       filters.q ||
-      filters.category,
+      filters.category ||
+      acknowledgementFilter,
   );
-  const resetHref = listHref({
-    customer: undefined,
-    technician: undefined,
-    deviationOnly: false,
-    q: "",
-    sort: "dato-desc",
-    category: undefined,
-  });
+  const resetHref = listHref(
+    {
+      customer: undefined,
+      technician: undefined,
+      deviationOnly: false,
+      q: "",
+      sort: "dato-desc",
+      category: undefined,
+    },
+    undefined,
+    null,
+  );
   const currentPageHref = listHref({}, window.page);
   const reportHref = (workOrderId: string, reportId: string) =>
     `/rapporter/${workOrderId}?rapport=${encodeURIComponent(reportId)}&returnTo=${encodeURIComponent(currentPageHref)}`;
@@ -301,6 +340,49 @@ export default async function ReportsPage({
             </Link>
           </div>
 
+          <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-gray-100">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-wider">
+              {t("customers.reportList.acknowledgement")}
+            </span>
+            <Link
+              href={listHref({}, undefined, null)}
+              aria-current={!acknowledgementFilter ? "page" : undefined}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
+                !acknowledgementFilter
+                  ? "bg-blue-700 border-blue-700 text-white"
+                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
+              }`}
+            >
+              {t("customers.reportList.ackAll")}
+            </Link>
+            <Link
+              href={listHref({}, undefined, "ja")}
+              aria-current={
+                acknowledgementFilter === "ja" ? "page" : undefined
+              }
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
+                acknowledgementFilter === "ja"
+                  ? "bg-blue-700 border-blue-700 text-white"
+                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
+              }`}
+            >
+              {t("customers.reportList.acknowledged")}
+            </Link>
+            <Link
+              href={listHref({}, undefined, "nei")}
+              aria-current={
+                acknowledgementFilter === "nei" ? "page" : undefined
+              }
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
+                acknowledgementFilter === "nei"
+                  ? "bg-blue-700 border-blue-700 text-white"
+                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
+              }`}
+            >
+              {t("customers.reportList.notAcknowledged")}
+            </Link>
+          </div>
+
           {/* FILTRE OG SORTERING */}
           <form
             action="/rapporter"
@@ -312,6 +394,13 @@ export default async function ReportsPage({
             )}
             {filters.category && (
               <input type="hidden" name="type" value={filters.category} />
+            )}
+            {acknowledgementFilter && (
+              <input
+                type="hidden"
+                name="kvittering"
+                value={acknowledgementFilter}
+              />
             )}
 
             <div className="sm:col-span-2 lg:col-span-4">
@@ -473,6 +562,14 @@ export default async function ReportsPage({
               const summary = reportUnitSummary(report);
               const unitCount = summary.unitCount;
               const deviations = summary.deviationCount;
+              const acknowledgement = reportAcknowledgement(report);
+              const unitNames = summary.usesUnits
+                ? report.units
+                    .map((unit) => unit.label)
+                    .filter((label): label is string => Boolean(label))
+                : [];
+              const shownUnitNames = unitNames.slice(0, 2);
+              const extraUnits = unitNames.length - shownUnitNames.length;
               const hms = isHmsReport(report);
               const workOrder = report.workOrder;
               const canOpenWorkOrder =
@@ -494,6 +591,27 @@ export default async function ReportsPage({
                 user.role === "ADMIN" || user.role === "OFFICE"
                   ? `/oppdrag/${report.workOrderId}`
                   : `/mine-oppdrag/${report.workOrderId}`;
+              const lockTitle = report.isLocked
+                ? report.lockedAt
+                  ? t("customers.reportList.lockTooltip", {
+                      date: formatDateLocalized(report.lockedAt, locale),
+                      name:
+                        report.lockedByName ||
+                        t("customers.reportList.unknownUser"),
+                    })
+                  : report.lockedByName
+                    ? t("customers.reportList.lockTooltipNoDate", {
+                        name: report.lockedByName,
+                      })
+                    : undefined
+                : undefined;
+              const acknowledgementTitle = acknowledgement.by
+                ? t("customers.reportList.acknowledgedBy", {
+                    name: acknowledgement.by,
+                  })
+                : undefined;
+              const hasMoreActions =
+                canOpenForm || canOpenWorkOrder || report.revision > 0;
 
               return (
                 <div
@@ -559,44 +677,102 @@ export default async function ReportsPage({
                             ? "bg-gray-100 text-gray-700 border-gray-200"
                             : "bg-amber-50 text-amber-800 border-amber-200"
                         }`}
+                        title={lockTitle}
                       >
                         {report.isLocked ? t("orders.reportsPage.locked") : t("orders.reportsPage.openForEdit")}
+                      </span>
+                      <span
+                        className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                          acknowledgement.acknowledged
+                            ? "bg-green-50 text-green-800 border-green-200"
+                            : "bg-gray-50 text-gray-600 border-gray-200"
+                        }`}
+                        title={acknowledgementTitle}
+                      >
+                        {acknowledgement.acknowledged
+                          ? t("customers.reportList.acknowledgedWithDate", {
+                              date: formatDateLocalized(
+                                acknowledgement.at,
+                                locale,
+                                undefined,
+                                t("orders.reportsPage.noDate"),
+                              ),
+                            })
+                          : t("customers.reportList.notAcknowledged")}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
+                  {shownUnitNames.length > 0 && (
+                    <p
+                      className="mt-1 min-w-0 truncate text-xs text-gray-500"
+                      title={unitNames.join(", ")}
+                    >
+                      🔧{" "}
+                      {t("customers.reportList.unitNames", {
+                        count: unitCount,
+                        names: shownUnitNames.join(", "),
+                      })}
+                      {extraUnits > 0
+                        ? ` ${t("customers.reportList.moreUnits", {
+                            count: extraUnits,
+                          })}`
+                        : ""}
+                    </p>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 text-xs">
                     <span className="font-bold text-gray-600">
                       ✍️ {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
                     </span>
-                    <Link
-                      href={reportHref(report.workOrderId, report.id)}
-                      className="font-bold text-blue-700 hover:underline"
-                    >
-                      📄 {t("orders.reportsPage.viewPdf")}
-                    </Link>
-                    <Link
-                      href={revisionsHref(report.workOrderId, report.id)}
-                      className="font-bold text-gray-600 hover:underline"
-                    >
-                      🕘 {t("orders.reportsPage.revisions", { count: report.revision })}
-                    </Link>
-                    {canOpenForm && (
+                    <div className="flex items-center gap-2">
                       <Link
-                        href={`/mine-oppdrag/${report.workOrderId}/skjema/${report.templateId}?returnTo=${encodeURIComponent(formReturnTo)}`}
-                        className="font-bold text-amber-800 hover:underline"
+                        href={reportHref(report.workOrderId, report.id)}
+                        className="rounded-xl bg-blue-700 px-3 py-1.5 font-bold text-white transition hover:bg-blue-800"
                       >
-                        ✍️ {t("orders.reportsPage.openForm")}
+                        📄 {t("customers.reportList.open")}
                       </Link>
-                    )}
-                    {canOpenWorkOrder && (
-                      <Link
-                        href={`/oppdrag/${report.workOrderId}`}
-                        className="font-bold text-gray-600 hover:underline"
-                      >
-                        📂 {t("orders.reportsPage.openWorkOrder")}
-                      </Link>
-                    )}
+                      {hasMoreActions && (
+                        <details className="relative">
+                          <summary
+                            aria-label={t("customers.reportList.moreActions")}
+                            title={t("customers.reportList.moreActions")}
+                            className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-gray-200 bg-white font-black text-gray-600 transition hover:bg-gray-100 [&::-webkit-details-marker]:hidden"
+                          >
+                            ⋯
+                          </summary>
+                          <div className="absolute right-0 z-30 mt-1 w-56 space-y-1 rounded-xl border-2 border-gray-200 bg-white p-2 shadow-xl">
+                            {report.revision > 0 && (
+                              <Link
+                                href={revisionsHref(report.workOrderId, report.id)}
+                                className="block rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
+                              >
+                                🕘{" "}
+                                {t("customers.reportList.revision", {
+                                  count: report.revision,
+                                })}
+                              </Link>
+                            )}
+                            {canOpenForm && (
+                              <Link
+                                href={`/mine-oppdrag/${report.workOrderId}/skjema/${report.templateId}?returnTo=${encodeURIComponent(formReturnTo)}`}
+                                className="block rounded-lg px-3 py-2 font-bold text-amber-800 transition hover:bg-amber-50"
+                              >
+                                ✍️ {t("orders.reportsPage.openForm")}
+                              </Link>
+                            )}
+                            {canOpenWorkOrder && (
+                              <Link
+                                href={`/oppdrag/${report.workOrderId}`}
+                                className="block rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
+                              >
+                                📂 {t("orders.reportsPage.openWorkOrder")}
+                              </Link>
+                            )}
+                          </div>
+                        </details>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

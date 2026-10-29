@@ -10,13 +10,14 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   addRecentSearch,
   readRecentSearches,
   writeRecentSearches,
 } from "@/lib/search-recent";
 import { highlightSearchText } from "@/lib/search-highlight";
+import { formatSearchSubtitle } from "@/components/search/search-subtitle";
 
 type SearchItem = {
   id: string;
@@ -98,27 +99,76 @@ export default function GlobalSearch({
   const pathname = usePathname();
 
   // På /sok er søkefeltet i selve resultatsiden autoritativt. Da skjules
-  // headeren sitt søk for å unngå to konkurrerende søkefelt på samme side.
-  if (pathname === "/sok" || pathname === "/sok/") return null;
+  // headeren sitt søk for å unngå to konkurrerende søkefelt på samme side,
+  // men Ctrl/Cmd+K og mobilknappen sender fokus til resultatsidens felt.
+  if (pathname === "/sok" || pathname === "/sok/") {
+    return <SearchPageShortcut />;
+  }
 
   return <GlobalSearchInner placeholder={placeholder} />;
 }
 
+/**
+ * Liten bro for /sok: headeren har fortsatt en mobil «søk»-bryter, og den
+ * skal fokusere resultatsidens felt i stedet for å være død. Komponenten
+ * monteres bare når mobilbryteren er åpnet, eller i den skjulte
+ * desktop-wrapperen der den bare lytter på tastatursnarveien.
+ */
+function SearchPageShortcut() {
+  const t = useTranslations("common");
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const focusPageSearch = useCallback(() => {
+    const input = document.getElementById("search-results-q");
+    if (!(input instanceof HTMLInputElement)) return;
+    input.focus({ preventScroll: true });
+    input.select();
+    input.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    // Mobilbryteren monterer denne komponenten først når den åpnes. Den skjulte
+    // desktop-wrapperen er også montert på mobil, så vi sjekker at knappen
+    // faktisk er synlig før vi flytter fokus og åpner tastaturet.
+    if (buttonRef.current?.getClientRects().length) {
+      window.requestAnimationFrame(focusPageSearch);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        focusPageSearch();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [focusPageSearch]);
+
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={focusPageSearch}
+      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100 sm:hidden"
+    >
+      <span>🔍 {t("components.search.searchFieldShortcut")}</span>
+      <kbd
+        aria-hidden
+        className="rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-bold text-gray-500"
+      >
+        Ctrl+K
+      </kbd>
+    </button>
+  );
+}
+
 function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   const t = useTranslations("common");
+  const locale = useLocale();
   const resolvedPlaceholder = placeholder ?? t("components.search.placeholder");
-  /** Setter sammen en undertittel fra i18n-deler og rå data. */
-  const subtitleFor = (item: SearchItem): string | undefined => {
-    if (item.subtitleParts?.length) {
-      const text = item.subtitleParts
-        .map((part) => (part.key ? t(part.key, part.params) : part.text))
-        .filter(Boolean)
-        .join(" • ");
-      return text || undefined;
-    }
-    if (item.subtitleKey) return t(item.subtitleKey, item.subtitleParams);
-    return item.subtitle;
-  };
+  const subtitleFor = (item: SearchItem): string | undefined =>
+    formatSearchSubtitle(item, t, locale);
   const router = useRouter();
   const baseId = useId().replace(/:/g, "");
   const listboxId = `global-search-${baseId}-listbox`;
@@ -321,10 +371,14 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
 
   const navigate = useCallback(
     (href: string) => {
-      // Rapportviseren kan ta med seg opphavssiden som «tilbake»-mål. Det gjør
-      // at hurtigsøket fra en oppdragsside kommer tilbake dit, ikke til kunden.
+      // Rapportviseren og dokumentdetaljen kan ta med seg opphavssiden som
+      // «tilbake»-mål. Da kommer hurtigsøket tilbake dit, ikke til en
+      // standardvisning. Mappe-treff skal fortsatt gå til mappen.
+      const isTargetView =
+        href.startsWith("/rapporter/") ||
+        (href.startsWith("/dokumenter?") && href.includes("doc="));
       let target = href;
-      if (href.startsWith("/rapporter/") && !href.includes("returnTo=")) {
+      if (isTargetView && !href.includes("returnTo=")) {
         const origin = `${window.location.pathname}${window.location.search}`;
         target = `${href}${href.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(origin)}`;
       }
