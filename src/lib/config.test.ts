@@ -19,7 +19,7 @@ describe("isStrongNextAuthSecret", () => {
   it("godtar en lang passfrase med bindestrek", () => {
     expect(
       isStrongNextAuthSecret(
-        "Dexterity-Pointer9-Unwarlike-Overpower-Unwatched-Thimble-Drown-Grumble",
+        "Example-Passphrase9-Not-A-Real-Secret-For-Tests-Only",
       ),
     ).toBe(true);
   });
