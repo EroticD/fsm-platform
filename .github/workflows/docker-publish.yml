@@ -114,7 +114,9 @@ jobs:
           # kreves bevisst manuell kjøring i stedet.
           if [ "$EVENT_NAME" = "workflow_run" ]; then
             branch_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${TAG}" --jq '.object.sha' 2>/dev/null || true)"
-            if [ -n "$branch_sha" ]; then
+            # gh api skriver 404-JSON til stdout. Godta bare en ekte 40-tegns SHA;
+            # ellers finnes ingen branch med samme navn som taggen.
+            if printf '%s' "$branch_sha" | grep -Eq '^[0-9a-f]{40}$'; then
               echo "✖ Både branch og tag heter $TAG; bruk workflow_dispatch for å bekrefte taggen." >&2
               exit 1
             fi
