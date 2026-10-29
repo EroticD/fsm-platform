@@ -24,6 +24,38 @@ import { prepareObsidianSource, remarkObsidian } from "./markdown-obsidian";
 export const remarkPlugins = [remarkGfm, remarkBreaks, remarkObsidian];
 
 /**
+ * URL-policy for Markdown-lenker.
+ *
+ * Nettsiden går gjennom rehype-sanitize, men PDF-en gjør det ikke: react-pdf
+ * skriver lenken rett inn i dokumentet. En `javascript:`, `data:` eller
+ * `file:`-lenke ville da blitt en aktiv handling i en signert rapport. Vi
+ * slipper derfor bare gjennom vanlige nettsider, e-post, telefon og anker.
+ *
+ * Relative stier og andre protokoller avvises. Funksjonen returnerer den
+ * kanoniske URL-en, eller `null` når lenken skal tegnes som ren tekst.
+ */
+const SAFE_MARKDOWN_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+export function safeMarkdownUrl(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("#")) return raw;
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+
+  if (!SAFE_MARKDOWN_PROTOCOLS.has(url.protocol.toLowerCase())) return null;
+  // Innloggingsinfo i en lenke skjuler den egentlige verten for leseren.
+  if (url.username || url.password) return null;
+
+  return url.href;
+}
+
+/**
  * Klassene vi selv legger på (callouts) – og de remark-gfm legger på
  * oppgavelister. Alt annet av klasser og stiler blir strippet.
  */

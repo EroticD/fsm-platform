@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     },
     role: { findUnique: vi.fn() },
     contact: { findUnique: vi.fn() },
+    customer: { findUnique: vi.fn() },
     department: { findFirst: vi.fn(), findUnique: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -36,6 +37,7 @@ import {
   createUser,
   generateInvite,
   resendPortalInvite,
+  setActive,
   setPortalUserActive,
 } from "./users";
 
@@ -127,6 +129,7 @@ beforeEach(() => {
     email: "ny@example.test",
   });
   mocks.prisma.contact.findUnique.mockResolvedValue(null);
+  mocks.prisma.customer.findUnique.mockResolvedValue({ deletedAt: null });
   mocks.prisma.department.findFirst.mockResolvedValue({ id: "dep-b" });
   mocks.prisma.department.findUnique.mockResolvedValue({ name: "Avdeling A" });
   mocks.prisma.auditLog.create.mockResolvedValue({});
@@ -201,6 +204,188 @@ describe("brukertjenesten – rettighetseskalering", () => {
 
     expect(result).toEqual({ ok: false, reason: "forbidden" });
     expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("lar ikke kontor endre rolle for en bruker med rettigheter kontoret mangler", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "USER",
+        isActive: false,
+        permissions: ["audit.view"],
+        permissionsCustomized: true,
+        roleDefinition: roles.USER,
+      }),
+    );
+
+    const result = await changeRole(office(), {
+      id: "target",
+      role: "TECHNICIAN",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar ikke kontor tildele en rolle med rettigheter kontoret mangler", async () => {
+    mocks.prisma.role.findUnique.mockResolvedValue({
+      key: "CUSTOM",
+      label: "Egen rolle",
+      permissions: ["settings.manage"],
+    });
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "USER", roleDefinition: roles.USER }),
+    );
+
+    const result = await changeRole(office(), {
+      id: "target",
+      role: "CUSTOM",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar administrator endre rolle for en mer privilegert bruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "USER",
+        permissions: ["audit.view"],
+        permissionsCustomized: true,
+        roleDefinition: roles.USER,
+      }),
+    );
+
+    const result = await changeRole(admin(), { id: "target", role: "USER" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.update).toHaveBeenCalled();
+  });
+});
+
+describe("brukertjenesten – aktivering og deaktivering", () => {
+  it("lar ikke kontor deaktivere en bruker med rettigheter kontoret mangler", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "USER",
+        permissions: ["audit.view"],
+        permissionsCustomized: true,
+        roleDefinition: roles.USER,
+      }),
+    );
+
+    const result = await setActive(office(), {
+      id: "target",
+      active: "false",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar ikke kontor reaktivere en bruker med rettigheter kontoret mangler", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "USER",
+        isActive: false,
+        permissions: ["audit.view"],
+        permissionsCustomized: true,
+        roleDefinition: roles.USER,
+      }),
+    );
+
+    const result = await setActive(office(), {
+      id: "target",
+      active: "true",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar ikke en vanlig bruker deaktivere seg selv", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ id: "actor", role: "USER", roleDefinition: roles.USER }),
+    );
+
+    const result = await setActive(office(), {
+      id: "actor",
+      active: "false",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar kontor deaktivere en bruker uten høyere rettigheter", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "USER", roleDefinition: roles.USER }),
+    );
+
+    const result = await setActive(office(), {
+      id: "target",
+      active: "false",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "target" },
+      data: { isActive: false, sessionVersion: { increment: 1 } },
+    });
+  });
+
+  it("krever users.manage for å reaktivere en deaktivert bruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({ role: "USER", isActive: false, roleDefinition: roles.USER }),
+    );
+
+    const result = await setActive(noAccess(), {
+      id: "target",
+      active: "true",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar ikke kontor reaktivere en administrator", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "ADMIN",
+        isActive: false,
+        roleDefinition: roles.ADMIN,
+      }),
+    );
+
+    const result = await setActive(office(), {
+      id: "target",
+      active: "true",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("lar administrator reaktivere en mer privilegert bruker", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "USER",
+        isActive: false,
+        permissions: ["audit.view"],
+        permissionsCustomized: true,
+        roleDefinition: roles.USER,
+      }),
+    );
+
+    const result = await setActive(admin(), {
+      id: "target",
+      active: "true",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "target" },
+      data: { isActive: true, sessionVersion: { increment: 1 } },
+    });
   });
 });
 
@@ -394,6 +579,144 @@ describe("brukertjenesten – kundeportalbrukere", () => {
       expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
     },
   );
+
+  it("avviser å opprette portalbruker på en slettet kunde", async () => {
+    mocks.prisma.customer.findUnique.mockResolvedValue({
+      deletedAt: new Date(),
+    });
+    mocks.prisma.contact.findUnique.mockResolvedValue({
+      id: "contact-1",
+      customerId: "kunde-1",
+    });
+
+    const result = await createPortalUser(office(), {
+      customerId: "kunde-1",
+      name: "Kari",
+      email: "kari@example.test",
+      contactId: "contact-1",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "customer_not_found" });
+    expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("avviser å aktivere portalbruker på en slettet kunde", async () => {
+    mocks.prisma.customer.findUnique.mockResolvedValue({
+      deletedAt: new Date(),
+    });
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+      }),
+    );
+
+    const result = await setPortalUserActive(office(), {
+      customerId: "kunde-1",
+      id: "target",
+      active: "true",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "customer_not_found" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser ny invitasjon til portalbruker på en slettet kunde", async () => {
+    mocks.prisma.customer.findUnique.mockResolvedValue({
+      deletedAt: new Date(),
+    });
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+        isActive: false,
+      }),
+    );
+
+    const result = await resendPortalInvite(office(), {
+      customerId: "kunde-1",
+      id: "target",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "customer_not_found" });
+    expect(mocks.createInviteToken).not.toHaveBeenCalled();
+    expect(mocks.sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("aktiverer portalbruker med gyldig kontakt på kunden", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+        isActive: false,
+      }),
+    );
+    mocks.prisma.contact.findUnique.mockResolvedValue({
+      id: "contact-1",
+      customerId: "kunde-1",
+    });
+
+    const result = await setPortalUserActive(office(), {
+      customerId: "kunde-1",
+      id: "target",
+      active: "true",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "target" },
+      data: { isActive: true },
+    });
+  });
+
+  it("nekter å aktivere portalbruker uten gyldig kontakt", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+        isActive: false,
+      }),
+    );
+    mocks.prisma.contact.findUnique.mockResolvedValue(null);
+
+    const result = await setPortalUserActive(office(), {
+      customerId: "kunde-1",
+      id: "target",
+      active: "true",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_contact" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("nekter å aktivere portalbruker når kontakten tilhører en annen kunde", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue(
+      target({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+        isActive: false,
+      }),
+    );
+    mocks.prisma.contact.findUnique.mockResolvedValue({
+      id: "contact-1",
+      customerId: "kunde-2",
+    });
+
+    const result = await setPortalUserActive(office(), {
+      customerId: "kunde-1",
+      id: "target",
+      active: "true",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "invalid_contact" });
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("brukertjenesten – kundetilknytning på ansatte", () => {

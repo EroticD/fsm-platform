@@ -45,7 +45,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public
+      # Valgfrie roller: runtime (DML) og migrasjoner (DDL). Uten dem brukes
+      # POSTGRES_USER som før. Se «Databaseroller» i docs/OPERATIONS.md.
+      DATABASE_URL: ${DATABASE_RUNTIME_URL:-postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public}
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
       # NEXTAUTH_URL må være den offentlige adressen i produksjon.
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       # Valgfri offentlig adresse for PDF-er og origin-sjekk.

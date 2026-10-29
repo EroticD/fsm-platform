@@ -46,7 +46,9 @@ const nextConfig: NextConfig = {
   // serveren å gjøre: i Docker peker UPLOAD_DIR på et eget volum. Uten dette
   // ville hvert bygg pakket alle opplastede bilder inn i image-en.
   outputFileTracingExcludes: {
-    "*": ["./uploads/**/*"],
+    // Miljøfiler skal aldri med i standalone-bygget. Docker bruker dessuten
+    // .dockerignore, men dette beskytter også lokale `next build`.
+    "*": ["./uploads/**/*", "./.env*"],
   },
 
   // Enkle sikkerhetsheadere. En fullverdig CSP krever testing av alle sidene

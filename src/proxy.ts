@@ -65,7 +65,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Kjør på alt utenom Next interne filer og statiske ressurser.
-    "/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
+    // Kjør på alle sider – også HTML-ruter som tilfeldigvis slutter på .js
+    // eller .png. En tidligere utvidelsesbasert utelatelse gjorde at slike
+    // ruter fikk HTML uten CSP. Bare kjente statiske mapper og filer hoppes
+    // over, slik at vanlige _next-chunks ikke går gjennom proxyen.
+    "/((?!_next/static|_next/image|_next/webpack-hmr|favicon\\.ico|favicon\\.svg|favicon-\\d+x\\d+\\.png|apple-touch-icon\\.png|android-chrome-\\d+x\\d+\\.png|maskable-\\d+x\\d+\\.png|manifest\\.webmanifest|sw\\.js|offline\\.js|uploads/).*)",
   ],
 };

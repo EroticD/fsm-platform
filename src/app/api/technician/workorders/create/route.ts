@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { assertSameOrigin } from "@/lib/origin";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { FORM_BODY_LIMIT, readFormDataWithLimit } from "@/lib/request-body";
 import { createWorkOrder as createWorkOrderService } from "@/server/work-orders";
 
 /**
@@ -46,7 +47,14 @@ export async function POST(request: Request) {
     return backToForm(request, "rate-limit");
   }
 
-  const formData = await request.formData();
+  const parsed = await readFormDataWithLimit(request, FORM_BODY_LIMIT);
+  if (!parsed.ok) {
+    // Skjemaet har ingen egen melding for 413, så store kropper behandles som
+    // ugyldig data og brukeren sendes tilbake til skjemaet.
+    return backToForm(request, "ugyldig-data");
+  }
+
+  const formData = parsed.data;
   const templateId = formData.get("templateId");
 
   const result = await createWorkOrderService(user, {

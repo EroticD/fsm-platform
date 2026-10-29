@@ -79,6 +79,21 @@ function canAssignRole(actor: RoleAwareActor, role: RoleRecord): boolean {
   );
 }
 
+/**
+ * En ikke-administrator kan bare administrere en bruker som ikke har
+ * rettigheter aktøren mangler selv. Målet vurderes med `assignedPermissions`,
+ * slik at en deaktivert konto ikke kan skjule rettighetene sine. Administrator
+ * har alltid alle rettigheter og trenger ingen delmengdesjekk.
+ */
+function canManageTarget(actor: RoleAwareActor, target: RoleAwareActor): boolean {
+  if (isAdminActor(actor)) return true;
+  const actorPermissions = effectivePermissions(actor);
+  for (const permission of assignedPermissions(target)) {
+    if (!actorPermissions.has(permission)) return false;
+  }
+  return true;
+}
+
 function samePermissions(left: string[], right: string[]): boolean {
   const a = new Set(left.filter(isPermission));
   const b = new Set(right.filter(isPermission));
@@ -282,7 +297,10 @@ export async function changeRole(
 
   if (!actor.isActive) return fail("forbidden");
 
-  const userToUpdate = await prisma.user.findUnique({ where: { id } });
+  const userToUpdate = await prisma.user.findUnique({
+    where: { id },
+    include: { roleDefinition: true },
+  });
   if (!userToUpdate) return fail("not_found");
 
   // Roller som berører administrator krever administrator. Det hindrer at en
@@ -294,6 +312,11 @@ export async function changeRole(
   } else if (!can(actor, "users.manage")) {
     return fail("forbidden");
   }
+
+  // En ikke-administrator kan ikke røre en bruker som har rettigheter
+  // vedkommende ikke har selv – heller ikke når brukeren skal få en svakere
+  // rolle. Ellers kunne en kontorbruker degradert en mer privilegert kollega.
+  if (!canManageTarget(actor, userToUpdate)) return fail("forbidden");
 
   if (!canAssignRole(actor, newRole)) return fail("forbidden");
 
@@ -362,8 +385,16 @@ export async function setActive(
   if (!parsed.success) return fail("invalid");
   const { id, active } = parsed.data;
 
-  const target = await prisma.user.findUnique({ where: { id } });
+  const target = await prisma.user.findUnique({
+    where: { id },
+    include: { roleDefinition: true },
+  });
   if (!target) return fail("not_found");
+
+  // Ingen kan deaktivere seg selv. For administratorer er dette også vernet om
+  // den siste aktive administratoren; for andre hindrer det at en bruker låser
+  // seg selv ute av vanvare.
+  if (!active && target.id === actor.id) return fail("forbidden");
 
   // Avdelingsansvarlige kan bare endre brukere i egen avdeling.
   if (
@@ -376,8 +407,7 @@ export async function setActive(
   // Endringer på en administrator krever administrator.
   if (target.role === "ADMIN") {
     if (!isAdminActor(actor)) return fail("forbidden");
-    // Ikke deaktiver deg selv eller den siste aktive administratoren.
-    if (!active && target.id === actor.id) return fail("forbidden");
+    // Ikke deaktiver den siste aktive administratoren.
     if (
       !active &&
       target.isActive &&
@@ -388,6 +418,11 @@ export async function setActive(
   } else if (!can(actor, "users.manage")) {
     return fail("forbidden");
   }
+
+  // Også deaktivering og reaktivering krever at målet ikke har rettigheter
+  // aktøren mangler. En deaktivert konto kan ellers reaktiveres av en
+  // kontorbruker som ikke selv kunne tildelt rettighetene.
+  if (!canManageTarget(actor, target)) return fail("forbidden");
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -716,6 +751,15 @@ export type PortalUserResult = {
   mailSent: boolean;
 };
 
+/** Kunden må finnes og ikke være mykt slettet for portalhandlinger. */
+async function customerIsActive(customerId: string): Promise<boolean> {
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { deletedAt: true },
+  });
+  return Boolean(customer && !customer.deletedAt);
+}
+
 /** Oppretter en kundeportalbruker koblet til en kontaktperson på kundekortet. */
 export async function createPortalUser(
   actor: ServiceActor,
@@ -735,6 +779,7 @@ export async function createPortalUser(
 
   if (!customerId) return fail("invalid");
   if (!name || !email || !contactId) return fail("missing_fields");
+  if (!(await customerIsActive(customerId))) return fail("customer_not_found");
 
   // Kontaktpersonen må faktisk tilhøre denne kunden.
   const contact = await prisma.contact.findUnique({ where: { id: contactId } });
@@ -788,6 +833,7 @@ export async function setPortalUserActive(
   const id = cleanText(input.id, { maxLength: LIMITS.line });
   const active = input.active === "true";
   if (!customerId || !id) return fail("invalid");
+  if (!(await customerIsActive(customerId))) return fail("customer_not_found");
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (
@@ -796,6 +842,17 @@ export async function setPortalUserActive(
     target.customerId !== customerId
   ) {
     return fail("not_found");
+  }
+
+  // En portalbruker som er deaktivert fordi kontaktpersonen er slettet, må
+  // ikke kunne aktiveres uten en gyldig kontakt på samme kunde.
+  if (active) {
+    const contact = target.contactId
+      ? await prisma.contact.findUnique({ where: { id: target.contactId } })
+      : null;
+    if (!contact || contact.customerId !== customerId) {
+      return fail("invalid_contact");
+    }
   }
 
   await prisma.$transaction(async (tx) => {
@@ -827,6 +884,7 @@ export async function resendPortalInvite(
   const customerId = cleanText(input.customerId, { maxLength: LIMITS.line });
   const id = cleanText(input.id, { maxLength: LIMITS.line });
   if (!customerId || !id) return fail("invalid");
+  if (!(await customerIsActive(customerId))) return fail("customer_not_found");
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user || user.role !== "CUSTOMER" || user.customerId !== customerId) {

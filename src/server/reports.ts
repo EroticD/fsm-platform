@@ -1554,6 +1554,7 @@ export async function getReportPdfForViewer(
       customerId: true,
       departmentId: true,
       status: true,
+      customer: { select: { deletedAt: true } },
       reports: { where: { deletedAt: null }, select: { id: true } },
     },
   });
@@ -1562,11 +1563,16 @@ export async function getReportPdfForViewer(
     return { ok: false, status: 404, message: "Fant ikke oppdraget" };
   }
 
-  // Kundeportalbrukere ser bare egen kunde. Ansatte med reports.view kan se
-  // rapporter fra alle avdelinger, men får ikke dermed se oppdraget i listene.
-  // En kunde uten kundetilknytning må aldri matche et oppdrag uten kunde.
+  // Kundeportalbrukere ser bare egen kunde, og en mykt slettet kunde skal
+  // ikke lenger kunne lese rapportene sine. Ansatte med reports.view beholder
+  // tilgangen for oppfølging og gjenoppretting.
   if (viewer.role === "CUSTOMER") {
-    if (!viewer.customerId || workOrder.customerId !== viewer.customerId) {
+    if (
+      !viewer.customerId ||
+      workOrder.customerId !== viewer.customerId ||
+      !workOrder.customer ||
+      workOrder.customer.deletedAt
+    ) {
       return { ok: false, status: 403, message: "Ingen tilgang" };
     }
   }

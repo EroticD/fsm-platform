@@ -27,14 +27,18 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
     }
 
     const requestHeaders = await headers();
-    // Uten TRUST_PROXY er IP-en ukjent. Da faller vi tilbake til en felles
-    // nøkkel, og e-postgrensen over tar fortsatt hånd om misbruk.
-    const ip = clientIpFrom(requestHeaders) ?? "ukjent";
-    const [emailLimit, ipLimit] = await Promise.all([
+    // Uten TRUST_PROXY er IP-en ukjent. Da hopper vi over IP-nøkkelen helt i
+    // stedet for å bruke en felles «ukjent»-bøtte som én anonym klient kan
+    // tømme for alle brukere. E-postgrensen under gjelder fortsatt per konto.
+    const ip = clientIpFrom(requestHeaders);
+    const limits = [
       allowRequestDb(`reset:email:${normalizedEmail}`, 5, 15 * 60_000),
-      allowRequestDb(`reset:ip:${ip}`, 10, 15 * 60_000),
-    ]);
-    if (!emailLimit.allowed || !ipLimit.allowed) {
+    ];
+    if (ip) {
+      limits.push(allowRequestDb(`reset:ip:${ip}`, 10, 15 * 60_000));
+    }
+    const results = await Promise.all(limits);
+    if (results.some((result) => !result.allowed)) {
       redirect("/glemt-passord?error=rate");
     }
 

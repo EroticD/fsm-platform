@@ -11,6 +11,8 @@ export type UploadRecord = {
   departmentId: string | null;
   customerId: string | null;
   uploadedById: string | null;
+  /** Satt for oppdrags filer når avdelingen er lastet. */
+  departmentIsActive?: boolean;
 };
 
 /**
@@ -34,6 +36,7 @@ export function canReadUpload(
       return canAccessWorkOrder(user, {
         departmentId: upload.departmentId,
         customerId: upload.customerId,
+        departmentIsActive: upload.departmentIsActive,
       });
     case "CUSTOMER":
       if (user.role === "CUSTOMER") {

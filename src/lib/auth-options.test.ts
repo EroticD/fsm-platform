@@ -86,7 +86,7 @@ describe("NextAuth authorize", () => {
     }
   });
 
-  it("bruker første X-Forwarded-For når proxy er betrodd", async () => {
+  it("bruker siste X-Forwarded-For når proxy er betrodd", async () => {
     const original = process.env.TRUST_PROXY;
     process.env.TRUST_PROXY = "true";
     try {
@@ -95,7 +95,7 @@ describe("NextAuth authorize", () => {
         { email: "kari@example.com", password: "x" },
         { headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1" } },
       );
-      expect(mockedVerify).toHaveBeenCalledWith("kari@example.com", "x", "1.2.3.4");
+      expect(mockedVerify).toHaveBeenCalledWith("kari@example.com", "x", "10.0.0.1");
     } finally {
       process.env.TRUST_PROXY = original;
     }

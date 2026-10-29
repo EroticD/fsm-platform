@@ -42,7 +42,7 @@ function contract(overrides: Record<string, unknown> = {}) {
     departmentId: "dept-1",
     contactId: null,
     templateId: null,
-    customer: { contacts: [] },
+    customer: { contacts: [], deletedAt: null },
     ...overrides,
   };
 }
@@ -88,6 +88,19 @@ beforeEach(() => {
 });
 
 describe("generateDueRecurringWorkOrders", () => {
+  it("filtrerer bort avtaler for mykt slettede kunder", async () => {
+    await generateDueRecurringWorkOrders(now);
+
+    expect(mocked.contract.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isActive: true,
+          customer: { deletedAt: null },
+        }),
+      }),
+    );
+  });
+
   it("hopper over avtalen når den transaksjonsscoped låsen er opptatt", async () => {
     const queryRaw = vi.fn().mockResolvedValue([{ locked: false }]);
     const tx = claimTransaction({ $queryRaw: queryRaw });
@@ -298,6 +311,22 @@ describe("generateRecurringWorkOrderForContract", () => {
     const result = await generateRecurringWorkOrderForContract("contract-1", now);
 
     expect(result).toEqual({ contractId: "contract-1", skipped: "not-due" });
+    expect(mocked.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("hopper over avtaler for mykt slettede kunder", async () => {
+    mocked.contract.findUnique.mockResolvedValue(
+      contract({
+        customer: { contacts: [], deletedAt: new Date("2026-05-01T00:00:00Z") },
+      }),
+    );
+
+    const result = await generateRecurringWorkOrderForContract("contract-1", now);
+
+    expect(result).toEqual({
+      contractId: "contract-1",
+      skipped: "customer-deleted",
+    });
     expect(mocked.$transaction).not.toHaveBeenCalled();
   });
 });

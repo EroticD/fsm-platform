@@ -2,47 +2,138 @@ name: Docker-image
 
 # Publiserer et ferdig image til GitHub Container Registry.
 #
-# Publisering skjer bare etter at CI-kjøringen for samme commit/tag er grønn.
-# En tag (v0.1.0, v1.2.3 ...) starter både CI og – når CI er ferdig – denne
-# workflowen. Manuell kjøring er alltid tilgjengelig for bevisste unntak.
+# Automatisk publisering skjer bare etter at CI er grønn for en push i dette
+# repoet. `workflow_run` har ikke et eget ref-felt, så taggen bevises i etterkant
+# mot GitHub-API-et: refs/tags/<tag> må peke på samme commit som CI kjørte.
+# Jobben er i tillegg knyttet til GitHub Environment «release». Sett opp
+# required reviewers der før dere bruker automatisk publisering.
+#
+# Manuell kjøring krever en eksplisitt tag som allerede er verifisert av CI.
+#
+# Rekkefølgen er bevisst: bygg lokalt uten push, skann det eksakte imaget, og
+# push først når skanningen er grønn. Etter push skannes digesten på nytt.
+
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release-tag som CI allerede har verifisert (f.eks. v0.7.6)"
+        required: true
+        type: string
 
+# Minste nødvendige tillatelser. packages: write gis bare til jobben under.
 permissions:
   contents: read
-  packages: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: true
 
 jobs:
   publish:
-    name: Bygg og publiser til GHCR
+    name: Bygg, skann og publiser til GHCR
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event_name == 'workflow_dispatch' && inputs.tag != '') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
        startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Ved workflow_run er ikke ref-en sjekket ut automatisk. Bruk commit-en
           # CI faktisk verifiserte, ikke en nyere commit på grenen.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.tag }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: docker/setup-buildx-action@v4
+      - name: Sett versjon
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            version="$RUN_BRANCH"
+          else
+            version="$INPUT_TAG"
+          fi
+          if [ -z "$version" ]; then
+            echo "✖ Fant ingen release-tag." >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Logg inn i GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # workflow_run kan i prinsippet utløses av en branch som heter v1.2.3.
+      # Derfor kreves både push-event fra samme repo og en faktisk tag som
+      # peker på nøyaktig samme commit. Environment «release» gir i tillegg en
+      # menneskelig godkjenning når repoet har beskyttelsesregler på det.
+      - name: Verifiser at kjøringen gjelder en ekte release-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          TRIGGER_EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          TRIGGERED_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            [ "$TRIGGER_EVENT" = "push" ] || {
+              echo "✖ Publisering krever en push-kjøring, ikke $TRIGGER_EVENT." >&2
+              exit 1
+            }
+            [ "$HEAD_REPOSITORY" = "$GITHUB_REPOSITORY" ] || {
+              echo "✖ CI-kjøringen kommer fra $HEAD_REPOSITORY, ikke $GITHUB_REPOSITORY." >&2
+              exit 1
+            }
+            target_sha="$TRIGGERED_SHA"
+          else
+            target_sha="$(git rev-parse HEAD)"
+          fi
+
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+            echo "✖ «$TAG» er ikke en gyldig release-tag (vX.Y.Z)." >&2
+            exit 1
+          fi
+
+          # En push kan også komme fra en branch med samme navn. Finnes det en
+          # slik branch, kan vi ikke bevise at kjøringen var en tag-push, og da
+          # kreves bevisst manuell kjøring i stedet.
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            branch_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${TAG}" --jq '.object.sha' 2>/dev/null || true)"
+            if [ -n "$branch_sha" ]; then
+              echo "✖ Både branch og tag heter $TAG; bruk workflow_dispatch for å bekrefte taggen." >&2
+              exit 1
+            fi
+          fi
+
+          object_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq '.object.sha')"
+          object_type="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq '.object.type')"
+          if [ "$object_type" = "tag" ]; then
+            # Annotert tag: pek på commit-en tag-objektet viser til.
+            object_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${object_sha}" --jq '.object.sha')"
+          fi
+
+          if [ "$object_sha" != "$target_sha" ]; then
+            echo "✖ Taggen $TAG peker på $object_sha, men CI verifiserte $target_sha." >&2
+            exit 1
+          fi
+          echo "✔ $TAG peker på verifisert commit $target_sha."
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       # GHCR krever små bokstaver i imagenavnet, mens github.repository kan
       # inneholde store bokstaver. Derfor normaliseres navnet her.
@@ -50,18 +141,9 @@ jobs:
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
-      - name: Sett versjon
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "value=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
@@ -71,13 +153,16 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=BUSL-1.1
 
-      - name: Bygg og push
+      # Bygg det eksakte imaget lokalt. Det pushes ikke før Trivy har godkjent
+      # samme image-ID, slik at et sårbart bygg aldri havner i registeret.
+      - name: Bygg image lokalt (ingen push)
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          push: false
+          load: true
+          tags: fsm-platform:release-scan
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILD_VERSION=${{ steps.version.outputs.value }}
@@ -85,12 +170,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Skann det faktisk publiserte manifestet. CI skanner også imaget før
-      # dette, men denne sjekken fanger forskjeller i byggecachen.
-      - name: Skann publisert image
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: Skann det eksakte imaget før push
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          image-ref: fsm-platform:release-scan
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Logg inn i GitHub Container Registry
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push det skannede imaget
+        id: push
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          VERSION: ${{ steps.version.outputs.value }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$TAGS" | while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker tag fsm-platform:release-scan "$tag"
+            docker push "$tag"
+          done
+
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${VERSION}")"
+          if [ -z "$digest" ]; then
+            echo "✖ Fant ingen digest for ${IMAGE}:${VERSION}." >&2
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      # Skann det faktisk publiserte manifestet. Fanger forskjeller mellom
+      # lokal image-ID og registerets manifest, og gir et spor i release-loggen.
+      - name: Skann publisert digest
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.push.outputs.digest }}
           format: table
           exit-code: "1"
           ignore-unfixed: true

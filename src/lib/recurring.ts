@@ -17,6 +17,7 @@ export type RecurringGenerationResult = {
   scheduledFor?: string;
   skipped?:
     | "inactive"
+    | "customer-deleted"
     | "not-due"
     | "already-generated"
     | "not-found"
@@ -84,6 +85,15 @@ export async function generateRecurringWorkOrderForContract(
 
   if (!contract) return { contractId, skipped: "not-found" };
   if (!contract.isActive) return { contractId, skipped: "inactive" };
+
+  // En mykt slettet kunde skal ikke få nye serviceoppdrag. Avtalen røres ikke:
+  // den kan gjenopprettes sammen med kunden uten en overraskende statusendring.
+  if (contract.customer.deletedAt) {
+    logger.info("Serviceavtaler: hopper over avtale for slettet kunde", {
+      contractId: contract.id,
+    });
+    return { contractId, skipped: "customer-deleted" };
+  }
 
   const due = latestOccurrenceOnOrBefore(
     contract.startDate,
@@ -289,6 +299,8 @@ async function generateDueRecurringWorkOrdersBatch(
     where: {
       isActive: true,
       nextServiceDate: { lte: now },
+      // Mykt slettede kunder skal ikke lenger generere serviceoppdrag.
+      customer: { deletedAt: null },
     },
     orderBy: { nextServiceDate: "asc" },
     select: { id: true },

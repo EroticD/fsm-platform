@@ -20,13 +20,43 @@ POSTGRES_IMAGE=postgres:15.13
   # APP_IMAGE=ghcr.io/eroticd/fsm-platform@sha256:<digest>
   ```
 
-- Pinn Postgres til en konkret 15.x-minor (`postgres:15.13`) eller digest.
-  Sjekk nyeste 15.x på Docker Hub før du setter verdien; ikke la den rullende
-  `15`-taggen oppdatere seg selv i produksjon. Et majorbytte (15 → 16) krever
-  dump/restore eller `pg_upgrade` – det er ikke nok å bytte image.
+- Compose standard er en konkret 15.x-minor (`postgres:15.13`), ikke den
+  rullende `15`-taggen. Vil du låse helt, pinn også til digest:
+
+  ```bash
+  docker pull postgres:15.13
+  docker inspect --format='{{index .RepoDigests 0}}' postgres:15.13
+  # POSTGRES_IMAGE=postgres:15.13@sha256:<digest>
+  ```
+
+  Et majorbytte (15 → 16) krever dump/restore eller `pg_upgrade` – det er ikke
+  nok å bytte image.
 - Etter endring i `.env`: `docker compose -f docker-compose.prod.yml config
   --images` for å se hvilke image-referanser som faktisk brukes, deretter
   `pull` og `up -d`.
+- Release-workflowen bruker handlinger pinnet til commit-SHA, og bygger/skanner
+  imaget før det pushes. For maksimal forsyningskjede-sikkerhet bør også
+  base-image-digestene (`node:22-bookworm-slim`, `debian:bookworm-slim`)
+  oppdateres bevisst og pinnes i release-grenen. Det er ikke gjort automatisk
+  her, fordi et digest-bytte må følges av et fullt bygg og ny skanning.
+
+## Miljøfiler og hemmeligheter
+
+Alle `.env*`-filer er ignorert av git, bortsett fra malene `.env.example` og
+`.env.e2e.example`. Det gjelder også `.env.production` og `.env.e2e.local`.
+Filen med reelle hemmeligheter skal bare kunne leses av eieren:
+
+```bash
+chmod 600 .env
+```
+
+Docker bygger ikke med `.env`/`.env.*` fordi `.dockerignore` ekskluderer dem, og
+`next.config.ts` holder `.env*` utenfor `outputFileTracingExcludes` i
+standalone-bygget. Sjekk gjerne at en ny `.env`-variant faktisk er ignorert:
+
+```bash
+git check-ignore -v .env.production
+```
 
 ## Minne og swap (1 GB Droplet)
 
@@ -125,13 +155,15 @@ docker system df
 
 ## Migrasjoner
 
-Appen kjører `prisma migrate deploy` ved oppstart. For å kjøre migrasjonene som
-et eget steg:
+Appen kjører `prisma migrate deploy` ved oppstart. Oppstartsskriptet bruker
+`DATABASE_MIGRATION_URL` når den er satt, ellers `DATABASE_URL`. For å kjøre
+migrasjonene som et eget steg:
 
 ```bash
 SKIP_MIGRATIONS=true docker compose -f docker-compose.prod.yml up -d app
-docker compose -f docker-compose.prod.yml run --rm app \
-  node ./node_modules/prisma/build/index.js migrate deploy
+docker compose -f docker-compose.prod.yml run --rm --entrypoint sh app -c \
+  'DATABASE_URL="${DATABASE_MIGRATION_URL:-$DATABASE_URL}" \
+   node ./node_modules/prisma/build/index.js migrate deploy'
 ```
 
 Bruk alltid `prisma migrate deploy` i produksjon — aldri `prisma db push`.
@@ -141,6 +173,62 @@ Verifiser skjemaet med:
 npx prisma migrate diff --from-config-datasource \
   --to-schema prisma/schema.prisma --exit-code
 ```
+
+### Databaseroller (minste privilegium)
+
+Som standard bruker både appen og migrasjonene `POSTGRES_USER` (ofte
+superbrukeren `admin`). Det er enkelt, men gir appen rett til å endre skjema og
+til å lese/skrive alt. I produksjon kan dere dele opp:
+
+- `fsm_migrator` — DDL-rolle som eier tabellene og kjører migrasjonene.
+- `fsm_app` — DML-rolle som appen bruker: `SELECT`, `INSERT`, `UPDATE`,
+  `DELETE`, men ikke `CREATE`/`ALTER`/`DROP`.
+
+Kjør som Postgres-superbruker i appdatabasen (bytt passord og database):
+
+```sql
+CREATE ROLE fsm_migrator LOGIN PASSWORD 'bytt-meg' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+CREATE ROLE fsm_app      LOGIN PASSWORD 'bytt-meg' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+
+ALTER DATABASE fsm_db OWNER TO fsm_migrator;
+ALTER SCHEMA public OWNER TO fsm_migrator;
+GRANT CONNECT ON DATABASE fsm_db TO fsm_app;
+GRANT USAGE ON SCHEMA public TO fsm_app;
+
+-- Eksisterende installasjon: la migrasjonsrollen overta objektene admin eier.
+-- Kjør denne i appdatabasen, og kontroller eierskapet etterpå.
+REASSIGN OWNED BY admin TO fsm_migrator;
+
+-- Les/skriv for appen, også på tabeller og sekvenser som lages senere.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fsm_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fsm_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE fsm_migrator IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO fsm_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE fsm_migrator IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO fsm_app;
+```
+
+`pg_trgm` og `unaccent` er trusted extensions i PostgreSQL 15, så
+migrasjonsrollen kan opprette dem når den eier databasen. Hvis en eksisterende
+installasjon har egne eiere på enkelte tabeller, må de overføres til
+`fsm_migrator` (ellers feiler `ALTER TABLE` i migrasjonene).
+
+Sett så i `.env` (URL-kod passord med spesialtegn):
+
+```dotenv
+DATABASE_RUNTIME_URL=postgresql://fsm_app:bytt-meg@postgres:5432/fsm_db?schema=public
+DATABASE_MIGRATION_URL=postgresql://fsm_migrator:bytt-meg@postgres:5432/fsm_db?schema=public
+```
+
+`docker-compose.prod.yml` sender begge videre til appcontaineren. Er de ikke
+satt, faller den tilbake til dagens enkeltbruker-URL med `POSTGRES_USER`, så
+eksisterende oppsett trenger ingen endring. `DATABASE_URL` (runtime) brukes av
+appen, seed og backfill; `DATABASE_MIGRATION_URL` brukes bare av
+`prisma migrate deploy` og databaseventingen i oppstartsskriptet.
+
+`scripts/backup.sh` dumper med `POSTGRES_USER` (standard `admin`). Med separate
+roller må backupbrukeren fortsatt ha lesetilgang til alle tabeller – enten gi
+`admin` det, eller eksporter `POSTGRES_USER=fsm_migrator` for backupjobben.
 
 ### Trygg migrasjonsport i produksjon
 
@@ -248,7 +336,7 @@ deres reelle RTO.
 Ta backup av database og opplastingsvolum:
 
 ```bash
-COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
+NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
 ```
 
 Skriptet gir:
@@ -258,13 +346,25 @@ Skriptet gir:
 
 Med `BACKUP_AGE_RECIPIENT=age1...` krypteres begge i en strøm, slik at
 ukrypterte filer aldri ligger på disk. Filene får `0600`. `BACKUP_REMOTE`
-kopierer til ekstern lagring med rclone. `RETENTION_DAYS` (standard 30) styrer
+kopierer til ekstern lagring med rclone **etter** at filene er kryptert (eller
+bevisst ukryptert i lokal utvikling). `RETENTION_DAYS` (standard 30) styrer
 hvor lenge lokale filer beholdes; ekstern lagring bør ha egen, lengre
 oppbevaring.
 
+I produksjon er kryptering påkrevd: med `NODE_ENV=production` (eller
+`REQUIRE_BACKUP_ENCRYPTION=true`) avbryter skriptet før det dumper noe hvis
+`BACKUP_AGE_RECIPIENT` mangler. Lokal utvikling kan fortsatt kjøre ukryptert.
+Bruk derfor:
+
+```bash
+NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml ./scripts/backup.sh
+```
+
 Skriptene leser ikke `.env` selv. Avviker `POSTGRES_USER` eller `POSTGRES_DB`
 fra standardverdiene (`admin`/`fsm_db`), må de eksporteres til skriptet – også
-i cron. `COMPOSE_FILE` leses av Docker Compose.
+i cron. `COMPOSE_FILE` leses av Docker Compose. Sett også `NODE_ENV=production`
+eller `REQUIRE_BACKUP_ENCRYPTION=true` i cron, slik at en glemt
+`BACKUP_AGE_RECIPIENT` stopper jobben i stedet for å lage ukrypterte filer.
 
 Test at backupen kan gjenopprettes (oppretter og sletter en midlertidig
 database, og verifiserer opplastingsarkivet):
@@ -302,7 +402,7 @@ Eksempel med cron (kjør som en egen driftsbruker med tilgang til `.env` og
 age-nøkkelen):
 
 ```cron
-17 3 * * * cd /opt/fsm-platform && COMPOSE_FILE=docker-compose.prod.yml \
+17 3 * * * cd /opt/fsm-platform && NODE_ENV=production COMPOSE_FILE=docker-compose.prod.yml \
   BACKUP_AGE_RECIPIENT=age1... BACKUP_REMOTE=remote:fsm-backups \
   ./scripts/backup.sh >> /var/log/fsm-backup.log 2>&1
 

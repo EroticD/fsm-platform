@@ -33,11 +33,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — real environment files with secrets are ignored,
-# but .env.example is committed as a template for new developers.
-.env
-.env.local
-.env.*.local
+# env files — alle lokale miljøfiler ignoreres, også .env.production og
+# .env.e2e.local. Bare malene under er med i git.
+.env*
+!.env.example
+!.env.e2e.example
 
 # vercel
 .vercel

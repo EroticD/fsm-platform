@@ -68,6 +68,19 @@ export const CUSTOMER_ACTIVE_STATUSES: WorkStatus[] = [
 
 const ACTIVE_STATUSES = CUSTOMER_ACTIVE_STATUSES;
 
+/**
+ * Rapportene på kundekortet og i enhetshistorikken følger samme regel som
+ * rapportlisten: montører skal ikke se rapporter fra kansellerte oppdrag.
+ * Kontor og administrator beholder historikken.
+ */
+function reportWorkOrderScopeFor(
+  actor: ServiceActor,
+): Prisma.WorkOrderWhereInput {
+  const scope = workOrderScopeFor(actor);
+  if (actor.role !== "TECHNICIAN") return scope;
+  return { AND: [scope, { status: { not: "CANCELLED" } }] };
+}
+
 /** Kundekortet viser 25 oppdrag om gangen, ikke hele historikken. */
 export const CUSTOMER_ORDER_PAGE_SIZE = 25;
 
@@ -207,7 +220,7 @@ export async function getCustomerDetail(
     ? {
         report: {
           deletedAt: null,
-          workOrder: workOrderScopeFor(actor),
+          workOrder: reportWorkOrderScopeFor(actor),
         },
       }
     : { id: { in: [] } };
@@ -551,7 +564,7 @@ export async function getUnitDetail(actor: ServiceActor, unitId: string) {
     ? {
         report: {
           deletedAt: null,
-          workOrder: workOrderScopeFor(actor),
+          workOrder: reportWorkOrderScopeFor(actor),
         },
       }
     : { id: { in: [] } };

@@ -107,7 +107,7 @@ const REPORT_ACCESS_SELECT = {
       scheduledFor: true,
       customerId: true,
       deletedAt: true,
-      customer: { select: { name: true } },
+      customer: { select: { name: true, deletedAt: true } },
     },
   },
 } as const;
@@ -132,7 +132,7 @@ type AccessibleReport = {
     scheduledFor: Date | null;
     customerId: string | null;
     deletedAt: Date | null;
-    customer: { name: string } | null;
+    customer: { name: string; deletedAt: Date | null } | null;
   };
 };
 
@@ -142,14 +142,19 @@ function canViewWorkOrder(
   workOrder: {
     customerId: string | null;
     status: string;
+    customer?: { deletedAt: Date | null } | null;
   },
 ): boolean {
   if (!viewer?.isActive) return false;
 
   if (viewer.role === "CUSTOMER") {
     // En kunde uten kundetilknytning skal aldri matche et oppdrag uten kunde.
+    // Er kunden mykt slettet, stenges også rapportrevisjonene.
     return Boolean(
-      viewer.customerId && workOrder.customerId === viewer.customerId,
+      viewer.customerId &&
+        workOrder.customerId === viewer.customerId &&
+        workOrder.customer &&
+        !workOrder.customer.deletedAt,
     );
   }
 
@@ -410,7 +415,7 @@ export async function getWorkOrderRevisionOverview(
       status: true,
       scheduledFor: true,
       customerId: true,
-      customer: { select: { name: true } },
+      customer: { select: { name: true, deletedAt: true } },
       reports: {
         where: { deletedAt: null },
         orderBy: { createdAt: "asc" },

@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/permissions";
 import { workOrderScope } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { assertSameOrigin } from "@/lib/origin";
+import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
 
 /** Kommentarer kan festes til disse tre tingene – og ikke noe annet. */
 const ENTITY_TYPES = ["workOrder", "customer", "contact"] as const;
@@ -35,7 +36,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
+  const parsed = await readJsonWithLimit<Record<string, unknown>>(
+    request,
+    JSON_BODY_LIMIT,
+  );
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { error: parsed.status === 413 ? "Kommentaren er for stor" : "Ugyldig data" },
+      { status: parsed.status },
+    );
+  }
+
+  const body = parsed.data;
   const entityType = String(body.entityType ?? "");
   const entityId = cleanText(body.entityId, { maxLength: LIMITS.line });
   const content = cleanMarkdown(body.content);

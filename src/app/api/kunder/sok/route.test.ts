@@ -81,6 +81,8 @@ describe("GET /api/kunder/sok", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("12");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toBe("Cookie");
     expect(mocks.searchNormalizedIds).not.toHaveBeenCalled();
   });
 
@@ -88,6 +90,8 @@ describe("GET /api/kunder/sok", () => {
     const response = await GET(new Request("http://localhost/api/kunder/sok?q=%20%20"));
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toBe("Cookie");
     await expect(response.json()).resolves.toEqual({ customers: [] });
     expect(mocks.searchNormalizedIds).not.toHaveBeenCalled();
     expect(mocks.findMany).not.toHaveBeenCalled();
@@ -125,6 +129,8 @@ describe("GET /api/kunder/sok", () => {
     const response = await search("12345678");
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("vary")).toBe("Cookie");
     expect(mocks.findMany).toHaveBeenCalledWith({
       where: { deletedAt: null, id: { in: ["c2", "c1"] } },
       select: { id: true, name: true, city: true, customerNumber: true },

@@ -60,12 +60,17 @@ RUN --mount=type=cache,target=/root/.npm \
 # imaget curl og annet som bare trengs under bygging.
 # ---------------------------------------------------------------------------
 FROM debian:bookworm-slim AS tessdata
+# Sjekksummene låser de eksakte OCR-dataene. Oppdater dem bevisst sammen med
+# URL-versjonen; ellers stopper bygget hvis innholdet på CDN-et endres.
+ARG NOR_TRAINEDDATA_SHA256=6c5d91a5b684da387bfcf16b38bae8d94771812dc9ef706b413c728ca1d37c93
+ARG ENG_TRAINEDDATA_SHA256=45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /tessdata \
  && curl -fsSL -o /tmp/nor.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/nor/4.0.0_best_int/nor.traineddata.gz \
  && curl -fsSL -o /tmp/eng.traineddata.gz https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz \
+ && printf '%s  %s\n' "$NOR_TRAINEDDATA_SHA256" /tmp/nor.traineddata.gz "$ENG_TRAINEDDATA_SHA256" /tmp/eng.traineddata.gz | sha256sum -c - \
  && gunzip -f /tmp/nor.traineddata.gz /tmp/eng.traineddata.gz \
  && mv /tmp/nor.traineddata /tmp/eng.traineddata /tessdata/
 

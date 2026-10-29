@@ -1,6 +1,6 @@
 import { Link, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
-import { markdownToMdast } from "./markdown";
+import { markdownToMdast, safeMarkdownUrl } from "./markdown";
 import { calloutType } from "./markdown-obsidian";
 
 /**
@@ -139,12 +139,19 @@ function inline(nodes: MdNode[], key: string): ReactNode[] {
             {pdfText(node.value ?? "")}
           </Text>
         );
-      case "link":
+      case "link": {
+        // PDF-en har ikke noe sanitizeringslag: en utrygg protokoll skal bli
+        // vanlig tekst, ikke en klikkbar handling i den signerte rapporten.
+        const href = safeMarkdownUrl(node.url);
+        if (!href) {
+          return <Text key={nodeKey}>{inline(children(node), nodeKey)}</Text>;
+        }
         return (
-          <Link key={nodeKey} src={node.url ?? ""} style={styles.link}>
+          <Link key={nodeKey} src={href} style={styles.link}>
             {inline(children(node), nodeKey)}
           </Link>
         );
+      }
       case "break":
         return <Text key={nodeKey}>{"\n"}</Text>;
       case "image":

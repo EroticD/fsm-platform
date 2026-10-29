@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { noStoreJson } from "@/lib/http";
 
 /** Kontaktene til én kunde, brukt når kunden er valgt i oppdragsskjemaet. */
 export async function GET(request: Request) {
@@ -17,12 +17,12 @@ export async function GET(request: Request) {
       hasPermission(user, "customers.view")
     )
   ) {
-    return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    return noStoreJson({ error: "Ingen tilgang" }, { status: 403 });
   }
 
   const limit = await allowRequestDb(`customer-contacts:${user.id}`, 120, 60_000);
   if (!limit.allowed) {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "For mange forespørsler. Prøv igjen om litt." },
       {
         status: 429,
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   const customerId =
     new URL(request.url).searchParams.get("customerId")?.trim().slice(0, 64) ?? "";
-  if (!customerId) return NextResponse.json({ contacts: [] });
+  if (!customerId) return noStoreJson({ contacts: [] });
 
   const contacts = await prisma.contact.findMany({
     where: { customerId, customer: { deletedAt: null } },
@@ -42,5 +42,5 @@ export async function GET(request: Request) {
     select: { id: true, name: true, role: true, customerId: true },
   });
 
-  return NextResponse.json({ contacts });
+  return noStoreJson({ contacts });
 }

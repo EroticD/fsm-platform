@@ -1615,6 +1615,41 @@ describe("getReportPdfForViewer", () => {
     expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
   });
 
+  it("avviser CUSTOMER når kunden er mykt slettet", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      customer: { deletedAt: new Date() },
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "CUSTOMER", customerId: "kunde-1" }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("lar CUSTOMER hente egen rapport når kunden er aktiv", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      customer: { deletedAt: null },
+      reports: [{ id: "r1" }],
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({ role: "CUSTOMER", customerId: "kunde-1" }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: true });
+  });
+
   it("lar ansatt med reports.view hente rapport fra en annen avdeling", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue({
       customerId: "kunde-1",

@@ -57,7 +57,7 @@ function reportRow(overrides: Record<string, unknown> = {}) {
       scheduledFor: new Date("2026-01-02T00:00:00Z"),
       customerId: "cust-1",
       deletedAt: null,
-      customer: { name: "Kunde AS" },
+      customer: { name: "Kunde AS", deletedAt: null },
     },
     ...overrides,
   };
@@ -227,6 +227,22 @@ describe("getReportRevisionForPdf", () => {
 
     expect(result).toEqual({ ok: false, error: "forbidden" });
   });
+
+  it("avviser en mykt slettet kunde", async () => {
+    mocks.prisma.reportRevision.findFirst.mockResolvedValue(revisionRow());
+    mocks.prisma.report.findFirst.mockResolvedValue(
+      reportRow({
+        workOrder: {
+          ...reportRow().workOrder,
+          customer: { name: "Kunde AS", deletedAt: new Date() },
+        },
+      }),
+    );
+
+    const result = await getReportRevisionForPdf(customer(), "rev1");
+
+    expect(result).toEqual({ ok: false, error: "forbidden" });
+  });
 });
 
 describe("getWorkOrderRevisionOverview", () => {
@@ -238,7 +254,7 @@ describe("getWorkOrderRevisionOverview", () => {
       status: "COMPLETED",
       scheduledFor: new Date("2026-01-02T00:00:00Z"),
       customerId: "cust-1",
-      customer: { name: "Kunde AS" },
+      customer: { name: "Kunde AS", deletedAt: null },
       reports: [
         {
           ...reportRow(),
@@ -275,7 +291,7 @@ describe("getWorkOrderRevisionOverview", () => {
       status: "COMPLETED",
       scheduledFor: null,
       customerId: "cust-2",
-      customer: { name: "Annen kunde" },
+      customer: { name: "Annen kunde", deletedAt: null },
       reports: [],
     });
 

@@ -50,6 +50,20 @@ describe("canReadUpload", () => {
     expect(canReadUpload(staff, workOrderB)).toBe(false);
   });
 
+  it("avviser oppdragsfil når avdelingen er deaktivert", () => {
+    const staff = user({ role: "TECHNICIAN" });
+    expect(
+      canReadUpload(staff, { ...workOrderA, departmentIsActive: false }),
+    ).toBe(false);
+    // Administrator beholder tilgangen for gjenoppretting.
+    expect(
+      canReadUpload(user({ role: "ADMIN" }), {
+        ...workOrderA,
+        departmentIsActive: false,
+      }),
+    ).toBe(true);
+  });
+
   it("lar kundeportalbruker lese bare sin egen kundes filer", () => {
     const customer = user({ role: "CUSTOMER", departmentId: null, customerId: "cust-1" });
     expect(canReadUpload(customer, workOrderA)).toBe(true);

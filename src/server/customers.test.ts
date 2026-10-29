@@ -114,6 +114,19 @@ const technician = () =>
     roleDefinition: { permissions: ["customers.view", "equipment.view"] },
   });
 
+const technicianWithReports = () =>
+  actor({
+    role: "TECHNICIAN",
+    roleDefinition: {
+      permissions: [
+        "customers.view",
+        "equipment.view",
+        "reports.view",
+        "workorders.view",
+      ],
+    },
+  });
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.prisma.$transaction.mockImplementation(
@@ -287,6 +300,34 @@ describe("kundetjenesten – kundekortets datatilgang", () => {
     expect(args.include._count.select.reportUnits.where).toEqual({
       id: { in: [] },
     });
+  });
+
+  it("skjuler kansellerte oppdrag i montørens rapportenheter", async () => {
+    await getCustomerDetail(technicianWithReports(), "kunde-1", {
+      tab: "enheter",
+      orderPage: 1,
+    });
+
+    const args = mocks.prisma.product.findMany.mock.calls[0][0] as {
+      include: {
+        reportUnits: {
+          where: { report: { workOrder: { AND?: unknown[] } } };
+        };
+        _count: {
+          select: {
+            reportUnits: {
+              where: { report: { workOrder: { AND?: unknown[] } } };
+            };
+          };
+        };
+      };
+    };
+    expect(
+      args.include.reportUnits.where.report.workOrder.AND,
+    ).toContainEqual({ status: { not: "CANCELLED" } });
+    expect(
+      args.include._count.select.reportUnits.where.report.workOrder.AND,
+    ).toContainEqual({ status: { not: "CANCELLED" } });
   });
 
   it("laster ikke enheter for aktører uten equipment.view", async () => {
@@ -487,6 +528,31 @@ describe("kundetjenesten – enhetsdetaljer", () => {
       include: { reportUnits: { where: unknown } };
     };
     expect(args.include.reportUnits.where).toEqual({ id: { in: [] } });
+  });
+
+  it("skjuler kansellerte oppdrag i montørens servicehistorikk", async () => {
+    await getUnitDetail(technicianWithReports(), "enhet-1");
+
+    const args = mocks.prisma.product.findFirst.mock.calls[0][0] as {
+      include: {
+        reportUnits: {
+          where: { report: { workOrder: { AND?: unknown[] } } };
+        };
+        _count: {
+          select: {
+            reportUnits: {
+              where: { report: { workOrder: { AND?: unknown[] } } };
+            };
+          };
+        };
+      };
+    };
+    expect(
+      args.include.reportUnits.where.report.workOrder.AND,
+    ).toContainEqual({ status: { not: "CANCELLED" } });
+    expect(
+      args.include._count.select.reportUnits.where.report.workOrder.AND,
+    ).toContainEqual({ status: { not: "CANCELLED" } });
   });
 
   it("krever equipment.view", async () => {

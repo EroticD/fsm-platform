@@ -12,6 +12,9 @@
 #   UPLOADS_VOLUME        volumnavnet, hvis det ikke kan finnes automatisk
 #   BACKUP_AGE_RECIPIENT  age-mottaker (age1...). Krypterer direkte i strøm,
 #                         slik at ukrypterte filer aldri ligger på disk.
+#                         Påkrevd når NODE_ENV=production eller
+#                         REQUIRE_BACKUP_ENCRYPTION=true.
+#   REQUIRE_BACKUP_ENCRYPTION  sett true for å kreve kryptering også lokalt.
 #   BACKUP_REMOTE         rclone-mål, f.eks. remote:fsm-backups
 #   RETENTION_DAYS        hvor lenge lokale filer beholdes (standard 30)
 #
@@ -28,6 +31,18 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 DB_USER="${POSTGRES_USER:-admin}"
 DB_NAME="${POSTGRES_DB:-fsm_db}"
 AGE_RECIPIENT="${BACKUP_AGE_RECIPIENT:-}"
+REQUIRE_ENCRYPTION="${REQUIRE_BACKUP_ENCRYPTION:-false}"
+
+# I produksjon skal en backup aldri skrives ukryptert til disk. Feil lukket
+# før noe dumpes, slik at et manglende miljøoppsett ikke gir en stille
+# ukryptert kopi av database og opplastinger.
+if [ "${NODE_ENV:-}" = "production" ] || [ "$REQUIRE_ENCRYPTION" = "true" ]; then
+  if [ -z "$AGE_RECIPIENT" ]; then
+    echo "✖ Kryptering er påkrevd, men BACKUP_AGE_RECIPIENT er ikke satt." >&2
+    echo "  Sett en age-mottaker (age1...) eller slå av kravet bevisst." >&2
+    exit 1
+  fi
+fi
 
 mkdir -p "$BACKUP_DIR"
 BACKUP_DIR_ABS="$(cd "$BACKUP_DIR" && pwd)"
@@ -88,7 +103,7 @@ CURRENT_OUTPUT="$UPLOADS_FILE"
 # en midlertidig ukryptert fil.
 docker run --rm \
   -v "$UPLOADS_VOLUME:/data:ro" \
-  "${POSTGRES_IMAGE:-postgres:15}" \
+  "${POSTGRES_IMAGE:-postgres:15.13}" \
   tar czf - -C /data . \
   | encrypt_or_plain "$UPLOADS_FILE"
 [ -s "$UPLOADS_FILE" ] || { echo "Opplastingsarkivet ble tomt." >&2; exit 1; }
@@ -98,7 +113,8 @@ if [ -n "$AGE_RECIPIENT" ]; then
   echo "→ Krypterte backupene med age."
 fi
 
-# Valgfri kopi til ekstern lagring (rclone). Eksempel:
+# Valgfri kopi til ekstern lagring (rclone) – først etter at filene er skrevet
+# og eventuelt kryptert. Eksempel:
 #   BACKUP_REMOTE=remote:fsm-backups
 if [ -n "${BACKUP_REMOTE:-}" ]; then
   if ! command -v rclone >/dev/null 2>&1; then

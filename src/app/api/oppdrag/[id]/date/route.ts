@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { assertSameOrigin } from "@/lib/origin";
+import { allowRequestDb } from "@/lib/rate-limit-db";
+import { JSON_BODY_LIMIT, readJsonWithLimit } from "@/lib/request-body";
 import { updateWorkOrderDate } from "@/server/work-orders";
 
 /**
@@ -25,16 +27,27 @@ export async function PATCH(
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
   }
 
-  const { id } = await params;
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Ugyldig data" }, { status: 400 });
+  // Maks 30 datoflyttinger per minutt per konto. Grensen ligger før kroppen
+  // leses, slik at en misbrukt konto ikke kan bruke parsing som DoS-vektor.
+  const limit = await allowRequestDb(`workorder-date:${user.id}`, 30, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "For mange forespørsler. Prøv igjen om litt." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
-  const result = await updateWorkOrderDate(user, id, body);
+  const { id } = await params;
+
+  const parsed = await readJsonWithLimit(request, JSON_BODY_LIMIT);
+  if (!parsed.ok) {
+    return NextResponse.json(
+      { error: parsed.status === 413 ? "Forespørselen er for stor" : "Ugyldig data" },
+      { status: parsed.status },
+    );
+  }
+
+  const result = await updateWorkOrderDate(user, id, parsed.data);
   if (result.ok) return NextResponse.json({ success: true });
 
   switch (result.error) {

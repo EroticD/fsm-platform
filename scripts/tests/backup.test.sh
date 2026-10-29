@@ -49,7 +49,23 @@ set -euo pipefail
 { printf 'FAKE-AGE-V1\n'; cat; } >"$4"
 STUB
 
-chmod +x "$TMP/bin/docker" "$TMP/bin/age"
+cat >"$TMP/bin/rclone" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+src="${2:-}"
+# Feiler hvis kilden inneholder noe annet enn .age-filer. Da beviser testen at
+# ekstern kopi bare skjer etter vellykket kryptering.
+for f in "$src"/*; do
+  [ -e "$f" ] || continue
+  case "$f" in
+    *.age) ;;
+    *) echo "rclone: ukryptert fil i kilden: $f" >&2; exit 3 ;;
+  esac
+done
+printf '%s\n' "$*" >>"${RCLONE_LOG:-/dev/null}"
+STUB
+
+chmod +x "$TMP/bin/docker" "$TMP/bin/age" "$TMP/bin/rclone"
 
 failures=0
 pass() { echo "  ✓ $*"; }
@@ -79,6 +95,30 @@ check "payload er gyldig gzip etter header" \
   'tail -n +2 "$TMP"/enc/db-*.sql.gz.age | gunzip -t >/dev/null 2>&1'
 check "backupene er ikke verdenslesbare" \
   '[ "$(stat -c %a "$TMP"/enc/db-*.sql.gz.age)" = "600" ]'
+
+echo "→ Produksjon krever kryptering"
+set +e
+BACKUP_DIR="$TMP/prod-no-age" NODE_ENV=production bash "$SCRIPT" >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then pass "NODE_ENV=production uten mottaker feiler"; else fail "returnerte 0 uten mottaker"; fi
+check "avbryter før backupmappen opprettes" '! [ -e "$TMP/prod-no-age" ]'
+
+echo "→ REQUIRE_BACKUP_ENCRYPTION krever kryptering"
+set +e
+BACKUP_DIR="$TMP/require-no-age" REQUIRE_BACKUP_ENCRYPTION=true bash "$SCRIPT" >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then pass "REQUIRE_BACKUP_ENCRYPTION=true uten mottaker feiler"; else fail "returnerte 0 uten mottaker"; fi
+check "avbryter før backupmappen opprettes" '! [ -e "$TMP/require-no-age" ]'
+
+echo "→ Ekstern kopi bare etter kryptering"
+RCLONE_LOG="$TMP/rclone.log" BACKUP_DIR="$TMP/remote" \
+  BACKUP_AGE_RECIPIENT=age1test BACKUP_REMOTE=remote:test \
+  bash "$SCRIPT" >/dev/null
+check "rclone fikk backupmålet" 'grep -q "remote:test" "$TMP/rclone.log"'
+check "bare .age-filer ligger i kilden" \
+  '! find "$TMP/remote" -maxdepth 1 -type f ! -name "*.age" -print -quit | grep -q .'
 
 echo "→ Feilende pg_dump"
 set +e

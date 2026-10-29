@@ -15,7 +15,12 @@ prisma_cli() {
   node ./node_modules/prisma/build/index.js "$@"
 }
 
-if [ -n "${DATABASE_URL:-}" ] && [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
+# Migrasjoner kan kjøre med en egen DDL-rolle, mens appen bruker en DML-rolle.
+# DATABASE_MIGRATION_URL er valgfri; uten den brukes DATABASE_URL som før.
+RUNTIME_DATABASE_URL="${DATABASE_URL:-}"
+MIGRATION_DATABASE_URL="${DATABASE_MIGRATION_URL:-$RUNTIME_DATABASE_URL}"
+
+if [ -n "$MIGRATION_DATABASE_URL" ] && [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
   # Valgfri, trygg sperre for produksjon: krev at en fersk backup er tatt og
   # bekreftet før migrasjonene kjøres. Standard er av, slik at lokal utvikling
   # og eksisterende oppsett ikke endres.
@@ -27,7 +32,7 @@ if [ -n "${DATABASE_URL:-}" ] && [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
 
   echo "→ Venter på at databasen skal svare ..."
   forsok=0
-  until echo "SELECT 1;" | prisma_cli db execute --stdin >/dev/null 2>&1; do
+  until echo "SELECT 1;" | DATABASE_URL="$MIGRATION_DATABASE_URL" prisma_cli db execute --stdin >/dev/null 2>&1; do
     forsok=$((forsok + 1))
     if [ "$forsok" -ge "${DB_WAIT_RETRIES:-60}" ]; then
       echo "✖ Databasen svarte ikke etter $forsok forsøk. Avslutter."
@@ -38,7 +43,7 @@ if [ -n "${DATABASE_URL:-}" ] && [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
   echo "✔ Databasen svarer."
 
   echo "→ Kjører migrasjoner ..."
-  prisma_cli migrate deploy
+  DATABASE_URL="$MIGRATION_DATABASE_URL" prisma_cli migrate deploy
 fi
 
 # Registrerer metadata for filer som ble lastet opp før tilgangskontrollen per
