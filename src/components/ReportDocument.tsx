@@ -714,7 +714,7 @@ export default function ReportDocument({
             )}
             {blocks.length === 1 && blocks[0]?.reportNumber && (
               <Text style={styles.headerOrder}>
-                {labels.reportNumberSuffix(blocks[0].reportNumber).trim()}
+                {labels.reportNumberPrefix(blocks[0].reportNumber)}
               </Text>
             )}
             <Text style={styles.companyName}>{companyName}</Text>

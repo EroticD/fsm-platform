@@ -34,6 +34,7 @@ export type PdfLabels = {
   unknownResult: string;
   unitCount: (count: number) => string;
   checklist: (index: number) => string;
+  reportNumberPrefix: (number: string) => string;
   reportNumberSuffix: (number: string) => string;
   deviationSuffix: string;
   approvedSuffix: string;
@@ -84,6 +85,7 @@ const nb: PdfLabels = {
   unitCount: (count) =>
     ` – ${count} ${count === 1 ? "enhet" : "enheter"} kontrollert`,
   checklist: (index) => `Sjekkliste ${index}`,
+  reportNumberPrefix: (number) => `Rapportnr. ${number}`,
   reportNumberSuffix: (number) => `  •  Rapportnr. ${number}`,
   deviationSuffix: "  –  Avvik",
   approvedSuffix: "  –  Godkjent",
@@ -134,6 +136,7 @@ const en: PdfLabels = {
   unitCount: (count) =>
     ` – ${count} ${count === 1 ? "unit" : "units"} checked`,
   checklist: (index) => `Checklist ${index}`,
+  reportNumberPrefix: (number) => `Report no. ${number}`,
   reportNumberSuffix: (number) => `  •  Report no. ${number}`,
   deviationSuffix: "  –  Deviation",
   approvedSuffix: "  –  Approved",
