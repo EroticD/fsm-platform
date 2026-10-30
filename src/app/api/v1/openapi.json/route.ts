@@ -1,3 +1,5 @@
+// i18n-ignore-file: OpenAPI-titler og -beskrivelser er utviklerdokumentasjon,
+// ikke UI-tekst. Selve API-et returnerer stabile koder og messageKey.
 import { NextResponse } from "next/server";
 
 /**

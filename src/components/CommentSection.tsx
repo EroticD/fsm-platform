@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useRouter } from "next/navigation";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
@@ -57,16 +58,19 @@ export default function CommentSection({
       });
 
       if (!response.ok) {
-        let reason = t("components.comment.error");
+        let payload: unknown = null;
         try {
-          const data = (await response.json()) as { error?: unknown };
-          if (typeof data?.error === "string" && data.error.trim()) {
-            reason = data.error.trim();
-          }
+          payload = await response.json();
         } catch {
           // Serveren svarte uten JSON – vis den lokale feilmeldingen.
         }
-        setError(reason);
+        setError(
+          apiErrorMessage(
+            payload as { error?: unknown; messageKey?: unknown },
+            t,
+            t("components.comment.error"),
+          ),
+        );
         return;
       }
 

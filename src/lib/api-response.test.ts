@@ -24,9 +24,10 @@ describe("apiJson", () => {
 });
 
 describe("apiError", () => {
-  it("bruker stabil feilkode og valgfrie detaljer", async () => {
-    const response = apiError(422, "validation_error", "Ugyldig", {
-      field: "name",
+  it("bruker stabil feilkode, meldingsnøkkel og valgfrie detaljer", async () => {
+    const response = apiError("validation_error", 422, {
+      messageKey: "errors.api.workOrders.validation",
+      details: { field: "name" },
     });
 
     expect(response.status).toBe(422);
@@ -34,17 +35,34 @@ describe("apiError", () => {
     await expect(response.json()).resolves.toEqual({
       error: {
         code: "validation_error",
-        message: "Ugyldig",
+        message: "Feltene er ikke gyldige.",
+        messageKey: "errors.api.workOrders.validation",
         details: { field: "name" },
       },
     });
   });
 
   it("utelater details når de ikke er oppgitt", async () => {
-    const response = apiError(404, "not_found", "Fant ikke");
+    const response = apiError("not_found", 404);
 
     await expect(response.json()).resolves.toEqual({
-      error: { code: "not_found", message: "Fant ikke" },
+      error: {
+        code: "not_found",
+        message: "Fant ikke objektet.",
+        messageKey: "errors.api.notFound",
+      },
+    });
+  });
+
+  it("beholder en eksplisitt fallbacktekst for bakoverkompatibilitet", async () => {
+    const response = apiError("forbidden", 403, { message: "Ingen tilgang" });
+
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "forbidden",
+        message: "Ingen tilgang",
+        messageKey: "errors.api.forbidden",
+      },
     });
   });
 });

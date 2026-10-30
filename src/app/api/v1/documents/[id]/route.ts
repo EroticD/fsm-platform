@@ -52,7 +52,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "documents.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til dokumenter.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.documents.forbidden" });
   }
 
   const { id } = await params;
@@ -87,7 +87,7 @@ export async function GET(
   });
 
   if (!document) {
-    return apiError(404, "not_found", "Fant ikke dokumentet.");
+    return apiError("not_found", 404, { messageKey: "errors.api.documents.notFound" });
   }
 
   const { _count, folder, versions, ...metadata } = document;

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "customers.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til kunder.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.customers.forbidden" });
   }
 
   const url = new URL(request.url);

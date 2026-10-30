@@ -21,7 +21,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "customers.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til kunder.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.customers.forbidden" });
   }
 
   const { id } = await params;
@@ -105,7 +105,7 @@ export async function GET(
   });
 
   if (!customer) {
-    return apiError(404, "not_found", "Fant ikke kunden.");
+    return apiError("not_found", 404, { messageKey: "errors.api.customers.notFound" });
   }
 
   const { _count, ...detail } = customer;

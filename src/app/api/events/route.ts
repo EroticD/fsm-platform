@@ -34,11 +34,11 @@ export async function GET(request: Request) {
     ip: clientIpFrom(request.headers),
   };
   if (!acquireRealtimeSlot(slot)) {
-    logger.warn("Sanntid: tilkoblingsgrensen er nådd", {
+    logger.warn("Realtime: connection limit reached", {
       userId: user.id,
       ip: slot.ip ?? null,
     });
-    return new Response("For mange sanntidsforbindelser", {
+    return new Response("Too many realtime connections", {
       status: 429,
       headers: { "Retry-After": "30" },
     });

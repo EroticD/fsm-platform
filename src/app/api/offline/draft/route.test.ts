@@ -59,7 +59,10 @@ describe("/api/offline/draft", () => {
 
     expect(response.status).toBe(413);
     expect(mocks.saveDraft).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toEqual({ error: "Kladden er for stor" });
+    await expect(response.json()).resolves.toMatchObject({
+      error: "too_large",
+      messageKey: "errors.api.tooLarge",
+    });
   });
 
   it("avviser en chunked kropp over 2 MB uten å parse den", async () => {

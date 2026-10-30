@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { internalApiError } from "@/lib/api-errors";
 import { WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { markdownToPlainText } from "@/lib/markdown";
@@ -16,25 +17,25 @@ const ENTITY_TYPES = ["workOrder", "customer", "contact"] as const;
 
 export async function POST(request: Request) {
   if (!assertSameOrigin(request)) {
-    return NextResponse.json({ error: "Ugyldig origin" }, { status: 403 });
+    return internalApiError("invalid_origin", 403);
   }
 
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 });
+    return internalApiError("not_authenticated", 401);
   }
 
   if (!user.isActive) {
-    return NextResponse.json({ error: "Bruker ikke funnet" }, { status: 404 });
+    return internalApiError("user_not_found", 404);
   }
 
   // Maks 30 kommentarer per minutt per konto (hindrer spam).
   const limit = await allowRequestDb(`comments:${user.id}`, 30, 60_000);
   if (!limit.allowed) {
-    return NextResponse.json(
-      { error: "For mange kommentarer. Prøv igjen om litt." },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
-    );
+    return internalApiError("rate_limited", 429, {
+      messageKey: "errors.api.comments.rateLimited",
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
   }
 
   const parsed = await readJsonWithLimit<Record<string, unknown>>(
@@ -42,10 +43,13 @@ export async function POST(request: Request) {
     JSON_BODY_LIMIT,
   );
   if (!parsed.ok) {
-    return NextResponse.json(
-      { error: parsed.status === 413 ? "Kommentaren er for stor" : "Ugyldig data" },
-      { status: parsed.status },
-    );
+    return parsed.status === 413
+      ? internalApiError("too_large", 413, {
+          messageKey: "errors.api.comments.tooLarge",
+        })
+      : internalApiError("invalid_data", 400, {
+          messageKey: "errors.api.comments.invalidData",
+        });
   }
 
   const body = parsed.data;
@@ -57,16 +61,20 @@ export async function POST(request: Request) {
   const authorName = user.name || user.email || "Ukjent";
 
   if (!ENTITY_TYPES.includes(entityType as (typeof ENTITY_TYPES)[number])) {
-    return NextResponse.json({ error: "Ukjent type" }, { status: 400 });
+    return internalApiError("unknown_entity", 400, {
+      messageKey: "errors.api.comments.unknownType",
+    });
   }
   if (!entityId || !content) {
-    return NextResponse.json({ error: "Manglende felt" }, { status: 400 });
+    return internalApiError("missing_field", 400, {
+      messageKey: "errors.api.comments.missingField",
+    });
   }
 
   // Kontroller at brukeren faktisk har tilgang til det kommentaren festes til.
   if (entityType === "workOrder") {
     if (!hasPermission(user, "workorders.update")) {
-      return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+      return internalApiError("forbidden", 403);
     }
     const target = await prisma.workOrder.findFirst({
       where: {
@@ -79,29 +87,35 @@ export async function POST(request: Request) {
       select: { id: true },
     });
     if (!target) {
-      return NextResponse.json({ error: "Oppdraget finnes ikke" }, { status: 404 });
+      return internalApiError("not_found", 404, {
+        messageKey: "errors.api.comments.workOrderNotFound",
+      });
     }
   } else if (entityType === "customer") {
     if (!hasPermission(user, "customers.manage")) {
-      return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+      return internalApiError("forbidden", 403);
     }
     const target = await prisma.customer.findFirst({
       where: { id: entityId, deletedAt: null },
       select: { id: true },
     });
     if (!target) {
-      return NextResponse.json({ error: "Kunden finnes ikke" }, { status: 404 });
+      return internalApiError("not_found", 404, {
+        messageKey: "errors.api.comments.customerNotFound",
+      });
     }
   } else {
     if (!hasPermission(user, "customers.manage")) {
-      return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+      return internalApiError("forbidden", 403);
     }
     const target = await prisma.contact.findUnique({
       where: { id: entityId },
       select: { id: true },
     });
     if (!target) {
-      return NextResponse.json({ error: "Kontakten finnes ikke" }, { status: 404 });
+      return internalApiError("not_found", 404, {
+        messageKey: "errors.api.comments.contactNotFound",
+      });
     }
   }
 
@@ -136,6 +150,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, comment });
   } catch (error) {
     console.error("Feil ved opprettelse av kommentar:", error);
-    return NextResponse.json({ error: "Kunne ikke lagre kommentar" }, { status: 500 });
+    return internalApiError("server_error", 500, {
+      messageKey: "errors.api.comments.saveFailed",
+    });
   }
 }

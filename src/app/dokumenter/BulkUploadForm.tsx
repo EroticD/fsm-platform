@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import Icon from "@/components/icons";
 import { appendDocumentContext } from "./DocumentContextFields";
 import type {
@@ -282,8 +283,11 @@ export default function BulkUploadForm({
             const data = await res.json();
             if (!res.ok) {
               throw new Error(
-                data.error ||
+                apiErrorMessage(
+                  data,
+                  t,
                   t("documents.bulk.fileUploadFailed", { name: row.name }),
+                ),
               );
             }
             fileUrl = data.fileUrl;
