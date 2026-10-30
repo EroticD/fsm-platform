@@ -18,8 +18,8 @@ import {
  * slik at det bare finnes én dialog med fokusfelle og retur av fokus.
  *
  * Kontor og kundeportal bruker den lyse linjen på mobil. Montørene får den
- * mørke feltlinjen, som også er synlig på brede skjermer – der venstrelinjen
- * ikke finnes. Linjen skjules for kundeportalen og innloggingssidene.
+ * mørke feltlinjen, som også er synlig på brede skjermer. Linjen skjules for
+ * kundeportalen og innloggingssidene.
  */
 export default function MobileTabBar({
   role,

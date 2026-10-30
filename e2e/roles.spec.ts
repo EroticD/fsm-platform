@@ -44,7 +44,7 @@ test("office: dashbord, oppdrag, kunder, dokumenter og rapporter", async ({
   await expect(page.getByRole("heading", { name: /Planlegging/ })).toBeVisible();
   await expect(
     page
-      .getByRole("navigation", { name: "Arbeidsområde" })
+      .getByRole("navigation", { name: "Hovedmeny" })
       .getByRole("link", { name: /Dashbord/ }),
   ).toBeVisible();
 
@@ -107,7 +107,7 @@ test("office: innstillinger ligger bare i menyen, og ansattefanen er tilgjengeli
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   const primaryNav = page
-    .getByRole("navigation", { name: "Arbeidsområde" })
+    .getByRole("navigation", { name: "Hovedmeny" })
     .first();
   await expect(primaryNav).toBeVisible();
   await expect(primaryNav.getByRole("link")).toHaveCount(5);

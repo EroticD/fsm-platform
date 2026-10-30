@@ -9,12 +9,12 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { type EventResizeDoneArg } from '@fullcalendar/interaction';
 import { formatDateLocalized, inclusiveLastDay } from '@/lib/dates';
 import { calendarEditingOptions } from '@/lib/calendar-events';
-import { readableTextColor } from '@/lib/colors';
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
   WORK_ORDER_STATUS_ORDER,
 } from '@/lib/work-order-status-colors';
-import WorkOrderStatusLegend from '@/components/WorkOrderStatusLegend';
+import CalendarLegend from '@/app/kalender/CalendarLegend';
+import Icon from '@/components/icons';
 import { useToast } from '@/components/ToastProvider';
 
 type EventData = {
@@ -29,20 +29,6 @@ type EventData = {
   durationEditable?: boolean;
   extendedProps?: { address?: string; status?: string };
 };
-
-const STATUS_ICONS: Record<string, string> = {
-  OPEN: '✨',
-  PENDING: '⏳',
-  PLANNED: '📅',
-  WAITING: '⏸️',
-  IN_PROGRESS: '🔄',
-  COMPLETED: '✅',
-  CANCELLED: '❌',
-};
-
-function statusIcon(status: string): string {
-  return STATUS_ICONS[status] ?? '•';
-}
 
 /** Dato som lokal kalenderdag. FullCalendar bruker lokal tid, ikke UTC. */
 function toLocalDateOnly(value: Date): string {
@@ -179,22 +165,39 @@ export default function FullCalendarView({
       initialDate: initialDateRef.current,
       headerToolbar: {
         left: 'prev,next today',
-        center: 'title',
-        // Visningsbyttet ligger i fanene over kalenderen, som oppdaterer
-        // URL-en. FullCalendar skal ikke ha egne knapper som desynker den.
+        // Perioden vises i sidehodet. FullCalendar skal ikke gjenta den som en
+        // egen tittel, og visningsbyttet ligger i fanene over kalenderen.
+        center: '',
         right: '',
       },
       views: {
+        dayGridWeek: {
+          dayHeaderFormat: {
+            weekday: "short",
+            day: "numeric",
+            month: "numeric",
+          },
+        },
         biweekly: {
           type: 'dayGrid',
           duration: { weeks: 2 },
           buttonText: tRef.current("calendar.common.biweekly"),
           weekNumbers: true,
           weekNumberCalculation: 'ISO',
+          // To-ukersvisningen skjuler dagnumrene på mobil. Da må
+          // kolonneoverskriften vise både ukedag og dato.
+          dayHeaderFormat: {
+            weekday: "short",
+            day: "numeric",
+            month: "numeric",
+          },
         },
       },
       events: eventsRef.current,
-      height: '80vh',
+      // La kalenderen vokse med innholdet i stedet for å skjule de nederste
+      // ukene bak en intern rullefelt. Uke og to uker får høyden fra
+      // min-height-reglene lenger ned.
+      height: 'auto',
       locale: locale,
       weekNumbers: weekNumbers,
       weekNumberCalculation: 'ISO',
@@ -243,8 +246,8 @@ export default function FullCalendarView({
       },
       // Vis tittel og adresse på hver hendelse. Bygges som DOM-noder (ikke
       // HTML-strenger) slik at brukerstyrte titler og adresser aldri tolkes
-      // som markup. Status vises som tekst/ikon i tillegg til fargen, slik at
-      // kalenderen ikke er avhengig av farge alene.
+      // som markup. Status vises som prikk og tekst i tillegg til fargen,
+      // slik at kalenderen ikke er avhengig av farge alene.
       eventContent: function(arg) {
         const extendedProps = arg.event.extendedProps as {
           address?: string;
@@ -255,19 +258,18 @@ export default function FullCalendarView({
 
         const content = document.createElement('div');
         content.className = 'fc-event-content';
-        content.style.color = readableTextColor(
-          arg.event.backgroundColor || '#2563eb',
-        );
 
         if (eventStatus) {
           const statusLine = document.createElement('div');
           statusLine.className = 'fc-event-status-line';
 
-          const icon = document.createElement('span');
-          icon.className = 'fc-event-status-icon';
-          icon.setAttribute('aria-hidden', 'true');
-          icon.textContent = statusIcon(eventStatus);
-          statusLine.appendChild(icon);
+          // Monokrom statusprikk i samme farge som forklaringen. Fargen er
+          // aldri eneste signal – statusnavnet står ved siden av.
+          const dot = document.createElement('span');
+          dot.className = 'fc-event-status-dot';
+          dot.setAttribute('aria-hidden', 'true');
+          dot.style.backgroundColor = arg.event.backgroundColor || '#101310';
+          statusLine.appendChild(dot);
 
           const statusText = document.createElement('span');
           const labelKey =
@@ -311,6 +313,14 @@ export default function FullCalendarView({
       ...calendarEditingOptions(canEdit),
       eventClassNames: (arg) =>
         arg.event.startEditable ? [] : ["fc-event-locked"],
+      eventDidMount: function(info) {
+        // Kortet er papir/ink, men beholder statusfargen som en tynn
+        // venstrekant. Fargen settes per hendelse, ikke som bakgrunn.
+        info.el.style.setProperty(
+          "--event-accent",
+          info.event.backgroundColor || "var(--ink, #101310)",
+        );
+      },
       eventClick: function(info) {
         router.push(`/oppdrag/${info.event.id}`);
       },
@@ -364,20 +374,21 @@ export default function FullCalendarView({
 
   return (
     <div className="space-y-3">
-      <WorkOrderStatusLegend
+      <CalendarLegend
         title={t("calendar.legend.visibleTitle")}
         items={legendItems}
       />
-      <div className="bg-white p-6 rounded-xl shadow-sm border text-gray-800">
+      <div className="office-card p-3 text-[var(--ink,#101310)] sm:p-4">
         <div
           ref={calendarEl}
           className={`kalender-container${canEdit ? " kalender-editable" : ""}`}
         ></div>
-        <details className="mt-4 rounded-xl border border-gray-300 bg-gray-50 p-3 text-sm">
-          <summary className="cursor-pointer font-bold text-gray-900">
+        <details className="mt-4 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-sm">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
+            <Icon name="menu" className="h-4 w-4" />
             {t("calendar.a11y.keyboardTitle")}
           </summary>
-          <p className="mt-2 text-xs text-gray-700">
+          <p className="mt-2 text-xs text-[var(--muted,#62685f)]">
             {canEdit
               ? t("calendar.a11y.keyboardAlternative")
               : t("calendar.a11y.keyboardAlternativeReadOnly")}
@@ -391,10 +402,10 @@ export default function FullCalendarView({
                       ? `/oppdrag/${event.id}/rediger`
                       : `/oppdrag/${event.id}`
                   }
-                  className="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2 py-1.5 font-medium text-blue-800 hover:bg-blue-50"
+                  className="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2 py-1.5 font-medium text-[var(--ink,#101310)] transition hover:bg-[var(--surface,#fffdf8)]"
                 >
                   <span className="truncate">{event.title}</span>
-                  <span className="shrink-0 text-xs text-gray-700">
+                  <span className="shrink-0 text-xs text-[var(--muted,#62685f)]">
                     {canOpenEditor
                       ? t("calendar.a11y.openInEditor")
                       : t("calendar.a11y.openWorkOrder")}{" "}
@@ -406,36 +417,332 @@ export default function FullCalendarView({
           </ul>
         </details>
         <style jsx global>{`
-          .fc-event { padding: 2px 4px; border-radius: 4px; border: none; background-color: #2563eb; font-weight: 500;}
-          .kalender-editable .fc-event { cursor: grab !important; }
-          .kalender-editable .fc-event:active { cursor: grabbing !important; opacity: 0.8;}
-          .kalender-editable .fc-event-locked { cursor: default !important; }
-          .fc-event-content { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
-          .fc-event-status-line { display: flex; align-items: center; gap: 3px; font-size: 0.68em; font-weight: 700; line-height: 1.1; }
-          .fc-event-status-icon { font-size: 1em; }
-          .fc-event-title-line { font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
-          .fc-event-address { font-size: 0.72em; font-weight: 400; opacity: 1; line-height: 1.1; overflow-wrap: anywhere; }
-          .fc-daygrid-event { white-space: normal; }
+          .kalender-container {
+            --fc-border-color: var(--line, #dedcd1);
+            --fc-page-bg-color: var(--surface, #fffdf8);
+            --fc-neutral-bg-color: var(--paper, #f2efe6);
+            --fc-neutral-text-color: var(--muted, #62685f);
+            --fc-today-bg-color: color-mix(
+              in srgb,
+              var(--signal, #d8ff3e) 18%,
+              var(--surface, #fffdf8)
+            );
+            --fc-event-bg-color: var(--surface, #fffdf8);
+            --fc-event-border-color: var(--line, #dedcd1);
+            --fc-event-text-color: var(--ink, #101310);
+            --fc-button-bg-color: transparent;
+            --fc-button-border-color: var(--ink, #101310);
+            --fc-button-text-color: var(--ink, #101310);
+            --fc-button-hover-bg-color: var(--ink, #101310);
+            --fc-button-hover-border-color: var(--ink, #101310);
+            --fc-button-hover-text-color: var(--paper, #f2efe6);
+            --fc-button-active-bg-color: var(--ink, #101310);
+            --fc-button-active-border-color: var(--ink, #101310);
+            --fc-button-active-text-color: var(--signal, #d8ff3e);
+            color: var(--ink, #101310);
+          }
+          .kalender-container .fc {
+            font-family: inherit;
+            color: var(--ink, #101310);
+          }
+          .kalender-container .fc-scrollgrid {
+            overflow: hidden;
+            border-color: var(--line, #dedcd1) !important;
+            border-radius: 12px;
+            background: var(--surface, #fffdf8);
+          }
+          .kalender-container .fc-theme-standard td,
+          .kalender-container .fc-theme-standard th {
+            border-color: var(--line, #dedcd1);
+          }
+
+          /* Verktøylinje og knapper */
+          .kalender-container .fc-toolbar {
+            margin-bottom: 0.75rem !important;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+          }
+          .kalender-container .fc-toolbar-chunk {
+            display: flex;
+            gap: 0.4rem;
+          }
+          .kalender-container .fc-button {
+            min-height: 36px;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9px !important;
+            border: 1px solid var(--ink, #101310) !important;
+            background: transparent !important;
+            color: var(--ink, #101310) !important;
+            box-shadow: none !important;
+            font-size: 0.75rem;
+            font-weight: 800;
+            line-height: 1.2;
+            text-transform: none;
+            transition:
+              background-color 120ms ease,
+              color 120ms ease;
+          }
+          .kalender-container .fc-button:hover:not(:disabled) {
+            background: var(--ink, #101310) !important;
+            color: var(--paper, #f2efe6) !important;
+          }
+          .kalender-container .fc-today-button {
+            border-color: var(--ink, #101310) !important;
+            background: var(--signal, #d8ff3e) !important;
+            color: var(--ink, #101310) !important;
+          }
+          .kalender-container .fc-today-button:hover:not(:disabled) {
+            background: color-mix(
+              in srgb,
+              var(--signal, #d8ff3e) 82%,
+              var(--ink, #101310)
+            ) !important;
+            color: var(--ink, #101310) !important;
+          }
+          .kalender-container .fc-button:disabled {
+            opacity: 0.45;
+          }
+          .kalender-container .fc-icon {
+            font-size: 0.9em;
+          }
+          .kalender-container .fc-toolbar-title {
+            font-size: 1rem;
+            font-weight: 800;
+          }
+
+          /* Dagoverskrifter */
+          .kalender-container .fc-col-header-cell {
+            background: var(--ink, #101310);
+            border-color: var(--ink, #101310) !important;
+            border-bottom: 2px solid var(--signal, #d8ff3e) !important;
+          }
+          .kalender-container .fc-col-header-cell-cushion {
+            display: block;
+            padding: 0.55rem 0.35rem !important;
+            color: var(--paper, #f2efe6) !important;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-decoration: none !important;
+            text-transform: uppercase;
+          }
+          .kalender-container .fc-col-header-cell.fc-day-today {
+            background: var(--ink, #101310);
+          }
+          .kalender-container .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
+            color: var(--signal, #d8ff3e) !important;
+          }
+
+          /* Rutenett og dagnumre */
+          .kalender-container .fc-daygrid-day {
+            background: var(--surface, #fffdf8);
+            transition: background-color 120ms ease;
+          }
+          .kalender-container .fc-dayGridMonth-view .fc-daygrid-day-frame {
+            min-height: clamp(4.5rem, 10vw, 7rem);
+          }
+          .kalender-container .fc-dayGridWeek-view .fc-daygrid-day-frame {
+            min-height: 60vh;
+          }
+          .kalender-container .fc-biweekly-view .fc-daygrid-day-frame {
+            min-height: 30vh;
+          }
+          .kalender-container .fc-daygrid-day:hover {
+            background: color-mix(
+              in srgb,
+              var(--paper, #f2efe6) 55%,
+              var(--surface, #fffdf8)
+            );
+          }
+          .kalender-container .fc-daygrid-day-top {
+            padding: 2px 3px 0 0;
+          }
+          .kalender-container .fc-daygrid-day-number {
+            display: inline-flex;
+            min-width: 1.7rem;
+            min-height: 1.7rem;
+            align-items: center;
+            justify-content: center;
+            margin: 1px;
+            padding: 0 0.35rem;
+            border-radius: 9999px;
+            color: var(--ink, #101310) !important;
+            font-weight: 800;
+            text-decoration: none !important;
+          }
+          .kalender-container td.fc-day-today {
+            background: var(--fc-today-bg-color) !important;
+          }
+          .kalender-container td.fc-day-today .fc-daygrid-day-number {
+            background: var(--ink, #101310);
+            color: var(--signal, #d8ff3e) !important;
+          }
+          /* Ukevisningen viser datoen i kolonneoverskriften. FullCalendar
+             setter igjen en tom dagnummer-celle for «i dag»; skjul den, slik
+             at markøren ikke blir en tom svart sirkel. */
+          .kalender-container .fc-dayGridWeek-view td.fc-day-today .fc-daygrid-day-number {
+            display: none;
+          }
+          .kalender-container .fc-day-other .fc-daygrid-day-top {
+            opacity: 1 !important;
+          }
+          .kalender-container .fc-day-other .fc-daygrid-day-number {
+            color: var(--muted, #62685f) !important;
+          }
+          .kalender-container .fc-day-other {
+            background: color-mix(
+              in srgb,
+              var(--paper, #f2efe6) 45%,
+              var(--surface, #fffdf8)
+            );
+          }
+          .kalender-container .fc-daygrid-week-number {
+            background: var(--paper, #f2efe6) !important;
+            color: var(--muted, #62685f) !important;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-align: center;
+          }
+          .kalender-container .fc-scrollgrid-section-header > td {
+            background: var(--ink, #101310);
+          }
+          .kalender-container .fc-highlight {
+            background: color-mix(
+              in srgb,
+              var(--signal, #d8ff3e) 28%,
+              transparent
+            ) !important;
+          }
+
+          /* Oppdragskort */
+          .kalender-container .fc-event {
+            margin: 1px 2px;
+            padding: 3px 5px;
+            border: 1px solid var(--line, #dedcd1) !important;
+            border-left: 3px solid var(--event-accent, var(--ink, #101310)) !important;
+            border-radius: 7px !important;
+            background: var(--surface, #fffdf8) !important;
+            color: var(--ink, #101310) !important;
+            box-shadow: 0 1px 0 rgb(16 19 16 / 0.06);
+            font-weight: 500;
+          }
+          .kalender-container .fc-event:hover {
+            border-color: var(--ink, #101310) !important;
+            border-left-color: var(--event-accent, var(--ink, #101310)) !important;
+            box-shadow: 2px 2px 0 var(--signal, #d8ff3e);
+          }
+          .kalender-container .fc-event-main {
+            color: var(--ink, #101310) !important;
+          }
+          .kalender-container .fc-daygrid-event-dot {
+            display: none;
+          }
+          .kalender-editable .fc-event {
+            cursor: grab !important;
+          }
+          .kalender-editable .fc-event:active {
+            cursor: grabbing !important;
+            opacity: 0.8;
+          }
+          .kalender-editable .fc-event-locked {
+            cursor: default !important;
+          }
+          .kalender-container .fc-event-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            white-space: normal;
+          }
+          .kalender-container .fc-event-status-line {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--muted, #62685f);
+            font-size: 0.64em;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            line-height: 1.1;
+            text-transform: uppercase;
+          }
+          .kalender-container .fc-event-status-dot {
+            display: inline-block;
+            width: 0.42rem;
+            height: 0.42rem;
+            flex-shrink: 0;
+            border-radius: 9999px;
+          }
+          .kalender-container .fc-event-title-line {
+            color: var(--ink, #101310);
+            font-weight: 800;
+            line-height: 1.15;
+            overflow-wrap: anywhere;
+          }
+          .kalender-container .fc-event-address {
+            color: var(--muted, #62685f);
+            font-size: 0.72em;
+            font-weight: 500;
+            line-height: 1.1;
+            overflow-wrap: anywhere;
+          }
+          .kalender-container .fc-daygrid-event {
+            white-space: normal;
+          }
+          .kalender-container .fc-daygrid-day-events {
+            margin: 0 2px 2px;
+          }
+
           @media (max-width: 640px) {
             /* Månedsrutenettet har svært smale celler på mobil. Klipp hver
                linje i stedet for at titler og adresser brekkes bokstav for
                bokstav; hele innholdet nås ved å åpne oppdraget. */
-            .fc-event-title-line,
-            .fc-event-address,
-            .fc-event-status-line {
+            .kalender-container .fc-toolbar {
+              margin-bottom: 0.5rem !important;
+            }
+            .kalender-container .fc-button {
+              min-height: 32px;
+              padding: 0.3rem 0.55rem;
+              font-size: 0.68rem;
+            }
+            .kalender-container .fc-col-header-cell-cushion {
+              padding: 0.4rem 0.15rem !important;
+              font-size: 0.58rem;
+              letter-spacing: 0.04em;
+            }
+            .kalender-container .fc-daygrid-day-number {
+              min-width: 1.35rem;
+              min-height: 1.35rem;
+              font-size: 0.75rem;
+            }
+            .kalender-container .fc-event {
+              margin: 1px;
+              padding: 2px 3px;
+            }
+            .kalender-container .fc-event-title-line,
+            .kalender-container .fc-event-address,
+            .kalender-container .fc-event-status-line {
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
             }
-            .fc-event-status-line { font-size: 0.62em; }
+            .kalender-container .fc-event-status-line {
+              font-size: 0.62em;
+            }
+            /* På mobil er cellene for smale for FullCalendars lange
+               dagnummer («26. oktober»). Datofeltet i kolonneoverskriften
+               viser datoen allerede. */
+            .kalender-container .fc-biweekly-view .fc-daygrid-day-number {
+              display: none;
+            }
+            .kalender-container .fc-dayGridWeek-view .fc-daygrid-day-frame {
+              min-height: 42vh;
+            }
+            .kalender-container .fc-biweekly-view .fc-daygrid-day-frame {
+              min-height: 24vh;
+            }
+            .kalender-container .fc-dayGridMonth-view .fc-daygrid-day-frame {
+              min-height: 4.25rem;
+            }
           }
-          .fc-day-today { background-color: #f0fdf4 !important; }
-          .fc-toolbar-chunk { display: flex; gap: 0.5rem; }
-          .fc .fc-daygrid-week-number { color: #374151 !important; background-color: #f3f4f6 !important; font-weight: 700; }
-          .fc .fc-daygrid-day-number { color: #111827 !important; }
-          .fc .fc-col-header-cell-cushion { color: #374151 !important; }
-          .fc .fc-day-other .fc-daygrid-day-top { opacity: 1 !important; }
-          .fc .fc-day-other .fc-daygrid-day-number { color: #6b7280 !important; }
         `}</style>
       </div>
     </div>

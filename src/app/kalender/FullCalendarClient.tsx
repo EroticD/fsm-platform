@@ -7,7 +7,7 @@ import type { CalendarEventData } from "@/lib/calendar-events";
 function CalendarLoading() {
   const t = useTranslations("common");
   return (
-    <div className="p-12 text-center text-gray-500 font-medium animate-pulse">
+    <div className="office-card p-10 text-center text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
       {t("calendar.common.loading")}
     </div>
   );

@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import FullCalendarClient from "@/app/kalender/FullCalendarClient";
 import CalendarFilters from "@/app/kalender/CalendarFilters";
-import CalendarTabs from "@/app/kalender/CalendarTabs";
+import CalendarShell from "@/app/kalender/CalendarShell";
 import { toCalendarEvent } from "@/lib/calendar-events";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -17,6 +16,7 @@ import {
   todayInOslo,
 } from "@/lib/dates";
 import {
+  calendarPeriodLabel,
   normalizeCalendarDate,
   type CalendarTabKey,
   type CalendarTabQuery,
@@ -34,7 +34,6 @@ export default async function CalendarViewPage({
   view,
   visParam,
   active,
-  titleKey,
   subtitleKey,
   date,
   technician,
@@ -44,7 +43,6 @@ export default async function CalendarViewPage({
   view: string;
   visParam: string;
   active: CalendarTabKey;
-  titleKey: string;
   subtitleKey: string;
   date?: string;
   technician?: string;
@@ -152,64 +150,50 @@ export default async function CalendarViewPage({
     unassigned: unassignedFilter,
   };
 
+  const subtitle = canReschedule
+    ? t(subtitleKey)
+    : t("calendar.a11y.readOnlySubtitle");
+  const periodLabel = calendarPeriodLabel({
+    view: visParam,
+    date: initialDate,
+    locale,
+    weekLabel: t("calendar.common.week"),
+  });
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* HEADER */}
-        <div className="flex flex-col gap-3 border-b border-gray-300 pb-4 sm:flex-row sm:items-center sm:justify-between sm:pb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
-              {t(titleKey)}
-            </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              {canReschedule
-                ? t(subtitleKey)
-                : t("calendar.a11y.readOnlySubtitle")}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/kalender"
-              className="rounded-lg border bg-white px-4 py-2 font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-            >
-              {t("calendar.common.home")}
-            </Link>
-            {canCreate && (
-              <Link
-                href="/oppdrag/ny"
-                className="flex items-center gap-2 rounded-lg bg-[var(--primary-color)] px-5 py-2 font-bold text-white shadow-sm transition hover:opacity-90"
-              >
-                {t("calendar.common.newWorkOrder")}
-              </Link>
-            )}
-          </div>
-        </div>
+    <CalendarShell
+      active={active}
+      canDispatch={canDispatch}
+      canReports={canReports}
+      query={tabQuery}
+      subtitle={subtitle}
+      periodLabel={periodLabel}
+      canCreate={canCreate}
+      newWorkOrderHref={canDispatch ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
+    >
+      <CalendarFilters
+        visParam={visParam}
+        date={initialDate}
+        technician={technicianFilter}
+        status={statusFilter}
+        unassigned={unassignedFilter}
+        technicians={technicians}
+        showUnassigned={canDispatch}
+      />
 
-        <CalendarTabs
-          active={active}
-          canDispatch={canDispatch}
-          canReports={canReports}
-          query={tabQuery}
+      <div
+        className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs sm:px-4 ${
+          truncated
+            ? "border-[#e4c98f] bg-[#fdf5e4] text-[#7a4f0c]"
+            : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]"
+        }`}
+        role="note"
+      >
+        <span
+          aria-hidden="true"
+          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-current"
         />
-
-        <CalendarFilters
-          visParam={visParam}
-          date={initialDate}
-          technician={technicianFilter}
-          status={statusFilter}
-          unassigned={unassignedFilter}
-          technicians={technicians}
-          showUnassigned={canDispatch}
-        />
-
-        <div
-          className={`rounded-xl border px-3 py-2 text-xs sm:px-4 ${
-            truncated
-              ? "border-amber-300 bg-amber-50 text-amber-900"
-              : "border-gray-200 bg-white text-gray-600"
-          }`}
-          role="note"
-        >
+        <div>
           <p>
             {t("calendar.window.notice", {
               from: formatDateLocalized(windowStart, locale),
@@ -222,20 +206,20 @@ export default async function CalendarViewPage({
             </p>
           )}
         </div>
-
-        <FullCalendarClient
-          events={events}
-          view={view}
-          initialDate={initialDate}
-          visParam={visParam}
-          technician={technicianFilter || undefined}
-          status={statusFilter || undefined}
-          unassigned={unassignedFilter}
-          weekNumbers={true}
-          canEdit={canReschedule}
-          canOpenEditor={canEdit}
-        />
       </div>
-    </div>
+
+      <FullCalendarClient
+        events={events}
+        view={view}
+        initialDate={initialDate}
+        visParam={visParam}
+        technician={technicianFilter || undefined}
+        status={statusFilter || undefined}
+        unassigned={unassignedFilter}
+        weekNumbers={true}
+        canEdit={canReschedule}
+        canOpenEditor={canEdit}
+      />
+    </CalendarShell>
   );
 }

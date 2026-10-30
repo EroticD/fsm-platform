@@ -42,6 +42,7 @@ export const ICON_NAMES = [
   "close",
   "more",
   "grid",
+  "columns",
   "play",
   "building",
   "pin",
@@ -260,6 +261,12 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
+    </>
+  ),
+  columns: (
+    <>
+      <rect x="3" y="4" width="7" height="16" rx="1.5" />
+      <rect x="14" y="4" width="7" height="16" rx="1.5" />
     </>
   ),
   play: <path d="m8 5 11 7-11 7z" />,

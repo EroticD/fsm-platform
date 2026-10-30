@@ -3,14 +3,13 @@ import type { ReactNode } from "react";
 import { Open_Sans } from "next/font/google";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
-import { getCurrentUser, isOffice, isStaff } from "@/lib/session";
+import { getCurrentUser, isStaff } from "@/lib/session";
 import { effectivePermissions } from "@/lib/permissions";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import BrandedHeader from "@/components/BrandedHeader";
 import MobileTabBar from "@/components/MobileTabBar";
-import OfficeRail from "@/components/OfficeRail";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import prisma from "@/lib/prisma";
 import { isSafeLogoUrl } from "@/lib/logo";
@@ -89,13 +88,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     branding?.logoUrl && isSafeLogoUrl(branding.logoUrl)
       ? branding.logoUrl
       : null;
-  // Kontor og administrasjon får den faste venstrelisten. Montørene får
-  // feltmodus med mørk topp og mørk bunnlinje. Kundeportalen og innlogging
-  // beholder den lyse, enkle rammen.
-  const officeMode = isOffice(role);
+  // Kontor og administrasjon bruker toppnavigasjonen i BrandedHeader.
+  // Montørene får feltmodus med mørk topp og mørk bunnlinje. Kundeportalen
+  // og innlogging beholder den lyse, enkle rammen.
   const fieldMode = role === "TECHNICIAN";
-  const userName = currentUser?.name || session?.user?.name || null;
-  const userEmail = currentUser?.email || session?.user?.email || null;
 
   return (
     <html
@@ -126,26 +122,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
             <OfflineBanner userId={currentUser?.id} />
-            {officeMode && (
-              <OfficeRail
-                role={role}
-                permissions={permissions}
-                companyName={companyName}
-                logoUrl={logoUrl}
-                userName={userName}
-                userEmail={userEmail}
-              />
-            )}
             <BrandedHeader
               showNav
-              railMode={officeMode}
               role={role}
               permissions={permissions}
               companyName={companyName}
               logoUrl={logoUrl}
               primaryColor={primaryColor}
-              userName={userName}
-              userEmail={userEmail}
             />
             {/* Sanntidsstrømmen er bare for interne roller. Kundeportalen og
                 innloggingssidene skal ikke åpne en SSE-tilkobling. */}
@@ -163,7 +146,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   : isStaff(role)
                     ? "pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0"
                     : ""
-              } ${officeMode ? "lg:pl-[248px]" : ""}`}
+              }`}
             >
               {children}
             </main>

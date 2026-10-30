@@ -1,19 +1,20 @@
 {
   "calendar": {
     "common": {
-      "home": "← Hjem",
-      "newWorkOrder": "➕ Nytt oppdrag",
-      "resources": "🎛️ Ressursoversikt",
-      "month": "📅 Måned",
-      "week": "📅 Uke",
-      "biweekly": "📅 2 uker",
-      "dispatch": "🎛️ Dispatch",
+      "newWorkOrder": "Nytt oppdrag",
+      "resources": "Ressursoversikt",
+      "month": "Måned",
+      "week": "Uke",
+      "biweekly": "2 uker",
+      "dispatch": "Dispatch",
       "noDate": "Ingen dato",
       "noCustomer": "Uten kunde",
       "loading": "Laster kalender...",
-      "loadingInteractive": "Laster interaktiv kalender...",
       "reports": "Rapporter",
       "viewSwitcher": "Bytt kalendervisning"
+    },
+    "header": {
+      "period": "Periode"
     },
     "legend": {
       "title": "Statusfarger",
@@ -35,52 +36,48 @@
       "truncated": "Maks 1000 oppdrag er lastet. Noen oppdrag i denne perioden vises ikke."
     },
     "page": {
-      "title": "📅 Planlegging & Kontroll",
+      "eyebrow": "Planlegging",
+      "title": "Kalender",
       "subtitle": "Styr ressurser, montører og fremdriftsplaner.",
-      "unassignedTitle": "⚠️ Ufordelte oppdrag ({count})",
-      "unassignedWarning": "Følgende oppdrag mangler montør og må fordeles!",
-      "assignTechnician": "Tildel montør →",
+      "summaryLabel": "Nøkkeltall for kalenderen",
+      "summaryTechnicians": "Montører",
+      "summaryActive": "Aktive oppdrag",
+      "summaryUnassigned": "Uten montør",
+      "summaryCompleted": "Nylig fullført",
+      "teamEyebrow": "Team",
       "technicianOverview": "Montøroversikt",
-      "activeCount": "{count} aktive",
+      "technicianCount": "{count, plural, one {# montør} other {# montører}}",
+      "noTechnicians": "Ingen montører er tilgjengelige i din avdeling.",
+      "unassignedTitle": "Ufordelte oppdrag ({count})",
+      "unassignedWarning": "Følgende oppdrag mangler montør og må fordeles.",
+      "assignTechnician": "Tildel montør",
+      "activeCount": "{count, plural, one {# aktiv} other {# aktive}}",
       "noActive": "Ingen aktive oppdrag.",
-      "statusOpen": "Åpen",
-      "statusPlanned": "Planlagt",
-      "statusInProgress": "Påbegynt",
-      "statusWaiting": "Venter",
       "recentlyCompleted": "Nylig fullført ({count})",
-      "completed": "✅ Fullført",
-      "statusPending": "Venter"
+      "completed": "Fullført"
     },
     "month": {
-      "title": "📅 Månedskalender",
       "subtitle": "Månedsvisning med ukenumre. Dra oppdrag for å endre dato."
     },
     "week": {
-      "title": "📅 Ukekalender",
       "subtitle": "Ukevisning med ukenumre. Dra oppdrag for å endre dato."
     },
     "biweekly": {
-      "title": "📅 Ukekalender (2 uker)",
       "subtitle": "To-ukers visning med ukenumre. Dra oppdrag for å endre dato."
     },
     "dispatch": {
-      "title": "🎛️ Dispatch & Ressursstyring",
+      "title": "Dispatch",
       "subtitle": "Fordel montører på åpne oppdrag.",
-      "backToCalendar": "← Tilbake til kalender",
-      "invalidStatus": "⛔ Statusendringen er ikke lovlig fra oppdragets nåværende tilstand. Fullførte eller kansellerte oppdrag kan bare gjenåpnes av en administrator.",
-      "genericError": "⛔ Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.",
-      "unassignedCount": "⚠️ Uten montør ({count})",
+      "invalidStatus": "Statusendringen er ikke lovlig fra oppdragets nåværende tilstand. Fullførte eller kansellerte oppdrag kan bare gjenåpnes av en administrator.",
+      "genericError": "Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.",
+      "unassignedCount": "Uten montør ({count})",
       "unassignedWarning": "Disse oppdragene mangler montør og må fordeles.",
       "refresh": "Oppdater",
       "unassignedTitle": "Ikke tildelt montør",
-      "assignConfirm": "Tildel montør til dette oppdraget?",
       "selectTechnician": "-- Velg montør --",
       "assign": "Legg til",
-      "assignedTitle": "Tildelte oppdrag",
-      "removeConfirm": "Fjern montør fra dette oppdraget?",
-      "remove": "Fjern",
       "update": "Oppdater",
-      "viewDetails": "Se detaljer →",
+      "viewDetails": "Se detaljer",
       "empty": "Ingen åpne oppdrag å fordele.",
       "unassignedLane": "Uten montør",
       "laneEmpty": "Ingen oppdrag",
@@ -116,23 +113,7 @@
         "clear": "Nullstill",
         "rangeError": "Fra-dato kan ikke være etter til-dato. Rett opp datoene for å se oppdrag.",
         "dateError": "En av datoene er ugyldig. Bruk formatet ÅÅÅÅ-MM-DD."
-      },
-      "roleAdmin": "Admin",
-      "roleOffice": "Kontor",
-      "roleTechnician": "Montør",
-      "statusOpen": "Åpen",
-      "statusInProgress": "Påbegynt",
-      "statusWaiting": "Venter",
-      "statusCompleted": "Fullført",
-      "statusCancelled": "Kansellert",
-      "statusPlanned": "Planlagt",
-      "badgeCompleted": "✅ Fullført",
-      "badgeInProgress": "🔄 Påbegynt",
-      "badgeCancelled": "❌ Kansellert",
-      "badgeOpen": "✨ Åpen",
-      "badgePending": "⏳ Venter",
-      "badgePlanned": "📅 Planlagt",
-      "badgeWaiting": "⏸️ Venter"
+      }
     },
     "client": {
       "today": "I dag",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calendarPeriodLabel,
   calendarTabsFor,
   calendarViewHref,
   normalizeCalendarDate,
@@ -46,6 +47,20 @@ describe("kalenderfaner", () => {
     expect(tabs.find((tab) => tab.key === "dispatch")?.href).toBe(
       "/kalender/dispatch",
     );
+  });
+
+  it("gir hver fane et monokromt ikon", () => {
+    const tabs = calendarTabsFor({ canDispatch: true, canReports: true });
+    expect(
+      Object.fromEntries(tabs.map((tab) => [tab.key, tab.icon])),
+    ).toEqual({
+      resources: "grid",
+      month: "calendar",
+      week: "list",
+      biweekly: "columns",
+      dispatch: "users",
+      reports: "chart",
+    });
   });
 
   it("tar med dato og filtre når brukeren bytter periodevisning", () => {
@@ -110,5 +125,58 @@ describe("normalizeCalendarDate", () => {
       "2026-10-29",
     );
     expect(normalizeCalendarDate(null, "2026-10-29")).toBe("2026-10-29");
+  });
+});
+
+describe("calendarPeriodLabel", () => {
+  it("viser måned og år for månedsvisningen", () => {
+    expect(
+      calendarPeriodLabel({
+        view: "maned",
+        date: "2026-10-19",
+        locale: "nb",
+        weekLabel: "Uke",
+      }),
+    ).toBe("oktober 2026");
+  });
+
+  it("viser ISO-uke og datointervall for uke og to uker", () => {
+    expect(
+      calendarPeriodLabel({
+        view: "uke",
+        date: "2026-10-19",
+        locale: "nb",
+        weekLabel: "Uke",
+      }),
+    ).toBe("Uke 43 · 19. okt. 2026 – 25. okt. 2026");
+
+    expect(
+      calendarPeriodLabel({
+        view: "2uker",
+        date: "2026-10-19",
+        locale: "nb",
+        weekLabel: "Uke",
+      }),
+    ).toBe("Uke 43–44 · 19. okt. 2026 – 1. nov. 2026");
+  });
+
+  it("følger språket og avviser ukjente visninger", () => {
+    expect(
+      calendarPeriodLabel({
+        view: "uke",
+        date: "2026-10-19",
+        locale: "en",
+        weekLabel: "Week",
+      }),
+    ).toBe("Week 43 · 19 Oct 2026 – 25 Oct 2026");
+
+    expect(
+      calendarPeriodLabel({
+        view: null,
+        date: "2026-10-19",
+        locale: "nb",
+        weekLabel: "Uke",
+      }),
+    ).toBeNull();
   });
 });

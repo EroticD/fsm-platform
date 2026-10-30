@@ -1,19 +1,20 @@
 {
   "calendar": {
     "common": {
-      "home": "← Home",
-      "newWorkOrder": "➕ New work order",
-      "resources": "🎛️ Resource overview",
-      "month": "📅 Month",
-      "week": "📅 Week",
-      "biweekly": "📅 2 weeks",
-      "dispatch": "🎛️ Dispatch",
+      "newWorkOrder": "New work order",
+      "resources": "Resource overview",
+      "month": "Month",
+      "week": "Week",
+      "biweekly": "2 weeks",
+      "dispatch": "Dispatch",
       "noDate": "No date",
       "noCustomer": "No customer",
       "loading": "Loading calendar...",
-      "loadingInteractive": "Loading interactive calendar...",
       "reports": "Reports",
       "viewSwitcher": "Switch calendar view"
+    },
+    "header": {
+      "period": "Period"
     },
     "legend": {
       "title": "Status colours",
@@ -35,52 +36,48 @@
       "truncated": "A maximum of 1000 work orders is loaded. Some work orders in this period are not shown."
     },
     "page": {
-      "title": "📅 Planning & Control",
+      "eyebrow": "Planning",
+      "title": "Calendar",
       "subtitle": "Manage resources, technicians and schedules.",
-      "unassignedTitle": "⚠️ Unassigned work orders ({count})",
-      "unassignedWarning": "The following work orders have no technician and must be assigned!",
-      "assignTechnician": "Assign technician →",
+      "summaryLabel": "Calendar key figures",
+      "summaryTechnicians": "Technicians",
+      "summaryActive": "Active work orders",
+      "summaryUnassigned": "No technician",
+      "summaryCompleted": "Recently completed",
+      "teamEyebrow": "Team",
       "technicianOverview": "Technician overview",
-      "activeCount": "{count} active",
+      "technicianCount": "{count, plural, one {# technician} other {# technicians}}",
+      "noTechnicians": "No technicians are available in your department.",
+      "unassignedTitle": "Unassigned work orders ({count})",
+      "unassignedWarning": "The following work orders have no technician and must be assigned.",
+      "assignTechnician": "Assign technician",
+      "activeCount": "{count, plural, one {# active} other {# active}}",
       "noActive": "No active work orders.",
-      "statusOpen": "Open",
-      "statusPlanned": "Planned",
-      "statusInProgress": "In progress",
-      "statusWaiting": "Waiting",
       "recentlyCompleted": "Recently completed ({count})",
-      "completed": "✅ Completed",
-      "statusPending": "Waiting"
+      "completed": "Completed"
     },
     "month": {
-      "title": "📅 Month calendar",
       "subtitle": "Month view with week numbers. Drag work orders to change the date."
     },
     "week": {
-      "title": "📅 Week calendar",
       "subtitle": "Week view with week numbers. Drag work orders to change the date."
     },
     "biweekly": {
-      "title": "📅 Week calendar (2 weeks)",
       "subtitle": "Two-week view with week numbers. Drag work orders to change the date."
     },
     "dispatch": {
-      "title": "🎛️ Dispatch & Resource Management",
+      "title": "Dispatch",
       "subtitle": "Assign technicians to open work orders.",
-      "backToCalendar": "← Back to calendar",
-      "invalidStatus": "⛔ The status change is not allowed from the current state of the work order. Completed or cancelled work orders can only be reopened by an administrator.",
-      "genericError": "⛔ The action could not be completed. Check the fields and try again.",
-      "unassignedCount": "⚠️ Without technician ({count})",
+      "invalidStatus": "The status change is not allowed from the current state of the work order. Completed or cancelled work orders can only be reopened by an administrator.",
+      "genericError": "The action could not be completed. Check the fields and try again.",
+      "unassignedCount": "Without technician ({count})",
       "unassignedWarning": "These work orders have no technician and must be assigned.",
       "refresh": "Refresh",
       "unassignedTitle": "No technician assigned",
-      "assignConfirm": "Assign a technician to this work order?",
       "selectTechnician": "-- Select technician --",
       "assign": "Add",
-      "assignedTitle": "Assigned work orders",
-      "removeConfirm": "Remove the technician from this work order?",
-      "remove": "Remove",
       "update": "Update",
-      "viewDetails": "View details →",
+      "viewDetails": "View details",
       "empty": "No open work orders to assign.",
       "unassignedLane": "No technician",
       "laneEmpty": "No work orders",
@@ -116,23 +113,7 @@
         "clear": "Reset",
         "rangeError": "The from date cannot be after the to date. Correct the dates to see work orders.",
         "dateError": "One of the dates is invalid. Use the format YYYY-MM-DD."
-      },
-      "roleAdmin": "Admin",
-      "roleOffice": "Office",
-      "roleTechnician": "Technician",
-      "statusOpen": "Open",
-      "statusInProgress": "In progress",
-      "statusWaiting": "Waiting",
-      "statusCompleted": "Completed",
-      "statusCancelled": "Cancelled",
-      "statusPlanned": "Planned",
-      "badgeCompleted": "✅ Completed",
-      "badgeInProgress": "🔄 In progress",
-      "badgeCancelled": "❌ Cancelled",
-      "badgeOpen": "✨ Open",
-      "badgePending": "⏳ Waiting",
-      "badgePlanned": "📅 Planned",
-      "badgeWaiting": "⏸️ Waiting"
+      }
     },
     "client": {
       "today": "Today",

@@ -3,7 +3,8 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import CalendarTabs from "@/app/kalender/CalendarTabs";
+import CalendarShell from "@/app/kalender/CalendarShell";
+import Icon from "@/components/icons";
 import DispatchBoard from "@/app/kalender/dispatch/DispatchBoard";
 import type {
   DispatchDay,
@@ -75,6 +76,7 @@ export default async function DispatchPage({
   const t = await getTranslations("common");
   const locale = await getLocale();
   const canReports = hasPermission(user, "reports.view");
+  const canCreate = hasPermission(user, "workorders.create");
   const canUpdateStatus = hasPermission(user, "workorders.update");
   const canCancelPermission = hasPermission(user, "workorders.edit");
   const isAdmin = user.role === "ADMIN";
@@ -255,188 +257,187 @@ export default async function DispatchPage({
   const baseHref = hrefFor(1);
   const legacyError = firstParam(params.error);
 
+  const periodLabel = formatDateRangeLocalized(
+    range.fromText,
+    range.toText,
+    locale,
+  );
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="mx-auto min-w-0 max-w-7xl space-y-6">
-        {/* HEADER */}
-        <div className="flex flex-col gap-4 border-b border-gray-300 pb-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
-              {t("calendar.dispatch.title")}
-            </h1>
-            <p className="text-sm text-gray-600">
-              {t("calendar.dispatch.subtitle")}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/kalender"
-              className="whitespace-nowrap rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-            >
-              {t("calendar.dispatch.backToCalendar")}
-            </Link>
-          </div>
-        </div>
-
-        {/* Eldre lenker kan fortsatt ha ?error= fra den gamle redirect-flyten. */}
-        {legacyError && (
-          <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">
-            {legacyError === "ugyldig-status"
-              ? t("calendar.dispatch.invalidStatus")
-              : t("calendar.dispatch.genericError")}
-          </div>
-        )}
-
-        <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
-          <CalendarTabs active="dispatch" canDispatch canReports={canReports} />
-        </div>
-
-        {/* FILTER */}
-        <form
-          action="/kalender/dispatch"
-          method="get"
-          className="grid min-w-0 grid-cols-1 gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5"
+    <CalendarShell
+      active="dispatch"
+      canDispatch
+      canReports={canReports}
+      subtitle={t("calendar.dispatch.subtitle")}
+      periodLabel={periodLabel}
+      canCreate={canCreate}
+      newWorkOrderHref="/oppdrag/ny"
+    >
+      {legacyError && (
+        <div
+          role="alert"
+          className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
-          <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-gray-700">
-            {t("calendar.dispatch.filters.dateFrom")}
-            <input
-              type="date"
-              name="fra"
-              defaultValue={range.fromText}
-              className="min-h-11 w-full min-w-0 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
-            />
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-gray-700">
-            {t("calendar.dispatch.filters.dateTo")}
-            <input
-              type="date"
-              name="til"
-              defaultValue={range.toText}
-              className="min-h-11 w-full min-w-0 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
-            />
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-gray-700 sm:col-span-2">
-            {t("calendar.dispatch.filters.search")}
-            <input
-              type="search"
-              name="q"
-              defaultValue={query}
-              placeholder={t("calendar.dispatch.filters.searchPlaceholder")}
-              className="min-h-11 w-full min-w-0 rounded-xl border-2 border-gray-300 bg-white px-3 text-sm text-gray-900"
-            />
-          </label>
-          <div className="flex min-w-0 items-end gap-2">
-            <button
-              type="submit"
-              className="min-h-11 flex-1 rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
-            >
-              {t("calendar.dispatch.filters.apply")}
-            </button>
-            <Link
-              href="/kalender/dispatch"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
-            >
-              {t("calendar.dispatch.filters.clear")}
-            </Link>
-          </div>
-        </form>
+          {legacyError === "ugyldig-status"
+            ? t("calendar.dispatch.invalidStatus")
+            : t("calendar.dispatch.genericError")}
+        </div>
+      )}
 
-        {range.invalid && (
-          <div
-            role="alert"
-            className="rounded-xl border-2 border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800"
+      <form
+        action="/kalender/dispatch"
+        method="get"
+        className="office-card grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-5"
+        aria-label={t("calendar.dispatch.filters.search")}
+      >
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+          {t("calendar.dispatch.filters.dateFrom")}
+          <input
+            type="date"
+            name="fra"
+            defaultValue={range.fromText}
+            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+          />
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+          {t("calendar.dispatch.filters.dateTo")}
+          <input
+            type="date"
+            name="til"
+            defaultValue={range.toText}
+            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+          />
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)] sm:col-span-2">
+          {t("calendar.dispatch.filters.search")}
+          <input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder={t("calendar.dispatch.filters.searchPlaceholder")}
+            className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition placeholder:text-[var(--muted,#62685f)] focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+          />
+        </label>
+        <div className="flex min-w-0 items-end gap-2">
+          <button
+            type="submit"
+            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--ink,#101310)] px-4 py-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85"
           >
-            {range.invalidOrder
-              ? t("calendar.dispatch.filters.rangeError")
-              : t("calendar.dispatch.filters.dateError")}
-          </div>
-        )}
+            <Icon name="check" className="h-4 w-4" />
+            {t("calendar.dispatch.filters.apply")}
+          </button>
+          <Link
+            href="/kalender/dispatch"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-white px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+          >
+            {t("calendar.dispatch.filters.clear")}
+          </Link>
+        </div>
+      </form>
 
-        {/* ANTALL UTEN MONTØR */}
-        {unassignedCount > 0 && (
-          <div className="min-w-0 rounded-xl border-2 border-amber-200 bg-amber-50 p-4 shadow-sm">
-            <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+      {range.invalid && (
+        <div
+          role="alert"
+          className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-4 text-sm font-bold text-[var(--risk-text,#b42318)]"
+        >
+          {range.invalidOrder
+            ? t("calendar.dispatch.filters.rangeError")
+            : t("calendar.dispatch.filters.dateError")}
+        </div>
+      )}
+
+      {unassignedCount > 0 && (
+        <div className="office-card min-w-0 border-l-4 border-l-[var(--risk,#f04427)] p-4">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+            <div className="flex min-w-0 items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
+              >
+                <Icon name="alert" className="h-5 w-5" />
+              </span>
               <div className="min-w-0">
-                <h2 className="text-lg font-bold text-amber-800">
+                <h2 className="text-base font-black tracking-tight text-[var(--ink,#101310)]">
                   {t("calendar.dispatch.unassignedCount", {
                     count: unassignedCount,
                   })}
                 </h2>
-                <p className="mt-1 text-sm text-amber-700">
+                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
                   {t("calendar.dispatch.unassignedWarning")}
                 </p>
               </div>
-              <Link
-                href={baseHref}
-                className="whitespace-nowrap rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-amber-700"
-              >
-                {t("calendar.dispatch.refresh")}
-              </Link>
             </div>
-          </div>
-        )}
-
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
-          <span className="min-w-0 break-words">
-            {t("calendar.dispatch.resultRange", {
-              from: resultFrom,
-              to: resultTo,
-              total,
-            })}
-          </span>
-          {pagination.totalPages > 1 && (
-            <nav
-              aria-label={t("calendar.dispatch.pages")}
-              className="flex flex-wrap items-center gap-2"
+            <Link
+              href={baseHref}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:opacity-85"
             >
-              {pagination.page > 1 ? (
-                <Link
-                  href={hrefFor(pagination.page - 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
-                >
-                  ← {t("calendar.dispatch.pagePrevious")}
-                </Link>
-              ) : (
-                <span
-                  aria-disabled="true"
-                  className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 font-bold text-gray-400"
-                >
-                  ← {t("calendar.dispatch.pagePrevious")}
-                </span>
-              )}
-              <span className="text-xs font-bold">
-                {t("calendar.dispatch.pageOf", {
-                  page: pagination.page,
-                  total: pagination.totalPages,
-                })}
-              </span>
-              {pagination.page < pagination.totalPages ? (
-                <Link
-                  href={hrefFor(pagination.page + 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
-                >
-                  {t("calendar.dispatch.pageNext")} →
-                </Link>
-              ) : (
-                <span
-                  aria-disabled="true"
-                  className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 font-bold text-gray-400"
-                >
-                  {t("calendar.dispatch.pageNext")} →
-                </span>
-              )}
-            </nav>
-          )}
+              <Icon name="sync" className="h-4 w-4" />
+              {t("calendar.dispatch.refresh")}
+            </Link>
+          </div>
         </div>
+      )}
 
-        <DispatchBoard
-          days={days}
-          technicians={technicians.map((technician) => ({
-            id: technician.id,
-            name: technician.name ?? technician.id,
-          }))}
-        />
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted,#62685f)]">
+        <span className="min-w-0 break-words font-semibold">
+          {t("calendar.dispatch.resultRange", {
+            from: resultFrom,
+            to: resultTo,
+            total,
+          })}
+        </span>
+        {pagination.totalPages > 1 && (
+          <nav
+            aria-label={t("calendar.dispatch.pages")}
+            className="flex flex-wrap items-center gap-2"
+          >
+            {pagination.page > 1 ? (
+              <Link
+                href={hrefFor(pagination.page - 1)}
+                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+              >
+                {t("calendar.dispatch.pagePrevious")}
+              </Link>
+            ) : (
+              <span
+                aria-disabled="true"
+                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 font-bold text-[var(--muted,#62685f)] opacity-60"
+              >
+                {t("calendar.dispatch.pagePrevious")}
+              </span>
+            )}
+            <span className="text-xs font-bold tabular-nums">
+              {t("calendar.dispatch.pageOf", {
+                page: pagination.page,
+                total: pagination.totalPages,
+              })}
+            </span>
+            {pagination.page < pagination.totalPages ? (
+              <Link
+                href={hrefFor(pagination.page + 1)}
+                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+              >
+                {t("calendar.dispatch.pageNext")}
+              </Link>
+            ) : (
+              <span
+                aria-disabled="true"
+                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 font-bold text-[var(--muted,#62685f)] opacity-60"
+              >
+                {t("calendar.dispatch.pageNext")}
+              </span>
+            )}
+          </nav>
+        )}
       </div>
-    </div>
+
+      <DispatchBoard
+        days={days}
+        technicians={technicians.map((technician) => ({
+          id: technician.id,
+          name: technician.name ?? technician.id,
+        }))}
+      />
+    </CalendarShell>
   );
 }

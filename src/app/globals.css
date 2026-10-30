@@ -30,7 +30,6 @@
   --muted: #62685f;
   --line: #dedcd1;
   --canvas: #f4f5f2;
-  --office-rail: #111711;
   --field: #0b0e0b;
   --field-card: #151a14;
   --surface: #fffdf8;
@@ -103,7 +102,6 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-canvas: var(--canvas);
-  --color-office-rail: var(--office-rail);
   --color-field: var(--field);
   --color-field-card: var(--field-card);
   /* Tailwind-utility for den minste tillatte tekststørrelsen (12 px). */
@@ -294,42 +292,6 @@ body {
 .field-cta:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-/* Den faste, mørke kontorlisten. Fokusringen er papirfarget, slik at den er
-   tydelig både mot den mørke bakgrunnen og mot den lime aktive flaten. */
-.office-rail {
-  --focus-ring: var(--paper);
-  background-color: var(--office-rail);
-  color: var(--paper);
-}
-
-.rail-link {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 10px;
-  color: color-mix(in srgb, var(--paper) 66%, transparent);
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.25;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.rail-link:hover {
-  background-color: rgb(255 255 255 / 0.07);
-  color: var(--paper);
-}
-
-.rail-active,
-.rail-active:hover {
-  background-color: var(--signal);
-  color: var(--ink);
-  font-weight: 700;
 }
 
 /* Kontrollene i den mørke felttoppen beholder komponentenes egne ikoner,

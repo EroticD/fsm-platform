@@ -118,7 +118,7 @@
     },
     "roles": {
       "title": "Roles & permissions",
-      "description": "Create custom roles, change the permissions they grant, and remove roles that are no longer in use. Individual users can also get a customised permission list on their user card.",
+      "description": "Create custom roles, change the permissions they grant, and remove roles that are no longer in use. Individual users can also get a customised permission list on their user row.",
       "newRole": "New role",
       "name": "Name",
       "namePlaceholder": "E.g. Service manager",
@@ -468,6 +468,7 @@
       "count": "{count} users",
       "noName": "No name",
       "thisIsYou": "This is you",
+      "thisIsYouShort": "You",
       "noDepartment": "No department",
       "active": "Active",
       "inactive": "Inactive",
@@ -493,6 +494,7 @@
       "customized": "Customised",
       "savePermissions": "Save permissions",
       "useRolePermissions": "Use the role's permissions",
+      "readOnly": "Only an administrator can change this user.",
       "previous": "Previous",
       "next": "Next",
       "page": "Page {page} of {totalPages}"

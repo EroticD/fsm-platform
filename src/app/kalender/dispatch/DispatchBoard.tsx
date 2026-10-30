@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import Icon from "@/components/icons";
 import {
   assignTechnicianAction,
   moveTechnicianAction,
@@ -190,10 +191,10 @@ export default function DispatchBoard({
           setDragOverLane(null);
         }}
         aria-busy={pending}
-        className={`relative rounded-xl border bg-white p-3 shadow-sm transition ${
+        className={`relative rounded-xl border bg-[var(--surface,#fffdf8)] p-3 shadow-[0_1px_2px_rgba(16,19,16,0.05)] transition ${
           pending
-            ? "border-blue-400 opacity-70"
-            : "border-gray-200 hover:border-blue-300"
+            ? "border-[var(--signal,#d8ff3e)] opacity-70"
+            : "border-[var(--line,#dedcd1)] hover:border-[var(--ink,#101310)]"
         }`}
       >
         <div className="mb-1.5 flex items-start gap-2">
@@ -206,16 +207,16 @@ export default function DispatchBoard({
             <Link
               href={`/oppdrag/${workOrder.id}`}
               draggable={false}
-              className="block font-bold leading-tight text-gray-900 hover:text-blue-700 hover:underline"
+              className="block font-bold leading-tight text-[var(--ink,#101310)] decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:underline"
             >
               {workOrder.title}
             </Link>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
                 {statusLabel}
               </span>
               {workOrder.isOverdue && (
-                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                <span className="rounded bg-[#fdf5e4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#7a4f0c]">
                   {t("calendar.dispatch.overdue")}
                 </span>
               )}
@@ -223,18 +224,27 @@ export default function DispatchBoard({
           </div>
         </div>
 
-        <p className="text-xs text-gray-600">
-          🏢 {workOrder.customerName}
-          {workOrder.productModel ? ` · ${workOrder.productModel}` : ""}
+        <p className="flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+          <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">
+            {workOrder.customerName}
+            {workOrder.productModel ? ` · ${workOrder.productModel}` : ""}
+          </span>
         </p>
         {workOrder.address && (
-          <p className="text-xs text-gray-500">📍 {workOrder.address}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+            <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{workOrder.address}</span>
+          </p>
         )}
         {workOrder.dateRange && (
-          <p className="text-xs text-gray-500">📅 {workOrder.dateRange}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+            <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
+            <span>{workOrder.dateRange}</span>
+          </p>
         )}
         {workOrder.description && (
-          <p className="mt-1 line-clamp-2 text-xs italic text-gray-700">
+          <p className="mt-1 line-clamp-2 text-xs italic text-[var(--muted,#62685f)]">
             {workOrder.description}
           </p>
         )}
@@ -259,9 +269,10 @@ export default function DispatchBoard({
                 aria-label={t("calendar.dispatch.removeTechnicianAria", {
                   name: tech.name,
                 })}
-                className="inline-flex min-h-8 items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-1 text-[11px] font-bold text-[var(--ink,#101310)] transition hover:border-[var(--risk-text,#b42318)] hover:text-[var(--risk-text,#b42318)] disabled:opacity-50"
               >
-                ✕ {t("calendar.dispatch.removeTechnician", { name: tech.name })}
+                <Icon name="close" className="h-3 w-3" />
+                {t("calendar.dispatch.removeTechnician", { name: tech.name })}
               </button>
             ))}
           </div>
@@ -289,7 +300,7 @@ export default function DispatchBoard({
               required
               defaultValue=""
               disabled={pending}
-              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600"
+              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
             >
               <option value="" disabled>
                 {t("calendar.dispatch.selectTechnician")}
@@ -303,7 +314,7 @@ export default function DispatchBoard({
             <button
               type="submit"
               disabled={pending}
-              className="min-h-8 rounded-lg bg-[var(--primary-color)] px-2.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+              className="min-h-8 rounded-lg bg-[var(--signal,#d8ff3e)] px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:opacity-80 disabled:opacity-50"
             >
               {t("calendar.dispatch.assign")}
             </button>
@@ -332,7 +343,7 @@ export default function DispatchBoard({
               required
               defaultValue=""
               disabled={pending}
-              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600"
+              className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
             >
               <option value="" disabled>
                 {statusLabel}
@@ -350,7 +361,7 @@ export default function DispatchBoard({
             <button
               type="submit"
               disabled={pending}
-              className="min-h-8 rounded-lg bg-gray-900 px-2.5 text-xs font-bold text-white hover:bg-gray-800 disabled:opacity-50"
+              className="min-h-8 rounded-lg bg-[var(--ink,#101310)] px-2.5 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85 disabled:opacity-50"
             >
               {t("calendar.dispatch.update")}
             </button>
@@ -363,16 +374,17 @@ export default function DispatchBoard({
               run(updateStatusAction, workOrder.id, formData, fieldId)
             }
             confirmMessage={t("orders.detail.completeConfirm")}
-            confirmLabel={t("orders.detail.stickyComplete")}
+            confirmLabel={t("orders.fieldDetail.stickyComplete")}
             className="mt-2 flex min-w-0 items-center gap-1.5"
           >
             <input type="hidden" name="status" value="COMPLETED" />
             <button
               type="submit"
               disabled={pending}
-              className="min-h-8 w-full rounded-lg border border-green-200 bg-green-50 px-2.5 text-xs font-bold text-green-800 hover:bg-green-100 disabled:opacity-50"
+              className="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--signal,#d8ff3e)] disabled:opacity-50"
             >
-              ✅ {t("orders.detail.stickyComplete")}
+              <Icon name="check" className="h-3.5 w-3.5" />
+              {t("orders.fieldDetail.stickyComplete")}
             </button>
           </ConfirmSubmitForm>
         )}
@@ -391,8 +403,9 @@ export default function DispatchBoard({
             <button
               type="submit"
               disabled={pending}
-              className="min-h-8 w-full rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+              className="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] px-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] disabled:opacity-50"
             >
+              <Icon name="close" className="h-3.5 w-3.5" />
               {t("orders.detail.cancelWorkOrder")}
             </button>
           </ConfirmSubmitForm>
@@ -403,7 +416,7 @@ export default function DispatchBoard({
             data-dispatch-error
             role="alert"
             tabIndex={-1}
-            className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-bold text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="mt-2 rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] p-2 text-xs font-bold text-[var(--risk-text,#b42318)] focus:outline-none focus:ring-2 focus:ring-[var(--risk,#f04427)]"
           >
             {errors[workOrder.id]}
           </p>
@@ -412,9 +425,10 @@ export default function DispatchBoard({
         <Link
           href={`/oppdrag/${workOrder.id}`}
           draggable={false}
-          className="mt-2 inline-block text-xs font-bold text-blue-700 hover:underline"
+          className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-[var(--ink,#101310)] decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:underline"
         >
           {t("calendar.dispatch.viewDetails")}
+          <Icon name="arrowRight" className="h-3.5 w-3.5" />
         </Link>
       </article>
     );
@@ -462,28 +476,37 @@ export default function DispatchBoard({
         }
         className={`relative flex w-72 max-w-full shrink-0 flex-col rounded-xl border p-2 ${
           isDropTarget && dragOverLane === laneId
-            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-300"
-            : "border-gray-200 bg-gray-50"
+            ? "border-[var(--ink,#101310)] bg-[color-mix(in_srgb,var(--signal,#d8ff3e)_24%,var(--surface,#fffdf8))] ring-2 ring-[var(--signal,#d8ff3e)]"
+            : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/70"
         }`}
       >
-        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-1 pb-2">
-          <h3 className="min-w-0 truncate text-sm font-bold text-gray-900">
-            {technician ? `👷 ${technician.name}` : t("calendar.dispatch.unassignedLane")}
+        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 border-b border-[var(--line,#dedcd1)] px-1 pb-2">
+          <h3 className="flex min-w-0 items-center gap-1.5 truncate text-sm font-bold text-[var(--ink,#101310)]">
+            <Icon
+              name={technician ? "wrench" : "user"}
+              className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)]"
+            />
+            <span className="truncate">
+              {technician
+                ? technician.name
+                : t("calendar.dispatch.unassignedLane")}
+            </span>
           </h3>
-          <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-xs font-bold text-gray-700">
+          <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-xs font-bold tabular-nums text-[var(--ink,#101310)]">
             {items.length}
           </span>
         </div>
 
         {!technician && (
-          <p className="mb-2 px-1 text-[11px] font-medium leading-snug text-amber-800">
+          <p className="mb-2 flex items-start gap-1.5 px-1 text-[11px] font-medium leading-snug text-[#7a4f0c]">
+            <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             {t("calendar.dispatch.unassignDropHint")}
           </p>
         )}
 
         <div className="relative min-w-0 space-y-2">
           {items.length === 0 ? (
-            <p className="px-1 py-4 text-center text-xs italic text-gray-500">
+            <p className="px-1 py-4 text-center text-xs italic text-[var(--muted,#62685f)]">
               {technician
                 ? t("calendar.dispatch.dropHere", { name: technician.name })
                 : t("calendar.dispatch.laneEmpty")}
@@ -498,8 +521,10 @@ export default function DispatchBoard({
 
   if (days.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="italic text-gray-600">{t("calendar.dispatch.empty")}</p>
+      <div className="office-card p-8 text-center">
+        <p className="text-sm italic text-[var(--muted,#62685f)]">
+          {t("calendar.dispatch.empty")}
+        </p>
       </div>
     );
   }
@@ -508,40 +533,47 @@ export default function DispatchBoard({
     <div className="min-w-0 max-w-full space-y-4">
       <p
         id="dispatch-board-hint"
-        className="min-w-0 break-words rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-900"
+        className="min-w-0 break-words rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-medium text-[var(--ink,#101310)]"
       >
-        {t("calendar.dispatch.boardHint")}
+        <span className="flex items-start gap-2">
+          <Icon name="route" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{t("calendar.dispatch.boardHint")}</span>
+        </span>
       </p>
 
       {days.map((day) => (
         <section
           key={day.date}
           aria-labelledby={`dispatch-day-${day.date}`}
-          className={`min-w-0 max-w-full rounded-2xl border bg-white p-3 shadow-sm sm:p-4 ${
+          className={`office-card min-w-0 max-w-full p-3 sm:p-4 ${
             day.kind === "attention"
-              ? "border-2 border-amber-300 bg-amber-50/40"
-              : "border-gray-200"
+              ? "border-l-4 border-l-[var(--risk,#f04427)]"
+              : ""
           }`}
         >
-          <div className="mb-3 flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 pb-2">
+          <div className="mb-3 flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
             <div className="min-w-0">
               <h2
                 id={`dispatch-day-${day.date}`}
-                className={`break-words text-lg font-bold ${
-                  day.kind === "attention"
-                    ? "text-amber-900"
-                    : "text-gray-900"
-                }`}
+                className="flex items-center gap-2 break-words text-lg font-black tracking-tight text-[var(--ink,#101310)]"
               >
-                {day.kind === "attention" ? "⚠️" : "📅"} {day.label}
+                <Icon
+                  name={day.kind === "attention" ? "alert" : "calendar"}
+                  className={`h-4 w-4 shrink-0 ${
+                    day.kind === "attention"
+                      ? "text-[var(--risk-text,#b42318)]"
+                      : "text-[var(--muted,#62685f)]"
+                  }`}
+                />
+                {day.label}
               </h2>
               {day.kind === "attention" && (
-                <p className="mt-1 text-xs font-medium text-amber-800">
+                <p className="mt-1 text-xs font-medium text-[#7a4f0c]">
                   {t("calendar.dispatch.attentionHint")}
                 </p>
               )}
             </div>
-            <span className="shrink-0 text-xs font-bold text-gray-600">
+            <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
               {t("calendar.dispatch.dayCount", {
                 count: day.workOrders.length,
               })}

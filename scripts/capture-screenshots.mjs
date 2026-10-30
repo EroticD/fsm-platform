@@ -389,7 +389,7 @@ async function main() {
       await capture(page, "03-oppdrag-detalj.png");
 
       await gotoAndSettle(page, "/kalender?vis=maned");
-      await assertRouteReady(page, /Månedskalender/i, "månedskalenderen");
+      await assertRouteReady(page, /Kalender/i, "kalenderen");
       await capture(page, "04-kalender.png");
 
       await gotoAndSettle(page, "/kunder");

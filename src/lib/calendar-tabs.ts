@@ -1,4 +1,11 @@
-import { parseDateOnly, toDateOnly } from "@/lib/dates";
+import type { IconName } from "@/components/icons";
+import {
+  addDaysUtc,
+  formatDateLocalized,
+  formatDateRangeLocalized,
+  parseDateOnly,
+  toDateOnly,
+} from "@/lib/dates";
 
 export type CalendarTabKey =
   | "resources"
@@ -8,10 +15,12 @@ export type CalendarTabKey =
   | "dispatch"
   | "reports";
 
-type CalendarTabDefinition = {
+export type CalendarTabDefinition = {
   key: CalendarTabKey;
   href: string;
   labelKey: string;
+  /** Monokromt ikon fra det felles ikonsettet. */
+  icon: IconName;
   /** Rute-parameteren for visninger på /kalender, f.eks. «maned». */
   viewParam?: string;
 };
@@ -74,23 +83,31 @@ export function calendarViewHref(
 // Kalendervisningene er én rute med `?vis=`-parameter. De gamle rutene
 // (/kalender/maned, /uke og /uke-2) redirecter hit, slik at bokmerker virker.
 const BASE_TABS: CalendarTabDefinition[] = [
-  { key: "resources", href: "/kalender", labelKey: "calendar.common.resources" },
+  {
+    key: "resources",
+    href: "/kalender",
+    labelKey: "calendar.common.resources",
+    icon: "grid",
+  },
   {
     key: "month",
     href: calendarViewHref("maned"),
     labelKey: "calendar.common.month",
+    icon: "calendar",
     viewParam: "maned",
   },
   {
     key: "week",
     href: calendarViewHref("uke"),
     labelKey: "calendar.common.week",
+    icon: "list",
     viewParam: "uke",
   },
   {
     key: "biweekly",
     href: calendarViewHref("2uker"),
     labelKey: "calendar.common.biweekly",
+    icon: "columns",
     viewParam: "2uker",
   },
 ];
@@ -125,6 +142,7 @@ export function calendarTabsFor({
             key: "dispatch" as const,
             href: "/kalender/dispatch",
             labelKey: "calendar.common.dispatch",
+            icon: "users" as const,
           },
         ]
       : []),
@@ -134,8 +152,71 @@ export function calendarTabsFor({
             key: "reports" as const,
             href: "/rapporter",
             labelKey: "calendar.common.reports",
+            icon: "chart" as const,
           },
         ]
       : []),
   ];
+}
+
+/** ISO-ukenummer (1–53) for en dato som allerede er UTC-midnatt. */
+function isoWeekNumber(date: Date): number {
+  const copy = new Date(date.getTime());
+  // ISO-uken tilhører uken som inneholder torsdagen. Flytt til torsdag, og
+  // regn deretter antall uker siden 1. januar i ISO-året.
+  const day = copy.getUTCDay() || 7;
+  copy.setUTCDate(copy.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
+  return Math.ceil(
+    ((copy.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+  );
+}
+
+/** Mandagen i ISO-uken som datoen ligger i. */
+function startOfIsoWeek(date: Date): Date {
+  const day = date.getUTCDay() || 7;
+  return addDaysUtc(date, 1 - day);
+}
+
+/**
+ * Lesbar periode for kalenderhodet. Månedsvisningen viser måned og år, mens
+ * uke og to uker viser ISO-ukenummer og datointervallet. Ressursoversikten og
+ * dispatch har egne perioder og får `null` her.
+ */
+export function calendarPeriodLabel({
+  view,
+  date,
+  locale,
+  weekLabel,
+}: {
+  view: string | null | undefined;
+  date: string;
+  locale?: string | null;
+  weekLabel: string;
+}): string | null {
+  const anchor = parseDateOnly(date);
+  if (!anchor) return null;
+
+  if (view === "maned") {
+    return formatDateLocalized(anchor, locale, {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  if (view === "uke" || view === "2uker") {
+    const start = startOfIsoWeek(anchor);
+    const end = addDaysUtc(start, view === "uke" ? 6 : 13);
+    const firstWeek = isoWeekNumber(start);
+    const lastWeek =
+      view === "uke"
+        ? firstWeek
+        : isoWeekNumber(addDaysUtc(start, 7));
+    const weeks =
+      firstWeek === lastWeek ? `${firstWeek}` : `${firstWeek}–${lastWeek}`;
+    const range = formatDateRangeLocalized(start, end, locale);
+    return range ? `${weekLabel} ${weeks} · ${range}` : `${weekLabel} ${weeks}`;
+  }
+
+  return null;
 }

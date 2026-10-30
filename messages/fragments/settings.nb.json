@@ -118,7 +118,7 @@
     },
     "roles": {
       "title": "Roller & rettigheter",
-      "description": "Lag egne roller, endre hvilke rettigheter rollene gir, og fjern roller som ikke er i bruk. Enkelte brukere kan i tillegg få en tilpasset rettighetsliste på brukerkortet.",
+      "description": "Lag egne roller, endre hvilke rettigheter rollene gir, og fjern roller som ikke er i bruk. Enkelte brukere kan i tillegg få en tilpasset rettighetsliste på brukerraden.",
       "newRole": "Ny rolle",
       "name": "Navn",
       "namePlaceholder": "F.eks. Serviceleder",
@@ -468,6 +468,7 @@
       "count": "{count} stk",
       "noName": "Uten navn",
       "thisIsYou": "Det er deg",
+      "thisIsYouShort": "Deg",
       "noDepartment": "Ingen avdeling",
       "active": "Aktiv",
       "inactive": "Inaktiv",
@@ -493,6 +494,7 @@
       "customized": "Tilpasset",
       "savePermissions": "Lagre rettigheter",
       "useRolePermissions": "Bruk rollens rettigheter",
+      "readOnly": "Bare administrator kan endre denne brukeren.",
       "previous": "Forrige",
       "next": "Neste",
       "page": "Side {page} av {totalPages}"

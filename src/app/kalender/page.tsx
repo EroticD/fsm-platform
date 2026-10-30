@@ -4,10 +4,15 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatAddress } from "@/lib/address";
-import { formatDateRangeLocalized } from "@/lib/dates";
-import CalendarTabs from "@/app/kalender/CalendarTabs";
+import {
+  formatDateLocalized,
+  formatDateRangeLocalized,
+  todayInOslo,
+} from "@/lib/dates";
+import CalendarShell from "@/app/kalender/CalendarShell";
+import CalendarLegend from "@/app/kalender/CalendarLegend";
 import CalendarViewPage from "@/app/kalender/CalendarViewPage";
-import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
+import Icon, { type IconName } from "@/components/icons";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope, workOrderScope } from "@/lib/access";
@@ -15,13 +20,16 @@ import type { CalendarTabKey } from "@/lib/calendar-tabs";
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
   WORK_ORDER_STATUS_ORDER,
+  workOrderStatusColor,
 } from "@/lib/work-order-status-colors";
+
+const EYEBROW =
+  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
 
 type CalendarViewParam = {
   view: string;
   visParam: string;
   active: CalendarTabKey;
-  titleKey: string;
   subtitleKey: string;
 };
 
@@ -31,21 +39,18 @@ const CALENDAR_VIEWS: Record<string, CalendarViewParam> = {
     view: "dayGridMonth",
     visParam: "maned",
     active: "month",
-    titleKey: "calendar.month.title",
     subtitleKey: "calendar.month.subtitle",
   },
   uke: {
     view: "dayGridWeek",
     visParam: "uke",
     active: "week",
-    titleKey: "calendar.week.title",
     subtitleKey: "calendar.week.subtitle",
   },
   "2uker": {
     view: "biweekly",
     visParam: "2uker",
     active: "biweekly",
-    titleKey: "calendar.biweekly.title",
     subtitleKey: "calendar.biweekly.subtitle",
   },
 };
@@ -101,7 +106,7 @@ export default async function CalendarPage({
   // Hent alle ansatte som kan ta oppdrag, innenfor egen avdeling.
   const technicians = await prisma.user.findMany({
     where: staffScope(user),
-    orderBy: { name: 'asc' },
+    orderBy: { name: "asc" },
     take: 200,
   });
 
@@ -116,17 +121,17 @@ export default async function CalendarPage({
           status: { not: "CANCELLED" },
           OR: [
             { status: { not: "COMPLETED" } },
-            { scheduledFor: { gte: thirtyDaysAgo } }
+            { scheduledFor: { gte: thirtyDaysAgo } },
           ],
         },
       ],
     },
     include: {
       customer: true,
-      technicians: true
+      technicians: true,
     },
     orderBy: {
-      scheduledFor: 'asc'
+      scheduledFor: "asc",
     },
     take: 500,
   });
@@ -134,7 +139,11 @@ export default async function CalendarPage({
   // Ufordelte oppdrag er en kontooppgave. Montører skal ikke møtes av en rød
   // «tildel montør»-vegg de ikke har rettighet til å handle på.
   const unassignedJobs = office
-    ? workOrders.filter(wo => wo.technicians.length === 0 && wo.status !== "COMPLETED")
+    ? workOrders.filter(
+        (workOrder) =>
+          workOrder.technicians.length === 0 &&
+          workOrder.status !== "COMPLETED",
+      )
     : [];
 
   const statusCounts = new Map<string, number>();
@@ -152,151 +161,350 @@ export default async function CalendarPage({
     count: statusCounts.get(status) ?? 0,
   }));
 
+  const activeJobs = workOrders.filter(
+    (workOrder) => workOrder.status !== "COMPLETED",
+  );
+  const completedJobs = workOrders.filter(
+    (workOrder) => workOrder.status === "COMPLETED",
+  );
+
+  const summary: Array<{
+    key: string;
+    label: string;
+    value: number;
+    icon: IconName;
+    tone: string;
+  }> = [
+    {
+      key: "technicians",
+      label: t("calendar.page.summaryTechnicians"),
+      value: technicians.length,
+      icon: "users",
+      tone:
+        "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]",
+    },
+    {
+      key: "active",
+      label: t("calendar.page.summaryActive"),
+      value: activeJobs.length,
+      icon: "wrench",
+      tone:
+        "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]",
+    },
+    {
+      key: "unassigned",
+      label: t("calendar.page.summaryUnassigned"),
+      value: unassignedJobs.length,
+      icon: "alert",
+      tone:
+        unassignedJobs.length > 0
+          ? "border-[var(--risk-text,#b42318)] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
+          : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]",
+    },
+    {
+      key: "completed",
+      label: t("calendar.page.summaryCompleted"),
+      value: completedJobs.length,
+      icon: "check",
+      tone:
+        "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]",
+    },
+  ];
+
+  // Dagens dato i Oslo, slik at hodet viser samme dag som resten av appen.
+  const today = todayInOslo();
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-300 pb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t("calendar.page.title")}</h1>
-            <p className="text-gray-600 mt-1 text-sm">{t("calendar.page.subtitle")}</p>
+    <CalendarShell
+      active="resources"
+      canDispatch={office}
+      canReports={canReports}
+      subtitle={t("calendar.page.subtitle")}
+      periodLabel={formatDateLocalized(today, locale)}
+      canCreate={canCreate}
+      newWorkOrderHref={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"}
+    >
+      <section
+        aria-label={t("calendar.page.summaryLabel")}
+        className="office-card grid grid-cols-2 divide-x divide-y divide-[var(--line,#dedcd1)] overflow-hidden lg:grid-cols-4 lg:divide-y-0"
+      >
+        {summary.map((item) => (
+          <div
+            key={item.key}
+            className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4"
+          >
+            <div className="min-w-0">
+              <p className={`${EYEBROW} leading-tight`}>{item.label}</p>
+              <p className="mt-0.5 text-2xl font-black tabular-nums text-[var(--ink,#101310)]">
+                {item.value}
+              </p>
+            </div>
+            <span
+              aria-hidden="true"
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${item.tone}`}
+            >
+              <Icon name={item.icon} className="h-4 w-4" />
+            </span>
           </div>
-          <div className="flex gap-2 sm:gap-3 flex-wrap">
-            <Link href="/" className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border hover:bg-gray-50 shadow-sm transition text-sm">
-              {t("calendar.common.home")}
-            </Link>
-            {canCreate && (
-              <Link href="/oppdrag/ny" className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg font-bold hover:opacity-90 shadow-sm transition flex items-center gap-2 text-sm">
-                {t("calendar.common.newWorkOrder")}
-              </Link>
-            )}
-          </div>
-        </div>
+        ))}
+      </section>
 
-        {/* FANER (TABS) FOR Å BYTTE VISNING */}
-        <CalendarTabs
-          active="resources"
-          canDispatch={office}
-          canReports={canReports}
-        />
+      <CalendarLegend title={t("calendar.legend.title")} items={legendItems} />
 
-        <WorkOrderStatusLegend
-          title={t("calendar.legend.title")}
-          items={legendItems}
-        />
-
-        {/* VARSEL: UFORDELTE OPPDRAG */}
-        {office && unassignedJobs.length > 0 && (
-          <div className="bg-red-50 border-2 border-red-200 p-4 sm:p-6 rounded-2xl shadow-sm">
-            <h2 className="font-bold text-red-800 text-lg flex items-center gap-2 mb-2">
-              {t("calendar.page.unassignedTitle", { count: unassignedJobs.length })}
-            </h2>
-            <p className="text-sm text-red-800 mb-4">{t("calendar.page.unassignedWarning")}</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-              {unassignedJobs.map(wo => (
-                <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group bg-white p-3 sm:p-4 rounded-xl border border-red-100 hover:border-red-400 shadow-sm transition">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-xs font-bold text-red-800 uppercase">
-                      {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("calendar.common.noDate")}
-                    </span>
-                  </div>
-                  <p className="font-bold text-gray-900 text-sm group-hover:text-red-700">{wo.title}</p>
-                  <p className="text-xs text-gray-600 mt-1 truncate">🏢 {wo.customer?.name || t("calendar.common.noCustomer")}</p>
-                  {formatAddress(wo.customer) && (
-                    <p className="text-xs text-gray-600 mt-0.5">📍 {formatAddress(wo.customer)}</p>
-                  )}
-                  <div className="mt-3">
-                    <span className="bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">{t("calendar.page.assignTechnician")}</span>
-                  </div>
-                </Link>
-              ))}
+      {office && unassignedJobs.length > 0 && (
+        <section
+          aria-labelledby="calendar-unassigned-title"
+          className="office-card border-l-4 border-l-[var(--risk,#f04427)] p-4 sm:p-5"
+        >
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
+            >
+              <Icon name="alert" className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2
+                id="calendar-unassigned-title"
+                className="text-base font-black tracking-tight text-[var(--ink,#101310)]"
+              >
+                {t("calendar.page.unassignedTitle", {
+                  count: unassignedJobs.length,
+                })}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
+                {t("calendar.page.unassignedWarning")}
+              </p>
             </div>
           </div>
-        )}
 
-        {/* RESSURSOVERSIKT: MONTØRER */}
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">{t("calendar.page.technicianOverview")}</h2>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {unassignedJobs.map((workOrder) => (
+              <Link
+                href={`/oppdrag/${workOrder.id}`}
+                key={workOrder.id}
+                className="group block rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+              >
+                <span className={`${EYEBROW} block`}>
+                  {formatDateRangeLocalized(
+                    workOrder.scheduledFor,
+                    workOrder.scheduledTo,
+                    locale,
+                  ) || t("calendar.common.noDate")}
+                </span>
+                <p className="mt-1 text-sm font-bold leading-tight text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                  {workOrder.title}
+                </p>
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                  <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {workOrder.customer?.name ||
+                      t("calendar.common.noCustomer")}
+                  </span>
+                </p>
+                {formatAddress(workOrder.customer) && (
+                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                    <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {formatAddress(workOrder.customer)}
+                    </span>
+                  </p>
+                )}
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]">
+                  {t("calendar.page.assignTechnician")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {technicians.map(tech => {
-              const techJobs = workOrders.filter(wo => wo.technicians.some(t => t.id === tech.id));
-              const activeJobs = techJobs.filter(wo => wo.status !== "COMPLETED");
-              const completedJobs = techJobs.filter(wo => wo.status === "COMPLETED");
+      <section
+        aria-labelledby="calendar-technicians-title"
+        className="space-y-3"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+          <div className="min-w-0">
+            <p className={EYEBROW}>{t("calendar.page.teamEyebrow")}</p>
+            <h2
+              id="calendar-technicians-title"
+              className="text-lg font-black tracking-tight text-[var(--ink,#101310)] sm:text-xl"
+            >
+              {t("calendar.page.technicianOverview")}
+            </h2>
+          </div>
+          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 py-1 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
+            {t("calendar.page.technicianCount", {
+              count: technicians.length,
+            })}
+          </span>
+        </div>
+
+        {technicians.length === 0 ? (
+          <div className="office-card p-8 text-center">
+            <p className="text-sm font-medium text-[var(--muted,#62685f)]">
+              {t("calendar.page.noTechnicians")}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {technicians.map((technician) => {
+              const techJobs = workOrders.filter((workOrder) =>
+                workOrder.technicians.some(
+                  (assigned) => assigned.id === technician.id,
+                ),
+              );
+              const active = techJobs.filter(
+                (workOrder) => workOrder.status !== "COMPLETED",
+              );
+              const completed = techJobs.filter(
+                (workOrder) => workOrder.status === "COMPLETED",
+              );
 
               return (
-                <div key={tech.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5 flex flex-col h-full">
-                  <div className="flex justify-between items-center border-b pb-3 sm:pb-4 mb-3 sm:mb-4">
-                    <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-                      👷 {tech.name}
-                    </h3>
-                    <span className="bg-blue-100 text-blue-950 text-xs font-bold px-2 py-1 rounded-lg">
-                      {t("calendar.page.activeCount", { count: activeJobs.length })}
+                <article
+                  key={technician.id}
+                  className="office-card flex h-full flex-col p-4"
+                >
+                  <div className="flex items-start justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
+                      >
+                        <Icon name="users" className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-black text-[var(--ink,#101310)]">
+                          {technician.name ??
+                            t("calendar.filters.unnamedTechnician")}
+                        </h3>
+                        <p className={`${EYEBROW} mt-0.5`}>
+                          {t("calendar.page.activeCount", {
+                            count: active.length,
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex min-w-8 shrink-0 items-center justify-center rounded-lg border px-2 py-1 text-xs font-black tabular-nums ${
+                        active.length > 0
+                          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                          : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
+                      }`}
+                    >
+                      {active.length}
                     </span>
                   </div>
 
-                  <div className="flex-1 space-y-3">
-                    {activeJobs.length === 0 ? (
-                      <div className="bg-gray-50 border border-dashed rounded-xl p-4 sm:p-6 text-center">
-                        <p className="text-xs text-gray-600 italic font-medium">{t("calendar.page.noActive")}</p>
+                  <div className="flex-1 space-y-2 pt-3">
+                    {active.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/50 p-4 text-center">
+                        <p className="text-xs font-medium italic text-[var(--muted,#62685f)]">
+                          {t("calendar.page.noActive")}
+                        </p>
                       </div>
                     ) : (
-                      activeJobs.map(wo => {
-                        let badgeColor = "bg-gray-100 text-gray-900";
-                        let badgeText = t("calendar.page.statusPlanned");
-                        if (wo.status === "OPEN") { badgeColor = "bg-purple-100 text-purple-950"; badgeText = t("calendar.page.statusOpen"); }
-                        else if (wo.status === "IN_PROGRESS") { badgeColor = "bg-blue-100 text-blue-950"; badgeText = t("calendar.page.statusInProgress"); }
-                        else if (wo.status === "WAITING") { badgeColor = "bg-orange-100 text-orange-950"; badgeText = t("calendar.page.statusWaiting"); }
-                        else if (wo.status === "PENDING") { badgeColor = "bg-yellow-100 text-yellow-950"; badgeText = t("calendar.page.statusPending"); }
+                      active.map((workOrder) => {
+                        const statusLabel =
+                          WORK_ORDER_STATUS_LABEL_KEYS[
+                            workOrder.status as keyof typeof WORK_ORDER_STATUS_LABEL_KEYS
+                          ];
 
                         return (
-                          <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="block group">
-                            <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200 group-hover:border-blue-400 hover:shadow-sm transition">
-                              <div className="flex justify-between items-start mb-2">
-                                <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-                                  {formatDateRangeLocalized(wo.scheduledFor, wo.scheduledTo, locale) || t("calendar.common.noDate")}
-                                </span>
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${badgeColor}`}>
-                                  {badgeText}
-                                </span>
-                              </div>
-                              <p className="font-bold text-gray-900 text-sm group-hover:text-blue-700 leading-tight mb-1">{wo.title}</p>
-                              <p className="text-xs text-gray-600 truncate">🏢 {wo.customer?.name || t("calendar.common.noCustomer")}</p>
-                              {formatAddress(wo.customer) && (
-                                <p className="text-xs text-gray-600">📍 {formatAddress(wo.customer)}</p>
-                              )}
+                          <Link
+                            href={`/oppdrag/${workOrder.id}`}
+                            key={workOrder.id}
+                            className="group block rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)]">
+                                <Icon
+                                  name="calendar"
+                                  className="h-3.5 w-3.5 shrink-0"
+                                />
+                                {formatDateRangeLocalized(
+                                  workOrder.scheduledFor,
+                                  workOrder.scheduledTo,
+                                  locale,
+                                ) || t("calendar.common.noDate")}
+                              </span>
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
+                                <span
+                                  aria-hidden="true"
+                                  className="h-1.5 w-1.5 rounded-full"
+                                  style={{
+                                    backgroundColor: workOrderStatusColor(
+                                      workOrder.status,
+                                    ),
+                                  }}
+                                />
+                                {statusLabel ? t(statusLabel) : workOrder.status}
+                              </span>
                             </div>
+                            <p className="mt-1.5 text-sm font-bold leading-tight text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                              {workOrder.title}
+                            </p>
+                            <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                              <Icon
+                                name="building"
+                                className="h-3.5 w-3.5 shrink-0"
+                              />
+                              <span className="truncate">
+                                {workOrder.customer?.name ||
+                                  t("calendar.common.noCustomer")}
+                              </span>
+                            </p>
+                            {formatAddress(workOrder.customer) && (
+                              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                                <Icon
+                                  name="pin"
+                                  className="h-3.5 w-3.5 shrink-0"
+                                />
+                                <span className="truncate">
+                                  {formatAddress(workOrder.customer)}
+                                </span>
+                              </p>
+                            )}
                           </Link>
                         );
                       })
                     )}
                   </div>
 
-                  {completedJobs.length > 0 && (
-                    <div className="mt-4 pt-3 border-t">
-                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
-                        {t("calendar.page.recentlyCompleted", { count: completedJobs.length })}
+                  {completed.length > 0 && (
+                    <div className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                      <p className={`${EYEBROW} mb-2`}>
+                        {t("calendar.page.recentlyCompleted", {
+                          count: completed.length,
+                        })}
                       </p>
-                      <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                        {completedJobs.map(wo => (
-                          <Link href={`/oppdrag/${wo.id}`} key={wo.id} className="flex justify-between items-center bg-green-50/50 p-2 rounded-lg border border-green-100 hover:bg-green-50 transition">
-                            <span className="text-xs font-medium text-gray-700 truncate max-w-[200px]">{wo.title}</span>
-                            <span className="text-xs bg-green-100 text-green-950 px-1.5 py-0.5 rounded font-bold">{t("calendar.page.completed")}</span>
+                      <div className="max-h-32 space-y-1 overflow-y-auto pr-1">
+                        {completed.map((workOrder) => (
+                          <Link
+                            href={`/oppdrag/${workOrder.id}`}
+                            key={workOrder.id}
+                            className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--paper,#f2efe6)]"
+                          >
+                            <span className="truncate text-xs font-medium text-[var(--muted,#62685f)]">
+                              {workOrder.title}
+                            </span>
+                            <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[var(--muted,#62685f)]">
+                              <Icon name="check" className="h-3.5 w-3.5" />
+                              {t("calendar.page.completed")}
+                            </span>
                           </Link>
                         ))}
                       </div>
                     </div>
                   )}
-
-                </div>
+                </article>
               );
             })}
           </div>
-        </div>
-
-      </div>
-    </div>
+        )}
+      </section>
+    </CalendarShell>
   );
 }

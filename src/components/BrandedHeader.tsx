@@ -54,25 +54,19 @@ const BREADCRUMB_LABELS: Record<string, string> = {
 export default function BrandedHeader({
   title,
   showNav = true,
-  railMode = false,
   role,
   permissions,
   companyName = "FSM System",
   logoUrl = null,
   primaryColor = "#2563eb",
-  userName = null,
-  userEmail = null,
 }: {
   title?: string;
   showNav?: boolean;
-  railMode?: boolean;
   role?: string;
   permissions?: string[];
   companyName?: string;
   logoUrl?: string | null;
   primaryColor?: string;
-  userName?: string | null;
-  userEmail?: string | null;
 }) {
   const t = useTranslations("common");
   // Menyen husker hvilken side den ble åpnet fra. Navigerer man videre til en
@@ -89,10 +83,10 @@ export default function BrandedHeader({
   const closeMenu = useCallback(() => setOpenMenuForPath(null), []);
   const isCustomer = role === "CUSTOMER";
   // Montørene får feltmodus: mørk, kompakt topplinje og mørk bunnlinje.
-  // Kontor og administrasjon får venstrelinjen, og topplinjen blir en tynn
-  // arbeidslinje uten logo og uten den gamle hovedmenyen.
+  // Kontor, administrasjon og egendefinerte kontorroller bruker den lyse
+  // topplinjen med merkevare, hovednavigasjon og globalt søk.
   const isField = role === "TECHNICIAN";
-  const isRail = railMode;
+  const isDesk = !isCustomer && !isField;
   const navItems = useMemo(
     () => (showNav ? navItemsFor(role, permissions) : []),
     [role, permissions, showNav],
@@ -110,8 +104,7 @@ export default function BrandedHeader({
     pathname !== "/" &&
     pathname !== homePathForRole(role) &&
     !pathname.startsWith("/kundeportal");
-  const showInlineBreadcrumb =
-    showNav && !isCustomer && (isRail || isField);
+  const showInlineBreadcrumb = showNav && !isCustomer && isField;
 
   // Mobilens bunnlinje har ingen egen meny. «Mer» sender denne hendelsen, og
   // menyen åpnes på nytt med samme dialog, fokusfelle og fokusretur.
@@ -212,10 +205,11 @@ export default function BrandedHeader({
     : "border-[var(--line)] bg-[var(--surface)]";
 
   return (
-    <div className={`flex flex-col gap-0 ${isRail ? "lg:pl-[248px]" : ""}`}>
-      {/* Topplinje. I kontormodus er dette en tynn arbeidslinje uten logo –
-          merkevaren og hovednavigasjonen bor i venstrelinjen. I feltmodus er
-          den mørk og kompakt. Øvrige roller beholder den lyse topplinjen. */}
+    <div className="flex flex-col gap-0">
+      {/* Topplinje. Kontor og administrasjon får merkevaren til venstre,
+          hovednavigasjonen i midten og søk + kontroller til høyre. I feltmodus
+          er linjen mørk og kompakt, og kundeportalen beholder den lyse
+          varianten. */}
       <header
         className={`flex min-h-16 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8 ${
           isField
@@ -225,7 +219,7 @@ export default function BrandedHeader({
       >
         <Link
           href={isCustomer ? "/kundeportal" : homePathForRole(role)}
-          className={`flex shrink-0 items-center gap-3 ${isRail ? "lg:hidden" : ""}`}
+          className="flex shrink-0 items-center gap-3"
           suppressHydrationWarning
           style={{ color: isField ? "var(--signal)" : pc }}
         >
@@ -268,28 +262,25 @@ export default function BrandedHeader({
           </div>
         </Link>
 
-        {/* Kompakt brødsmulesti/tittel i topplinjen når venstrelinjen eller
-            feltmodus eier navigasjonen. */}
+        {/* Kompakt brødsmulesti/tittel i topplinjen i feltmodus, der
+            hovednavigasjonen ikke vises på brede skjermer. */}
         {showInlineBreadcrumb && (
           <div className="hidden min-w-0 flex-1 items-center lg:flex">
-            <BreadcrumbTrail
-              pathname={pathname}
-              role={role}
-              tone={isField ? "field" : "light"}
-            />
+            <BreadcrumbTrail pathname={pathname} role={role} tone="field" />
           </div>
         )}
 
-        {/* Globalt søk i selve topplinjen på brede skjermer. */}
-        {showNav && !isCustomer && (isRail || isField) && (
+        {/* Globalt søk i topplinjen på brede skjermer. I feltmodus ligger det
+            før kontrollene; på kontorflatene ligger det sammen med dem. */}
+        {showNav && !isCustomer && isField && (
           <div className="hidden w-full max-w-[21rem] shrink-0 lg:block">
             <GlobalSearch />
           </div>
         )}
 
-        {/* Den gamle hovedmenyen brukes fortsatt av kundeportalen og
-            eventuelle egendefinerte roller uten venstrelinje. */}
-        {showNav && !isRail && !isField && (
+        {/* Hovednavigasjonen på brede skjermer: arbeidsområdene for kontoret,
+            portalen for kunden. Sekundære sider bor i hamburgermenyen. */}
+        {showNav && !isField && (
           <div className="hidden min-w-0 flex-1 justify-center lg:flex">
             <GlobalNavDesktop
               items={primaryItems}
@@ -300,20 +291,19 @@ export default function BrandedHeader({
           </div>
         )}
 
-        {/* Språk, varsler, bruker og meny er tilgjengelig på alle bredder. */}
+        {/* Språk, varsler, søk og meny er tilgjengelig på alle bredder. */}
         <div
           className={`ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 ${
             isField ? "field-shell-controls" : ""
           }`}
         >
+          {showNav && !isCustomer && isDesk && (
+            <div className="hidden w-52 shrink-0 lg:block xl:w-72">
+              <GlobalSearch />
+            </div>
+          )}
           <NotificationBell role={role} />
           <LanguageSwitcher />
-          {isRail && (
-            <RailUserControl
-              name={userName}
-              email={userEmail}
-            />
-          )}
           {showNav && (
             <button
               ref={toggleRef}
@@ -349,16 +339,16 @@ export default function BrandedHeader({
           pathname={pathname}
           role={role}
           tone={isField ? "field" : "light"}
-          className={(isRail || isField) ? "lg:hidden" : undefined}
+          className={isField ? "lg:hidden" : undefined}
         />
       )}
 
-      {/* Globalt søk (ikke for kundeportalbrukere). Med venstrelinje eller
-          feltmodus ligger søket i topplinjen på brede skjermer, og vises som
-          en egen rad på små og mellomstore skjermer. På mobil er det
-          sammenklappet som standard. */}
+      {/* Globalt søk (ikke for kundeportalbrukere). Kontor og administrasjon
+          har søket inline i topplinjen på brede skjermer, og en sammenklappet
+          rad under topplinjen på mobil og tablet. Feltmodus og kundeportalen
+          beholder sine egne varianter. */}
       {showNav && !isCustomer && (
-        isRail || isField ? (
+        isField ? (
           <>
             <div
               className={`hidden border-b px-4 pb-3 pt-3 sm:block sm:px-6 lg:hidden ${searchTone}`}
@@ -373,11 +363,7 @@ export default function BrandedHeader({
                 onClick={() => setMobileSearchOpen((open) => !open)}
                 aria-expanded={mobileSearchOpen}
                 aria-controls="mobile-global-search"
-                className={`flex min-h-11 w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-bold transition ${
-                  isField
-                    ? "border-[#2a3328] bg-[var(--field-card)] text-[var(--paper)] hover:bg-white/5"
-                    : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                }`}
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[#2a3328] bg-[var(--field-card)] px-3 py-2 text-left text-sm font-bold text-[var(--paper)] transition hover:bg-white/5"
               >
                 <Icon name="search" className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">
@@ -385,9 +371,9 @@ export default function BrandedHeader({
                 </span>
                 <Icon
                   name="chevronDown"
-                  className={`h-4 w-4 shrink-0 transition-transform ${
-                    isField ? "text-white/40" : "text-gray-400"
-                  } ${mobileSearchOpen ? "rotate-180" : ""}`}
+                  className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${
+                    mobileSearchOpen ? "rotate-180" : ""
+                  }`}
                 />
               </button>
               {mobileSearchOpen && (
@@ -397,6 +383,32 @@ export default function BrandedHeader({
               )}
             </div>
           </>
+        ) : isDesk ? (
+          <div className={`border-b px-4 pb-3 pt-3 lg:hidden ${searchTone}`}>
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((open) => !open)}
+              aria-expanded={mobileSearchOpen}
+              aria-controls="mobile-global-search"
+              className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+            >
+              <Icon name="search" className="h-4 w-4 shrink-0" />
+              <span className="flex-1 truncate">
+                {t("components.header.search")}
+              </span>
+              <Icon
+                name="chevronDown"
+                className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                  mobileSearchOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {mobileSearchOpen && (
+              <div id="mobile-global-search" className="mt-2">
+                <GlobalSearch />
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <div className="hidden bg-white px-4 pb-4 pt-3 sm:block sm:px-6 lg:px-8">
@@ -432,7 +444,8 @@ export default function BrandedHeader({
       )}
 
       {/* Menyen er et ekte overlegg med dempet bakgrunn og låst sidescroll.
-          Innholdet kan rulle, mens lyd og innstillinger ligger fast nederst. */}
+          Innholdet kan rulle, mens språk, lyd, innstillinger og utlogging
+          ligger fast nederst på kontorflatene. */}
       {showNav && isMenuOpen && (
         <div className="fixed inset-0 z-50">
           <div
@@ -513,10 +526,12 @@ export default function BrandedHeader({
                   )}
                 </>
               )}
-              <LogoutButton
-                onNavigate={closeMenu}
-                className="mt-4 w-full rounded-xl border border-transparent px-4 py-3 text-left font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-800 disabled:opacity-60"
-              />
+              {!isDesk && (
+                <LogoutButton
+                  onNavigate={closeMenu}
+                  className="mt-4 w-full rounded-xl border border-transparent px-4 py-3 text-left font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-800 disabled:opacity-60"
+                />
+              )}
             </div>
 
             {(!isCustomer || settingsItem) && (
@@ -536,6 +551,12 @@ export default function BrandedHeader({
                       activeTextColor={activeTextColor}
                       onNavigate={closeMenu}
                       mobile
+                    />
+                  )}
+                  {isDesk && (
+                    <LogoutButton
+                      onNavigate={closeMenu}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-800 disabled:opacity-60"
                     />
                   )}
                 </div>
@@ -720,42 +741,6 @@ function BreadcrumbTrail({
   );
 }
 
-/** Kompakt brukerkontroll i kontorets topplinje. */
-function RailUserControl({
-  name,
-  email,
-}: {
-  name?: string | null;
-  email?: string | null;
-}) {
-  const t = useTranslations("common");
-  const hasIdentity = Boolean(name?.trim() || email?.trim());
-  const displayName = name?.trim() || email?.trim() || t("components.header.user");
-  const initials =
-    displayName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join("") || t("components.header.user");
-
-  return (
-    <Link
-      href="/innstillinger"
-      title={`${t("components.header.signedInAs")}: ${displayName}`}
-      className="hidden min-h-11 min-w-11 items-center gap-2 rounded-xl px-1.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-black/5 lg:flex"
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[10px] font-bold text-[var(--paper)]">
-        {hasIdentity ? initials : <Icon name="user" className="h-4 w-4" />}
-      </span>
-      <span className="sr-only xl:hidden">{displayName}</span>
-      <span className="hidden max-w-[8rem] truncate xl:block">
-        {displayName}
-      </span>
-    </Link>
-  );
-}
-
 function navLinkClass(isActive: boolean, mobile: boolean) {
   return [
     mobile
@@ -800,7 +785,9 @@ function NavLink({
       {item.icon && (
         <Icon
           name={item.icon}
-          className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]"
+          className={`mr-1.5 h-4 w-4 align-[-0.125em] ${
+            mobile ? "inline-block" : "hidden xl:inline-block"
+          }`}
         />
       )}
       {t(`nav.${item.labelKey}`)}
