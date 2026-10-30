@@ -255,3 +255,38 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
 - **Avdelingssperren gjelder også kundekortet.** C-05 er rettet: avtalefanen
   laster bare avtaler i aktørens avdeling, og `_count.contracts` bruker samme
   filter.
+
+## Dispatch-intelligens (2026-10-30)
+
+- **Ruting er server-only.** `src/lib/routing/` velger OSRM når
+  `OSRM_BASE_URL` er satt, ellers haversine × 1,35 med 50 km/t. Adapteren har
+  60 sekunders tidsavbrudd, cache per avrundet koordinatnøkkel og faller alltid
+  tilbake til haversine ved feil. Ingen rutenøkkel eller ruteleverandør kalles
+  fra klienten. Testene injiserer `fetch` og gjør aldri eksterne kall.
+- **Scoring er deterministisk og forklarbar.** `rankDispatchCandidates` er ren
+  matematikk; tjenestelaget henter data og gir dem inn. Kompetansekrav,
+  fravær, arbeidstid og overlapp er harde filtre. Poengsummen består av
+  kompetanse, avstand, reisetid, ledig tid, SLA-hast og belastning, og hver
+  komponent lagres i revisjonsloggen ved automatisk tildeling.
+- **Auto-tildeling er tørrkjøring som standard.** `autoAssign(..., { dryRun })`
+  skriver ingenting og varsler ingen før `dryRun: false`. Anvendelse krever
+  `workorders.assign`, går i én transaksjon via den transaksjonsbevisste
+  visittjenesten, og varsler først etter commit.
+- **Avdelingskapasitet har en delvis unik indeks.** `CapacityPlan` har vanlig
+  unik `(departmentId, date, technicianId)` pluss en delvis unik indeks på
+  `(departmentId, date) WHERE technicianId IS NULL`. PostgreSQL ellers ville
+  tillatt flere avdelingsrader for samme dag fordi NULL ikke er lik NULL.
+  Prisma uttrykker ikke delvise indekser; indeksen ligger derfor i migreringen
+  og blir ignorert av `migrate diff` (verifisert: drift = 0).
+- **`BookingHold` finnes ikke ennå.** `findSlot` tar høyde for visiter,
+  arbeidstid, kompetanse, fravær og reisetid, men ikke holds. 5A legger til
+  modellen; da skal aktive holds trekkes fra i samme funksjon. Dette er en
+  bevisst, dokumentert utsettelse – ikke en glemt integrasjon.
+- **Kartets teknikerlag er et integrasjonspunkt.** `/kart` kaller
+  `loadTechnicianMapLayer()`, som i denne fasen returnerer en tom, deaktivert
+  liste. 5C fyller den fra `VisitLocationPing`; Phase 6 legger ikke til
+  posisjonsmodellen eller skriver posisjoner.
+- **Ny rettighet: `dispatch.configure`.** Administrator og kontor får den i
+  seed-migreringen; montører og kundeportal gjør det ikke. Den styrer
+  territorier og fordelingsregler, mens selve tildelingen fortsatt bruker
+  `workorders.assign`.

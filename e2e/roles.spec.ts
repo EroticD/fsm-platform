@@ -216,6 +216,12 @@ test("technician: brukeradministrasjon er sperret, men egne innstillinger er til
       .getByRole("link", { name: /Ansatte & Roller/ }),
   ).toHaveCount(0);
 
+  // Dispatch og kapasitet krever workorders.assign, som montøren ikke har.
+  await page.goto("/kalender/dispatch");
+  await expect(page).not.toHaveURL(/\/kalender\/dispatch/);
+  await page.goto("/kalender/kapasitet");
+  await expect(page).not.toHaveURL(/\/kalender\/kapasitet/);
+
   // Teknikeren har templates.view/reports.view, så Innstillinger skal finnes –
   // men bare med de fanene rollen faktisk har tilgang til.
   const dialog = await openAppMenu(page);

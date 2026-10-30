@@ -1,0 +1,155 @@
+{
+  "metadata": {
+    "routes": {
+      "kapasitet": "Kapazität"
+    }
+  },
+  "calendar": {
+    "common": {
+      "capacity": "Kapazität"
+    },
+    "dispatch": {
+      "bestMatch": "Beste Übereinstimmung",
+      "candidateScore": "{score} Punkte",
+      "scoreSkills": "Qualifikation",
+      "scoreDistance": "Entfernung",
+      "scoreTravel": "Fahrt",
+      "scoreFree": "Frei",
+      "scoreSla": "SLA",
+      "scoreLoad": "Auslastung",
+      "excludedMissingSkills": "fehlende Qualifikation",
+      "excludedAbsence": "Abwesenheit",
+      "excludedUnavailable": "außerhalb der Arbeitszeit",
+      "excludedOverlap": "Doppelbuchung",
+      "excluded_missing_skills": "fehlende Qualifikation",
+      "excluded_absence": "Abwesenheit",
+      "excluded_unavailable": "außerhalb der Arbeitszeit",
+      "excluded_overlap": "Doppelbuchung",
+      "autoAssignTitle": "Automatische Zuweisung",
+      "autoAssignHint": "Führe zuerst einen Probelauf für die {count} sichtbaren Besuche aus. Nichts wird gespeichert, bis du den Vorschlag anwendest.",
+      "dryRun": "Probelauf",
+      "applyAutoAssign": "{count} Vorschläge anwenden",
+      "autoAssignPlanned": "{count} Besuche können zugewiesen werden. Prüfe die Liste und wende den Vorschlag an.",
+      "autoAssignApplied": "{count} Besuche wurden zugewiesen.",
+      "autoAssignNone": "Kein verfügbarer Techniker mit den erforderlichen Qualifikationen.",
+      "autoAssignSkipped": "{count} Besuche blieben ohne Vorschlag.",
+      "suggestTitle": "Techniker vorschlagen",
+      "suggestHint": "Techniker nach Qualifikation, Entfernung, Fahrzeit, freier Zeit, SLA und Auslastung sortieren.",
+      "suggestButton": "Vorschlagen",
+      "suggestError": "Vorschläge konnten nicht geladen werden. Versuche es erneut.",
+      "assignCandidate": "Zuweisen"
+    }
+  },
+  "dispatch": {
+    "capacity": {
+      "subtitle": "Geplante Kapazität gegenüber tatsächlicher Auslastung pro Abteilung, Tag und Techniker.",
+      "filters": "Kapazitätszeitraum",
+      "from": "Von",
+      "to": "Bis",
+      "apply": "Anzeigen",
+      "reset": "Zurücksetzen",
+      "error": "Kapazität konnte nicht geladen werden.",
+      "totalCapacity": "Kapazität",
+      "totalLoad": "Auslastung",
+      "utilisation": "Auslastung",
+      "empty": "Keine Abteilungen in diesem Zeitraum.",
+      "tableCaption": "Kapazität gegenüber Auslastung für {name}",
+      "date": "Datum",
+      "technician": "Techniker",
+      "capacity": "Kapazität",
+      "load": "Auslastung",
+      "utilisationShort": "Auslastung",
+      "noTechnicians": "Keine aktiven Techniker in der Abteilung."
+    },
+    "errors": {
+      "invalid": "Ungültige Daten.",
+      "forbidden": "Kein Zugriff auf die Disposition.",
+      "notFound": "Der Besuch wurde nicht gefunden.",
+      "noCandidate": "Kein verfügbarer Techniker.",
+      "conflict": "Der Name wird bereits verwendet.",
+      "applyFailed": "Die Zuweisung konnte nicht abgeschlossen werden."
+    }
+  },
+  "dashboard": {
+    "exceptions": {
+      "title": "Ausnahmen",
+      "subtitle": "Das Büro sollte sich heute darum kümmern.",
+      "openDispatch": "Disposition öffnen",
+      "unassignedToday": "Heute ohne Techniker",
+      "unassignedTodayHint": "Aufträge, die heute ohne Techniker beginnen",
+      "visitsWithoutTechnician": "Besuche ohne Techniker",
+      "visitsWithoutTechnicianHint": "Nächste sieben Tage",
+      "doubleBooked": "Doppelbuchung",
+      "doubleBookedHint": "Besuche mit überlappenden Technikern",
+      "overdue": "Überfällig",
+      "overdueHint": "Aktive Aufträge mit vergangenem Datum",
+      "missingCoordinates": "Fehlende Koordinaten",
+      "missingCoordinatesHint": "Kann nicht auf der Karte angezeigt werden",
+      "unsignedReports": "Unsignierte Berichte",
+      "unsignedReportsHint": "Technikerunterschrift fehlt",
+      "staleBookings": "Alte Buchungen",
+      "staleBookingsHint": "Seit über 24 Stunden ausstehend"
+    }
+  },
+  "p3": {
+    "map": {
+      "technicians": {
+        "title": "Techniker auf der Karte",
+        "active": "{count} aktive Positionen.",
+        "pending": "Live-Positionen sind in dieser Phase nicht aktiviert. Die Ebene ist für die später hinzugefügte Positionsquelle vorbereitet."
+      }
+    }
+  },
+  "settings": {
+    "tabs": {
+      "dispatch": "Disposition"
+    },
+    "permissions": {
+      "items": {
+        "dispatch_configure": {
+          "label": "Disposition konfigurieren",
+          "description": "Territorien, Kapazitätspläne und Zuweisungsregeln für die Disposition in der eigenen Abteilung verwalten."
+        }
+      }
+    },
+    "dispatch": {
+      "error": "Die Änderung konnte nicht gespeichert werden.",
+      "saved": "Die Änderung wurde gespeichert.",
+      "policyTitle": "Zuweisungsregeln",
+      "policyHint": "Wähle, wie die Disposition Techniker sortiert. Gewichte sind relativ, keine Summe.",
+      "department": "Abteilung",
+      "mode": "Modus",
+      "modes": {
+        "skills": "Qualifikation zuerst",
+        "distance": "Entfernung zuerst",
+        "earliest": "Frühestmöglich",
+        "custom": "Benutzerdefiniert"
+      },
+      "weights": "Gewichte",
+      "weightLabels": {
+        "skills": "Qualifikation",
+        "distance": "Entfernung",
+        "travel": "Fahrzeit",
+        "free": "Freie Zeit",
+        "sla": "SLA",
+        "load": "Auslastung"
+      },
+      "savePolicy": "Regeln speichern",
+      "territoryTitle": "Territorien",
+      "territoryHint": "Postleitzahlpräfixe und Gemeindecodes werden verwendet, um die richtige Abteilung und den richtigen Techniker vorzuschlagen.",
+      "territorySummary": "Postleitzahl: {postal} · Gemeinden: {municipalities} · Radius: {radius} km",
+      "deleteTerritory": "Löschen",
+      "noTerritories": "Es wurden noch keine Territorien hinzugefügt.",
+      "territoryName": "Name",
+      "postalPrefixes": "Postleitzahlpräfixe",
+      "postalPrefixesPlaceholder": "01, 02, 03",
+      "municipalityCodes": "Gemeindecodes",
+      "municipalityCodesPlaceholder": "0301, 1103",
+      "radiusKm": "Radius (km)",
+      "center": "Zentrum",
+      "latitude": "Breitengrad",
+      "longitude": "Längengrad",
+      "saveTerritory": "Territorium hinzufügen"
+    }
+  }
+}

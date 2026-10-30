@@ -21,12 +21,15 @@ import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import { hasPermission } from "@/lib/permissions";
 import { departmentUsersScope, workOrderScope } from "@/lib/access";
 import { reportWorkOrderScope } from "@/lib/report-scope";
+import { getDispatchExceptionCounts } from "@/server/dispatch";
+import type { ServiceActor } from "@/server/actor";
 import { homePathForRole } from "@/lib/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardMetricCards, {
   type DashboardMetricCard,
 } from "@/components/dashboard/DashboardMetricCards";
 import DashboardBoard from "@/components/dashboard/DashboardBoard";
+import ExceptionCards from "@/components/dashboard/ExceptionCards";
 import PriorityQueue from "@/components/dashboard/PriorityQueue";
 import DashboardRail from "@/components/dashboard/DashboardRail";
 import {
@@ -269,6 +272,7 @@ async function DashboardOverview({
   locale,
   canAssign,
   canViewSla,
+  actor,
   view,
   sort,
   footer,
@@ -280,6 +284,7 @@ async function DashboardOverview({
   locale: string;
   canAssign: boolean;
   canViewSla: boolean;
+  actor: ServiceActor;
   view: DashboardView;
   sort: QueueSort;
   footer?: ReactNode;
@@ -303,6 +308,7 @@ async function DashboardOverview({
     team,
     slaAtRiskCount,
     slaBreachedCount,
+    exceptionCounts,
   ] = await Promise.all([
     prisma.workOrder.groupBy({
       by: ["status"],
@@ -394,6 +400,7 @@ async function DashboardOverview({
           },
         })
       : Promise.resolve(0),
+    getDispatchExceptionCounts(actor, new Date()),
   ]);
 
   const countByStatus = (status: WorkStatus) =>
@@ -538,6 +545,10 @@ async function DashboardOverview({
         cards={metricCards}
         title={t("dashboard.primaryKpisTitle")}
       />
+
+      {exceptionCounts.ok ? (
+        <ExceptionCards counts={exceptionCounts.data} t={t} />
+      ) : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
@@ -1063,6 +1074,7 @@ export default async function AdminDashboard({
             locale={locale}
             canAssign={canAssign}
             canViewSla={canViewSla}
+            actor={user}
             view={view}
             sort={sort}
             footer={

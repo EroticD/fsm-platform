@@ -10,6 +10,12 @@ type DispatchDayLike = {
     statusOptions: string[];
     timeLabel: string;
     dateLabel: string;
+    candidates?: Array<{
+      id: string;
+      name: string;
+      score: number;
+      eligible: boolean;
+    }>;
   }>;
 };
 
@@ -26,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   visitFindMany: vi.fn(),
   visitCount: vi.fn(async () => 0),
   userFindMany: vi.fn(async () => []),
+  scoreCandidatesForVisits: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -49,6 +56,10 @@ vi.mock("@/lib/prisma", () => ({
     },
     user: { findMany: mocks.userFindMany },
   },
+}));
+
+vi.mock("@/server/dispatch", () => ({
+  scoreCandidatesForVisits: mocks.scoreCandidatesForVisits,
 }));
 
 import DispatchPage from "./page";
@@ -163,6 +174,10 @@ beforeEach(() => {
   mocks.visitFindMany.mockResolvedValue([]);
   mocks.visitCount.mockResolvedValue(0);
   mocks.userFindMany.mockResolvedValue([]);
+  mocks.scoreCandidatesForVisits.mockResolvedValue({
+    ok: false,
+    reason: "error",
+  });
 });
 
 describe("dispatch page – visiter som planlagte blokker", () => {
@@ -307,6 +322,59 @@ describe("dispatch page – visiter som planlagte blokker", () => {
     expect(days?.[0].visits.map((visit) => visit.id)).toEqual([
       "visit-a",
       "visit-b",
+    ]);
+  });
+
+  it("sender rangerte kandidater med poengsum til tavla", async () => {
+    mocks.visitFindMany.mockResolvedValueOnce([visitRow()]);
+    mocks.scoreCandidatesForVisits.mockResolvedValueOnce({
+      ok: true,
+      data: [
+        {
+          visitId: "visit-1",
+          best: { id: "tech-1" },
+          candidates: [
+            {
+              id: "tech-1",
+              name: "Ola",
+              score: 87.5,
+              eligible: true,
+              excludedReason: null,
+              missingSkillIds: [],
+              breakdown: {
+                skills: 35,
+                distance: 20,
+                travel: 15,
+                free: 10,
+                sla: 8,
+                load: 7,
+              },
+              distanceKm: 2.5,
+              travelMinutes: 6,
+              freeMinutes: 420,
+              assignedMinutes: 60,
+              capacityMinutes: 480,
+              currentLoad: 0.125,
+              slaUrgency: 30,
+              raw: {
+                skills: 100,
+                distance: 88,
+                travel: 88,
+                free: 100,
+                sla: 70,
+                load: 88,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const element = await render();
+    const visit = findBoardDays(element)?.[0].visits[0];
+
+    expect(visit?.candidates).toEqual([
+      expect.objectContaining({ id: "tech-1", name: "Ola", score: 87.5 }),
     ]);
   });
 });

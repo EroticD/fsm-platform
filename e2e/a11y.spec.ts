@@ -37,7 +37,10 @@ const OFFICE_ROUTES = [
   "/innstillinger",
   "/kart",
   "/kalender",
+  "/kalender/dispatch",
+  "/kalender/kapasitet",
   "/kalender/maned",
+  "/innstillinger?tab=dispatch",
   "/hms",
   "/brukere",
 ];

@@ -445,6 +445,7 @@ function buildRoutes(fixtures) {
     ["auditlog", "Aktivitetslogg"],
     ["statistikk", "Statistikk"],
     ["sla", "SLA og åpningstider"],
+    ["dispatch", "Dispatch"],
     ["sikkerhet", "Sikkerhet"],
     ["api", "API-nøkler"],
   ];
@@ -610,6 +611,15 @@ function buildRoutes(fixtures) {
       heading: "Kalender",
       activeNav: "Dispatch",
       expectTexts: ["Fordel montører"],
+    },
+    {
+      slug: "kalender-kapasitet",
+      route: "/kalender/kapasitet",
+      role: "admin",
+      title: "Kalender – kapasitet",
+      heading: "Kalender",
+      activeNav: "Kapasitet",
+      expectTexts: ["Planlagt kapasitet"],
     },
     {
       slug: "kart",

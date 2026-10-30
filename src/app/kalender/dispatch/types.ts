@@ -1,10 +1,40 @@
 export type DispatchActionResult =
-  | { ok: true }
+  | {
+      ok: true;
+      autoAssign?: AutoAssignResultView;
+    }
   | { ok: false; error: string };
 
 export type DispatchTechnician = {
   id: string;
   name: string;
+};
+
+export type DispatchCandidate = {
+  id: string;
+  name: string;
+  score: number;
+  eligible: boolean;
+  excludedReason:
+    | "missing_skills"
+    | "absence"
+    | "unavailable"
+    | "overlap"
+    | null;
+  missingSkillIds: string[];
+  breakdown: {
+    skills: number;
+    distance: number;
+    travel: number;
+    free: number;
+    sla: number;
+    load: number;
+  };
+  distanceKm: number | null;
+  travelMinutes: number | null;
+  freeMinutes: number;
+  currentLoad: number;
+  slaUrgency: number;
 };
 
 export type DispatchVisit = {
@@ -27,6 +57,8 @@ export type DispatchVisit = {
   technicians: DispatchTechnician[];
   /** Lovlige neste visittstatusser, beregnet på serveren. */
   statusOptions: string[];
+  /** Rangerte montører, beregnet på serveren. */
+  candidates: DispatchCandidate[];
 };
 
 export type DispatchDay = {
@@ -43,4 +75,25 @@ export type DispatchAttentionItem = {
   dateRange: string;
   isOverdue: boolean;
   technicians: DispatchTechnician[];
+};
+
+export type AutoAssignPlanView = {
+  visitId: string;
+  workOrderId: string;
+  workOrderTitle: string;
+  technicianId: string;
+  technicianName: string;
+  score: number;
+  breakdown: DispatchCandidate["breakdown"];
+};
+
+export type AutoAssignResultView = {
+  dryRun: boolean;
+  assignments: AutoAssignPlanView[];
+  skipped: Array<{
+    visitId: string;
+    workOrderId: string | null;
+    reason: string;
+  }>;
+  applied: number;
 };

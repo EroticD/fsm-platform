@@ -164,6 +164,7 @@ export const STAFF_NAV: NavItem[] = [
       "reports.view",
       "documents.manage",
       "audit.view",
+      "dispatch.configure",
     ],
     section: "settings",
   },

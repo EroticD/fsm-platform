@@ -28,14 +28,17 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users            User[]
-  workOrders       WorkOrder[]
-  contracts        Contract[]
-  customers        Customer[]
-  slaPolicies      SlaPolicy[]
-  businessHours    BusinessHours[]
-  holidays         Holiday[]
-  maintenancePlans MaintenancePlan[]
+  users             User[]
+  workOrders        WorkOrder[]
+  contracts         Contract[]
+  customers         Customer[]
+  slaPolicies       SlaPolicy[]
+  businessHours     BusinessHours[]
+  holidays          Holiday[]
+  maintenancePlans  MaintenancePlan[]
+  territories       Territory[]
+  capacityPlans     CapacityPlan[]
+  assignmentPolicies AssignmentPolicy[]
 
   @@index([isActive])
 }
@@ -133,6 +136,9 @@ model User {
 
   // Målinger registrert av brukeren.
   meterReadings MeterReading[]
+
+  // Kapasitetsplaner der brukeren er satt opp med en egen kapasitet.
+  capacityPlans CapacityPlan[]
 
   @@index([departmentId])
   @@index([role])
@@ -857,6 +863,74 @@ model Absence {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, startsAt, endsAt])
+}
+
+/// Geografisk ansvarsområde for en avdeling. Postnummerprefikser og
+/// kommunekoder brukes til å foreslå riktig montør; radius er et supplement
+/// når adressen bare har koordinater.
+model Territory {
+  id           String @id @default(cuid())
+  name         String
+  departmentId String
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  /// Postnummerprefikser, f.eks. «01», «02». Tom liste betyr ingen begrensning.
+  postalPrefixes    String[] @default([])
+  /// Kommunekoder (SSB), f.eks. «0301». Tom liste betyr ingen begrensning.
+  municipalityCodes String[] @default([])
+  radiusKm          Int?
+  centerLat         Float?
+  centerLng         Float?
+  isActive          Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, name])
+  @@index([departmentId, isActive])
+}
+
+/// Planlagt kapasitet for en avdeling på en dato. Uten `technicianId` gjelder
+/// raden hele avdelingen; med en montør overstyrer den avdelingskapasiteten.
+/// En delvis unik indeks i migreringen hindrer to avdelingsrader for samme dag,
+/// fordi PostgreSQL ellers tillater flere NULL-verdier i en vanlig unik nøkkel.
+model CapacityPlan {
+  id           String   @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  date         DateTime @db.Date
+  technicianId String?
+  technician   User?    @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  /// Tilgjengelige minutter denne dagen. 0 er en bevisst stengt dag.
+  capacityMinutes Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, date, technicianId])
+  @@index([departmentId, date])
+  @@index([technicianId, date])
+}
+
+/// Rekkefølgen og vektene dispatch-motoren bruker når den rangerer montører.
+/// `mode` er SKILLS | DISTANCE | EARLIEST | CUSTOM; `weights` er et JSON-objekt
+/// med tall for skills, distance, travel, free, sla og load.
+model AssignmentPolicy {
+  id           String @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  mode    String @default("SKILLS")
+  weights Json   @default("{}")
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([departmentId, isActive])
 }
 
 /// Kundens bestillingsforespørsel. Oppdraget er den operative saken; denne
