@@ -208,7 +208,12 @@ export default async function CapacityPage({
                     />
                     {department.name}
                   </h2>
-                  <div className="overflow-x-auto">
+                  <div
+                    className="overflow-x-auto"
+                    role="region"
+                    tabIndex={0}
+                    aria-label={t("dispatch.capacity.tableCaption", { name: department.name })}
+                  >
                     <table className="w-full min-w-[38rem] border-collapse text-left text-xs">
                       <caption className="sr-only">
                         {t("dispatch.capacity.tableCaption", {
