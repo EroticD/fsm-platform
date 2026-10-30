@@ -291,9 +291,7 @@
         "emptyPageTitle": "Ta strona nie istnieje",
         "emptyPageDescription": "Numer strony wykracza poza listę. Przejdź do ostatniej strony, aby zobaczyć najnowsze wpisy.",
         "goToLastPage": "Przejdź do ostatniej strony",
-        "page": "Strona {page} z {totalPages} (wpisy: {total})",
-        "previous": "Poprzednia",
-        "next": "Następna"
+        "page": "Strona {page} z {totalPages} (wpisy: {total})"
       },
       "notificationPreferences": {
         "caption": "Powiadomienia o zdarzeniach"
@@ -310,14 +308,7 @@
         "breadcrumb": "Ścieżka nawigacji",
         "details": "Szczegóły",
         "work": "Praca",
-        "more": "Więcej",
-        "officeNavigation": "Nawigacja biurowa",
-        "officeWorkspace": "Biuro",
-        "adminWorkspace": "Administracja",
-        "workspace": "Obszar roboczy",
-        "tools": "Narzędzia",
-        "signedInAs": "Zalogowano jako",
-        "user": "Użytkownik"
+        "more": "Więcej"
       },
       "language": {
         "change": "Zmień język"
@@ -335,9 +326,7 @@
       "error": {
         "title": "Coś poszło nie tak",
         "fallback": "Wystąpił nieoczekiwany błąd",
-        "description": "Nie mogliśmy wyświetlić tej strony. Spróbuj ponownie za chwilę. Jeśli problem będzie się powtarzał, wróć na stronę główną lub skontaktuj się z nami.",
-        "retry": "Spróbuj ponownie",
-        "home": "Przejdź do strony głównej"
+        "retry": "Spróbuj ponownie"
       },
       "toast": {
         "uploaded": "Przesłano pliki",
@@ -873,7 +862,6 @@
     "notFound": {
       "title": "Ta strona nie istnieje",
       "description": "Strona, której szukasz, została przeniesiona lub nie istnieje w {companyName}.",
-      "home": "Przejdź do strony głównej",
       "workOrders": "Przejdź do zleceń",
       "dashboard": "Przejdź do pulpitu",
       "search": "Szukaj"

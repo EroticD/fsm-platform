@@ -291,9 +291,7 @@
         "emptyPageTitle": "Diese Seite existiert nicht",
         "emptyPageDescription": "Die Seitenzahl liegt außerhalb der Liste. Gehen Sie zur letzten Seite, um die neuesten Einträge zu sehen.",
         "goToLastPage": "Zur letzten Seite",
-        "page": "Seite {page} von {totalPages} ({total} Einträge)",
-        "previous": "Zurück",
-        "next": "Weiter"
+        "page": "Seite {page} von {totalPages} ({total} Einträge)"
       },
       "notificationPreferences": {
         "caption": "Benachrichtigungen pro Ereignis"
@@ -310,14 +308,7 @@
         "breadcrumb": "Navigationspfad",
         "details": "Details",
         "work": "Arbeit",
-        "more": "Mehr",
-        "officeNavigation": "Büronavigation",
-        "officeWorkspace": "Büro",
-        "adminWorkspace": "Verwaltung",
-        "workspace": "Arbeitsbereich",
-        "tools": "Werkzeuge",
-        "signedInAs": "Angemeldet als",
-        "user": "Benutzer"
+        "more": "Mehr"
       },
       "language": {
         "change": "Sprache ändern"
@@ -335,9 +326,7 @@
       "error": {
         "title": "Etwas ist schiefgelaufen",
         "fallback": "Ein unerwarteter Fehler ist aufgetreten",
-        "description": "Wir konnten diese Seite nicht anzeigen. Versuchen Sie es gleich noch einmal. Wenn das Problem weiterhin besteht, kehren Sie zur Startseite zurück oder kontaktieren Sie uns.",
-        "retry": "Erneut versuchen",
-        "home": "Zur Startseite"
+        "retry": "Erneut versuchen"
       },
       "toast": {
         "uploaded": "Datei(en) hochgeladen",
@@ -873,7 +862,6 @@
     "notFound": {
       "title": "Diese Seite existiert nicht",
       "description": "Die gesuchte Seite wurde verschoben oder existiert in {companyName} nicht.",
-      "home": "Zur Startseite",
       "workOrders": "Zu den Aufträgen",
       "dashboard": "Zum Dashboard",
       "search": "Suchen"
