@@ -194,3 +194,28 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   mange instanser bør Redis/BullMQ vurderes (P4-2).
 - `TRUST_PROXY=true` må settes når appen står bak en reverse proxy som
   overskriver `X-Forwarded-*`; ellers brukes ikke IP-nøkler.
+
+## Phase 1 — visiter, tid på dagen og arbeidsstyrke (2026-10-30)
+
+- **Visiten er planleggingsenheten.** `Visit` har absolutte `startsAt`/`endsAt`
+  (`timestamptz`), status, notat og montører. `WorkOrder.scheduledFor`/
+  `scheduledTo` beholdes som avledede min/maks-datoer for eksisterende lister,
+  søk, API og rapporter. De skrives bare i samme transaksjon som visiten.
+- **Alle datoer tolkes i Europe/Oslo.** Heldagsvisiter starter ved Oslo-midnatt
+  og slutter ved neste Oslo-midnatt; sommertid kan derfor gi 23/25 timers døgn.
+  `dateOnlyInOslo` er eneste støttede vei fra instant til kalenderdato.
+- **Ingen nye rettighetsnøkler.** Se visitt = `workorders.view`, opprette/
+  redigere/slette = `workorders.edit`, flytte/tildele = `workorders.assign`,
+  statusflyt = `workorders.update`. Montører kan dermed bruke feltflyten uten
+  å få kontorets redigeringsrett.
+- **Én standardvisitt per datofestet oppdrag.** Eldre oppdrag er backfilt med
+  én heldagsvisitt; nye oppdrag, serviceavtaler, bestillinger og kloner lager
+  visitt i samme transaksjon. Udaterte oppdrag har null visiter.
+- **Datoflytting på oppdragsnivå er kompatibilitet, ikke ny funksjonalitet.**
+  Den kan bare endre null/én visitt. Flere visiter eller en visitt i `EN_ROUTE`/
+  `ON_SITE` avvises; videre planlegging skjer på visittnivå.
+- **Drag-and-drop tildeler montør, ikke dato.** På dashbordets tavle og i
+  ressursoversikten kan et kort dras til en montør. Slippet går gjennom
+  `workorders.assign` og `moveTechnician`/`assignTechnician`; kolonner er
+  prioritetsbøtter og er bevisst ikke slippmål. Kalender og dispatch har egne,
+  eksplisitte dato-/tidsflytter.
