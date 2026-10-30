@@ -1,0 +1,155 @@
+{
+  "metadata": {
+    "routes": {
+      "kapasitet": "Capacity"
+    }
+  },
+  "calendar": {
+    "common": {
+      "capacity": "Capacity"
+    },
+    "dispatch": {
+      "bestMatch": "Best match",
+      "candidateScore": "{score} points",
+      "scoreSkills": "Skills",
+      "scoreDistance": "Distance",
+      "scoreTravel": "Travel",
+      "scoreFree": "Free",
+      "scoreSla": "SLA",
+      "scoreLoad": "Load",
+      "excludedMissingSkills": "missing skills",
+      "excludedAbsence": "absence",
+      "excludedUnavailable": "outside working hours",
+      "excludedOverlap": "double booking",
+      "excluded_missing_skills": "missing skills",
+      "excluded_absence": "absence",
+      "excluded_unavailable": "outside working hours",
+      "excluded_overlap": "double booking",
+      "autoAssignTitle": "Automatic assignment",
+      "autoAssignHint": "Dry-run the {count} visible visits first. Nothing is saved until you apply the suggestion.",
+      "dryRun": "Dry run",
+      "applyAutoAssign": "Apply {count} suggestions",
+      "autoAssignPlanned": "{count} visits can be assigned. Review the list and apply the suggestion.",
+      "autoAssignApplied": "{count} visits were assigned.",
+      "autoAssignNone": "No available technician with the required skills.",
+      "autoAssignSkipped": "{count} visits were left without a suggestion.",
+      "suggestTitle": "Suggest technician",
+      "suggestHint": "Rank technicians by skills, distance, travel time, free time, SLA and load.",
+      "suggestButton": "Suggest",
+      "suggestError": "Could not load suggestions. Try again.",
+      "assignCandidate": "Assign"
+    }
+  },
+  "dispatch": {
+    "capacity": {
+      "subtitle": "Planned capacity against actual load per department, day and technician.",
+      "filters": "Capacity period",
+      "from": "From",
+      "to": "To",
+      "apply": "Show",
+      "reset": "Reset",
+      "error": "Could not load capacity.",
+      "totalCapacity": "Capacity",
+      "totalLoad": "Load",
+      "utilisation": "Utilisation",
+      "empty": "No departments in the period.",
+      "tableCaption": "Capacity against load for {name}",
+      "date": "Date",
+      "technician": "Technician",
+      "capacity": "Capacity",
+      "load": "Load",
+      "utilisationShort": "Utilisation",
+      "noTechnicians": "No active technicians in the department."
+    },
+    "errors": {
+      "invalid": "Invalid data.",
+      "forbidden": "You do not have access to dispatch.",
+      "notFound": "The visit was not found.",
+      "noCandidate": "No available technician.",
+      "conflict": "The name is already in use.",
+      "applyFailed": "The assignment could not be completed."
+    }
+  },
+  "dashboard": {
+    "exceptions": {
+      "title": "Exceptions",
+      "subtitle": "The office should look at these today.",
+      "openDispatch": "Open dispatch",
+      "unassignedToday": "Unassigned today",
+      "unassignedTodayHint": "Orders starting today without a technician",
+      "visitsWithoutTechnician": "Visits without technician",
+      "visitsWithoutTechnicianHint": "Next seven days",
+      "doubleBooked": "Double booked",
+      "doubleBookedHint": "Visits with overlapping technicians",
+      "overdue": "Overdue",
+      "overdueHint": "Active orders with a past date",
+      "missingCoordinates": "Missing coordinates",
+      "missingCoordinatesHint": "Cannot be shown on the map",
+      "unsignedReports": "Unsigned reports",
+      "unsignedReportsHint": "Missing technician signature",
+      "staleBookings": "Stale bookings",
+      "staleBookingsHint": "Pending for more than 24 hours"
+    }
+  },
+  "p3": {
+    "map": {
+      "technicians": {
+        "title": "Technicians on the map",
+        "active": "{count} active positions.",
+        "pending": "Live positions are not enabled in this phase. The layer is ready for the position source added later."
+      }
+    }
+  },
+  "settings": {
+    "tabs": {
+      "dispatch": "Dispatch"
+    },
+    "permissions": {
+      "items": {
+        "dispatch_configure": {
+          "label": "Configure dispatch",
+          "description": "Manage territories, capacity plans and assignment rules for dispatch in your department."
+        }
+      }
+    },
+    "dispatch": {
+      "error": "The change could not be saved.",
+      "saved": "The change was saved.",
+      "policyTitle": "Assignment rules",
+      "policyHint": "Choose how dispatch ranks technicians. Weights are relative, not a total.",
+      "department": "Department",
+      "mode": "Mode",
+      "modes": {
+        "skills": "Skills first",
+        "distance": "Distance first",
+        "earliest": "Earliest possible",
+        "custom": "Custom"
+      },
+      "weights": "Weights",
+      "weightLabels": {
+        "skills": "Skills",
+        "distance": "Distance",
+        "travel": "Travel time",
+        "free": "Free time",
+        "sla": "SLA",
+        "load": "Load"
+      },
+      "savePolicy": "Save rules",
+      "territoryTitle": "Territories",
+      "territoryHint": "Postal prefixes and municipality codes are used to suggest the right department and technician.",
+      "territorySummary": "Postal: {postal} · Municipalities: {municipalities} · Radius: {radius} km",
+      "deleteTerritory": "Delete",
+      "noTerritories": "No territories have been added yet.",
+      "territoryName": "Name",
+      "postalPrefixes": "Postal prefixes",
+      "postalPrefixesPlaceholder": "01, 02, 03",
+      "municipalityCodes": "Municipality codes",
+      "municipalityCodesPlaceholder": "0301, 1103",
+      "radiusKm": "Radius (km)",
+      "center": "Centre",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "saveTerritory": "Add territory"
+    }
+  }
+}

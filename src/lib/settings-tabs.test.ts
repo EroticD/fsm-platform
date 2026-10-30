@@ -15,6 +15,7 @@ const noPermissions: SettingsTabPermissions = {
   canStats: false,
   canSla: false,
   canSms: false,
+  canDispatch: false,
   isAdmin: false,
 };
 
@@ -29,6 +30,7 @@ const admin: SettingsTabPermissions = {
   canStats: true,
   canSla: true,
   canSms: true,
+  canDispatch: true,
   isAdmin: true,
 };
 
@@ -67,6 +69,14 @@ describe("chooseSettingsTab", () => {
     expect(
       chooseSettingsTab("sms", { ...noPermissions, canSms: true }),
     ).toBe("sms");
+  });
+
+  it("viser dispatch-fanen bare med dispatch.configure", () => {
+    expect(isSettingsTabAllowed("dispatch", admin)).toBe(true);
+    expect(isSettingsTabAllowed("dispatch", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("dispatch", { ...noPermissions, canDispatch: true }),
+    ).toBe("dispatch");
   });
 
   it("lar bare administrator åpne API-fanen", () => {

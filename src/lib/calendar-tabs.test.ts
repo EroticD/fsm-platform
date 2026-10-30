@@ -31,6 +31,7 @@ describe("kalenderfaner", () => {
       "timeWeek",
       "timeDay",
       "dispatch",
+      "capacity",
       "reports",
     ]);
   });
@@ -71,6 +72,7 @@ describe("kalenderfaner", () => {
       timeWeek: "clock",
       timeDay: "calendar",
       dispatch: "users",
+      capacity: "chart",
       reports: "chart",
     });
   });
@@ -106,6 +108,9 @@ describe("kalenderfaner", () => {
     expect(tabs.find((tab) => tab.key === "resources")?.href).toBe("/kalender");
     expect(tabs.find((tab) => tab.key === "dispatch")?.href).toBe(
       "/kalender/dispatch",
+    );
+    expect(tabs.find((tab) => tab.key === "capacity")?.href).toBe(
+      "/kalender/kapasitet",
     );
     expect(tabs.find((tab) => tab.key === "reports")?.href).toBe("/rapporter");
   });

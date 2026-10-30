@@ -20,6 +20,7 @@ import {
 } from "@/app/kalender/dispatch/query";
 import { markdownToPlainText } from "@/lib/markdown";
 import { formatAddress } from "@/lib/address";
+import { scoreCandidatesForVisits } from "@/server/dispatch";
 import {
   addDaysUtc,
   dateOnlyInOslo,
@@ -156,6 +157,18 @@ export default async function DispatchPage({
     take: pagination.take,
   });
 
+  // Rangerte montører per synlig visitt. Tjenesten henter kandidatene i noen
+  // få, avgrensede spørringer og bruker haversine med mindre OSRM er satt opp.
+  const rankings = await scoreCandidatesForVisits(
+    user,
+    dateVisits.map((visit) => visit.id),
+  );
+  const candidatesByVisit = new Map(
+    rankings.ok
+      ? rankings.data.map((ranking) => [ranking.visitId, ranking.candidates])
+      : [],
+  );
+
   function formatTime(value: Date): string {
     return formatDateLocalized(value, locale, {
       hour: "2-digit",
@@ -224,6 +237,20 @@ export default async function DispatchPage({
           technician.user.id,
       })),
       statusOptions,
+      candidates: (candidatesByVisit.get(visit.id) ?? []).map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        score: candidate.score,
+        eligible: candidate.eligible,
+        excludedReason: candidate.excludedReason,
+        missingSkillIds: candidate.missingSkillIds,
+        breakdown: candidate.breakdown,
+        distanceKm: candidate.distanceKm,
+        travelMinutes: candidate.travelMinutes,
+        freeMinutes: candidate.freeMinutes,
+        currentLoad: candidate.currentLoad,
+        slaUrgency: candidate.slaUrgency,
+      })),
     };
   }
 
@@ -518,6 +545,7 @@ export default async function DispatchPage({
           id: technician.id,
           name: technician.name ?? technician.id,
         }))}
+        visibleVisitIds={dateVisits.map((visit) => visit.id)}
       />
     </CalendarShell>
   );

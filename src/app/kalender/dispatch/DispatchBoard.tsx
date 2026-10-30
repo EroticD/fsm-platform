@@ -7,10 +7,12 @@ import { useTranslations } from "next-intl";
 import Icon from "@/components/icons";
 import {
   assignVisitTechniciansAction,
+  autoAssignAction,
   unassignVisitTechnicianAction,
   updateVisitStatusAction,
 } from "./actions";
 import type {
+  AutoAssignResultView,
   DispatchActionResult,
   DispatchDay,
   DispatchTechnician,
@@ -34,15 +36,21 @@ const UNASSIGNED_LANE = "unassigned";
 export default function DispatchBoard({
   days,
   technicians,
+  visibleVisitIds,
 }: {
   days: DispatchDay[];
   technicians: DispatchTechnician[];
+  visibleVisitIds: string[];
 }) {
   const t = useTranslations("common");
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [dragOverLane, setDragOverLane] = useState<string | null>(null);
+  const [dragScore, setDragScore] = useState<number | null>(null);
+  const [autoPending, setAutoPending] = useState(false);
+  const [autoPlan, setAutoPlan] = useState<AutoAssignResultView | null>(null);
+  const [autoError, setAutoError] = useState<string | null>(null);
 
   function errorMessage(code: string): string {
     switch (code) {
@@ -97,8 +105,7 @@ export default function DispatchBoard({
     visit: DispatchVisit,
     formData: FormData,
     rowId: string,
-  ) {
-    formData.set("visitId", visit.id);
+  ) {    formData.set("visitId", visit.id);
     formData.set("workOrderId", visit.workOrderId);
     setPendingId(visit.id);
     setErrors((current) => {
@@ -126,6 +133,28 @@ export default function DispatchBoard({
       focusRow(rowId);
     } finally {
       setPendingId(null);
+    }
+  }
+
+  async function runAutoAssign(dryRun: boolean) {
+    if (visibleVisitIds.length === 0) return;
+    setAutoPending(true);
+    setAutoError(null);
+    const formData = new FormData();
+    for (const visitId of visibleVisitIds) formData.append("visitId", visitId);
+    formData.set("dryRun", dryRun ? "true" : "false");
+    try {
+      const result = await autoAssignAction(formData);
+      if (!result.ok) {
+        setAutoError(errorMessage(result.error));
+        return;
+      }
+      setAutoPlan(result.autoAssign ?? null);
+      if (!dryRun) router.refresh();
+    } catch {
+      setAutoError(errorMessage("ukjent"));
+    } finally {
+      setAutoPending(false);
     }
   }
 
@@ -195,6 +224,21 @@ export default function DispatchBoard({
     );
   }
 
+  function excludedReasonLabel(reason: DispatchVisit["candidates"][number]["excludedReason"]) {
+    switch (reason) {
+      case "missing_skills":
+        return t("calendar.dispatch.excludedMissingSkills");
+      case "absence":
+        return t("calendar.dispatch.excludedAbsence");
+      case "unavailable":
+        return t("calendar.dispatch.excludedUnavailable");
+      case "overlap":
+        return t("calendar.dispatch.excludedOverlap");
+      default:
+        return "";
+    }
+  }
+
   function renderCard(
     day: DispatchDay,
     laneKey: string,
@@ -229,9 +273,11 @@ export default function DispatchBoard({
           );
           event.dataTransfer.setData("text/plain", visit.id);
           event.dataTransfer.effectAllowed = "move";
+          setDragScore(visit.candidates[0]?.score ?? null);
         }}
         onDragEnd={() => {
           setDragOverLane(null);
+          setDragScore(null);
         }}
         aria-busy={pending}
         className={`relative rounded-xl border bg-[var(--surface,#fffdf8)] p-3 shadow-[0_1px_2px_rgba(16,19,16,0.05)] transition ${
@@ -326,6 +372,73 @@ export default function DispatchBoard({
           </div>
         )}
 
+        {visit.candidates.length > 0 && (
+          <div className="mt-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
+            <p className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+              <span>{t("calendar.dispatch.bestMatch")}</span>
+              {visit.candidates[0] && (
+                <span className="tabular-nums text-[var(--ink,#101310)]">
+                  {t("calendar.dispatch.candidateScore", {
+                    score: visit.candidates[0].score,
+                  })}
+                </span>
+              )}
+            </p>
+            <ul className="mt-1 space-y-1">
+              {visit.candidates.slice(0, 3).map((candidate) => (
+                <li
+                  key={candidate.id}
+                  className={`flex min-w-0 items-center justify-between gap-2 rounded-md px-1.5 py-1 text-[11px] ${
+                    candidate.eligible
+                      ? "font-bold text-[var(--ink,#101310)]"
+                      : "text-[var(--muted,#62685f)] opacity-80"
+                  }`}
+                >
+                  <span className="min-w-0 truncate">
+                    {candidate.name}
+                    {!candidate.eligible && candidate.excludedReason ? (
+                      <span className="ml-1 font-medium italic">
+                        ({excludedReasonLabel(candidate.excludedReason)})
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    {candidate.score}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {visit.candidates[0]?.eligible ? (
+              <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-medium tabular-nums text-[var(--muted,#62685f)]">
+                <span>
+                  {t("calendar.dispatch.scoreSkills")}{" "}
+                  {visit.candidates[0].breakdown.skills}
+                </span>
+                <span>
+                  {t("calendar.dispatch.scoreDistance")}{" "}
+                  {visit.candidates[0].breakdown.distance}
+                </span>
+                <span>
+                  {t("calendar.dispatch.scoreTravel")}{" "}
+                  {visit.candidates[0].breakdown.travel}
+                </span>
+                <span>
+                  {t("calendar.dispatch.scoreFree")}{" "}
+                  {visit.candidates[0].freeMinutes}
+                </span>
+                <span>
+                  {t("calendar.dispatch.scoreSla")}{" "}
+                  {visit.candidates[0].slaUrgency}
+                </span>
+                <span>
+                  {t("calendar.dispatch.scoreLoad")}{" "}
+                  {Math.round(visit.candidates[0].currentLoad * 100)}%
+                </span>
+              </p>
+            ) : null}
+          </div>
+        )}
+
         {available.length > 0 && (
           <form
             className="relative mt-2 flex min-w-0 items-center gap-1.5"
@@ -358,6 +471,16 @@ export default function DispatchBoard({
               {available.map((tech) => (
                 <option key={tech.id} value={tech.id}>
                   {tech.name}
+                  {(() => {
+                    const match = visit.candidates.find(
+                      (candidate) => candidate.id === tech.id,
+                    );
+                    return match
+                      ? ` · ${t("calendar.dispatch.candidateScore", {
+                          score: match.score,
+                        })}`
+                      : "";
+                  })()}
                 </option>
               ))}
             </select>
@@ -494,6 +617,11 @@ export default function DispatchBoard({
           <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-xs font-bold tabular-nums text-[var(--ink,#101310)]">
             {items.length}
           </span>
+          {dragOverLane === laneId && dragScore !== null ? (
+            <span className="shrink-0 rounded-full bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-[10px] font-black tabular-nums text-[var(--ink,#101310)]">
+              {t("calendar.dispatch.candidateScore", { score: dragScore })}
+            </span>
+          ) : null}
         </div>
 
         {!technician && (
@@ -530,6 +658,94 @@ export default function DispatchBoard({
 
   return (
     <div className="min-w-0 max-w-full space-y-4">
+      {visibleVisitIds.length > 0 && (
+        <section
+          aria-labelledby="dispatch-auto-title"
+          className="office-card min-w-0 border-l-4 border-l-[var(--signal,#d8ff3e)] p-3 sm:p-4"
+        >
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+            <div className="min-w-0">
+              <h2
+                id="dispatch-auto-title"
+                className="text-sm font-black tracking-tight text-[var(--ink,#101310)]"
+              >
+                {t("calendar.dispatch.autoAssignTitle")}
+              </h2>
+              <p className="mt-1 text-xs font-medium text-[var(--muted,#62685f)]">
+                {t("calendar.dispatch.autoAssignHint", {
+                  count: visibleVisitIds.length,
+                })}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={autoPending}
+                onClick={() => void runAutoAssign(true)}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-white px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:opacity-50"
+              >
+                {t("calendar.dispatch.dryRun")}
+              </button>
+              {autoPlan && autoPlan.assignments.length > 0 && (
+                <button
+                  type="button"
+                  disabled={autoPending}
+                  onClick={() => void runAutoAssign(false)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--signal,#d8ff3e)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:opacity-85 disabled:opacity-50"
+                >
+                  {t("calendar.dispatch.applyAutoAssign", {
+                    count: autoPlan.assignments.length,
+                  })}
+                </button>
+              )}
+            </div>
+          </div>
+          <div aria-live="polite" className="mt-2">
+            {autoError ? (
+              <p
+                role="alert"
+                className="rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] p-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
+              >
+                {autoError}
+              </p>
+            ) : autoPlan ? (
+              <div className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
+                <p className="text-xs font-bold text-[var(--ink,#101310)]">
+                  {autoPlan.dryRun
+                    ? t("calendar.dispatch.autoAssignPlanned", {
+                        count: autoPlan.assignments.length,
+                      })
+                    : t("calendar.dispatch.autoAssignApplied", {
+                        count: autoPlan.applied,
+                      })}
+                </p>
+                {autoPlan.assignments.length > 0 ? (
+                  <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--muted,#62685f)]">
+                    {autoPlan.assignments.slice(0, 10).map((plan) => (
+                      <li key={plan.visitId} className="truncate">
+                        {plan.workOrderTitle} → {plan.technicianName} (
+                        {plan.score})
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-[11px] italic text-[var(--muted,#62685f)]">
+                    {t("calendar.dispatch.autoAssignNone")}
+                  </p>
+                )}
+                {autoPlan.skipped.length > 0 ? (
+                  <p className="mt-1 text-[11px] font-medium text-[#7a4f0c]">
+                    {t("calendar.dispatch.autoAssignSkipped", {
+                      count: autoPlan.skipped.length,
+                    })}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      )}
+
       <p
         id="dispatch-board-hint"
         className="min-w-0 break-words rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-medium text-[var(--ink,#101310)]"

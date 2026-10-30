@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   allowRequestDb: vi.fn(),
   getDefaultDepartmentId: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
+  trySendBookingConfirmedSms: vi.fn(),
   notifyUser: vi.fn(),
   createDefaultVisit: vi.fn(),
   recomputeWorkOrderSchedule: vi.fn(),
@@ -47,6 +48,9 @@ vi.mock("@/lib/departments", () => ({
 vi.mock("./notifications", () => ({
   notifyWorkOrderEvent: mocks.notifyWorkOrderEvent,
   notifyUser: mocks.notifyUser,
+}));
+vi.mock("./sms-events", () => ({
+  trySendBookingConfirmedSms: mocks.trySendBookingConfirmedSms,
 }));
 
 import { createBooking } from "./portal";
@@ -104,6 +108,7 @@ beforeEach(() => {
   mocks.audit.mockResolvedValue(undefined);
   mocks.getDefaultDepartmentId.mockResolvedValue("dep-1");
   mocks.notifyWorkOrderEvent.mockResolvedValue(1);
+  mocks.trySendBookingConfirmedSms.mockResolvedValue(undefined);
   mocks.allowRequestDb.mockResolvedValue({
     allowed: true,
     retryAfterSeconds: 0,
@@ -135,7 +140,14 @@ describe("createBooking", () => {
 
     expect(mocks.prisma.customer.findFirst).toHaveBeenCalledWith({
       where: { id: "cust-1", deletedAt: null },
-      select: { id: true, departmentId: true },
+      select: {
+        id: true,
+        departmentId: true,
+        name: true,
+        address: true,
+        postalCode: true,
+        city: true,
+      },
     });
     expect(mocks.allowRequestDb).not.toHaveBeenCalled();
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
@@ -182,7 +194,7 @@ describe("createBooking", () => {
         }),
       ).resolves.toEqual({
         ok: true,
-        data: { id: `wo-${attempt}`, reference: "B-TEST-1" },
+        data: { id: `wo-${attempt}`, reference: "B-TEST-1", status: "PENDING" },
       });
     }
 
@@ -249,7 +261,12 @@ describe("createBooking", () => {
 
     expect(result).toEqual({
       ok: true,
-      data: { id: "wo-existing", reference: "B-EXISTING", duplicate: true },
+      data: {
+        id: "wo-existing",
+        reference: "B-EXISTING",
+        duplicate: true,
+        status: "PENDING",
+      },
     });
     expect(mocks.prisma.workOrder.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -275,7 +292,7 @@ describe("createBooking", () => {
 
     expect(result).toEqual({
       ok: true,
-      data: { id: "wo-1", reference: "B-TEST-1" },
+      data: { id: "wo-1", reference: "B-TEST-1", status: "PENDING" },
     });
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mocks.prisma.$executeRaw).toHaveBeenCalledTimes(1);

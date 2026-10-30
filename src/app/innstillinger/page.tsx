@@ -17,6 +17,7 @@ import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
+import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
@@ -32,6 +33,7 @@ import {
 import { listApiKeys } from "@/server/api-keys";
 import { getSlaSettingsView } from "@/server/sla";
 import { getSmsSettingsView } from "@/server/sms";
+import { getDispatchSettings } from "@/server/dispatch";
 import { listPriceLists } from "@/server/contracts";
 import {
   createDocumentTagAction,
@@ -60,6 +62,11 @@ import {
   saveSmsSettingsAction,
   saveSmsTemplateAction,
 } from "./sms-actions";
+import {
+  deleteTerritoryAction,
+  saveDispatchPolicyAction,
+  saveTerritoryAction,
+} from "./dispatch-actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -101,6 +108,9 @@ export default async function SettingsPage({
   const canStats = hasPermission(user, "reports.view");
   const canSla = hasPermission(user, "sla.manage");
   const canSms = hasPermission(user, "settings.manage");
+  const canDispatch =
+    hasPermission(user, "dispatch.configure") ||
+    hasPermission(user, "settings.manage");
   const canUseSettings =
     canBranding ||
     canMap ||
@@ -111,6 +121,7 @@ export default async function SettingsPage({
     canStats ||
     canSla ||
     canSms ||
+    canDispatch ||
     isAdmin;
   // Lesetilgang til statistikk/aktivitetslogg er ikke det samme som å kunne
   // administrere systemet. Tekstene skal ikke love mer enn rettighetene.
@@ -143,6 +154,7 @@ export default async function SettingsPage({
     canStats,
     canSla,
     canSms,
+    canDispatch,
     isAdmin,
   });
   const searchQuery = resolvedParams.search || "";
@@ -201,6 +213,11 @@ export default async function SettingsPage({
       ? await listPriceLists(user)
       : null;
 
+  const dispatchSettings =
+    currentTab === "dispatch" && canDispatch
+      ? await getDispatchSettings(user, resolvedParams.department)
+      : null;
+
   return (
     <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-5xl space-y-5">
@@ -234,6 +251,7 @@ export default async function SettingsPage({
           canStats={canStats}
           canSla={canSla}
           canSms={canSms}
+          canDispatch={canDispatch}
           isAdmin={isAdmin}
         />
 
@@ -363,6 +381,29 @@ export default async function SettingsPage({
             ok={resolvedParams.ok}
             saveSettings={saveSmsSettingsAction}
             saveTemplate={saveSmsTemplateAction}
+          />
+        )}
+
+        {currentTab === "dispatch" && canDispatch && dispatchSettings?.ok && (
+          <DispatchSettingsTab
+            policies={dispatchSettings.data.policies}
+            territories={dispatchSettings.data.territories}
+            departments={departmentRows.map((department) => ({
+              id: department.id,
+              name: department.name,
+              isDefault: department.isDefault,
+            }))}
+            departmentId={
+              resolvedParams.department ??
+              departmentRows.find((department) => department.isDefault)?.id ??
+              departmentRows[0]?.id ??
+              ""
+            }
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            savePolicy={saveDispatchPolicyAction}
+            saveTerritory={saveTerritoryAction}
+            deleteTerritory={deleteTerritoryAction}
           />
         )}
 

@@ -14,6 +14,7 @@ export const PERMISSION_KEYS = [
   "workorders.update",
   "workorders.edit",
   "workorders.assign",
+  "dispatch.configure",
   "workorders.delete",
   "customers.view",
   "customers.manage",
@@ -108,6 +109,13 @@ const PERMISSION_DEFINITIONS: Omit<
     group: "Oppdrag",
     label: "Tildele montører",
     description: "Tildele og fjerne montører på oppdrag i egen avdeling.",
+  },
+  {
+    key: "dispatch.configure",
+    group: "Oppdrag",
+    label: "Konfigurere dispatch",
+    description:
+      "Administrere territorier, kapasitetsplaner og fordelingsregler for dispatch i egen avdeling.",
   },
   {
     key: "workorders.delete",
@@ -239,6 +247,7 @@ const OFFICE_PERMISSIONS: Permission[] = [
   "workorders.update",
   "workorders.edit",
   "workorders.assign",
+  "dispatch.configure",
   "customers.view",
   "customers.manage",
   "contracts.view",

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   assignVisit: vi.fn(),
   unassignVisit: vi.fn(),
   setVisitStatus: vi.fn(),
+  autoAssign: vi.fn(),
+  getCurrentUser: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -27,9 +29,14 @@ vi.mock("@/server/visits", () => ({
   unassignVisit: mocks.unassignVisit,
   setVisitStatus: mocks.setVisitStatus,
 }));
+vi.mock("@/server/dispatch", () => ({
+  autoAssign: mocks.autoAssign,
+}));
+vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
 
 import {
   assignVisitTechniciansAction,
+  autoAssignAction,
   moveTechnicianAction,
   unassignVisitTechnicianAction,
   updateStatusAction,
@@ -46,6 +53,17 @@ function form(values: Record<string, string>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.getCurrentUser.mockResolvedValue({
+    id: "u1",
+    name: "Kari",
+    email: "kari@example.com",
+    role: "OFFICE",
+    isActive: true,
+    departmentId: "dep-1",
+    permissions: [],
+    permissionsCustomized: false,
+    roleDefinition: { permissions: ["workorders.assign"] },
+  });
   mocks.requireWorkOrderAccess.mockResolvedValue({
     user,
     workOrder: { id: "wo-1", status: "OPEN" },
@@ -346,5 +364,74 @@ describe("updateStatusAction", () => {
 
     expect(result).toEqual({ ok: false, error: "ugyldig-status" });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("autoAssignAction", () => {
+  it("tørrkjører uten å revalidere og returnerer planen", async () => {
+    mocks.autoAssign.mockResolvedValue({
+      ok: true,
+      data: {
+        dryRun: true,
+        assignments: [
+          {
+            visitId: "visit-1",
+            workOrderId: "wo-1",
+            workOrderTitle: "Service",
+            technicianId: "tech-1",
+            technicianName: "Ola",
+            score: 88,
+            breakdown: {
+              skills: 35,
+              distance: 20,
+              travel: 15,
+              free: 10,
+              sla: 8,
+              load: 10,
+            },
+          },
+        ],
+        skipped: [],
+        applied: 0,
+      },
+    });
+
+    const result = await autoAssignAction(form({ visitId: "visit-1" }));
+
+    expect(result.ok).toBe(true);
+    expect(mocks.autoAssign).toHaveBeenCalledWith(expect.anything(), ["visit-1"], {
+      dryRun: true,
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("anvender og revaliderer tavla", async () => {
+    mocks.autoAssign.mockResolvedValue({
+      ok: true,
+      data: { dryRun: false, assignments: [], skipped: [], applied: 0 },
+    });
+
+    const result = await autoAssignAction(
+      form({ visitId: "visit-1", dryRun: "false" }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/kalender/dispatch");
+  });
+
+  it("avviser uten workorders.assign før tjenesten kalles", async () => {
+    mocks.getCurrentUser.mockResolvedValue({
+      id: "u2",
+      role: "TECHNICIAN",
+      isActive: true,
+      permissions: [],
+      permissionsCustomized: false,
+      roleDefinition: { permissions: ["workorders.view"] },
+    });
+
+    const result = await autoAssignAction(form({ visitId: "visit-1" }));
+
+    expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
+    expect(mocks.autoAssign).not.toHaveBeenCalled();
   });
 });

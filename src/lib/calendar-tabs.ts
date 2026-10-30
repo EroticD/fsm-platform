@@ -15,6 +15,7 @@ export type CalendarTabKey =
   | "timeWeek"
   | "timeDay"
   | "dispatch"
+  | "capacity"
   | "reports";
 
 export type CalendarTabDefinition = {
@@ -159,6 +160,12 @@ export function calendarTabsFor({
             href: "/kalender/dispatch",
             labelKey: "calendar.common.dispatch",
             icon: "users" as const,
+          },
+          {
+            key: "capacity" as const,
+            href: "/kalender/kapasitet",
+            labelKey: "calendar.common.capacity",
+            icon: "chart" as const,
           },
         ]
       : []),

@@ -1,11 +1,13 @@
 /**
- * Enkle geografiske hjelpefunksjoner for ETA.
+ * Geografiske hjelpere for både dispatch-ruting og ETA i sporingen.
  *
- * Vi har ingen ruteleverandør i denne fasen. Avstanden beregnes derfor som
- * luftlinje med haversine, multipliseres med en dokumentert veifaktor og deles
- * på en konfigurerbar gjennomsnittsfart. Faktoren er et konservativt anslag
- * for norske forhold, ikke en ruteberegning. Når Phase 6 får en routing-
- * adapter, kan denne modulen byttes ut uten at sporingstjenesten endres.
+ * To koordinatformer brukes i kodebasen: `{ latitude, longitude }` (routing,
+ * dispatch, kart) og `{ lat, lng }` (sporing og Leaflet). Begge normaliseres
+ * internt, slik at avstanden og ETA-en alltid regnes med samme formel.
+ *
+ * Avstandene er luftlinje. Ruting-laget i `src/lib/routing/` ganger opp med en
+ * veifaktor når ingen ekstern ruteleverandør er konfigurert. Da kan scoring,
+ * kart og sporing bruke samme, testbare grunnlag uten nettverk.
  */
 
 /** Jordradien i kilometer (WGS-84 middelradius). */
@@ -21,10 +23,39 @@ export const DEFAULT_AVERAGE_SPEED_KMH = 50;
 const MIN_AVERAGE_SPEED_KMH = 5;
 const MAX_AVERAGE_SPEED_KMH = 120;
 
+/** Kanonisk koordinatform for routing, dispatch og kart. */
 export type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+/** Koordinatformen sporing og Leaflet bruker. */
+export type LatLng = {
   lat: number;
   lng: number;
 };
+
+export type GeoPoint = Coordinates | LatLng;
+
+function isLatLng(point: GeoPoint): point is LatLng {
+  return (
+    typeof (point as LatLng).lat === "number" &&
+    typeof (point as LatLng).lng === "number"
+  );
+}
+
+function toLatLng(point: GeoPoint): LatLng {
+  return isLatLng(point)
+    ? point
+    : { lat: point.latitude, lng: point.longitude };
+}
+
+/** Normaliserer et punkt til dispatch-formatet. */
+export function toCoordinates(point: GeoPoint): Coordinates {
+  return isLatLng(point)
+    ? { latitude: point.lat, longitude: point.lng }
+    : point;
+}
 
 /** Er koordinatene endelige tall innenfor gyldige bredde-/lengdegrader? */
 export function isValidCoordinates(
@@ -43,26 +74,39 @@ export function isValidCoordinates(
   );
 }
 
+/** Validerer et koordinatobjekt uansett av de to støttede formene. */
+export function isCoordinates(value: unknown): value is Coordinates {
+  if (!value || typeof value !== "object") return false;
+  const point = value as Partial<Coordinates>;
+  return (
+    typeof point.latitude === "number" &&
+    typeof point.longitude === "number" &&
+    isValidCoordinates(point.latitude, point.longitude)
+  );
+}
+
 /** Haversine-avstand i kilometer mellom to punkter. */
-export function haversineKm(from: Coordinates, to: Coordinates): number {
+export function haversineKm(from: GeoPoint, to: GeoPoint): number {
+  const a = toLatLng(from);
+  const b = toLatLng(to);
   if (
-    !isValidCoordinates(from.lat, from.lng) ||
-    !isValidCoordinates(to.lat, to.lng)
+    !isValidCoordinates(a.lat, a.lng) ||
+    !isValidCoordinates(b.lat, b.lng)
   ) {
     return Number.NaN;
   }
 
   const toRadians = (value: number) => (value * Math.PI) / 180;
-  const deltaLat = toRadians(to.lat - from.lat);
-  const deltaLng = toRadians(to.lng - from.lng);
-  const lat1 = toRadians(from.lat);
-  const lat2 = toRadians(to.lat);
+  const deltaLat = toRadians(b.lat - a.lat);
+  const deltaLng = toRadians(b.lng - a.lng);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
 
-  const a =
+  const h =
     Math.sin(deltaLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
 
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(a)));
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 /**
@@ -118,16 +162,18 @@ export type EtaEstimate = {
  * faktisk posisjon.
  */
 export function estimateEta(input: {
-  from: Coordinates | null | undefined;
-  to: Coordinates | null | undefined;
+  from: GeoPoint | null | undefined;
+  to: GeoPoint | null | undefined;
   now?: Date;
   speedKmh?: number;
 }): EtaEstimate | null {
   if (!input.from || !input.to) return null;
-  if (!isValidCoordinates(input.from.lat, input.from.lng)) return null;
-  if (!isValidCoordinates(input.to.lat, input.to.lng)) return null;
+  const from = toLatLng(input.from);
+  const to = toLatLng(input.to);
+  if (!isValidCoordinates(from.lat, from.lng)) return null;
+  if (!isValidCoordinates(to.lat, to.lng)) return null;
 
-  const straightLineKm = haversineKm(input.from, input.to);
+  const straightLineKm = haversineKm(from, to);
   if (!Number.isFinite(straightLineKm)) return null;
 
   const roadKm = straightLineKm * ROAD_FACTOR;

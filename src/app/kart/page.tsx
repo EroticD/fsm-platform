@@ -24,6 +24,7 @@ import Icon from "@/components/icons";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 import { effectiveAddress } from "@/lib/geocode";
 import { getMapSettings } from "@/server/map-settings";
+import { loadTechnicianMapLayer } from "@/lib/map-technician-layer";
 import { geocodeMissingAction } from "./actions";
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
@@ -81,6 +82,7 @@ export default async function MapPage({
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const mapSettings = await getMapSettings();
+  const technicianLayer = await loadTechnicianMapLayer(user);
   const params = await searchParams;
   const canGeocode = hasPermission(user, "workorders.edit");
   const technicianId = (firstParam(params.technician) ?? "").trim();
@@ -257,6 +259,20 @@ export default async function MapPage({
     }];
   });
 
+  const technicianMapPoints = technicianLayer.markers.map((marker) => ({
+    id: marker.visitId,
+    name: marker.name || t("p3.map.noTechnician"),
+    status: marker.status,
+    updatedAt:
+      formatDateLocalized(marker.updatedAt, locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }) || "",
+    lat: marker.point.latitude,
+    lng: marker.point.longitude,
+  }));
+
   const groups = new Map<string, MapWorkOrder[]>();
   for (const workOrder of workOrders) {
     const city =
@@ -411,9 +427,31 @@ export default async function MapPage({
           items={legendItems}
         />
 
+        {/* Teknikerlaget er et bevisst integrasjonspunkt: kilden kommer i 5C. */}
+        <section
+          aria-labelledby="map-technicians-title"
+          className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 sm:p-4"
+        >
+          <h2
+            id="map-technicians-title"
+            className="flex items-center gap-2 text-sm font-black text-[var(--ink,#101310)]"
+          >
+            <Icon name="users" className="h-4 w-4" />
+            {t("p3.map.technicians.title")}
+          </h2>
+          <p className="mt-1 text-xs font-medium text-[var(--muted,#62685f)]">
+            {technicianLayer.enabled && technicianLayer.markers.length > 0
+              ? t("p3.map.technicians.active", {
+                  count: technicianLayer.markers.length,
+                })
+              : t("p3.map.technicians.pending")}
+          </p>
+        </section>
+
         <section className="space-y-2 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 sm:p-4">
           <WorkOrderMap
             points={mapPoints}
+            technicians={technicianMapPoints}
             listId="map-order-list"
             listHint={t("p3.map.regionHint")}
             ariaLabel={t("p3.map.mapAria")}

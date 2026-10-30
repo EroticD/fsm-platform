@@ -559,6 +559,7 @@ describe("createDefaultVisit", () => {
         status: "PLANNED",
         technicians: { create: [{ userId: "tech-1" }] },
       },
+      select: { id: true },
     });
     expect(mocks.prisma.visit.aggregate).toHaveBeenCalled();
   });
@@ -580,6 +581,7 @@ describe("createDefaultVisit", () => {
         startsAt: new Date("2026-10-29T23:00:00.000Z"),
         endsAt: new Date("2026-10-30T23:00:00.000Z"),
       }),
+      select: { id: true },
     });
   });
 

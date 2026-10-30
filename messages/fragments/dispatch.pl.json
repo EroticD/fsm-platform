@@ -1,0 +1,155 @@
+{
+  "metadata": {
+    "routes": {
+      "kapasitet": "Pojemność"
+    }
+  },
+  "calendar": {
+    "common": {
+      "capacity": "Pojemność"
+    },
+    "dispatch": {
+      "bestMatch": "Najlepsze dopasowanie",
+      "candidateScore": "{score} pkt",
+      "scoreSkills": "Kompetencje",
+      "scoreDistance": "Odległość",
+      "scoreTravel": "Dojazd",
+      "scoreFree": "Wolne",
+      "scoreSla": "SLA",
+      "scoreLoad": "Obciążenie",
+      "excludedMissingSkills": "brak kompetencji",
+      "excludedAbsence": "nieobecność",
+      "excludedUnavailable": "poza godzinami pracy",
+      "excludedOverlap": "podwójna rezerwacja",
+      "excluded_missing_skills": "brak kompetencji",
+      "excluded_absence": "nieobecność",
+      "excluded_unavailable": "poza godzinami pracy",
+      "excluded_overlap": "podwójna rezerwacja",
+      "autoAssignTitle": "Automatyczne przydzielanie",
+      "autoAssignHint": "Najpierw uruchom próbę dla {count} widocznych wizyt. Nic nie zostanie zapisane, dopóki nie zatwierdzisz propozycji.",
+      "dryRun": "Próba",
+      "applyAutoAssign": "Zastosuj {count} propozycji",
+      "autoAssignPlanned": "Można przydzielić {count} wizyt. Sprawdź listę i zatwierdź propozycję.",
+      "autoAssignApplied": "Przydzielono {count} wizyt.",
+      "autoAssignNone": "Brak dostępnego technika z wymaganymi kompetencjami.",
+      "autoAssignSkipped": "{count} wizyt pozostało bez propozycji.",
+      "suggestTitle": "Zaproponuj technika",
+      "suggestHint": "Uszereguj techników według kompetencji, odległości, czasu dojazdu, wolnego czasu, SLA i obciążenia.",
+      "suggestButton": "Zaproponuj",
+      "suggestError": "Nie udało się pobrać propozycji. Spróbuj ponownie.",
+      "assignCandidate": "Przydziel"
+    }
+  },
+  "dispatch": {
+    "capacity": {
+      "subtitle": "Planowana pojemność w porównaniu z rzeczywistym obciążeniem według działu, dnia i technika.",
+      "filters": "Okres pojemności",
+      "from": "Od",
+      "to": "Do",
+      "apply": "Pokaż",
+      "reset": "Resetuj",
+      "error": "Nie udało się pobrać pojemności.",
+      "totalCapacity": "Pojemność",
+      "totalLoad": "Obciążenie",
+      "utilisation": "Wykorzystanie",
+      "empty": "Brak działów w tym okresie.",
+      "tableCaption": "Pojemność w porównaniu z obciążeniem dla {name}",
+      "date": "Data",
+      "technician": "Technik",
+      "capacity": "Pojemność",
+      "load": "Obciążenie",
+      "utilisationShort": "Wykorzystanie",
+      "noTechnicians": "Brak aktywnych techników w dziale."
+    },
+    "errors": {
+      "invalid": "Nieprawidłowe dane.",
+      "forbidden": "Brak dostępu do dyspozycji.",
+      "notFound": "Nie znaleziono wizyty.",
+      "noCandidate": "Brak dostępnego technika.",
+      "conflict": "Nazwa jest już używana.",
+      "applyFailed": "Nie udało się wykonać przydziału."
+    }
+  },
+  "dashboard": {
+    "exceptions": {
+      "title": "Wyjątki",
+      "subtitle": "Biuro powinno się nimi zająć dzisiaj.",
+      "openDispatch": "Otwórz dyspozycję",
+      "unassignedToday": "Bez technika dziś",
+      "unassignedTodayHint": "Zlecenia zaczynające się dziś bez technika",
+      "visitsWithoutTechnician": "Wizyty bez technika",
+      "visitsWithoutTechnicianHint": "Najbliższe siedem dni",
+      "doubleBooked": "Podwójna rezerwacja",
+      "doubleBookedHint": "Wizyty z nakładającymi się technikami",
+      "overdue": "Zaległe",
+      "overdueHint": "Aktywne zlecenia z minioną datą",
+      "missingCoordinates": "Brak współrzędnych",
+      "missingCoordinatesHint": "Nie można pokazać na mapie",
+      "unsignedReports": "Niepodpisane raporty",
+      "unsignedReportsHint": "Brak podpisu technika",
+      "staleBookings": "Stare rezerwacje",
+      "staleBookingsHint": "Oczekujące ponad 24 godziny"
+    }
+  },
+  "p3": {
+    "map": {
+      "technicians": {
+        "title": "Technicy na mapie",
+        "active": "{count} aktywnych pozycji.",
+        "pending": "Pozycje na żywo nie są włączone w tej fazie. Warstwa jest gotowa na źródło pozycji dodane później."
+      }
+    }
+  },
+  "settings": {
+    "tabs": {
+      "dispatch": "Dyspozycja"
+    },
+    "permissions": {
+      "items": {
+        "dispatch_configure": {
+          "label": "Konfiguruj dyspozycję",
+          "description": "Zarządzaj terytoriami, planami pojemności i regułami przydziału w swoim dziale."
+        }
+      }
+    },
+    "dispatch": {
+      "error": "Nie udało się zapisać zmiany.",
+      "saved": "Zmiana została zapisana.",
+      "policyTitle": "Reguły przydziału",
+      "policyHint": "Wybierz, jak dyspozycja szereguje techników. Wagi są względne, nie sumują się do całości.",
+      "department": "Dział",
+      "mode": "Tryb",
+      "modes": {
+        "skills": "Najpierw kompetencje",
+        "distance": "Najpierw odległość",
+        "earliest": "Najwcześniej możliwe",
+        "custom": "Niestandardowy"
+      },
+      "weights": "Wagi",
+      "weightLabels": {
+        "skills": "Kompetencje",
+        "distance": "Odległość",
+        "travel": "Czas dojazdu",
+        "free": "Wolny czas",
+        "sla": "SLA",
+        "load": "Obciążenie"
+      },
+      "savePolicy": "Zapisz reguły",
+      "territoryTitle": "Terytoria",
+      "territoryHint": "Prefiksy kodów pocztowych i kody gmin służą do sugerowania właściwego działu i technika.",
+      "territorySummary": "Kod pocztowy: {postal} · Gminy: {municipalities} · Promień: {radius} km",
+      "deleteTerritory": "Usuń",
+      "noTerritories": "Nie dodano jeszcze żadnych terytoriów.",
+      "territoryName": "Nazwa",
+      "postalPrefixes": "Prefiksy kodów pocztowych",
+      "postalPrefixesPlaceholder": "01, 02, 03",
+      "municipalityCodes": "Kody gmin",
+      "municipalityCodesPlaceholder": "0301, 1103",
+      "radiusKm": "Promień (km)",
+      "center": "Środek",
+      "latitude": "Szerokość geograficzna",
+      "longitude": "Długość geograficzna",
+      "saveTerritory": "Dodaj terytorium"
+    }
+  }
+}

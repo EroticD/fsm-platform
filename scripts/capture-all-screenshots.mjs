@@ -445,6 +445,7 @@ function buildRoutes(fixtures) {
     ["auditlog", "Aktivitetslogg"],
     ["statistikk", "Statistikk"],
     ["sla", "SLA og åpningstider"],
+    ["dispatch", "Dispatch"],
     ["sms", "SMS"],
     ["sikkerhet", "Sikkerhet"],
     ["api", "API-nøkler"],
@@ -613,6 +614,15 @@ function buildRoutes(fixtures) {
       expectTexts: ["Fordel montører"],
     },
     {
+      slug: "kalender-kapasitet",
+      route: "/kalender/kapasitet",
+      role: "admin",
+      title: "Kalender – kapasitet",
+      heading: "Kalender",
+      activeNav: "Kapasitet",
+      expectTexts: ["Planlagt kapasitet"],
+    },
+    {
       slug: "kart",
       route: "/kart",
       role: "admin",
@@ -626,6 +636,14 @@ function buildRoutes(fixtures) {
       title: "Kundekatalog",
       heading: "Kundekatalog",
       legacy: { desktop: "05-kunder.png" },
+    },
+    {
+      slug: "bookinger",
+      route: "/bookinger",
+      role: "admin",
+      title: "Bookingkø",
+      heading: "Bookingkø",
+      activeNav: "Bookinger",
     },
     {
       slug: "avtaler",
@@ -957,6 +975,27 @@ const SKIPPED_ROUTES = [
     reason:
       "Legacy-rute som redirecter til /innstillinger?tab=sikkerhet. " +
       "Sikkerhetsfanen er fanget der.",
+  },
+  {
+    route: "/meldinger/[id]",
+    role: "admin",
+    reason:
+      "Samtaletråden krever en eksisterende tråd. Listen /meldinger er fanget; " +
+      "trådvisningen dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/sporing/[token]",
+    role: "public",
+    reason:
+      "Offentlig sporingslenke krever et gyldig, kortlivet token fra en aktiv " +
+      "visitt. Tokenflyten dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/anmeldelse/[token]",
+    role: "public",
+    reason:
+      "Omtalesiden krever et gyldig engangstoken fra en fullført visitt. " +
+      "Tokenflyten dekkes av integrasjonstestene.",
   },
 ];
 

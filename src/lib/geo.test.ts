@@ -6,6 +6,7 @@ import {
   estimateEta,
   estimateTravelMinutes,
   haversineKm,
+  isCoordinates,
   isValidCoordinates,
 } from "./geo";
 
@@ -30,6 +31,22 @@ describe("haversine", () => {
     expect(isValidCoordinates(90.1, 0)).toBe(false);
     expect(isValidCoordinates(0, Number.NaN)).toBe(false);
     expect(isValidCoordinates("60", 5)).toBe(false);
+  });
+
+  it("gir samme avstand for begge koordinatformene", () => {
+    const dispatchFormat = {
+      latitude: OSLO.lat,
+      longitude: OSLO.lng,
+    };
+    const dispatchBergen = {
+      latitude: BERGEN.lat,
+      longitude: BERGEN.lng,
+    };
+    expect(haversineKm(dispatchFormat, dispatchBergen)).toBeCloseTo(
+      haversineKm(OSLO, BERGEN),
+      9,
+    );
+    expect(isCoordinates(dispatchFormat)).toBe(true);
   });
 });
 

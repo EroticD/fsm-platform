@@ -1,0 +1,155 @@
+{
+  "metadata": {
+    "routes": {
+      "kapasitet": "Kapasitet"
+    }
+  },
+  "calendar": {
+    "common": {
+      "capacity": "Kapasitet"
+    },
+    "dispatch": {
+      "bestMatch": "Beste match",
+      "candidateScore": "{score} poeng",
+      "scoreSkills": "Kompetanse",
+      "scoreDistance": "Avstand",
+      "scoreTravel": "Reise",
+      "scoreFree": "Ledig",
+      "scoreSla": "SLA",
+      "scoreLoad": "Belastning",
+      "excludedMissingSkills": "mangler kompetanse",
+      "excludedAbsence": "fravær",
+      "excludedUnavailable": "utenfor arbeidstid",
+      "excludedOverlap": "dobbelbooking",
+      "excluded_missing_skills": "mangler kompetanse",
+      "excluded_absence": "fravær",
+      "excluded_unavailable": "utenfor arbeidstid",
+      "excluded_overlap": "dobbelbooking",
+      "autoAssignTitle": "Automatisk tildeling",
+      "autoAssignHint": "Tørrkjør de {count} synlige visitene først. Ingenting lagres før du velger å bruke forslaget.",
+      "dryRun": "Tørrkjør",
+      "applyAutoAssign": "Bruk {count} forslag",
+      "autoAssignPlanned": "{count} visiter kan tildeles. Kontroller listen og bruk forslaget.",
+      "autoAssignApplied": "{count} visiter ble tildelt.",
+      "autoAssignNone": "Ingen ledige montører med riktig kompetanse.",
+      "autoAssignSkipped": "{count} visiter ble stående uten forslag.",
+      "suggestTitle": "Foreslå montør",
+      "suggestHint": "Ranger montører etter kompetanse, avstand, reisetid, ledig tid, SLA og belastning.",
+      "suggestButton": "Foreslå",
+      "suggestError": "Kunne ikke hente forslag. Prøv igjen.",
+      "assignCandidate": "Tildel"
+    }
+  },
+  "dispatch": {
+    "capacity": {
+      "subtitle": "Planlagt kapasitet mot faktisk belastning per avdeling, dag og montør.",
+      "filters": "Periode for kapasitetsoversikten",
+      "from": "Fra",
+      "to": "Til",
+      "apply": "Vis",
+      "reset": "Nullstill",
+      "error": "Kunne ikke hente kapasitet.",
+      "totalCapacity": "Kapasitet",
+      "totalLoad": "Belastning",
+      "utilisation": "Utnyttelse",
+      "empty": "Ingen avdelinger i perioden.",
+      "tableCaption": "Kapasitet mot belastning for {name}",
+      "date": "Dato",
+      "technician": "Montør",
+      "capacity": "Kapasitet",
+      "load": "Belastning",
+      "utilisationShort": "Utnyttelse",
+      "noTechnicians": "Ingen aktive montører i avdelingen."
+    },
+    "errors": {
+      "invalid": "Ugyldig data.",
+      "forbidden": "Du har ikke tilgang til dispatch.",
+      "notFound": "Fant ikke visitten.",
+      "noCandidate": "Ingen ledig montør.",
+      "conflict": "Navnet er allerede i bruk.",
+      "applyFailed": "Tildelingen kunne ikke gjennomføres."
+    }
+  },
+  "dashboard": {
+    "exceptions": {
+      "title": "Unntak",
+      "subtitle": "Dette bør kontoret se på i dag.",
+      "openDispatch": "Åpne dispatch",
+      "unassignedToday": "Uten montør i dag",
+      "unassignedTodayHint": "Oppdrag som starter i dag uten montør",
+      "visitsWithoutTechnician": "Visiter uten montør",
+      "visitsWithoutTechnicianHint": "Neste sju dager",
+      "doubleBooked": "Dobbelbooking",
+      "doubleBookedHint": "Visiter med overlappende montør",
+      "overdue": "Forfalt",
+      "overdueHint": "Aktive oppdrag med passert dato",
+      "missingCoordinates": "Mangler koordinater",
+      "missingCoordinatesHint": "Kan ikke vises på kartet",
+      "unsignedReports": "Usignerte rapporter",
+      "unsignedReportsHint": "Mangler teknikersignatur",
+      "staleBookings": "Gamle bestillinger",
+      "staleBookingsHint": "Ventende i over 24 timer"
+    }
+  },
+  "p3": {
+    "map": {
+      "technicians": {
+        "title": "Montører på kartet",
+        "active": "{count} aktive posisjoner.",
+        "pending": "Live-posisjoner er ikke slått på i denne fasen. Laget er klart for posisjonskilden som kommer senere."
+      }
+    }
+  },
+  "settings": {
+    "tabs": {
+      "dispatch": "Dispatch"
+    },
+    "permissions": {
+      "items": {
+        "dispatch_configure": {
+          "label": "Konfigurere dispatch",
+          "description": "Administrere territorier, kapasitetsplaner og fordelingsregler for dispatch i egen avdeling."
+        }
+      }
+    },
+    "dispatch": {
+      "error": "Endringen kunne ikke lagres.",
+      "saved": "Endringen er lagret.",
+      "policyTitle": "Fordelingsregler",
+      "policyHint": "Velg hvordan dispatch rangerer montører. Vektene summeres ikke – de er relative.",
+      "department": "Avdeling",
+      "mode": "Modus",
+      "modes": {
+        "skills": "Kompetanse først",
+        "distance": "Avstand først",
+        "earliest": "Tidligst mulig",
+        "custom": "Tilpasset"
+      },
+      "weights": "Vekter",
+      "weightLabels": {
+        "skills": "Kompetanse",
+        "distance": "Avstand",
+        "travel": "Reisetid",
+        "free": "Ledig tid",
+        "sla": "SLA",
+        "load": "Belastning"
+      },
+      "savePolicy": "Lagre regler",
+      "territoryTitle": "Territorier",
+      "territoryHint": "Postnummerprefikser og kommunekoder brukes til å foreslå riktig avdeling og montør.",
+      "territorySummary": "Postnummer: {postal} · Kommuner: {municipalities} · Radius: {radius} km",
+      "deleteTerritory": "Slett",
+      "noTerritories": "Ingen territorier er lagt inn ennå.",
+      "territoryName": "Navn",
+      "postalPrefixes": "Postnummerprefikser",
+      "postalPrefixesPlaceholder": "01, 02, 03",
+      "municipalityCodes": "Kommunekoder",
+      "municipalityCodesPlaceholder": "0301, 1103",
+      "radiusKm": "Radius (km)",
+      "center": "Senter",
+      "latitude": "Breddegrad",
+      "longitude": "Lengdegrad",
+      "saveTerritory": "Legg til territorium"
+    }
+  }
+}

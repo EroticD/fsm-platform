@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireWorkOrderAccess } from "@/lib/access";
+import { getCurrentUser } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import { LIMITS, cleanStatus, cleanText } from "@/lib/sanitize";
 import {
   assignTechnician as assignTechnicianService,
@@ -14,6 +16,7 @@ import {
   setVisitStatus,
   unassignVisit,
 } from "@/server/visits";
+import { autoAssign } from "@/server/dispatch";
 import type { VisitStatus } from "@prisma/client";
 import type { DispatchActionResult } from "./types";
 
@@ -244,6 +247,41 @@ export async function updateVisitStatusAction(
     return { ok: true };
   } catch (error) {
     console.error("Feil ved oppdatering av visittstatus:", error);
+    return fail("ukjent");
+  }
+}
+
+/**
+ * Tørrkjøring eller anvendelse av auto-tildeling for de synlige visitene.
+ * Tjenesten kontrollerer `workorders.assign` på nytt; handlingen krever
+ * samme rettighet for å gi en rask og tydelig feil uten databasespørringer.
+ */
+export async function autoAssignAction(
+  formData: FormData,
+): Promise<DispatchActionResult> {
+  const visitIds = Array.from(
+    new Set(
+      formData
+        .getAll("visitId")
+        .map((value) => cleanText(value, { maxLength: LIMITS.line }))
+        .filter(Boolean),
+    ),
+  ).slice(0, 100);
+  const dryRun = formData.get("dryRun") !== "false";
+  if (visitIds.length === 0) return fail("ugyldig-data");
+
+  const user = await getCurrentUser();
+  if (!user || !hasPermission(user, "workorders.assign")) {
+    return fail("ikke-tilgang");
+  }
+
+  try {
+    const result = await autoAssign(user, visitIds, { dryRun });
+    if (!result.ok) return fail(serviceError(result));
+    if (!dryRun) revalidatePath(DISPATCH_PATH);
+    return { ok: true, autoAssign: result.data };
+  } catch (error) {
+    console.error("Feil ved automatisk dispatch:", error);
     return fail("ukjent");
   }
 }

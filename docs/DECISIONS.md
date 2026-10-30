@@ -256,6 +256,77 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   laster bare avtaler i aktørens avdeling, og `_count.contracts` bruker samme
   filter.
 
+## Dispatch-intelligens (2026-10-30)
+
+- **Ruting er server-only.** `src/lib/routing/` velger OSRM når
+  `OSRM_BASE_URL` er satt, ellers haversine × 1,35 med 50 km/t. Adapteren har
+  60 sekunders tidsavbrudd, cache per avrundet koordinatnøkkel og faller alltid
+  tilbake til haversine ved feil. Ingen rutenøkkel eller ruteleverandør kalles
+  fra klienten. Testene injiserer `fetch` og gjør aldri eksterne kall.
+- **Én geo-modul for routing, ETA og kart.** `src/lib/geo.ts` har både
+  `{latitude, longitude}` og `{lat, lng}` som normaliseres internt. Dermed
+  bruker dispatch, sporing og kart samme haversine, veifaktor og
+  gjennomsnittsfart; det finnes ingen dupliserte avstandsformler.
+- **Scoring er deterministisk og forklarbar.** `rankDispatchCandidates` er ren
+  matematikk; tjenestelaget henter data og gir dem inn. Kompetansekrav,
+  fravær, arbeidstid og overlapp er harde filtre. Poengsummen består av
+  kompetanse, avstand, reisetid, ledig tid, SLA-hast og belastning, og hver
+  komponent lagres i revisjonsloggen ved automatisk tildeling.
+- **Auto-tildeling er tørrkjøring som standard.** `autoAssign(..., { dryRun })`
+  skriver ingenting og varsler ingen før `dryRun: false`. Anvendelse krever
+  `workorders.assign`, går i én transaksjon via den transaksjonsbevisste
+  visittjenesten, og varsler først etter commit.
+- **Avdelingskapasitet har en delvis unik indeks.** `CapacityPlan` har vanlig
+  unik `(departmentId, date, technicianId)` pluss en delvis unik indeks på
+  `(departmentId, date) WHERE technicianId IS NULL`. PostgreSQL ellers ville
+  tillatt flere avdelingsrader for samme dag fordi NULL ikke er lik NULL.
+  Prisma uttrykker ikke delvise indekser; indeksen ligger derfor i migreringen
+  og blir ignorert av `migrate diff` (verifisert: drift = 0).
+- **`findSlot` trekker fra aktive `BookingHold`.** 5A-modellen finnes nå, så
+  ledige tidsrom filtreres mot både visiter og uutløpte, ubekreftede holds.
+  Tørrkjøringen skriver ingen hold eller visiter.
+- **Kartets teknikerlag leser ferske pinger.** `/kart` viser tekniske
+  posisjoner fra siste `VisitLocationPing` for aktive `EN_ROUTE`/`ON_SITE`-
+  visiter i avdelinger med `trackingEnabled`. Ingen historikk, ingen pinger
+  eldre enn 24 timer, og ingen posisjon for avsluttede visiter.
+- **Ny rettighet: `dispatch.configure`.** Administrator og kontor får den i
+  seed-migreringen; montører og kundeportal gjør det ikke. Den styrer
+  territorier og fordelingsregler, mens selve tildelingen fortsatt bruker
+  `workorders.assign`.
+
+## Phase 5A — ekte tilgjengelighetsbooking (2026-10-30)
+
+- **Samtidighet uten `btree_gist`.** Vi bruker `SERIALIZABLE`-transaksjon +
+  `pg_advisory_xact_lock` per montør, og kontrollerer tilgjengeligheten på nytt
+  inne i låsen. Det gir nøyaktig én bekreftet booking for samme montør og time
+  uten å kreve en PostgreSQL-extension. En eksklusjonsconstraint kan komme
+  senere når alle montører er representert i én egen tabell.
+- **30-minutters slots, 60 dagers horisont, maks tre per dag per montør.**
+  Slotmatematikken ligger i `src/lib/availability.ts` og er uten I/O.
+  `BusinessHours` snittes med `UserAvailability`; fravær, aktive visiter,
+  aktive `BookingHold` og 24 timers ledetid trekkes fra. `DONE` og `CANCELLED`
+  blokkerer ikke. Heldagsvisiter stenger hele kalenderdagen/de dagene de dekker.
+- **Manglende arbeidstid er en eksplisitt standard.** Har en montør ingen
+  `UserAvailability`, brukes avdelingens åpningstider og resultatet flagger
+  `unconfiguredPolicy = "business_hours"`. Har avdelingen ingen
+  `BusinessHours`, brukes hverdager 08–16 og `businessHoursConfigured = false`.
+  Valget er synlig i portalen, ikke en stille fallback.
+- **BookingHold varer i fem minutter.** Portalen reserverer timen før kunden
+  fyller ut skjemaet. Bekreftelse konsumerer reservasjonen i samme transaksjon
+  som `BookingRequest(CONFIRMED)` og `Visit(PLANNED)` opprettes. En
+  bakgrunnsjobb sletter utløpte/konsumerte rader, og utløpte `PENDING`-
+  forespørsler merkes `EXPIRED`.
+- **Direkte bekreftelse, med eldre kø bevart.** Nye bestillinger bekreftes
+  direkte mot en slot. `PENDING` beholdes for eldre forespørsler og vises i
+  kontorets `/bookinger`-kø, der de kan bekreftes mot en ledig montør eller
+  avlyses.
+- **Kundebestillingen lagrer et stedsnapshot.** `CustomerSite` er en enkel
+  liste per kunde. `BookingRequest.siteId` peker på stedet, og adressen kopieres
+  til oppdraget slik at senere endringer i stedsregisteret ikke flytter
+  historikken. Multi-site på oppdrag og utstyr er fortsatt Phase 5D.
+- **Ingen fakturering.** Prislister er referansedata; booking og visitt
+  inneholder ingen beløp, faktura eller betalingsflyt.
+
 ## Live sporing og kundeomtaler (Phase 5C, 2026-10-30)
 
 - **Sporing er opt-in per avdeling.** `Department.trackingEnabled` er
@@ -280,7 +351,9 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   kilde. Farten konfigureres med `TRACKING_AVERAGE_SPEED_KMH` (standard 50,
   avgrenset til 5–120). Uten et faktisk posisjonsping eller destinasjons-
   koordinater vises ingen ETA – aldri en falsk ankomst. Ingen ruteleverandør
-  er innført; Phase 6 kan bytte ut fallbacken bak samme modul.
+  er innført i sporingens standardvei; Phase 6-rutingen (OSRM når
+  `OSRM_BASE_URL` er satt) ligger bak samme `src/lib/geo.ts`-grunnlag og kan
+  brukes av sporingen senere uten å endre ETA-kontrakten.
 - **Posisjonsping er ferskvare.** Kun tildelt montør, kun egen visitt, kun
   `EN_ROUTE`, kun aktiv avdeling med sporing. Klienten sender eksplisitt med
   `cache: "no-store"` og køer aldri ping offline; gamle posisjoner spilles
@@ -326,10 +399,11 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   ukjente `{plassholdere}`. Standardmalene for `BOOKING_CONFIRMED`,
   `VISIT_REMINDER`, `ON_MY_WAY`, `VISIT_DONE` og `REVIEW_REQUEST` seedes i
   migreringen for nb/en/pl/de.
-- **5A-kobling.** 5B kompilerer uten 5A. `sendBookingConfirmedSms()` og
-  `sendWorkOrderEventSms(..., "BOOKING_CONFIRMED")` refererer ikke til
-  `BookingRequestStatus.CONFIRMED`. Når 5A er merget, kaller
-  `src/server/availability.ts` `sendBookingConfirmedSms(actor, workOrderId,
-  {}, tx)` med bookingenes transaksjonsklient, slik at bekreftelsen, visitten
-  og SMS-køraden committes atomisk. Uten `tx` bruker tjenesten den globale
-  klienten. Det er den eneste merge-haken som gjenstår.
+- **5A-kobling.** 5B kompilerer uten 5A, men er nå koblet på den ekte
+  bookingflyten. `createBooking` i `src/server/portal.ts` kaller
+  `trySendBookingConfirmedSms` med bookingenes transaksjonsklient når
+  bestillingen opprettes direkte som `CONFIRMED`. `confirmBooking` i
+  `src/server/bookings.ts` gjør det samme når kontoret bekrefter en
+  `PENDING`-forespørsel, og `rescheduleBooking` sender en ny bekreftelse når
+  en allerede bekreftet booking flyttes. Kallet er beste-forsøk: manglende
+  kontakt, manglende samtykke eller SMS-feil velter aldri bookingen.

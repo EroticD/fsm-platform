@@ -11,13 +11,10 @@ import {
   todayInOslo,
 } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
-import { getDefaultDepartmentId } from "@/lib/departments";
-import { staffForDepartment } from "@/lib/access";
 import { pageWindow, parsePage } from "@/lib/pagination";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon from "@/components/icons";
 import ReportHistory from "@/components/portal/ReportHistory";
-import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
 import PortalSectionNav from "@/components/portal/PortalSectionNav";
 import StatusBadge from "@/components/StatusBadge";
@@ -49,10 +46,6 @@ const WORK_ORDER_LIST_SELECT = {
 
 // Formaterer en dato til YYYY-MM-DD. Kalenderdatoer er UTC-midnatt i
 // databasen, så vi bruker UTC og er uavhengige av serverens tidssone.
-function dateKey(d: Date) {
-  return toDateOnly(d);
-}
-
 function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
@@ -135,6 +128,11 @@ export default async function KundeportalPage({
       responsibleTechnician: true,
       products: { orderBy: { model: "asc" }, take: 100 },
       contracts: { orderBy: { startDate: "desc" }, take: 50 },
+      sites: {
+        orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+        take: 50,
+        select: { id: true, name: true, address: true },
+      },
     },
   });
 
@@ -157,10 +155,12 @@ export default async function KundeportalPage({
     );
   }
 
-  const defaultDepartmentId = await getDefaultDepartmentId();
   const todayText = todayInOslo();
   const today = parseDateOnly(todayText) ?? new Date();
   const minimumStart = minimumBookingStart();
+  const horizonEnd = toDateOnly(
+    addDaysUtc(parseDateOnly(todayText) ?? today, 60),
+  );
 
   const bookingsResult = await getPortalBookingRequests(user, {
     page: requestedBookingPage,
@@ -258,70 +258,6 @@ export default async function KundeportalPage({
     const qs = params.toString();
     return `/kundeportal${qs ? `?${qs}` : ""}${hash}`;
   };
-
-  // --- TEKNIKERTILGJENGELIGHET: ledig/opptatt neste 7 dager ---
-  // Kundeportalbrukere skal kun se tilgjengelighet, ikke hva andre kunder har bestilt.
-  const horizon = addDaysUtc(today, 7);
-
-  const days = Array.from({ length: 7 }, (_, i) => addDaysUtc(today, i));
-
-  // Kunden ser bare montører i sin egen avdeling (faller tilbake til
-  // standardavdelingen hvis kunden ikke er knyttet til en avdeling).
-  const availabilityDepartmentId = customer.departmentId ?? defaultDepartmentId;
-
-  const technicians = await prisma.user.findMany({
-    where: { ...staffForDepartment(availabilityDepartmentId), isActive: true },
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true },
-    take: 200,
-  });
-
-  // Hent oppdrag som overlapper de neste 7 dagene. Flerdagersoppdrag
-  // (scheduledFor → scheduledTo) blokkerer alle dagene de varer.
-  const scheduledWorkOrders = await prisma.workOrder.findMany({
-    where: {
-      departmentId: availabilityDepartmentId ?? "__ingen_avdeling__",
-      deletedAt: null,
-      status: { notIn: ["CANCELLED"] },
-      OR: [
-        { scheduledFor: { gte: today, lt: horizon } },
-        { scheduledTo: { gte: today, lt: horizon } },
-        {
-          AND: [
-            { scheduledFor: { lt: today } },
-            { scheduledTo: { gte: horizon } },
-          ],
-        },
-      ],
-    },
-    select: {
-      scheduledFor: true,
-      scheduledTo: true,
-      technicians: { select: { id: true } },
-    },
-    take: 500,
-  });
-
-  const busyByTechnician = new Map<string, Set<string>>();
-  for (const wo of scheduledWorkOrders) {
-    if (!wo.scheduledFor) continue;
-
-    // Blokker alle dager oppdraget varer (inklusiv scheduledTo).
-    const start = new Date(wo.scheduledFor);
-    const end = wo.scheduledTo ? new Date(wo.scheduledTo) : new Date(start);
-
-    // Begrens til vinduet vi viser.
-    const firstDay = start < today ? today : start;
-    const lastDay = end > horizon ? addDaysUtc(horizon, -1) : end;
-
-    for (const tech of wo.technicians) {
-      if (!busyByTechnician.has(tech.id)) busyByTechnician.set(tech.id, new Set());
-      const set = busyByTechnician.get(tech.id)!;
-      for (let d = new Date(firstDay); d <= lastDay; d = addDaysUtc(d, 1)) {
-        set.add(dateKey(d));
-      }
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] px-4 py-5 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:px-6 sm:py-8">
@@ -609,7 +545,7 @@ export default async function KundeportalPage({
               </p>
               <BookingForm
                 minDate={minimumStart.date}
-                minFromTime={minimumStart.from}
+                horizonEnd={horizonEnd}
                 minLeadHours={BOOKING_MIN_LEAD_HOURS}
                 defaultContactName={user.name ?? ""}
                 defaultContactPhone={customer.phone ?? ""}
@@ -619,12 +555,15 @@ export default async function KundeportalPage({
                     ? `${product.model} · SN ${product.serialNumber}`
                     : product.model,
                 }))}
+                sites={customer.sites}
               />
               <BookingRequests
                 bookings={bookings}
                 minDate={minimumStart.date}
                 minFromTime={minimumStart.from}
                 minLeadHours={BOOKING_MIN_LEAD_HOURS}
+                horizonEnd={horizonEnd}
+                sites={customer.sites}
                 summary={bookingSummary}
               />
               <Pagination
@@ -734,43 +673,6 @@ export default async function KundeportalPage({
           upcomingPage={upcomingPage}
           historyPage={historyPage}
         />
-
-        {/* TEKNIKERTILGJENGELIGHET – neste 7 dager */}
-        <section className={`${brandCard} p-4 sm:p-5`}>
-          <div className="mb-4 border-b border-[var(--line,#dedcd1)] pb-3">
-            <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
-              />
-              <span>{t("portal.availability.title")}</span>
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
-              {t("portal.availability.desc")}
-            </p>
-          </div>
-
-          {technicians.length === 0 ? (
-            <p className="text-sm italic text-[var(--muted,#62685f)]">
-              {t("portal.availability.empty")}
-            </p>
-          ) : (
-            <AvailabilityBoard
-              technicians={technicians.map((tech) => ({
-                id: tech.id,
-                name: tech.name ?? "",
-                days: days.map((day) => ({
-                  date: dateKey(day),
-                  busy:
-                    busyByTechnician.get(tech.id)?.has(dateKey(day)) ?? false,
-                })),
-              }))}
-            />
-          )}
-          <p className="mt-3 text-sm leading-6 text-[var(--muted,#62685f)]">
-            {t("portal.availability.note")}
-          </p>
-        </section>
 
         {/* KONTAKTINFO: avdeling, ansvarlig montør og oppdateringsskjema */}
         <section

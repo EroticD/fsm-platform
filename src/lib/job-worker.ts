@@ -1,7 +1,10 @@
+// i18n-ignore-file: jobbworkerens logger og revisjonshandlinger er driftsdata,
+// ikke UI-tekst. Alle brukervendte strenger ligger i oversettelseskatalogene.
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { extractPdfText } from "@/lib/pdf-text";
 import { cleanupRateLimits } from "@/lib/rate-limit-db";
+import { parseDateOnly, todayInOslo } from "@/lib/dates";
 import { logger } from "@/lib/logger";
 import { deleteUploadIfOwned } from "@/lib/upload-store";
 import { releaseUpload } from "@/lib/upload-cleanup";
@@ -73,6 +76,15 @@ export const SEARCH_LOG_RETENTION_DAYS = Math.max(
 
 export const SEARCH_LOG_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000;
 
+/** Korte bookingreservasjoner ryddes hvert minutt. */
+export const BOOKING_HOLD_CLEANUP_INTERVAL_MS = 60_000;
+
+/** Utløpte PENDING-forespørsler merkes hvert sjette døgn. */
+export const BOOKING_REQUEST_EXPIRY_INTERVAL_MS = 6 * 60 * 60_000;
+
+/** Hvor lenge en konsumert reservasjon beholdes for sporbarhet. */
+export const BOOKING_HOLD_RETENTION_MS = 24 * 60 * 60_000;
+
 /** Hvor ofte posisjonsping eldre enn 24 timer fjernes. */
 export const LOCATION_PING_CLEANUP_INTERVAL_MS = 60 * 60_000;
 
@@ -83,6 +95,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmDraftCleanupStarted?: boolean;
   __fsmWorkOrderRetentionStarted?: boolean;
   __fsmSearchLogCleanupStarted?: boolean;
+  __fsmBookingHoldCleanupStarted?: boolean;
   __fsmLocationPingCleanupStarted?: boolean;
   __fsmSmsWorkerStarted?: boolean;
 };
@@ -392,6 +405,90 @@ export function startSearchLogCleanup(): void {
 }
 
 /**
+ * Sletter utløpte bookingreservasjoner og gamle, konsumerte rader.
+ *
+ * En utløpt rad blokkerer ikke lenger i tilgjengelighetsberegningen (den
+ * filtrerer på `expiresAt > now`), men ryddingen holder tabellen liten og
+ * frigjør timen for andre kunder umiddelbart etter utløp.
+ */
+export async function expireBookingHolds(now = new Date()): Promise<number> {
+  const result = await prisma.bookingHold.deleteMany({
+    where: {
+      OR: [
+        { expiresAt: { lte: now } },
+        {
+          consumedAt: {
+            lt: new Date(now.getTime() - BOOKING_HOLD_RETENTION_MS),
+          },
+        },
+      ],
+    },
+  });
+  if (result.count > 0) {
+    logger.info("Ryddet utløpte bookingreservasjoner", {
+      count: result.count,
+    });
+  }
+  return result.count;
+}
+
+/**
+ * Merker gamle PENDING-forespørsler som EXPIRED. Kunden kan ikke lenger
+ * booke en dato som har passert, men raden beholdes som historikk.
+ */
+export async function expireStalePendingBookings(
+  now = new Date(),
+): Promise<number> {
+  const today = parseDateOnly(todayInOslo(now));
+  if (!today) return 0;
+  const result = await prisma.bookingRequest.updateMany({
+    where: {
+      status: "PENDING",
+      requestedDate: { lt: today },
+    },
+    data: { status: "EXPIRED" },
+  });
+  if (result.count > 0) {
+    logger.info("Merket utløpte bookingforespørsler", {
+      count: result.count,
+    });
+  }
+  return result.count;
+}
+
+/** Starter ryddingen av bookingreservasjoner. */
+export function startBookingHoldCleanup(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmBookingHoldCleanupStarted) return;
+  scope.__fsmBookingHoldCleanupStarted = true;
+
+  const run = () => {
+    void expireBookingHolds().catch((error) => {
+      logger.error("Kunne ikke rydde bookingreservasjoner", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+  const runRequests = () => {
+    void expireStalePendingBookings().catch((error) => {
+      logger.error("Kunne ikke utløpe bookingforespørsler", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
+  run();
+  runRequests();
+  const holdTimer = setInterval(run, BOOKING_HOLD_CLEANUP_INTERVAL_MS);
+  holdTimer.unref?.();
+  const requestTimer = setInterval(
+    runRequests,
+    BOOKING_REQUEST_EXPIRY_INTERVAL_MS,
+  );
+  requestTimer.unref?.();
+}
+
+/**
  * Sletter posisjonsping eldre enn 24 timer. Sporing er en ferskvare: historikk
  * skal ikke finnes, verken for kunden eller i databasen.
  */
@@ -588,6 +685,9 @@ export function startJobWorker(): void {
   // Søkeloggen er analyse, ikke revisjon: slett gamle søkeord (PII).
   startSearchLogCleanup();
 
+  // Frigjør korte bookingreservasjoner og merk utløpte forespørsler.
+  startBookingHoldCleanup();
+
   // Posisjonsping har 24 timers levetid og skal aldri bli historikk.
   startLocationPingCleanup();
 
@@ -641,6 +741,7 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmDraftCleanupStarted = false;
   scope.__fsmWorkOrderRetentionStarted = false;
   scope.__fsmSearchLogCleanupStarted = false;
+  scope.__fsmBookingHoldCleanupStarted = false;
   scope.__fsmLocationPingCleanupStarted = false;
   // SMS-workeren har eget startflagg; nullstilles her slik at tester som
   // kaller resetJobWorkerForTests også kan starte SMS-køen på nytt.

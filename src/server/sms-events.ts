@@ -2,6 +2,7 @@
 // databasen og oversettes per mottaker-locale.
 import prisma from "@/lib/prisma";
 import { formatDateLocalized } from "@/lib/dates";
+import { logger } from "@/lib/logger";
 import { cleanText, LIMITS } from "@/lib/sanitize";
 import {
   isSmsEventKey,
@@ -47,22 +48,28 @@ function firstPhoneRecipient(
 /**
  * Sender en hendelses-SMS til oppdragets kontaktperson.
  *
- * 5A-kobling: når bookingfasen er merget, kaller `src/server/availability.ts`
- * denne med `BOOKING_CONFIRMED` i samme transaksjon som bookingen bekreftes.
- * Funksjonen refererer bevisst ikke til `BookingRequestStatus.CONFIRMED`, slik
- * at 5B kompilerer og gates uten 5A. Se `docs/DECISIONS.md`.
+ * 5A-kobling: bookingtjenestene kaller denne med `BOOKING_CONFIRMED` i samme
+ * transaksjon som bestillingen bekreftes. Funksjonen refererer bevisst ikke
+ * til `BookingRequestStatus.CONFIRMED`, slik at SMS-laget kan testes uten
+ * bookingmodellene. Se `docs/DECISIONS.md`.
  */
 export async function sendWorkOrderEventSms(
   actor: ServiceActor,
   input: SendEventInput,
 ): Promise<ServiceResult<{ threadId: string; messageId: string }>> {
-  if (
-    !actor?.isActive ||
-    (!can(actor, "workorders.update") && !can(actor, "workorders.edit"))
-  ) {
+  if (!isSmsEventKey(input.eventKey)) return fail("invalid");
+
+  const canStaff =
+    can(actor, "workorders.update") || can(actor, "workorders.edit");
+  // Kundeportalen bekrefter bookinger selv. Bare den egne, bekreftede
+  // bookingen kan trigge denne malen; øvrige hendelser er kontorinterne.
+  const canOwnBooking =
+    actor?.role === "CUSTOMER" &&
+    Boolean(actor.customerId) &&
+    input.eventKey === "BOOKING_CONFIRMED";
+  if (!actor?.isActive || (!canStaff && !canOwnBooking)) {
     return fail("forbidden");
   }
-  if (!isSmsEventKey(input.eventKey)) return fail("invalid");
 
   const workOrderId = cleanText(input.workOrderId, {
     maxLength: LIMITS.line,
@@ -150,8 +157,37 @@ export async function sendWorkOrderEventSms(
 }
 
 /**
- * Kort alias for bookingbekreftelsen. Finnes fra dag én slik at 5A kan koble
- * seg på uten å endre SMS-tjenestens signatur.
+ * Beste-forsøk-variant for bookingtransaksjonen. En manglende kontakt, manglende
+ * samtykke eller SMS-feil skal aldri velte selve bookingen.
+ */
+export async function trySendBookingConfirmedSms(
+  actor: ServiceActor,
+  workOrderId: string,
+  extra: SmsTemplateValues,
+  db: SmsDb,
+): Promise<void> {
+  try {
+    const result = await sendBookingConfirmedSms(actor, workOrderId, extra, db);
+    if (!result.ok) {
+      if (result.reason !== "forbidden" && result.reason !== "missing_contact") {
+        logger.warn("Booking confirmation SMS was not queued", {
+          workOrderId,
+          reason: result.reason,
+        });
+      }
+    }
+  } catch (error) {
+    // En SMS-feil skal ikke rulle tilbake en bekreftet booking.
+    logger.error("Booking confirmation SMS failed", {
+      workOrderId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Kort alias for bookingbekreftelsen. Bookingtjenestene bruker dette navnet,
+ * slik at 5A-koblingen ikke avhenger av den generelle hendelsesservicen.
  */
 export function sendBookingConfirmedSms(
   actor: ServiceActor,

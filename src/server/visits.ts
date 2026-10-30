@@ -660,60 +660,88 @@ export async function assignVisit(
     return fail("invalid", { code: VISIT_ERROR_CODES.noChange });
   }
 
-  return prisma.$transaction(async (tx) => {
-    const current = await findVisitContext(tx, actor, id);
-    if (!current) return fail("not_found");
+  return prisma.$transaction((tx) =>
+    assignVisitInTransaction(tx, actor, id, technicianIds),
+  );
+}
 
-    const blocked = visitBlocked(current);
-    if (blocked) return blocked;
+/**
+ * Transaksjonsbevisst tildeling. Dispatch bruker denne når flere visiter skal
+ * tildeles i én transaksjon; da kan den ikke kalle `assignVisit`, som åpner en
+ * ny transaksjon. Funksjonen kontrollerer fortsatt avdeling, overlapp og
+ * revisjonslogg, men lar kalleren eie transaksjonen og rettighetsvakten.
+ *
+ * `scoreSnapshot` legges på revisjonsraden, slik at en automatisk tildeling
+ * alltid kan forklares i ettertid.
+ */
+export async function assignVisitInTransaction(
+  tx: Prisma.TransactionClient,
+  actor: ServiceActor,
+  visitId: string,
+  userIds: string[],
+  options: { scoreSnapshot?: Prisma.InputJsonValue } = {},
+): Promise<ServiceResult<Visit>> {
+  const id = cleanId(visitId);
+  const technicianIds = cleanTechnicianIds(userIds);
+  if (!id || technicianIds.length === 0) {
+    return fail("invalid", { code: VISIT_ERROR_CODES.noChange });
+  }
 
-    const lookup = await validTechnicians(
-      tx,
-      current.workOrder.departmentId,
-      technicianIds,
-    );
-    if (lookup.failure) return lookup.failure;
+  const current = await findVisitContext(tx, actor, id);
+  if (!current) return fail("not_found");
 
-    const conflicts = await findOverlaps(tx, {
-      startsAt: current.startsAt,
-      endsAt: current.endsAt,
-      technicianIds,
-      excludeVisitId: id,
-    });
-    if (conflicts.length > 0) return overlapFailure(conflicts);
+  const blocked = visitBlocked(current);
+  if (blocked) return blocked;
 
-    const previousIds = current.technicians.map(
-      (technician) => technician.userId,
-    );
-    const visit = await tx.visit.update({
-      where: { id },
-      data: {
-        technicians: {
-          deleteMany: {},
-          create: technicianIds.map((userId) => ({ userId })),
-        },
-      },
-    });
+  const lookup = await validTechnicians(
+    tx,
+    current.workOrder.departmentId,
+    technicianIds,
+  );
+  if (lookup.failure) return lookup.failure;
 
-    await audit(tx, {
-      entityType: "Visit",
-      entityId: id,
-      action: `Tildelte montør: ${technicianNames(
-        lookup.users.map((user) => ({
-          userId: user.id,
-          user: { name: user.name },
-        })),
-      )}`,
-      actor: toAuditActor(actor),
-      metadata: {
-        workOrderId: current.workOrderId,
-        workOrderTitle: current.workOrder.title,
-        technicianIds: { from: previousIds, to: technicianIds },
-      },
-    });
-
-    return ok(visit);
+  const conflicts = await findOverlaps(tx, {
+    startsAt: current.startsAt,
+    endsAt: current.endsAt,
+    technicianIds,
+    excludeVisitId: id,
   });
+  if (conflicts.length > 0) return overlapFailure(conflicts);
+
+  const previousIds = current.technicians.map(
+    (technician) => technician.userId,
+  );
+  const visit = await tx.visit.update({
+    where: { id },
+    data: {
+      technicians: {
+        deleteMany: {},
+        create: technicianIds.map((userId) => ({ userId })),
+      },
+    },
+  });
+
+  await audit(tx, {
+    entityType: "Visit",
+    entityId: id,
+    action: `Tildelte montør: ${technicianNames(
+      lookup.users.map((user) => ({
+        userId: user.id,
+        user: { name: user.name },
+      })),
+    )}`,
+    actor: toAuditActor(actor),
+    metadata: {
+      workOrderId: current.workOrderId,
+      workOrderTitle: current.workOrder.title,
+      technicianIds: { from: previousIds, to: technicianIds },
+      ...(options.scoreSnapshot === undefined
+        ? {}
+        : { dispatch: options.scoreSnapshot }),
+    },
+  });
+
+  return ok(visit);
 }
 
 /**
@@ -1026,7 +1054,7 @@ function allDayPeriod(startsAt: Date, endsAt: Date): {
 export async function createDefaultVisit(
   tx: Prisma.TransactionClient,
   input: CreateDefaultVisitInput,
-): Promise<void> {
+): Promise<string> {
   const workOrderId = cleanId(input?.workOrderId);
   const inputStartsAt = input?.startsAt;
   const inputEndsAt = input?.endsAt;
@@ -1065,8 +1093,9 @@ export async function createDefaultVisit(
       })
     : null;
 
+  let visitId = existing?.id;
   if (!existing) {
-    await tx.visit.create({
+    const created = await tx.visit.create({
       data: {
         workOrderId,
         sequence: 0,
@@ -1078,10 +1107,14 @@ export async function createDefaultVisit(
           create: technicianIds.map((userId) => ({ userId })),
         },
       },
+      select: { id: true },
     });
+    visitId = created.id;
   }
 
   await recomputeWorkOrderSchedule(tx, workOrderId);
+  if (!visitId) throw new Error("createDefaultVisit: visitten ble ikke lagret");
+  return visitId;
 }
 
 /**

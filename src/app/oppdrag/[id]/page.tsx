@@ -46,6 +46,7 @@ import {
   visitTimeInput,
 } from "./visit-planning";
 import CustomerToast from "@/components/customer/CustomerToast";
+import SuggestTechnicianPanel from "./SuggestTechnicianPanel";
 import {
   dateOnlyInOslo,
   formatDateLocalized,
@@ -650,6 +651,17 @@ export default async function AdminWorkOrderPage({
   const canUpdateVisit = canEdit;
   const canDeleteVisit = canEdit;
   const canSetVisitStatus = canUpdate && !isClosed;
+  const suggestionVisits = (workOrder.visits ?? []).map((visit) => ({
+    id: visit.id,
+    label: `${formatDateLocalized(visit.startsAt, locale, {
+      day: "numeric",
+      month: "short",
+    })} ${
+      visit.allDay
+        ? t("orders.detail.planning.allDay")
+        : visitTimeInput(visit.startsAt)
+    }`,
+  }));
   const planningErrorKey = planningError
     ? (PLANNING_ERROR_KEYS[planningError] ?? PLANNING_ERROR_KEYS.generic)
     : "";
@@ -1399,6 +1411,13 @@ export default async function AdminWorkOrderPage({
                 <p className="mb-3 text-xs font-medium text-[#5e6356]">
                   {t("orders.detail.planning.hint")}
                 </p>
+
+                {canAssignVisit && suggestionVisits.length > 0 && (
+                  <SuggestTechnicianPanel
+                    workOrderId={workOrder.id}
+                    visits={suggestionVisits}
+                  />
+                )}
 
                 {planningErrorKey && (
                   <div

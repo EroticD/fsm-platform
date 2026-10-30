@@ -19,6 +19,8 @@ vi.mock("@/lib/prisma", () => ({
     },
     workOrder: { findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
     searchLog: { deleteMany: vi.fn() },
+    bookingHold: { deleteMany: vi.fn() },
+    bookingRequest: { updateMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
@@ -43,6 +45,8 @@ import {
   cleanupExpiredDrafts,
   cleanupExpiredSearchLogs,
   cleanupRetainedWorkOrders,
+  expireBookingHolds,
+  expireStalePendingBookings,
   DRAFT_TTL_MS,
   enqueuePdfText,
   MAX_JOB_ATTEMPTS,
@@ -65,6 +69,8 @@ const mocked = prisma as unknown as {
   };
   workOrder: { findMany: Mock; findFirst: Mock; delete: Mock };
   searchLog: { deleteMany: Mock };
+  bookingHold: { deleteMany: Mock };
+  bookingRequest: { updateMany: Mock };
   auditLog: { create: Mock };
   $transaction: Mock;
   $queryRaw: Mock;
@@ -436,5 +442,43 @@ describe("cleanupExpiredSearchLogs", () => {
       (now.getTime() - cutoff.getTime()) / (24 * 60 * 60_000),
     );
     expect(days).toBe(SEARCH_LOG_RETENTION_DAYS);
+  });
+});
+
+
+describe("bookingreservasjoner", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("sletter utløpte og gamle, konsumerte reservasjoner", async () => {
+    mocked.bookingHold.deleteMany.mockResolvedValue({ count: 3 });
+    const now = new Date("2026-11-09T12:00:00Z");
+
+    await expect(expireBookingHolds(now)).resolves.toBe(3);
+    expect(mocked.bookingHold.deleteMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { expiresAt: { lte: now } },
+          {
+            consumedAt: {
+              lt: new Date(now.getTime() - 24 * 60 * 60_000),
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("merker PENDING-forespørsler med passert dato som EXPIRED", async () => {
+    mocked.bookingRequest.updateMany.mockResolvedValue({ count: 2 });
+    const now = new Date("2026-11-09T12:00:00+01:00");
+
+    await expect(expireStalePendingBookings(now)).resolves.toBe(2);
+    expect(mocked.bookingRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        status: "PENDING",
+        requestedDate: { lt: new Date("2026-11-09T00:00:00.000Z") },
+      },
+      data: { status: "EXPIRED" },
+    });
   });
 });

@@ -4,14 +4,18 @@ import { useActionState, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   formatDateLocalized,
-  formatDateRangeLocalized,
   formatDateTimeLocalized,
 } from "@/lib/dates";
 import type { PortalBooking } from "@/server/portal";
+import AvailabilityBoard, {
+  type HeldSlot,
+  type SlotPickerSite,
+} from "@/components/portal/AvailabilityBoard";
 import Button from "@/components/ui/Button";
 import { controlClassName } from "@/components/ui/controlStyles";
 import {
   cancelBookingAction,
+  releaseHoldAction,
   rescheduleBookingAction,
   type BookingChangeState,
 } from "./booking-actions";
@@ -35,6 +39,7 @@ const STATUS_CLASSES: Record<PortalBooking["displayStatus"], string> = {
   completed: "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]",
   cancelled:
     "border-[#e7b7a4] bg-[#fae8e0] text-[#a92a12]",
+  expired: "border-[var(--line,#dedcd1)] bg-[#efede6] text-[var(--muted,#62685f)]",
 };
 
 const TIME_OPTIONS = Array.from({ length: 23 }, (_, index) => {
@@ -49,8 +54,10 @@ function EventList({ booking }: { booking: PortalBooking }) {
   const locale = useLocale();
   const labels: Record<PortalBooking["events"][number]["type"], string> = {
     CREATED: t("portal.bookingRequests.event.CREATED"),
+    CONFIRMED: t("portal.bookingRequests.event.CONFIRMED"),
     RESCHEDULED: t("portal.bookingRequests.event.RESCHEDULED"),
     CANCELLED: t("portal.bookingRequests.event.CANCELLED"),
+    EXPIRED: t("portal.bookingRequests.event.EXPIRED"),
   };
 
   return (
@@ -83,11 +90,15 @@ function BookingRequestCard({
   minDate,
   minFromTime,
   minLeadHours,
+  horizonEnd,
+  sites,
 }: {
   booking: PortalBooking;
   minDate: string;
   minFromTime: string;
   minLeadHours: number;
+  horizonEnd: string;
+  sites: SlotPickerSite[];
 }) {
   const t = useTranslations("common");
   const locale = useLocale();
@@ -97,6 +108,7 @@ function BookingRequestCard({
   const [rescheduleDate, setRescheduleDate] = useState(booking.requestedDate);
   const [rescheduleFrom, setRescheduleFrom] = useState(booking.requestedFrom);
   const [rescheduleTo, setRescheduleTo] = useState(booking.requestedTo);
+  const [rescheduleHeld, setRescheduleHeld] = useState<HeldSlot | null>(null);
 
   const [cancelState, cancelAction, cancelPending] = useActionState(
     cancelBookingAction,
@@ -109,6 +121,7 @@ function BookingRequestCard({
         setRescheduleDate(String(formData.get("requestedDate") ?? ""));
         setRescheduleFrom(String(formData.get("requestedFrom") ?? ""));
         setRescheduleTo(String(formData.get("requestedTo") ?? ""));
+        setRescheduleHeld(null);
         rescheduleFormRef.current?.reset();
         setShowReschedule(false);
       }
@@ -117,19 +130,23 @@ function BookingRequestCard({
     INITIAL_STATE,
   );
 
+  const expired = booking.displayStatus === "expired";
   const cancelled =
     booking.displayStatus === "cancelled" || cancelState.status === "success";
+  const closed = cancelled || expired;
   const isConfirmed = booking.displayStatus === "confirmed";
   const inProgress = booking.workOrder.status === "IN_PROGRESS";
-  const canCancel = booking.canCancel && !cancelled;
-  const canReschedule = booking.canReschedule && !cancelled;
+  const canCancel = booking.canCancel && !closed;
+  const canReschedule = booking.canReschedule && !closed;
   const rescheduleLeadInvalid =
+    !isConfirmed &&
     rescheduleDate !== "" &&
     (rescheduleDate < minDate ||
       (rescheduleDate === minDate && rescheduleFrom < minFromTime));
-  const rescheduleWindowInvalid = rescheduleTo <= rescheduleFrom;
-  const canSubmitReschedule =
-    !reschedulePending && !rescheduleLeadInvalid && !rescheduleWindowInvalid;
+  const rescheduleWindowInvalid = !isConfirmed && rescheduleTo <= rescheduleFrom;
+  const canSubmitReschedule = isConfirmed
+    ? !reschedulePending && rescheduleHeld !== null
+    : !reschedulePending && !rescheduleLeadInvalid && !rescheduleWindowInvalid;
   const changeError =
     cancelState.status === "error"
       ? cancelState
@@ -151,10 +168,10 @@ function BookingRequestCard({
           </p>
         </div>
         <span
-          className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_CLASSES[cancelled ? "cancelled" : booking.displayStatus]}`}
+          className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_CLASSES[expired ? "expired" : cancelled ? "cancelled" : booking.displayStatus]}`}
         >
           {t(
-            `portal.bookingRequests.status.${cancelled ? "cancelled" : booking.displayStatus}`,
+            `portal.bookingRequests.status.${expired ? "expired" : cancelled ? "cancelled" : booking.displayStatus}`,
           )}
         </span>
       </div>
@@ -166,13 +183,11 @@ function BookingRequestCard({
               {t("portal.bookingRequests.confirmedLabel")}{" "}
             </dt>
             <dd className="inline">
-              {booking.workOrder.scheduledFor
-                ? formatDateRangeLocalized(
-                    booking.workOrder.scheduledFor,
-                    booking.workOrder.scheduledTo,
-                    locale,
-                  )
-                : t("portal.bookingRequests.confirmedTimeFallback")}
+              {formatDateLocalized(booking.requestedDate, locale)}{" "}
+              {t("portal.bookingRequests.window", {
+                from: booking.requestedFrom,
+                to: booking.requestedTo,
+              })}
             </dd>
           </div>
         ) : (
@@ -187,6 +202,27 @@ function BookingRequestCard({
                 to: booking.requestedTo,
               })}
             </dd>
+          </div>
+        )}
+        {booking.serviceType && (
+          <div>
+            <dt className="inline font-bold text-[var(--ink,#101310)]">
+              {t("portal.bookingWizard.serviceLabel")}{" "}
+            </dt>
+            <dd className="inline">
+              {t(
+                `portal.bookingWizard.services.${booking.serviceType}`,
+                { fallback: booking.serviceType },
+              )}
+            </dd>
+          </div>
+        )}
+        {booking.siteName && (
+          <div>
+            <dt className="inline font-bold text-[var(--ink,#101310)]">
+              {t("portal.bookingWizard.siteLabel")}{" "}
+            </dt>
+            <dd className="inline">{booking.siteName}</dd>
           </div>
         )}
         {booking.equipmentLabel && (
@@ -253,7 +289,7 @@ function BookingRequestCard({
         </p>
       )}
 
-      {!cancelled &&
+      {!closed &&
         booking.displayStatus !== "completed" &&
         (canCancel || canReschedule) && (
           <div className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
@@ -281,7 +317,13 @@ function BookingRequestCard({
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setShowReschedule((current) => !current)}
+                    onClick={() => {
+                      if (showReschedule && rescheduleHeld) {
+                        void releaseHoldAction(rescheduleHeld.token);
+                        setRescheduleHeld(null);
+                      }
+                      setShowReschedule((current) => !current);
+                    }}
                     aria-expanded={showReschedule}
                   >
                     {t("portal.bookingRequests.rescheduleButton")}
@@ -347,7 +389,59 @@ function BookingRequestCard({
                 <p className="text-sm font-bold text-[var(--ink,#101310)]">
                   {t("portal.bookingRequests.rescheduleTitle")}
                 </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {isConfirmed ? (
+                  <div className="space-y-3">
+                    <AvailabilityBoard
+                      sites={sites}
+                      minDate={minDate}
+                      horizonEnd={horizonEnd}
+                      siteId=""
+                      onSelect={setRescheduleHeld}
+                      onClear={() => setRescheduleHeld(null)}
+                    />
+                    {rescheduleHeld && (
+                      <p
+                        role="status"
+                        className="rounded-lg border border-[#c7d98e] bg-[#f3fbd1] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]"
+                      >
+                        {t("portal.bookingWizard.selectedSlot", {
+                          technician:
+                            rescheduleHeld.technicianName ||
+                            t("portal.availability.unknownName"),
+                          date: formatDateLocalized(rescheduleHeld.date, locale),
+                          from: rescheduleHeld.from,
+                          to: rescheduleHeld.to,
+                        })}
+                      </p>
+                    )}
+                    <input
+                      type="hidden"
+                      name="requestedDate"
+                      value={rescheduleHeld?.date ?? ""}
+                    />
+                    <input
+                      type="hidden"
+                      name="requestedFrom"
+                      value={rescheduleHeld?.from ?? ""}
+                    />
+                    <input
+                      type="hidden"
+                      name="requestedTo"
+                      value={rescheduleHeld?.to ?? ""}
+                    />
+                    <input
+                      type="hidden"
+                      name="technicianId"
+                      value={rescheduleHeld?.technicianId ?? ""}
+                    />
+                    <input
+                      type="hidden"
+                      name="holdToken"
+                      value={rescheduleHeld?.token ?? ""}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
                     <label
                       htmlFor={`reschedule-date-${booking.id}`}
@@ -411,6 +505,7 @@ function BookingRequestCard({
                     </select>
                   </div>
                 </div>
+                )}
                 {rescheduleLeadInvalid && (
                   <p
                     role="alert"
@@ -452,12 +547,16 @@ export default function BookingRequests({
   minDate,
   minFromTime,
   minLeadHours,
+  horizonEnd,
+  sites,
   summary,
 }: {
   bookings: PortalBooking[];
   minDate: string;
   minFromTime: string;
   minLeadHours: number;
+  horizonEnd: string;
+  sites: SlotPickerSite[];
   summary?: string;
 }) {
   const t = useTranslations("common");
@@ -488,6 +587,8 @@ export default function BookingRequests({
               minDate={minDate}
               minFromTime={minFromTime}
               minLeadHours={minLeadHours}
+              horizonEnd={horizonEnd}
+              sites={sites}
             />
           ))}
         </div>

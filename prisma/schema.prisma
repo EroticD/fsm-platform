@@ -32,16 +32,19 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users            User[]
-  workOrders       WorkOrder[]
-  contracts        Contract[]
-  customers        Customer[]
-  slaPolicies      SlaPolicy[]
-  businessHours    BusinessHours[]
-  holidays         Holiday[]
-  maintenancePlans MaintenancePlan[]
-  messageThreads   MessageThread[]
-  smsMessages      SmsMessage[]
+  users              User[]
+  workOrders         WorkOrder[]
+  contracts          Contract[]
+  customers          Customer[]
+  slaPolicies        SlaPolicy[]
+  businessHours      BusinessHours[]
+  holidays           Holiday[]
+  maintenancePlans   MaintenancePlan[]
+  territories        Territory[]
+  capacityPlans      CapacityPlan[]
+  assignmentPolicies AssignmentPolicy[]
+  messageThreads     MessageThread[]
+  smsMessages        SmsMessage[]
 
   @@index([isActive])
 }
@@ -144,9 +147,13 @@ model User {
   skills           UserSkill[]
   availability     UserAvailability[]
   absences         Absence[]
+  bookingHolds     BookingHold[]      @relation("BookingHoldTechnician")
 
   // Målinger registrert av brukeren.
   meterReadings MeterReading[]
+
+  // Kapasitetsplaner der brukeren er satt opp med en egen kapasitet.
+  capacityPlans CapacityPlan[]
 
   // Posisjonsping under pågående visitt. Slettes etter 24 timer.
   visitLocationPings VisitLocationPing[]
@@ -227,6 +234,8 @@ model Customer {
   contracts        Contract[]
   workOrder        WorkOrder[]
   bookingRequests  BookingRequest[]
+  sites            CustomerSite[]
+  bookingHolds     BookingHold[]
   contacts         Contact[]
   comments         Comment[]
   attachments      CustomerAttachment[]
@@ -246,13 +255,38 @@ model Customer {
   @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_city_trgm")
 }
 
-model Contact {
-  id    String  @id @default(cuid())
-  name  String
-  email String?
-  phone String?
-  role  String?
+/// Kundens fysiske adresse eller anlegg som en bestilling gjelder. Kunden kan
+/// ha flere steder, men kundeportalen bruker bare det primære stedet som
+/// standardvalg. Adressen lagres som et snapshot på bestillingen.
+model CustomerSite {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name       String
+  address    String?
+  postalCode String?
+  city       String?
+  latitude   Float?
+  longitude  Float?
+  isPrimary  Boolean  @default(false)
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  bookingRequests BookingRequest[]
+  bookingHolds    BookingHold[]
+
+  @@unique([customerId, name])
+  @@index([customerId])
+  @@index([customerId, isPrimary])
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  role       String?
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
@@ -677,13 +711,17 @@ enum WorkStatus {
 /// oppdrag, og beholder ønsket tid, utstyr og kontaktperson som et snapshot.
 enum BookingRequestStatus {
   PENDING
+  CONFIRMED
   CANCELLED
+  EXPIRED
 }
 
 enum BookingEventType {
   CREATED
+  CONFIRMED
   RESCHEDULED
   CANCELLED
+  EXPIRED
 }
 
 /// Status for en planlagt visitt. Flyten er PLANNED → ASSIGNED → EN_ROUTE →
@@ -812,6 +850,8 @@ model Visit {
 
   technicians   VisitTechnician[]
   meterReadings MeterReading[]
+
+  bookingRequest BookingRequest? @relation("BookingVisit")
 
   trackingLinks TrackingLink[]
   locationPings VisitLocationPing[]
@@ -959,6 +999,74 @@ model Absence {
   @@index([userId, startsAt, endsAt])
 }
 
+/// Geografisk ansvarsområde for en avdeling. Postnummerprefikser og
+/// kommunekoder brukes til å foreslå riktig montør; radius er et supplement
+/// når adressen bare har koordinater.
+model Territory {
+  id           String @id @default(cuid())
+  name         String
+  departmentId String
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  /// Postnummerprefikser, f.eks. «01», «02». Tom liste betyr ingen begrensning.
+  postalPrefixes    String[] @default([])
+  /// Kommunekoder (SSB), f.eks. «0301». Tom liste betyr ingen begrensning.
+  municipalityCodes String[] @default([])
+  radiusKm          Int?
+  centerLat         Float?
+  centerLng         Float?
+  isActive          Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, name])
+  @@index([departmentId, isActive])
+}
+
+/// Planlagt kapasitet for en avdeling på en dato. Uten `technicianId` gjelder
+/// raden hele avdelingen; med en montør overstyrer den avdelingskapasiteten.
+/// En delvis unik indeks i migreringen hindrer to avdelingsrader for samme dag,
+/// fordi PostgreSQL ellers tillater flere NULL-verdier i en vanlig unik nøkkel.
+model CapacityPlan {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  date         DateTime @db.Date
+  technicianId String?
+  technician   User?    @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  /// Tilgjengelige minutter denne dagen. 0 er en bevisst stengt dag.
+  capacityMinutes Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, date, technicianId])
+  @@index([departmentId, date])
+  @@index([technicianId, date])
+}
+
+/// Rekkefølgen og vektene dispatch-motoren bruker når den rangerer montører.
+/// `mode` er SKILLS | DISTANCE | EARLIEST | CUSTOM; `weights` er et JSON-objekt
+/// med tall for skills, distance, travel, free, sla og load.
+model AssignmentPolicy {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  mode     String  @default("SKILLS")
+  weights  Json    @default("{}")
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([departmentId, isActive])
+}
+
 /// Kundens bestillingsforespørsel. Oppdraget er den operative saken; denne
 /// raden bevarer det kunden faktisk ba om, slik at ønsket tid og historikk
 /// ikke endres når kontoret planlegger.
@@ -977,6 +1085,20 @@ model BookingRequest {
   requestedFrom String
   requestedTo   String
 
+  /// Tjenestetypen kunden valgte i den nye slotvelgeren. Eldre bestillinger
+  /// (og kontorets manuelle forespørsler) kan mangle denne.
+  serviceType String?
+
+  /// Stedet bestillingen gjelder. Adressen kopieres også til oppdraget, slik
+  /// at senere endringer i kundens stedsregister ikke flytter historikken.
+  siteId String?
+  site   CustomerSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  /// Visitten som ble opprettet da bestillingen ble bekreftet. Én bestilling
+  /// peker på nøyaktig én visitt; eldre forespørsler kan mangle den.
+  visitId String? @unique
+  visit   Visit?  @relation("BookingVisit", fields: [visitId], references: [id], onDelete: SetNull)
+
   /// Utstyr og tekniker er snapshots fra bestillingstidspunktet. Id-ene er
   /// validert mot kundens egne enheter og avdelingens aktive ansatte.
   equipmentId             String?
@@ -989,12 +1111,15 @@ model BookingRequest {
 
   status      BookingRequestStatus @default(PENDING)
   cancelledAt DateTime?
+  confirmedAt DateTime?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
   events BookingRequestEvent[]
 
   @@index([customerId, createdAt])
+  @@index([status, createdAt])
+  @@index([siteId])
 }
 
 /// Synlig endringshistorikk for en bestilling. Hver rad er et uforanderlig
@@ -1016,6 +1141,36 @@ model BookingRequestEvent {
   createdAt DateTime @default(now())
 
   @@index([bookingRequestId, createdAt])
+}
+
+/// Kortvarig reservasjon av en ledig time mens kunden fyller ut skjemaet.
+/// Raden blokkerer timen i tilgjengelighetsberegningen til den utløper eller
+/// konsumeres av en bekreftet bestilling. Utløpte rader ryddes av jobbworkeren.
+model BookingHold {
+  id    String @id @default(cuid())
+  /// Uforutsigbart engangstoken som klienten sender tilbake ved bekreftelse.
+  token String @unique
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  siteId String?
+  site   CustomerSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  technicianId String?
+  technician   User?   @relation("BookingHoldTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([customerId, expiresAt])
+  @@index([technicianId, startsAt, endsAt])
+  @@index([siteId])
 }
 
 model Tag {

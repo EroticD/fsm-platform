@@ -16,6 +16,7 @@ import {
   todayInOslo,
 } from "@/lib/dates";
 import { effectiveAddress } from "@/lib/geocode";
+import { haversineKm } from "@/lib/geo";
 import { scheduledTodayWhere } from "@/lib/work-order-date-where";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -185,19 +186,6 @@ function sortByVisitStart<T extends TimeLabelSource & { id?: string }>(
 }
 
 type RoutePoint = { latitude: number; longitude: number };
-
-function haversineKm(a: RoutePoint, b: RoutePoint): number {
-  const earthRadiusKm = 6371;
-  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-  const deltaLat = toRadians(b.latitude - a.latitude);
-  const deltaLng = toRadians(b.longitude - a.longitude);
-  const h =
-    Math.sin(deltaLat / 2) ** 2 +
-    Math.cos(toRadians(a.latitude)) *
-      Math.cos(toRadians(b.latitude)) *
-      Math.sin(deltaLng / 2) ** 2;
-  return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h)));
-}
 
 /**
  * Kjørerute mellom dagens geokodede oppdrag, i planlagt rekkefølge. Mangler

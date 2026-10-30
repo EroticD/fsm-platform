@@ -37,6 +37,14 @@ import p4Nb from "../../messages/fragments/p4.nb.json";
 import p4En from "../../messages/fragments/p4.en.json";
 import p4Pl from "../../messages/fragments/p4.pl.json";
 import p4De from "../../messages/fragments/p4.de.json";
+import dispatchNb from "../../messages/fragments/dispatch.nb.json";
+import dispatchEn from "../../messages/fragments/dispatch.en.json";
+import dispatchPl from "../../messages/fragments/dispatch.pl.json";
+import dispatchDe from "../../messages/fragments/dispatch.de.json";
+import bookingNb from "../../messages/fragments/booking.nb.json";
+import bookingEn from "../../messages/fragments/booking.en.json";
+import bookingPl from "../../messages/fragments/booking.pl.json";
+import bookingDe from "../../messages/fragments/booking.de.json";
 import trackingNb from "../../messages/fragments/tracking.nb.json";
 import trackingEn from "../../messages/fragments/tracking.en.json";
 import trackingPl from "../../messages/fragments/tracking.pl.json";
@@ -89,6 +97,8 @@ const nbFragments = mergeAll([
   searchAdminNb,
   visitsNb,
   p4Nb,
+  dispatchNb,
+  bookingNb,
   trackingNb,
   smsNb,
 ]);
@@ -110,6 +120,8 @@ const enFragments = mergeAll([
   searchAdminEn,
   visitsEn,
   p4En,
+  dispatchEn,
+  bookingEn,
   trackingEn,
   smsEn,
 ]);
@@ -119,8 +131,8 @@ const enFragments = mergeAll([
  * `messages/fragments/` flettes inn her, slik at flere arbeidsstrømmer kan
  * oversette hver sin del uten å redigere samme JSON-fil.
  */
-const plFragments = mergeAll([p4Pl, trackingPl, smsPl]);
-const deFragments = mergeAll([p4De, trackingDe, smsDe]);
+const plFragments = mergeAll([p4Pl, dispatchPl, bookingPl, trackingPl, smsPl]);
+const deFragments = mergeAll([p4De, dispatchDe, bookingDe, trackingDe, smsDe]);
 
 export const messages = {
   nb: { common: merge(commonNb.common, nbFragments) },

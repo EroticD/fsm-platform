@@ -305,9 +305,11 @@ export async function sendThreadMessage(
   body: unknown,
   options: { templateKey?: string | null; db?: SmsDb } = {},
 ) {
+  const isOwnCustomer = actor?.role === "CUSTOMER" && Boolean(actor.customerId);
   if (
     !actor?.isActive ||
-    (!can(actor, "workorders.update") &&
+    (!isOwnCustomer &&
+      !can(actor, "workorders.update") &&
       !can(actor, "workorders.edit") &&
       !can(actor, "customers.manage"))
   ) {

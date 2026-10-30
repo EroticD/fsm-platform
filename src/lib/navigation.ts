@@ -96,6 +96,13 @@ export const STAFF_NAV: NavItem[] = [
     section: "primary",
   },
   {
+    href: "/bookinger",
+    labelKey: "bookings",
+    icon: "clipboard",
+    requires: "workorders.view",
+    section: "menu",
+  },
+  {
     href: "/avtaler",
     labelKey: "contracts",
     icon: "file",
@@ -175,6 +182,7 @@ export const STAFF_NAV: NavItem[] = [
       "reports.view",
       "documents.manage",
       "audit.view",
+      "dispatch.configure",
     ],
     section: "settings",
   },

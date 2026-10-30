@@ -16,6 +16,7 @@ type SettingsTabsProps = {
   canStats: boolean;
   canSla: boolean;
   canSms: boolean;
+  canDispatch: boolean;
   isAdmin: boolean;
 };
 
@@ -58,6 +59,7 @@ export default function SettingsTabs({
   canStats,
   canSla,
   canSms,
+  canDispatch,
   isAdmin,
 }: SettingsTabsProps) {
   const t = useTranslations("common");
@@ -208,6 +210,17 @@ export default function SettingsTabs({
           >
             <Icon name="mail" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.sms")}
+          </Link>
+        )}
+        {canDispatch && (
+          <Link
+            href="?tab=dispatch"
+            ref={currentTab === "dispatch" ? activeRef : undefined}
+            className={linkClass(currentTab === "dispatch")}
+            aria-current={currentTab === "dispatch" ? "page" : undefined}
+          >
+            <Icon name="route" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.dispatch")}
           </Link>
         )}
         {isAdmin && (

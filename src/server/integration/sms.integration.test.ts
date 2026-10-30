@@ -35,6 +35,7 @@ describeIntegration("SMS: webhook, samtykke og kø", () => {
   let contactId = "";
   let contactPhone = "";
   let workOrderId = "";
+  let portalUserId = "";
   const phoneSuffix = `9${String(Date.now()).slice(-7)}`;
 
   beforeAll(async () => {
@@ -87,6 +88,18 @@ describeIntegration("SMS: webhook, samtykke og kø", () => {
     });
     workOrderId = workOrder.id;
 
+    const portalUser = await prisma.user.create({
+      data: {
+        name: "SMS Kunde",
+        email: `${unique("sms-kunde")}@example.test`,
+        role: "CUSTOMER",
+        isActive: true,
+        customerId,
+        contactId,
+      },
+    });
+    portalUserId = portalUser.id;
+
     actor.departmentId = departmentId;
   });
 
@@ -102,6 +115,7 @@ describeIntegration("SMS: webhook, samtykke og kø", () => {
     await prisma.workOrder.deleteMany({ where: { id: workOrderId } });
     await prisma.contact.deleteMany({ where: { id: contactId } });
     await prisma.user.deleteMany({ where: { id: actor.id } });
+    await prisma.user.deleteMany({ where: { id: portalUserId } });
     await prisma.customer.deleteMany({ where: { id: customerId } });
     await prisma.department.deleteMany({ where: { id: departmentId } });
   });
@@ -234,6 +248,46 @@ describeIntegration("SMS: webhook, samtykke og kø", () => {
   it("kan sende bookingbekreftelsen med 5A-transaksjonen", async () => {
     const result = await prisma.$transaction((tx) =>
       sendBookingConfirmedSms(actor, workOrderId, {}, tx),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const stored = await prisma.smsMessage.findFirst({
+      where: {
+        threadId: result.data.threadId,
+        templateKey: "BOOKING_CONFIRMED",
+      },
+      orderBy: { createdAt: "desc" },
+      select: { status: true },
+    });
+    expect(stored?.status).toBe("QUEUED");
+
+    await prisma.smsMessage.deleteMany({
+      where: {
+        threadId: result.data.threadId,
+        templateKey: "BOOKING_CONFIRMED",
+      },
+    });
+  });
+
+  it("lar kunden bekrefte egen booking med samme transaksjon", async () => {
+    const customerActor: ServiceActor = {
+      id: portalUserId,
+      name: "SMS Kunde",
+      email: null,
+      role: "CUSTOMER",
+      isActive: true,
+      departmentId: null,
+      customerId,
+      contactId,
+      permissions: [],
+      permissionsCustomized: false,
+      roleDefinition: null,
+    };
+
+    const result = await prisma.$transaction((tx) =>
+      sendBookingConfirmedSms(customerActor, workOrderId, {}, tx),
     );
 
     expect(result.ok).toBe(true);

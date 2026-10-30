@@ -29,6 +29,7 @@ const MENU_ID = "app-navigation";
 const OFFICE_ROUTES = [
   "/",
   "/oppdrag",
+  "/bookinger",
   "/kunder",
   "/dokumenter",
   "/rapporter",
@@ -37,7 +38,10 @@ const OFFICE_ROUTES = [
   "/innstillinger",
   "/kart",
   "/kalender",
+  "/kalender/dispatch",
+  "/kalender/kapasitet",
   "/kalender/maned",
+  "/innstillinger?tab=dispatch",
   "/hms",
   "/brukere",
 ];
