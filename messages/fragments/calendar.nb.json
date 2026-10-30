@@ -56,6 +56,19 @@
       "recentlyCompleted": "Nylig fullført ({count})",
       "completed": "Fullført"
     },
+    "dnd": {
+      "resourceHint": "Dra kort mellom montører for å tildele",
+      "dropLabel": "Slipp for å tildele",
+      "dropZoneLabel": "Tildel et oppdrag til {name}",
+      "dragWorkOrder": "Dra «{title}» for å tildele montør",
+      "instructions": "Dra et oppdragskort til en montør for å tildele. Åpne oppdraget eller bruk dispatch for å tildele uten mus.",
+      "errorNoAccess": "Du har ikke tilgang til å tildele dette oppdraget.",
+      "errorInvalidData": "Tildelingen er ugyldig. Prøv igjen.",
+      "errorNotFound": "Oppdraget finnes ikke lenger. Oppdater siden.",
+      "errorLocked": "Oppdraget er fullført eller kansellert og kan ikke tildeles.",
+      "errorLegalHold": "Oppdraget har bevaringsplikt og kan ikke endres.",
+      "errorUnknown": "Kunne ikke tildele oppdraget. Prøv igjen."
+    },
     "month": {
       "subtitle": "Månedsvisning med ukenumre. Dra oppdrag for å endre dato."
     },

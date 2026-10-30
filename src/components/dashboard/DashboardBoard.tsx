@@ -1,12 +1,31 @@
 import Link from "next/link";
 import Icon from "@/components/icons";
-import { formatDateRangeLocalized } from "@/lib/dates";
+import DraggableWorkOrder from "@/components/dnd/DraggableWorkOrder";
+import { formatDateLocalized, toDateOnly } from "@/lib/dates";
 import type {
   BoardColumn,
   BoardColumnKey,
   DashboardOrder,
 } from "./helpers";
 import StatusPill, { statusLabel } from "./StatusPill";
+
+
+function boardDateLabel(order: DashboardOrder, locale: string): string {
+  if (!order.scheduledFor) return "";
+  const start = formatDateLocalized(order.scheduledFor, locale, {
+    day: "2-digit",
+    month: "short",
+  });
+  if (!order.scheduledTo) return start;
+  if (toDateOnly(order.scheduledTo) <= toDateOnly(order.scheduledFor)) {
+    return start;
+  }
+  const end = formatDateLocalized(order.scheduledTo, locale, {
+    day: "2-digit",
+    month: "short",
+  });
+  return `${start} – ${end}`;
+}
 
 const COLUMN_META: Record<
   BoardColumnKey,
@@ -98,54 +117,75 @@ export default function DashboardBoard({
                       .join(", ");
 
                     return (
-                      <Link
+                      <DraggableWorkOrder
                         key={order.id}
-                        href={`/oppdrag/${order.id}`}
-                        className={`group block rounded-xl border border-[var(--line,#dedcd1)] p-3 transition ${meta.cardClass}`}
+                        workOrderId={order.id}
+                        fromTechnicianId={
+                          order.technicians.length === 1
+                            ? order.technicians[0]?.id
+                            : undefined
+                        }
+                        label={t("dashboard.board.dragWorkOrder", {
+                          title: order.title,
+                        })}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <span
-                            className={`text-[11px] font-black tabular-nums ${
-                              column.key === "overdue"
-                                ? "text-[var(--risk-text,#b42318)]"
-                                : "text-[var(--muted,#62685f)]"
-                            }`}
-                          >
-                            {formatDateRangeLocalized(
-                              order.scheduledFor,
-                              order.scheduledTo,
-                              locale,
-                            ) || t("dashboard.orderList.noDate")}
-                          </span>
-                          <StatusPill
-                            status={order.status}
-                            label={statusLabel(t, order.status)}
-                          />
-                        </div>
-                        <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-[var(--ink,#101310)]">
-                          {order.title}
-                        </p>
-                        <p className="mt-1 truncate text-xs font-medium text-[var(--muted,#62685f)]">
-                          {order.customer?.name ||
-                            t("dashboard.orderList.noCustomer")}
-                        </p>
-                        <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-                          <span
-                            className={`truncate font-bold ${
-                              technicianNames
-                                ? "text-[var(--ink,#101310)]"
-                                : "text-[var(--risk-text,#b42318)]"
-                            }`}
-                          >
-                            {technicianNames ||
-                              t("dashboard.orderList.unassigned")}
-                          </span>
-                          <Icon
-                            name="chevronRight"
-                            className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)] transition group-hover:translate-x-0.5 group-hover:text-[var(--ink,#101310)]"
-                          />
-                        </div>
-                      </Link>
+                        <Link
+                          href={`/oppdrag/${order.id}`}
+                          draggable={false}
+                          className={`group block rounded-xl border border-[var(--line,#dedcd1)] p-3 transition ${meta.cardClass}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span
+                              className={`text-[11px] font-black tabular-nums ${
+                                column.key === "overdue"
+                                  ? "text-[var(--risk-text,#b42318)]"
+                                  : "text-[var(--muted,#62685f)]"
+                              }`}
+                            >
+                              {boardDateLabel(order, locale) ||
+                                t("dashboard.orderList.noDate")}
+                            </span>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <span
+                                aria-hidden="true"
+                                className="cursor-grab text-[var(--muted,#62685f)] active:cursor-grabbing"
+                              >
+                                <Icon
+                                  name="dots"
+                                  className="h-4 w-4 rotate-90"
+                                />
+                              </span>
+                              <StatusPill
+                                status={order.status}
+                                label={statusLabel(t, order.status)}
+                              />
+                            </div>
+                          </div>
+                          <p className="mt-1.5 line-clamp-2 text-sm font-black leading-5 text-[var(--ink,#101310)]">
+                            {order.title}
+                          </p>
+                          <p className="mt-1 truncate text-xs font-medium text-[var(--muted,#62685f)]">
+                            {order.customer?.name ||
+                              t("dashboard.orderList.noCustomer")}
+                          </p>
+                          <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+                            <span
+                              className={`truncate font-bold ${
+                                technicianNames
+                                  ? "text-[var(--ink,#101310)]"
+                                  : "text-[var(--risk-text,#b42318)]"
+                              }`}
+                            >
+                              {technicianNames ||
+                                t("dashboard.orderList.unassigned")}
+                            </span>
+                            <Icon
+                              name="chevronRight"
+                              className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)] transition group-hover:translate-x-0.5 group-hover:text-[var(--ink,#101310)]"
+                            />
+                          </div>
+                        </Link>
+                      </DraggableWorkOrder>
                     );
                   })
                 )}

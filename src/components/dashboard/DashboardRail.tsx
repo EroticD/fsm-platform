@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Icon from "@/components/icons";
+import TechnicianDropZone from "@/components/dnd/TechnicianDropZone";
 import { formatDateRangeLocalized } from "@/lib/dates";
 import type { DashboardOrder } from "./helpers";
 
@@ -277,6 +278,18 @@ export default function DashboardRail({
                 total: team.length,
               })}
             </p>
+            {canAssign ? (
+              <p
+                id="dashboard-team-dnd-hint"
+                className="mt-1 flex items-start gap-1 text-[11px] font-bold leading-snug text-[var(--muted,#62685f)]"
+              >
+                <Icon
+                  name="dots"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 rotate-90"
+                />
+                {t("dashboard.team.dragHint")}
+              </p>
+            ) : null}
           </div>
           <CoverageRing
             percent={coverage}
@@ -291,39 +304,61 @@ export default function DashboardRail({
         ) : (
           <ul className="divide-y divide-[var(--line,#dedcd1)]">
             {team.map((member) => (
-              <li
+              <TechnicianDropZone
                 key={member.id}
-                className="flex items-center gap-2.5 px-4 py-2"
+                as="li"
+                technicianId={member.id}
+                enabled={canAssign}
+                label={t("dashboard.team.dropZoneLabel", {
+                  name: member.name || t("dashboard.unknownUser"),
+                })}
+                describedBy={
+                  canAssign ? "dashboard-team-dnd-hint" : undefined
+                }
+                dropLabel={t("dashboard.team.dropLabel")}
+                errorMessages={{
+                  "ikke-tilgang": t("dashboard.dnd.errorNoAccess"),
+                  "ugyldig-data": t("dashboard.dnd.errorInvalidData"),
+                  "ikke-funnet": t("dashboard.dnd.errorNotFound"),
+                  "workorder-locked": t("dashboard.dnd.errorLocked"),
+                  "legal-hold": t("dashboard.dnd.errorLegalHold"),
+                  ukjent: t("dashboard.dnd.errorUnknown"),
+                }}
+                className={`px-4 py-2 ${
+                  canAssign ? "hover:bg-[var(--paper,#f2efe6)]" : ""
+                }`}
               >
-                <span
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ink,#101310)] text-[11px] font-black uppercase text-[var(--signal,#d8ff3e)]"
-                  aria-hidden
-                >
-                  {initials(member.name)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
-                      {member.name || t("dashboard.unknownUser")}
-                    </span>
-                    <span className="shrink-0 text-[11px] font-bold tabular-nums text-[var(--muted,#62685f)]">
-                      {t("dashboard.team.load", { count: member.count })}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e7e3d7]">
-                    <div
-                      className={`h-full rounded-full ${
-                        member.count === 0
-                          ? "bg-transparent"
-                          : "bg-[var(--signal,#d8ff3e)]"
-                      }`}
-                      style={{
-                        width: `${member.count === 0 ? 0 : Math.max(12, Math.round((member.count / teamMax) * 100))}%`,
-                      }}
-                    />
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ink,#101310)] text-[11px] font-black uppercase text-[var(--signal,#d8ff3e)]"
+                    aria-hidden
+                  >
+                    {initials(member.name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
+                        {member.name || t("dashboard.unknownUser")}
+                      </span>
+                      <span className="shrink-0 text-[11px] font-bold tabular-nums text-[var(--muted,#62685f)]">
+                        {t("dashboard.team.load", { count: member.count })}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e7e3d7]">
+                      <div
+                        className={`h-full rounded-full ${
+                          member.count === 0
+                            ? "bg-transparent"
+                            : "bg-[var(--signal,#d8ff3e)]"
+                        }`}
+                        style={{
+                          width: `${member.count === 0 ? 0 : Math.max(12, Math.round((member.count / teamMax) * 100))}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </li>
+              </TechnicianDropZone>
             ))}
           </ul>
         )}

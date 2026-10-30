@@ -56,6 +56,19 @@
       "recentlyCompleted": "Recently completed ({count})",
       "completed": "Completed"
     },
+    "dnd": {
+      "resourceHint": "Drag cards between technicians to assign",
+      "dropLabel": "Drop to assign",
+      "dropZoneLabel": "Assign a work order to {name}",
+      "dragWorkOrder": "Drag «{title}» to assign a technician",
+      "instructions": "Drag a work order card to a technician to assign it. Open the work order or use dispatch to assign without a mouse.",
+      "errorNoAccess": "You do not have permission to assign this work order.",
+      "errorInvalidData": "The assignment is invalid. Try again.",
+      "errorNotFound": "The work order no longer exists. Refresh the page.",
+      "errorLocked": "The work order is completed or cancelled and cannot be assigned.",
+      "errorLegalHold": "The work order has a legal hold and cannot be changed.",
+      "errorUnknown": "Could not assign the work order. Try again."
+    },
     "month": {
       "subtitle": "Month view with week numbers. Drag work orders to change the date."
     },
