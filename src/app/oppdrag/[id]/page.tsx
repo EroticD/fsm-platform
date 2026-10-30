@@ -1571,7 +1571,7 @@ export default async function AdminWorkOrderPage({
                                           <label className="text-xs font-bold text-[#3d4237]">
                                             {t("orders.detail.planning.startTime")}
                                             <input
-                                              type="time"
+                                              type="time" lang="en-GB"
                                               name="startTime"
                                               required
                                               defaultValue={startTime}
@@ -1581,7 +1581,7 @@ export default async function AdminWorkOrderPage({
                                           <label className="text-xs font-bold text-[#3d4237]">
                                             {t("orders.detail.planning.endTime")}
                                             <input
-                                              type="time"
+                                              type="time" lang="en-GB"
                                               name="endTime"
                                               required
                                               defaultValue={endTime}
@@ -1841,7 +1841,7 @@ export default async function AdminWorkOrderPage({
                         <label className="text-xs font-bold text-[#3d4237]">
                           {t("orders.detail.planning.startTime")}
                           <input
-                            type="time"
+                            type="time" lang="en-GB"
                             name="startTime"
                             className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
                           />
@@ -1849,7 +1849,7 @@ export default async function AdminWorkOrderPage({
                         <label className="text-xs font-bold text-[#3d4237]">
                           {t("orders.detail.planning.endTime")}
                           <input
-                            type="time"
+                            type="time" lang="en-GB"
                             name="endTime"
                             className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
                           />

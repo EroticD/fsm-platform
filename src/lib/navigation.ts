@@ -38,6 +38,10 @@ const AUTH_ROUTES = [
   "/glemt-passord",
   "/tilbakestill-passord",
   "/aktiver-konto",
+  // Offentlige token-sider: kunden skal ikke se appmenyen eller kunne navigere
+  // inn i saksbehandlingen fra en sporings- eller omtalelenke.
+  "/sporing",
+  "/anmeldelse",
 ];
 
 export function isAuthPath(pathname: string): boolean {

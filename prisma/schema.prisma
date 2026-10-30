@@ -18,6 +18,10 @@ model Department {
   /// Standardavdeling for kundebestillinger og nye oppdrag uten valgt avdeling.
   isDefault   Boolean @default(false)
 
+  /// Live sporing av montør er av som standard. Avdelingen må eksplisitt slå
+  /// dette på; se docs/DECISIONS.md (GDPR, D-5).
+  trackingEnabled Boolean @default(false)
+
   // Kontaktinfo for avdelingen/lokasjonen. Vises i kundeportalen.
   phone      String?
   email      String?
@@ -134,6 +138,9 @@ model User {
 
   // Målinger registrert av brukeren.
   meterReadings MeterReading[]
+
+  // Posisjonsping under pågående visitt. Slettes etter 24 timer.
+  visitLocationPings VisitLocationPing[]
 
   @@index([departmentId])
   @@index([role])
@@ -770,6 +777,8 @@ model WorkOrder {
   visits            Visit[]
   skillRequirements WorkOrderSkill[]
   slaClocks         SlaClock[]
+  trackingLinks     TrackingLink[]
+  reviews           Review[]
 
   /// Forekomst av en vedlikeholdsplan som genererte dette oppdraget.
   maintenanceOccurrence MaintenancePlanOccurrence?
@@ -807,11 +816,21 @@ model Visit {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @default(now()) @updatedAt
 
-  technicians VisitTechnician[]
+  /// Eksplisitte statustidspunkt. De settes atomisk sammen med statusen i
+  /// `setVisitStatus`, slik at rapportering og ETA ikke må utlede tid fra
+  /// `updatedAt` (som også endres av notater og flytting).
+  enRouteAt DateTime? @db.Timestamptz(3)
+  onSiteAt  DateTime? @db.Timestamptz(3)
+  doneAt    DateTime? @db.Timestamptz(3)
 
+  technicians   VisitTechnician[]
   meterReadings MeterReading[]
 
   bookingRequest BookingRequest? @relation("BookingVisit")
+
+  trackingLinks TrackingLink[]
+  locationPings VisitLocationPing[]
+  reviews       Review[]
 
   @@index([workOrderId, startsAt])
   @@index([startsAt, endsAt])
@@ -826,6 +845,68 @@ model VisitTechnician {
 
   @@id([visitId, userId])
   @@index([userId])
+}
+
+/// Offentlig sporingslenke for én visitt. Bare SHA-256-hashen av det
+/// 32-byte tilfeldige tokenet lagres; klarteksten vises én gang ved oppretting.
+/// Lenken er gyldig til `expiresAt` (visittens slutt + 2 timer) og kan
+/// tilbakekalles umiddelbart.
+model TrackingLink {
+  id        String @id @default(cuid())
+  tokenHash String @unique
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  visitId String
+  visit   Visit  @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime? @db.Timestamptz(3)
+
+  @@index([visitId, revokedAt])
+  @@index([workOrderId])
+  @@index([expiresAt])
+}
+
+/// Posisjonsping fra montørens enhet mens visitten er EN_ROUTE. Radene er
+/// korte leveår: en sveipende jobb sletter alt eldre enn 24 timer, og ingen
+/// historikk eksponeres offentlig. Koordinatene brukes bare til å beregne ETA.
+model VisitLocationPing {
+  id         String   @id @default(cuid())
+  visitId    String
+  visit      Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude   Float
+  longitude  Float
+  recordedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([visitId, recordedAt])
+  @@index([recordedAt])
+  @@index([userId])
+}
+
+/// Kundeomtale etter fullført visitt. Én rad per visitt (`visitId` unik), slik
+/// at gjentatte forespørsler er idempotente. Tokenet lagres bare som hash, og
+/// innsending er atomisk begrenset til én gang (`submittedAt`).
+model Review {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  visitId     String?   @unique
+  visit       Visit?    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  score       Int?
+  comment     String?
+  requestedAt DateTime? @db.Timestamptz(3)
+  submittedAt DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now())
+
+  @@index([workOrderId, submittedAt])
+  @@index([submittedAt, score])
 }
 
 /// Kompetanse som kan kreves av et oppdrag og tildeles en montør.

@@ -339,7 +339,7 @@ export function formatDateTimeLocalized(
   return formatDateLocalized(
     value,
     locale,
-    { dateStyle: "medium", timeStyle: "short" },
+    { dateStyle: "medium", timeStyle: "short", hourCycle: "h23" },
     fallback,
   );
 }

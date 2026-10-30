@@ -17,6 +17,10 @@ const CUSTOMER_ALLOWED_PREFIXES = [
   "/glemt-passord",
   "/tilbakestill-passord",
   "/aktiver-konto",
+  // Offentlige token-sider. De krever ingen innlogging, men en innlogget
+  // kundeportalbruker må ikke sendes bort fra lenken kunden fikk tilsendt.
+  "/sporing",
+  "/anmeldelse",
 ];
 
 // Rapportviseren per oppdrag: /rapporter/<oppdragsId>. Innholdet krever at
@@ -71,6 +75,15 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("x-request-id", requestId);
+
+  // Token-sider skal aldri ligge i en delt cache eller lekke tokenet videre
+  // gjennom Referer. Selve siden er allerede dynamisk; dette lukker også
+  // nettleser- og proxybuffere.
+  if (/^\/(sporing|anmeldelse)(\/|$)/.test(request.nextUrl.pathname)) {
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+    response.headers.set("Referrer-Policy", "no-referrer");
+  }
+
   return response;
 }
 

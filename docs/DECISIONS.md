@@ -288,3 +288,39 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   historikken. Multi-site på oppdrag og utstyr er fortsatt Phase 5D.
 - **Ingen fakturering.** Prislister er referansedata; booking og visitt
   inneholder ingen beløp, faktura eller betalingsflyt.
+
+## Live sporing og kundeomtaler (Phase 5C, 2026-10-30)
+
+- **Sporing er opt-in per avdeling.** `Department.trackingEnabled` er
+  `false` som standard (D-5). En avdeling uten sporing kan verken opprette
+  sporingslenker eller motta posisjonsping.
+- **Én aktiv lenke per visitt.** `TrackingLink.tokenHash` er unik, og nye
+  lenker tilbakekaller alle tidligere aktive lenker for samme visitt i samme
+  transaksjon. Tokenet er 32 tilfeldige byte (64 hex-tegn); bare SHA-256-hashen
+  lagres, og klarteksten returneres én gang ved oppretting.
+- **Lenken lever til visittens slutt + 2 timer.** Etter utløp, tilbakekalling,
+  `DONE`/`CANCELLED`, avslått sporing eller en visitt som ikke er
+  `EN_ROUTE`/`ON_SITE`, svarer den offentlige siden 404. Koordinater sendes
+  aldri til klienten.
+- **Statustidspunkt på visitten, ikke en hendelsestabell.** Vi valgte
+  `enRouteAt`, `onSiteAt` og `doneAt` direkte på `Visit`. Det er tilstrekkelig
+  for ETA, rapportering og revisjon i denne fasen, gir én atomisk UPDATE i
+  `setVisitStatus`, og unngår en ekstra join/tabell for en lineær statusflyt.
+  En `VisitEvent`-tabell kan senere innføres for vilkårlige hendelser, men er
+  ikke nødvendig for de tre faste milepælene. Når en visitt blir `DONE` eller
+  `CANCELLED`, tilbakekalles sporingslenker og alle posisjonsping slettes.
+- **ETA er luftlinje × 1,35 ÷ gjennomsnittsfart.** `src/lib/geo.ts` er eneste
+  kilde. Farten konfigureres med `TRACKING_AVERAGE_SPEED_KMH` (standard 50,
+  avgrenset til 5–120). Uten et faktisk posisjonsping eller destinasjons-
+  koordinater vises ingen ETA – aldri en falsk ankomst. Ingen ruteleverandør
+  er innført; Phase 6 kan bytte ut fallbacken bak samme modul.
+- **Posisjonsping er ferskvare.** Kun tildelt montør, kun egen visitt, kun
+  `EN_ROUTE`, kun aktiv avdeling med sporing. Klienten sender eksplisitt med
+  `cache: "no-store"` og køer aldri ping offline; gamle posisjoner spilles
+  ikke av. En sveipende jobb sletter ping eldre enn 24 timer.
+- **Omtaler er interne.** `Review.visitId` er unik, og `requestReview` bruker
+  `upsert`, så gjentatte kall er idempotente. Innsending er én atomisk
+  `updateMany` med `submittedAt: null`; andre forsøk får en konflikt. Omtaler
+  publiseres ikke, og dashbordet viser bare aggregert gjennomsnitt/antall
+  avgrenset av oppdragenes synlighetsomfang.
+

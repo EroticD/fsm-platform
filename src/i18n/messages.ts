@@ -41,6 +41,10 @@ import bookingNb from "../../messages/fragments/booking.nb.json";
 import bookingEn from "../../messages/fragments/booking.en.json";
 import bookingPl from "../../messages/fragments/booking.pl.json";
 import bookingDe from "../../messages/fragments/booking.de.json";
+import trackingNb from "../../messages/fragments/tracking.nb.json";
+import trackingEn from "../../messages/fragments/tracking.en.json";
+import trackingPl from "../../messages/fragments/tracking.pl.json";
+import trackingDe from "../../messages/fragments/tracking.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -86,6 +90,7 @@ const nbFragments = mergeAll([
   visitsNb,
   p4Nb,
   bookingNb,
+  trackingNb,
 ]);
 
 const enFragments = mergeAll([
@@ -106,6 +111,7 @@ const enFragments = mergeAll([
   visitsEn,
   p4En,
   bookingEn,
+  trackingEn,
 ]);
 
 /**
@@ -113,8 +119,8 @@ const enFragments = mergeAll([
  * `messages/fragments/` flettes inn her, slik at flere arbeidsstrømmer kan
  * oversette hver sin del uten å redigere samme JSON-fil.
  */
-const plFragments = mergeAll([p4Pl, bookingPl]);
-const deFragments = mergeAll([p4De, bookingDe]);
+const plFragments = mergeAll([p4Pl, bookingPl, trackingPl]);
+const deFragments = mergeAll([p4De, bookingDe, trackingDe]);
 
 export const messages = {
   nb: { common: merge(commonNb.common, nbFragments) },

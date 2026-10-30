@@ -290,4 +290,11 @@ describe("mobil bunnlinje", () => {
     expect(isAuthPath("/glemt-passord")).toBe(true);
     expect(isAuthPath("/oppdrag")).toBe(false);
   });
+
+  it("skjuler appnavigasjonen på offentlige token-sider", () => {
+    expect(isAuthPath("/sporing/abc123")).toBe(true);
+    expect(isAuthPath("/anmeldelse/abc123")).toBe(true);
+    expect(isAuthPath("/sporing")).toBe(true);
+    expect(isAuthPath("/anmeldelser")).toBe(false);
+  });
 });

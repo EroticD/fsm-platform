@@ -1,0 +1,82 @@
+{
+  "settings": {
+    "departments": {
+      "trackingEnabled": "Enable live tracking",
+      "trackingHint": "Lets the customer follow the technician's first name, status and estimated arrival through a time-limited link. Off by default; locations are deleted after 24 hours."
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "reviewAverage": "Customer rating",
+      "reviewCount": "{count, plural, one {# review} other {# reviews}}"
+    }
+  },
+  "tracking": {
+    "errors": {
+      "invalidInput": "The tracking link is missing valid data.",
+      "disabled": "Live tracking is not enabled for the department.",
+      "visitLocked": "The visit has ended and cannot be tracked.",
+      "expired": "The visit is already over and the link has expired.",
+      "invalidCoordinates": "The location is invalid."
+    },
+    "field": {
+      "start": "Share location",
+      "stop": "Stop sharing",
+      "sharing": "Your location is shared while you are on the way. It is stored for at most 24 hours.",
+      "denied": "Location was denied. You can enable it in your browser settings.",
+      "unavailable": "This device does not support location.",
+      "error": "Could not send the location. Try again."
+    },
+    "public": {
+      "metaTitle": "Job tracking",
+      "rateLimitedTitle": "Too many requests",
+      "rateLimitedText": "Try again in {seconds} seconds.",
+      "eyebrow": "Live tracking",
+      "title": "Follow the technician",
+      "intro": "Your technician: {technician}.",
+      "technicianFallback": "The technician",
+      "statusLabel": "Status",
+      "etaLabel": "Estimated arrival",
+      "etaMinutes": "{count, plural, one {# minute} other {# minutes}}",
+      "etaArrival": "Expected around {time}.",
+      "onSite": "The technician is on site.",
+      "etaUnavailable": "We have not received a location yet, so arrival cannot be estimated.",
+      "lastUpdated": "Last updated {time}.",
+      "noPosition": "No location has been shared yet.",
+      "privacy": "The location is used only to estimate arrival. It is never shown as a map or coordinates, and it is deleted after 24 hours.",
+      "refreshHint": "Reload the page to refresh the status."
+    }
+  },
+  "reviews": {
+    "errors": {
+      "invalidInput": "The review is missing valid data.",
+      "notDone": "The visit must be completed before requesting a review.",
+      "invalidToken": "The review link is invalid or expired.",
+      "invalidScore": "Choose a score from 1 to 5.",
+      "alreadySubmitted": "The review has already been submitted.",
+      "rateLimited": "Too many submissions. Try again later."
+    },
+    "public": {
+      "metaTitle": "Customer review",
+      "rateLimitedTitle": "Too many requests",
+      "rateLimitedText": "Try again in {seconds} seconds.",
+      "alreadySubmitted": "The review has already been submitted. Thank you!",
+      "invalidScore": "Choose a score from 1 to 5.",
+      "invalidToken": "The review link is invalid.",
+      "rateLimited": "Too many submissions. Try again later.",
+      "eyebrow": "Customer review",
+      "title": "How did the visit go?",
+      "intro": "Give a score from 1 to 5 and add a short comment if you like. The review is not published publicly.",
+      "scoreLabel": "Score",
+      "scoreLow": "Poor",
+      "scoreHigh": "Excellent",
+      "commentLabel": "Comment (optional)",
+      "commentPlaceholder": "Tell us briefly what you thought of the visit.",
+      "submit": "Send review",
+      "submitting": "Sending …",
+      "thanksTitle": "Thank you for your review!",
+      "thanksText": "We use the feedback to improve. It is not shown publicly.",
+      "privacy": "The review is used internally for improvement and statistics only."
+    }
+  }
+}

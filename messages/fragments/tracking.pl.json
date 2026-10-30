@@ -1,0 +1,82 @@
+{
+  "settings": {
+    "departments": {
+      "trackingEnabled": "Włącz śledzenie na żywo",
+      "trackingHint": "Pozwala klientowi śledzić imię technika, status i szacowany przyjazd przez ograniczony czas link. Domyślnie wyłączone; lokalizacje są usuwane po 24 godzinach."
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "reviewAverage": "Ocena klienta",
+      "reviewCount": "{count, plural, one {# opinia} few {# opinie} many {# opinii} other {# opinii}}"
+    }
+  },
+  "tracking": {
+    "errors": {
+      "invalidInput": "Link śledzenia nie zawiera prawidłowych danych.",
+      "disabled": "Śledzenie na żywo nie jest włączone dla tego działu.",
+      "visitLocked": "Wizyta została zakończona i nie można jej śledzić.",
+      "expired": "Wizyta już się zakończyła, a link wygasł.",
+      "invalidCoordinates": "Lokalizacja jest nieprawidłowa."
+    },
+    "field": {
+      "start": "Udostępnij lokalizację",
+      "stop": "Zatrzymaj udostępnianie",
+      "sharing": "Lokalizacja jest udostępniana, gdy jesteś w drodze. Jest przechowywana maksymalnie 24 godziny.",
+      "denied": "Odmówiono dostępu do lokalizacji. Możesz włączyć ją w ustawieniach przeglądarki.",
+      "unavailable": "To urządzenie nie obsługuje lokalizacji.",
+      "error": "Nie udało się wysłać lokalizacji. Spróbuj ponownie."
+    },
+    "public": {
+      "metaTitle": "Śledzenie zlecenia",
+      "rateLimitedTitle": "Zbyt wiele żądań",
+      "rateLimitedText": "Spróbuj ponownie za {seconds} sekund.",
+      "eyebrow": "Śledzenie na żywo",
+      "title": "Śledź technika",
+      "intro": "Twój technik: {technician}.",
+      "technicianFallback": "Technik",
+      "statusLabel": "Status",
+      "etaLabel": "Szacowany przyjazd",
+      "etaMinutes": "{count, plural, one {# minuta} few {# minuty} many {# minut} other {# minuty}}",
+      "etaArrival": "Oczekiwany około {time}.",
+      "onSite": "Technik jest na miejscu.",
+      "etaUnavailable": "Nie otrzymaliśmy jeszcze lokalizacji, więc nie można oszacować przyjazdu.",
+      "lastUpdated": "Ostatnia aktualizacja {time}.",
+      "noPosition": "Nie udostępniono jeszcze lokalizacji.",
+      "privacy": "Lokalizacja służy wyłącznie do szacowania przyjazdu. Nigdy nie jest pokazywana jako mapa ani współrzędne i jest usuwana po 24 godzinach.",
+      "refreshHint": "Odśwież stronę, aby zaktualizować status."
+    }
+  },
+  "reviews": {
+    "errors": {
+      "invalidInput": "Opinia nie zawiera prawidłowych danych.",
+      "notDone": "Wizyta musi być zakończona, zanim poprosisz o opinię.",
+      "invalidToken": "Link opinii jest nieprawidłowy lub wygasł.",
+      "invalidScore": "Wybierz ocenę od 1 do 5.",
+      "alreadySubmitted": "Opinia została już wysłana.",
+      "rateLimited": "Zbyt wiele wysyłek. Spróbuj ponownie później."
+    },
+    "public": {
+      "metaTitle": "Opinia klienta",
+      "rateLimitedTitle": "Zbyt wiele żądań",
+      "rateLimitedText": "Spróbuj ponownie za {seconds} sekund.",
+      "alreadySubmitted": "Opinia została już wysłana. Dziękujemy!",
+      "invalidScore": "Wybierz ocenę od 1 do 5.",
+      "invalidToken": "Link opinii jest nieprawidłowy.",
+      "rateLimited": "Zbyt wiele wysyłek. Spróbuj ponownie później.",
+      "eyebrow": "Opinia klienta",
+      "title": "Jak minęła wizyta?",
+      "intro": "Przyznaj ocenę od 1 do 5 i dodaj krótki komentarz, jeśli chcesz. Opinia nie jest publikowana publicznie.",
+      "scoreLabel": "Ocena",
+      "scoreLow": "Słabo",
+      "scoreHigh": "Doskonale",
+      "commentLabel": "Komentarz (opcjonalnie)",
+      "commentPlaceholder": "Napisz krótko, co sądzisz o wizycie.",
+      "submit": "Wyślij opinię",
+      "submitting": "Wysyłanie …",
+      "thanksTitle": "Dziękujemy za opinię!",
+      "thanksText": "Wykorzystujemy opinię do poprawy jakości. Nie jest pokazywana publicznie.",
+      "privacy": "Opinia jest używana wyłącznie wewnętrznie do doskonalenia i statystyk."
+    }
+  }
+}

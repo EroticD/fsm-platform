@@ -12,6 +12,7 @@ import {
   notifyOverdueWorkOrders,
   processPendingNotificationEmails,
 } from "@/server/notifications";
+import { cleanupVisitLocationPings } from "@/server/tracking";
 
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -84,6 +85,9 @@ export const BOOKING_REQUEST_EXPIRY_INTERVAL_MS = 6 * 60 * 60_000;
 /** Hvor lenge en konsumert reservasjon beholdes for sporbarhet. */
 export const BOOKING_HOLD_RETENTION_MS = 24 * 60 * 60_000;
 
+/** Hvor ofte posisjonsping eldre enn 24 timer fjernes. */
+export const LOCATION_PING_CLEANUP_INTERVAL_MS = 60 * 60_000;
+
 const DAY_MS = 24 * 60 * 60_000;
 
 type WorkerGlobal = typeof globalThis & {
@@ -92,6 +96,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmWorkOrderRetentionStarted?: boolean;
   __fsmSearchLogCleanupStarted?: boolean;
   __fsmBookingHoldCleanupStarted?: boolean;
+  __fsmLocationPingCleanupStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -483,6 +488,34 @@ export function startBookingHoldCleanup(): void {
 }
 
 /**
+ * Sletter posisjonsping eldre enn 24 timer. Sporing er en ferskvare: historikk
+ * skal ikke finnes, verken for kunden eller i databasen.
+ */
+export function startLocationPingCleanup(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmLocationPingCleanupStarted) return;
+  scope.__fsmLocationPingCleanupStarted = true;
+
+  const run = () => {
+    void cleanupVisitLocationPings()
+      .then((deleted) => {
+        if (deleted > 0) {
+          logger.info("Deleted expired visit location pings", { deleted });
+        }
+      })
+      .catch((error) => {
+        logger.error("Could not clean up visit location pings", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+  };
+
+  run();
+  const timer = setInterval(run, LOCATION_PING_CLEANUP_INTERVAL_MS);
+  timer.unref?.();
+}
+
+/**
  * Hard-sletter mykt slettede oppdrag når bevaringsperioden er utløpt.
  *
  * Bare oppdrag uten rapporter i det hele tatt hard-slettes automatisk. Har
@@ -654,6 +687,9 @@ export function startJobWorker(): void {
   // Frigjør korte bookingreservasjoner og merk utløpte forespørsler.
   startBookingHoldCleanup();
 
+  // Posisjonsping har 24 timers levetid og skal aldri bli historikk.
+  startLocationPingCleanup();
+
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.
   const pruneRateLimits = () => {
@@ -705,4 +741,5 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmWorkOrderRetentionStarted = false;
   scope.__fsmSearchLogCleanupStarted = false;
   scope.__fsmBookingHoldCleanupStarted = false;
+  scope.__fsmLocationPingCleanupStarted = false;
 }
