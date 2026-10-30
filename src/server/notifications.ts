@@ -27,6 +27,7 @@ export const NOTIFICATION_TYPES = [
   "CONTRACT_DUE",
   "OVERDUE",
   "CONTACT_UPDATE",
+  "WARRANTY",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

@@ -64,6 +64,11 @@ export const NOTIFICATION_TYPE_PRESENTATION: Record<
     labelKey: "p3.notifications.types.CONTACT_UPDATE",
     tone: "gray",
   },
+  WARRANTY: {
+    icon: "🛡️",
+    labelKey: "p3.notifications.types.WARRANTY",
+    tone: "amber",
+  },
 };
 
 /**

@@ -27,6 +27,7 @@ const NOTIFICATION_ICONS: Record<string, IconName> = {
   CONTRACT_DUE: "wrench",
   OVERDUE: "clock",
   CONTACT_UPDATE: "user",
+  WARRANTY: "shield",
 };
 
 /**

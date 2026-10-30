@@ -1,9 +1,9 @@
 # REST API
 
-FSM-plattformen har et lesbart REST-API for oppdrag, visiter, kunder, rapporter
-og dokumenter. API-et bruker egne API-nøkler og er helt atskilt fra
-nettleserøkten: informasjonskapsler godtas aldri, og alle kall må sende en
-Bearer-nøkkel.
+FSM-plattformen har et lesbart REST-API for oppdrag, visiter, kunder, utstyr,
+vedlikehold, rapporter og dokumenter. API-et bruker egne API-nøkler og er helt
+atskilt fra nettleserøkten: informasjonskapsler godtas aldri, og alle kall må
+sende en Bearer-nøkkel.
 
 - **Base URL:** `https://<din-fsm-installasjon>/api/v1`
 - **OpenAPI 3.1:** [`GET /api/v1/openapi.json`](/api/v1/openapi.json) (åpent, uten nøkkel)
@@ -54,6 +54,12 @@ betyr blant annet:
 | `PATCH /visits/{id}` | `workorders.assign` (flytting/montører), `workorders.update` (status) eller `workorders.edit` (metadata) |
 | `DELETE /visits/{id}` | `workorders.edit` |
 | `GET /customers`, `GET /customers/{id}` | `customers.view` |
+| `GET /equipment`, `GET /equipment/{id}` | `equipment.view` |
+| `POST /equipment`, `PATCH /equipment/{id}` | `equipment.manage` |
+| `GET /equipment/{id}/meters` | `equipment.view` |
+| `POST /equipment/{id}/meters` | `equipment.manage` |
+| `GET /maintenance-plans` | `equipment.view` |
+| `POST /maintenance-plans` | `equipment.manage` |
 | `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/pdf` | `reports.view` |
 | `GET /documents`, `GET /documents/{id}` | `documents.view` |
 
@@ -129,11 +135,16 @@ nøkkel, ikke per bruker eller IP. Ved overskridelse svarer API-et `429` med
 | 401 | `unauthorized` | Manglende, ugyldig, utløpt eller tilbakekalt nøkkel |
 | 403 | `forbidden` | Nøkkelens bruker mangler rettigheten |
 | 404 | `not_found` | Objektet finnes ikke eller er utenfor brukerens omfang |
-| 409 | `conflict` | Duplikat ordrenummer, låst oppdrag, bevaringsplikt eller overlappende visitt |
+| 409 | `conflict` | Duplikat ordrenummer, låst oppdrag, bevaringsplikt, overlappende visitt, hierarkisyklus eller utfaset utstyr |
 | 413 | `validation_error` | JSON-body er større enn grensen |
 | 422 | `validation_error` | Feltvalidering feilet |
 | 429 | `rate_limited` | Mer enn 120 kall per minutt |
 | 500 | `server_error` | Ukjent serverfeil |
+
+Utstyr og vedlikehold legger maskinlesbare årsaker i `error.details.code`:
+`equipment.errors.*` og `maintenance.errors.*`. Eksempel:
+`equipment.errors.hierarchyCycle`, `equipment.errors.retired`,
+`maintenance.errors.productRequired`.
 
 `details` er valgfritt og kan inneholde hvilket felt som feilet, eller annen
 maskinlesbar informasjon. `404` brukes også når et objekt ligger utenfor
@@ -155,6 +166,14 @@ avdelings- eller kundeomfanget, slik at API-et ikke røper at det finnes.
 | `DELETE` | `/visits/{id}` | `workorders.edit` | Slette visitt |
 | `GET` | `/customers` | `customers.view` | Kunde liste med søk |
 | `GET` | `/customers/{id}` | `customers.view` | Kundekort |
+| `GET` | `/equipment` | `equipment.view` | Utstyrsliste med søk og filtre |
+| `POST` | `/equipment` | `equipment.manage` | Registrere utstyr |
+| `GET` | `/equipment/{id}` | `equipment.view` | Utstyr med målinger, planer og historikk |
+| `PATCH` | `/equipment/{id}` | `equipment.manage` | Endre eller flytte utstyr |
+| `GET` | `/equipment/{id}/meters` | `equipment.view` | Målinger for utstyret |
+| `POST` | `/equipment/{id}/meters` | `equipment.manage` | Registrere måling |
+| `GET` | `/maintenance-plans` | `equipment.view` | Vedlikeholdsplaner |
+| `POST` | `/maintenance-plans` | `equipment.manage` | Opprette vedlikeholdsplan |
 | `GET` | `/reports` | `reports.view` | Rapportliste |
 | `GET` | `/reports/{id}` | `reports.view` | Rapportdetaljer |
 | `GET` | `/reports/{id}/pdf` | `reports.view` | Last ned PDF |
@@ -552,6 +571,136 @@ returneres aldri. Slettede eller ukjente kunder gir `404`.
 curl -s "$FSM_BASE_URL/api/v1/customers/cm123" \
   -H "Authorization: Bearer $FSM_API_KEY"
 ```
+
+---
+
+## Utstyr og vedlikehold
+
+Utstyrsregisteret bygger på `Product` og støtter kategoritre, fysisk hierarki
+(bygg → system → enhet), garanti, QR-identitet og målinger. Alle endepunktene
+krever `equipment.view`; mutasjoner krever `equipment.manage`. Kundeportalen
+bruker egne endepunkter og er ikke omfattet av disse rutene.
+
+### `GET /equipment`
+
+Søk og filtrering på tvers av kunder. `categoryId` tar med hele undertreet, og
+`parentId=` (tom verdi) gir bare rot-enheter.
+
+| Parameter | Type | Beskrivelse |
+| --- | --- | --- |
+| `q` | streng | Modell, serienummer, plassering eller kundenavn |
+| `status` | streng | `ACTIVE`, `OUT_OF_SERVICE` eller `RETIRED` |
+| `categoryId` | streng | Kategori inkludert undertrær |
+| `customerId` | streng | Begrens til én kunde |
+| `parentId` | streng | Overordnet enhet; tom verdi gir røtter |
+| `page`, `limit` | heltall | Paginering, maks 100 per side |
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/equipment?q=pumpe&status=ACTIVE&limit=10" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "cm...",
+      "model": "Grundfos CR 10",
+      "serialNumber": "NV-4001",
+      "location": "Kjeller",
+      "status": "ACTIVE",
+      "criticality": 1,
+      "meterUnit": "timer",
+      "installDate": "2024-05-01",
+      "warrantyUntil": "2027-05-01",
+      "customer": { "id": "cm...", "name": "Nordlys Eiendom AS" },
+      "category": { "id": "cm...", "name": "Pumper" },
+      "parent": { "id": "cm...", "model": "Ventilasjonssystem" },
+      "counts": {
+        "children": 0,
+        "meterReadings": 12,
+        "maintenancePlans": 2,
+        "reports": 4,
+        "workOrders": 6
+      }
+    }
+  ],
+  "meta": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 }
+}
+```
+
+### `POST /equipment`
+
+```json
+{
+  "customerId": "cm...",
+  "model": "Grundfos CR 10",
+  "serialNumber": "NV-4001",
+  "location": "Kjeller",
+  "categoryId": "cm...",
+  "parentId": null,
+  "installDate": "2024-05-01",
+  "warrantyUntil": "2027-05-01",
+  "status": "ACTIVE",
+  "criticality": 1,
+  "meterUnit": "timer"
+}
+```
+
+Svar `201` med `{ "data": { "id": "cm..." } }`. En QR-token utstedes
+automatisk. Ugyldig kategori, forelder hos annen kunde eller hierarkisyklus gir
+`422`/`409` med stabil kode i `error.details.code` på formen
+`equipment.errors.*`.
+
+### `GET /equipment/{id}`
+
+Returnerer identitet, kunde, kategori, foreldresti, underenheter, målinger,
+vedlikeholdsplaner, dokumenter og avgrenset historikk. Ukjent id gir `404`.
+
+### `PATCH /equipment/{id}`
+
+Tar et vilkårlig utvalg av feltene fra `POST`, pluss `status`. `categoryId`,
+`parentId`, `installDate` og `warrantyUntil` kan settes til `null` for å fjerne
+verdien. Flytting som lager en syklus avvises med `409` og
+`equipment.errors.hierarchyCycle`.
+
+### `GET/POST /equipment/{id}/meters`
+
+Målinger er desimaler med kilde `MANUAL`, `VISIT` eller `IMPORT`.
+
+```json
+{
+  "value": 1240.5,
+  "readAt": "2026-10-30",
+  "source": "MANUAL",
+  "note": "Avlest etter service"
+}
+```
+
+Ved registrering kontrolleres alle aktive målerplaner i samme transaksjon. En
+måling som passerer terskelen lager nøyaktig ett vedlikeholdsoppdrag, også når
+to målinger kommer samtidig. Utfaset utstyr gir `409` med
+`equipment.errors.retired`.
+
+### `GET/POST /maintenance-plans`
+
+```json
+{
+  "title": "Årlig service",
+  "trigger": "CALENDAR",
+  "productId": "cm...",
+  "customerId": "cm...",
+  "intervalMonths": 12,
+  "leadDays": 14,
+  "nextDueDate": "2027-01-15"
+}
+```
+
+`CALENDAR` krever `intervalMonths` og `nextDueDate`. `METER` krever `productId`
+og `meterInterval`, og bruker siste måling som utgangspunkt. Kalenderplaner
+genererer oppdrag innenfor ledetiden; genereringen er idempotent og tåler
+samtidige kjøringer. Hver forekomst har `dueDate`, `status` (`PENDING`,
+`GENERATED`, `SKIPPED`) og eventuell `workOrderId`.
 
 ---
 

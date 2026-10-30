@@ -117,6 +117,35 @@ describe("canReadUpload", () => {
     ).toBe(false);
   });
 
+  it("krever equipment.view for utstyrsfiler og lar kunden se egne", () => {
+    const equipmentFile = {
+      ownerType: "EQUIPMENT",
+      ownerId: "prod-1",
+      departmentId: "dept-a",
+      customerId: "cust-1",
+      uploadedById: "u1",
+    };
+    expect(canReadUpload(user({ role: "TECHNICIAN" }), equipmentFile)).toBe(true);
+    expect(
+      canReadUpload(
+        user({ role: "USER", permissionsCustomized: true, permissions: [] }),
+        equipmentFile,
+      ),
+    ).toBe(false);
+    expect(
+      canReadUpload(
+        user({ role: "CUSTOMER", departmentId: null, customerId: "cust-1" }),
+        equipmentFile,
+      ),
+    ).toBe(true);
+    expect(
+      canReadUpload(
+        user({ role: "CUSTOMER", departmentId: null, customerId: "cust-2" }),
+        equipmentFile,
+      ),
+    ).toBe(false);
+  });
+
   it("lar bare opplasteren lese private filer", () => {
     const priv = {
       ownerType: "USER",
@@ -296,6 +325,23 @@ describe("claimUpload", () => {
     expect(row).toMatchObject({
       ownerType: "CUSTOMER",
       ownerId: "cust-1",
+      customerId: "cust-1",
+    });
+  });
+
+  it("kan knytte en privat opplasting til utstyr", async () => {
+    const row = uploadRow({});
+    const result = await claimUpload(fakeTx([row]), "/uploads/fil.pdf", "u1", {
+      ownerType: "EQUIPMENT",
+      ownerId: "prod-1",
+      departmentId: "dept-a",
+      customerId: "cust-1",
+    });
+
+    expect(result).toEqual({ claimed: true });
+    expect(row).toMatchObject({
+      ownerType: "EQUIPMENT",
+      ownerId: "prod-1",
       customerId: "cust-1",
     });
   });

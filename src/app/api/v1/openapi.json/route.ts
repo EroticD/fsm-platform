@@ -20,14 +20,16 @@ const openApiDocument = {
   info: {
     title: "FSM-plattformen REST API",
     version: "1.0.0",
-    summary: "Oppdrag, visiter, kunder, rapporter og dokumenter for FSM-plattformen.",
+    summary:
+      "Oppdrag, visiter, kunder, utstyr, vedlikehold, rapporter og dokumenter for FSM-plattformen.",
     description:
       "Alle dataendepunkter under /api/v1 krever en API-nøkkel sendt som " +
       "`Authorization: Bearer fsm_...`. Responser bruker konvolutten " +
       "`{ data, meta? }`; feil bruker `{ error: { code, message, details? } }`. " +
       "Visiter har stabile feilkoder i `details.code` på formen " +
-      "`visits.errors.*`. API-et har ingen nettlesersesjon og godtar aldri " +
-      "informasjonskapsler.",
+      "`visits.errors.*`. Utstyr og vedlikehold bruker `equipment.errors.*` " +
+      "og `maintenance.errors.*`. API-et har ingen nettlesersesjon og godtar " +
+      "aldri informasjonskapsler.",
     license: { name: "BUSL-1.1", identifier: "BUSL-1.1" },
   },
   servers: [
@@ -44,6 +46,11 @@ const openApiDocument = {
       description: "Planlagte visiter, flytting, tildeling og status.",
     },
     { name: "Customers", description: "Kunder og kundekort." },
+    { name: "Equipment", description: "Utstyr, hierarki, målinger og QR." },
+    {
+      name: "Maintenance",
+      description: "Forebyggende vedlikeholdsplaner og forekomster.",
+    },
     { name: "Reports", description: "Signerte servicerapporter." },
     { name: "Documents", description: "Dokumentbiblioteket." },
   ],
@@ -719,6 +726,464 @@ const openApiDocument = {
           "401": { $ref: "#/components/responses/Unauthorized" },
           "403": { $ref: "#/components/responses/Forbidden" },
           "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/equipment": {
+      get: {
+        tags: ["Equipment"],
+        operationId: "listEquipment",
+        summary: "List utstyr",
+        description:
+          "Søk i hele utstyrsregisteret. `categoryId` tar med hele " +
+          "kategoritreet under valgt kategori. Alle filtre kombineres med AND.",
+        parameters: [
+          {
+            name: "q",
+            in: "query",
+            description: "Søk i modell, serienummer, plassering og kundenavn.",
+            schema: { type: "string", maxLength: 120 },
+          },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["ACTIVE", "OUT_OF_SERVICE", "RETIRED"],
+            },
+          },
+          {
+            name: "categoryId",
+            in: "query",
+            schema: { type: "string" },
+          },
+          {
+            name: "customerId",
+            in: "query",
+            schema: { type: "string" },
+          },
+          {
+            name: "parentId",
+            in: "query",
+            description: "Tom verdi gir bare rot-enheter.",
+            schema: { type: "string" },
+          },
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+        ],
+        responses: {
+          "200": {
+            description: "Side med utstyr.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data", "meta"],
+                  properties: {
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/EquipmentSummary" },
+                    },
+                    meta: { $ref: "#/components/schemas/Meta" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Equipment"],
+        operationId: "createEquipment",
+        summary: "Registrer utstyr",
+        description:
+          "Krever `equipment.manage`. Kategori og overordnet enhet må finnes, " +
+          "og overordnet enhet må tilhøre samme kunde.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["customerId", "model"],
+                properties: {
+                  customerId: { type: "string" },
+                  model: { type: "string", maxLength: 200 },
+                  serialNumber: { type: "string" },
+                  location: { type: "string" },
+                  categoryId: nullableString,
+                  parentId: nullableString,
+                  installDate: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                  warrantyUntil: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                  status: {
+                    type: "string",
+                    enum: ["ACTIVE", "OUT_OF_SERVICE", "RETIRED"],
+                  },
+                  criticality: { type: "integer", minimum: 1, maximum: 3 },
+                  meterUnit: nullableString,
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Utstyret er opprettet.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "422": { $ref: "#/components/responses/BadRequest" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/equipment/{id}": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Equipment"],
+        operationId: "getEquipment",
+        summary: "Hent utstyr",
+        description:
+          "Identitet, kunde, kategori, hierarki, målinger, planer, dokumenter " +
+          "og avgrenset historikk.",
+        responses: {
+          "200": {
+            description: "Utstyret.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/EquipmentDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      patch: {
+        tags: ["Equipment"],
+        operationId: "updateEquipment",
+        summary: "Endre utstyr",
+        description:
+          "Krever `equipment.manage`. `categoryId`, `parentId` og datofeltene " +
+          "kan settes til null. Flytting som lager en syklus gir 409 med " +
+          "`details.code = equipment.errors.hierarchyCycle`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  model: { type: "string", maxLength: 200 },
+                  serialNumber: { type: "string" },
+                  location: { type: "string" },
+                  categoryId: nullableString,
+                  parentId: nullableString,
+                  installDate: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                  warrantyUntil: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                  status: {
+                    type: "string",
+                    enum: ["ACTIVE", "OUT_OF_SERVICE", "RETIRED"],
+                  },
+                  criticality: { type: "integer", minimum: 1, maximum: 3 },
+                  meterUnit: nullableString,
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Utstyret er oppdatert.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/BadRequest" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/equipment/{id}/meters": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Equipment"],
+        operationId: "listMeterReadings",
+        summary: "List målinger",
+        description: "Målinger for én enhet, nyeste først.",
+        parameters: [
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+        ],
+        responses: {
+          "200": {
+            description: "Side med målinger.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data", "meta"],
+                  properties: {
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/MeterReading" },
+                    },
+                    meta: { $ref: "#/components/schemas/Meta" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Equipment"],
+        operationId: "createMeterReading",
+        summary: "Registrer måling",
+        description:
+          "Krever `equipment.manage`. En måling som passerer en aktiv " +
+          "målerplan lager nøyaktig ett vedlikeholdsoppdrag. Utfasede enheter " +
+          "avvises med `equipment.errors.retired`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["value", "readAt"],
+                properties: {
+                  value: { type: "number", minimum: 0 },
+                  readAt: {
+                    type: "string",
+                    description: "Dato (YYYY-MM-DD) eller ISO-tidspunkt.",
+                  },
+                  source: {
+                    type: "string",
+                    enum: ["MANUAL", "VISIT", "IMPORT"],
+                    default: "MANUAL",
+                  },
+                  note: nullableString,
+                  visitId: nullableString,
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Målingen er registrert.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/BadRequest" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/maintenance-plans": {
+      get: {
+        tags: ["Maintenance"],
+        operationId: "listMaintenancePlans",
+        summary: "List vedlikeholdsplaner",
+        description:
+          "Kalender- og målerbaserte planer med siste forekomster. Kan " +
+          "filtreres på produkt, kunde, utløser og aktiv-status.",
+        parameters: [
+          {
+            name: "productId",
+            in: "query",
+            schema: { type: "string" },
+          },
+          {
+            name: "customerId",
+            in: "query",
+            schema: { type: "string" },
+          },
+          {
+            name: "trigger",
+            in: "query",
+            schema: { type: "string", enum: ["CALENDAR", "METER"] },
+          },
+          {
+            name: "active",
+            in: "query",
+            schema: { type: "boolean" },
+          },
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+        ],
+        responses: {
+          "200": {
+            description: "Side med planer.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data", "meta"],
+                  properties: {
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/MaintenancePlan" },
+                    },
+                    meta: { $ref: "#/components/schemas/Meta" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Maintenance"],
+        operationId: "createMaintenancePlan",
+        summary: "Opprett vedlikeholdsplan",
+        description:
+          "CALENDAR krever `intervalMonths` og `nextDueDate`. METER krever " +
+          "`productId` og `meterInterval`. Nye planer bruker siste måling som " +
+          "utgangspunkt, slik at historiske målinger ikke utløser oppdrag.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["title", "trigger"],
+                properties: {
+                  title: { type: "string", maxLength: 200 },
+                  trigger: {
+                    type: "string",
+                    enum: ["CALENDAR", "METER"],
+                  },
+                  productId: nullableString,
+                  customerId: nullableString,
+                  departmentId: nullableString,
+                  templateId: nullableString,
+                  intervalMonths: {
+                    type: ["integer", "null"],
+                    minimum: 1,
+                    maximum: 120,
+                  },
+                  meterInterval: {
+                    type: ["number", "null"],
+                    exclusiveMinimum: 0,
+                  },
+                  leadDays: {
+                    type: "integer",
+                    minimum: 0,
+                    maximum: 365,
+                    default: 14,
+                  },
+                  nextDueDate: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Planen er opprettet.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/BadRequest" },
           "429": { $ref: "#/components/responses/RateLimited" },
         },
       },
@@ -1702,6 +2167,235 @@ const openApiDocument = {
             },
           },
         ],
+      },
+      EquipmentSummary: {
+        type: "object",
+        required: [
+          "id",
+          "model",
+          "status",
+          "criticality",
+          "customer",
+          "counts",
+          "createdAt",
+          "updatedAt",
+        ],
+        properties: {
+          id: { type: "string" },
+          model: { type: "string" },
+          serialNumber: nullableString,
+          location: nullableString,
+          status: {
+            type: "string",
+            enum: ["ACTIVE", "OUT_OF_SERVICE", "RETIRED"],
+          },
+          criticality: { type: "integer", minimum: 1, maximum: 3 },
+          meterUnit: nullableString,
+          installDate: { type: ["string", "null"], format: "date" },
+          warrantyUntil: { type: ["string", "null"], format: "date" },
+          qrToken: nullableString,
+          customer: { $ref: "#/components/schemas/Ref" },
+          category: {
+            oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+          },
+          parent: {
+            oneOf: [
+              {
+                type: "object",
+                required: ["id", "model"],
+                properties: {
+                  id: { type: "string" },
+                  model: { type: "string" },
+                },
+              },
+              { type: "null" },
+            ],
+          },
+          counts: {
+            type: "object",
+            properties: {
+              children: { type: "integer", minimum: 0 },
+              meterReadings: { type: "integer", minimum: 0 },
+              maintenancePlans: { type: "integer", minimum: 0 },
+              reports: { type: "integer", minimum: 0 },
+              workOrders: { type: "integer", minimum: 0 },
+            },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      EquipmentDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/EquipmentSummary" },
+          {
+            type: "object",
+            properties: {
+              warrantyNotifiedAt: nullableDateTime,
+              ancestors: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    model: { type: "string" },
+                  },
+                },
+              },
+              children: {
+                type: "array",
+                items: { $ref: "#/components/schemas/EquipmentSummary" },
+              },
+              meterReadings: {
+                type: "array",
+                items: { $ref: "#/components/schemas/MeterReading" },
+              },
+              maintenancePlans: {
+                type: "array",
+                items: { $ref: "#/components/schemas/MaintenancePlan" },
+              },
+              documents: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    fileName: { type: "string" },
+                    mimeType: { type: "string" },
+                    size: { type: "integer", minimum: 0 },
+                    url: { type: "string" },
+                    createdAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+              recentWorkOrders: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    status: { type: "string" },
+                    scheduledFor: {
+                      type: ["string", "null"],
+                      format: "date",
+                    },
+                    createdAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+              recentReports: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    status: { type: "string" },
+                    reportId: { type: "string" },
+                    workOrderId: { type: "string" },
+                    workOrderTitle: { type: "string" },
+                    template: nullableString,
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      MeterReading: {
+        type: "object",
+        required: ["id", "value", "readAt", "source"],
+        properties: {
+          id: { type: "string" },
+          productId: { type: "string" },
+          value: {
+            type: "string",
+            description: "Desimalverdi serialisert som streng.",
+          },
+          readAt: { type: "string", format: "date-time" },
+          source: {
+            type: "string",
+            enum: ["MANUAL", "VISIT", "IMPORT"],
+          },
+          note: nullableString,
+          user: {
+            oneOf: [{ $ref: "#/components/schemas/PersonRef" }, { type: "null" }],
+          },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      MaintenancePlanOccurrence: {
+        type: "object",
+        required: ["id", "dueDate", "status"],
+        properties: {
+          id: { type: "string" },
+          dueDate: { type: "string", format: "date" },
+          status: {
+            type: "string",
+            enum: ["PENDING", "GENERATED", "SKIPPED"],
+          },
+          workOrderId: nullableString,
+          meterValue: {
+            type: ["string", "null"],
+            description: "Desimalverdi serialisert som streng.",
+          },
+        },
+      },
+      MaintenancePlan: {
+        type: "object",
+        required: [
+          "id",
+          "title",
+          "trigger",
+          "leadDays",
+          "isActive",
+          "customer",
+          "department",
+          "occurrences",
+        ],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          trigger: { type: "string", enum: ["CALENDAR", "METER"] },
+          intervalMonths: { type: ["integer", "null"] },
+          meterInterval: { type: ["string", "null"] },
+          leadDays: { type: "integer", minimum: 0, maximum: 365 },
+          nextDueDate: { type: ["string", "null"], format: "date" },
+          isActive: { type: "boolean" },
+          product: {
+            oneOf: [
+              {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  model: { type: "string" },
+                  serialNumber: nullableString,
+                },
+              },
+              { type: "null" },
+            ],
+          },
+          customer: { $ref: "#/components/schemas/Ref" },
+          department: { $ref: "#/components/schemas/Ref" },
+          template: {
+            oneOf: [
+              {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  title: { type: "string" },
+                },
+              },
+              { type: "null" },
+            ],
+          },
+          occurrences: {
+            type: "array",
+            items: { $ref: "#/components/schemas/MaintenancePlanOccurrence" },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
       },
     },
   },

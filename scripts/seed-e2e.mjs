@@ -416,6 +416,8 @@ async function main() {
       serialNumber: "NV-4001",
       location: "Hovedinngang",
       customerId: nordvik.id,
+      qrToken: "e2e-pa400-qr-token-0001",
+      meterUnit: "sykluser",
     },
   });
   const tb90 = await prisma.product.create({
