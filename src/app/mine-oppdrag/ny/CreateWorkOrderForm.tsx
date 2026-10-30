@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import CustomerSelect from "@/app/oppdrag/ny/CustomerSelect";
 import ErrorBanner from "@/components/ErrorBanner";
+import IsoDateInput from "@/components/IsoDateInput";
 import FormValuePersistence from "@/components/FormValuePersistence";
 import Icon from "@/components/icons";
 import MarkdownEditor from "@/components/MarkdownEditor";
@@ -207,9 +208,8 @@ export default function CreateWorkOrderForm({
                   {t("orders.fieldNew.executionDate")}{" "}
                   <span className="text-[var(--risk-text,#b42318)]">*</span>
                 </label>
-                <input
+                <IsoDateInput
                   id="field-scheduled-for"
-                  type="date"
                   name="scheduledFor"
                   defaultValue={todayInOslo()}
                   required
@@ -220,9 +220,8 @@ export default function CreateWorkOrderForm({
                 <label htmlFor="field-scheduled-to" className={LABEL}>
                   {t("orders.fieldNew.endDate")}
                 </label>
-                <input
+                <IsoDateInput
                   id="field-scheduled-to"
-                  type="date"
                   name="scheduledTo"
                   aria-describedby="field-scheduled-to-hint"
                   className={controlClassName("min-h-11")}

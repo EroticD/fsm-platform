@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import CustomerSelect from "./CustomerSelect";
 import ErrorBanner from "@/components/ErrorBanner";
+import IsoDateInput from "@/components/IsoDateInput";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
 import FormValuePersistence from "@/components/FormValuePersistence";
@@ -291,9 +292,8 @@ export default async function AdminCreateWorkOrderPage({
                   {t("orders.new.executionDate")}{" "}
                   <span className="text-[var(--risk-text,#b42318)]">*</span>
                 </label>
-                <input
+                <IsoDateInput
                   id="office-new-scheduled-for"
-                  type="date"
                   name="scheduledFor"
                   defaultValue={todayInOslo()}
                   required
@@ -304,9 +304,8 @@ export default async function AdminCreateWorkOrderPage({
                 <label htmlFor="office-new-scheduled-to" className={LABEL}>
                   {t("orders.new.endDate")}
                 </label>
-                <input
+                <IsoDateInput
                   id="office-new-scheduled-to"
-                  type="date"
                   name="scheduledTo"
                   aria-describedby={
                     dateError

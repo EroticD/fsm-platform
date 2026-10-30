@@ -309,6 +309,10 @@
     "realtime": {
       "paused": "Sanntidsoppdatering er satt på pause.",
       "retry": "Prøv igjen"
+    },
+    "date": {
+      "openPicker": "Åpne kalender",
+      "isoHint": "Dato skrives som ÅÅÅÅ-MM-DD (ISO)."
     }
   },
   "notFound": {

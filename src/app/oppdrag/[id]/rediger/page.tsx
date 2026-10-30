@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import TagSelector from "@/components/TagSelector";
 import ErrorBanner from "@/components/ErrorBanner";
+import IsoDateInput from "@/components/IsoDateInput";
 import FormValuePersistence from "@/components/FormValuePersistence";
 import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
@@ -350,9 +351,8 @@ export default async function EditWorkOrderPage({
                 <label htmlFor="office-edit-scheduled-for" className={LABEL}>
                   {t("orders.edit.scheduledDate")}
                 </label>
-                <input
+                <IsoDateInput
                   id="office-edit-scheduled-for"
-                  type="date"
                   name="scheduledFor"
                   defaultValue={workOrder.scheduledFor ? new Date(workOrder.scheduledFor).toISOString().split('T')[0] : ""}
                   className={controlClassName("min-h-11")}
@@ -362,9 +362,8 @@ export default async function EditWorkOrderPage({
                 <label htmlFor="office-edit-scheduled-to" className={LABEL}>
                   {t("orders.edit.endDate")}
                 </label>
-                <input
+                <IsoDateInput
                   id="office-edit-scheduled-to"
-                  type="date"
                   name="scheduledTo"
                   aria-describedby={
                     dateError

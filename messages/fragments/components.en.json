@@ -309,6 +309,10 @@
     "realtime": {
       "paused": "Live updates are paused.",
       "retry": "Try again"
+    },
+    "date": {
+      "openPicker": "Open calendar",
+      "isoHint": "Date format is YYYY-MM-DD (ISO)."
     }
   },
   "notFound": {
