@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   addCustomerAttachment,
   removeCustomerAttachment,
@@ -68,7 +69,9 @@ export default function CustomerAttachments({
         const res = await fetch("/api/upload", { method: "POST", body });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.fileUrl) {
-          throw new Error(json.error || t("customers.attachments.uploadFailed"));
+          throw new Error(
+            apiErrorMessage(json, t, t("customers.attachments.uploadFailed")),
+          );
         }
 
         const attachmentData = new FormData();
@@ -79,7 +82,7 @@ export default function CustomerAttachments({
         const result = await addCustomerAttachment(attachmentData);
         if (!result.ok) {
           throw new Error(
-            result.error || t("customers.attachments.saveFailed"),
+            apiErrorMessage(result, t, t("customers.attachments.saveFailed")),
           );
         }
       } catch {
@@ -126,7 +129,9 @@ export default function CustomerAttachments({
 
     const result = await removeCustomerAttachment(data);
     if (!result.ok) {
-      setError(result.error || t("customers.attachments.deleteFailed"));
+      setError(
+        apiErrorMessage(result, t, t("customers.attachments.deleteFailed")),
+      );
     }
 
     setBusy(false);

@@ -18,7 +18,16 @@ import {
   removeCustomerAttachment as removeCustomerAttachmentService,
 } from "@/server/customers";
 
-export type AttachmentActionResult = { ok: boolean; error?: string };
+export type AttachmentActionResult = {
+  ok: boolean;
+  /** Stabil feilkode; klienten oversetter `messageKey` og faller tilbake til denne. */
+  error?: string;
+  messageKey?: string;
+};
+
+function failAttachment(error: string, messageKey?: string): AttachmentActionResult {
+  return messageKey ? { ok: false, error, messageKey } : { ok: false, error };
+}
 
 /** Bare filer som ligger i opplastingsmappen kan knyttes til et oppdrag. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
@@ -52,25 +61,25 @@ function attachmentLockError(
  */
 export async function addAttachment(formData: FormData): Promise<AttachmentActionResult> {
   const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
-  if (!workOrderId) return { ok: false, error: "Mangler data" };
+  if (!workOrderId) return failAttachment("missing_field", "errors.api.missingField");
   const access = await requireWorkOrderAccess("workorders.update", workOrderId);
   if (!access) {
-    return { ok: false, error: "Ikke tilgang" };
+    return failAttachment("forbidden", "errors.api.forbidden");
   }
 
   const fileUrl = cleanText(formData.get("fileUrl"), { maxLength: LIMITS.line });
   const fileName = cleanText(formData.get("fileName"), { maxLength: LIMITS.title });
 
-  if (!fileUrl) return { ok: false, error: "Mangler data" };
+  if (!fileUrl) return failAttachment("missing_field", "errors.api.missingField");
 
   const filePath = attachmentPath(fileUrl);
-  if (!filePath) return { ok: false, error: "Ugyldig fil" };
+  if (!filePath) return failAttachment("invalid_file", "errors.api.invalidFile");
 
   // Filen må faktisk finnes i opplastingsmappen.
   try {
     await fs.access(filePath);
   } catch {
-    return { ok: false, error: "Filen ble ikke funnet" };
+    return failAttachment("file_not_found", "errors.api.fileNotFound");
   }
 
   const displayName = fileName || "Vedlegg";
@@ -90,7 +99,7 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
       select: { status: true, legalHold: true },
     });
     const locked = attachmentLockError(current);
-    if (locked) return { ok: false as const, error: locked };
+    if (locked) return { ok: false as const, error: locked, messageKey: locked === "legal-hold" ? "errors.api.attachment.legalHold" : "errors.api.attachment.locked" };
 
     // Ikke legg ved samme fil to ganger på samme oppdrag.
     const existing = await tx.attachment.findFirst({
@@ -106,7 +115,7 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
       customerId: access.workOrder.customerId,
     });
     if (!claimed) {
-      return { ok: false as const, error: "Ugyldig fil" };
+      return { ok: false as const, error: "invalid_file", messageKey: "errors.api.invalidFile" };
     }
 
     const attachment = await tx.attachment.create({
@@ -132,7 +141,7 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
     return { ok: true as const };
   });
 
-  if (!result.ok) return { ok: false, error: result.error };
+  if (!result.ok) return { ok: false, error: result.error, messageKey: result.messageKey };
 
   revalidateAttachmentViews(workOrderId);
   return { ok: true };
@@ -141,16 +150,16 @@ export async function addAttachment(formData: FormData): Promise<AttachmentActio
 /** Fjerner vedlegget fra oppdraget og sletter filen fra disk. */
 export async function removeAttachment(formData: FormData): Promise<AttachmentActionResult> {
   // Sletting av filer er forbeholdt administrator.
-  if (!(await requireAdmin())) return { ok: false, error: "Ikke tilgang" };
+  if (!(await requireAdmin())) return failAttachment("forbidden", "errors.api.forbidden");
 
   const attachmentId = cleanText(formData.get("attachmentId"), { maxLength: LIMITS.line });
-  if (!attachmentId) return { ok: false, error: "Mangler data" };
+  if (!attachmentId) return failAttachment("missing_field", "errors.api.missingField");
 
   const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
-  if (!attachment) return { ok: false, error: "Vedlegget finnes ikke" };
+  if (!attachment) return failAttachment("file_not_found", "errors.api.attachment.notFound");
 
   const actor = await getCurrentUser();
-  if (!actor) return { ok: false, error: "Ikke tilgang" };
+  if (!actor) return failAttachment("forbidden", "errors.api.forbidden");
 
   // Bevaringsplikt på oppdraget eller en av rapportene fryser også vedleggene.
   // Et fullført eller kansellert oppdrag er låst historikk. Låsen kontrolleres
@@ -188,7 +197,7 @@ export async function removeAttachment(formData: FormData): Promise<AttachmentAc
 
     return null;
   });
-  if (locked) return { ok: false, error: locked };
+  if (locked) return { ok: false, error: locked, messageKey: locked === "legal-hold" ? "errors.api.attachment.legalHold" : "errors.api.attachment.locked" };
 
   await releaseUpload(attachment.dataUrl);
 
@@ -201,7 +210,7 @@ export async function addCustomerAttachment(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
   const actor = await getCurrentUser();
-  if (!actor) return { ok: false, error: "Ikke tilgang" };
+  if (!actor) return failAttachment("forbidden", "errors.api.forbidden");
 
   const customerId = cleanText(formData.get("customerId"), {
     maxLength: LIMITS.line,
@@ -213,7 +222,7 @@ export async function addCustomerAttachment(
     maxLength: LIMITS.title,
   });
 
-  if (!customerId || !fileUrl) return { ok: false, error: "Mangler data" };
+  if (!customerId || !fileUrl) return failAttachment("missing_field", "errors.api.missingField");
 
   const result = await addCustomerAttachmentService(actor, {
     customerId,
@@ -224,15 +233,15 @@ export async function addCustomerAttachment(
   if (!result.ok) {
     switch (result.reason) {
       case "forbidden":
-        return { ok: false, error: "Ikke tilgang" };
+        return failAttachment("forbidden", "errors.api.forbidden");
       case "invalid":
-        return { ok: false, error: "Ugyldig fil" };
+        return failAttachment("invalid_file", "errors.api.invalidFile");
       case "file_not_found":
-        return { ok: false, error: "Filen ble ikke funnet" };
+        return failAttachment("file_not_found", "errors.api.fileNotFound");
       case "customer_not_found":
-        return { ok: false, error: "Kunden finnes ikke" };
+        return failAttachment("not_found", "errors.api.customers.notFound");
       default:
-        return { ok: false, error: "Kunne ikke lagre vedlegget" };
+        return failAttachment("save_failed", "errors.api.attachment.saveFailed");
     }
   }
 
@@ -245,12 +254,12 @@ export async function removeCustomerAttachment(
   formData: FormData,
 ): Promise<AttachmentActionResult> {
   const actor = await getCurrentUser();
-  if (!actor) return { ok: false, error: "Ikke tilgang" };
+  if (!actor) return failAttachment("forbidden", "errors.api.forbidden");
 
   const attachmentId = cleanText(formData.get("attachmentId"), {
     maxLength: LIMITS.line,
   });
-  if (!attachmentId) return { ok: false, error: "Mangler data" };
+  if (!attachmentId) return failAttachment("missing_field", "errors.api.missingField");
 
   const result = await removeCustomerAttachmentService(actor, {
     attachmentId,
@@ -259,13 +268,13 @@ export async function removeCustomerAttachment(
   if (!result.ok) {
     switch (result.reason) {
       case "forbidden":
-        return { ok: false, error: "Ikke tilgang" };
+        return failAttachment("forbidden", "errors.api.forbidden");
       case "invalid":
-        return { ok: false, error: "Mangler data" };
+        return failAttachment("missing_field", "errors.api.missingField");
       case "not_found":
-        return { ok: false, error: "Vedlegget finnes ikke" };
+        return failAttachment("file_not_found", "errors.api.attachment.notFound");
       default:
-        return { ok: false, error: "Kunne ikke slette vedlegget" };
+        return failAttachment("save_failed", "errors.api.attachment.deleteFailed");
     }
   }
 

@@ -15,7 +15,7 @@ export async function GET(
 ) {
   const viewer = await getCurrentUser();
   if (!viewer?.isActive) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const { id } = await params;
@@ -24,7 +24,7 @@ export async function GET(
 
   // Rapport-id-en brukes direkte i oppslaget og må derfor være en trygg id.
   if (reportId && !/^[A-Za-z0-9_-]{1,64}$/.test(reportId)) {
-    return new NextResponse("Ugyldig rapport-id", { status: 400 });
+    return new NextResponse("Invalid report id", { status: 400 });
   }
 
   // Maks 10 PDF-visninger per minutt per bruker. Rendering er CPU-tungt, og
@@ -32,7 +32,7 @@ export async function GET(
   const limit = await allowRequestDb(`pdf:${viewer.id}`, 10, 60_000);
   if (!limit.allowed) {
     return new NextResponse(
-      `For mange PDF-forespørsler. Prøv igjen om ${limit.retryAfterSeconds} sekunder.`,
+      `Too many PDF requests. Retry in ${limit.retryAfterSeconds} seconds.`,
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
     );
   }

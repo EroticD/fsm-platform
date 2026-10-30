@@ -1,3 +1,5 @@
+// i18n-ignore-file: genererte oppdragsbeskrivelser, varsler og revisjons-
+// handlinger lagres som data. Varselmaler lokaliseres i Phase 5B (C-23).
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -91,7 +93,7 @@ export async function generateRecurringWorkOrderForContract(
   // En mykt slettet kunde skal ikke få nye serviceoppdrag. Avtalen røres ikke:
   // den kan gjenopprettes sammen med kunden uten en overraskende statusendring.
   if (contract.customer.deletedAt) {
-    logger.info("Serviceavtaler: hopper over avtale for slettet kunde", {
+    logger.info("Recurring contracts: skipping contract for deleted customer", {
       contractId: contract.id,
     });
     return { contractId, skipped: "customer-deleted" };
@@ -219,7 +221,7 @@ export async function generateRecurringWorkOrderForContract(
   }
 
   if (claim.status === "locked") {
-    logger.info("Serviceavtaler: låsen er opptatt, hopper over avtalen", {
+    logger.info("Recurring contracts: lock is busy, skipping contract", {
       contractId: contract.id,
     });
     return { contractId, skipped: "locked" };
@@ -260,14 +262,14 @@ export async function generateRecurringWorkOrderForContract(
           }),
         ]);
       } else {
-        logger.warn("Serviceavtale: fant ingen PDF av forrige rapport", {
+        logger.warn("Recurring contract: no PDF found for the previous report", {
           contractId: contract.id,
         });
       }
     } catch (error) {
       // PDF-en er en bekvemmelighet. Oppdraget skal bestå selv om vedlegget
       // ikke kunne lages.
-      logger.error("Kunne ikke legge ved forrige rapport", {
+      logger.error("Could not attach the previous report", {
         contractId: contract.id,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -329,7 +331,7 @@ async function generateDueRecurringWorkOrdersBatch(
       try {
         results.push(await generateRecurringWorkOrderForContract(contract.id, now));
       } catch (error) {
-        logger.error("Kunne ikke generere serviceavtale-oppdrag", {
+        logger.error("Could not generate recurring contract work order", {
           contractId: contract.id,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -349,7 +351,7 @@ async function generateDueRecurringWorkOrdersBatch(
       (result) => result.skipped && result.skipped !== "error",
     ).length;
 
-    logger.info("Serviceavtaler: generering fullført", {
+    logger.info("Recurring contracts: generation completed", {
       created,
       skipped,
       errors,

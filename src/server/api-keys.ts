@@ -72,7 +72,7 @@ type ParsedApiKeyInput = {
 /** Kastes av den direkte hjelpefunksjonen når input er ugyldig. */
 export class ApiKeyValidationError extends Error {
   constructor() {
-    super("Ugyldig API-nøkkelinput");
+    super("Invalid API key input");
     this.name = "ApiKeyValidationError";
   }
 }

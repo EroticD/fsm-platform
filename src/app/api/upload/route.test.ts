@@ -84,7 +84,7 @@ describe("POST /api/upload – innholdskontroll", () => {
 
     expect(response.status).toBe(415);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("stemmer ikke"),
+      error: "mime_mismatch",
     });
     expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
   });
@@ -127,7 +127,7 @@ describe("POST /api/upload – kroppskonkurranse", () => {
         String(UPLOAD_BODY_RETRY_AFTER_SECONDS),
       );
       await expect(response.json()).resolves.toMatchObject({
-        error: expect.stringContaining("opptatt"),
+        error: "upload_busy",
       });
     } finally {
       for (const lease of leases) lease?.release();
@@ -175,7 +175,7 @@ describe("POST /api/upload – låst oppdrag", () => {
 
       expect(response.status).toBe(403);
       await expect(response.json()).resolves.toMatchObject({
-        error: expect.stringContaining("låst"),
+        error: "work_order_locked",
       });
       expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
     },
@@ -191,7 +191,7 @@ describe("POST /api/upload – låst oppdrag", () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("bevaringsplikt"),
+      error: "legal_hold",
     });
     expect(mocks.prisma.upload.aggregate).not.toHaveBeenCalled();
   });
@@ -205,7 +205,7 @@ describe("POST /api/upload – låst oppdrag", () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("deaktivert"),
+      error: "department_inactive",
     });
     expect(mocks.prisma.workOrder.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({

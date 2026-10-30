@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import TagSelector from "@/components/TagSelector";
 import Icon from "@/components/icons";
 import DocumentContextFields from "./DocumentContextFields";
@@ -44,7 +45,7 @@ export default function UploadDocumentForm({
       formData.append("purpose", "document");
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("documents.upload.uploadFailed"));
+      if (!res.ok) throw new Error(apiErrorMessage(data, t, t("documents.upload.uploadFailed")));
       setFileUrl(data.fileUrl);
       setFileName(data.fileName);
       setFileSize(data.fileSize);

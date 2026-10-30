@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "documents.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til dokumenter.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.documents.forbidden" });
   }
 
   const url = new URL(request.url);

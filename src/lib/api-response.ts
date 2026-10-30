@@ -1,33 +1,13 @@
 import { NextResponse } from "next/server";
+import {
+  API_RESPONSE_HEADERS,
+  apiError,
+  type ApiErrorBody,
+  type ApiErrorCode,
+} from "@/lib/api-errors";
 
-/**
- * Felles svarkonvolutter for REST-API-et.
- *
- * API-et er bearer-basert, så svarene skal aldri mellomlagres delt. `Vary`
- * gjør også at en eventuell cache foran appen skiller på Authorization.
- */
-export const API_RESPONSE_HEADERS = {
-  "Cache-Control": "private, no-store",
-  Vary: "Authorization",
-  "X-Content-Type-Options": "nosniff",
-} as const;
-
-export type ApiErrorCode =
-  | "unauthorized"
-  | "forbidden"
-  | "not_found"
-  | "validation_error"
-  | "conflict"
-  | "rate_limited"
-  | "server_error";
-
-export type ApiErrorBody = {
-  error: {
-    code: ApiErrorCode;
-    message: string;
-    details?: unknown;
-  };
-};
+export { API_RESPONSE_HEADERS, apiError };
+export type { ApiErrorBody, ApiErrorCode };
 
 export type ApiSuccessBody<T> = {
   data: T;
@@ -59,17 +39,4 @@ export function apiJson<T>(
     ? { data, meta: metaOrStatus }
     : { data };
   return jsonResponse(body, responseStatus);
-}
-
-/** Feilsvar med stabil maskinlesbar kode og valgfri detaljinformasjon. */
-export function apiError(
-  status: number,
-  code: ApiErrorCode,
-  message: string,
-  details?: unknown,
-): NextResponse {
-  const body: ApiErrorBody = {
-    error: details === undefined ? { code, message } : { code, message, details },
-  };
-  return jsonResponse(body, status);
 }

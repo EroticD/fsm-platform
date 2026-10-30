@@ -30,11 +30,11 @@ export function startRecurringScheduler() {
       .then((results) => {
         const created = results.filter((result) => result.workOrderId).length;
         if (created > 0) {
-          logger.info("Serviceavtaler: opprettet nye oppdrag", { created });
+          logger.info("Recurring contracts: created new work orders", { created });
         }
       })
       .catch((error) => {
-        logger.error("Serviceavtaler: generering feilet", {
+        logger.error("Recurring contracts: generation failed", {
           error: error instanceof Error ? error.message : String(error),
         });
       });

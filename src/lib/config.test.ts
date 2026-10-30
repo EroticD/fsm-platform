@@ -103,6 +103,6 @@ describe("validateProductionConfig", () => {
       NODE_ENV: "production",
       NEXTAUTH_URL: "https://fsm.example",
     });
-    expect(errors.join(" ")).toContain("NEXTAUTH_SECRET mangler");
+    expect(errors.join(" ")).toContain("NEXTAUTH_SECRET is missing");
   });
 });

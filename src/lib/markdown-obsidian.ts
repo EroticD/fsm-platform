@@ -1,3 +1,5 @@
+// i18n-ignore-file: standardtitler for Obsidian-callouts er dokumentinnhold,
+// ikke app-krom. Markdown-parseren har ingen request-locale.
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { visit } from "unist-util-visit";
 import type { Blockquote, Parent, PhrasingContent, Root, RootContent } from "mdast";

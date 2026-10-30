@@ -167,7 +167,7 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "workorders.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til oppdrag.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.workOrders.forbidden" });
   }
 
   const url = new URL(request.url);
@@ -176,9 +176,9 @@ export async function GET(request: Request) {
 
   const statusRaw = (params.get("status") ?? "").trim();
   if (statusRaw && !isWorkOrderStatus(statusRaw)) {
-    return apiError(400, "validation_error", "Ugyldig statusfilter.", {
+    return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.invalidStatusFilter", details: {
       field: "status",
-    });
+    } });
   }
 
   const customerId = (params.get("customerId") ?? "").trim().slice(0, MAX_QUERY_LENGTH);
@@ -187,23 +187,18 @@ export async function GET(request: Request) {
 
   const from = readDay(params, "scheduledFrom");
   if (!from.ok) {
-    return apiError(400, "validation_error", "Ugyldig fra-dato.", {
+    return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.invalidFromDate", details: {
       field: "scheduledFrom",
-    });
+    } });
   }
   const to = readDay(params, "scheduledTo");
   if (!to.ok) {
-    return apiError(400, "validation_error", "Ugyldig til-dato.", {
+    return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.invalidToDate", details: {
       field: "scheduledTo",
-    });
+    } });
   }
   if (from.value && to.value && from.value > to.value) {
-    return apiError(
-      400,
-      "validation_error",
-      "Fra-dato kan ikke være etter til-dato.",
-      { field: "scheduledFrom" },
-    );
+    return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.fromAfterTo", details: { field: "scheduledFrom" } });
   }
 
   let updatedSince: Date | null = null;
@@ -211,9 +206,9 @@ export async function GET(request: Request) {
   if (updatedSinceRaw) {
     updatedSince = new Date(updatedSinceRaw);
     if (Number.isNaN(updatedSince.getTime())) {
-      return apiError(400, "validation_error", "Ugyldig tidspunkt.", {
+      return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.invalidTimestamp", details: {
         field: "updatedSince",
-      });
+      } });
     }
   }
 
@@ -312,29 +307,29 @@ function normalizeDate(value: unknown): string | null {
 function workOrderError(error: string) {
   switch (error) {
     case "ikke-autentisert":
-      return apiError(401, "unauthorized", "Ikke autentisert.");
+      return apiError("unauthorized", 401, { messageKey: "errors.api.unauthorized" });
     case "ikke-tilgang":
     case "ingen-tilgang":
-      return apiError(403, "forbidden", "Du har ikke tilgang til oppdraget.");
+      return apiError("forbidden", 403, { messageKey: "errors.api.workOrders.forbidden" });
     case "ikke-funnet":
     case "not_found":
-      return apiError(404, "not_found", "Fant ikke oppdraget.");
+      return apiError("not_found", 404, { messageKey: "errors.api.workOrders.notFound" });
     case "duplikat-ordrenummer":
     case "kunde-last":
     case "legal-hold":
     case "workorder-locked":
-      return apiError(409, "conflict", "Oppdraget kan ikke endres.");
+      return apiError("conflict", 409, { messageKey: "errors.api.workOrders.conflict" });
     case "reason-required":
     case "avdeling":
     case "ingen-endring":
     case "dato-mangler":
     case "sluttdato-for-startdato":
-      return apiError(422, "validation_error", "Feltene er ikke gyldige.");
+      return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.validation" });
     default:
       if (error.startsWith("ugyldig-")) {
-        return apiError(422, "validation_error", "Feltene er ikke gyldige.");
+        return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.validation" });
       }
-      return apiError(500, "server_error", "Kunne ikke oppdatere oppdraget.");
+      return apiError("server_error", 500, { messageKey: "errors.api.workOrders.serverError" });
   }
 }
 
@@ -344,40 +339,40 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "workorders.create")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til å opprette oppdrag.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.workOrders.createForbidden" });
   }
 
   const parsed = await readJsonWithLimit<unknown>(request, JSON_BODY_LIMIT);
   if (!parsed.ok) {
     return parsed.status === 413
-      ? apiError(413, "validation_error", "Forespørselen er for stor.")
-      : apiError(400, "validation_error", "Ugyldig JSON.");
+      ? apiError("validation_error", 413, { messageKey: "errors.api.tooLarge" })
+      : apiError("validation_error", 400, { messageKey: "errors.api.invalidJson" });
   }
 
   const body = parsed.data;
   if (!isRecord(body)) {
-    return apiError(400, "validation_error", "Body må være et JSON-objekt.");
+    return apiError("validation_error", 400, { messageKey: "errors.api.bodyObject" });
   }
 
   const unknownField = Object.keys(body).find((key) => !CREATE_FIELDS.has(key));
   if (unknownField) {
-    return apiError(400, "validation_error", "Ukjent felt.", {
+    return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.unknownField", details: {
       field: unknownField,
-    });
+    } });
   }
 
   const title = typeof body.title === "string" ? body.title.trim() : "";
   if (!title) {
-    return apiError(422, "validation_error", "Tittel er påkrevd.", {
+    return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.titleRequired", details: {
       field: "title",
-    });
+    } });
   }
 
   const scheduledFor = normalizeDate(body.scheduledFor);
   if (!scheduledFor) {
-    return apiError(422, "validation_error", "Gyldig startdato er påkrevd.", {
+    return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.startDateRequired", details: {
       field: "scheduledFor",
-    });
+    } });
   }
 
   let scheduledTo = "";
@@ -388,9 +383,9 @@ export async function POST(request: Request) {
   ) {
     const normalized = normalizeDate(body.scheduledTo);
     if (!normalized) {
-      return apiError(422, "validation_error", "Ugyldig sluttdato.", {
+      return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.invalidEndDate", details: {
         field: "scheduledTo",
-      });
+      } });
     }
     scheduledTo = normalized;
   }
@@ -417,10 +412,10 @@ export async function POST(request: Request) {
     postalCode === null ||
     city === null
   ) {
-    return apiError(422, "validation_error", "Feltene må være tekst.");
+    return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.textFields" });
   }
   if (!technicianIds || !templateIds || !tagNames) {
-    return apiError(422, "validation_error", "Listefeltene må være tekstlister.");
+    return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.textLists" });
   }
 
   const result = await createWorkOrder(actorForServices(auth.actor), {

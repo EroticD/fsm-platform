@@ -180,7 +180,7 @@ async function ocrPdf(fullPath: string): Promise<{ page: number; text: string }[
     for (let i = 0; i < files.length; i++) {
       if (Date.now() >= deadline) {
         console.warn(
-          `OCR: tidsgrensen (${OCR_TOTAL_TIMEOUT_MS / 1000}s) er nådd etter ${i} sider.`,
+          `OCR: time limit (${OCR_TOTAL_TIMEOUT_MS / 1000}s) reached after ${i} pages.`,
         );
         break;
       }

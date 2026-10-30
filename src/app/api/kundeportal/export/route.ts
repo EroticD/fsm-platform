@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { internalApiError } from "@/lib/api-errors";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { csvCell } from "@/lib/csv";
@@ -9,6 +10,8 @@ const EXPORT_ROW_CAP = 5000;
 /** Maks fem eksporter per bruker i timen. */
 const EXPORT_RATE_LIMIT = 5;
 const EXPORT_RATE_WINDOW_MS = 60 * 60_000;
+/** Fast filnavn; selve innholdet er lokalisert via kundenes språk. */
+const PORTAL_EXPORT_FILENAME = "mine-oppdrag.csv";
 
 /**
  * Eksporterer kundens egne oppdrag som CSV. Bare kundeportalbrukere med en
@@ -17,7 +20,7 @@ const EXPORT_RATE_WINDOW_MS = 60 * 60_000;
 export async function GET() {
   const user = await getCurrentUser();
   if (!user?.isActive || user.role !== "CUSTOMER" || !user.customerId) {
-    return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    return internalApiError("forbidden", 403);
   }
 
   // En mykt slettet kunde er stengt for kundeportalen, også direkte via en
@@ -27,7 +30,7 @@ export async function GET() {
     select: { id: true },
   });
   if (!customer) {
-    return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    return internalApiError("forbidden", 403);
   }
 
   const limit = await allowRequestDb(
@@ -36,13 +39,10 @@ export async function GET() {
     EXPORT_RATE_WINDOW_MS,
   );
   if (!limit.allowed) {
-    return NextResponse.json(
-      { error: "For mange eksporter. Prøv igjen senere." },
-      {
-        status: 429,
-        headers: { "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+    return internalApiError("rate_limited", 429, {
+      messageKey: "errors.api.export.rateLimited",
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
   }
 
   const workOrders = await prisma.workOrder.findMany({
@@ -61,12 +61,9 @@ export async function GET() {
     },
   });
   if (workOrders.length > EXPORT_ROW_CAP) {
-    return NextResponse.json(
-      {
-        error: `Eksporten er begrenset til ${EXPORT_ROW_CAP} oppdrag. Kontakt oss for et større uttrekk.`,
-      },
-      { status: 413 },
-    );
+    return internalApiError("export_too_large", 413, {
+      messageKey: "errors.api.export.tooLarge",
+    });
   }
 
   const header = ["Tittel", "Status", "Fra dato", "Til dato", "Booket av", "Kontaktperson"];
@@ -88,7 +85,7 @@ export async function GET() {
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="mine-oppdrag.csv"',
+      "Content-Disposition": `attachment; filename="${PORTAL_EXPORT_FILENAME}"`,
       "Cache-Control": "no-store",
     },
   });

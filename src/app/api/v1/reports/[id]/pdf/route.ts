@@ -27,7 +27,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "reports.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til rapporter.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.reports.forbidden" });
   }
 
   const { id } = await params;
@@ -42,7 +42,7 @@ export async function GET(
     select: { id: true, workOrderId: true },
   });
   if (!report) {
-    return apiError(404, "not_found", "Fant ikke rapporten.");
+    return apiError("not_found", 404, { messageKey: "errors.api.reports.notFound" });
   }
 
   // Tjenestelaget er skrevet for øktbrukeren, men trenger bare feltene
@@ -56,9 +56,9 @@ export async function GET(
 
   if (!result.ok) {
     if (result.status === 403) {
-      return apiError(403, "forbidden", result.message);
+      return apiError("forbidden", 403, { message: result.message });
     }
-    return apiError(404, "not_found", result.message);
+    return apiError("not_found", 404, { message: result.message });
   }
 
   const fileName = result.fileName.toLowerCase().endsWith(".pdf")

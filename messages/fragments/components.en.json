@@ -253,9 +253,7 @@
       "emptyPageTitle": "This page does not exist",
       "emptyPageDescription": "The page number is outside the list. Go to the last page to see the most recent entries.",
       "goToLastPage": "Go to the last page",
-      "page": "Page {page} of {totalPages} ({total} entries)",
-      "previous": "Previous",
-      "next": "Next"
+      "page": "Page {page} of {totalPages} ({total} entries)"
     },
     "notificationPreferences": {
       "caption": "Notifications per event"
@@ -272,14 +270,7 @@
       "breadcrumb": "Breadcrumb",
       "details": "Details",
       "work": "Work",
-      "more": "More",
-      "officeNavigation": "Office navigation",
-      "officeWorkspace": "Office",
-      "adminWorkspace": "Administration",
-      "workspace": "Workspace",
-      "tools": "Tools",
-      "signedInAs": "Signed in as",
-      "user": "User"
+      "more": "More"
     },
     "language": {
       "change": "Change language"
@@ -297,9 +288,7 @@
     "error": {
       "title": "Something went wrong",
       "fallback": "An unexpected error occurred",
-      "description": "We could not show this page. Try again in a moment. If the problem continues, go back to the home page or contact us.",
-      "retry": "Try again",
-      "home": "Go to home page"
+      "retry": "Try again"
     },
     "toast": {
       "uploaded": "File(s) uploaded",
@@ -318,7 +307,6 @@
   "notFound": {
     "title": "This page does not exist",
     "description": "The page you are looking for has moved or does not exist in {companyName}.",
-    "home": "Go to the home page",
     "workOrders": "Go to work orders"
   }
 }

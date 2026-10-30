@@ -1,3 +1,4 @@
+// i18n-ignore-file: svarene er lagrede data i rapporter og maler, ikke UI-tekst.
 /**
  * Hjelpere for å lese svarverdier fra en rapport.
  *

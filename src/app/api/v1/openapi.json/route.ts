@@ -1,3 +1,5 @@
+// i18n-ignore-file: OpenAPI-titler og -beskrivelser er utviklerdokumentasjon,
+// ikke UI-tekst. Selve API-et returnerer stabile koder og messageKey.
 import { NextResponse } from "next/server";
 
 /**
@@ -24,7 +26,7 @@ const openApiDocument = {
     description:
       "Alle dataendepunkter under /api/v1 krever en API-nøkkel sendt som " +
       "`Authorization: Bearer fsm_...`. Responser bruker konvolutten " +
-      "`{ data, meta? }`; feil bruker `{ error: { code, message, details? } }`. " +
+      "`{ data, meta? }`; feil bruker `{ error: { code, message, messageKey, details? } }`. " +
       "Visiter har stabile feilkoder i `details.code` på formen " +
       "`visits.errors.*`. API-et har ingen nettlesersesjon og godtar aldri " +
       "informasjonskapsler.",
@@ -838,6 +840,7 @@ const openApiDocument = {
                   error: {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
+                    messageKey: "errors.api.visits.conflict",
                     details: {
                       code: "visits.errors.overlap",
                       conflicts: [
@@ -859,6 +862,7 @@ const openApiDocument = {
                   error: {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
+                    messageKey: "errors.api.visits.conflict",
                     details: { code: "visits.errors.legalHold" },
                   },
                 },
@@ -869,6 +873,7 @@ const openApiDocument = {
                   error: {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
+                    messageKey: "errors.api.visits.conflict",
                     details: { code: "visits.errors.visitLocked" },
                   },
                 },
@@ -889,6 +894,7 @@ const openApiDocument = {
                   error: {
                     code: "validation_error",
                     message: "Feltene er ikke gyldige.",
+                    messageKey: "errors.api.visits.validation",
                     details: {
                       field: "endsAt",
                       code: "visits.errors.invalidTimeRange",
@@ -902,6 +908,7 @@ const openApiDocument = {
                   error: {
                     code: "validation_error",
                     message: "Feltene er ikke gyldige.",
+                    messageKey: "errors.api.visits.validation",
                     details: {
                       code: "visits.errors.statusTransition",
                       from: "DONE",
@@ -916,6 +923,7 @@ const openApiDocument = {
                   error: {
                     code: "validation_error",
                     message: "Feltene er ikke gyldige.",
+                    messageKey: "errors.api.visits.validation",
                     details: {
                       code: "visits.errors.invalidTechnician",
                       technicianIds: ["cm_user"],
@@ -945,7 +953,7 @@ const openApiDocument = {
     schemas: {
       Error: {
         type: "object",
-        required: ["code", "message"],
+        required: ["code", "message", "messageKey"],
         properties: {
           code: {
             type: "string",
@@ -960,6 +968,11 @@ const openApiDocument = {
             ],
           },
           message: { type: "string" },
+          messageKey: {
+            type: "string",
+            description:
+              "Stabil i18n-nøkkel klienten kan oversette, f.eks. `errors.api.forbidden`.",
+          },
           details: {
             description: "Maskinlesbar tilleggsinformasjon når den finnes.",
             oneOf: [

@@ -464,10 +464,6 @@
     }
   },
   "users": {
-    "pageTitle": "Ansatte & Tilganger",
-    "pageSubtitleAdmin": "Viser totalt {count} registrerte brukere i databasen.",
-    "pageSubtitleDepartment": "Viser {count} brukere i din avdeling.",
-    "backToDashboard": "Tilbake til Dashbord",
     "roles": {
       "title": "Roller og rettigheter",
       "description": "Opprett egne roller, endre rettighetene deres, eller fjern roller som ikke er i bruk.",
@@ -478,8 +474,7 @@
       "sent": "Invitasjons-e-posten er sendt. Brukeren setter sitt eget passord, og kontoen aktiveres av deg etterpå.",
       "manual": "E-posten kunne ikke sendes (sjekk SMTP-innstillingene i .env), så send denne lenken til brukeren manuelt. De setter sitt eget passord, og kontoen aktiveres av deg etterpå.",
       "copy": "Kopier lenke",
-      "failed": "Kunne ikke lage invitasjonslenken. Prøv igjen.",
-      "invalid": "Ingen gyldig lenke funnet. Trykk «Invitasjonslenke» for å lage en ny."
+      "failed": "Kunne ikke lage invitasjonslenken. Prøv igjen."
     },
     "add": {
       "title": "Legg til ny bruker",
@@ -536,17 +531,13 @@
       "savePermissions": "Lagre rettigheter",
       "useRolePermissions": "Bruk rollens rettigheter",
       "readOnly": "Bare administrator kan endre denne brukeren.",
-      "previous": "Forrige",
-      "next": "Neste",
       "page": "Side {page} av {totalPages}"
     },
     "errors": {
       "invalid": "Fyll ut navn, e-post og velg en kontaktperson.",
       "missingContact": "Kundeportalbrukere må kobles til en kontaktperson på kundekortet.",
       "duplicateEmail": "Det finnes allerede en bruker med denne e-postadressen.",
-      "missingField": "Fyll ut navn, e-post og velg en kontaktperson.",
-      "templateInUse": "Sjekklisten er i bruk av rapporter, oppdrag eller aktive serviceavtaler og kan ikke slettes. Fjern bruken først.",
-      "unknown": "Noe gikk galt. Prøv igjen."
+      "missingField": "Fyll ut navn, e-post og velg en kontaktperson."
     }
   }
 }

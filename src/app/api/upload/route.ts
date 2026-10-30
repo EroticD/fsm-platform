@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import prisma from "@/lib/prisma";
+import { internalApiError, type ApiErrorCode } from "@/lib/api-errors";
 import { uploadDir } from "@/lib/uploads";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { getCurrentUser } from "@/lib/session";
@@ -30,21 +31,22 @@ import {
 export const dynamic = "force-dynamic";
 
 function jsonError(
-  message: string,
+  code: ApiErrorCode,
   status: number,
+  messageKey?: string,
   headers?: Record<string, string>,
 ): Response {
-  return new Response(JSON.stringify({ error: message }), { status, headers });
+  return internalApiError(code, status, { messageKey, headers });
 }
 
 export async function POST(request: Request) {
   if (!assertSameOrigin(request)) {
-    return jsonError("Ugyldig origin", 403);
+    return jsonError("invalid_origin", 403, "errors.api.upload.invalidOrigin");
   }
 
   const user = await getCurrentUser();
   if (!user?.isActive) {
-    return jsonError("Ikke autentisert", 401);
+    return jsonError("not_authenticated", 401);
   }
   // Opplasting i seg selv gir ingen tilgang til filen. Selve vedlegget eller
   // dokumentet krever en av rettighetene under, også for brukere med rollen
@@ -58,22 +60,23 @@ export async function POST(request: Request) {
     hasPermission(user, "settings.manage");
 
   if (!canUpload) {
-    return jsonError("Ingen tilgang", 403);
+    return jsonError("forbidden", 403);
   }
 
   // Avvis åpenbart for store forespørsler før vi leser og parser multipart.
   // Content-Length kan mangle eller lyve, så filstørrelsen sjekkes også under.
   const declaredLength = Number(request.headers.get("content-length") ?? "");
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
-    return jsonError("Filen er for stor", 413);
+    return jsonError("too_large", 413, "errors.api.upload.tooLarge");
   }
 
   // Maks 30 opplastinger per minutt per konto.
   const limit = await allowRequestDb(`upload:minute:${user.id}`, 30, 60_000);
   if (!limit.allowed) {
     return jsonError(
-      `For mange opplastinger. Prøv igjen om ${limit.retryAfterSeconds} sekunder.`,
+      "rate_limited",
       429,
+      "errors.api.upload.rateLimited",
       { "Retry-After": String(limit.retryAfterSeconds) },
     );
   }
@@ -86,8 +89,9 @@ export async function POST(request: Request) {
   const bodyLease = tryAcquireUploadBodySlot();
   if (!bodyLease) {
     return jsonError(
-      "Opplastingen er opptatt. Prøv igjen om litt.",
+      "upload_busy",
       503,
+      "errors.api.upload.busy",
       { "Retry-After": String(UPLOAD_BODY_RETRY_AFTER_SECONDS) },
     );
   }
@@ -107,13 +111,13 @@ export async function POST(request: Request) {
     })();
     if (!limited.ok) {
       if (limited.reason === "too-large") {
-        return jsonError("Filen er for stor", 413);
+        return jsonError("too_large", 413, "errors.api.upload.tooLarge");
       }
-      return jsonError("Ugyldig forespørsel", 400);
+      return jsonError("invalid_request", 400);
     }
 
     const contentType = request.headers.get("content-type");
-    if (!contentType) return jsonError("Ugyldig forespørsel", 400);
+    if (!contentType) return jsonError("invalid_request", 400);
 
     const formData = await new Response(new Uint8Array(limited.buffer), {
       headers: { "content-type": contentType },
@@ -121,7 +125,7 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return jsonError("Ingen fil valgt", 400);
+      return jsonError("no_file", 400, "errors.api.upload.noFile");
     }
 
     // Konteksten avgjør hvem som senere kan lese filen.
@@ -139,7 +143,7 @@ export async function POST(request: Request) {
         !hasPermission(user, "workorders.update") &&
         !hasPermission(user, "reports.write")
       ) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       const workOrder = await prisma.workOrder.findFirst({
         where: { id: workOrderId, ...workOrderScope(user) },
@@ -152,24 +156,24 @@ export async function POST(request: Request) {
         },
       });
       if (!workOrder) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       // En deaktivert avdeling skal ikke kunne ta imot nye filer, heller ikke
       // fra administrator som ellers ser alle avdelinger.
       if (!workOrder.department?.isActive) {
-        return jsonError("Avdelingen er deaktivert", 403);
+        return jsonError("department_inactive", 403, "errors.api.upload.departmentInactive");
       }
       // Lukkede oppdrag og bevaringsplikt er låst historikk. Samme regel
       // gjelder alle roller; en administrator må gjenåpne oppdraget eller
       // fjerne bevaringsplikten før nye filer kan lastes opp.
       if (workOrder.legalHold) {
-        return jsonError("Oppdraget har bevaringsplikt", 403);
+        return jsonError("legal_hold", 403, "errors.api.upload.legalHold");
       }
       if (
         workOrder.status === "COMPLETED" ||
         workOrder.status === "CANCELLED"
       ) {
-        return jsonError("Oppdraget er låst", 403);
+        return jsonError("work_order_locked", 403, "errors.api.upload.locked");
       }
       ownerType = "WORK_ORDER";
       ownerId = workOrderId;
@@ -177,14 +181,14 @@ export async function POST(request: Request) {
       ownerCustomerId = workOrder.customerId;
     } else if (customerId) {
       if (!hasPermission(user, "customers.manage")) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       const customer = await prisma.customer.findFirst({
         where: { id: customerId, deletedAt: null },
         select: { id: true, departmentId: true },
       });
       if (!customer) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       ownerType = "CUSTOMER";
       ownerId = customer.id;
@@ -192,14 +196,14 @@ export async function POST(request: Request) {
       ownerCustomerId = customer.id;
     } else if (purpose === "document") {
       if (!hasPermission(user, "documents.manage")) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       ownerType = "DOCUMENT";
       ownerId = null;
     } else if (purpose === "branding") {
       // Logo vises for alle innloggede, også kundeportalen.
       if (!hasPermission(user, "settings.manage")) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       ownerType = "BRANDING";
       ownerId = null;
@@ -219,15 +223,12 @@ export async function POST(request: Request) {
     };
     const fileExtension = allowedTypes[file.type];
     if (!fileExtension) {
-      return jsonError("Ugyldig filtype. Bare bilder og PDF er tillatt.", 400);
+      return jsonError("invalid_file_type", 400, "errors.api.upload.invalidType");
     }
 
     const maxSize = maxBytesForMime(file.type);
     if (file.size > maxSize) {
-      return jsonError(
-        `Filen er for stor (maks ${Math.round(maxSize / (1024 * 1024))} MB)`,
-        413,
-      );
+      return jsonError("too_large", 413, "errors.api.upload.tooLarge");
     }
 
     // Magiske bytes avgjør hva filen faktisk er. En HTML-fil som hevder å være
@@ -236,7 +237,7 @@ export async function POST(request: Request) {
     const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
     const actualMime = sniffFileMime(headerBytes);
     if (!declaredMimeMatches(file.type, actualMime)) {
-      return jsonError("Filinnholdet stemmer ikke med filtypen", 415);
+      return jsonError("mime_mismatch", 415, "errors.api.upload.mimeMismatch");
     }
 
     // Daglig lagringskvote per bruker (2 GiB de siste 24 timene). Hindrer at en
@@ -248,7 +249,7 @@ export async function POST(request: Request) {
       _sum: { size: true },
     });
     if ((used._sum.size ?? 0) + file.size > dailyQuota) {
-      return jsonError("Daglig lagringskvote er nådd. Prøv igjen senere.", 429);
+      return jsonError("storage_quota_exceeded", 429, "errors.api.upload.quota");
     }
 
     const uploadDirPath = uploadDir();
@@ -297,7 +298,7 @@ export async function POST(request: Request) {
           // Vi lagrer aldri den ubehandlede originalen under en påstått
           // bilde-MIME. En fil Sharp ikke kan dekode, er ikke et bilde vi kan
           // garantere at nettleseren håndterer trygt.
-          console.error("Bildekomprimering feilet:", error);
+          console.error("Image compression failed:", error);
           imageFailed = true;
           return;
         }
@@ -312,7 +313,7 @@ export async function POST(request: Request) {
         await fs.writeFile(finalPath, buffer);
       });
       if (imageFailed) {
-        return jsonError("Filen kunne ikke behandles som bilde", 415);
+        return jsonError("image_processing_failed", 415, "errors.api.upload.imageFailed");
       }
       // Filnavnet må bygges på nytt hvis endelsen endret seg (png/webp/jpg).
       if (filePath) {
@@ -330,7 +331,7 @@ export async function POST(request: Request) {
           uploadedById: user.id,
         });
       }
-      return jsonError("Kunne ikke lagre filen", 500);
+      return jsonError("save_failed", 500, "errors.api.upload.saveFailed");
     }
 
     // PDF-er og GIF-er skrives direkte fra strømmen. Da slipper vi å holde en
@@ -357,7 +358,7 @@ export async function POST(request: Request) {
       uploadedById: user.id,
     });
   } catch (error) {
-    console.error("Feil ved opplasting:", error);
+    console.error("Upload failed:", error);
     if (filePath) {
       try {
         await fs.unlink(filePath);
@@ -365,7 +366,7 @@ export async function POST(request: Request) {
         // Filen kan allerede være borte.
       }
     }
-    return jsonError("Kunne ikke laste opp fil", 500);
+    return jsonError("server_error", 500, "errors.api.upload.failed");
   }
 }
 
@@ -387,7 +388,7 @@ async function storeUpload(input: {
     await prisma.upload.create({
       data: {
         storedName: input.fileName,
-        originalName: cleanText(input.originalName, { maxLength: LIMITS.line }) || "fil",
+        originalName: cleanText(input.originalName, { maxLength: LIMITS.line }) || "file",
         mimeType: input.mimeType,
         size: input.size,
         ownerType: input.ownerType,
@@ -398,11 +399,11 @@ async function storeUpload(input: {
       },
     });
   } catch (error) {
-    console.error("Kunne ikke registrere opplasting:", error);
+    console.error("Could not register upload:", error);
     try {
       await fs.unlink(input.filePath);
     } catch {}
-    return jsonError("Kunne ikke lagre filen", 500);
+    return jsonError("save_failed", 500, "errors.api.upload.saveFailed");
   }
 
   const fileUrl = `/uploads/${input.fileName}`;

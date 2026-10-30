@@ -253,9 +253,7 @@
       "emptyPageTitle": "Denne siden finnes ikke",
       "emptyPageDescription": "Sidenummeret ligger utenfor listen. Gå til siste side for å se de nyeste oppføringene.",
       "goToLastPage": "Gå til siste side",
-      "page": "Side {page} av {totalPages} ({total} oppføringer)",
-      "previous": "Forrige",
-      "next": "Neste"
+      "page": "Side {page} av {totalPages} ({total} oppføringer)"
     },
     "notificationPreferences": {
       "caption": "Varsler per hendelse"
@@ -272,14 +270,7 @@
       "breadcrumb": "Brødsmulesti",
       "details": "Detaljer",
       "work": "Arbeid",
-      "more": "Mer",
-      "officeNavigation": "Kontornavigasjon",
-      "officeWorkspace": "Kontor",
-      "adminWorkspace": "Administrasjon",
-      "workspace": "Arbeidsområde",
-      "tools": "Verktøy",
-      "signedInAs": "Innlogget som",
-      "user": "Bruker"
+      "more": "Mer"
     },
     "language": {
       "change": "Endre språk"
@@ -297,9 +288,7 @@
     "error": {
       "title": "Noe gikk galt",
       "fallback": "En uventet feil oppstod",
-      "description": "Vi fikk ikke vist denne siden. Prøv igjen om et øyeblikk. Hvis problemet vedvarer, kan du gå tilbake til forsiden eller kontakte oss.",
-      "retry": "Prøv igjen",
-      "home": "Til forsiden"
+      "retry": "Prøv igjen"
     },
     "toast": {
       "uploaded": "Fil(er) lastet opp",
@@ -318,7 +307,6 @@
   "notFound": {
     "title": "Siden finnes ikke",
     "description": "Siden du leter etter er flyttet eller finnes ikke i {companyName}.",
-    "home": "Til forsiden",
     "workOrders": "Til oppdrag"
   }
 }

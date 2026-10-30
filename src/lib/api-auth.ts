@@ -44,8 +44,10 @@ export function apiBearerToken(request: Request): string | null {
   return match?.[1] ?? null;
 }
 
-function unauthorized(message = "Ugyldig eller utløpt API-nøkkel"): NextResponse {
-  const response = apiError(401, "unauthorized", message);
+function unauthorized(
+  messageKey = "errors.api.apiKey.invalid",
+): NextResponse {
+  const response = apiError("unauthorized", 401, { messageKey });
   response.headers.set(
     "WWW-Authenticate",
     'Bearer realm="fsm-api", error="invalid_token"',
@@ -65,7 +67,10 @@ export async function authenticateApiRequest(
 ): Promise<ApiAuthenticationResult> {
   const token = apiBearerToken(request);
   if (!token) {
-    return { ok: false, response: unauthorized("Mangler Bearer-token") };
+    return {
+      ok: false,
+      response: unauthorized("errors.api.apiKey.missing"),
+    };
   }
   if (!isApiKeyToken(token)) {
     return { ok: false, response: unauthorized() };
@@ -102,11 +107,7 @@ export async function authenticateApiRequest(
       API_KEY_RATE_WINDOW_MS,
     );
     if (!limit.allowed) {
-      const response = apiError(
-        429,
-        "rate_limited",
-        "For mange API-kall. Prøv igjen senere.",
-      );
+      const response = apiError("rate_limited", 429);
       const retryAfterSeconds = Number.isFinite(limit.retryAfterSeconds)
         ? Math.max(0, Math.ceil(limit.retryAfterSeconds))
         : 60;
@@ -140,11 +141,9 @@ export async function authenticateApiRequest(
   } catch {
     return {
       ok: false,
-      response: apiError(
-        500,
-        "server_error",
-        "Kunne ikke autentisere API-forespørselen.",
-      ),
+      response: apiError("server_error", 500, {
+        messageKey: "errors.api.apiKey.authFailed",
+      }),
     };
   }
 }
