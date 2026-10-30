@@ -463,6 +463,7 @@ export function internalApiError(
 export function isApiErrorCode(value: unknown): value is ApiErrorCode {
   return (
     typeof value === "string" &&
-    (value in PUBLIC_DEFAULTS || value in INTERNAL_DEFAULTS)
+    (Object.hasOwn(PUBLIC_DEFAULTS, value) ||
+      Object.hasOwn(INTERNAL_DEFAULTS, value))
   );
 }
