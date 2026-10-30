@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
 import {
   addDaysUtc,
+  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -25,18 +26,25 @@ const mocks = vi.hoisted(() => ({
     },
     bookingRequestEvent: { create: vi.fn() },
     report: { update: vi.fn(), updateMany: vi.fn() },
+    visit: { findMany: vi.fn(), update: vi.fn() },
     $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
   allowRequestDb: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
+  createDefaultVisit: vi.fn(),
+  recomputeWorkOrderSchedule: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
 vi.mock("@/lib/rate-limit-db", () => ({
   allowRequestDb: mocks.allowRequestDb,
+}));
+vi.mock("./visits", () => ({
+  createDefaultVisit: mocks.createDefaultVisit,
+  recomputeWorkOrderSchedule: mocks.recomputeWorkOrderSchedule,
 }));
 vi.mock("./notifications", () => ({
   notifyUser: vi.fn(),
@@ -88,6 +96,12 @@ beforeEach(() => {
     retryAfterSeconds: 0,
   });
   mocks.notifyWorkOrderEvent.mockResolvedValue(1);
+  mocks.createDefaultVisit.mockResolvedValue(undefined);
+  mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+  mocks.prisma.visit.findMany.mockResolvedValue([
+    { id: "visit-1", status: "PLANNED" },
+  ]);
+  mocks.prisma.visit.update.mockResolvedValue({});
 });
 
 const requestedDate = addDaysUtc(parseDateOnly(todayInOslo())!, 7);
@@ -612,6 +626,21 @@ describe("kundeportaltjenesten", () => {
         scheduledTo: expect.any(Date),
       },
     });
+
+    // Standardvisitten flyttes til det nye ønskede tidsvinduet.
+    const dayStart = osloDayStart(newDate);
+    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-1" },
+      data: {
+        startsAt: new Date(dayStart.getTime() + 9 * 60 * 60_000),
+        endsAt: new Date(dayStart.getTime() + 11 * 60 * 60_000),
+        allDay: false,
+      },
+    });
+    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(
+      mocks.prisma,
+      "wo1",
+    );
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "RESCHEDULED" }),
     });

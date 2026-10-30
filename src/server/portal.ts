@@ -13,6 +13,7 @@ import {
   cleanText,
 } from "@/lib/sanitize";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
+import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
 import {
   fail,
   ok,
@@ -133,6 +134,21 @@ function requestedStart(schedule: BookingSchedule): Date {
     osloDayStart(toDateOnly(schedule.requestedDate)).getTime() +
       (hours * 60 + minutes) * 60_000,
   );
+}
+
+/** Hele det ønskede tidsvinduet som absolutte Oslo-tidspunkter. */
+function requestedWindow(schedule: BookingSchedule): {
+  startsAt: Date;
+  endsAt: Date;
+} {
+  const [hours, minutes] = schedule.requestedTo.split(":").map(Number);
+  return {
+    startsAt: requestedStart(schedule),
+    endsAt: new Date(
+      osloDayStart(toDateOnly(schedule.requestedDate)).getTime() +
+        (hours * 60 + minutes) * 60_000,
+    ),
+  };
 }
 
 /** Fristen for å be om ny tid på bestillingen. */
@@ -376,6 +392,18 @@ export async function createBooking(
         },
         select: { id: true },
       });
+
+      // Bestillingen er en konkret tidsblokk i kundens ønskede vindu. Kontoret
+      // kan senere flytte den på visit-nivå; `BookingRequest` beholder
+      // fortsatt kundens opprinnelige ønske som snapshot.
+      const window = requestedWindow(schedule.data);
+      await createDefaultVisit(tx, {
+        workOrderId: workOrder.id,
+        startsAt: window.startsAt,
+        endsAt: window.endsAt,
+        allDay: false,
+      });
+      await recomputeWorkOrderSchedule(tx, workOrder.id);
 
       const reference = bookingReference(workOrder.id);
       const booking = await tx.bookingRequest.create({
@@ -944,7 +972,7 @@ export async function rescheduleBooking(
 
       // Bare en ubekreftet sak flyttes direkte. En planlagt sak beholder
       // planen til kontoret har bekreftet den nye tiden.
-      await tx.workOrder.updateMany({
+      const moved = await tx.workOrder.updateMany({
         where: {
           id: booking.data.workOrder.id,
           customerId: actor.customerId!,
@@ -955,6 +983,39 @@ export async function rescheduleBooking(
           scheduledTo: schedule.data.requestedDate,
         },
       });
+
+      if (moved.count > 0) {
+        const visits = await tx.visit.findMany({
+          where: { workOrderId: booking.data.workOrder.id },
+          select: { id: true, status: true },
+          orderBy: { sequence: "asc" },
+        });
+        const window = requestedWindow(schedule.data);
+
+        if (visits.length === 1) {
+          await tx.visit.update({
+            where: { id: visits[0].id },
+            data: {
+              startsAt: window.startsAt,
+              endsAt: window.endsAt,
+              allDay: false,
+            },
+          });
+        } else if (visits.length === 0) {
+          await createDefaultVisit(tx, {
+            workOrderId: booking.data.workOrder.id,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt,
+            allDay: false,
+          });
+        }
+
+        // En bestilling har alltid én standardvisitt. Skulle raden likevel ha
+        // flere (visit-nivå har tatt over), røres de ikke her.
+        if (visits.length <= 1) {
+          await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
+        }
+      }
 
       await audit(tx, {
         entityType: "BookingRequest",

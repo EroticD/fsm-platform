@@ -8,8 +8,10 @@ import {
   firstOccurrenceOnOrAfter,
   formatDate,
   latestOccurrenceOnOrBefore,
+  osloDayStart,
   toDateOnly,
 } from "@/lib/dates";
+import { createDefaultVisit, recomputeWorkOrderSchedule } from "@/server/visits";
 
 export type RecurringGenerationResult = {
   contractId: string;
@@ -177,6 +179,16 @@ export async function generateRecurringWorkOrderForContract(
           },
           select: { id: true },
         });
+
+        // Serviceoppdraget er datofestet og skal ha én planlagt all-day-visitt.
+        // Avtalen tildeler ingen montører, så visitten starter uten.
+        await createDefaultVisit(tx, {
+          workOrderId: workOrder.id,
+          startsAt: osloDayStart(toDateOnly(due)),
+          endsAt: osloDayStart(toDateOnly(addDaysUtc(due, 1))),
+          allDay: true,
+        });
+        await recomputeWorkOrderSchedule(tx, workOrder.id);
 
         await tx.auditLog.create({
           data: {

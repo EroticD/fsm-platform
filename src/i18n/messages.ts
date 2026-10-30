@@ -29,6 +29,8 @@ import errorsEn from "../../messages/fragments/errors.en.json";
 import p3En from "../../messages/fragments/p3.en.json";
 import searchAdminNb from "../../messages/fragments/search-admin.nb.json";
 import searchAdminEn from "../../messages/fragments/search-admin.en.json";
+import visitsNb from "../../messages/fragments/visits.nb.json";
+import visitsEn from "../../messages/fragments/visits.en.json";
 
 type Messages = Record<string, unknown>;
 
@@ -71,6 +73,7 @@ const nbFragments = mergeAll([
   errorsNb,
   p3Nb,
   searchAdminNb,
+  visitsNb,
 ]);
 
 const enFragments = mergeAll([
@@ -88,6 +91,7 @@ const enFragments = mergeAll([
   errorsEn,
   p3En,
   searchAdminEn,
+  visitsEn,
 ]);
 
 /**

@@ -134,6 +134,54 @@ const rules: Rule[] = [
     translate: (m, t) => t("auditActions.workOrder.restored", { title: m[1] }),
   },
 
+  // ------------------------------------------------------------------ visitt
+  {
+    pattern: /^Opprettet visitt: (.*) \((.*)\)$/,
+    translate: (m, t) =>
+      t("auditActions.visit.created", { title: m[1], range: m[2] }),
+  },
+  {
+    pattern: /^Oppdaterte visitten: (.*) \((.*)\)$/,
+    translate: (m, t) =>
+      t("auditActions.visit.updated", { title: m[1], range: m[2] }),
+  },
+  {
+    pattern: /^Flyttet visitt: (.*) \((.*)\)$/,
+    translate: (m, t) =>
+      t("auditActions.visit.moved", { title: m[1], range: m[2] }),
+  },
+  {
+    pattern: /^Tildelte montør: (.*)$/,
+    translate: (m, t) => t("auditActions.visit.assigned", { names: m[1] }),
+  },
+  {
+    pattern: /^Fjernet montør: (.*)$/,
+    translate: (m, t) => t("auditActions.visit.unassigned", { names: m[1] }),
+  },
+  {
+    pattern:
+      /^Endret visittstatus: (PLANNED|ASSIGNED|EN_ROUTE|ON_SITE|DONE|CANCELLED) → (PLANNED|ASSIGNED|EN_ROUTE|ON_SITE|DONE|CANCELLED)$/,
+    translate: (m, t) => {
+      const statusKeys: Record<string, string> = {
+        PLANNED: "visits.status.planned",
+        ASSIGNED: "visits.status.assigned",
+        EN_ROUTE: "visits.status.enRoute",
+        ON_SITE: "visits.status.onSite",
+        DONE: "visits.status.done",
+        CANCELLED: "visits.status.cancelled",
+      };
+      return t("auditActions.visit.statusChanged", {
+        from: t(statusKeys[m[1]] ?? m[1]),
+        to: t(statusKeys[m[2]] ?? m[2]),
+      });
+    },
+  },
+  {
+    pattern: /^Slettet visitt: (.*) \((.*)\)$/,
+    translate: (m, t) =>
+      t("auditActions.visit.deleted", { title: m[1], range: m[2] }),
+  },
+
   // ----------------------------------------------------------------- rapport
   {
     pattern: /^Kundens kvittering ble trukket tilbake ved ny innsending$/,

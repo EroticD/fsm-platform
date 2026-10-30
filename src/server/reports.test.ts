@@ -159,6 +159,7 @@ function txClient(overrides: Record<string, unknown> = {}) {
       updateMany: vi.fn(async () => ({ count: 1 })),
       create: vi.fn(async () => ({ id: "wo-rem" })),
     },
+    visit: { create: vi.fn(async () => ({ id: "visit-rem" })) },
     auditLog: { create: vi.fn(async () => ({})) },
     ...overrides,
   };
@@ -1799,6 +1800,8 @@ describe("reports-tjenesten", () => {
     expect(String(create.data.title)).toContain("Utbedring av avvik");
     expect(String(create.data.description)).toContain("Pumpe");
     expect(String(create.data.description)).toContain("Lekkasje ved pakning");
+    // Et datoløst utbedringsoppdrag skal ikke få en oppfunnet visitt.
+    expect(tx.visit.create).not.toHaveBeenCalled();
     const reportCreate = (
       tx.report.create.mock.calls[0] as unknown as [
         { data: { dataJson: string; units: { create: Array<Record<string, unknown>> } } },
