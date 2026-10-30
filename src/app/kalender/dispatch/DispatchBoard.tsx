@@ -257,9 +257,14 @@ export default function DispatchBoard({
               {visit.title}
             </Link>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
-                {workOrderStatusLabel}
-              </span>
+              {workOrderStatusLabel !== visitStatusLabel ? (
+                <span
+                  title={t("calendar.dispatch.workOrderStatus")}
+                  className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--muted,#62685f)]"
+                >
+                  {workOrderStatusLabel}
+                </span>
+              ) : null}
               <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--ink,#101310)]">
                 {visitStatusLabel}
               </span>

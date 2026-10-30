@@ -147,7 +147,8 @@
         "clear": "Nullstill",
         "rangeError": "Fra-dato kan ikke være etter til-dato. Rett opp datoene for å se visiter.",
         "dateError": "En av datoene er ugyldig. Bruk formatet ÅÅÅÅ-MM-DD."
-      }
+      },
+      "workOrderStatus": "Oppdragsstatus"
     },
     "client": {
       "today": "I dag",

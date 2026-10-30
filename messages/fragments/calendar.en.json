@@ -147,7 +147,8 @@
         "clear": "Reset",
         "rangeError": "The from date cannot be after the to date. Correct the dates to see visits.",
         "dateError": "One of the dates is invalid. Use the format YYYY-MM-DD."
-      }
+      },
+      "workOrderStatus": "Work order status"
     },
     "client": {
       "today": "Today",

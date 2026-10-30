@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import CalendarShell from "@/app/kalender/CalendarShell";
 import Icon from "@/components/icons";
+import IsoDateInput from "@/components/IsoDateInput";
 import DispatchBoard from "@/app/kalender/dispatch/DispatchBoard";
 import type {
   DispatchAttentionItem,
@@ -313,8 +314,7 @@ export default async function DispatchPage({
       >
         <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
           {t("calendar.dispatch.filters.dateFrom")}
-          <input
-            type="date"
+          <IsoDateInput
             name="fra"
             defaultValue={range.fromText}
             className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
@@ -322,8 +322,7 @@ export default async function DispatchPage({
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
           {t("calendar.dispatch.filters.dateTo")}
-          <input
-            type="date"
+          <IsoDateInput
             name="til"
             defaultValue={range.toText}
             className="min-h-10 w-full min-w-0 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"

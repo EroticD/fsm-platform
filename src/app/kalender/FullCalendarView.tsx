@@ -300,6 +300,7 @@ export default function FullCalendarView({
           weekNumberCalculation: 'ISO',
           allDaySlot: true,
           nowIndicator: true,
+          scrollTime: '07:00:00',
           slotMinTime: '00:00:00',
           slotMaxTime: '24:00:00',
           dayHeaderFormat: {
@@ -314,6 +315,7 @@ export default function FullCalendarView({
           weekNumberCalculation: 'ISO',
           allDaySlot: true,
           nowIndicator: true,
+          scrollTime: '07:00:00',
           slotMinTime: '00:00:00',
           slotMaxTime: '24:00:00',
           dayHeaderFormat: {
@@ -328,6 +330,11 @@ export default function FullCalendarView({
       // ukene bak en intern rullefelt. Uke og to uker får høyden fra
       // min-height-reglene lenger ned.
       height: 'auto',
+      // Timegrid skal åpne på arbeidsdagen, ikke ved midnatt. Bare kalenderens
+      // toppnivå-alternativ styrer initial scroll; visningskonfigurasjonen
+      // arver det.
+      scrollTime: '07:00:00',
+      scrollTimeReset: false,
       locale: locale,
       weekNumbers: weekNumbers,
       weekNumberCalculation: 'ISO',
@@ -425,9 +432,15 @@ export default function FullCalendarView({
 
           const visitLabelKey =
             VISIT_STATUS_LABEL_KEYS[visitStatus as VisitStatus];
-          statusText.textContent = visitLabelKey
-            ? `${workOrderText} · ${tRef.current(visitLabelKey)}`
-            : workOrderText;
+          const visitText = visitLabelKey
+            ? tRef.current(visitLabelKey)
+            : undefined;
+          // Ikke gjenta samme status to ganger når oppdrag og visitt begge er
+          // «planlagt». Ulike statuser vises med begge begrepene.
+          statusText.textContent =
+            visitText && visitText !== workOrderText
+              ? `${workOrderText} · ${visitText}`
+              : workOrderText;
           statusLine.appendChild(statusText);
 
           content.appendChild(statusLine);
