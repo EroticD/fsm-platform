@@ -63,7 +63,7 @@ export default async function CalendarShell({
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">
                   {t("calendar.header.period")}
                 </p>
-                <p className="text-sm font-black tabular-nums text-[var(--ink,#101310)]">
+                <p className="text-sm font-black capitalize tabular-nums text-[var(--ink,#101310)]">
                   {periodLabel}
                 </p>
               </div>
