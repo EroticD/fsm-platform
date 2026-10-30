@@ -145,43 +145,18 @@ function readStringList(value: unknown): string[] | null {
 function visitError(result: ServiceFailure) {
   switch (result.reason) {
     case "forbidden":
-      return apiError(
-        403,
-        "forbidden",
-        "Du har ikke tilgang til visitten.",
-        result.details,
-      );
+      return apiError("forbidden", 403, { messageKey: "errors.api.visits.forbidden", details: result.details });
     case "not_found":
-      return apiError(404, "not_found", "Fant ikke visitten.", result.details);
+      return apiError("not_found", 404, { messageKey: "errors.api.visits.notFound", details: result.details });
     case "conflict":
     case "in_use":
-      return apiError(
-        409,
-        "conflict",
-        "Visitten kan ikke endres.",
-        result.details,
-      );
+      return apiError("conflict", 409, { messageKey: "errors.api.visits.conflict", details: result.details });
     case "rate_limited":
-      return apiError(
-        429,
-        "rate_limited",
-        "For mange API-kall. Prøv igjen senere.",
-        result.details,
-      );
+      return apiError("rate_limited", 429, { messageKey: "errors.api.visits.rateLimited", details: result.details });
     case "error":
-      return apiError(
-        500,
-        "server_error",
-        "Kunne ikke oppdatere visitten.",
-        result.details,
-      );
+      return apiError("server_error", 500, { messageKey: "errors.api.visits.serverError", details: result.details });
     default:
-      return apiError(
-        422,
-        "validation_error",
-        "Feltene er ikke gyldige.",
-        result.details,
-      );
+      return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.validation", details: result.details });
   }
 }
 
@@ -201,7 +176,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "workorders.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til visitten.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.visits.forbidden" });
   }
 
   const { id } = await params;
@@ -211,7 +186,7 @@ export async function GET(
   });
 
   if (!visit) {
-    return apiError(404, "not_found", "Fant ikke visitten.");
+    return apiError("not_found", 404, { messageKey: "errors.api.visits.notFound" });
   }
 
   return apiJson(toVisitDetail(visit));
@@ -239,20 +214,20 @@ export async function PATCH(
   const parsed = await readJsonWithLimit<unknown>(request, JSON_BODY_LIMIT);
   if (!parsed.ok) {
     return parsed.status === 413
-      ? apiError(413, "validation_error", "Forespørselen er for stor.")
-      : apiError(400, "validation_error", "Ugyldig JSON.");
+      ? apiError("validation_error", 413, { messageKey: "errors.api.tooLarge" })
+      : apiError("validation_error", 400, { messageKey: "errors.api.invalidJson" });
   }
 
   const body = parsed.data;
   if (!isRecord(body)) {
-    return apiError(400, "validation_error", "Body må være et JSON-objekt.");
+    return apiError("validation_error", 400, { messageKey: "errors.api.bodyObject" });
   }
 
   const unknownField = Object.keys(body).find((key) => !PATCH_FIELDS.has(key));
   if (unknownField) {
-    return apiError(400, "validation_error", "Ukjent felt.", {
+    return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.unknownField", details: {
       field: unknownField,
-    });
+    } });
   }
 
   const hasStartsAt = hasOwn(body, "startsAt");
@@ -268,30 +243,17 @@ export async function PATCH(
   ).length;
 
   if (operationCount === 0) {
-    return apiError(
-      400,
-      "validation_error",
-      "Minst ett av feltene startsAt/endsAt, status, technicianIds, notes, allDay eller sequence må sendes.",
-    );
+    return apiError("validation_error", 400, { messageKey: "errors.api.visits.noFields" });
   }
   if (operationCount > 1) {
-    return apiError(
-      400,
-      "validation_error",
-      "Bare én operasjon kan sendes om gangen.",
-    );
+    return apiError("validation_error", 400, { messageKey: "errors.api.visits.oneOperation" });
   }
 
   if (hasMove && (!hasStartsAt || !hasEndsAt)) {
-    return apiError(
-      422,
-      "validation_error",
-      "startsAt og endsAt må sendes sammen.",
-      {
+    return apiError("validation_error", 422, { messageKey: "errors.api.visits.rangeTogether", details: {
         field: hasStartsAt ? "endsAt" : "startsAt",
         code: "visits.errors.invalidTimeRange",
-      },
-    );
+      } });
   }
 
   const permission = hasMove || hasTechnicians
@@ -300,11 +262,7 @@ export async function PATCH(
       ? "workorders.update"
       : "workorders.edit";
   if (!hasPermission(auth.actor, permission)) {
-    return apiError(
-      403,
-      "forbidden",
-      "Du har ikke tilgang til å endre visitten.",
-    );
+    return apiError("forbidden", 403, { messageKey: "errors.api.visits.updateForbidden" });
   }
 
   const { id } = await params;
@@ -312,21 +270,21 @@ export async function PATCH(
   if (hasMove) {
     const startsAt = parseDateTime(body.startsAt);
     if (!startsAt) {
-      return apiError(422, "validation_error", "Ugyldig starttidspunkt.", {
+      return apiError("validation_error", 422, { messageKey: "errors.api.visits.invalidStart", details: {
         field: "startsAt",
-      });
+      } });
     }
     const endsAt = parseDateTime(body.endsAt);
     if (!endsAt) {
-      return apiError(422, "validation_error", "Ugyldig sluttidspunkt.", {
+      return apiError("validation_error", 422, { messageKey: "errors.api.visits.invalidEnd", details: {
         field: "endsAt",
-      });
+      } });
     }
     if (endsAt.getTime() <= startsAt.getTime()) {
-      return apiError(422, "validation_error", "Slutt må være etter start.", {
+      return apiError("validation_error", 422, { messageKey: "errors.api.visits.endBeforeStart", details: {
         field: "endsAt",
         code: "visits.errors.invalidTimeRange",
-      });
+      } });
     }
 
     const result = await moveVisit(auth.actor, id, { startsAt, endsAt });
@@ -336,10 +294,10 @@ export async function PATCH(
       typeof body.status !== "string" ||
       !VISIT_STATUSES.includes(body.status)
     ) {
-      return apiError(422, "validation_error", "Ugyldig status.", {
+      return apiError("validation_error", 422, { messageKey: "errors.api.workOrders.invalidStatus", details: {
         field: "status",
         code: "visits.errors.statusTransition",
-      });
+      } });
     }
 
     const result = await setVisitStatus(
@@ -351,12 +309,7 @@ export async function PATCH(
   } else if (hasTechnicians) {
     const technicianIds = readStringList(body.technicianIds);
     if (technicianIds === null) {
-      return apiError(
-        422,
-        "validation_error",
-        "technicianIds må være en liste med id-er.",
-        { field: "technicianIds" },
-      );
+      return apiError("validation_error", 422, { messageKey: "errors.api.visits.technicianIds", details: { field: "technicianIds" } });
     }
 
     const result = await assignVisit(auth.actor, id, technicianIds);
@@ -370,17 +323,17 @@ export async function PATCH(
 
     if (hasOwn(body, "notes")) {
       if (body.notes !== null && typeof body.notes !== "string") {
-        return apiError(422, "validation_error", "notes må være tekst.", {
+        return apiError("validation_error", 422, { messageKey: "errors.api.visits.notesText", details: {
           field: "notes",
-        });
+        } });
       }
       input.notes = body.notes as string | null;
     }
     if (hasOwn(body, "allDay")) {
       if (typeof body.allDay !== "boolean") {
-        return apiError(422, "validation_error", "allDay må være boolsk.", {
+        return apiError("validation_error", 422, { messageKey: "errors.api.visits.allDayBoolean", details: {
           field: "allDay",
-        });
+        } });
       }
       input.allDay = body.allDay;
     }
@@ -390,12 +343,7 @@ export async function PATCH(
         !Number.isInteger(body.sequence) ||
         body.sequence < 0
       ) {
-        return apiError(
-          422,
-          "validation_error",
-          "sequence må være et heltall.",
-          { field: "sequence", code: "visits.errors.invalidSequence" },
-        );
+        return apiError("validation_error", 422, { messageKey: "errors.api.visits.sequenceInteger", details: { field: "sequence", code: "visits.errors.invalidSequence" } });
       }
       input.sequence = body.sequence;
     }
@@ -412,7 +360,7 @@ export async function PATCH(
     select: VISIT_DETAIL_SELECT,
   });
   if (!updated) {
-    return apiError(404, "not_found", "Fant ikke visitten.");
+    return apiError("not_found", 404, { messageKey: "errors.api.visits.notFound" });
   }
 
   return apiJson(toVisitDetail(updated));
@@ -427,11 +375,7 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "workorders.edit")) {
-    return apiError(
-      403,
-      "forbidden",
-      "Du har ikke tilgang til å slette visitten.",
-    );
+    return apiError("forbidden", 403, { messageKey: "errors.api.visits.deleteForbidden" });
   }
 
   const { id } = await params;

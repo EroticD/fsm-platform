@@ -83,7 +83,11 @@ describe("addAttachment – eierskap", () => {
 
     const result = await addAttachment(formData());
 
-    expect(result).toEqual({ ok: false, error: "Ugyldig fil" });
+    expect(result).toEqual({
+        ok: false,
+        error: "invalid_file",
+        messageKey: "errors.api.invalidFile",
+      });
     expect(mocks.prisma.attachment.create).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
@@ -129,7 +133,11 @@ describe("addAttachment – låst oppdrag", () => {
 
       const result = await addAttachment(formData());
 
-      expect(result).toEqual({ ok: false, error: "workorder-locked" });
+      expect(result).toEqual({
+        ok: false,
+        error: "workorder-locked",
+        messageKey: "errors.api.attachment.locked",
+      });
       expect(mocks.claimUpload).not.toHaveBeenCalled();
       expect(mocks.prisma.attachment.create).not.toHaveBeenCalled();
       expect(mocks.audit).not.toHaveBeenCalled();
@@ -145,7 +153,11 @@ describe("addAttachment – låst oppdrag", () => {
 
     const result = await addAttachment(formData());
 
-    expect(result).toEqual({ ok: false, error: "legal-hold" });
+    expect(result).toEqual({
+        ok: false,
+        error: "legal-hold",
+        messageKey: "errors.api.attachment.legalHold",
+      });
     expect(mocks.claimUpload).not.toHaveBeenCalled();
     expect(mocks.prisma.attachment.create).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
@@ -160,7 +172,11 @@ describe("addAttachment – låst oppdrag", () => {
 
     const result = await addAttachment(formData());
 
-    expect(result).toEqual({ ok: false, error: "workorder-locked" });
+    expect(result).toEqual({
+        ok: false,
+        error: "workorder-locked",
+        messageKey: "errors.api.attachment.locked",
+      });
     expect(mocks.claimUpload).not.toHaveBeenCalled();
   });
 });
@@ -206,7 +222,11 @@ describe("removeAttachment – bevaringsplikt", () => {
 
     const result = await removeAttachment(removeForm());
 
-    expect(result).toEqual({ ok: false, error: "legal-hold" });
+    expect(result).toEqual({
+        ok: false,
+        error: "legal-hold",
+        messageKey: "errors.api.attachment.legalHold",
+      });
     expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
   });
 
@@ -219,7 +239,11 @@ describe("removeAttachment – bevaringsplikt", () => {
 
     const result = await removeAttachment(removeForm());
 
-    expect(result).toEqual({ ok: false, error: "legal-hold" });
+    expect(result).toEqual({
+        ok: false,
+        error: "legal-hold",
+        messageKey: "errors.api.attachment.legalHold",
+      });
     expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
   });
 
@@ -234,7 +258,11 @@ describe("removeAttachment – bevaringsplikt", () => {
 
       const result = await removeAttachment(removeForm());
 
-      expect(result).toEqual({ ok: false, error: "workorder-locked" });
+      expect(result).toEqual({
+        ok: false,
+        error: "workorder-locked",
+        messageKey: "errors.api.attachment.locked",
+      });
       expect(mocks.prisma.attachment.delete).not.toHaveBeenCalled();
       expect(mocks.releaseUpload).not.toHaveBeenCalled();
     },

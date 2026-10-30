@@ -1,3 +1,5 @@
+// i18n-ignore-file: revisjonshandlinger og grupperingsetiketter lagres som data;
+// revisjonsloggen oversettes ved visning i audit-actions.ts.
 import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";

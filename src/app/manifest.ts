@@ -1,3 +1,5 @@
+// i18n-ignore-file: PWA-manifestet velger språk fra Accept-Language før
+// next-intl-konteksten finnes. Tekstene er allerede lokalisert i filen.
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { BRAND_COLORS } from "@/lib/brand";

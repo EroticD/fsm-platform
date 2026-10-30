@@ -55,14 +55,14 @@ export function validateProductionConfig(
     !env.APP_URL.startsWith("https://") &&
     !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(env.APP_URL)
   ) {
-    errors.push("APP_URL må starte med https:// når den er satt");
+    errors.push("APP_URL must start with https:// when set");
   }
 
   if (!env.NEXTAUTH_SECRET) {
-    errors.push("NEXTAUTH_SECRET mangler");
+    errors.push("NEXTAUTH_SECRET is missing");
   } else if (!isStrongNextAuthSecret(env.NEXTAUTH_SECRET)) {
     errors.push(
-      "NEXTAUTH_SECRET må være minst 32 byte med tilfeldig data (f.eks. `openssl rand -base64 32`)",
+      "NEXTAUTH_SECRET must be at least 32 bytes of random data (for example `openssl rand -base64 32`)",
     );
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { internalApiError } from "@/lib/api-errors";
 import { performSearch } from "@/lib/search";
 import { parseSearchFilters } from "@/lib/search-filters";
 import { getCurrentUser } from "@/lib/session";
@@ -18,17 +19,16 @@ function readInt(value: string | null, fallback: number, min: number, max: numbe
 export async function GET(request: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser || !currentUser.isActive || currentUser.role === "CUSTOMER") {
-    return NextResponse.json({ error: "Ingen tilgang" }, { status: 403 });
+    return internalApiError("forbidden", 403);
   }
 
   // Maks 60 søk per minutt per konto. Samme nøkkel som /sok, slik at de deler
   // kvoten, og telleren ligger i databasen for flere instanser.
   const limit = await allowRequestDb(`search:${currentUser.id}`, 60, 60_000);
   if (!limit.allowed) {
-    return NextResponse.json(
-      { error: "For mange søk. Prøv igjen om litt." },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
-    );
+    return internalApiError("rate_limited", 429, {
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
   }
 
   const url = new URL(request.url);

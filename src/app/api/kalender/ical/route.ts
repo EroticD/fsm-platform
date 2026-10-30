@@ -3,6 +3,8 @@ import { getCalendarFeed } from "@/server/calendar-feed";
 
 export const dynamic = "force-dynamic";
 
+const CALENDAR_FILENAME = "fsm-kalender.ics";
+
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
@@ -20,7 +22,7 @@ export async function GET(request: Request) {
 
   if (!result.ok) {
     if (result.reason === "rate_limited") {
-      return new NextResponse("For mange forespørsler", {
+      return new NextResponse("Too many requests", {
         status: 429,
         headers: {
           ...SECURITY_HEADERS,
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
         },
       });
     }
-    return new NextResponse("Ugyldig eller tilbakekalt kalenderlenke", {
+    return new NextResponse("Invalid or revoked calendar feed", {
       status: 401,
       headers: SECURITY_HEADERS,
     });
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
     headers: {
       ...SECURITY_HEADERS,
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": 'inline; filename="fsm-kalender.ics"',
+      "Content-Disposition": `inline; filename="${CALENDAR_FILENAME}"`,
     },
   });
 }

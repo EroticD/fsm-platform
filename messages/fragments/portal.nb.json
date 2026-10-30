@@ -152,22 +152,12 @@
       "noDate": "Ingen dato"
     },
     "pagination": {
-      "newest": "Nyeste",
-      "showMore": "Vis flere",
       "showing": "Viser {from}–{to} av {total}"
-    },
-    "history": {
-      "title": "Servicehistorikk & Rapporter",
-      "desc": "Utførte og kansellerte jobber, med rapporter.",
-      "empty": "Ingen historikk enda.",
-      "download": "Last ned PDF",
-      "noReport": "Ingen rapport"
     },
     "availability": {
       "title": "Ledige teknikere",
       "desc": "Oversikt over teknikernes ledige og opptatte dager de neste 7 dagene.",
       "empty": "Ingen teknikere registrert.",
-      "technician": "Tekniker",
       "busy": "Opptatt",
       "free": "Ledig",
       "pickHint": "Trykk på en ledig dag for å bruke den i bestillingen.",

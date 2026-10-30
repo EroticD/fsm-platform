@@ -72,7 +72,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "reports.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til rapporter.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.reports.forbidden" });
   }
 
   const { id } = await params;
@@ -137,7 +137,7 @@ export async function GET(
   });
 
   if (!report) {
-    return apiError(404, "not_found", "Fant ikke rapporten.");
+    return apiError("not_found", 404, { messageKey: "errors.api.reports.notFound" });
   }
 
   const parsed = safeRecord(parseJsonObject(report.dataJson));

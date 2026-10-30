@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     return NextResponse.json(
-      { error: "CRON_SECRET er ikke satt" },
+      { error: "CRON_SECRET is not configured" },
       { status: 503 },
     );
   }
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     ?.replace(/^Bearer\s+/i, "")
     .trim();
   if (!token || !safeEqual(token, secret)) {
-    return NextResponse.json({ error: "Ingen tilgang" }, { status: 401 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 401 });
   }
 
   const result = await cleanupAbandonedUploads();

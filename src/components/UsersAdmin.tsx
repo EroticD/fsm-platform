@@ -110,6 +110,9 @@ export default async function UsersAdmin({
     new Set(PERMISSIONS.map((permission) => permission.group)),
   ).map((group) => ({
     group,
+    groupKey:
+      PERMISSIONS.find((permission) => permission.group === group)?.groupKey ??
+      "settings.permissions.groups.administration",
     permissions: PERMISSIONS.filter((permission) => permission.group === group),
   }));
 
@@ -669,14 +672,14 @@ export default async function UsersAdmin({
                                     className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3"
                                   >
                                     <legend className="px-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
-                                      {group.group}
+                                      {t(group.groupKey)}
                                     </legend>
                                     <div className="space-y-2">
                                       {group.permissions.map((permission) => (
                                         <label
                                           key={permission.key}
                                           className="flex items-start gap-2 text-xs text-[var(--ink,#101310)]"
-                                          title={permission.description}
+                                          title={t(permission.descriptionKey)}
                                         >
                                           <input
                                             type="checkbox"
@@ -689,10 +692,10 @@ export default async function UsersAdmin({
                                           />
                                           <span>
                                             <span className="font-semibold">
-                                              {permission.label}
+                                              {t(permission.labelKey)}
                                             </span>
                                             <span className="block text-xs text-[var(--muted,#62685f)]">
-                                              {permission.description}
+                                              {t(permission.descriptionKey)}
                                             </span>
                                           </span>
                                         </label>

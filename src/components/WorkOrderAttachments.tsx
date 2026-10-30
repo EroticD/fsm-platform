@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import Icon from "@/components/icons";
 import { addAttachment, removeAttachment } from "@/lib/attachment-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -52,11 +53,10 @@ export default function WorkOrderAttachments({
 
   // Serveren returnerer stabile feilkoder; vis menneskelig tekst uten å endre
   // layouten. Ukjente koder vises som før.
-  const describeError = (code: string | undefined, fallback: string) => {
-    if (code === "legal-hold") return t("orders.attachments.legalHold");
-    if (code === "workorder-locked") return t("orders.attachments.locked");
-    return code || fallback;
-  };
+  const describeError = (
+    payload: { error?: string; messageKey?: string } | undefined,
+    fallback: string,
+  ) => apiErrorMessage(payload, t, fallback);
 
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -82,7 +82,9 @@ export default function WorkOrderAttachments({
         const res = await fetch("/api/upload", { method: "POST", body });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.fileUrl) {
-          throw new Error(json.error || t("orders.attachments.uploadError"));
+          throw new Error(
+            apiErrorMessage(json, t, t("orders.attachments.uploadError")),
+          );
         }
 
         const attachmentData = new FormData();
@@ -91,7 +93,9 @@ export default function WorkOrderAttachments({
         attachmentData.set("fileName", json.fileName || file.name);
 
         const result = await addAttachment(attachmentData);
-        if (!result.ok) throw new Error(result.error || t("orders.attachments.saveError"));
+        if (!result.ok) throw new Error(
+          apiErrorMessage(result, t, t("orders.attachments.saveError")),
+        );
       } catch {
         failed.push(file.name);
       }
@@ -134,7 +138,10 @@ export default function WorkOrderAttachments({
     const result = await removeAttachment(data);
     if (!result.ok) {
       setError(
-        describeError(result.error, t("orders.attachments.deleteError")),
+        describeError(
+          { error: result.error, messageKey: result.messageKey },
+          t("orders.attachments.deleteError"),
+        ),
       );
     } else {
       toast(t("components.toast.deleted"), "success");

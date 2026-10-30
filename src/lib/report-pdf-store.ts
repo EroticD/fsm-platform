@@ -94,7 +94,7 @@ function canonicalReport(report: ReportPdfHashInput, context?: ReportPdfContext)
   return {
     // Økes når PDF-renderingen eller hash-innholdet endres, slik at gamle,
     // ufullstendige PDF-er ikke gjenbrukes fra cachen.
-    rendererVersion: 6,
+    rendererVersion: 7,
     id: report.id,
     updatedAt,
     comments: report.comments ?? null,

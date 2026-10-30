@@ -24,6 +24,7 @@
     "test:e2e": "playwright test",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:i18n:strict": "node scripts/check-i18n.mjs --strict",
+    "i18n:unused": "node scripts/i18n-unused.mjs",
     "test:coverage": "vitest run --coverage",
     "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
   },

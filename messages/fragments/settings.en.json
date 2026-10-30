@@ -464,10 +464,6 @@
     }
   },
   "users": {
-    "pageTitle": "Employees & Access",
-    "pageSubtitleAdmin": "Showing a total of {count} registered users in the database.",
-    "pageSubtitleDepartment": "Showing {count} users in your department.",
-    "backToDashboard": "Back to Dashboard",
     "roles": {
       "title": "Roles and permissions",
       "description": "Create custom roles, change their permissions, or remove roles that are no longer in use.",
@@ -478,8 +474,7 @@
       "sent": "The invitation email has been sent. The user sets their own password, and you activate the account afterwards.",
       "manual": "The email could not be sent (check the SMTP settings in .env), so send this link to the user manually. They set their own password, and you activate the account afterwards.",
       "copy": "Copy link",
-      "failed": "Could not create the invitation link. Please try again.",
-      "invalid": "No valid link found. Click “Invitation link” to create a new one."
+      "failed": "Could not create the invitation link. Please try again."
     },
     "add": {
       "title": "Add new user",
@@ -536,17 +531,13 @@
       "savePermissions": "Save permissions",
       "useRolePermissions": "Use the role's permissions",
       "readOnly": "Only an administrator can change this user.",
-      "previous": "Previous",
-      "next": "Next",
       "page": "Page {page} of {totalPages}"
     },
     "errors": {
       "invalid": "Fill in name, email and select a contact person.",
       "missingContact": "Customer portal users must be linked to a contact person on the customer card.",
       "duplicateEmail": "A user with this email address already exists.",
-      "missingField": "Fill in name, email and select a contact person.",
-      "templateInUse": "The checklist is used by reports, work orders or active service contracts and cannot be deleted. Remove the usage first.",
-      "unknown": "Something went wrong. Try again."
+      "missingField": "Fill in name, email and select a contact person."
     }
   }
 }

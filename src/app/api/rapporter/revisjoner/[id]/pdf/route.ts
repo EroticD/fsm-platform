@@ -15,7 +15,7 @@ export async function GET(
 ) {
   const viewer = await getCurrentUser();
   if (!viewer?.isActive) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const { id } = await params;
@@ -24,7 +24,7 @@ export async function GET(
   const limit = await allowRequestDb(`pdf:${viewer.id}`, 10, 60_000);
   if (!limit.allowed) {
     return new NextResponse(
-      `For mange PDF-forespørsler. Prøv igjen om ${limit.retryAfterSeconds} sekunder.`,
+      `Too many PDF requests. Retry in ${limit.retryAfterSeconds} seconds.`,
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
     );
   }
@@ -32,7 +32,7 @@ export async function GET(
   const result = await getReportRevisionForPdf(viewer, id);
   if (!result.ok) {
     return new NextResponse(
-      result.error === "forbidden" ? "Ingen tilgang" : "Fant ikke revisjonen",
+      result.error === "forbidden" ? "Forbidden" : "Revision not found",
       { status: result.error === "forbidden" ? 403 : 404 },
     );
   }

@@ -1,3 +1,5 @@
+// i18n-ignore-file: varseltitler og -tekster lagres i databasen uten key/params-
+// kolonner. Render-tid-oversettelse krever skjemaendring i Phase 5B (C-23).
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { Prisma } from "@prisma/client";

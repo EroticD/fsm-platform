@@ -67,8 +67,6 @@
         "tags": "Tags / checklist",
         "action": "Action"
       },
-      "previous": "← Previous",
-      "next": "Next →",
       "page": "Page {page} of {pages}",
       "sortLabel": "Sort",
       "sortUrgency": "Most urgent first",
@@ -105,7 +103,6 @@
       "orderNumber": "Order number",
       "orderNumberPlaceholder": "Customer order number (optional)",
       "submitting": "Creating …",
-      "locationTitle": "Work location",
       "addressLabel": "Address",
       "postalCodeLabel": "Postal code",
       "cityLabel": "City",
@@ -114,7 +111,6 @@
     "customerSelect": {
       "label": "Select customer",
       "labelOptional": "Select customer (optional)",
-      "placeholder": "-- Select or search for a customer --",
       "searchPlaceholder": "Search customer, city or customer number...",
       "noMatch": "No customers matched the search.",
       "customerNumber": "Cust. no: {number}",
@@ -147,14 +143,12 @@
       "notFoundTitle": "The work order does not exist",
       "goToDashboard": "Go to the dashboard",
       "saveTags": "💾 Save tags",
-      "editTags": "Edit tags",
       "noDate": "No date selected",
       "noAddress": "No address registered",
       "assign": "Assign",
       "moveDate": "Move date",
       "completeWorkOrder": "Complete",
       "department": "Department: {name}",
-      "noCustomer": "No customer",
       "internalOrder": "Internal work order",
       "orphanReport": "Report without template",
       "editWorkOrder": "Edit work order",
@@ -197,7 +191,6 @@
       "cancelReasonPlaceholder": "Describe why the work order is cancelled",
       "noStatusPermission": "You do not have permission to change the status of this work order.",
       "locationTitle": "Location and contact",
-      "company": "Company:",
       "address": "Address:",
       "contact": "Contact person",
       "noContact": "No contact person selected for the work order.",
@@ -256,7 +249,6 @@
       "deletedRetention": "Work orders without reports may be removed automatically after the retention period (365 days by default). Work orders with reports are kept until they are deleted manually. Legal hold stops all automatic deletion.",
       "restored": "The work order has been restored.",
       "cloneWorkOrder": "Clone work order",
-      "completedLocked": "This work order is completed and locked. You can add comments or clone it into a new work order.",
       "reopenReason": "Reason for reopening / status change",
       "reopenReasonPlaceholder": "Describe why the work order is reopened or the status is overridden",
       "checklistLockedOnly": "The checklist is locked, but only the checklist is locked. The work order can still be edited and get a new status.",
@@ -334,15 +326,12 @@
     "edit": {
       "notFoundTitle": "The work order does not exist",
       "backToDashboard": "Back to dashboard",
-      "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date.",
       "title": "✏️ Edit Work Order",
       "subtitle": "Update details, date or technician.",
       "cancel": "← Cancel",
       "titleLabel": "Work order title / Name",
       "department": "Department",
       "departmentHint": "If you move the work order, technicians from the new department must be selected again.",
-      "customer": "Customer",
-      "contact": "Contact person (optional)",
       "noContact": "— No contact person —",
       "contactHint": "If you select a new customer, you must also select a contact person again.",
       "scheduledDate": "Scheduled date",
@@ -361,7 +350,6 @@
       "roleTechnician": "Technician",
       "orderNumber": "Order number",
       "saving": "Saving …",
-      "locationTitle": "Work location",
       "addressLabel": "Address",
       "postalCodeLabel": "Postal code",
       "cityLabel": "City",
@@ -369,11 +357,9 @@
     },
     "fieldList": {
       "greeting": "Hi, {name}",
-      "subtitle": "Field portal for work orders and calendar.",
       "department": "{name}",
       "noDepartment": "No department",
       "logOut": "Log out",
-      "fieldMode": "Field mode",
       "onDuty": "On duty",
       "liveOnline": "Online",
       "liveOffline": "Offline",
@@ -400,7 +386,6 @@
       "searchPlaceholder": "Search work orders, customers or locations...",
       "search": "Search",
       "reset": "Reset",
-      "upcomingTitle": "📅 Your upcoming work orders ({count})",
       "todayPageTitle": "Today",
       "noActive": "No active work orders in your calendar right now.",
       "noDate": "No date set",
@@ -408,12 +393,7 @@
       "allDay": "All day",
       "openWorkOrder": "Open work order",
       "openWorkOrderAria": "Open work order {title}",
-      "priorityOverdue": "⚠️ Overdue",
-      "priorityToday": "☀️ Today",
-      "priorityAvailable": "🙋 Available",
-      "priorityLater": "🗓️ Later",
       "overdueEmpty": "No overdue work orders.",
-      "todayEmpty": "No work orders today.",
       "availableEmpty": "No available work orders right now.",
       "laterEmpty": "No upcoming work orders.",
       "availableDescription": "Work orders without a technician that you can take.",
@@ -421,8 +401,6 @@
       "takeWorkOrderCta": "Take work order",
       "draftBadge": "Draft {time}",
       "draftContinue": "Continue",
-      "unassignedTitle": "⚠️ Available / Unassigned work orders ({count})",
-      "requiresAssignment": "Requires assignment / execution",
       "takeWorkOrder": "Take work order",
       "takingWorkOrder": "Taking work order …",
       "claimed": "Work order claimed and now under your work orders.",
@@ -434,7 +412,6 @@
       "showMap": "Map",
       "newTab": "opens in a new tab",
       "historyTitle": "Completed work orders / History ({count})",
-      "archived": "🏢 {customer} • Completed / Archived",
       "loadMore": "Show more ({count})",
       "showingCount": "Showing {shown} of {total}"
     },
@@ -442,9 +419,7 @@
       "notFoundTitle": "The work order does not exist",
       "notFoundText": "It may have been deleted, or the link is incorrect.",
       "backToOverview": "Go back to the overview",
-      "noCustomer": "No customer",
       "internalOrder": "Internal work order",
-      "department": "🏷️ Department: {name}",
       "back": "← Back",
       "statusTitle": "Work order status",
       "statusOpen": "Open / New",
@@ -559,10 +534,6 @@
       "subtitle": "Register a new job directly from the field.",
       "titleLabel": "Title / Work order type",
       "titlePlaceholder": "E.g. Emergency repair / Extra service",
-      "customerLabel": "Select Customer (optional)",
-      "noAddress": "No address",
-      "switchCustomer": "Change customer",
-      "customerSearchPlaceholder": "Type to search for a customer or city...",
       "executionDate": "Date of execution",
       "endDate": "End date (optional)",
       "endDateHint": "Empty = one-day job.",
@@ -598,13 +569,11 @@
       "loadErrorTitle": "Could not load the form",
       "loadErrorText": "The work order or form template no longer exists.",
       "backToWorkOrder": "Back to work order",
-      "backToWorkOrderShort": "← Back to the work order",
       "workOrderFor": "Work order: {title} at {customer}",
       "noCustomer": "No customer",
       "lockedTitle": "🔒 The report is locked",
       "lockedText": "This checklist has already been filled in and locked, and cannot be changed here. If corrections are needed, an administrator must unlock it first.",
-      "openPdf": "📄 View the report (PDF)",
-      "revisions": "Revisions ({count})"
+      "openPdf": "📄 View the report (PDF)"
     },
     "fieldInput": {
       "commentRequired": "💬 Comment for “{value}” – required",
@@ -616,23 +585,7 @@
       "textPlaceholder": "Type here..."
     },
     "workOrderForm": {
-      "title": "Complete work order",
-      "template": "Checklist template: {title}",
-      "templateQuestion": "Do you want to fill in the checklist for this job?",
-      "templateActive": "Checklist active",
-      "templateActivate": "Activate checklist",
-      "checkpoints": "Checkpoints",
-      "photoRequired": "📷 Photo required",
-      "commentRequired": "💬 Comment required",
-      "okOption": "OK (Yes)",
-      "deviationOption": "Deviation (No)",
-      "commentPlaceholder": "Add a comment or deviation note here...",
-      "photoLabel": "Attach a photo for this checkpoint:",
-      "summaryLabel": "Final comment / summary",
-      "summaryPlaceholder": "Write a short summary of the job...",
-      "customerSignature": "Customer signature (Name)",
-      "customerSignaturePlaceholder": "Enter the full name of the customer...",
-      "submit": "Save and complete work order"
+      "title": "Complete work order"
     },
     "reportForm": {
       "saving": "Saving …",
@@ -640,11 +593,6 @@
       "saveReport": "✍️ Sign and submit report",
       "submitOffline": "📴 Cannot submit offline",
       "offlineNotice": "Offline – the draft is saved, but the report cannot be submitted until you are back online.",
-      "draftSaving": "💾 Saving draft …",
-      "draftSaved": "✅ Draft saved",
-      "draftSavedAt": "✅ Draft saved {time}",
-      "draftError": "⚠️ Could not save the draft – check your connection",
-      "draftIdle": "The draft is saved automatically on this device as you fill in the form",
       "saveDraftNow": "Save draft now",
       "stepsLabel": "Checklist steps",
       "stepNumber": "Step {number}",
@@ -702,8 +650,6 @@
       "technicianHelper": "The person who performed the job.",
       "customerSignature": "✍️ Customer",
       "customerHelper": "The customer representative on site.",
-      "draftOffline": "Saved on this device – sent when the app is open and the network returns",
-      "reportNoUnitsTitle": "Checkpoints",
       "reportNoUnitsHint": "This report is not linked to equipment units. The checkpoints are completed for the work order as a whole.",
       "errorInvalidData": "⛔ The report is missing or contains invalid information. Correct the fields below and try again.",
       "errorMissingUnit": "⛔ The report is missing a unit. Add at least one unit and try again.",
@@ -748,11 +694,8 @@
       "uploadError": "Upload failed",
       "saveError": "Could not save the attachment",
       "deleteError": "Could not delete the attachment",
-      "locked": "The work order is locked and cannot be changed.",
-      "legalHold": "The work order is under legal hold and cannot be changed.",
       "deleteTitle": "Delete attachment",
       "deleteConfirm": "Delete the attachment “{name}”?",
-      "delete": "Delete",
       "uploadLabel": "Add files"
     },
     "unitHistory": {
@@ -784,11 +727,9 @@
       "failedShort": "Upload failed",
       "retry": "Try again",
       "retryAll": "Retry all",
-      "uploading": "Uploading {done} of {total} …",
       "uploadingShort": "Uploading …",
       "uploaded": "{count, plural, one {✅ # image uploaded} other {✅ # images uploaded}}",
       "viewImage": "View image",
-      "remove": "✕ Remove",
       "removeFile": "Remove {name}",
       "attachmentAlt": "Attachment {number}"
     },
@@ -809,9 +750,7 @@
       "endBeforeStart": "The end date cannot be before the start date.",
       "saveFailed": "⛔ The work order could not be saved. Check the title, customer and date.",
       "workOrderLocked": "🔒 This work order is completed or cancelled and locked. You can add comments or clone it.",
-      "reasonRequired": "You must provide a reason for reopening or changing the status.",
       "legalHold": "⛔ The work order cannot be deleted because it or one of its reports is under legal hold.",
-      "legalHoldFrozen": "⛔ The report is frozen by legal hold. An administrator must release the hold with a reason before it can be changed or unlocked.",
       "duplicateOrderNumber": "⛔ The order number is already in use in this department. Use a different number.",
       "customerChangeBlocked": "⛔ The customer cannot be changed because the work order has reports or a booking.",
       "tooManyTags": "Too many tags.",
@@ -882,13 +821,8 @@
       "locked": "Locked",
       "openForEdit": "Open for correction",
       "unsigned": "Unsigned",
-      "viewPdf": "View report (PDF)",
       "openWorkOrder": "Open work order",
-      "showing": "Showing the {shown} newest of {total} reports.",
       "noUnits": "No units",
-      "revisions": "Revisions ({count})",
-      "previousPage": "Previous",
-      "nextPage": "Next",
       "showingPage": "Page {page} of {totalPages} · {total} reports",
       "reportNumber": "Report no. {number}",
       "tableReport": "Report",
@@ -934,8 +868,7 @@
       "reportName": "Report: {name}",
       "singleReportFallback": "Report",
       "download": "Download PDF",
-      "iframeTitle": "Service report – {title}",
-      "noCustomer": "Internal work order"
+      "iframeTitle": "Service report – {title}"
     }
   },
   "auditActions": {
@@ -958,7 +891,10 @@
       "reportLegalHoldOn": "Enabled legal hold for the report «{name}»",
       "reportLegalHoldOff": "Disabled legal hold for the report «{name}»",
       "deleted": "Deleted the work order «{title}»{customer, select, none {} other { ({customer})}} (soft delete – can be restored)",
-      "restored": "Restored the work order «{title}»"
+      "restored": "Restored the work order «{title}»",
+      "completed": "Completed work order",
+      "statusGeneric": "Changed status",
+      "updatedGeneric": "Updated"
     },
     "report": {
       "acknowledgementWithdrawnResubmit": "The customer acknowledgement was withdrawn on resubmission",
@@ -973,13 +909,16 @@
       "units": "{count, plural, one {# unit} other {# units}}",
       "noUnits": "no units",
       "deviation": "deviation",
-      "approved": "approved"
+      "approved": "approved",
+      "acknowledged": "Customer acknowledged the report",
+      "signed": "Signed report"
     },
     "customer": {
       "created": "Created customer: {name}",
       "updated": "Changed customer information: {name}",
       "deleted": "Deleted the customer «{name}» (soft delete – can be restored)",
-      "restored": "Restored the customer «{name}»"
+      "restored": "Restored the customer «{name}»",
+      "updatedGeneric": "Changed customer"
     },
     "contact": {
       "created": "Added contact person: {name}",
@@ -995,11 +934,99 @@
       "created": "Created service agreement: {title} ({interval})",
       "activated": "Activated service agreement: {title}",
       "paused": "Paused service agreement: {title}",
-      "deleted": "Deleted service agreement: {title}"
+      "deleted": "Deleted service agreement: {title}",
+      "recurringCreated": "Created recurring work order from service contract «{title}»"
     },
     "attachment": {
       "added": "Attached file: {name}",
       "deleted": "Deleted attachment: {name}"
+    },
+    "auth": {
+      "login": "Signed in",
+      "loginRecovery": "Signed in with a recovery code",
+      "passwordReset": "Reset the password via email link"
+    },
+    "security": {
+      "twoFactorFailed": "2FA: verification failed",
+      "twoFactorSetupExpired": "2FA: setup expired",
+      "twoFactorSetupStarted": "Started two-factor authentication setup",
+      "twoFactorSetupCancelled": "Cancelled two-factor authentication setup",
+      "twoFactorEnabled": "Enabled two-factor authentication",
+      "twoFactorDisabled": "Disabled two-factor authentication",
+      "twoFactorRecoveryRegenerated": "Generated new two-factor recovery codes",
+      "twoFactorReset": "Reset two-factor authentication for {name}"
+    },
+    "users": {
+      "created": "Created user: {name} ({role})",
+      "portalCreated": "Created customer portal user: {name} ({email})",
+      "activated": "Activated user: {name}",
+      "deactivated": "Deactivated user: {name}",
+      "portalActivated": "Activated customer portal user: {name}",
+      "portalDeactivated": "Deactivated customer portal user: {name}",
+      "departmentChanged": "Changed department for {name} to {department}",
+      "roleChanged": "Changed role for {name} to {role}",
+      "phoneChanged": "Changed phone number for {name}",
+      "invitationCreated": "Generated a new invitation link for: {name}",
+      "invitationResent": "Sent a new invitation link to customer portal user: {name}",
+      "deleted": "Deleted user: {name}",
+      "permissionsReset": "Reset permissions to the role defaults for {name}"
+    },
+    "departments": {
+      "created": "Created department: {name}",
+      "updated": "Updated department: {from} → {to}",
+      "activated": "Activated department: {name}",
+      "deactivated": "Deactivated department: {name}",
+      "defaultChanged": "Set {name} as the default department"
+    },
+    "roles": {
+      "created": "Created role: {label} ({count, plural, one {# permission} other {# permissions}})",
+      "updated": "Updated role: {from} → {to} ({count, plural, one {# permission} other {# permissions}})",
+      "deleted": "Deleted role: {label}"
+    },
+    "documents": {
+      "uploaded": "Uploaded document: {title}",
+      "updated": "Updated document: {title}",
+      "restored": "Restored document «{title}»",
+      "versionRestored": "Restored a previous version of document: {title}",
+      "reindexed": "Reindexed the document for full-text search",
+      "deleted": "Deleted document «{title}» (soft delete – can be restored)",
+      "folderCreated": "Created folder: {name}",
+      "folderMoved": "Moved folder: {name}",
+      "folderRenamed": "Renamed folder: {from} → {to}",
+      "folderDeleted": "Deleted folder: {name}",
+      "tagsAdded": "Added tags to document «{title}»: {tags}",
+      "movedToFolder": "Moved document «{title}» to folder {folder}",
+      "movedToRoot": "Moved document «{title}» to the root",
+      "tagCreated": "Created document tag: {name}",
+      "tagUpdated": "Updated document tag: {from} -> {to}",
+      "tagDeleted": "Deleted document tag: {name}"
+    },
+    "settings": {
+      "brandingUpdated": "Updated branding settings: {company}",
+      "mapUpdated": "Updated map settings"
+    },
+    "templates": {
+      "created": "Created checklist: {title}",
+      "deleted": "Deleted checklist: {title}",
+      "deleteBlocked": "Blocked deletion of checklist «{title}» because it is in use",
+      "tagCreated": "Created tag: {name}",
+      "tagUpdated": "Updated tag: {from} -> {to}",
+      "tagDeleted": "Deleted tag: {name}"
+    },
+    "workforce": {
+      "skillCreated": "Created skill: {label}",
+      "skillUpdated": "Updated skill: {label}",
+      "skillDeleted": "Deleted skill: {label}",
+      "userSkillUpdated": "Updated skills for {name}",
+      "absenceCreated": "Registered absence for {name}",
+      "absenceUpdated": "Updated absence for {name}",
+      "absenceDeleted": "Deleted absence for {name}",
+      "availabilityUpdated": "Updated working hours for {name}"
+    },
+    "portal": {
+      "bookingCreated": "Customer booked a new work order: {title}",
+      "rescheduleRequested": "Customer requested a new time",
+      "bookingCancelled": "Customer cancelled the booking"
     }
   }
 }
