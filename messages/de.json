@@ -2917,10 +2917,6 @@
       }
     },
     "users": {
-      "pageTitle": "Mitarbeiter & Zugriff",
-      "pageSubtitleAdmin": "Anzeige von insgesamt {count} registrierten Benutzern in der Datenbank.",
-      "pageSubtitleDepartment": "Anzeige von {count} Benutzern in Ihrer Abteilung.",
-      "backToDashboard": "Zurück zum Dashboard",
       "roles": {
         "title": "Rollen und Berechtigungen",
         "description": "Erstellen Sie eigene Rollen, ändern Sie deren Berechtigungen oder entfernen Sie nicht mehr benötigte Rollen.",
@@ -2931,8 +2927,7 @@
         "sent": "Die Einladungs-E-Mail wurde gesendet. Der Benutzer legt sein eigenes Passwort fest, und Sie aktivieren das Konto anschließend.",
         "manual": "Die E-Mail konnte nicht gesendet werden (prüfen Sie die SMTP-Einstellungen in .env). Senden Sie diesen Link daher manuell an den Benutzer. Er legt sein eigenes Passwort fest, und Sie aktivieren das Konto anschließend.",
         "copy": "Link kopieren",
-        "failed": "Der Einladungslink konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
-        "invalid": "Kein gültiger Link gefunden. Klicken Sie auf “Einladungslink”, um einen neuen zu erstellen."
+        "failed": "Der Einladungslink konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
       },
       "add": {
         "title": "Neuen Benutzer hinzufügen",
@@ -2989,17 +2984,13 @@
         "savePermissions": "Berechtigungen speichern",
         "useRolePermissions": "Berechtigungen der Rolle verwenden",
         "readOnly": "Nur ein Administrator kann diesen Benutzer ändern.",
-        "previous": "Zurück",
-        "next": "Weiter",
         "page": "Seite {page} von {totalPages}"
       },
       "errors": {
         "invalid": "Geben Sie Name und E-Mail ein und wählen Sie eine Kontaktperson aus.",
         "missingContact": "Kundenportal-Benutzer müssen mit einer Kontaktperson auf der Kundenkarte verknüpft sein.",
         "duplicateEmail": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
-        "missingField": "Geben Sie Name und E-Mail ein und wählen Sie eine Kontaktperson aus.",
-        "templateInUse": "Die Checkliste wird von Berichten, Aufträgen oder aktiven Serviceverträgen verwendet und kann nicht gelöscht werden. Entfernen Sie zuerst die Verwendung.",
-        "unknown": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+        "missingField": "Geben Sie Name und E-Mail ein und wählen Sie eine Kontaktperson aus."
       }
     },
     "dashboard": {

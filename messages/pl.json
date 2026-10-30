@@ -2917,10 +2917,6 @@
       }
     },
     "users": {
-      "pageTitle": "Pracownicy i dostęp",
-      "pageSubtitleAdmin": "Łącznie {count} zarejestrowanych użytkowników w bazie danych.",
-      "pageSubtitleDepartment": "Wyświetlono {count} użytkowników w twoim dziale.",
-      "backToDashboard": "Powrót do pulpitu",
       "roles": {
         "title": "Role i uprawnienia",
         "description": "Twórz własne role, zmieniaj ich uprawnienia lub usuwaj role, które nie są już używane.",
@@ -2931,8 +2927,7 @@
         "sent": "E-mail z zaproszeniem został wysłany. Użytkownik ustawia własne hasło, a konto aktywujesz później.",
         "manual": "Nie udało się wysłać e-maila (sprawdź ustawienia SMTP w .env), więc wyślij ten link użytkownikowi ręcznie. Użytkownik ustawia własne hasło, a konto aktywujesz później.",
         "copy": "Kopiuj link",
-        "failed": "Nie udało się utworzyć linku zaproszenia. Spróbuj ponownie.",
-        "invalid": "Nie znaleziono prawidłowego linku. Kliknij „Link zaproszenia”, aby utworzyć nowy."
+        "failed": "Nie udało się utworzyć linku zaproszenia. Spróbuj ponownie."
       },
       "add": {
         "title": "Dodaj nowego użytkownika",
@@ -2989,17 +2984,13 @@
         "savePermissions": "Zapisz uprawnienia",
         "useRolePermissions": "Użyj uprawnień roli",
         "readOnly": "Tylko administrator może zmienić tego użytkownika.",
-        "previous": "Poprzednia",
-        "next": "Następna",
         "page": "Strona {page} z {totalPages}"
       },
       "errors": {
         "invalid": "Podaj imię i nazwisko, adres e-mail i wybierz osobę kontaktową.",
         "missingContact": "Użytkownicy portalu klienta muszą być powiązani z osobą kontaktową na karcie klienta.",
         "duplicateEmail": "Użytkownik o tym adresie e-mail już istnieje.",
-        "missingField": "Podaj imię i nazwisko, adres e-mail i wybierz osobę kontaktową.",
-        "templateInUse": "Lista kontrolna jest używana przez raporty, zlecenia lub aktywne umowy serwisowe i nie można jej usunąć. Najpierw usuń powiązania.",
-        "unknown": "Coś poszło nie tak. Spróbuj ponownie."
+        "missingField": "Podaj imię i nazwisko, adres e-mail i wybierz osobę kontaktową."
       }
     },
     "dashboard": {
