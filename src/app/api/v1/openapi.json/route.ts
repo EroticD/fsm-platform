@@ -840,6 +840,7 @@ const openApiDocument = {
                   error: {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
+                    messageKey: "errors.api.visits.conflict",
                     details: {
                       code: "visits.errors.overlap",
                       conflicts: [
@@ -861,6 +862,7 @@ const openApiDocument = {
                   error: {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
+                    messageKey: "errors.api.visits.conflict",
                     details: { code: "visits.errors.legalHold" },
                   },
                 },
@@ -871,6 +873,7 @@ const openApiDocument = {
                   error: {
                     code: "conflict",
                     message: "Visitten kan ikke endres.",
+                    messageKey: "errors.api.visits.conflict",
                     details: { code: "visits.errors.visitLocked" },
                   },
                 },
@@ -891,6 +894,7 @@ const openApiDocument = {
                   error: {
                     code: "validation_error",
                     message: "Feltene er ikke gyldige.",
+                    messageKey: "errors.api.visits.validation",
                     details: {
                       field: "endsAt",
                       code: "visits.errors.invalidTimeRange",
@@ -904,6 +908,7 @@ const openApiDocument = {
                   error: {
                     code: "validation_error",
                     message: "Feltene er ikke gyldige.",
+                    messageKey: "errors.api.visits.validation",
                     details: {
                       code: "visits.errors.statusTransition",
                       from: "DONE",
@@ -918,6 +923,7 @@ const openApiDocument = {
                   error: {
                     code: "validation_error",
                     message: "Feltene er ikke gyldige.",
+                    messageKey: "errors.api.visits.validation",
                     details: {
                       code: "visits.errors.invalidTechnician",
                       technicianIds: ["cm_user"],
