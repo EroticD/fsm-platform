@@ -1,0 +1,146 @@
+{
+  "portal": {
+    "expansion": {
+      "tabs": {
+        "label": "Customer portal sections",
+        "oversikt": "Overview",
+        "bestillinger": "Bookings",
+        "rapporter": "Reports",
+        "dokumenter": "Documents",
+        "utstyr": "Equipment",
+        "avtaler": "Contracts",
+        "besok": "Visits",
+        "meldinger": "Messages",
+        "kontakt": "Contact"
+      },
+      "branding": {
+        "logoAlt": "Logo for {customerName}",
+        "poweredBy": "The customer portal is provided by your service provider.",
+        "customerLogo": "Customer portal logo"
+      },
+      "common": {
+        "unknownDate": "Date not set"
+      },
+      "booking": {
+        "forbidden": "You have read-only access to bookings. Contact the office to change an appointment."
+      },
+      "documents": {
+        "title": "Documents",
+        "intro": "Files shared by your service provider. Only your own documents are shown.",
+        "forbidden": "You do not have access to documents for this account.",
+        "empty": "No documents have been shared yet.",
+        "download": "Download"
+      },
+      "reports": {
+        "title": "Reports",
+        "forbidden": "You do not have access to reports for this account."
+      },
+      "equipment": {
+        "title": "Equipment",
+        "intro": "Registered equipment at your sites, with status, warranty and latest reading.",
+        "forbidden": "You do not have access to the equipment overview.",
+        "empty": "No equipment is registered.",
+        "serial": "SN: {serial}",
+        "noSerial": "Serial number missing",
+        "statuses": {
+          "ACTIVE": "In service",
+          "OUT_OF_SERVICE": "Out of service",
+          "RETIRED": "Retired"
+        },
+        "siteLabel": "Site",
+        "noSite": "Not specified",
+        "categoryLabel": "Category",
+        "warrantyLabel": "Warranty",
+        "noWarranty": "No warranty registered",
+        "lastReadingLabel": "Latest reading",
+        "lastReading": "{value} {unit} ({date})",
+        "plansLabel": "Maintenance",
+        "planCount": "{count, plural, one {# active plan} other {# active plans}}"
+      },
+      "contracts": {
+        "title": "Contracts",
+        "intro": "Service contracts, coverage lines and the next planned service.",
+        "forbidden": "You do not have access to contracts for this account.",
+        "empty": "No service contracts are registered.",
+        "number": "Contract no. {number}",
+        "noNumber": "No contract number",
+        "statuses": {
+          "DRAFT": "Draft",
+          "ACTIVE": "Active",
+          "PAUSED": "Paused",
+          "EXPIRED": "Expired",
+          "TERMINATED": "Terminated"
+        },
+        "periodLabel": "Period",
+        "openEnded": "Open-ended",
+        "intervalLabel": "Interval",
+        "months": "{count, plural, one {# month} other {# months}}",
+        "nextServiceLabel": "Next service",
+        "slaLabel": "SLA",
+        "allEquipment": "All equipment",
+        "visits": "{count, plural, one {# visit per year} other {# visits per year}}",
+        "response": "Response time {minutes} min",
+        "resolution": "Resolution time {minutes} min"
+      },
+      "visits": {
+        "title": "Visits",
+        "intro": "Upcoming and completed visits. When the technician is on the way you can open a tracking link.",
+        "errors": {
+          "forbidden": "You do not have access to visits.",
+          "invalid": "This visit cannot be opened right now.",
+          "notFound": "Visit not found.",
+          "conflict": "The visit is not in a phase where this is possible.",
+          "generic": "The action could not be completed. Please try again."
+        },
+        "statuses": {
+          "PLANNED": "Planned",
+          "ASSIGNED": "Assigned",
+          "EN_ROUTE": "On the way",
+          "ON_SITE": "On site",
+          "DONE": "Completed",
+          "CANCELLED": "Cancelled"
+        },
+        "upcoming": "Upcoming",
+        "past": "Previous",
+        "emptyUpcoming": "No upcoming visits are planned.",
+        "emptyPast": "No previous visits.",
+        "addressUnavailable": "Address not provided",
+        "technicians": "Technician: {names}",
+        "refreshTracking": "Refresh tracking link",
+        "openTracking": "Open tracking",
+        "review": "Leave a review",
+        "reviewDone": "Review submitted",
+        "reviewRequested": "The review has already been registered."
+      },
+      "messages": {
+        "title": "Messages",
+        "intro": "Conversations with your service provider. Replies can be sent by SMS when you have consented.",
+        "errors": {
+          "forbidden": "You do not have access to messages.",
+          "invalid": "The message could not be sent. Write some text and try again.",
+          "notFound": "Conversation not found.",
+          "conflict": "The conversation cannot be changed right now.",
+          "rateLimited": "You have sent many messages in a short time. Please try again later.",
+          "generic": "The message could not be sent. Please try again."
+        },
+        "empty": "No conversations yet.",
+        "noSubject": "Conversation without a subject",
+        "unread": "{count} unread",
+        "back": "Back to messages",
+        "fromYou": "You",
+        "fromOffice": "The service provider",
+        "consentMissing": "SMS replies are not enabled for this contact. Contact the office to give consent.",
+        "sendLabel": "Write a message",
+        "placeholder": "Write your message here …",
+        "sent": "The message has been sent.",
+        "send": "Send",
+        "sending": "Sending …"
+      },
+      "contact": {
+        "sitesTitle": "Sites",
+        "noSites": "No sites are registered.",
+        "primary": "Primary"
+      }
+    }
+  }
+}

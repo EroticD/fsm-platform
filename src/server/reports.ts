@@ -1753,9 +1753,18 @@ export async function getReportPdfForViewer(
   // ikke lenger kunne lese rapportene sine. Ansatte med reports.view beholder
   // tilgangen for oppfølging og gjenoppretting.
   if (viewer.role === "CUSTOMER") {
+    // Kundeportalen har én sentral tilgangskontroll. En delegert kontakt uten
+    // dokumenttilgang skal ikke kunne hente rapport-PDF-en, heller ikke via en
+    // gammel bokmerket adresse.
+    const { portalAccessAllows, resolvePortalAccess } = await import(
+      "./portal-access"
+    );
+    const access = await resolvePortalAccess(viewer);
     if (
+      !access.ok ||
+      !portalAccessAllows(access.data, "canViewDocuments") ||
       !viewer.customerId ||
-      workOrder.customerId !== viewer.customerId ||
+      workOrder.customerId !== access.data.customerId ||
       !workOrder.customer ||
       workOrder.customer.deletedAt
     ) {

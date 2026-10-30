@@ -275,6 +275,8 @@ model CustomerSite {
 
   bookingRequests BookingRequest[]
   bookingHolds    BookingHold[]
+  workOrders      WorkOrder[]
+  products        Product[]
 
   @@unique([customerId, name])
   @@index([customerId])
@@ -300,11 +302,32 @@ model Contact {
   messageThreads     MessageThread[]
   smsMessages        SmsMessage[]
   channelPreferences ChannelPreference[]
+  portalDelegation   PortalDelegation?
 
   @@index([customerId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm")
   @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_email_trgm")
   @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_phone_trgm")
+}
+
+/// Delegerte rettigheter for en kontaktperson som logger inn i kundeportalen.
+/// En kontakt uten rad har full portaltilgang (bakoverkompatibelt); en rad med
+/// `isActive = false` stenger portalen for den kontakten helt.
+model PortalDelegation {
+  id        String  @id @default(cuid())
+  contactId String  @unique
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  canBook           Boolean @default(false)
+  canViewDocuments  Boolean @default(false)
+  canViewContracts  Boolean @default(false)
+  canViewEquipment  Boolean @default(true)
+  isActive          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([contactId, isActive])
 }
 
 /// Utstyrets driftstilstand. Retired er en historisk enhet som ikke lenger
@@ -348,6 +371,10 @@ model Product {
   reportUnits   ReportUnit[]
   contractLines ContractLine[]
 
+  /// Fysisk sted der utstyret står. Tomt betyr kundens primære adresse.
+  siteId String?
+  site   CustomerSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   // Kategoritre og fysisk/teknisk hierarki. To ulike trær med hvert sitt formål:
   // kategorien sier hva utstyret er, hierarkiet hvor det hører til.
   categoryId String?
@@ -377,6 +404,7 @@ model Product {
 
   @@index([customerId])
   @@index([customerId, serialNumber])
+  @@index([siteId])
   @@index([categoryId])
   @@index([parentId])
   @@index([status])
@@ -776,6 +804,10 @@ model WorkOrder {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 
+  /// Fysisk sted for oppdraget. Tomt betyr kundens primære adresse.
+  siteId String?
+  site   CustomerSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
   productId String?
   product   Product? @relation(fields: [productId], references: [id])
 
@@ -813,6 +845,7 @@ model WorkOrder {
   @@unique([contractId, scheduledFor])
   @@index([departmentId])
   @@index([customerId])
+  @@index([siteId])
   @@index([status])
   @@index([scheduledFor])
   @@index([contractId])

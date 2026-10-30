@@ -1,0 +1,146 @@
+{
+  "portal": {
+    "expansion": {
+      "tabs": {
+        "label": "Bereiche des Kundenportals",
+        "oversikt": "Übersicht",
+        "bestillinger": "Buchungen",
+        "rapporter": "Berichte",
+        "dokumenter": "Dokumente",
+        "utstyr": "Ausrüstung",
+        "avtaler": "Verträge",
+        "besok": "Besuche",
+        "meldinger": "Nachrichten",
+        "kontakt": "Kontakt"
+      },
+      "branding": {
+        "logoAlt": "Logo von {customerName}",
+        "poweredBy": "Das Kundenportal wird von Ihrem Dienstleister bereitgestellt.",
+        "customerLogo": "Logo im Kundenportal"
+      },
+      "common": {
+        "unknownDate": "Datum nicht gesetzt"
+      },
+      "booking": {
+        "forbidden": "Sie haben nur Lesezugriff auf Buchungen. Wenden Sie sich an das Büro, um einen Termin zu ändern."
+      },
+      "documents": {
+        "title": "Dokumente",
+        "intro": "Von Ihrem Dienstleister freigegebene Dateien. Es werden nur Ihre eigenen Dokumente angezeigt.",
+        "forbidden": "Sie haben keinen Zugriff auf Dokumente dieses Kontos.",
+        "empty": "Es wurden noch keine Dokumente freigegeben.",
+        "download": "Herunterladen"
+      },
+      "reports": {
+        "title": "Berichte",
+        "forbidden": "Sie haben keinen Zugriff auf Berichte dieses Kontos."
+      },
+      "equipment": {
+        "title": "Ausrüstung",
+        "intro": "Registrierte Ausrüstung an Ihren Standorten mit Status, Garantie und letzter Messung.",
+        "forbidden": "Sie haben keinen Zugriff auf die Ausrüstungsübersicht.",
+        "empty": "Es ist keine Ausrüstung registriert.",
+        "serial": "SN: {serial}",
+        "noSerial": "Seriennummer fehlt",
+        "statuses": {
+          "ACTIVE": "In Betrieb",
+          "OUT_OF_SERVICE": "Außer Betrieb",
+          "RETIRED": "Ausgemustert"
+        },
+        "siteLabel": "Standort",
+        "noSite": "Nicht angegeben",
+        "categoryLabel": "Kategorie",
+        "warrantyLabel": "Garantie",
+        "noWarranty": "Keine Garantie registriert",
+        "lastReadingLabel": "Letzte Messung",
+        "lastReading": "{value} {unit} ({date})",
+        "plansLabel": "Wartung",
+        "planCount": "{count, plural, one {# aktiver Plan} other {# aktive Pläne}}"
+      },
+      "contracts": {
+        "title": "Verträge",
+        "intro": "Serviceverträge, Leistungsumfang und der nächste geplante Service.",
+        "forbidden": "Sie haben keinen Zugriff auf Verträge dieses Kontos.",
+        "empty": "Es sind keine Serviceverträge registriert.",
+        "number": "Vertragsnr. {number}",
+        "noNumber": "Keine Vertragsnummer",
+        "statuses": {
+          "DRAFT": "Entwurf",
+          "ACTIVE": "Aktiv",
+          "PAUSED": "Pausiert",
+          "EXPIRED": "Abgelaufen",
+          "TERMINATED": "Beendet"
+        },
+        "periodLabel": "Zeitraum",
+        "openEnded": "Unbefristet",
+        "intervalLabel": "Intervall",
+        "months": "{count, plural, one {# Monat} other {# Monate}}",
+        "nextServiceLabel": "Nächster Service",
+        "slaLabel": "SLA",
+        "allEquipment": "Gesamte Ausrüstung",
+        "visits": "{count, plural, one {# Besuch pro Jahr} other {# Besuche pro Jahr}}",
+        "response": "Reaktionszeit {minutes} Min.",
+        "resolution": "Lösungszeit {minutes} Min."
+      },
+      "visits": {
+        "title": "Besuche",
+        "intro": "Bevorstehende und abgeschlossene Besuche. Wenn der Techniker unterwegs ist, können Sie einen Tracking-Link öffnen.",
+        "errors": {
+          "forbidden": "Sie haben keinen Zugriff auf Besuche.",
+          "invalid": "Dieser Besuch kann gerade nicht geöffnet werden.",
+          "notFound": "Besuch nicht gefunden.",
+          "conflict": "Der Besuch befindet sich nicht in einer Phase, in der dies möglich ist.",
+          "generic": "Die Aktion konnte nicht ausgeführt werden. Bitte versuchen Sie es erneut."
+        },
+        "statuses": {
+          "PLANNED": "Geplant",
+          "ASSIGNED": "Zugewiesen",
+          "EN_ROUTE": "Unterwegs",
+          "ON_SITE": "Vor Ort",
+          "DONE": "Abgeschlossen",
+          "CANCELLED": "Storniert"
+        },
+        "upcoming": "Bevorstehend",
+        "past": "Früher",
+        "emptyUpcoming": "Es sind keine bevorstehenden Besuche geplant.",
+        "emptyPast": "Keine früheren Besuche.",
+        "addressUnavailable": "Adresse nicht angegeben",
+        "technicians": "Techniker: {names}",
+        "refreshTracking": "Tracking-Link erneuern",
+        "openTracking": "Tracking öffnen",
+        "review": "Bewertung abgeben",
+        "reviewDone": "Bewertung abgegeben",
+        "reviewRequested": "Die Bewertung wurde bereits registriert."
+      },
+      "messages": {
+        "title": "Nachrichten",
+        "intro": "Gespräche mit Ihrem Dienstleister. Antworten können per SMS gesendet werden, wenn Sie zugestimmt haben.",
+        "errors": {
+          "forbidden": "Sie haben keinen Zugriff auf Nachrichten.",
+          "invalid": "Die Nachricht konnte nicht gesendet werden. Schreiben Sie etwas Text und versuchen Sie es erneut.",
+          "notFound": "Gespräch nicht gefunden.",
+          "conflict": "Das Gespräch kann gerade nicht geändert werden.",
+          "rateLimited": "Sie haben in kurzer Zeit viele Nachrichten gesendet. Bitte versuchen Sie es später erneut.",
+          "generic": "Die Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
+        },
+        "empty": "Noch keine Gespräche.",
+        "noSubject": "Gespräch ohne Betreff",
+        "unread": "{count} ungelesen",
+        "back": "Zurück zu Nachrichten",
+        "fromYou": "Sie",
+        "fromOffice": "Der Dienstleister",
+        "consentMissing": "SMS-Antworten sind für diesen Kontakt nicht aktiviert. Wenden Sie sich an das Büro, um zuzustimmen.",
+        "sendLabel": "Nachricht schreiben",
+        "placeholder": "Schreiben Sie Ihre Nachricht hier …",
+        "sent": "Die Nachricht wurde gesendet.",
+        "send": "Senden",
+        "sending": "Wird gesendet …"
+      },
+      "contact": {
+        "sitesTitle": "Standorte",
+        "noSites": "Es sind keine Standorte registriert.",
+        "primary": "Primär"
+      }
+    }
+  }
+}

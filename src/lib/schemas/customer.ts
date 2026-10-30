@@ -18,6 +18,7 @@ export const customerUpdateSchema = z.object({
   customerNumber: optionalLine.default(""),
   orgNumber: optionalLine.default(""),
   brandColor: limitedText(20).default(""),
+  logoUrl: optionalLine.default(""),
   address: optionalLine.default(""),
   postalCode: limitedText(20).default(""),
   city: limitedText(LIMITS.short).default(""),

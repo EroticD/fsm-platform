@@ -50,7 +50,17 @@ const ROLE_ROUTES: Record<E2ERole, string[]> = {
   admin: OFFICE_ROUTES,
   office: OFFICE_ROUTES,
   technician: ["/mine-oppdrag", "/mine-oppdrag/ny"],
-  customer: ["/kundeportal"],
+  customer: [
+    "/kundeportal",
+    "/kundeportal/bestillinger",
+    "/kundeportal/rapporter",
+    "/kundeportal/dokumenter",
+    "/kundeportal/utstyr",
+    "/kundeportal/avtaler",
+    "/kundeportal/besok",
+    "/kundeportal/meldinger",
+    "/kundeportal/kontakt",
+  ],
 };
 
 async function expectNoBlockingA11yIssues(page: Page, context?: string) {

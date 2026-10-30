@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { parseDateOnly, toDateOnly, todayInOslo } from "@/lib/dates";
 import { getDefaultDepartmentId } from "@/lib/departments";
+import { addressHash, geocodeAddress } from "@/lib/geocode";
 import { staffForDepartment } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { neutralizeUrls } from "@/lib/neutralize-urls";
@@ -40,6 +41,10 @@ import {
   type ServiceActor,
   type ServiceResult,
 } from "./actor";
+import {
+  requirePortalCapability,
+  resolvePortalAccess,
+} from "./portal-access";
 
 const PAGE_SIZE = 20;
 
@@ -278,11 +283,10 @@ export async function createBooking(
   actor: ServiceActor,
   input: CreateBookingInput,
 ): Promise<ServiceResult<CreateBookingResult>> {
-  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
-    return fail("forbidden");
-  }
+  const access = await requirePortalCapability(actor, "canBook");
+  if (!access.ok) return access;
 
-  const customerId = actor.customerId;
+  const customerId = access.data.customerId;
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, deletedAt: null },
     select: {
@@ -408,6 +412,24 @@ export async function createBooking(
       return fail("invalid");
     }
   }
+
+  // Adressen som faktisk gjelder for bestillingen. Stedsvalget vinner over
+  // kundens hovedadresse, og geokodingen bruker samme grunnlag som
+  // oppdragstjenesten slik at kart og avledede felt blir konsistente.
+  const bookingAddress = {
+    address: siteSnapshot.address || customer.address || null,
+    postalCode: siteSnapshot.postalCode || customer.postalCode || null,
+    city: siteSnapshot.city || customer.city || null,
+  };
+  const addressQuery = [
+    bookingAddress.address,
+    bookingAddress.postalCode,
+    bookingAddress.city,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const geoAddressHash = addressHash(addressQuery);
+  const coordinates = geoAddressHash ? await geocodeAddress(addressQuery) : null;
 
   const customerLimit = await allowRequestDb(
     `booking:customer:${customerId}`,
@@ -599,10 +621,13 @@ export async function createBooking(
             contactId: actor.contactId || undefined,
             creatorName: actor.name || actor.email || "Kunde",
             status: "PLANNED",
-            address: siteSnapshot.address || customer.address || undefined,
-            postalCode:
-              siteSnapshot.postalCode || customer.postalCode || undefined,
-            city: siteSnapshot.city || customer.city || undefined,
+            siteId: bookingSiteId || undefined,
+            address: bookingAddress.address || undefined,
+            postalCode: bookingAddress.postalCode || undefined,
+            city: bookingAddress.city || undefined,
+            latitude: coordinates?.lat ?? null,
+            longitude: coordinates?.lng ?? null,
+            geoAddressHash,
             scheduledFor: schedule.data.requestedDate,
             scheduledTo: schedule.data.requestedDate,
             technicians: { connect: [] },
@@ -717,6 +742,13 @@ export async function createBooking(
           contactId: actor.contactId || undefined,
           creatorName: actor.name || actor.email || "Kunde",
           status: "OPEN",
+          siteId: siteSnapshot.id || undefined,
+          address: bookingAddress.address || undefined,
+          postalCode: bookingAddress.postalCode || undefined,
+          city: bookingAddress.city || undefined,
+          latitude: coordinates?.lat ?? null,
+          longitude: coordinates?.lng ?? null,
+          geoAddressHash,
           scheduledFor: schedule.data.requestedDate,
           scheduledTo: schedule.data.requestedDate,
           technicians: { connect: [] },
@@ -897,12 +929,11 @@ export async function getPortalBookingRequests(
   actor: ServiceActor,
   options: { page?: number } = {},
 ): Promise<ServiceResult<PortalBookingPage>> {
-  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
-    return fail("forbidden");
-  }
+  const access = await resolvePortalAccess(actor);
+  if (!access.ok) return access;
 
   const where = {
-    customerId: actor.customerId,
+    customerId: access.data.customerId,
     workOrder: { deletedAt: null },
   };
   const total = await prisma.bookingRequest.count({ where });
@@ -1041,19 +1072,18 @@ async function ownBooking(
   actor: ServiceActor,
   bookingId: unknown,
 ): Promise<ServiceResult<BookingChangeRow>> {
-  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
-    return fail("forbidden");
-  }
+  const access = await resolvePortalAccess(actor);
+  if (!access.ok) return access;
   const id = idFrom(bookingId);
   if (!id) return fail("invalid");
 
   const booking = await prisma.bookingRequest.findFirst({
     where: {
       id,
-      customerId: actor.customerId,
+      customerId: access.data.customerId,
       // Bestillingen kan henge igjen på et oppdrag som senere er flyttet til
       // en annen kunde. Den gamle kunden skal ikke kunne endre oppdraget.
-      workOrder: { customerId: actor.customerId },
+      workOrder: { customerId: access.data.customerId },
     },
     select: {
       id: true,
@@ -1088,7 +1118,9 @@ async function ownBooking(
   if (!booking) return fail("not_found");
   // Kontrollerer også raden vi faktisk fikk tilbake, slik at en fremmed
   // oppdragskunde aldri kan mutere saken selv om spørringen skulle være utdatert.
-  if (booking.workOrder.customerId !== actor.customerId) return fail("not_found");
+  if (booking.workOrder.customerId !== access.data.customerId) {
+    return fail("not_found");
+  }
   return ok(booking);
 }
 
@@ -1106,6 +1138,8 @@ export async function cancelBooking(
     visitInProgress: boolean;
   }>
 > {
+  const access = await requirePortalCapability(actor, "canBook");
+  if (!access.ok) return access;
   const booking = await ownBooking(actor, input.bookingId);
   if (!booking.ok) return booking;
 
@@ -1145,7 +1179,7 @@ export async function cancelBooking(
       const updated = await tx.bookingRequest.updateMany({
         where: {
           id: booking.data.id,
-          customerId: actor.customerId!,
+          customerId: access.data.customerId,
           status: { in: ["PENDING", "CONFIRMED"] },
         },
         data: { status: "CANCELLED", cancelledAt: new Date() },
@@ -1166,7 +1200,7 @@ export async function cancelBooking(
         const cancelledWorkOrder = await tx.workOrder.updateMany({
           where: {
             id: booking.data.workOrder.id,
-            customerId: actor.customerId!,
+            customerId: access.data.customerId,
             status: { in: [...PORTAL_CANCELLABLE_WORK_ORDER_STATUSES] },
           },
           data: { status: "CANCELLED" },
@@ -1205,7 +1239,7 @@ export async function cancelBooking(
         action: "Kunden kansellerte bestillingen",
         actor: toAuditActor(actor),
         metadata: {
-          customerId: actor.customerId,
+          customerId: access.data.customerId,
           workOrderId: booking.data.workOrder.id,
           reference: booking.data.reference,
           workOrderCancelled,
@@ -1295,6 +1329,8 @@ export async function rescheduleBooking(
     technicianName?: string | null;
   }>
 > {
+  const access = await requirePortalCapability(actor, "canBook");
+  if (!access.ok) return access;
   const booking = await ownBooking(actor, input.bookingId);
   if (!booking.ok) return booking;
 
@@ -1351,7 +1387,7 @@ export async function rescheduleBooking(
   let siteId = booking.data.siteId;
   if (siteIdInput) {
     const site = await prisma.customerSite.findFirst({
-      where: { id: siteIdInput, customerId: actor.customerId! },
+      where: { id: siteIdInput, customerId: access.data.customerId },
       select: { id: true },
     });
     if (!site) return fail("invalid");
@@ -1413,7 +1449,7 @@ export async function rescheduleBooking(
           ? await tx.bookingHold.findFirst({
               where: {
                 token: holdToken,
-                customerId: actor.customerId!,
+                customerId: access.data.customerId,
                 consumedAt: null,
                 expiresAt: { gt: new Date() },
               },
@@ -1505,7 +1541,7 @@ export async function rescheduleBooking(
         await tx.workOrder.updateMany({
           where: {
             id: booking.data.workOrder.id,
-            customerId: actor.customerId!,
+            customerId: access.data.customerId,
             status: { in: ["OPEN", "PENDING"] },
           },
           data: { status: "PLANNED" },
@@ -1529,7 +1565,7 @@ export async function rescheduleBooking(
           action: "Kunden flyttet den bekreftede bestillingen",
           actor: toAuditActor(actor),
           metadata: {
-            customerId: actor.customerId,
+            customerId: access.data.customerId,
             workOrderId: booking.data.workOrder.id,
             reference: booking.data.reference,
             requestedDate: toDateOnly(schedule.data.requestedDate),
@@ -1578,7 +1614,7 @@ export async function rescheduleBooking(
         const moved = await tx.workOrder.updateMany({
           where: {
             id: booking.data.workOrder.id,
-            customerId: actor.customerId!,
+            customerId: access.data.customerId,
             status: "OPEN",
           },
           data: {
@@ -1626,7 +1662,7 @@ export async function rescheduleBooking(
           action: "Kunden ba om ny tid",
           actor: toAuditActor(actor),
           metadata: {
-            customerId: actor.customerId,
+            customerId: access.data.customerId,
             workOrderId: booking.data.workOrder.id,
             reference: booking.data.reference,
             requestedDate: toDateOnly(schedule.data.requestedDate),
@@ -1680,15 +1716,14 @@ export async function getPortalReportHistory(
   actor: ServiceActor,
   options: { page?: number } = {},
 ): Promise<ServiceResult<unknown>> {
-  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
-    return fail("forbidden");
-  }
+  const access = await requirePortalCapability(actor, "canViewDocuments");
+  if (!access.ok) return access;
 
   const page = Math.max(1, options.page ?? 1);
   // Alle avsluttede oppdrag, også de uten rapport, slik at kundeportalen har
   // én samlet historikk i stedet for to nesten like lister.
   const where = {
-    customerId: actor.customerId,
+    customerId: access.data.customerId,
     deletedAt: null,
     status: { in: ["COMPLETED", "CANCELLED"] as ("COMPLETED" | "CANCELLED")[] },
   };
@@ -1745,12 +1780,11 @@ export async function requestContactUpdate(
   actor: ServiceActor,
   input: { contactId?: unknown; message?: unknown },
 ): Promise<ServiceResult<{ notified: number }>> {
-  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
-    return fail("forbidden");
-  }
+  const access = await resolvePortalAccess(actor);
+  if (!access.ok) return access;
 
   const customer = await prisma.customer.findFirst({
-    where: { id: actor.customerId, deletedAt: null },
+    where: { id: access.data.customerId, deletedAt: null },
     select: { id: true, name: true, departmentId: true },
   });
   if (!customer) return fail("not_found");
@@ -1758,7 +1792,7 @@ export async function requestContactUpdate(
   const contactId = idFrom(input.contactId);
   if (contactId) {
     const contact = await prisma.contact.findFirst({
-      where: { id: contactId, customerId: actor.customerId },
+      where: { id: contactId, customerId: access.data.customerId },
       select: { id: true, name: true },
     });
     if (!contact) return fail("not_found");
@@ -1805,15 +1839,18 @@ export async function acknowledgeReport(
   actor: ServiceActor,
   input: { workOrderId?: unknown; reportId?: unknown; comment?: unknown },
 ): Promise<ServiceResult> {
-  if (!actor.isActive || actor.role !== "CUSTOMER" || !actor.customerId) {
-    return fail("forbidden");
-  }
+  const access = await requirePortalCapability(actor, "canViewDocuments");
+  if (!access.ok) return access;
 
   const workOrderId = idFrom(input.workOrderId);
   if (!workOrderId) return fail("invalid");
 
   const workOrder = await prisma.workOrder.findFirst({
-    where: { id: workOrderId, customerId: actor.customerId, deletedAt: null },
+    where: {
+      id: workOrderId,
+      customerId: access.data.customerId,
+      deletedAt: null,
+    },
     select: {
       id: true,
       customerId: true,
@@ -1832,7 +1869,7 @@ export async function acknowledgeReport(
     },
   });
 
-  if (!workOrder || workOrder.customerId !== actor.customerId) {
+  if (!workOrder || workOrder.customerId !== access.data.customerId) {
     return fail("not_found");
   }
 

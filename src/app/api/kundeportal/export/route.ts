@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { csvCell } from "@/lib/csv";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { resolvePortalAccess } from "@/server/portal-access";
 
 /** Maks antall rader i én eksport, slik at minnebruken er forutsigbar. */
 const EXPORT_ROW_CAP = 5000;
@@ -23,13 +24,11 @@ export async function GET() {
     return internalApiError("forbidden", 403);
   }
 
-  // En mykt slettet kunde er stengt for kundeportalen, også direkte via en
+  // En mykt slettet kunde, en inaktiv delegasjon eller en kontakt som ikke
+  // lenger tilhører kunden er stengt for kundeportalen, også direkte via en
   // gammel bokmerket eksportadresse.
-  const customer = await prisma.customer.findFirst({
-    where: { id: user.customerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!customer) {
+  const access = await resolvePortalAccess(user);
+  if (!access.ok) {
     return internalApiError("forbidden", 403);
   }
 
@@ -46,7 +45,7 @@ export async function GET() {
   }
 
   const workOrders = await prisma.workOrder.findMany({
-    where: { customerId: user.customerId, deletedAt: null },
+    where: { customerId: access.data.customerId, deletedAt: null },
     orderBy: { scheduledFor: "desc" },
     // Hent én ekstra rad for å oppdage at kunden har mer enn taket, uten å
     // laste hele historikken i minnet.

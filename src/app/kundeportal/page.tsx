@@ -11,12 +11,15 @@ import {
   todayInOslo,
 } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
+import { portalBranding } from "@/lib/portal-branding";
+import { resolvePortalAccess } from "@/server/portal-access";
 import { pageWindow, parsePage } from "@/lib/pagination";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon from "@/components/icons";
 import ReportHistory from "@/components/portal/ReportHistory";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
 import PortalSectionNav from "@/components/portal/PortalSectionNav";
+import PortalTabs from "@/components/portal/PortalTabs";
 import StatusBadge from "@/components/StatusBadge";
 import { brandCard, brandInset } from "@/components/ui/brandStyles";
 import {
@@ -102,7 +105,8 @@ export default async function KundeportalPage({
   const reportPage = parsePage(listParams.r);
   const requestedBookingPage = parsePage(listParams.b);
 
-  if (!user.isActive || user.role !== "CUSTOMER" || !user.customerId) {
+  const portalAccess = await resolvePortalAccess(user);
+  if (!portalAccess.ok) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--canvas,#f4f5f2)] p-4 text-[var(--ink,#101310)]">
         <div className="w-full max-w-md rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center shadow-[0_1px_2px_rgba(20,17,11,0.05)]">
@@ -122,7 +126,7 @@ export default async function KundeportalPage({
   }
 
   const customer = await prisma.customer.findFirst({
-    where: { id: user.customerId, deletedAt: null },
+    where: { id: portalAccess.data.customerId, deletedAt: null },
     include: {
       department: true,
       responsibleTechnician: true,
@@ -154,6 +158,14 @@ export default async function KundeportalPage({
       </div>
     );
   }
+
+  const branding = portalBranding(customer);
+  const brandColor = branding.color;
+  const customerLogo = branding.logo;
+  const canBook = portalAccess.data.capabilities.canBook;
+  const canViewDocuments = portalAccess.data.capabilities.canViewDocuments;
+  const canViewEquipment = portalAccess.data.capabilities.canViewEquipment;
+  const canViewContracts = portalAccess.data.capabilities.canViewContracts;
 
   const todayText = todayInOslo();
   const today = parseDateOnly(todayText) ?? new Date();
@@ -266,10 +278,30 @@ export default async function KundeportalPage({
         <header className="relative overflow-hidden rounded-[20px] border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-5 py-6 text-[var(--paper,#f2efe6)] shadow-[4px_4px_0_var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)] sm:px-7 sm:py-7">
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
+            className="absolute inset-x-0 top-0 h-1.5"
+            style={{ backgroundColor: brandColor }}
           />
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
+              {customerLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={customerLogo}
+                  alt={t("portal.expansion.branding.logoAlt", {
+                    customerName: customer.name,
+                  })}
+                  className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-extrabold text-[var(--ink,#101310)]"
+                  style={{ backgroundColor: brandColor }}
+                >
+                  {customer.name.trim().charAt(0).toUpperCase() || "?"}
+                </span>
+              )}
+              <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#cfc8b9]">
                 {t("portal.headerEyebrow")}
               </p>
@@ -281,6 +313,7 @@ export default async function KundeportalPage({
                   userName: user.name ?? user.email ?? "",
                 })}
               </p>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <Link
@@ -306,6 +339,8 @@ export default async function KundeportalPage({
             </div>
           </div>
         </header>
+
+        <PortalTabs active="oversikt" />
 
         {/* OVERSIKT: neste avtale, ventende saker og rapportkvitteringer */}
         <section
@@ -427,6 +462,7 @@ export default async function KundeportalPage({
           {/* VENSTRE: Utstyr & Avtaler */}
           <div className="space-y-6 lg:col-span-1">
             {/* Registrert utstyr */}
+            {canViewEquipment && (
             <section className={`${brandCard} space-y-4 p-4 sm:p-5`}>
               <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
                 <span
@@ -465,8 +501,10 @@ export default async function KundeportalPage({
                 )}
               </div>
             </section>
+            )}
 
             {/* Serviceavtaler */}
+            {canViewContracts && (
             <section className={`${brandCard} space-y-4 p-4 sm:p-5`}>
               <h2 className="flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
                 <span
@@ -524,6 +562,7 @@ export default async function KundeportalPage({
                 )}
               </div>
             </section>
+            )}
           </div>
 
           {/* HOYRE: Oppdrag & Booking */}
@@ -543,6 +582,7 @@ export default async function KundeportalPage({
               <p className="mb-4 mt-2 text-sm leading-6 text-[var(--muted,#62685f)]">
                 {t("portal.booking.desc")}
               </p>
+              {canBook ? (
               <BookingForm
                 minDate={minimumStart.date}
                 horizonEnd={horizonEnd}
@@ -557,6 +597,11 @@ export default async function KundeportalPage({
                 }))}
                 sites={customer.sites}
               />
+              ) : (
+                <p className="mb-4 rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-3 py-2 text-sm leading-5 text-[#6b4a05]">
+                  {t("portal.expansion.booking.forbidden")}
+                </p>
+              )}
               <BookingRequests
                 bookings={bookings}
                 minDate={minimumStart.date}
@@ -668,11 +713,13 @@ export default async function KundeportalPage({
           </div>
         </div>
 
+        {canViewDocuments && (
         <ReportHistory
           page={reportPage}
           upcomingPage={upcomingPage}
           historyPage={historyPage}
         />
+        )}
 
         {/* KONTAKTINFO: avdeling, ansvarlig montør og oppdateringsskjema */}
         <section

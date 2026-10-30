@@ -127,15 +127,24 @@ export async function cleanupAbandonedUploads(options?: {
       // feltportalen, men aldri knyttes til et vedlegg/rapport/revisjon/kladd,
       // blir ellers liggende for alltid. `releaseUpload` kontrollerer alle
       // referansene på nytt, også rapportens mellomlagrede PDF og signaturer.
-      ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER"] },
+      ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER", "CONTRACT"] },
     },
     orderBy: { createdAt: "asc" },
     take: limit,
-    select: { storedName: true },
+    select: { storedName: true, ownerType: true, ownerId: true },
   });
 
   let released = 0;
   for (const candidate of candidates) {
+    // En avtaleeid fil har ingen egen URL-kolonne på Contract. Så lenge
+    // avtalen finnes, regnes filen som referert og røres ikke.
+    if (candidate.ownerType === "CONTRACT" && candidate.ownerId) {
+      const contract = await prisma.contract.findUnique({
+        where: { id: candidate.ownerId },
+        select: { id: true },
+      });
+      if (contract) continue;
+    }
     if (await releaseUpload(`/uploads/${candidate.storedName}`)) {
       released += 1;
     }

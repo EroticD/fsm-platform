@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
     reportDraft: { deleteMany: vi.fn(), upsert: vi.fn(), findUnique: vi.fn() },
     product: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     upload: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    customer: { findFirst: vi.fn() },
+    contact: { findFirst: vi.fn() },
+    portalDelegation: { findUnique: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -219,6 +222,10 @@ function withTransaction(tx = txClient()) {
 
 describe("reports-tjenesten", () => {
   beforeEach(() => {
+  mocks.prisma.customer.findFirst.mockResolvedValue({ id: "kunde-1" });
+  mocks.prisma.contact.findFirst.mockResolvedValue({ id: "contact-1" });
+  mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
+
     vi.clearAllMocks();
     mocks.storeDataImage.mockResolvedValue("/uploads/signatur.png");
     mocks.deleteUploadIfOwned.mockResolvedValue(undefined);
@@ -1979,6 +1986,37 @@ describe("getReportPdfForViewer", () => {
 
     const result = await getReportPdfForViewer(
       actor({ role: "CUSTOMER", customerId: "kunde-1" }),
+      "wo1",
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 403 });
+    expect(mocks.getOrRenderReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("avviser delegert kontakt uten dokumenttilgang for rapport-PDF", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      customerId: "kunde-1",
+      departmentId: "dep-b",
+      status: "OPEN",
+      customer: { deletedAt: null },
+      reports: [{ id: "r1", isLocked: true }],
+    });
+    mocks.prisma.contact.findFirst.mockResolvedValue({ id: "contact-1" });
+    mocks.prisma.portalDelegation.findUnique.mockResolvedValue({
+      id: "del-1",
+      canBook: true,
+      canViewDocuments: false,
+      canViewContracts: true,
+      canViewEquipment: true,
+      isActive: true,
+    });
+
+    const result = await getReportPdfForViewer(
+      actor({
+        role: "CUSTOMER",
+        customerId: "kunde-1",
+        contactId: "contact-1",
+      }),
       "wo1",
     );
 

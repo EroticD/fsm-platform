@@ -14,9 +14,14 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 export default function BrandingLogoUpload({
   initialUrl,
   name = "logoUrl",
+  purpose = "branding",
+  customerId,
 }: {
   initialUrl?: string | null;
   name?: string;
+  /** `branding` for global logo, `branding` med customerId for kundelogo. */
+  purpose?: "branding" | "customer-logo";
+  customerId?: string;
 }) {
   const t = useTranslations("common");
   const [url, setUrl] = useState(initialUrl ?? "");
@@ -29,7 +34,8 @@ export default function BrandingLogoUpload({
     try {
       const body = new FormData();
       body.append("file", file);
-      body.append("purpose", "branding");
+      body.append("purpose", purpose);
+      if (customerId) body.append("customerId", customerId);
       const response = await fetch("/api/upload", { method: "POST", body });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.fileUrl) {

@@ -1,0 +1,146 @@
+{
+  "portal": {
+    "expansion": {
+      "tabs": {
+        "label": "Seksjoner i kundeportalen",
+        "oversikt": "Oversikt",
+        "bestillinger": "Bestillinger",
+        "rapporter": "Rapporter",
+        "dokumenter": "Dokumenter",
+        "utstyr": "Utstyr",
+        "avtaler": "Avtaler",
+        "besok": "Besøk",
+        "meldinger": "Meldinger",
+        "kontakt": "Kontakt"
+      },
+      "branding": {
+        "logoAlt": "Logo for {customerName}",
+        "poweredBy": "Kundeportalen drives av din serviceleverandør.",
+        "customerLogo": "Logo i kundeportalen"
+      },
+      "common": {
+        "unknownDate": "Dato ikke satt"
+      },
+      "booking": {
+        "forbidden": "Du har bare lesetilgang til bestillinger. Kontakt kontoret for å endre en avtale."
+      },
+      "documents": {
+        "title": "Dokumenter",
+        "intro": "Filer som serviceleverandøren har delt med dere. Bare deres egne dokumenter vises.",
+        "forbidden": "Du har ikke tilgang til dokumenter for denne kontoen.",
+        "empty": "Ingen dokumenter er delt ennå.",
+        "download": "Last ned"
+      },
+      "reports": {
+        "title": "Rapporter",
+        "forbidden": "Du har ikke tilgang til rapporter for denne kontoen."
+      },
+      "equipment": {
+        "title": "Utstyr",
+        "intro": "Registrert utstyr på deres steder, med status, garanti og siste måling.",
+        "forbidden": "Du har ikke tilgang til utstyrsoversikten.",
+        "empty": "Ingen utstyr er registrert.",
+        "serial": "SN: {serial}",
+        "noSerial": "Serienummer mangler",
+        "statuses": {
+          "ACTIVE": "I drift",
+          "OUT_OF_SERVICE": "Ute av drift",
+          "RETIRED": "Utfaset"
+        },
+        "siteLabel": "Sted",
+        "noSite": "Ikke angitt",
+        "categoryLabel": "Kategori",
+        "warrantyLabel": "Garanti",
+        "noWarranty": "Ingen garanti registrert",
+        "lastReadingLabel": "Siste måling",
+        "lastReading": "{value} {unit} ({date})",
+        "plansLabel": "Vedlikehold",
+        "planCount": "{count, plural, one {# aktiv plan} other {# aktive planer}}"
+      },
+      "contracts": {
+        "title": "Avtaler",
+        "intro": "Serviceavtaler, dekningslinjer og neste planlagte service.",
+        "forbidden": "Du har ikke tilgang til avtaler for denne kontoen.",
+        "empty": "Ingen serviceavtaler er registrert.",
+        "number": "Avtalenr. {number}",
+        "noNumber": "Uten avtalenummer",
+        "statuses": {
+          "DRAFT": "Utkast",
+          "ACTIVE": "Aktiv",
+          "PAUSED": "Pauset",
+          "EXPIRED": "Utløpt",
+          "TERMINATED": "Avsluttet"
+        },
+        "periodLabel": "Periode",
+        "openEnded": "Tidsubegrenset",
+        "intervalLabel": "Intervall",
+        "months": "{count, plural, one {# måned} other {# måneder}}",
+        "nextServiceLabel": "Neste service",
+        "slaLabel": "SLA",
+        "allEquipment": "Alt utstyr",
+        "visits": "{count, plural, one {# besøk per år} other {# besøk per år}}",
+        "response": "Responstid {minutes} min",
+        "resolution": "Løsningstid {minutes} min"
+      },
+      "visits": {
+        "title": "Besøk",
+        "intro": "Kommende og gjennomførte besøk. Når montøren er på vei kan du åpne en sporingslenke.",
+        "errors": {
+          "forbidden": "Du har ikke tilgang til besøkene.",
+          "invalid": "Besøket kan ikke åpnes akkurat nå.",
+          "notFound": "Fant ikke besøket.",
+          "conflict": "Besøket er ikke i en fase der dette er mulig.",
+          "generic": "Handlingen kunne ikke utføres. Prøv igjen om litt."
+        },
+        "statuses": {
+          "PLANNED": "Planlagt",
+          "ASSIGNED": "Tildelt",
+          "EN_ROUTE": "På vei",
+          "ON_SITE": "På stedet",
+          "DONE": "Fullført",
+          "CANCELLED": "Kansellert"
+        },
+        "upcoming": "Kommende",
+        "past": "Tidligere",
+        "emptyUpcoming": "Ingen kommende besøk er planlagt.",
+        "emptyPast": "Ingen tidligere besøk.",
+        "addressUnavailable": "Adresse ikke angitt",
+        "technicians": "Montør: {names}",
+        "refreshTracking": "Oppdater sporingslenke",
+        "openTracking": "Åpne sporing",
+        "review": "Gi omtale",
+        "reviewDone": "Omtale er gitt",
+        "reviewRequested": "Omtalen er allerede registrert."
+      },
+      "messages": {
+        "title": "Meldinger",
+        "intro": "Samtaler med serviceleverandøren. Svar kan sendes på SMS når du har samtykket.",
+        "errors": {
+          "forbidden": "Du har ikke tilgang til meldinger.",
+          "invalid": "Meldingen kunne ikke sendes. Skriv litt tekst og prøv igjen.",
+          "notFound": "Fant ikke samtalen.",
+          "conflict": "Samtalen kan ikke endres akkurat nå.",
+          "rateLimited": "Du har sendt mange meldinger på kort tid. Prøv igjen senere.",
+          "generic": "Meldingen kunne ikke sendes. Prøv igjen om litt."
+        },
+        "empty": "Ingen samtaler ennå.",
+        "noSubject": "Samtale uten emne",
+        "unread": "{count} ulest",
+        "back": "Tilbake til meldinger",
+        "fromYou": "Deg",
+        "fromOffice": "Serviceleverandøren",
+        "consentMissing": "SMS-svar er ikke aktivert for denne kontakten. Kontakt kontoret for å gi samtykke.",
+        "sendLabel": "Skriv en melding",
+        "placeholder": "Skriv meldingen din her …",
+        "sent": "Meldingen er sendt.",
+        "send": "Send",
+        "sending": "Sender …"
+      },
+      "contact": {
+        "sitesTitle": "Steder",
+        "noSites": "Ingen steder er registrert.",
+        "primary": "Primær"
+      }
+    }
+  }
+}

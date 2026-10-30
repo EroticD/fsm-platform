@@ -19,6 +19,10 @@ import calendarNb from "../../messages/fragments/calendar.nb.json";
 import calendarEn from "../../messages/fragments/calendar.en.json";
 import portalNb from "../../messages/fragments/portal.nb.json";
 import portalEn from "../../messages/fragments/portal.en.json";
+import portalExpansionNb from "../../messages/fragments/portal-expansion.nb.json";
+import portalExpansionEn from "../../messages/fragments/portal-expansion.en.json";
+import portalExpansionPl from "../../messages/fragments/portal-expansion.pl.json";
+import portalExpansionDe from "../../messages/fragments/portal-expansion.de.json";
 import dashboardNb from "../../messages/fragments/dashboard.nb.json";
 import dashboardEn from "../../messages/fragments/dashboard.en.json";
 import equipmentNb from "../../messages/fragments/equipment.nb.json";
@@ -89,6 +93,7 @@ const nbFragments = mergeAll([
   settingsNb,
   calendarNb,
   portalNb,
+  portalExpansionNb,
   dashboardNb,
   equipmentNb,
   hmsNb,
@@ -112,6 +117,7 @@ const enFragments = mergeAll([
   settingsEn,
   calendarEn,
   portalEn,
+  portalExpansionEn,
   dashboardEn,
   equipmentEn,
   hmsEn,
@@ -131,8 +137,22 @@ const enFragments = mergeAll([
  * `messages/fragments/` flettes inn her, slik at flere arbeidsstrømmer kan
  * oversette hver sin del uten å redigere samme JSON-fil.
  */
-const plFragments = mergeAll([p4Pl, dispatchPl, bookingPl, trackingPl, smsPl]);
-const deFragments = mergeAll([p4De, dispatchDe, bookingDe, trackingDe, smsDe]);
+const plFragments = mergeAll([
+  p4Pl,
+  dispatchPl,
+  bookingPl,
+  trackingPl,
+  smsPl,
+  portalExpansionPl,
+]);
+const deFragments = mergeAll([
+  p4De,
+  dispatchDe,
+  bookingDe,
+  trackingDe,
+  smsDe,
+  portalExpansionDe,
+]);
 
 export const messages = {
   nb: { common: merge(commonNb.common, nbFragments) },

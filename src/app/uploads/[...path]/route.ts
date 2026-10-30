@@ -9,6 +9,10 @@ import { contentTypeFor, uploadDir } from "@/lib/uploads";
 import { getCurrentUser } from "@/lib/session";
 import { canReadUpload } from "@/lib/upload-access";
 import { hasPermission } from "@/lib/permissions";
+import {
+  portalAccessAllows,
+  resolvePortalAccess,
+} from "@/server/portal-access";
 
 // Bilder og vedlegg leses fra disk for hver forespørsel, slik at filer som
 // lastes opp mens appen kjører blir synlige umiddelbart.
@@ -73,6 +77,15 @@ export async function GET(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
+  // Kundeportalens delegasjon gjelder også direkte fil-URL-er. Uten dette
+  // kunne en delegert kontakt uten dokumenttilgang omgått portalen ved å
+  // bokmerke /uploads/....
+  const portalAccess =
+    user.role === "CUSTOMER" ? await resolvePortalAccess(user) : null;
+  if (user.role === "CUSTOMER" && !portalAccess?.ok) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
   const { path: segments } = await params;
   const root = uploadDir();
   const filePath = path.join(root, ...segments);
@@ -116,6 +129,24 @@ export async function GET(
       return new NextResponse("Forbidden", { status: 403 });
     }
 
+    if (user.role === "CUSTOMER") {
+      if (!portalAccess?.ok) {
+        return new NextResponse("Forbidden", { status: 403 });
+      }
+      const required =
+        upload.ownerType === "EQUIPMENT"
+          ? "canViewEquipment"
+          : upload.ownerType === "CONTRACT"
+            ? "canViewContracts"
+            : upload.ownerType === "CUSTOMER" ||
+                upload.ownerType === "DOCUMENT"
+              ? "canViewDocuments"
+              : null;
+      if (required && !portalAccessAllows(portalAccess.data, required)) {
+        return new NextResponse("Forbidden", { status: 403 });
+      }
+    }
+
     // En oppdragsfil skal ikke være lesbar etter at oppdraget er mykt slettet.
     // Administrator beholder tilgangen slik at gjenoppretting og revisjon er
     // mulig. Selve slettingen rører ikke filen.
@@ -149,6 +180,7 @@ export async function GET(
         select: {
           id: true,
           deletedAt: true,
+          isLocked: true,
           workOrder: { select: { deletedAt: true, status: true } },
         },
       });
@@ -162,7 +194,19 @@ export async function GET(
         ) {
           return new NextResponse("Forbidden", { status: 403 });
         }
-        if (!hasPermission(user, "reports.view")) {
+        if (user.role === "CUSTOMER") {
+          // Rapport-PDF-en er et dokument. Kunden må ha dokumenttilgang, og
+          // bare en låst (signert) rapport kan leses – også via denne URL-en.
+          if (
+            !portalAccess?.ok ||
+            !portalAccessAllows(portalAccess.data, "canViewDocuments")
+          ) {
+            return new NextResponse("Forbidden", { status: 403 });
+          }
+          if (!reportPdf.isLocked) {
+            return new NextResponse("File not found", { status: 404 });
+          }
+        } else if (!hasPermission(user, "reports.view")) {
           return new NextResponse("Forbidden", { status: 403 });
         }
       }

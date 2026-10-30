@@ -26,6 +26,9 @@ const mocks = vi.hoisted(() => ({
     },
     bookingRequestEvent: { create: vi.fn() },
     report: { update: vi.fn(), updateMany: vi.fn() },
+    customer: { findFirst: vi.fn() },
+    contact: { findFirst: vi.fn() },
+    portalDelegation: { findUnique: vi.fn() },
     visit: { findMany: vi.fn(), update: vi.fn() },
     $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
@@ -89,6 +92,9 @@ beforeEach(() => {
   mocks.prisma.bookingRequest.update.mockResolvedValue({});
   mocks.prisma.bookingRequest.updateMany.mockResolvedValue({ count: 1 });
   mocks.prisma.bookingRequestEvent.create.mockResolvedValue({ id: "ev-1" });
+  mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+  mocks.prisma.contact.findFirst.mockResolvedValue({ id: "contact-1" });
+  mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
   mocks.prisma.report.update.mockResolvedValue({});
   mocks.prisma.report.updateMany.mockResolvedValue({ count: 1 });
   mocks.allowRequestDb.mockResolvedValue({

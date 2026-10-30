@@ -936,6 +936,22 @@ function buildRoutes(fixtures) {
         mobile: "15-kundeportal-mobil.png",
       },
     },
+    ...[
+      ["kundeportal-bestillinger", "/kundeportal/bestillinger", "Bestillinger"],
+      ["kundeportal-rapporter", "/kundeportal/rapporter", "Rapporter"],
+      ["kundeportal-dokumenter", "/kundeportal/dokumenter", "Dokumenter"],
+      ["kundeportal-utstyr", "/kundeportal/utstyr", "Utstyr"],
+      ["kundeportal-avtaler", "/kundeportal/avtaler", "Avtaler"],
+      ["kundeportal-besok", "/kundeportal/besok", "Besøk"],
+      ["kundeportal-meldinger", "/kundeportal/meldinger", "Meldinger"],
+      ["kundeportal-kontakt", "/kundeportal/kontakt", "Kontakt"],
+    ].map(([slug, route, title]) => ({
+      slug,
+      route,
+      role: "customer",
+      title: `Kundeportal – ${title}`,
+      heading: "Min Bedrift: Nordvik Testindustri AS",
+    })),
   ];
 }
 

@@ -42,6 +42,7 @@ export async function updateCustomerAction(
     customerNumber: formData.get("customerNumber"),
     orgNumber: formData.get("orgNumber"),
     brandColor: formData.get("brandColor"),
+    logoUrl: formData.get("logoUrl"),
     address: formData.get("address"),
     postalCode: formData.get("postalCode"),
     city: formData.get("city"),

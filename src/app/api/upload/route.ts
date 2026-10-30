@@ -134,7 +134,14 @@ export async function POST(request: Request) {
     const equipmentId = cleanText(formData.get("equipmentId"), { maxLength: LIMITS.line });
     const purpose = cleanText(formData.get("purpose"), { maxLength: LIMITS.short });
 
-    let ownerType: "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING" | "EQUIPMENT" = "USER";
+    let ownerType:
+      | "WORK_ORDER"
+      | "CUSTOMER"
+      | "DOCUMENT"
+      | "USER"
+      | "BRANDING"
+      | "EQUIPMENT"
+      | "CONTRACT" = "USER";
     let ownerId: string | null = user.id;
     let departmentId: string | null = user.departmentId ?? null;
     let ownerCustomerId: string | null = user.customerId ?? null;
@@ -199,6 +206,27 @@ export async function POST(request: Request) {
       ownerId = equipment.id;
       departmentId = equipment.customer.departmentId;
       ownerCustomerId = equipment.customerId;
+    } else if (purpose === "customer-logo") {
+      // Kundelogo er merkevare, ikke et dokument. Den lagres som BRANDING slik
+      // at den er synlig i portalens ramme også for en delegert kontakt uten
+      // dokumenttilgang, men bare når den faktisk tilhører kunden.
+      if (!hasPermission(user, "customers.manage")) {
+        return jsonError("forbidden", 403);
+      }
+      const targetCustomerId = cleanText(customerId, {
+        maxLength: LIMITS.line,
+      });
+      const customer = targetCustomerId
+        ? await prisma.customer.findFirst({
+            where: { id: targetCustomerId, deletedAt: null },
+            select: { id: true },
+          })
+        : null;
+      if (!customer) return jsonError("forbidden", 403);
+      ownerType = "BRANDING";
+      ownerId = null;
+      departmentId = null;
+      ownerCustomerId = customer.id;
     } else if (customerId) {
       if (!hasPermission(user, "customers.manage")) {
         return jsonError("forbidden", 403);
@@ -396,7 +424,14 @@ async function storeUpload(input: {
   originalName: string;
   mimeType: string;
   size: number;
-  ownerType: "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING" | "EQUIPMENT";
+  ownerType:
+    | "WORK_ORDER"
+    | "CUSTOMER"
+    | "DOCUMENT"
+    | "USER"
+    | "BRANDING"
+    | "EQUIPMENT"
+    | "CONTRACT";
   ownerId: string | null;
   departmentId: string | null;
   customerId: string | null;

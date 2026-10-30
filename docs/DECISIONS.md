@@ -407,3 +407,41 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   `PENDING`-forespørsel, og `rescheduleBooking` sender en ny bekreftelse når
   en allerede bekreftet booking flyttes. Kallet er beste-forsøk: manglende
   kontakt, manglende samtykke eller SMS-feil velter aldri bookingen.
+
+## Kundeportalens utvidelse og flersted (Phase 5D, 2026-10-30)
+
+- **Én sentral portaltilgang.** `resolvePortalAccess` i
+  `src/server/portal-access.ts` slår opp kunden, kontakten og
+  `PortalDelegation`. En kontakt uten delegasjonsrad beholder full tilgang for
+  bakoverkompatibilitet; en rad med `isActive = false` stenger portalen helt.
+  `canViewDocuments`, `canViewContracts`, `canViewEquipment` og `canBook`
+  håndheves på nytt i tjenestelaget, PDF-ruten, `/uploads`, eksporten og alle
+  portalrutene – ikke bare i UI-et.
+- **Dokumenter er kunde-eide `Upload`-rader.** Portalen viser bare
+  `ownerType = CUSTOMER` for egen kunde, filtrerer hver rad gjennom
+  `canReadUpload` og paginerer listen. En delegert kontakt uten
+  `canViewDocuments` får 403 også på direkte `/uploads/...`-lenker.
+  Rapport-PDF-er er fortsatt egne dokumenter: kunden får bare en låst
+  (signert) rapport, og aldri en opplåst rapport via en gammel URL.
+- **Flersted er additive felt.** `WorkOrder.siteId` og `Product.siteId` er
+  valgfrie referanser til `CustomerSite`; `BookingRequest.siteId` fantes fra
+  5A. Migreringen oppretter ett primært sted fra kundens adresse bare når
+  kunden mangler steder, markerer et eldste sted som primært når ingen er det,
+  og kobler eksisterende oppdrag/utstyr/bestillinger til det primære stedet.
+  Adressefeltene og geokodingen på oppdraget er uendret; manglende `siteId`
+  faller tilbake til kundens adresse.
+- **Nye steder eies av kunden, ikke klienten.** `createPortalSite` bruker
+  alltid `access.customerId`, og bookingens stedsvalg valideres mot kundens
+  egne steder før adresse og geokoding kopieres til oppdraget.
+- **Merkevare er kundens, ikke global.** `PortalShell` bruker
+  `Customer.brandColor` som aksent og `Customer.logoUrl` bare når URL-en er en
+  trygg `/uploads/...`-fil. Kunder kan laste opp egen logo fra kundekortet;
+  den globale `Branding`-logoen er ikke endret.
+- **CONTRACT er en egen opplastings-eier.** `UploadOwnerType` og
+  `canReadUpload` har `CONTRACT`; oppryddingen beholder filer så lenge
+  avtalen finnes, og claim/access følger samme regler som de øvrige eierne.
+- **Sporing og omtale fra besøk.** Besøkstidslinjen viser status, sted og
+  aktiv sporingslenke. Knappene oppretter en ny offentlig lenke (eldre lenker
+  tilbakekalles) eller ber om omtale; tokens lagres fortsatt bare som hasher,
+  og de eksisterende 5C-rutene `/sporing/[token]` og `/anmeldelse/[token]`
+  gjenbrukes.

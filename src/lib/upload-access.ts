@@ -3,7 +3,14 @@ import type { AccessUser } from "@/lib/access";
 import { canAccessWorkOrder } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
 
-export type UploadOwnerType = "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING" | "EQUIPMENT";
+export type UploadOwnerType =
+  | "WORK_ORDER"
+  | "CUSTOMER"
+  | "DOCUMENT"
+  | "USER"
+  | "BRANDING"
+  | "EQUIPMENT"
+  | "CONTRACT";
 
 export type UploadRecord = {
   ownerType: string;
@@ -49,6 +56,11 @@ export function canReadUpload(
         return Boolean(upload.customerId && upload.customerId === user.customerId);
       }
       return hasPermission(user, "equipment.view");
+    case "CONTRACT":
+      if (user.role === "CUSTOMER") {
+        return Boolean(upload.customerId && upload.customerId === user.customerId);
+      }
+      return hasPermission(user, "contracts.view");
     case "DOCUMENT":
       return hasPermission(user, "documents.view");
     case "USER":

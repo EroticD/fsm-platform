@@ -8,6 +8,7 @@ import ErrorBanner from "@/components/ErrorBanner";
 import Icon from "@/components/icons";
 import SubmitButton from "@/components/SubmitButton";
 import BrandColorField from "@/components/customer/BrandColorField";
+import BrandingLogoUpload from "@/components/BrandingLogoUpload";
 import {
   CUSTOMER_CARD,
   CUSTOMER_CONTROL,
@@ -185,6 +186,20 @@ export default async function EditCustomerPage({
                   defaultValue={customer.brandColor}
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Kundeportal-logo */}
+            <div className="md:col-span-2">
+              <p className={CUSTOMER_LABEL}>
+                {t("portal.expansion.branding.customerLogo")}
+              </p>
+              <BrandingLogoUpload
+                initialUrl={customer.logoUrl}
+                customerId={customer.id}
+                purpose="customer-logo"
+              />
             </div>
           </div>
 

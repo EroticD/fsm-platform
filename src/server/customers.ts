@@ -24,7 +24,9 @@ import {
   cleanMarkdown,
   cleanPhone,
   cleanText,
+  cleanUrl,
 } from "@/lib/sanitize";
+import { isSafeLogoUrl } from "@/lib/logo";
 import { claimUpload } from "@/lib/upload-access";
 import { uploadDir } from "@/lib/uploads";
 import {
@@ -806,6 +808,7 @@ export type CustomerUpdateInput = {
   customerNumber?: unknown;
   orgNumber?: unknown;
   brandColor?: unknown;
+  logoUrl?: unknown;
   address?: unknown;
   postalCode?: unknown;
   city?: unknown;
@@ -831,6 +834,7 @@ export async function updateCustomer(
     }),
     orgNumber: cleanText(input.orgNumber, { maxLength: LIMITS.line }),
     brandColor: cleanText(input.brandColor, { maxLength: 20 }),
+    logoUrl: cleanUrl(input.logoUrl),
     address: cleanText(input.address, { maxLength: LIMITS.line }),
     postalCode: cleanText(input.postalCode, { maxLength: 20 }),
     city: cleanText(input.city, { maxLength: LIMITS.short }),
@@ -849,6 +853,7 @@ export async function updateCustomer(
     customerNumber,
     orgNumber,
     brandColor,
+    logoUrl,
     address,
     postalCode,
     city,
@@ -865,6 +870,22 @@ export async function updateCustomer(
     return fail("invalid");
   }
 
+  if (logoUrl) {
+    if (!isSafeLogoUrl(logoUrl)) return fail("invalid_logo");
+    const storedName = logoUrl.slice("/uploads/".length);
+    const owned = await prisma.upload.findFirst({
+      where: {
+        storedName,
+        OR: [
+          { ownerType: "CUSTOMER", ownerId: customerId },
+          { ownerType: "BRANDING", customerId },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!owned) return fail("invalid_logo");
+  }
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.customer.update({
@@ -874,6 +895,7 @@ export async function updateCustomer(
           customerNumber: customerNumber || null,
           orgNumber: orgNumber || null,
           brandColor: brandColor || "#2563eb",
+          logoUrl: logoUrl || null,
           address: address || null,
           postalCode: postalCode || null,
           city: city || null,

@@ -1,0 +1,146 @@
+{
+  "portal": {
+    "expansion": {
+      "tabs": {
+        "label": "Sekcje portalu klienta",
+        "oversikt": "Przegląd",
+        "bestillinger": "Rezerwacje",
+        "rapporter": "Raporty",
+        "dokumenter": "Dokumenty",
+        "utstyr": "Sprzęt",
+        "avtaler": "Umowy",
+        "besok": "Wizyty",
+        "meldinger": "Wiadomości",
+        "kontakt": "Kontakt"
+      },
+      "branding": {
+        "logoAlt": "Logo firmy {customerName}",
+        "poweredBy": "Portal klienta jest udostępniany przez Twojego usługodawcę.",
+        "customerLogo": "Logo w portalu klienta"
+      },
+      "common": {
+        "unknownDate": "Data nieustawiona"
+      },
+      "booking": {
+        "forbidden": "Masz dostęp tylko do odczytu rezerwacji. Skontaktuj się z biurem, aby zmienić termin."
+      },
+      "documents": {
+        "title": "Dokumenty",
+        "intro": "Pliki udostępnione przez usługodawcę. Widoczne są tylko Twoje dokumenty.",
+        "forbidden": "Nie masz dostępu do dokumentów tego konta.",
+        "empty": "Nie udostępniono jeszcze żadnych dokumentów.",
+        "download": "Pobierz"
+      },
+      "reports": {
+        "title": "Raporty",
+        "forbidden": "Nie masz dostępu do raportów tego konta."
+      },
+      "equipment": {
+        "title": "Sprzęt",
+        "intro": "Zarejestrowany sprzęt w Twoich lokalizacjach, ze statusem, gwarancją i ostatnim odczytem.",
+        "forbidden": "Nie masz dostępu do przeglądu sprzętu.",
+        "empty": "Nie zarejestrowano żadnego sprzętu.",
+        "serial": "SN: {serial}",
+        "noSerial": "Brak numeru seryjnego",
+        "statuses": {
+          "ACTIVE": "W eksploatacji",
+          "OUT_OF_SERVICE": "Wyłączony z eksploatacji",
+          "RETIRED": "Wycofany"
+        },
+        "siteLabel": "Lokalizacja",
+        "noSite": "Nie podano",
+        "categoryLabel": "Kategoria",
+        "warrantyLabel": "Gwarancja",
+        "noWarranty": "Brak zarejestrowanej gwarancji",
+        "lastReadingLabel": "Ostatni odczyt",
+        "lastReading": "{value} {unit} ({date})",
+        "plansLabel": "Konserwacja",
+        "planCount": "{count, plural, one {# aktywny plan} few {# aktywne plany} many {# aktywnych planów} other {# aktywnego planu}}"
+      },
+      "contracts": {
+        "title": "Umowy",
+        "intro": "Umowy serwisowe, zakresy i następny planowany serwis.",
+        "forbidden": "Nie masz dostępu do umów tego konta.",
+        "empty": "Nie zarejestrowano żadnych umów serwisowych.",
+        "number": "Nr umowy {number}",
+        "noNumber": "Brak numeru umowy",
+        "statuses": {
+          "DRAFT": "Szkic",
+          "ACTIVE": "Aktywna",
+          "PAUSED": "Wstrzymana",
+          "EXPIRED": "Wygasła",
+          "TERMINATED": "Zakończona"
+        },
+        "periodLabel": "Okres",
+        "openEnded": "Bezterminowa",
+        "intervalLabel": "Interwał",
+        "months": "{count, plural, one {# miesiąc} few {# miesiące} many {# miesięcy} other {# miesiąca}}",
+        "nextServiceLabel": "Następny serwis",
+        "slaLabel": "SLA",
+        "allEquipment": "Cały sprzęt",
+        "visits": "{count, plural, one {# wizyta rocznie} few {# wizyty rocznie} many {# wizyt rocznie} other {# wizyty rocznie}}",
+        "response": "Czas reakcji {minutes} min",
+        "resolution": "Czas rozwiązania {minutes} min"
+      },
+      "visits": {
+        "title": "Wizyty",
+        "intro": "Nadchodzące i zakończone wizyty. Gdy technik jest w drodze, możesz otworzyć link śledzenia.",
+        "errors": {
+          "forbidden": "Nie masz dostępu do wizyt.",
+          "invalid": "Nie można teraz otworzyć tej wizyty.",
+          "notFound": "Nie znaleziono wizyty.",
+          "conflict": "Wizyta nie jest w fazie, w której jest to możliwe.",
+          "generic": "Nie udało się wykonać działania. Spróbuj ponownie."
+        },
+        "statuses": {
+          "PLANNED": "Zaplanowana",
+          "ASSIGNED": "Przydzielona",
+          "EN_ROUTE": "W drodze",
+          "ON_SITE": "Na miejscu",
+          "DONE": "Zakończona",
+          "CANCELLED": "Anulowana"
+        },
+        "upcoming": "Nadchodzące",
+        "past": "Poprzednie",
+        "emptyUpcoming": "Nie zaplanowano nadchodzących wizyt.",
+        "emptyPast": "Brak poprzednich wizyt.",
+        "addressUnavailable": "Nie podano adresu",
+        "technicians": "Technik: {names}",
+        "refreshTracking": "Odśwież link śledzenia",
+        "openTracking": "Otwórz śledzenie",
+        "review": "Dodaj opinię",
+        "reviewDone": "Opinia została dodana",
+        "reviewRequested": "Opinia została już zarejestrowana."
+      },
+      "messages": {
+        "title": "Wiadomości",
+        "intro": "Rozmowy z usługodawcą. Odpowiedzi można wysyłać SMS-em po wyrażeniu zgody.",
+        "errors": {
+          "forbidden": "Nie masz dostępu do wiadomości.",
+          "invalid": "Nie udało się wysłać wiadomości. Wpisz tekst i spróbuj ponownie.",
+          "notFound": "Nie znaleziono rozmowy.",
+          "conflict": "Nie można teraz zmienić rozmowy.",
+          "rateLimited": "Wysłano wiele wiadomości w krótkim czasie. Spróbuj później.",
+          "generic": "Nie udało się wysłać wiadomości. Spróbuj ponownie."
+        },
+        "empty": "Brak rozmów.",
+        "noSubject": "Rozmowa bez tematu",
+        "unread": "{count} nieprzeczytanych",
+        "back": "Wróć do wiadomości",
+        "fromYou": "Ty",
+        "fromOffice": "Usługodawca",
+        "consentMissing": "Odpowiedzi SMS nie są włączone dla tego kontaktu. Skontaktuj się z biurem, aby wyrazić zgodę.",
+        "sendLabel": "Napisz wiadomość",
+        "placeholder": "Wpisz swoją wiadomość tutaj …",
+        "sent": "Wiadomość została wysłana.",
+        "send": "Wyślij",
+        "sending": "Wysyłanie …"
+      },
+      "contact": {
+        "sitesTitle": "Lokalizacje",
+        "noSites": "Nie zarejestrowano lokalizacji.",
+        "primary": "Główna"
+      }
+    }
+  }
+}

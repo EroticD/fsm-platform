@@ -140,14 +140,7 @@ describe("createBooking", () => {
 
     expect(mocks.prisma.customer.findFirst).toHaveBeenCalledWith({
       where: { id: "cust-1", deletedAt: null },
-      select: {
-        id: true,
-        departmentId: true,
-        name: true,
-        address: true,
-        postalCode: true,
-        city: true,
-      },
+      select: { id: true },
     });
     expect(mocks.allowRequestDb).not.toHaveBeenCalled();
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();

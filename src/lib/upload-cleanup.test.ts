@@ -115,7 +115,7 @@ describe("releaseUpload", () => {
     expect(mocks.prisma.upload.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER"] },
+          ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER", "CONTRACT"] },
         }),
       }),
     );
@@ -154,7 +154,7 @@ describe("releaseUpload", () => {
     expect(mocks.prisma.upload.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER"] },
+          ownerType: { in: ["USER", "DOCUMENT", "WORK_ORDER", "CONTRACT"] },
         }),
       }),
     );

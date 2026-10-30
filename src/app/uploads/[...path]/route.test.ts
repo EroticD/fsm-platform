@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   uploadFindUnique: vi.fn(),
   workOrderFindUnique: vi.fn(),
   customerFindUnique: vi.fn(),
+  customerFindFirst: vi.fn(),
+  contactFindFirst: vi.fn(),
+  portalDelegationFindUnique: vi.fn(),
   documentFindUnique: vi.fn(),
   departmentFindUnique: vi.fn(),
   reportFindFirst: vi.fn(),
@@ -20,7 +23,12 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     upload: { findUnique: mocks.uploadFindUnique },
     workOrder: { findUnique: mocks.workOrderFindUnique },
-    customer: { findUnique: mocks.customerFindUnique },
+    customer: {
+      findUnique: mocks.customerFindUnique,
+      findFirst: mocks.customerFindFirst,
+    },
+    contact: { findFirst: mocks.contactFindFirst },
+    portalDelegation: { findUnique: mocks.portalDelegationFindUnique },
     document: { findUnique: mocks.documentFindUnique },
     department: { findUnique: mocks.departmentFindUnique },
     report: { findFirst: mocks.reportFindFirst },
@@ -80,6 +88,9 @@ beforeEach(() => {
   mocks.uploadFindUnique.mockResolvedValue(workOrderUpload);
   mocks.workOrderFindUnique.mockResolvedValue(activeWorkOrder());
   mocks.customerFindUnique.mockResolvedValue({ deletedAt: null });
+  mocks.customerFindFirst.mockResolvedValue({ id: "cust-1" });
+  mocks.contactFindFirst.mockResolvedValue({ id: "contact-1" });
+  mocks.portalDelegationFindUnique.mockResolvedValue(null);
   mocks.documentFindUnique.mockResolvedValue({ deletedAt: null });
   mocks.departmentFindUnique.mockResolvedValue({ isActive: true });
   mocks.reportFindFirst.mockResolvedValue(null);
@@ -360,6 +371,70 @@ describe("/uploads – rapport-PDF", () => {
   });
 
   it("beholder vanlige oppdragsvedlegg uten reports.view", async () => {
+    const response = await GET(request(), params());
+
+    expect(response.status).toBe(200);
+    expect(mocks.createReadStream).toHaveBeenCalled();
+  });
+});
+
+
+describe("/uploads – kundeportalens delegasjon", () => {
+  const customerUser = {
+    id: "customer-user",
+    role: "CUSTOMER",
+    isActive: true,
+    departmentId: null,
+    customerId: "cust-1",
+    contactId: "contact-1",
+  };
+
+  it("gir 403 når delegasjonen ikke har dokumenttilgang", async () => {
+    mocks.getCurrentUser.mockResolvedValue(customerUser);
+    mocks.uploadFindUnique.mockResolvedValue({
+      ...workOrderUpload,
+      ownerType: "CUSTOMER",
+      ownerId: "cust-1",
+    });
+    mocks.portalDelegationFindUnique.mockResolvedValue({
+      id: "del-1",
+      canBook: true,
+      canViewDocuments: false,
+      canViewContracts: true,
+      canViewEquipment: true,
+      isActive: true,
+    });
+
+    const response = await GET(request(), params());
+
+    expect(response.status).toBe(403);
+    expect(mocks.createReadStream).not.toHaveBeenCalled();
+  });
+
+  it("avviser en opplåst rapport-PDF for kundeportalen", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ ...customerUser, contactId: null });
+    mocks.reportFindFirst.mockResolvedValue({
+      id: "r1",
+      deletedAt: null,
+      isLocked: false,
+      workOrder: { deletedAt: null, status: "OPEN" },
+    });
+
+    const response = await GET(request(), params());
+
+    expect(response.status).toBe(404);
+    expect(mocks.createReadStream).not.toHaveBeenCalled();
+  });
+
+  it("lar kunden hente en låst rapport-PDF med dokumenttilgang", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ ...customerUser, contactId: null });
+    mocks.reportFindFirst.mockResolvedValue({
+      id: "r1",
+      deletedAt: null,
+      isLocked: true,
+      workOrder: { deletedAt: null, status: "OPEN" },
+    });
+
     const response = await GET(request(), params());
 
     expect(response.status).toBe(200);
