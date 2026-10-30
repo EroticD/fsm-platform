@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { WorkStatus } from "@prisma/client";
+import { WorkStatus, type VisitStatus } from "@prisma/client";
 import { readableTextColor } from "@/lib/colors";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -21,7 +21,17 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffForDepartment, workOrderScope } from "@/lib/access";
 import { statusSelectOptions } from "@/lib/work-order-status";
-import { formatDateRangeLocalized, formatDateTimeLocalized } from "@/lib/dates";
+import {
+  dateOnlyInOslo,
+  formatDateLocalized,
+  formatDateRangeLocalized,
+  formatDateTimeLocalized,
+} from "@/lib/dates";
+import {
+  VISIT_STATUS_LABEL_KEYS,
+  canTransitionVisit,
+  isTerminalVisitStatus,
+} from "@/lib/visit-status";
 import { idSchema } from "@/lib/schemas/common";
 import { parseJsonObject, REPORT_STATUS_DEVIATION } from "@/lib/report-answers";
 import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
@@ -35,6 +45,7 @@ import {
   addComment,
   addTechnician,
   addTemplate,
+  setVisitStatus,
   updateStatus,
 } from "./actions";
 
@@ -53,6 +64,47 @@ const DARK_BUTTON =
 /** Hurtighandlingene skal alltid være minst 44 px høye på touch. */
 const QUICK_ACTION =
   "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10";
+
+/** Montørens lovlige vei gjennom visitten. Kansellering hører til kontoret. */
+const FIELD_VISIT_FLOW: ReadonlyArray<{
+  from: readonly VisitStatus[];
+  to: VisitStatus;
+  labelKey: string;
+}> = [
+  {
+    from: ["PLANNED", "ASSIGNED"],
+    to: "EN_ROUTE",
+    labelKey: "orders.fieldDetail.visits.startDriving",
+  },
+  {
+    from: ["EN_ROUTE"],
+    to: "ON_SITE",
+    labelKey: "orders.fieldDetail.visits.onSite",
+  },
+  {
+    from: ["ON_SITE"],
+    to: "DONE",
+    labelKey: "orders.fieldDetail.visits.complete",
+  },
+];
+
+const VISIT_ERROR_KEYS: Record<string, string> = {
+  overlap: "orders.fieldDetail.visits.errors.overlap",
+  invalidTimeRange: "orders.fieldDetail.visits.errors.invalidTimeRange",
+  durationTooLong: "orders.fieldDetail.visits.errors.invalidTimeRange",
+  invalidTechnician: "orders.fieldDetail.visits.errors.invalidInput",
+  invalidInput: "orders.fieldDetail.visits.errors.invalidInput",
+  invalidSequence: "orders.fieldDetail.visits.errors.invalidInput",
+  legalHold: "orders.fieldDetail.visits.errors.legalHold",
+  workOrderLocked: "orders.fieldDetail.visits.errors.workOrderLocked",
+  visitLocked: "orders.fieldDetail.visits.errors.visitLocked",
+  statusTransition: "orders.fieldDetail.visits.errors.statusTransition",
+  noChange: "orders.fieldDetail.visits.errors.noChange",
+  forbidden: "orders.fieldDetail.visits.errors.forbidden",
+  notFound: "orders.fieldDetail.visits.errors.notFound",
+  conflict: "orders.fieldDetail.visits.errors.conflict",
+  generic: "orders.fieldDetail.visits.errors.generic",
+};
 
 /**
  * Kompakt faktarad i heroen. Verdien er alltid hentet fra oppdraget – aldri
@@ -253,9 +305,12 @@ export default async function TechnicianWorkOrderPage({
     reportSubmitted?: string;
     removed?: string;
     restored?: string;
+    visitOk?: string;
+    visitError?: string;
   }>;
 }) {
-  const { error, reportSubmitted, removed, restored } = await searchParams;
+  const { error, reportSubmitted, removed, restored, visitOk, visitError } =
+    await searchParams;
 
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
@@ -281,7 +336,17 @@ export default async function TechnicianWorkOrderPage({
       workComments: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { id: "desc" } },
       product: true,
-      technicians: true
+      technicians: true,
+      visits: {
+        include: {
+          technicians: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+        orderBy: [{ startsAt: "asc" }, { sequence: "asc" }],
+      },
     }
   });
 
@@ -433,6 +498,94 @@ export default async function TechnicianWorkOrderPage({
             complete: true,
           }
         : null;
+
+  // Dagens eller neste visitt. Åpne visiter går foran avsluttede, slik at en
+  // nettopp fullført formiddagsvisitt ikke skjuler ettermiddagens jobb.
+  const now = new Date();
+  const todayIso = dateOnlyInOslo(now);
+  const nonCancelledVisits = (workOrder.visits ?? []).filter(
+    (visit) => visit.status !== "CANCELLED",
+  );
+  const openVisits = nonCancelledVisits.filter(
+    (visit) => !isTerminalVisitStatus(visit.status),
+  );
+  const visitCandidates = openVisits.length > 0 ? openVisits : nonCancelledVisits;
+  const currentVisit =
+    visitCandidates.find((visit) => visit.endsAt >= now) ??
+    visitCandidates[0] ??
+    null;
+  const currentVisitLastDay = currentVisit
+    ? dateOnlyInOslo(new Date(currentVisit.endsAt.getTime() - 1))
+    : "";
+  const currentVisitIsToday = Boolean(
+    currentVisit &&
+      dateOnlyInOslo(currentVisit.startsAt) <= todayIso &&
+      currentVisitLastDay >= todayIso,
+  );
+  const currentVisitDate =
+    currentVisit && currentVisit.allDay
+      ? currentVisitLastDay &&
+        dateOnlyInOslo(currentVisit.startsAt) !== currentVisitLastDay
+        ? `${formatDateLocalized(currentVisit.startsAt, locale, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })} – ${formatDateLocalized(new Date(currentVisit.endsAt.getTime() - 1), locale, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })}`
+        : formatDateLocalized(currentVisit.startsAt, locale, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })
+      : currentVisit
+        ? formatDateLocalized(currentVisit.startsAt, locale, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })
+        : "";
+  const currentVisitStartTime = currentVisit
+    ? formatDateLocalized(currentVisit.startsAt, locale, { timeStyle: "short" })
+    : "";
+  const currentVisitEndTime = currentVisit
+    ? formatDateLocalized(currentVisit.endsAt, locale, { timeStyle: "short" })
+    : "";
+  const currentVisitSameDay = Boolean(
+    currentVisit &&
+      dateOnlyInOslo(currentVisit.startsAt) === currentVisitLastDay,
+  );
+  const currentVisitTime = !currentVisit
+    ? ""
+    : currentVisit.allDay
+      ? t("orders.fieldDetail.visits.allDay")
+      : currentVisitSameDay
+        ? `${currentVisitStartTime}–${currentVisitEndTime}`
+        : `${currentVisitStartTime} – ${formatDateLocalized(
+            currentVisit.endsAt,
+            locale,
+            { day: "numeric", month: "short" },
+          )} ${currentVisitEndTime}`;
+  const currentVisitTechnicians =
+    currentVisit?.technicians
+      .map((technician) => technician.user.name || technician.user.email)
+      .filter(Boolean)
+      .join(", ") || "";
+  const currentVisitNextStep = currentVisit
+    ? (FIELD_VISIT_FLOW.find(
+        (step) =>
+          step.from.includes(currentVisit.status) &&
+          canTransitionVisit(currentVisit.status, step.to),
+      ) ?? null)
+    : null;
+  const currentVisitTerminal = currentVisit
+    ? isTerminalVisitStatus(currentVisit.status)
+    : false;
+  const visitErrorKey = visitError
+    ? (VISIT_ERROR_KEYS[visitError] ?? VISIT_ERROR_KEYS.generic)
+    : "";
 
   // Framdrift for sjekklistene. Signerte rapporter vinner over en eventuell
   // gammel kladd, slik at tellingen alltid viser det som faktisk er lagret.
@@ -848,6 +1001,106 @@ export default async function TechnicianWorkOrderPage({
             </div>
 
           </div>
+        </div>
+
+        {/* VISITT – dagens eller neste planlagte tidsrom. Statusflyten her er
+            visitens egen og blandes ikke med oppdragets status. */}
+        <div id="visitt" className={`scroll-mt-4 ${FIELD_PANEL} p-4 sm:p-6`}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-paper/60">
+                {t(
+                  currentVisitIsToday
+                    ? "orders.fieldDetail.visits.todayTitle"
+                    : "orders.fieldDetail.visits.nextTitle",
+                )}
+              </p>
+              {currentVisit ? (
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-paper">
+                  <span className="capitalize">{currentVisitDate}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-sm font-black tabular-nums text-signal">
+                    <Icon name="clock" className="h-3.5 w-3.5" />
+                    {currentVisitTime}
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-sm font-bold text-paper/80">
+                  {t("orders.fieldDetail.visits.empty")}
+                </p>
+              )}
+            </div>
+            {currentVisit && (
+              <span className="inline-flex items-center rounded-full border border-signal/25 bg-field px-3 py-1 text-xs font-black uppercase tracking-wide text-signal">
+                {t(VISIT_STATUS_LABEL_KEYS[currentVisit.status])}
+              </span>
+            )}
+          </div>
+
+          <div
+            aria-live="polite"
+            role="status"
+            className={`mt-3 text-sm font-bold ${
+              visitErrorKey ? "text-risk" : "text-signal"
+            }`}
+          >
+            {visitErrorKey
+              ? t(visitErrorKey)
+              : visitOk
+                ? t("orders.fieldDetail.visits.statusUpdated")
+                : ""}
+          </div>
+
+          {currentVisit && (
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                <p className="flex items-start gap-2 rounded-xl border border-[#2a3328] bg-field/65 px-3 py-2 font-medium text-paper/90">
+                  <Icon name="pin" className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+                  <span className="min-w-0">{heroAddress}</span>
+                </p>
+                <p className="flex items-start gap-2 rounded-xl border border-[#2a3328] bg-field/65 px-3 py-2 font-medium text-paper/90">
+                  <Icon name="users" className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+                  <span className="min-w-0">
+                    {currentVisitTechnicians ||
+                      t("orders.fieldDetail.visits.noTechnicians")}
+                  </span>
+                </p>
+              </div>
+
+              {currentVisit.notes && (
+                <p className="whitespace-pre-wrap rounded-xl border border-[#2a3328] bg-white/5 px-3 py-2 text-sm font-medium text-paper/80">
+                  {currentVisit.notes}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                {canUpdate && !isClosed && currentVisitNextStep ? (
+                  <form action={setVisitStatus}>
+                    <input type="hidden" name="workOrderId" value={workOrderId} />
+                    <input type="hidden" name="visitId" value={currentVisit.id} />
+                    <input
+                      type="hidden"
+                      name="status"
+                      value={currentVisitNextStep.to}
+                    />
+                    <SubmitButton
+                      pendingLabel={t("orders.fieldDetail.updating")}
+                      className="signal-button min-h-11 text-sm shadow-sm"
+                    >
+                      {t(currentVisitNextStep.labelKey)}
+                    </SubmitButton>
+                  </form>
+                ) : currentVisitTerminal ? (
+                  <p className="text-sm font-medium italic text-paper/70">
+                    {t("orders.fieldDetail.visits.locked")}
+                  </p>
+                ) : !canUpdate ? (
+                  <p className="text-sm font-medium italic text-paper/70">
+                    {t("orders.fieldDetail.noStatusPermission")}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SJEKKLISTER – papirark på mørk bunn, høyt opp. */}

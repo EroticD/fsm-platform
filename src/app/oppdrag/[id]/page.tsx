@@ -24,18 +24,40 @@ import {
   addContactToCustomer,
   assignTechnician,
   cloneWorkOrder,
+  createVisit,
+  deleteVisit,
   deleteWorkOrder,
+  moveVisit,
+  assignVisit,
   setContact,
   setReportLegalHold,
   setReportLock,
   setTags,
   setTemplate,
+  setVisitStatus,
   setWorkOrderLegalHold,
   unassignTechnician,
   updateStatus,
+  updateVisit,
 } from "./actions";
+import {
+  lastIncludedVisitDate,
+  visitDateInput,
+  visitTimeInput,
+} from "./visit-planning";
 import CustomerToast from "@/components/customer/CustomerToast";
-import { formatDateLocalized, formatDateRangeLocalized, parseDateOnly, todayInOslo } from "@/lib/dates";
+import {
+  dateOnlyInOslo,
+  formatDateLocalized,
+  formatDateRangeLocalized,
+  parseDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
+import {
+  VISIT_STATUS_LABEL_KEYS,
+  allowedVisitTransitions,
+  isTerminalVisitStatus,
+} from "@/lib/visit-status";
 import {
   reportAcknowledgement,
   reportDisplayName,
@@ -103,6 +125,41 @@ const DETAIL_FEEDBACK_MESSAGE_KEYS: Record<string, string> = {
   klonet: "orders.feedback.cloned",
   oppdatert: "orders.feedback.workOrderUpdated",
   dato: "orders.feedback.workOrderUpdated",
+  "visitt-opprettet": "orders.feedback.visitCreated",
+  "visitt-flyttet": "orders.feedback.visitMoved",
+  "visitt-tildelt": "orders.feedback.visitAssigned",
+  "visitt-oppdatert": "orders.feedback.visitUpdated",
+  "visitt-slettet": "orders.feedback.visitDeleted",
+  "visitt-status": "orders.feedback.visitStatusUpdated",
+};
+
+/** Feilkoder fra visittjenesten, oversatt i planleggingskortet. */
+const PLANNING_ERROR_KEYS: Record<string, string> = {
+  overlap: "orders.detail.planning.errors.overlap",
+  invalidTimeRange: "orders.detail.planning.errors.invalidTimeRange",
+  durationTooLong: "orders.detail.planning.errors.durationTooLong",
+  invalidTechnician: "orders.detail.planning.errors.invalidTechnician",
+  invalidInput: "orders.detail.planning.errors.invalidInput",
+  invalidSequence: "orders.detail.planning.errors.invalidSequence",
+  legalHold: "orders.detail.planning.errors.legalHold",
+  workOrderLocked: "orders.detail.planning.errors.workOrderLocked",
+  visitLocked: "orders.detail.planning.errors.visitLocked",
+  statusTransition: "orders.detail.planning.errors.statusTransition",
+  noChange: "orders.detail.planning.errors.noChange",
+  forbidden: "orders.detail.planning.errors.forbidden",
+  notFound: "orders.detail.planning.errors.notFound",
+  conflict: "orders.detail.planning.errors.conflict",
+  generic: "orders.detail.planning.errors.generic",
+};
+
+const VISIT_STATUS_TONES: Record<string, string> = {
+  PLANNED: "border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
+  ASSIGNED: "border-[#bcd39a] bg-[#eef7d6] text-[#283509]",
+  EN_ROUTE: "border-[#c9c0ac] bg-[#fff4d6] text-[#6b4808]",
+  ON_SITE:
+    "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]",
+  DONE: "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]",
+  CANCELLED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
 };
 
 async function ReportContent({ report, template }: { report: any; template: any }) {
@@ -388,11 +445,16 @@ export default async function AdminWorkOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; reportSubmitted?: string; ok?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    reportSubmitted?: string;
+    ok?: string;
+    planningError?: string;
+  }>;
 }) {
   const resolvedParams = await params;
   const workOrderId = resolvedParams.id;
-  const { error, reportSubmitted, ok } = await searchParams;
+  const { error, reportSubmitted, ok, planningError } = await searchParams;
   const t = await getTranslations("common");
   const locale = await getLocale();
 
@@ -418,7 +480,17 @@ export default async function AdminWorkOrderPage({
       },
       workComments: { orderBy: { createdAt: "desc" } },
       attachments: { orderBy: { id: "desc" } },
-      product: true
+      product: true,
+      visits: {
+        include: {
+          technicians: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+        orderBy: [{ startsAt: "asc" }, { sequence: "asc" }],
+      },
     }
   });
 
@@ -549,6 +621,17 @@ export default async function AdminWorkOrderPage({
   const feedbackKey = ok ? DETAIL_FEEDBACK_MESSAGE_KEYS[ok] : undefined;
   const canCompleteNow =
     canUpdate && !isClosed && statusOptions.includes("COMPLETED");
+  const canCreateVisit = canEdit;
+  const canMoveVisit = hasPermission(user, "workorders.assign") && !isClosed;
+  const canAssignVisit = canMoveVisit;
+  const canUpdateVisit = canEdit;
+  const canDeleteVisit = canEdit;
+  const canSetVisitStatus = canUpdate && !isClosed;
+  const planningErrorKey = planningError
+    ? (PLANNING_ERROR_KEYS[planningError] ?? PLANNING_ERROR_KEYS.generic)
+    : "";
+  const visitStatusLabel = (status: keyof typeof VISIT_STATUS_LABEL_KEYS) =>
+    t(VISIT_STATUS_LABEL_KEYS[status]);
 
   return (
     <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
@@ -1162,6 +1245,540 @@ export default async function AdminWorkOrderPage({
             </div>
 
             <div className="space-y-4 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+
+              {/* PLANLEGGING – visittene er kilden til oppdragets datoperiode. */}
+              <div id="planlegging" className={`scroll-mt-4 ${CARD} p-4 sm:p-5`}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line,#d8d3c5)] pb-2">
+                  <h2 className={SECTION_TITLE}>{t("orders.detail.planning.title")}</h2>
+                  <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-2.5 py-1 text-xs font-bold text-[#5e6356]">
+                    {t("orders.detail.planning.count", {
+                      count: workOrder.visits?.length ?? 0,
+                    })}
+                  </span>
+                </div>
+                <p className="mb-3 text-xs font-medium text-[#5e6356]">
+                  {t("orders.detail.planning.hint")}
+                </p>
+
+                {planningErrorKey && (
+                  <div
+                    role="alert"
+                    className="mb-3 rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]"
+                  >
+                    {t(planningErrorKey)}
+                  </div>
+                )}
+
+                {(workOrder.visits?.length ?? 0) === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-4">
+                    <p className="text-sm font-bold text-[var(--ink,#131711)]">
+                      {t("orders.detail.planning.empty")}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-[#5e6356]">
+                      {t("orders.detail.planning.emptyHint")}
+                    </p>
+                    {canCreateVisit && (
+                      <a href="#ny-visitt" className={`${SIGNAL_BUTTON} mt-3`}>
+                        {t("orders.detail.planning.addVisit")}
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <ol className="space-y-3">
+                    {(workOrder.visits ?? []).map((visit) => {
+                      const lastIncluded = new Date(visit.endsAt.getTime() - 1);
+                      const sameDay =
+                        dateOnlyInOslo(visit.startsAt) ===
+                        dateOnlyInOslo(lastIncluded);
+                      const startDateLabel =
+                        formatDateLocalized(visit.startsAt, locale, {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        }) || t("orders.detail.noDate");
+                      const endDateLabel =
+                        formatDateLocalized(lastIncluded, locale, {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        }) || startDateLabel;
+                      const dateLabel =
+                        visit.allDay && !sameDay
+                          ? `${startDateLabel} – ${endDateLabel}`
+                          : startDateLabel;
+                      const startTime = visitTimeInput(visit.startsAt);
+                      const endTime = visitTimeInput(visit.endsAt);
+                      const timeLabel = visit.allDay
+                        ? t("orders.detail.planning.allDay")
+                        : sameDay
+                          ? `${startTime}–${endTime}`
+                          : `${startTime} – ${formatDateLocalized(
+                              visit.endsAt,
+                              locale,
+                              { day: "numeric", month: "short" },
+                            )} ${endTime}`;
+                      const technicians =
+                        visit.technicians
+                          .map(
+                            (technician) =>
+                              technician.user.name || technician.user.email,
+                          )
+                          .filter(Boolean)
+                          .join(", ") ||
+                        t("orders.detail.planning.noTechnicians");
+                      const statusOptionsForVisit = allowedVisitTransitions(
+                        visit.status,
+                      );
+                      const terminal = isTerminalVisitStatus(visit.status);
+
+                      return (
+                        <li
+                          key={visit.id}
+                          className="rounded-xl border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-3 sm:p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-[var(--ink,#131711)]">
+                                <span>{dateLabel}</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-bold tabular-nums">
+                                  <Icon name="clock" className="h-3.5 w-3.5" />
+                                  {timeLabel}
+                                </span>
+                                {visit.allDay && (
+                                  <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-white px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#5e6356]">
+                                    {t("orders.detail.planning.allDayMarker")}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#5e6356]">
+                                <Icon name="users" className="h-3.5 w-3.5 shrink-0" />
+                                <span className="min-w-0">{technicians}</span>
+                              </p>
+                              {visit.notes && (
+                                <p className="mt-1 whitespace-pre-wrap text-xs font-medium text-[#3d4237]">
+                                  {visit.notes}
+                                </p>
+                              )}
+                            </div>
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${
+                                VISIT_STATUS_TONES[visit.status] ??
+                                "border-[var(--line,#d8d3c5)] bg-white"
+                              }`}
+                            >
+                              {visitStatusLabel(visit.status)}
+                            </span>
+                          </div>
+
+                          {(canMoveVisit ||
+                            canAssignVisit ||
+                            canUpdateVisit ||
+                            canDeleteVisit ||
+                            (canSetVisitStatus &&
+                              statusOptionsForVisit.length > 0)) && (
+                            <details className="group mt-3 border-t border-[var(--line,#d8d3c5)] pt-2">
+                              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em] text-[#5e6356] [&::-webkit-details-marker]:hidden">
+                                <span
+                                  aria-hidden
+                                  className="transition group-open:rotate-90"
+                                >
+                                  ▸
+                                </span>
+                                {t("orders.detail.planning.editVisit")}
+                              </summary>
+
+                              <div className="space-y-4 pt-2">
+                                {canMoveVisit && (
+                                  <form action={moveVisit} className="space-y-2">
+                                    <input
+                                      type="hidden"
+                                      name="workOrderId"
+                                      value={workOrder.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="visitId"
+                                      value={visit.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="allDay"
+                                      value={visit.allDay ? "true" : "false"}
+                                    />
+                                    <p className="text-xs font-black uppercase tracking-wide text-[#5e6356]">
+                                      {t("orders.detail.planning.moveVisit")}
+                                    </p>
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                      <label className="text-xs font-bold text-[#3d4237]">
+                                        {t("orders.detail.planning.startDate")}
+                                        <input
+                                          type="date"
+                                          name="startsOn"
+                                          required
+                                          defaultValue={visitDateInput(visit.startsAt)}
+                                          className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                        />
+                                      </label>
+                                      <label className="text-xs font-bold text-[#3d4237]">
+                                        {t("orders.detail.planning.endDate")}
+                                        <input
+                                          type="date"
+                                          name="endsOn"
+                                          required={visit.allDay}
+                                          defaultValue={
+                                            visit.allDay
+                                              ? lastIncludedVisitDate(visit.endsAt)
+                                              : visitDateInput(visit.endsAt)
+                                          }
+                                          className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                        />
+                                      </label>
+                                      {!visit.allDay && (
+                                        <>
+                                          <label className="text-xs font-bold text-[#3d4237]">
+                                            {t("orders.detail.planning.startTime")}
+                                            <input
+                                              type="time"
+                                              name="startTime"
+                                              required
+                                              defaultValue={startTime}
+                                              className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                            />
+                                          </label>
+                                          <label className="text-xs font-bold text-[#3d4237]">
+                                            {t("orders.detail.planning.endTime")}
+                                            <input
+                                              type="time"
+                                              name="endTime"
+                                              required
+                                              defaultValue={endTime}
+                                              className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                            />
+                                          </label>
+                                        </>
+                                      )}
+                                    </div>
+                                    <button type="submit" className={INK_SOLID}>
+                                      {t("orders.detail.planning.saveMove")}
+                                    </button>
+                                  </form>
+                                )}
+
+                                {canAssignVisit && (
+                                  <form
+                                    action={assignVisit}
+                                    className="space-y-2 border-t border-[var(--line,#d8d3c5)] pt-3"
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="workOrderId"
+                                      value={workOrder.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="visitId"
+                                      value={visit.id}
+                                    />
+                                    <p className="text-xs font-black uppercase tracking-wide text-[#5e6356]">
+                                      {t("orders.detail.planning.assignVisit")}
+                                    </p>
+                                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--line,#d8d3c5)] bg-white p-2">
+                                      {staffUsers.length === 0 ? (
+                                        <p className="px-2 py-2 text-xs italic text-[#5e6356]">
+                                          {t("orders.detail.planning.noStaff")}
+                                        </p>
+                                      ) : (
+                                        staffUsers.map((person) => (
+                                          <label
+                                            key={person.id}
+                                            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-[var(--ink,#131711)] transition hover:bg-[var(--paper,#f2efe6)]"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              name="technicianIds"
+                                              value={person.id}
+                                              defaultChecked={visit.technicians.some(
+                                                (technician) =>
+                                                  technician.userId === person.id,
+                                              )}
+                                              className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                                            />
+                                            <span className="min-w-0">
+                                              {person.name || person.email}
+                                            </span>
+                                          </label>
+                                        ))
+                                      )}
+                                    </div>
+                                    <button type="submit" className={INK_SOLID}>
+                                      {t("orders.detail.planning.saveAssign")}
+                                    </button>
+                                  </form>
+                                )}
+
+                                {canUpdateVisit && (
+                                  <form
+                                    action={updateVisit}
+                                    className="space-y-2 border-t border-[var(--line,#d8d3c5)] pt-3"
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="workOrderId"
+                                      value={workOrder.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="visitId"
+                                      value={visit.id}
+                                    />
+                                    <p className="text-xs font-black uppercase tracking-wide text-[#5e6356]">
+                                      {t("orders.detail.planning.updateVisit")}
+                                    </p>
+                                    <label className="block text-xs font-bold text-[#3d4237]">
+                                      {t("orders.detail.planning.notes")}
+                                      <textarea
+                                        name="notes"
+                                        rows={2}
+                                        maxLength={2000}
+                                        defaultValue={visit.notes ?? ""}
+                                        placeholder={t(
+                                          "orders.detail.planning.notesPlaceholder",
+                                        )}
+                                        className="mt-1 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                      />
+                                    </label>
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                      <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)]">
+                                        <input
+                                          type="checkbox"
+                                          name="allDay"
+                                          defaultChecked={visit.allDay}
+                                          className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                                        />
+                                        {t("orders.detail.planning.allDay")}
+                                      </label>
+                                      <label className="text-xs font-bold text-[#3d4237]">
+                                        {t("orders.detail.planning.sequence")}
+                                        <input
+                                          type="number"
+                                          name="sequence"
+                                          min={0}
+                                          step={1}
+                                          defaultValue={visit.sequence}
+                                          className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                        />
+                                      </label>
+                                    </div>
+                                    <button type="submit" className={INK_SOLID}>
+                                      {t("orders.detail.planning.saveVisit")}
+                                    </button>
+                                  </form>
+                                )}
+
+                                {canSetVisitStatus &&
+                                  statusOptionsForVisit.length > 0 && (
+                                    <form
+                                      action={setVisitStatus}
+                                      className="flex flex-col gap-2 border-t border-[var(--line,#d8d3c5)] pt-3 sm:flex-row sm:items-end"
+                                    >
+                                      <input
+                                        type="hidden"
+                                        name="workOrderId"
+                                        value={workOrder.id}
+                                      />
+                                      <input
+                                        type="hidden"
+                                        name="visitId"
+                                        value={visit.id}
+                                      />
+                                      <label className="min-w-0 flex-1 text-xs font-bold text-[#3d4237]">
+                                        {t("orders.detail.planning.visitStatus")}
+                                        <select
+                                          name="status"
+                                          required
+                                          defaultValue=""
+                                          className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-bold text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                                        >
+                                          <option value="" disabled>
+                                            {t(
+                                              "orders.detail.planning.chooseStatus",
+                                            )}
+                                          </option>
+                                          {statusOptionsForVisit.map((status) => (
+                                            <option key={status} value={status}>
+                                              {visitStatusLabel(status)}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                      <button type="submit" className={INK_SOLID}>
+                                        {t("orders.detail.planning.updateStatus")}
+                                      </button>
+                                    </form>
+                                  )}
+
+                                {terminal && (
+                                  <p className="text-xs font-medium italic text-[#5e6356]">
+                                    {t("orders.detail.planning.visitLocked")}
+                                  </p>
+                                )}
+
+                                {canDeleteVisit && (
+                                  <ConfirmSubmitForm
+                                    action={deleteVisit}
+                                    confirmMessage={t(
+                                      "orders.detail.planning.deleteConfirm",
+                                    )}
+                                    confirmLabel={t(
+                                      "orders.detail.planning.deleteVisit",
+                                    )}
+                                    danger
+                                    className="border-t border-[var(--line,#d8d3c5)] pt-3"
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="workOrderId"
+                                      value={workOrder.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="visitId"
+                                      value={visit.id}
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-white px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]"
+                                    >
+                                      {t("orders.detail.planning.deleteVisit")}
+                                    </button>
+                                  </ConfirmSubmitForm>
+                                )}
+                              </div>
+                            </details>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+
+                {canCreateVisit && (
+                  <details
+                    id="ny-visitt"
+                    open={(workOrder.visits?.length ?? 0) === 0}
+                    className={`${SUB_CARD} group mt-3 scroll-mt-4 bg-[var(--paper,#f2efe6)]`}
+                  >
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-sm font-bold text-[var(--ink,#131711)] [&::-webkit-details-marker]:hidden">
+                      <span
+                        aria-hidden
+                        className="text-[#5e6356] transition group-open:rotate-90"
+                      >
+                        ▸
+                      </span>
+                      <Icon name="plus" className="h-4 w-4" />
+                      {t("orders.detail.planning.addVisit")}
+                    </summary>
+                    <form
+                      action={createVisit}
+                      className="space-y-3 border-t border-[var(--line,#d8d3c5)] p-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="workOrderId"
+                        value={workOrder.id}
+                      />
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <label className="text-xs font-bold text-[#3d4237]">
+                          {t("orders.detail.planning.startDate")}
+                          <input
+                            type="date"
+                            name="startsOn"
+                            required
+                            className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                          />
+                        </label>
+                        <label className="text-xs font-bold text-[#3d4237]">
+                          {t("orders.detail.planning.endDate")}
+                          <input
+                            type="date"
+                            name="endsOn"
+                            className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                          />
+                        </label>
+                        <label className="text-xs font-bold text-[#3d4237]">
+                          {t("orders.detail.planning.startTime")}
+                          <input
+                            type="time"
+                            name="startTime"
+                            className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                          />
+                        </label>
+                        <label className="text-xs font-bold text-[#3d4237]">
+                          {t("orders.detail.planning.endTime")}
+                          <input
+                            type="time"
+                            name="endTime"
+                            className="mt-1 min-h-11 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-[#5e6356]">
+                        {t("orders.detail.planning.timeHint")}
+                      </p>
+                      <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 text-sm font-medium text-[var(--ink,#131711)]">
+                        <input
+                          type="checkbox"
+                          name="allDay"
+                          className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                        />
+                        {t("orders.detail.planning.allDay")}
+                      </label>
+                      <fieldset>
+                        <legend className="text-xs font-bold text-[#3d4237]">
+                          {t("orders.detail.planning.technicians")}
+                        </legend>
+                        <div className="mt-1 max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--line,#d8d3c5)] bg-white p-2">
+                          {staffUsers.length === 0 ? (
+                            <p className="px-2 py-2 text-xs italic text-[#5e6356]">
+                              {t("orders.detail.planning.noStaff")}
+                            </p>
+                          ) : (
+                            staffUsers.map((person) => (
+                              <label
+                                key={person.id}
+                                className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-[var(--ink,#131711)] transition hover:bg-[var(--paper,#f2efe6)]"
+                              >
+                                <input
+                                  type="checkbox"
+                                  name="technicianIds"
+                                  value={person.id}
+                                  className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                                />
+                                <span className="min-w-0">
+                                  {person.name || person.email}
+                                </span>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </fieldset>
+                      <label className="block text-xs font-bold text-[#3d4237]">
+                        {t("orders.detail.planning.notes")}
+                        <textarea
+                          name="notes"
+                          rows={2}
+                          maxLength={2000}
+                          placeholder={t("orders.detail.planning.notesPlaceholder")}
+                          className="mt-1 w-full rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#131711)] outline-none focus:border-[var(--ink,#131711)] focus:ring-2 focus:ring-[var(--signal,#c8f135)]"
+                        />
+                      </label>
+                      <button type="submit" className={SIGNAL_BUTTON}>
+                        {t("orders.detail.planning.createVisit")}
+                      </button>
+                    </form>
+                  </details>
+                )}
+              </div>
 
               <div className={`${CARD} p-4 sm:p-5`}>
                 <h2 className={`${SECTION_TITLE} mb-2`}>{t("orders.detail.descriptionTitle")}</h2>

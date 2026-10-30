@@ -2,11 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { VisitStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/session";
 import { LIMITS, cleanText } from "@/lib/sanitize";
 import { idSchema } from "@/lib/schemas/common";
 import * as workOrderService from "@/server/work-orders";
+import * as visitService from "@/server/visits";
 import { setReportLock as setReportLockService } from "@/server/reports";
+import {
+  visitFailureSlug,
+  visitPeriodFromForm,
+} from "./visit-planning";
 
 /**
  * Tynne action-wrappere for kontorets oppdragsside.
@@ -237,4 +243,189 @@ export async function deleteWorkOrder(formData: FormData) {
   revalidatePath("/rapporter");
   revalidatePath("/kalender");
   redirect("/oppdrag?ok=slettet");
+}
+
+/* ------------------------------------------------------------------ visitter */
+
+function visitIdFrom(formData: FormData): string {
+  const parsed = idSchema.safeParse(
+    cleanText(formData.get("visitId"), { maxLength: LIMITS.line }),
+  );
+  return parsed.success ? parsed.data : "";
+}
+
+function formString(formData: FormData, name: string): string | null {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : null;
+}
+
+function formStrings(formData: FormData, name: string): string[] {
+  return formData
+    .getAll(name)
+    .filter((value): value is string => typeof value === "string");
+}
+
+function planningErrorRedirect(workOrderId: string, error: string): never {
+  redirect(
+    `/oppdrag/${workOrderId}?planningError=${encodeURIComponent(error)}#planlegging`,
+  );
+}
+
+function revalidateVisitPaths(workOrderId: string) {
+  revalidatePath(`/oppdrag/${workOrderId}`);
+  revalidatePath(`/mine-oppdrag/${workOrderId}`);
+  revalidatePath("/mine-oppdrag");
+  revalidatePath("/kart");
+  revalidatePath("/kalender");
+}
+
+/**
+ * Oppretter en visitt. Tid og dato kommer fra skjemaet og tolkes i Oslo av
+ * `visitPeriodFromForm`; oppdragets datoperiode oppdateres av tjenestelaget.
+ */
+export async function createVisit(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+
+  const period = visitPeriodFromForm(formData);
+  if (!period) planningErrorRedirect(workOrderId, "invalidTimeRange");
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.createVisit(user, {
+    workOrderId,
+    startsAt: period.startsAt,
+    endsAt: period.endsAt,
+    allDay: formData.get("allDay") === "on",
+    technicianIds: formStrings(formData, "technicianIds"),
+    notes: formString(formData, "notes"),
+  });
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-opprettet#planlegging`);
+}
+
+/** Flytter en visitt. Selve datoperioden på oppdraget røres ikke direkte. */
+export async function moveVisit(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+  if (!visitId) planningErrorRedirect(workOrderId, "invalidInput");
+
+  const period = visitPeriodFromForm(formData);
+  if (!period) planningErrorRedirect(workOrderId, "invalidTimeRange");
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.moveVisit(user, visitId, {
+    startsAt: period.startsAt,
+    endsAt: period.endsAt,
+  });
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-flyttet#planlegging`);
+}
+
+/** Erstatter montørlisten på visitten. */
+export async function assignVisit(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+  if (!visitId) planningErrorRedirect(workOrderId, "invalidInput");
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.assignVisit(
+    user,
+    visitId,
+    formStrings(formData, "technicianIds"),
+  );
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-tildelt#planlegging`);
+}
+
+/** Oppdaterer notat, rekkefølge og heldagsflagg uten å flytte visitten. */
+export async function updateVisit(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+  if (!visitId) planningErrorRedirect(workOrderId, "invalidInput");
+
+  const sequenceText = cleanText(formData.get("sequence"), {
+    maxLength: LIMITS.line,
+  });
+  const sequence = sequenceText ? Number(sequenceText) : undefined;
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.updateVisit(user, visitId, {
+    notes: formString(formData, "notes"),
+    allDay: formData.get("allDay") === "on",
+    sequence,
+  });
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-oppdatert#planlegging`);
+}
+
+/** Sletter visitten. Oppdraget og rapportene består. */
+export async function deleteVisit(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+  if (!visitId) planningErrorRedirect(workOrderId, "invalidInput");
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.deleteVisit(user, visitId);
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-slettet#planlegging`);
+}
+
+/** Setter visittstatus etter tilstandsmaskinen i `src/lib/visit-status.ts`. */
+export async function setVisitStatus(formData: FormData) {
+  const workOrderId = workOrderIdFrom(formData);
+  const visitId = visitIdFrom(formData);
+  const status = cleanText(formData.get("status"), {
+    maxLength: LIMITS.line,
+  });
+  if (!workOrderId) redirect("/oppdrag?error=ugyldig-data");
+  if (!visitId || !status) planningErrorRedirect(workOrderId, "invalidInput");
+
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+
+  const result = await visitService.setVisitStatus(
+    user,
+    visitId,
+    status as VisitStatus,
+  );
+  if (!result.ok) {
+    planningErrorRedirect(workOrderId, visitFailureSlug(result));
+  }
+
+  revalidateVisitPaths(workOrderId);
+  redirect(`/oppdrag/${workOrderId}?ok=visitt-status#planlegging`);
 }

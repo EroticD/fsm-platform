@@ -6,6 +6,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import {
   addDaysUtc,
   formatDateLocalized,
+  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -95,6 +96,11 @@ export default async function MapPage({
     defaultFrom,
     defaultTo,
   });
+  const todayIso = todayInOslo();
+  const fromIso = range.from ? toDateOnly(range.from) : "";
+  const toIso = range.to ? toDateOnly(range.to) : "";
+  const coversToday =
+    (!fromIso || fromIso <= todayIso) && (!toIso || toIso >= todayIso);
 
   const technicians = await prisma.user.findMany({
     where: staffScope(user),
@@ -114,7 +120,35 @@ export default async function MapPage({
   if (range.invalid) {
     filters.push({ id: { in: [] } });
   } else {
-    filters.push(...scheduledOverlapFilters(range.from, range.to));
+    // Datofilteret følger visittene: en visitt som overlapper valgt periode
+    // holder oppdraget synlig, også når oppdragets avledede dato er en annen.
+    const visitRange: Prisma.VisitWhereInput = {
+      status: { not: "CANCELLED" },
+    };
+    if (range.from) {
+      visitRange.endsAt = {
+        gt: osloDayStart(toDateOnly(range.from)),
+      };
+    }
+    if (range.to) {
+      visitRange.startsAt = {
+        lt: osloDayStart(toDateOnly(addDaysUtc(range.to, 1))),
+      };
+    }
+
+    filters.push({
+      OR: [
+        { visits: { some: visitRange } },
+        {
+          // Eldre oppdrag uten visitt bruker fortsatt oppdragets dato, slik
+          // at backfill og historiske rader ikke forsvinner fra kartet.
+          AND: [
+            { visits: { none: {} } },
+            ...scheduledOverlapFilters(range.from, range.to),
+          ],
+        },
+      ],
+    });
   }
 
   const where: Prisma.WorkOrderWhereInput = { AND: filters };
@@ -346,6 +380,19 @@ export default async function MapPage({
               : t("p3.map.filters.dateError")}
           </div>
         )}
+
+        <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 py-3">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]">
+            {t(
+              coversToday
+                ? "orders.map.visitsToday"
+                : "orders.map.visitsPeriod",
+            )}
+          </p>
+          <p className="mt-1 text-xs font-medium text-[var(--muted,#62685f)]">
+            {t("orders.map.visitsHint")}
+          </p>
+        </div>
 
         <p className="text-sm font-medium text-[var(--muted,#62685f)]">
           {t("p3.map.resultRange", {
