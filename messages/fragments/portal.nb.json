@@ -54,30 +54,21 @@
       "months": "{count} mnd"
     },
     "booking": {
-      "title": "Send ny forespørsel",
-      "desc": "Send en forespørsel om service eller vedlikehold. Forespørselen er ikke bekreftet før kontoret har svart.",
+      "title": "Book en ledig time",
+      "desc": "Velg sted, tjeneste og en ledig time. Bookingen bekreftes med en gang.",
       "titleLabel": "Oppdragstittel *",
       "titlePlaceholder": "F.eks. Årlig service",
       "descriptionLabel": "Beskrivelse",
       "descriptionPlaceholder": "Hva trenger du hjelp med?",
-      "slotLegend": "Ønsket tid",
-      "slotHint": "Velg en ledig dag i oversikten nederst, eller fyll inn dato og tidsvindu selv.",
-      "leadTimeHint": "Forespørselen må gjelde minst {hours} timer fram i tid. Tidligste start er {date} kl. {time}.",
       "dateLabel": "Ønsket dato *",
       "fromLabel": "Fra kl.",
       "toLabel": "Til kl.",
-      "dateHint": "Du kan også velge en ledig dag i oversikten nederst på siden.",
-      "selectedSlot": "Valgt ledig dag: {technician}, {date} kl. {from}–{to}.",
-      "selectedDate": "Valgt dato: {date} kl. {from}–{to}.",
-      "clearTechnician": "Fjern teknikervalg",
       "equipmentLabel": "Utstyr det gjelder",
       "equipmentNone": "Gjelder ikke et bestemt utstyr",
       "contactNameLabel": "Kontaktperson *",
       "contactNamePlaceholder": "Navn",
       "contactPhoneLabel": "Telefon *",
       "contactPhonePlaceholder": "Telefonnummer",
-      "submit": "Send forespørsel",
-      "submitting": "Sender …",
       "successTitle": "Forespørselen er sendt",
       "successDuplicateTitle": "Forespørselen er allerede sendt",
       "reference": "Referanse: {reference}",
@@ -91,11 +82,10 @@
         "missingFields": "Fyll ut tittel, ønsket tid og kontaktperson før du sender.",
         "invalid": "Kontroller dato, tidsvindu og kontaktinformasjon. Starttiden må være minst 24 timer fram i tid.",
         "rateLimited": "Du har sendt mange forespørsler på kort tid. Prøv igjen om litt.",
-        "conflict": "Du har allerede flere åpne bestillinger. Kontakt oss hvis du trenger mer hjelp.",
+        "conflict": "Tiden er ikke lenger ledig, eller du har for mange åpne bestillinger. Velg en ny time eller kontakt oss.",
         "deadlinePassed": "Fristen for å be om ny tid er utløpt. Du kan fortsatt kansellere forespørselen.",
         "generic": "Forespørselen kunne ikke sendes akkurat nå. Prøv igjen om litt."
       },
-      "leadTimeError": "Velg en starttid minst {hours} timer fram i tid.",
       "windowError": "Sluttiden må være etter starttiden."
     },
     "bookingRequests": {
@@ -105,7 +95,6 @@
       "reference": "Referanse: {reference}",
       "requestedLabel": "Ønsket tid:",
       "confirmedLabel": "Bekreftet tid:",
-      "confirmedTimeFallback": "Tid er ikke satt ennå.",
       "window": "kl. {from}–{to}",
       "equipmentLabel": "Utstyr:",
       "technicianLabel": "Ønsket tekniker:",
@@ -155,15 +144,6 @@
       "showing": "Viser {from}–{to} av {total}"
     },
     "availability": {
-      "title": "Ledige teknikere",
-      "desc": "Oversikt over teknikernes ledige og opptatte dager de neste 7 dagene.",
-      "empty": "Ingen teknikere registrert.",
-      "busy": "Opptatt",
-      "free": "Ledig",
-      "pickHint": "Trykk på en ledig dag for å bruke den i bestillingen.",
-      "dayFreeAria": "{technician}, {date}: ledig. Velg denne dagen.",
-      "dayBusyAria": "{technician}, {date}: opptatt.",
-      "note": "«Opptatt» betyr at teknikeren har et planlagt oppdrag denne dagen. Trykk på en ledig dag for å fylle den inn i bestillingen, eller ta kontakt for å avtale et tidspunkt som passer.",
       "unknownName": "Uten navn"
     }
   }

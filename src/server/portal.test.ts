@@ -451,7 +451,11 @@ describe("kundeportaltjenesten", () => {
       }),
     );
     expect(mocks.prisma.bookingRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "br-1", customerId: "cust-1", status: "PENDING" },
+      where: {
+        id: "br-1",
+        customerId: "cust-1",
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
       data: expect.objectContaining({ status: "CANCELLED" }),
     });
     expect(mocks.prisma.workOrder.findFirst).not.toHaveBeenCalled();
@@ -527,7 +531,11 @@ describe("kundeportaltjenesten", () => {
       },
     });
     expect(mocks.prisma.bookingRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "br-1", customerId: "cust-1", status: "PENDING" },
+      where: {
+        id: "br-1",
+        customerId: "cust-1",
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
       data: expect.objectContaining({ status: "CANCELLED" }),
     });
     expect(mocks.prisma.workOrder.updateMany).not.toHaveBeenCalled();
@@ -582,7 +590,11 @@ describe("kundeportaltjenesten", () => {
       data: { status: "cancelled", reference: "B-1" },
     });
     expect(mocks.prisma.bookingRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "br-1", customerId: "cust-1", status: "PENDING" },
+      where: {
+        id: "br-1",
+        customerId: "cust-1",
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
       data: expect.objectContaining({ status: "CANCELLED" }),
     });
   });

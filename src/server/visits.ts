@@ -1010,7 +1010,7 @@ function allDayPeriod(startsAt: Date, endsAt: Date): {
 export async function createDefaultVisit(
   tx: Prisma.TransactionClient,
   input: CreateDefaultVisitInput,
-): Promise<void> {
+): Promise<string> {
   const workOrderId = cleanId(input?.workOrderId);
   const inputStartsAt = input?.startsAt;
   const inputEndsAt = input?.endsAt;
@@ -1049,8 +1049,9 @@ export async function createDefaultVisit(
       })
     : null;
 
+  let visitId = existing?.id;
   if (!existing) {
-    await tx.visit.create({
+    const created = await tx.visit.create({
       data: {
         workOrderId,
         sequence: 0,
@@ -1062,10 +1063,14 @@ export async function createDefaultVisit(
           create: technicianIds.map((userId) => ({ userId })),
         },
       },
+      select: { id: true },
     });
+    visitId = created.id;
   }
 
   await recomputeWorkOrderSchedule(tx, workOrderId);
+  if (!visitId) throw new Error("createDefaultVisit: visitten ble ikke lagret");
+  return visitId;
 }
 
 /**

@@ -49,6 +49,7 @@ describe("toppnavigasjon", () => {
       defaultPermissionsForRole("TECHNICIAN"),
     );
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/bookinger",
       "/avtaler",
       "/enheter",
       "/sok",
@@ -66,6 +67,7 @@ describe("toppnavigasjon", () => {
   it("samler kontorets gjenværende valg i hamburgermenyen", () => {
     const items = navItemsFor("OFFICE");
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/bookinger",
       "/avtaler",
       "/enheter",
       "/sok",
@@ -88,6 +90,7 @@ describe("toppnavigasjon", () => {
       "/rapporter",
     ]);
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/bookinger",
       "/avtaler",
       "/enheter",
       "/sok",

@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "bookings": "Bookings"
+  },
+  "portal": {
+    "bookingWizard": {
+      "siteStep": "1. Choose location",
+      "siteLabel": "Location",
+      "siteHint": "The location is used as the work address on the booking.",
+      "newSiteOption": "New location …",
+      "newSiteName": "Location name *",
+      "newSiteAddress": "Address",
+      "newSitePostalCode": "Postal code",
+      "newSiteCity": "City",
+      "serviceStep": "2. Choose service",
+      "serviceLabel": "Service",
+      "services": {
+        "general": "General service",
+        "maintenance": "Maintenance",
+        "repair": "Repair",
+        "inspection": "Inspection"
+      },
+      "slotStep": "3. Choose an available time",
+      "legendFree": "Available",
+      "legendSlot": "{minutes} minutes per slot",
+      "previousWeek": "Previous week",
+      "nextWeek": "Next week",
+      "earliest": "Earliest",
+      "dayTitle": "Available times on {date}",
+      "loading": "Loading available times …",
+      "noSlots": "No available times on this day.",
+      "tryAnotherDay": "Choose another day from the list above.",
+      "pickSlot": "Choose an available time to hold it for five minutes.",
+      "held": "The time with {technician} from {from} to {to} is held. You have {minutes} minutes.",
+      "release": "Release the time",
+      "selectedSlot": "Selected time: {technician}, {date} from {from} to {to}.",
+      "confirm": "Confirm booking",
+      "confirming": "Confirming …",
+      "successConfirmedTitle": "The booking is confirmed",
+      "successConfirmedBody": "The time is reserved with {technician}. You can see it under “Your bookings”.",
+      "unconfiguredPolicy": "{count} technician(s) have no working hours. The department's opening hours are used as the default.",
+      "defaultBusinessHours": "The department has no saved opening hours. Default weekdays 08–16 are used.",
+      "errors": {
+        "forbidden": "You do not have access to available times.",
+        "loadFailed": "Available times could not be loaded. Please try again.",
+        "holdFailed": "The time could not be held. Please try again.",
+        "slotTaken": "Someone just took that time. Choose another slot."
+      },
+      "leadTimeHint": "The earliest start is {date}. The time must be at least {hours} hours ahead."
+    },
+    "bookingRequests": {
+      "status": {
+        "expired": "Expired"
+      },
+      "event": {
+        "CONFIRMED": "Confirmed",
+        "EXPIRED": "Expired"
+      }
+    },
+    "bookingQueue": {
+      "title": "Booking queue",
+      "desc": "Confirm the customer's request against an available time, or decline it. Confirmed bookings show status and technician.",
+      "empty": "No bookings in this list.",
+      "filterAll": "All",
+      "filterPending": "Pending",
+      "filterConfirmed": "Confirmed",
+      "filterClosed": "Closed",
+      "reference": "Reference",
+      "customer": "Customer",
+      "requested": "Requested time",
+      "site": "Location",
+      "service": "Service",
+      "technician": "Technician",
+      "confirm": "Confirm booking",
+      "cancel": "Cancel",
+      "noTechnician": "No available technician for the requested time",
+      "chooseTechnician": "Choose technician",
+      "status": {
+        "PENDING": "Pending",
+        "CONFIRMED": "Confirmed",
+        "CANCELLED": "Cancelled",
+        "EXPIRED": "Expired"
+      }
+    }
+  }
+}

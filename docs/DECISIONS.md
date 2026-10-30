@@ -255,3 +255,36 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
 - **Avdelingssperren gjelder også kundekortet.** C-05 er rettet: avtalefanen
   laster bare avtaler i aktørens avdeling, og `_count.contracts` bruker samme
   filter.
+
+## Phase 5A — ekte tilgjengelighetsbooking (2026-10-30)
+
+- **Samtidighet uten `btree_gist`.** Vi bruker `SERIALIZABLE`-transaksjon +
+  `pg_advisory_xact_lock` per montør, og kontrollerer tilgjengeligheten på nytt
+  inne i låsen. Det gir nøyaktig én bekreftet booking for samme montør og time
+  uten å kreve en PostgreSQL-extension. En eksklusjonsconstraint kan komme
+  senere når alle montører er representert i én egen tabell.
+- **30-minutters slots, 60 dagers horisont, maks tre per dag per montør.**
+  Slotmatematikken ligger i `src/lib/availability.ts` og er uten I/O.
+  `BusinessHours` snittes med `UserAvailability`; fravær, aktive visiter,
+  aktive `BookingHold` og 24 timers ledetid trekkes fra. `DONE` og `CANCELLED`
+  blokkerer ikke. Heldagsvisiter stenger hele kalenderdagen/de dagene de dekker.
+- **Manglende arbeidstid er en eksplisitt standard.** Har en montør ingen
+  `UserAvailability`, brukes avdelingens åpningstider og resultatet flagger
+  `unconfiguredPolicy = "business_hours"`. Har avdelingen ingen
+  `BusinessHours`, brukes hverdager 08–16 og `businessHoursConfigured = false`.
+  Valget er synlig i portalen, ikke en stille fallback.
+- **BookingHold varer i fem minutter.** Portalen reserverer timen før kunden
+  fyller ut skjemaet. Bekreftelse konsumerer reservasjonen i samme transaksjon
+  som `BookingRequest(CONFIRMED)` og `Visit(PLANNED)` opprettes. En
+  bakgrunnsjobb sletter utløpte/konsumerte rader, og utløpte `PENDING`-
+  forespørsler merkes `EXPIRED`.
+- **Direkte bekreftelse, med eldre kø bevart.** Nye bestillinger bekreftes
+  direkte mot en slot. `PENDING` beholdes for eldre forespørsler og vises i
+  kontorets `/bookinger`-kø, der de kan bekreftes mot en ledig montør eller
+  avlyses.
+- **Kundebestillingen lagrer et stedsnapshot.** `CustomerSite` er en enkel
+  liste per kunde. `BookingRequest.siteId` peker på stedet, og adressen kopieres
+  til oppdraget slik at senere endringer i stedsregisteret ikke flytter
+  historikken. Multi-site på oppdrag og utstyr er fortsatt Phase 5D.
+- **Ingen fakturering.** Prislister er referansedata; booking og visitt
+  inneholder ingen beløp, faktura eller betalingsflyt.

@@ -29,6 +29,7 @@ const MENU_ID = "app-navigation";
 const OFFICE_ROUTES = [
   "/",
   "/oppdrag",
+  "/bookinger",
   "/kunder",
   "/dokumenter",
   "/rapporter",

@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "bookings": "Rezerwacje"
+  },
+  "portal": {
+    "bookingWizard": {
+      "siteStep": "1. Wybierz lokalizację",
+      "siteLabel": "Lokalizacja",
+      "siteHint": "Lokalizacja jest używana jako adres pracy w rezerwacji.",
+      "newSiteOption": "Nowa lokalizacja …",
+      "newSiteName": "Nazwa lokalizacji *",
+      "newSiteAddress": "Adres",
+      "newSitePostalCode": "Kod pocztowy",
+      "newSiteCity": "Miasto",
+      "serviceStep": "2. Wybierz usługę",
+      "serviceLabel": "Usługa",
+      "services": {
+        "general": "Serwis ogólny",
+        "maintenance": "Konserwacja",
+        "repair": "Naprawa",
+        "inspection": "Przegląd"
+      },
+      "slotStep": "3. Wybierz wolny termin",
+      "legendFree": "Wolne",
+      "legendSlot": "{minutes} minut na termin",
+      "previousWeek": "Poprzedni tydzień",
+      "nextWeek": "Następny tydzień",
+      "earliest": "Najwcześniej",
+      "dayTitle": "Wolne terminy {date}",
+      "loading": "Ładowanie wolnych terminów …",
+      "noSlots": "Brak wolnych terminów tego dnia.",
+      "tryAnotherDay": "Wybierz inny dzień z listy powyżej.",
+      "pickSlot": "Wybierz wolny termin, aby zarezerwować go na pięć minut.",
+      "held": "Termin u {technician} od {from} do {to} jest zarezerwowany. Masz {minutes} minut.",
+      "release": "Zwolnij termin",
+      "selectedSlot": "Wybrany termin: {technician}, {date} od {from} do {to}.",
+      "confirm": "Potwierdź rezerwację",
+      "confirming": "Potwierdzanie …",
+      "successConfirmedTitle": "Rezerwacja jest potwierdzona",
+      "successConfirmedBody": "Termin jest zarezerwowany u {technician}. Znajdziesz go w „Twoje rezerwacje”.",
+      "unconfiguredPolicy": "{count} technik(ów) nie ma godzin pracy. Użyto godzin otwarcia działu jako domyślnych.",
+      "defaultBusinessHours": "Dział nie ma zapisanych godzin otwarcia. Używane są domyślne dni robocze 08–16.",
+      "errors": {
+        "forbidden": "Nie masz dostępu do wolnych terminów.",
+        "loadFailed": "Nie udało się pobrać wolnych terminów. Spróbuj ponownie.",
+        "holdFailed": "Nie udało się zarezerwować terminu. Spróbuj ponownie.",
+        "slotTaken": "Ktoś właśnie zajął ten termin. Wybierz inny."
+      },
+      "leadTimeHint": "Najwcześniejszy start to {date}. Termin musi być co najmniej {hours} godzin wcześniej."
+    },
+    "bookingRequests": {
+      "status": {
+        "expired": "Wygasła"
+      },
+      "event": {
+        "CONFIRMED": "Potwierdzona",
+        "EXPIRED": "Wygasła"
+      }
+    },
+    "bookingQueue": {
+      "title": "Kolejka rezerwacji",
+      "desc": "Potwierdź prośbę klienta na wolnym terminie lub odrzuć ją. Potwierdzone rezerwacje pokazują status i technika.",
+      "empty": "Brak rezerwacji na tej liście.",
+      "filterAll": "Wszystkie",
+      "filterPending": "Oczekujące",
+      "filterConfirmed": "Potwierdzone",
+      "filterClosed": "Zamknięte",
+      "reference": "Numer",
+      "customer": "Klient",
+      "requested": "Żądany termin",
+      "site": "Lokalizacja",
+      "service": "Usługa",
+      "technician": "Technik",
+      "confirm": "Potwierdź rezerwację",
+      "cancel": "Anuluj",
+      "noTechnician": "Brak wolnego technika w żądanym terminie",
+      "chooseTechnician": "Wybierz technika",
+      "status": {
+        "PENDING": "Oczekuje",
+        "CONFIRMED": "Potwierdzona",
+        "CANCELLED": "Anulowana",
+        "EXPIRED": "Wygasła"
+      }
+    }
+  }
+}

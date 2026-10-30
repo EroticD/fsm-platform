@@ -54,30 +54,21 @@
       "months": "{count} months"
     },
     "booking": {
-      "title": "Send a new request",
-      "desc": "Send a request for service or maintenance. The request is not confirmed until the office has replied.",
+      "title": "Book an available time",
+      "desc": "Choose a location, service and available time. The booking is confirmed immediately.",
       "titleLabel": "Work order title *",
       "titlePlaceholder": "E.g. Annual service",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "What do you need help with?",
-      "slotLegend": "Requested time",
-      "slotHint": "Pick an available day in the overview below, or enter a date and time window yourself.",
-      "leadTimeHint": "The request must be at least {hours} hours ahead. Earliest start is {date} at {time}.",
       "dateLabel": "Requested date *",
       "fromLabel": "From",
       "toLabel": "To",
-      "dateHint": "You can also pick an available day in the overview at the bottom of the page.",
-      "selectedSlot": "Selected available day: {technician}, {date} {from}–{to}.",
-      "selectedDate": "Selected date: {date} {from}–{to}.",
-      "clearTechnician": "Clear technician choice",
       "equipmentLabel": "Equipment concerned",
       "equipmentNone": "Not about specific equipment",
       "contactNameLabel": "Contact person *",
       "contactNamePlaceholder": "Name",
       "contactPhoneLabel": "Phone *",
       "contactPhonePlaceholder": "Phone number",
-      "submit": "Send request",
-      "submitting": "Sending …",
       "successTitle": "Your request has been sent",
       "successDuplicateTitle": "Your request has already been sent",
       "reference": "Reference: {reference}",
@@ -91,11 +82,10 @@
         "missingFields": "Enter a title, requested time and contact person before sending.",
         "invalid": "Check the date, time window and contact information. The start time must be at least 24 hours ahead.",
         "rateLimited": "You have sent many requests in a short time. Try again later.",
-        "conflict": "You already have several open requests. Contact us if you need more help.",
+        "conflict": "The time is no longer available, or you have too many open bookings. Choose another time or contact us.",
         "deadlinePassed": "The deadline for requesting a new time has passed. You can still cancel the request.",
         "generic": "The request could not be sent right now. Please try again shortly."
       },
-      "leadTimeError": "Choose a start time at least {hours} hours ahead.",
       "windowError": "The end time must be after the start time."
     },
     "bookingRequests": {
@@ -105,7 +95,6 @@
       "reference": "Reference: {reference}",
       "requestedLabel": "Requested time:",
       "confirmedLabel": "Confirmed time:",
-      "confirmedTimeFallback": "No time has been set yet.",
       "window": "{from}–{to}",
       "equipmentLabel": "Equipment:",
       "technicianLabel": "Preferred technician:",
@@ -155,15 +144,6 @@
       "showing": "Showing {from}–{to} of {total}"
     },
     "availability": {
-      "title": "Available technicians",
-      "desc": "Overview of technicians' available and busy days for the next 7 days.",
-      "empty": "No technicians registered.",
-      "busy": "Busy",
-      "free": "Available",
-      "pickHint": "Select an available day to use it in your request.",
-      "dayFreeAria": "{technician}, {date}: available. Select this day.",
-      "dayBusyAria": "{technician}, {date}: busy.",
-      "note": "“Busy” means the technician has a scheduled work order that day. Select an available day to fill it into your request, or get in touch to agree on a time that suits you.",
       "unknownName": "No name"
     }
   }
