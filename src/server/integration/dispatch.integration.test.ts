@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { integrationEnabled, unique } from "@/test/integration-helpers";
 import { parseDateOnly } from "@/lib/dates";
 import type { ServiceActor } from "@/server/actor";
+import type { AccessUser } from "@/lib/access";
+import { loadTechnicianMapLayer } from "@/lib/map-technician-layer";
 import {
   autoAssign,
   findSlot,
@@ -258,5 +260,57 @@ describeIntegration("dispatch-intelligens", () => {
     if (!result.ok) return;
     expect(result.data.unassignedToday).toBe(0);
     expect(result.data.visitsWithoutTechnician).toBeGreaterThanOrEqual(0);
+  });
+
+  it("kartlaget bruker siste ping for aktive visiter", async () => {
+    const department = await prisma.department.create({
+      data: { name: unique("IT-kart-avd"), trackingEnabled: true },
+    });
+    const technician = await prisma.user.create({
+      data: {
+        name: unique("IT-kart-tekniker"),
+        email: `${unique("kart-tech")}@example.test`,
+        role: "TECHNICIAN",
+        isActive: true,
+        departmentId: department.id,
+      },
+    });
+    const workOrder = await prisma.workOrder.create({
+      data: { title: unique("IT-kart-oppdrag"), departmentId: department.id },
+    });
+    const visit = await prisma.visit.create({
+      data: {
+        workOrderId: workOrder.id,
+        startsAt: new Date("2026-11-02T09:00:00.000Z"),
+        endsAt: new Date("2026-11-02T11:00:00.000Z"),
+        status: "EN_ROUTE",
+        enRouteAt: new Date(),
+        technicians: { create: [{ userId: technician.id }] },
+        locationPings: {
+          create: [
+            {
+              userId: technician.id,
+              latitude: 59.91,
+              longitude: 10.75,
+              recordedAt: new Date(),
+            },
+          ],
+        },
+      },
+    });
+
+    const mapActor = actor({ departmentId: department.id });
+    const layer = await loadTechnicianMapLayer(
+      mapActor as unknown as AccessUser,
+    );
+
+    expect(layer.enabled).toBe(true);
+    expect(layer.markers).toEqual([
+      expect.objectContaining({
+        visitId: visit.id,
+        userId: technician.id,
+        point: { latitude: 59.91, longitude: 10.75 },
+      }),
+    ]);
   });
 });

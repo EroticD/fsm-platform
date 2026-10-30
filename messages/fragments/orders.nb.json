@@ -70,7 +70,9 @@
       "page": "Side {page} av {pages}",
       "sortLabel": "Sortering",
       "sortUrgency": "Haster først",
-      "sortNewest": "Nyeste først"
+      "sortNewest": "Nyeste først",
+      "chooseTechnician": "Velg montør",
+      "assign": "Tildel"
     },
     "formSections": {
       "customerPlace": "Kunde og sted",
@@ -778,7 +780,8 @@
       "visitAssigned": "Montørene på visitten er oppdatert.",
       "visitUpdated": "Visitten er oppdatert.",
       "visitDeleted": "Visitten er slettet.",
-      "visitStatusUpdated": "Visittstatus er oppdatert."
+      "visitStatusUpdated": "Visittstatus er oppdatert.",
+      "assigned": "Montør tildelt."
     },
     "reportsPage": {
       "title": "Servicerapporter",

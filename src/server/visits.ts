@@ -19,6 +19,7 @@ import {
   canTransitionVisit,
   isTerminalVisitStatus,
 } from "@/lib/visit-status";
+import { revokeTrackingLinksForVisit } from "./tracking";
 import {
   can,
   fail,
@@ -843,8 +844,23 @@ export async function setVisitStatus(
 
     const visit = await tx.visit.update({
       where: { id },
-      data: { status },
+      data: {
+        status,
+        // Statustidspunktene settes i samme UPDATE som statusen. Det gjør
+        // rapportering og ETA entydig, uavhengig av senere notatendringer.
+        ...(status === "EN_ROUTE" ? { enRouteAt: new Date() } : {}),
+        ...(status === "ON_SITE" ? { onSiteAt: new Date() } : {}),
+        ...(status === "DONE" ? { doneAt: new Date() } : {}),
+      },
     });
+
+    // Når visitten er avsluttet, skal en offentlig sporingslenke slutte å
+    // svare umiddelbart. Posisjonspingene slettes samtidig – de har ingen
+    // verdi etter at kunden ikke lenger kan se sporingen.
+    if (status === "DONE" || status === "CANCELLED") {
+      await revokeTrackingLinksForVisit(tx, id);
+      await tx.visitLocationPing.deleteMany({ where: { visitId: id } });
+    }
 
     // SLA: første EN_ROUTE/ON_SITE er responsen, DONE er løsningen.
     if (status === "EN_ROUTE" || status === "ON_SITE") {
@@ -1038,7 +1054,7 @@ function allDayPeriod(startsAt: Date, endsAt: Date): {
 export async function createDefaultVisit(
   tx: Prisma.TransactionClient,
   input: CreateDefaultVisitInput,
-): Promise<void> {
+): Promise<string> {
   const workOrderId = cleanId(input?.workOrderId);
   const inputStartsAt = input?.startsAt;
   const inputEndsAt = input?.endsAt;
@@ -1077,8 +1093,9 @@ export async function createDefaultVisit(
       })
     : null;
 
+  let visitId = existing?.id;
   if (!existing) {
-    await tx.visit.create({
+    const created = await tx.visit.create({
       data: {
         workOrderId,
         sequence: 0,
@@ -1090,10 +1107,14 @@ export async function createDefaultVisit(
           create: technicianIds.map((userId) => ({ userId })),
         },
       },
+      select: { id: true },
     });
+    visitId = created.id;
   }
 
   await recomputeWorkOrderSchedule(tx, workOrderId);
+  if (!visitId) throw new Error("createDefaultVisit: visitten ble ikke lagret");
+  return visitId;
 }
 
 /**

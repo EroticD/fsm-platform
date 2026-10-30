@@ -60,6 +60,16 @@ export type WorkOrderMapPoint = {
   lng: number;
 };
 
+/** Kortlivet posisjon for en montør som er på vei eller på stedet. */
+export type TechnicianMapPoint = {
+  id: string;
+  name: string;
+  status: string;
+  updatedAt: string;
+  lat: number;
+  lng: number;
+};
+
 /**
  * Interaktivt OpenStreetMap-kart med ett klikkbart punkt per oppdrag.
  *
@@ -72,6 +82,7 @@ export type WorkOrderMapPoint = {
  */
 export default function WorkOrderMap({
   points,
+  technicians = [],
   ariaLabel,
   noPointsLabel,
   openLabel,
@@ -81,6 +92,7 @@ export default function WorkOrderMap({
   settings,
 }: {
   points: WorkOrderMapPoint[];
+  technicians?: TechnicianMapPoint[];
   ariaLabel: string;
   noPointsLabel: string;
   openLabel: string;
@@ -224,6 +236,7 @@ export default function WorkOrderMap({
       L.control.zoom({ position: "bottomright" }).addTo(map);
 
       const markerLayer = L.layerGroup().addTo(map);
+      const technicianLayer = L.layerGroup().addTo(map);
 
       const buildPopup = (point: WorkOrderMapPoint) => {
         const popup = document.createElement("div");
@@ -321,11 +334,30 @@ export default function WorkOrderMap({
         markerLayer.addLayer(marker);
       };
 
+      const renderTechnicianMarkers = () => {
+        technicianLayer.clearLayers();
+        for (const technician of technicians) {
+          const marker = L.circleMarker([technician.lat, technician.lng], {
+            radius: 8,
+            color: "#101310",
+            weight: 2,
+            fillColor: "#d8ff3e",
+            fillOpacity: 1,
+          });
+          marker.bindPopup(
+            `${technician.name} · ${technician.status} · ${technician.updatedAt}`,
+          );
+          marker.bindTooltip(technician.name, { direction: "top" });
+          technicianLayer.addLayer(marker);
+        }
+      };
+
       const renderMarkers = () => {
         const currentMap = map;
         if (!currentMap) return;
 
         markerLayer.clearLayers();
+        renderTechnicianMarkers();
         const zoom = currentMap.getZoom();
         // Over zoom 14 er det plass til enkeltmarkører. Under det grupperes
         // punkter i rutenett, slik at tette bydeler ikke blir en vegg av prikker.
@@ -354,13 +386,18 @@ export default function WorkOrderMap({
       map.on("zoomend", renderMarkers);
       renderMarkers();
 
-      const bounds = L.latLngBounds(
-        points.map((point) => [point.lat, point.lng] as [number, number]),
-      );
+      const bounds = L.latLngBounds([
+        ...points.map(
+          (point) => [point.lat, point.lng] as [number, number],
+        ),
+        ...technicians.map(
+          (technician) => [technician.lat, technician.lng] as [number, number],
+        ),
+      ]);
 
-      if (points.length === 1) {
+      if (points.length === 1 && technicians.length === 0) {
         map.setView([points[0].lat, points[0].lng], 11);
-      } else if (points.length > 1) {
+      } else if (points.length > 0 || technicians.length > 0) {
         map.fitBounds(bounds, { padding: [32, 32], maxZoom: 12 });
       } else {
         map.setView(
@@ -382,7 +419,7 @@ export default function WorkOrderMap({
       map?.remove();
       map = null;
     };
-  }, [points, openLabel, layerLabels, settings]);
+  }, [points, technicians, openLabel, layerLabels, settings]);
 
   return (
     <div className="space-y-2 [--focus-ring:var(--ink,#101310)]">

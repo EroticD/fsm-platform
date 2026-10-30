@@ -49,6 +49,7 @@ describe("toppnavigasjon", () => {
       defaultPermissionsForRole("TECHNICIAN"),
     );
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/bookinger",
       "/avtaler",
       "/enheter",
       "/sok",
@@ -66,6 +67,7 @@ describe("toppnavigasjon", () => {
   it("samler kontorets gjenværende valg i hamburgermenyen", () => {
     const items = navItemsFor("OFFICE");
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/bookinger",
       "/avtaler",
       "/enheter",
       "/sok",
@@ -88,6 +90,7 @@ describe("toppnavigasjon", () => {
       "/rapporter",
     ]);
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/bookinger",
       "/avtaler",
       "/enheter",
       "/sok",
@@ -286,5 +289,12 @@ describe("mobil bunnlinje", () => {
     expect(isAuthPath("/logg-inn/2fa")).toBe(true);
     expect(isAuthPath("/glemt-passord")).toBe(true);
     expect(isAuthPath("/oppdrag")).toBe(false);
+  });
+
+  it("skjuler appnavigasjonen på offentlige token-sider", () => {
+    expect(isAuthPath("/sporing/abc123")).toBe(true);
+    expect(isAuthPath("/anmeldelse/abc123")).toBe(true);
+    expect(isAuthPath("/sporing")).toBe(true);
+    expect(isAuthPath("/anmeldelser")).toBe(false);
   });
 });

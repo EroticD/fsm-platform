@@ -43,6 +43,7 @@ import {
   type QueueKey,
   type QueueSort,
 } from "@/components/dashboard/helpers";
+import { reviewSummaryForScope } from "@/server/reviews";
 
 // ------------------------------------------------------------------
 // Command Center-flater. Klassenavnene under er de samme verdiene som
@@ -309,6 +310,7 @@ async function DashboardOverview({
     slaAtRiskCount,
     slaBreachedCount,
     exceptionCounts,
+    reviewSummary,
   ] = await Promise.all([
     prisma.workOrder.groupBy({
       by: ["status"],
@@ -401,6 +403,7 @@ async function DashboardOverview({
         })
       : Promise.resolve(0),
     getDispatchExceptionCounts(actor, new Date()),
+    reviewSummaryForScope({ AND: [scope, visibleStatus] }),
   ]);
 
   const countByStatus = (status: WorkStatus) =>
@@ -500,6 +503,15 @@ async function DashboardOverview({
       href: "/oppdrag?vis=pagaaende",
       tone: "paper",
       marker: "signal",
+    },
+    {
+      key: "reviews",
+      label: t("dashboard.kpi.reviewAverage"),
+      foot: t("dashboard.kpi.reviewCount", { count: reviewSummary.count }),
+      value: reviewSummary.average ?? 0,
+      href: "/oppdrag",
+      tone: "paper",
+      icon: "chart",
     },
     ...(canViewSla
       ? [

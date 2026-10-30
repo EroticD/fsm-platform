@@ -1,0 +1,82 @@
+{
+  "settings": {
+    "departments": {
+      "trackingEnabled": "Aktiver live-sporing",
+      "trackingHint": "Lar kunden følge montørens fornavn, status og estimert ankomst via en tidsbegrenset lenke. Av som standard; posisjoner slettes etter 24 timer."
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "reviewAverage": "Kundeomtale",
+      "reviewCount": "{count, plural, one {# omtale} other {# omtaler}}"
+    }
+  },
+  "tracking": {
+    "errors": {
+      "invalidInput": "Sporingslenken mangler gyldige data.",
+      "disabled": "Live-sporing er ikke aktivert for avdelingen.",
+      "visitLocked": "Visitten er avsluttet og kan ikke spore.",
+      "expired": "Visitten er allerede over, og lenken er utløpt.",
+      "invalidCoordinates": "Posisjonen er ugyldig."
+    },
+    "field": {
+      "start": "Del posisjon",
+      "stop": "Stopp deling",
+      "sharing": "Posisjonen deles mens du er på vei. Den lagres i maks 24 timer.",
+      "denied": "Posisjon ble avslått. Du kan slå den på i nettleserinnstillingene.",
+      "unavailable": "Denne enheten støtter ikke posisjon.",
+      "error": "Kunne ikke sende posisjonen. Prøv igjen."
+    },
+    "public": {
+      "metaTitle": "Sporing av oppdrag",
+      "rateLimitedTitle": "For mange forespørsler",
+      "rateLimitedText": "Prøv igjen om {seconds} sekunder.",
+      "eyebrow": "Live sporing",
+      "title": "Følg montøren",
+      "intro": "Montøren din: {technician}.",
+      "technicianFallback": "Montøren",
+      "statusLabel": "Status",
+      "etaLabel": "Estimert ankomst",
+      "etaMinutes": "{count, plural, one {# minutt} other {# minutter}}",
+      "etaArrival": "Forventet rundt kl. {time}.",
+      "onSite": "Montøren er på stedet.",
+      "etaUnavailable": "Vi har ikke mottatt posisjon ennå, så ankomst kan ikke beregnes.",
+      "lastUpdated": "Sist oppdatert {time}.",
+      "noPosition": "Ingen posisjon er delt ennå.",
+      "privacy": "Posisjonen brukes bare til å beregne ankomst. Den vises aldri som kart eller koordinater, og slettes etter 24 timer.",
+      "refreshHint": "Siden oppdaterer seg når du laster den på nytt."
+    }
+  },
+  "reviews": {
+    "errors": {
+      "invalidInput": "Omtalen mangler gyldige data.",
+      "notDone": "Visitten må være fullført før du ber om omtale.",
+      "invalidToken": "Omtalelenken er ugyldig eller utløpt.",
+      "invalidScore": "Velg en poengsum fra 1 til 5.",
+      "alreadySubmitted": "Omtalen er allerede sendt inn.",
+      "rateLimited": "For mange innsendinger. Prøv igjen senere."
+    },
+    "public": {
+      "metaTitle": "Kundeomtale",
+      "rateLimitedTitle": "For mange forespørsler",
+      "rateLimitedText": "Prøv igjen om {seconds} sekunder.",
+      "alreadySubmitted": "Omtalen er allerede sendt inn. Takk!",
+      "invalidScore": "Velg en poengsum fra 1 til 5.",
+      "invalidToken": "Omtalelenken er ugyldig.",
+      "rateLimited": "For mange innsendinger. Prøv igjen senere.",
+      "eyebrow": "Kundeomtale",
+      "title": "Hvordan gikk besøket?",
+      "intro": "Gi en poengsum fra 1 til 5 og skriv gjerne en kort kommentar. Omtalen publiseres ikke offentlig.",
+      "scoreLabel": "Poengsum",
+      "scoreLow": "Dårlig",
+      "scoreHigh": "Utmerket",
+      "commentLabel": "Kommentar (valgfritt)",
+      "commentPlaceholder": "Fortell kort hva du synes om besøket.",
+      "submit": "Send omtale",
+      "submitting": "Sender …",
+      "thanksTitle": "Takk for omtalen!",
+      "thanksText": "Vi bruker tilbakemeldingen til å bli bedre. Den vises ikke offentlig.",
+      "privacy": "Omtalen brukes bare internt til forbedring og statistikk."
+    }
+  }
+}

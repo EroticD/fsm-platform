@@ -1,0 +1,82 @@
+{
+  "settings": {
+    "departments": {
+      "trackingEnabled": "Live-Verfolgung aktivieren",
+      "trackingHint": "Ermöglicht dem Kunden, Vorname, Status und voraussichtliche Ankunft des Technikers über einen zeitlich begrenzten Link zu verfolgen. Standardmäßig aus; Standorte werden nach 24 Stunden gelöscht."
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "reviewAverage": "Kundenbewertung",
+      "reviewCount": "{count, plural, one {# Bewertung} other {# Bewertungen}}"
+    }
+  },
+  "tracking": {
+    "errors": {
+      "invalidInput": "Dem Verfolgungslink fehlen gültige Daten.",
+      "disabled": "Die Live-Verfolgung ist für die Abteilung nicht aktiviert.",
+      "visitLocked": "Der Termin ist beendet und kann nicht verfolgt werden.",
+      "expired": "Der Termin ist bereits vorbei und der Link ist abgelaufen.",
+      "invalidCoordinates": "Der Standort ist ungültig."
+    },
+    "field": {
+      "start": "Standort teilen",
+      "stop": "Teilen beenden",
+      "sharing": "Der Standort wird geteilt, solange du unterwegs bist. Er wird höchstens 24 Stunden gespeichert.",
+      "denied": "Der Standort wurde verweigert. Du kannst ihn in den Browsereinstellungen aktivieren.",
+      "unavailable": "Dieses Gerät unterstützt keinen Standort.",
+      "error": "Der Standort konnte nicht gesendet werden. Versuche es erneut."
+    },
+    "public": {
+      "metaTitle": "Auftragsverfolgung",
+      "rateLimitedTitle": "Zu viele Anfragen",
+      "rateLimitedText": "Versuche es in {seconds} Sekunden erneut.",
+      "eyebrow": "Live-Verfolgung",
+      "title": "Techniker verfolgen",
+      "intro": "Dein Techniker: {technician}.",
+      "technicianFallback": "Der Techniker",
+      "statusLabel": "Status",
+      "etaLabel": "Voraussichtliche Ankunft",
+      "etaMinutes": "{count, plural, one {# Minute} other {# Minuten}}",
+      "etaArrival": "Voraussichtlich gegen {time}.",
+      "onSite": "Der Techniker ist vor Ort.",
+      "etaUnavailable": "Wir haben noch keinen Standort erhalten, daher kann die Ankunft nicht geschätzt werden.",
+      "lastUpdated": "Zuletzt aktualisiert {time}.",
+      "noPosition": "Es wurde noch kein Standort geteilt.",
+      "privacy": "Der Standort wird nur zur Schätzung der Ankunft verwendet. Er wird nie als Karte oder Koordinaten angezeigt und nach 24 Stunden gelöscht.",
+      "refreshHint": "Lade die Seite neu, um den Status zu aktualisieren."
+    }
+  },
+  "reviews": {
+    "errors": {
+      "invalidInput": "Der Bewertung fehlen gültige Daten.",
+      "notDone": "Der Termin muss abgeschlossen sein, bevor eine Bewertung angefordert wird.",
+      "invalidToken": "Der Bewertungslink ist ungültig oder abgelaufen.",
+      "invalidScore": "Wähle eine Bewertung von 1 bis 5.",
+      "alreadySubmitted": "Die Bewertung wurde bereits gesendet.",
+      "rateLimited": "Zu viele Einsendungen. Versuche es später erneut."
+    },
+    "public": {
+      "metaTitle": "Kundenbewertung",
+      "rateLimitedTitle": "Zu viele Anfragen",
+      "rateLimitedText": "Versuche es in {seconds} Sekunden erneut.",
+      "alreadySubmitted": "Die Bewertung wurde bereits gesendet. Danke!",
+      "invalidScore": "Wähle eine Bewertung von 1 bis 5.",
+      "invalidToken": "Der Bewertungslink ist ungültig.",
+      "rateLimited": "Zu viele Einsendungen. Versuche es später erneut.",
+      "eyebrow": "Kundenbewertung",
+      "title": "Wie war der Besuch?",
+      "intro": "Gib eine Bewertung von 1 bis 5 und füge bei Bedarf einen kurzen Kommentar hinzu. Die Bewertung wird nicht öffentlich veröffentlicht.",
+      "scoreLabel": "Bewertung",
+      "scoreLow": "Schlecht",
+      "scoreHigh": "Ausgezeichnet",
+      "commentLabel": "Kommentar (optional)",
+      "commentPlaceholder": "Erzähle kurz, wie du den Besuch fandest.",
+      "submit": "Bewertung senden",
+      "submitting": "Wird gesendet …",
+      "thanksTitle": "Danke für deine Bewertung!",
+      "thanksText": "Wir nutzen das Feedback zur Verbesserung. Es wird nicht öffentlich angezeigt.",
+      "privacy": "Die Bewertung wird nur intern zur Verbesserung und für Statistiken verwendet."
+    }
+  }
+}

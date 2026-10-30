@@ -9,6 +9,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
 import Icon, { type IconName } from "@/components/icons";
+import LocationPingToggle from "@/components/field/LocationPingToggle";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
@@ -548,10 +549,10 @@ export default async function TechnicianWorkOrderPage({
           })
         : "";
   const currentVisitStartTime = currentVisit
-    ? formatDateLocalized(currentVisit.startsAt, locale, { timeStyle: "short" })
+    ? formatDateLocalized(currentVisit.startsAt, locale, { timeStyle: "short", hourCycle: "h23" })
     : "";
   const currentVisitEndTime = currentVisit
-    ? formatDateLocalized(currentVisit.endsAt, locale, { timeStyle: "short" })
+    ? formatDateLocalized(currentVisit.endsAt, locale, { timeStyle: "short", hourCycle: "h23" })
     : "";
   const currentVisitSameDay = Boolean(
     currentVisit &&
@@ -1099,6 +1100,22 @@ export default async function TechnicianWorkOrderPage({
                   </p>
                 ) : null}
               </div>
+
+              {canUpdate &&
+                currentVisit.status === "EN_ROUTE" &&
+                workOrder.department.trackingEnabled && (
+                  <LocationPingToggle
+                    visitId={currentVisit.id}
+                    labels={{
+                      start: t("tracking.field.start"),
+                      stop: t("tracking.field.stop"),
+                      sharing: t("tracking.field.sharing"),
+                      denied: t("tracking.field.denied"),
+                      unavailable: t("tracking.field.unavailable"),
+                      error: t("tracking.field.error"),
+                    }}
+                  />
+                )}
             </div>
           )}
         </div>

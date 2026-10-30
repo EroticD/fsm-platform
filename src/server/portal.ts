@@ -3,7 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { osloDayStart, parseDateOnly, toDateOnly, todayInOslo } from "@/lib/dates";
+import { parseDateOnly, toDateOnly, todayInOslo } from "@/lib/dates";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
@@ -14,6 +14,22 @@ import {
   cleanPhone,
   cleanText,
 } from "@/lib/sanitize";
+import { AVAILABILITY_SLOT_MINUTES } from "@/lib/availability";
+import {
+  bookingDisplayStatus,
+  canCustomerCancelBooking,
+  canCustomerRescheduleBooking,
+} from "@/lib/booking-status";
+import {
+  BOOKING_TIME_VALUE,
+  bookingChangeDeadline as bookingChangeDeadlineAt,
+  requestedWindow as requestedWindowAt,
+} from "@/lib/booking-time";
+import {
+  assertTechnicianSlotAvailable,
+  lockTechnicians,
+  runSerializable,
+} from "./availability";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
 import {
@@ -42,10 +58,29 @@ export const BOOKING_CHANGE_CUTOFF_HOURS = 24;
 /** Minste ledetid fra forespørselen sendes til ønsket start. */
 export const BOOKING_MIN_LEAD_HOURS = 24;
 /** Hvor langt fram i tid en bestilling kan gjelde. */
-const BOOKING_MAX_DAYS_AHEAD = 365;
+const BOOKING_MAX_DAYS_AHEAD = 60;
 /** Bestillingshistorikken vises i sider, ikke som en stille hard grense. */
 export const PORTAL_BOOKING_PAGE_SIZE = 20;
-const TIME_VALUE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const TIME_VALUE = BOOKING_TIME_VALUE;
+
+/**
+ * Tjenestetypene kunden velger i slotvelgeren. De er bevisst korte, stabile
+ * nøkler; visningsnavnet ligger i oversettelseskatalogene.
+ */
+export const BOOKING_SERVICE_TYPES = [
+  "general",
+  "maintenance",
+  "repair",
+  "inspection",
+] as const;
+export type BookingServiceType = (typeof BOOKING_SERVICE_TYPES)[number];
+
+function isBookingServiceType(value: unknown): value is BookingServiceType {
+  return (
+    typeof value === "string" &&
+    (BOOKING_SERVICE_TYPES as readonly string[]).includes(value)
+  );
+}
 
 /**
  * Statusene som regnes som bekreftet av kontoret. Åpne forespørsler
@@ -131,11 +166,7 @@ function parseBookingSchedule(input: {
 
 /** Tidspunktet ønsket tidsvindu starter, i Oslo-tid. */
 function requestedStart(schedule: BookingSchedule): Date {
-  const [hours, minutes] = schedule.requestedFrom.split(":").map(Number);
-  return new Date(
-    osloDayStart(toDateOnly(schedule.requestedDate)).getTime() +
-      (hours * 60 + minutes) * 60_000,
-  );
+  return requestedWindowAt(schedule).startsAt;
 }
 
 /** Hele det ønskede tidsvinduet som absolutte Oslo-tidspunkter. */
@@ -143,14 +174,7 @@ function requestedWindow(schedule: BookingSchedule): {
   startsAt: Date;
   endsAt: Date;
 } {
-  const [hours, minutes] = schedule.requestedTo.split(":").map(Number);
-  return {
-    startsAt: requestedStart(schedule),
-    endsAt: new Date(
-      osloDayStart(toDateOnly(schedule.requestedDate)).getTime() +
-        (hours * 60 + minutes) * 60_000,
-    ),
-  };
+  return requestedWindowAt(schedule);
 }
 
 /** Fristen for å be om ny tid på bestillingen. */
@@ -158,11 +182,10 @@ export function bookingChangeDeadline(
   requestedDate: Date,
   requestedFrom: string,
 ): Date {
-  const [hours, minutes] = requestedFrom.split(":").map(Number);
-  return new Date(
-    osloDayStart(toDateOnly(requestedDate)).getTime() +
-      (hours * 60 + minutes) * 60_000 -
-      BOOKING_CHANGE_CUTOFF_HOURS * 60 * 60_000,
+  return bookingChangeDeadlineAt(
+    requestedDate,
+    requestedFrom,
+    BOOKING_CHANGE_CUTOFF_HOURS,
   );
 }
 
@@ -174,18 +197,13 @@ function hasMinimumLeadTime(schedule: BookingSchedule, now = new Date()): boolea
   );
 }
 
-function isClosedWorkOrderStatus(status: string): boolean {
-  return status === "COMPLETED" || status === "CANCELLED";
-}
-
 /**
  * En ubekreftet forespørsel kan alltid kanselleres, uavhengig av
- * 24-timersvinduet. Et bekreftet oppdrag kan også kanselleres, men selve
+ * 24-timersvinduet. En bekreftet avtale kan også kanselleres, men selve
  * oppdraget avlyses bare når det ikke er i gang eller avsluttet.
  */
 function canCancelBooking(status: string, workOrderStatus: string): boolean {
-  if (status !== "PENDING") return false;
-  return !isClosedWorkOrderStatus(workOrderStatus);
+  return canCustomerCancelBooking(status, workOrderStatus);
 }
 
 /** Ny tid krever fortsatt at endringsfristen og ledetiden er holdt. */
@@ -196,10 +214,12 @@ function canRescheduleBooking(
   requestedFrom: string,
   now = new Date(),
 ): boolean {
-  if (status !== "PENDING") return false;
-  if (isClosedWorkOrderStatus(workOrderStatus)) return false;
-  if (workOrderStatus === "IN_PROGRESS") return false;
-  return now.getTime() < bookingChangeDeadline(requestedDate, requestedFrom).getTime();
+  return canCustomerRescheduleBooking(
+    status,
+    workOrderStatus,
+    bookingChangeDeadline(requestedDate, requestedFrom),
+    now,
+  );
 }
 
 /** Kort referanse kunden kan oppgi til kontoret. */
@@ -215,6 +235,13 @@ function bookingReference(workOrderId: string, now = new Date()): string {
  * `customerId`, uansett hva klienten sender. Bestillingen rate-limites både
  * per kunde og per IP, og like bestillinger innenfor ti minutter slås sammen
  * slik at dobbeltklikk ikke gir flere oppdrag eller e-poster.
+ *
+ * To moduser støttes:
+ * - Direkte bekreftelse: klienten har en `holdToken` (eller velger en montør)
+ *   fra slotvelgeren. Timen kontrolleres på nytt, visitten opprettes med
+ *   montøren og bestillingen lagres som CONFIRMED.
+ * - Eldre forespørsel: ingen slot er valgt. Da lages en PENDING-forespørsel i
+ *   kontorets kø, med samme oppførsel som før Phase 5A.
  */
 export type CreateBookingInput = {
   title: string;
@@ -226,6 +253,14 @@ export type CreateBookingInput = {
   contactName?: unknown;
   contactPhone?: unknown;
   preferredTechnicianId?: unknown;
+  technicianId?: unknown;
+  holdToken?: unknown;
+  siteId?: unknown;
+  newSiteName?: unknown;
+  newSiteAddress?: unknown;
+  newSitePostalCode?: unknown;
+  newSiteCity?: unknown;
+  serviceType?: unknown;
   ip?: string;
 };
 
@@ -233,6 +268,9 @@ export type CreateBookingResult = {
   id: string;
   reference: string;
   duplicate?: boolean;
+  status: "CONFIRMED" | "PENDING";
+  visitId?: string;
+  technicianName?: string | null;
 };
 
 export async function createBooking(
@@ -246,7 +284,14 @@ export async function createBooking(
   const customerId = actor.customerId;
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, deletedAt: null },
-    select: { id: true, departmentId: true },
+    select: {
+      id: true,
+      departmentId: true,
+      name: true,
+      address: true,
+      postalCode: true,
+      city: true,
+    },
   });
   if (!customer) return fail("forbidden");
 
@@ -266,6 +311,23 @@ export async function createBooking(
   const contactPhone = cleanPhone(input.contactPhone);
   if (!contactName || contactPhone.length < 5) return fail("missing_fields");
 
+  const serviceType = isBookingServiceType(input.serviceType)
+    ? input.serviceType
+    : null;
+  const holdToken = cleanText(input.holdToken, { maxLength: 200 });
+  const technicianId = idFrom(input.technicianId ?? input.preferredTechnicianId);
+  const confirmedBooking = Boolean(holdToken || technicianId);
+  if (confirmedBooking && !technicianId) return fail("invalid");
+
+  const window = requestedWindow(schedule.data);
+  if (
+    confirmedBooking &&
+    window.endsAt.getTime() - window.startsAt.getTime() !==
+      AVAILABILITY_SLOT_MINUTES * 60_000
+  ) {
+    return fail("invalid");
+  }
+
   // Utstyret må tilhøre kunden. Klienten kan ikke velge fritt blant enheter.
   const equipmentId = idFrom(input.equipmentId);
   let equipmentLabel: string | null = null;
@@ -283,22 +345,67 @@ export async function createBooking(
   // Bestillingen havner i kundens avdeling, med standardavdelingen som
   // fallback. Det er samme avdeling som tilgjengelighetsoversikten viser.
   const departmentId = customer.departmentId ?? (await getDefaultDepartmentId());
+  if (!departmentId) return fail("error");
 
   // Ønsket tekniker må være aktiv og jobbe i denne avdelingen.
-  const preferredTechnicianId = idFrom(input.preferredTechnicianId);
   let preferredTechnicianName: string | null = null;
-  if (preferredTechnicianId) {
-    const technician = departmentId
-      ? await prisma.user.findFirst({
-          where: {
-            id: preferredTechnicianId,
-            ...staffForDepartment(departmentId),
-          },
-          select: { name: true },
-        })
-      : null;
+  if (technicianId) {
+    const technician = await prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        ...staffForDepartment(departmentId),
+      },
+      select: { name: true },
+    });
     if (!technician) return fail("invalid");
     preferredTechnicianName = technician.name ?? null;
+  }
+
+  const siteIdInput = idFrom(input.siteId);
+  let siteSnapshot: {
+    id: string | null;
+    name: string | null;
+    address: string | null;
+    postalCode: string | null;
+    city: string | null;
+  } = {
+    id: null,
+    name: null,
+    address: null,
+    postalCode: null,
+    city: null,
+  };
+  if (siteIdInput) {
+    const site = await prisma.customerSite.findFirst({
+      where: { id: siteIdInput, customerId },
+      select: { id: true, name: true, address: true, postalCode: true, city: true },
+    });
+    if (!site) return fail("invalid");
+    siteSnapshot = site;
+  } else {
+    const newSiteName = cleanText(input.newSiteName, {
+      maxLength: LIMITS.title,
+    });
+    const newSiteAddress = cleanText(input.newSiteAddress, {
+      maxLength: LIMITS.line,
+    });
+    const newSitePostalCode = cleanText(input.newSitePostalCode, {
+      maxLength: LIMITS.short,
+    });
+    const newSiteCity = cleanText(input.newSiteCity, {
+      maxLength: LIMITS.short,
+    });
+    if (newSiteName) {
+      siteSnapshot = {
+        id: null,
+        name: newSiteName,
+        address: newSiteAddress || null,
+        postalCode: newSitePostalCode || null,
+        city: newSiteCity || null,
+      };
+    } else if (newSiteAddress || newSitePostalCode || newSiteCity) {
+      return fail("invalid");
+    }
   }
 
   const customerLimit = await allowRequestDb(
@@ -317,18 +424,28 @@ export async function createBooking(
     if (!ipLimit.allowed) return fail("rate_limited");
   }
 
-  // Finnes ingen aktiv avdeling, kan bestillingen ikke opprettes.
-  if (!departmentId) return fail("error");
-
   // Duplikatsjekk, åpen-grense og opprettelse må skje under samme lås. Ellers
   // kan to samtidige dobbeltklikk begge se «ingen duplikat» og begge opprette
   // et oppdrag, og åpen-grensen kan telles før den andre har skrevet.
   let outcome:
-    | { kind: "created"; id: string; reference: string }
-    | { kind: "duplicate"; id: string; reference: string }
-    | { kind: "conflict" };
+    | {
+        kind: "created";
+        id: string;
+        reference: string;
+        status: "CONFIRMED" | "PENDING";
+        visitId?: string;
+        technicianName?: string | null;
+      }
+    | {
+        kind: "duplicate";
+        id: string;
+        reference: string;
+        status: "CONFIRMED" | "PENDING";
+      }
+    | { kind: "conflict" }
+    | { kind: "slot_unavailable" };
   try {
-    outcome = await prisma.$transaction(async (tx) => {
+    outcome = await runSerializable(async (tx) => {
       // Låsen er per kunde og slippes automatisk ved commit/rollback.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:${customerId}`}))`;
 
@@ -353,15 +470,25 @@ export async function createBooking(
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
-          bookingRequest: { select: { reference: true } },
+          bookingRequest: { select: { reference: true, status: true } },
         },
       });
       if (duplicate) {
+        if (holdToken) {
+          await tx.bookingHold.updateMany({
+            where: { token: holdToken, customerId, consumedAt: null },
+            data: { consumedAt: new Date() },
+          });
+        }
         return {
           kind: "duplicate",
           id: duplicate.id,
           reference:
             duplicate.bookingRequest?.reference ?? bookingReference(duplicate.id),
+          status:
+            duplicate.bookingRequest?.status === "CONFIRMED"
+              ? "CONFIRMED"
+              : "PENDING",
         } as const;
       }
 
@@ -376,6 +503,195 @@ export async function createBooking(
       });
       if (openBookings >= BOOKING_OPEN_LIMIT) {
         return { kind: "conflict" } as const;
+      }
+
+      if (confirmedBooking) {
+        const hold = holdToken
+          ? await tx.bookingHold.findFirst({
+              where: {
+                token: holdToken,
+                customerId,
+                consumedAt: null,
+                expiresAt: { gt: new Date() },
+              },
+              select: {
+                id: true,
+                startsAt: true,
+                endsAt: true,
+                technicianId: true,
+                siteId: true,
+              },
+            })
+          : null;
+        if (holdToken && !hold) {
+          return { kind: "slot_unavailable" } as const;
+        }
+        if (
+          hold &&
+          (hold.technicianId !== technicianId ||
+            hold.startsAt.getTime() !== window.startsAt.getTime() ||
+            hold.endsAt.getTime() !== window.endsAt.getTime() ||
+            (hold.siteId !== null &&
+              siteSnapshot.id !== null &&
+              hold.siteId !== siteSnapshot.id))
+        ) {
+          return { kind: "slot_unavailable" } as const;
+        }
+
+        // Låsen serialiserer alle bestillinger for samme montør. Sammen med
+        // SERIALIZABLE og den nye tilgjengelighetskontrollen gir dette
+        // nøyaktig én bekreftet bestilling per time.
+        await lockTechnicians(tx, [technicianId]);
+        const available = await assertTechnicianSlotAvailable(tx, {
+          departmentId,
+          technicianId,
+          date: toDateOnly(schedule.data.requestedDate),
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
+          excludeHoldId: hold?.id,
+        });
+        if (!available.ok) {
+          return {
+            kind:
+              available.reason === "not_found" ? "conflict" : "slot_unavailable",
+          } as const;
+        }
+
+        // Krev reservasjonen før noe skrives. Da kan en tapt kappløp om
+        // tokenet aldri etterlate et oppdrag uten booking.
+        if (hold) {
+          const consumed = await tx.bookingHold.updateMany({
+            where: { id: hold.id, consumedAt: null },
+            data: { consumedAt: new Date() },
+          });
+          if (consumed.count !== 1) {
+            return { kind: "slot_unavailable" } as const;
+          }
+        }
+
+        let bookingSiteId = siteSnapshot.id;
+        if (!bookingSiteId && siteSnapshot.name) {
+          const existingSites = await tx.customerSite.count({
+            where: { customerId },
+          });
+          const site = await tx.customerSite.create({
+            data: {
+              customerId,
+              name: siteSnapshot.name,
+              address: siteSnapshot.address,
+              postalCode: siteSnapshot.postalCode,
+              city: siteSnapshot.city,
+              isPrimary: existingSites === 0,
+            },
+            select: { id: true },
+          });
+          bookingSiteId = site.id;
+        }
+
+        const workOrder = await tx.workOrder.create({
+          data: {
+            title,
+            description: description || "",
+            departmentId,
+            customerId,
+            productId: equipmentId || undefined,
+            contactId: actor.contactId || undefined,
+            creatorName: actor.name || actor.email || "Kunde",
+            status: "PLANNED",
+            address: siteSnapshot.address || customer.address || undefined,
+            postalCode:
+              siteSnapshot.postalCode || customer.postalCode || undefined,
+            city: siteSnapshot.city || customer.city || undefined,
+            scheduledFor: schedule.data.requestedDate,
+            scheduledTo: schedule.data.requestedDate,
+            technicians: { connect: [] },
+          },
+          select: { id: true },
+        });
+
+        const visit = await tx.visit.create({
+          data: {
+            workOrderId: workOrder.id,
+            sequence: 0,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt,
+            allDay: false,
+            status: "PLANNED",
+            technicians: { create: { userId: technicianId } },
+          },
+          select: { id: true },
+        });
+        await recomputeWorkOrderSchedule(tx, workOrder.id);
+
+        const reference = bookingReference(workOrder.id);
+        const booking = await tx.bookingRequest.create({
+          data: {
+            reference,
+            workOrderId: workOrder.id,
+            customerId,
+            ...schedule.data,
+            serviceType,
+            siteId: bookingSiteId,
+            visitId: visit.id,
+            equipmentId: equipmentId || null,
+            equipmentLabel,
+            preferredTechnicianId: technicianId,
+            preferredTechnicianName,
+            contactName,
+            contactPhone,
+            status: "CONFIRMED",
+            confirmedAt: new Date(),
+          },
+          select: { id: true, reference: true },
+        });
+
+        await tx.bookingRequestEvent.createMany({
+          data: [
+            {
+              bookingRequestId: booking.id,
+              type: "CREATED",
+              requestedDate: schedule.data.requestedDate,
+              requestedFrom: schedule.data.requestedFrom,
+              requestedTo: schedule.data.requestedTo,
+              actorName: contactName,
+            },
+            {
+              bookingRequestId: booking.id,
+              type: "CONFIRMED",
+              requestedDate: schedule.data.requestedDate,
+              requestedFrom: schedule.data.requestedFrom,
+              requestedTo: schedule.data.requestedTo,
+              message: preferredTechnicianName,
+              actorName: actor.name || actor.email || "Kunde",
+            },
+          ],
+        });
+
+        await audit(tx, {
+          entityType: "WorkOrder",
+          entityId: workOrder.id,
+          action: `Kunde booket bekreftet time: ${title}`,
+          actor: toAuditActor(actor),
+          metadata: {
+            customerId,
+            bookingRequestId: booking.id,
+            reference: booking.reference,
+            technicianId,
+            startsAt: window.startsAt.toISOString(),
+            endsAt: window.endsAt.toISOString(),
+            serviceType,
+            siteId: bookingSiteId,
+          },
+        });
+
+        return {
+          kind: "created",
+          id: workOrder.id,
+          reference: booking.reference,
+          status: "CONFIRMED",
+          visitId: visit.id,
+          technicianName: preferredTechnicianName,
+        } as const;
       }
 
       const workOrder = await tx.workOrder.create({
@@ -398,8 +714,7 @@ export async function createBooking(
       // Bestillingen er en konkret tidsblokk i kundens ønskede vindu. Kontoret
       // kan senere flytte den på visit-nivå; `BookingRequest` beholder
       // fortsatt kundens opprinnelige ønske som snapshot.
-      const window = requestedWindow(schedule.data);
-      await createDefaultVisit(tx, {
+      const defaultVisitId = await createDefaultVisit(tx, {
         workOrderId: workOrder.id,
         startsAt: window.startsAt,
         endsAt: window.endsAt,
@@ -414,12 +729,15 @@ export async function createBooking(
           workOrderId: workOrder.id,
           customerId,
           ...schedule.data,
+          serviceType,
+          siteId: siteSnapshot.id,
           equipmentId: equipmentId || null,
           equipmentLabel,
-          preferredTechnicianId: preferredTechnicianId || null,
+          preferredTechnicianId: technicianId || null,
           preferredTechnicianName,
           contactName,
           contactPhone,
+          visitId: defaultVisitId,
         },
         select: { id: true, reference: true },
       });
@@ -451,6 +769,7 @@ export async function createBooking(
         kind: "created",
         id: workOrder.id,
         reference: booking.reference,
+        status: "PENDING",
       } as const;
     });
   } catch (error) {
@@ -465,24 +784,39 @@ export async function createBooking(
   }
 
   if (outcome.kind === "conflict") return fail("conflict");
+  if (outcome.kind === "slot_unavailable") return fail("conflict");
   if (outcome.kind === "duplicate") {
     return ok({
       id: outcome.id,
       reference: outcome.reference,
       duplicate: true,
+      status: outcome.status,
     });
   }
-  const created = { id: outcome.id, reference: outcome.reference };
+  const created = {
+    id: outcome.id,
+    reference: outcome.reference,
+    status: outcome.status,
+    ...(outcome.visitId ? { visitId: outcome.visitId } : {}),
+    ...(outcome.technicianName !== undefined
+      ? { technicianName: outcome.technicianName }
+      : {}),
+  };
 
   // Varselet legges i køen (in-app + e-post sendes av jobbworkeren), slik at
   // treg SMTP ikke blokkerer bestillingen. Bare kontoret i destinasjons-
   // avdelingen varsles.
   try {
+    const confirmed = created.status === "CONFIRMED";
     await notifyWorkOrderEvent(
       created.id,
       "BOOKING",
-      "Ny bestilling fra kundeportal",
-      `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
+      confirmed
+        ? "Ny bekreftet booking fra kundeportal"
+        : "Ny bestilling fra kundeportal",
+      confirmed
+        ? `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}) hos ${created.technicianName || "montør"}. Tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`
+        : `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
       `/oppdrag/${created.id}`,
       `booking:${created.id}`,
     );
@@ -495,7 +829,7 @@ export async function createBooking(
 
 export type PortalBookingEvent = {
   id: string;
-  type: "CREATED" | "RESCHEDULED" | "CANCELLED";
+  type: "CREATED" | "CONFIRMED" | "RESCHEDULED" | "CANCELLED" | "EXPIRED";
   message: string | null;
   requestedDate: string | null;
   requestedFrom: string | null;
@@ -507,16 +841,19 @@ export type PortalBookingEvent = {
 export type PortalBooking = {
   id: string;
   reference: string;
-  status: "PENDING" | "CANCELLED";
-  displayStatus: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "EXPIRED";
+  displayStatus: "pending" | "confirmed" | "completed" | "cancelled" | "expired";
   requestedDate: string;
   requestedFrom: string;
   requestedTo: string;
+  serviceType: string | null;
+  siteName: string | null;
   equipmentLabel: string | null;
   preferredTechnicianName: string | null;
   contactName: string;
   contactPhone: string;
   createdAt: string;
+  confirmedAt: string | null;
   canCancel: boolean;
   canReschedule: boolean;
   changeDeadline: string;
@@ -536,18 +873,6 @@ export type PortalBookingPage = {
   page: number;
   totalPages: number;
 };
-
-function bookingDisplayStatus(
-  bookingStatus: string,
-  workOrderStatus: string,
-): PortalBooking["displayStatus"] {
-  if (bookingStatus === "CANCELLED" || workOrderStatus === "CANCELLED") {
-    return "cancelled";
-  }
-  if (workOrderStatus === "COMPLETED") return "completed";
-  if (workOrderStatus === "OPEN" || workOrderStatus === "PENDING") return "pending";
-  return "confirmed";
-}
 
 /**
  * Kundens egne bestillinger med status og historikk. Spørringen er alltid
@@ -584,11 +909,14 @@ export async function getPortalBookingRequests(
       requestedDate: true,
       requestedFrom: true,
       requestedTo: true,
+      serviceType: true,
+      site: { select: { name: true } },
       equipmentLabel: true,
       preferredTechnicianName: true,
       contactName: true,
       contactPhone: true,
       createdAt: true,
+      confirmedAt: true,
       workOrder: {
         select: {
           id: true,
@@ -626,11 +954,14 @@ export async function getPortalBookingRequests(
       requestedDate: toDateOnly(booking.requestedDate),
       requestedFrom: booking.requestedFrom,
       requestedTo: booking.requestedTo,
+      serviceType: booking.serviceType,
+      siteName: booking.site?.name ?? null,
       equipmentLabel: booking.equipmentLabel,
       preferredTechnicianName: booking.preferredTechnicianName,
       contactName: booking.contactName,
       contactPhone: booking.contactPhone,
       createdAt: booking.createdAt.toISOString(),
+      confirmedAt: booking.confirmedAt?.toISOString() ?? null,
       canCancel: canCancelBooking(booking.status, booking.workOrder.status),
       canReschedule: canRescheduleBooking(
         booking.status,
@@ -675,11 +1006,20 @@ type BookingChangeRow = {
   requestedDate: Date;
   requestedFrom: string;
   requestedTo: string;
+  serviceType: string | null;
+  siteId: string | null;
+  visitId: string | null;
+  visit: {
+    id: string;
+    status: string;
+    technicians: Array<{ userId: string }>;
+  } | null;
   workOrder: {
     id: string;
     title: string;
     status: string;
     customerId: string | null;
+    departmentId: string;
     deletedAt: Date | null;
   };
 };
@@ -710,12 +1050,23 @@ async function ownBooking(
       requestedDate: true,
       requestedFrom: true,
       requestedTo: true,
+      serviceType: true,
+      siteId: true,
+      visitId: true,
+      visit: {
+        select: {
+          id: true,
+          status: true,
+          technicians: { select: { userId: true } },
+        },
+      },
       workOrder: {
         select: {
           id: true,
           title: true,
           status: true,
           customerId: true,
+          departmentId: true,
           deletedAt: true,
         },
       },
@@ -782,7 +1133,7 @@ export async function cancelBooking(
         where: {
           id: booking.data.id,
           customerId: actor.customerId!,
-          status: "PENDING",
+          status: { in: ["PENDING", "CONFIRMED"] },
         },
         data: { status: "CANCELLED", cancelledAt: new Date() },
       });
@@ -808,6 +1159,20 @@ export async function cancelBooking(
           data: { status: "CANCELLED" },
         });
         workOrderCancelled = cancelledWorkOrder.count === 1;
+      }
+
+      // En bekreftet booking eier en konkret visitt. Når oppdraget avlyses,
+      // frigjøres timen med en gang ved å kansellere visitten. En visitt som
+      // alt er i gang eller fullført røres ikke.
+      if (workOrderCancelled && booking.data.visitId) {
+        await tx.visit.updateMany({
+          where: {
+            id: booking.data.visitId,
+            status: { in: ["PLANNED", "ASSIGNED"] },
+          },
+          data: { status: "CANCELLED" },
+        });
+        await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
       }
 
       await tx.bookingRequestEvent.create({
@@ -887,7 +1252,13 @@ export async function cancelBooking(
   });
 }
 
-/** Kunden ber om et nytt tidsvindu fram til endringsfristen. */
+/**
+ * Kunden flytter en bestilling fram til endringsfristen.
+ *
+ * En bekreftet bestilling må velge en ny ledig time (samme slotvelger som ved
+ * bestilling). En eldre PENDING-forespørsel kan fortsatt sende ønsket
+ * tidsvindu uten reservasjon, slik at kontorkøen fungerer som før.
+ */
 export async function rescheduleBooking(
   actor: ServiceActor,
   input: {
@@ -895,6 +1266,11 @@ export async function rescheduleBooking(
     requestedDate?: unknown;
     requestedFrom?: unknown;
     requestedTo?: unknown;
+    technicianId?: unknown;
+    preferredTechnicianId?: unknown;
+    holdToken?: unknown;
+    siteId?: unknown;
+    serviceType?: unknown;
   },
 ): Promise<
   ServiceResult<{
@@ -903,6 +1279,7 @@ export async function rescheduleBooking(
     requestedDate: string;
     requestedFrom: string;
     requestedTo: string;
+    technicianName?: string | null;
   }>
 > {
   const booking = await ownBooking(actor, input.bookingId);
@@ -937,13 +1314,63 @@ export async function rescheduleBooking(
     return fail("invalid");
   }
 
-  // Uendret tidsvindu er ikke en endring. Da skal verken historikk, varsel
-  // eller oppdragets plan røres.
+  const technicianId = idFrom(input.technicianId ?? input.preferredTechnicianId);
+  const holdToken = cleanText(input.holdToken, { maxLength: 200 });
+  const confirmedChange = Boolean(holdToken || technicianId);
+  if (booking.data.status === "CONFIRMED" && !confirmedChange) {
+    return fail("invalid");
+  }
+  if (confirmedChange && !technicianId) return fail("invalid");
+
+  const window = requestedWindow(schedule.data);
+  if (
+    confirmedChange &&
+    window.endsAt.getTime() - window.startsAt.getTime() !==
+      AVAILABILITY_SLOT_MINUTES * 60_000
+  ) {
+    return fail("invalid");
+  }
+
+  const serviceType = isBookingServiceType(input.serviceType)
+    ? input.serviceType
+    : booking.data.serviceType;
+  const siteIdInput = idFrom(input.siteId);
+  let siteId = booking.data.siteId;
+  if (siteIdInput) {
+    const site = await prisma.customerSite.findFirst({
+      where: { id: siteIdInput, customerId: actor.customerId! },
+      select: { id: true },
+    });
+    if (!site) return fail("invalid");
+    siteId = site.id;
+  }
+
+  let preferredTechnicianName: string | null = null;
+  if (technicianId) {
+    const technician = await prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        ...staffForDepartment(booking.data.workOrder.departmentId),
+      },
+      select: { name: true },
+    });
+    if (!technician) return fail("invalid");
+    preferredTechnicianName = technician.name ?? null;
+  }
+
+  const existingTechnicianIds =
+    booking.data.visit?.technicians.map((technician) => technician.userId) ?? [];
+
+  // Uendret tidsvindu (og samme montør) er ikke en endring. Da skal verken
+  // historikk, varsel eller oppdragets plan røres.
   const unchanged =
     toDateOnly(booking.data.requestedDate) ===
       toDateOnly(schedule.data.requestedDate) &&
     booking.data.requestedFrom === schedule.data.requestedFrom &&
-    booking.data.requestedTo === schedule.data.requestedTo;
+    booking.data.requestedTo === schedule.data.requestedTo &&
+    (!confirmedChange ||
+      (existingTechnicianIds.length === 1 &&
+        existingTechnicianIds[0] === technicianId));
   if (unchanged) {
     return ok({
       status: "rescheduled",
@@ -951,102 +1378,256 @@ export async function rescheduleBooking(
       requestedDate: toDateOnly(schedule.data.requestedDate),
       requestedFrom: schedule.data.requestedFrom,
       requestedTo: schedule.data.requestedTo,
+      ...(preferredTechnicianName
+        ? { technicianName: preferredTechnicianName }
+        : {}),
     });
   }
 
+  let outcome:
+    | { kind: "moved"; technicianName?: string | null }
+    | { kind: "slot_unavailable" }
+    | { kind: "conflict" };
   try {
-    await prisma.$transaction(async (tx) => {
-      await tx.bookingRequest.update({
-        where: { id: booking.data.id },
-        data: schedule.data,
-      });
+    if (confirmedChange) {
+      outcome = await runSerializable(async (tx) => {
+        await lockTechnicians(tx, [
+          ...existingTechnicianIds,
+          technicianId,
+        ]);
 
-      await tx.bookingRequestEvent.create({
-        data: {
-          bookingRequestId: booking.data.id,
-          type: "RESCHEDULED",
-          requestedDate: schedule.data.requestedDate,
-          requestedFrom: schedule.data.requestedFrom,
-          requestedTo: schedule.data.requestedTo,
-          actorName: actor.name || actor.email || "Kunde",
-        },
-      });
+        const hold = holdToken
+          ? await tx.bookingHold.findFirst({
+              where: {
+                token: holdToken,
+                customerId: actor.customerId!,
+                consumedAt: null,
+                expiresAt: { gt: new Date() },
+              },
+              select: {
+                id: true,
+                startsAt: true,
+                endsAt: true,
+                technicianId: true,
+              },
+            })
+          : null;
+        if (holdToken && !hold) return { kind: "slot_unavailable" } as const;
+        if (
+          hold &&
+          (hold.technicianId !== technicianId ||
+            hold.startsAt.getTime() !== window.startsAt.getTime() ||
+            hold.endsAt.getTime() !== window.endsAt.getTime())
+        ) {
+          return { kind: "slot_unavailable" } as const;
+        }
 
-      // Bare en ubekreftet sak flyttes direkte. En planlagt sak beholder
-      // planen til kontoret har bekreftet den nye tiden.
-      const moved = await tx.workOrder.updateMany({
-        where: {
-          id: booking.data.workOrder.id,
-          customerId: actor.customerId!,
-          status: "OPEN",
-        },
-        data: {
-          scheduledFor: schedule.data.requestedDate,
-          scheduledTo: schedule.data.requestedDate,
-        },
-      });
-
-      if (moved.count > 0) {
-        const visits = await tx.visit.findMany({
-          where: { workOrderId: booking.data.workOrder.id },
-          select: { id: true, status: true },
-          orderBy: { sequence: "asc" },
+        const available = await assertTechnicianSlotAvailable(tx, {
+          departmentId: booking.data.workOrder.departmentId,
+          technicianId,
+          date: toDateOnly(schedule.data.requestedDate),
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
+          excludeVisitId: booking.data.visitId ?? undefined,
+          excludeHoldId: hold?.id,
         });
-        const window = requestedWindow(schedule.data);
+        if (!available.ok) {
+          return {
+            kind:
+              available.reason === "not_found" ? "conflict" : "slot_unavailable",
+          } as const;
+        }
 
-        if (visits.length === 1) {
+        if (hold) {
+          const consumed = await tx.bookingHold.updateMany({
+            where: { id: hold.id, consumedAt: null },
+            data: { consumedAt: new Date() },
+          });
+          if (consumed.count !== 1) {
+            return { kind: "slot_unavailable" } as const;
+          }
+        }
+
+        await tx.bookingRequest.update({
+          where: { id: booking.data.id },
+          data: {
+            ...schedule.data,
+            serviceType,
+            siteId,
+            preferredTechnicianId: technicianId,
+            preferredTechnicianName,
+          },
+        });
+
+        if (booking.data.visitId) {
           await tx.visit.update({
-            where: { id: visits[0].id },
+            where: { id: booking.data.visitId },
             data: {
               startsAt: window.startsAt,
               endsAt: window.endsAt,
               allDay: false,
+              status: "PLANNED",
             },
           });
-        } else if (visits.length === 0) {
-          await createDefaultVisit(tx, {
-            workOrderId: booking.data.workOrder.id,
-            startsAt: window.startsAt,
-            endsAt: window.endsAt,
-            allDay: false,
+          await tx.visitTechnician.deleteMany({
+            where: { visitId: booking.data.visitId },
+          });
+          await tx.visitTechnician.create({
+            data: { visitId: booking.data.visitId, userId: technicianId },
+          });
+        } else {
+          await tx.visit.create({
+            data: {
+              workOrderId: booking.data.workOrder.id,
+              sequence: 0,
+              startsAt: window.startsAt,
+              endsAt: window.endsAt,
+              allDay: false,
+              status: "PLANNED",
+              technicians: { create: { userId: technicianId } },
+            },
           });
         }
+        await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
+        await tx.workOrder.updateMany({
+          where: {
+            id: booking.data.workOrder.id,
+            customerId: actor.customerId!,
+            status: { in: ["OPEN", "PENDING"] },
+          },
+          data: { status: "PLANNED" },
+        });
 
-        // En bestilling har alltid én standardvisitt. Skulle raden likevel ha
-        // flere (visit-nivå har tatt over), røres de ikke her.
-        if (visits.length <= 1) {
-          await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
-        }
-      }
+        await tx.bookingRequestEvent.create({
+          data: {
+            bookingRequestId: booking.data.id,
+            type: "RESCHEDULED",
+            requestedDate: schedule.data.requestedDate,
+            requestedFrom: schedule.data.requestedFrom,
+            requestedTo: schedule.data.requestedTo,
+            message: preferredTechnicianName,
+            actorName: actor.name || actor.email || "Kunde",
+          },
+        });
 
-      await audit(tx, {
-        entityType: "BookingRequest",
-        entityId: booking.data.id,
-        action: "Kunden ba om ny tid",
-        actor: toAuditActor(actor),
-        metadata: {
-          customerId: actor.customerId,
-          workOrderId: booking.data.workOrder.id,
-          reference: booking.data.reference,
-          requestedDate: toDateOnly(schedule.data.requestedDate),
-          requestedFrom: schedule.data.requestedFrom,
-          requestedTo: schedule.data.requestedTo,
-        },
+        await audit(tx, {
+          entityType: "BookingRequest",
+          entityId: booking.data.id,
+          action: "Kunden flyttet den bekreftede bestillingen",
+          actor: toAuditActor(actor),
+          metadata: {
+            customerId: actor.customerId,
+            workOrderId: booking.data.workOrder.id,
+            reference: booking.data.reference,
+            requestedDate: toDateOnly(schedule.data.requestedDate),
+            requestedFrom: schedule.data.requestedFrom,
+            requestedTo: schedule.data.requestedTo,
+            technicianId,
+          },
+        });
+
+        return { kind: "moved", technicianName: preferredTechnicianName } as const;
       });
-    });
+    } else {
+      await prisma.$transaction(async (tx) => {
+        await tx.bookingRequest.update({
+          where: { id: booking.data.id },
+          data: { ...schedule.data, serviceType, siteId },
+        });
+
+        await tx.bookingRequestEvent.create({
+          data: {
+            bookingRequestId: booking.data.id,
+            type: "RESCHEDULED",
+            requestedDate: schedule.data.requestedDate,
+            requestedFrom: schedule.data.requestedFrom,
+            requestedTo: schedule.data.requestedTo,
+            actorName: actor.name || actor.email || "Kunde",
+          },
+        });
+
+        // Bare en ubekreftet sak flyttes direkte. En planlagt sak beholder
+        // planen til kontoret har bekreftet den nye tiden.
+        const moved = await tx.workOrder.updateMany({
+          where: {
+            id: booking.data.workOrder.id,
+            customerId: actor.customerId!,
+            status: "OPEN",
+          },
+          data: {
+            scheduledFor: schedule.data.requestedDate,
+            scheduledTo: schedule.data.requestedDate,
+          },
+        });
+
+        if (moved.count > 0) {
+          const visits = await tx.visit.findMany({
+            where: { workOrderId: booking.data.workOrder.id },
+            select: { id: true, status: true },
+            orderBy: { sequence: "asc" },
+            take: 50,
+          });
+
+          if (visits.length === 1) {
+            await tx.visit.update({
+              where: { id: visits[0].id },
+              data: {
+                startsAt: window.startsAt,
+                endsAt: window.endsAt,
+                allDay: false,
+              },
+            });
+          } else if (visits.length === 0) {
+            await createDefaultVisit(tx, {
+              workOrderId: booking.data.workOrder.id,
+              startsAt: window.startsAt,
+              endsAt: window.endsAt,
+              allDay: false,
+            });
+          }
+
+          // En bestilling har alltid én standardvisitt. Skulle raden likevel ha
+          // flere (visit-nivå har tatt over), røres de ikke her.
+          if (visits.length <= 1) {
+            await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
+          }
+        }
+
+        await audit(tx, {
+          entityType: "BookingRequest",
+          entityId: booking.data.id,
+          action: "Kunden ba om ny tid",
+          actor: toAuditActor(actor),
+          metadata: {
+            customerId: actor.customerId,
+            workOrderId: booking.data.workOrder.id,
+            reference: booking.data.reference,
+            requestedDate: toDateOnly(schedule.data.requestedDate),
+            requestedFrom: schedule.data.requestedFrom,
+            requestedTo: schedule.data.requestedTo,
+          },
+        });
+      });
+      outcome = { kind: "moved" };
+    }
   } catch (error) {
     console.error("Databasefeil ved ny-tid-forespørsel:", error);
     return fail("error");
   }
 
+  if (outcome.kind === "slot_unavailable") return fail("conflict");
+  if (outcome.kind === "conflict") return fail("conflict");
+
   try {
     await notifyWorkOrderEvent(
       booking.data.workOrder.id,
       "BOOKING",
-      "Kunde ba om ny tid",
-      `Bestilling ${booking.data.reference}: ønsket ny tid ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
+      confirmedChange ? "Kunde flyttet bekreftet booking" : "Kunde ba om ny tid",
+      confirmedChange
+        ? `Bestilling ${booking.data.reference} er flyttet til ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo} hos ${preferredTechnicianName || "montør"}.`
+        : `Bestilling ${booking.data.reference}: ønsket ny tid ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
       `/oppdrag/${booking.data.workOrder.id}`,
-      `booking-reschedule:${booking.data.id}:${toDateOnly(schedule.data.requestedDate)}:${schedule.data.requestedFrom}:${schedule.data.requestedTo}`,
+      `booking-reschedule:${booking.data.id}:${toDateOnly(schedule.data.requestedDate)}:${schedule.data.requestedFrom}:${schedule.data.requestedTo}${technicianId ? `:${technicianId}` : ""}`,
     );
   } catch (error) {
     console.error("Kunne ikke varsle om ny-tid-forespørsel:", error);
@@ -1058,6 +1639,9 @@ export async function rescheduleBooking(
     requestedDate: toDateOnly(schedule.data.requestedDate),
     requestedFrom: schedule.data.requestedFrom,
     requestedTo: schedule.data.requestedTo,
+    ...(preferredTechnicianName
+      ? { technicianName: preferredTechnicianName }
+      : {}),
   });
 }
 

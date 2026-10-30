@@ -82,7 +82,7 @@ export default async function MapPage({
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const mapSettings = await getMapSettings();
-  const technicianLayer = await loadTechnicianMapLayer();
+  const technicianLayer = await loadTechnicianMapLayer(user);
   const params = await searchParams;
   const canGeocode = hasPermission(user, "workorders.edit");
   const technicianId = (firstParam(params.technician) ?? "").trim();
@@ -258,6 +258,20 @@ export default async function MapPage({
       lng: point.lng,
     }];
   });
+
+  const technicianMapPoints = technicianLayer.markers.map((marker) => ({
+    id: marker.visitId,
+    name: marker.name || t("p3.map.noTechnician"),
+    status: marker.status,
+    updatedAt:
+      formatDateLocalized(marker.updatedAt, locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }) || "",
+    lat: marker.point.latitude,
+    lng: marker.point.longitude,
+  }));
 
   const groups = new Map<string, MapWorkOrder[]>();
   for (const workOrder of workOrders) {
@@ -437,6 +451,7 @@ export default async function MapPage({
         <section className="space-y-2 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 sm:p-4">
           <WorkOrderMap
             points={mapPoints}
+            technicians={technicianMapPoints}
             listId="map-order-list"
             listHint={t("p3.map.regionHint")}
             ariaLabel={t("p3.map.mapAria")}

@@ -263,6 +263,10 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   60 sekunders tidsavbrudd, cache per avrundet koordinatnøkkel og faller alltid
   tilbake til haversine ved feil. Ingen rutenøkkel eller ruteleverandør kalles
   fra klienten. Testene injiserer `fetch` og gjør aldri eksterne kall.
+- **Én geo-modul for routing, ETA og kart.** `src/lib/geo.ts` har både
+  `{latitude, longitude}` og `{lat, lng}` som normaliseres internt. Dermed
+  bruker dispatch, sporing og kart samme haversine, veifaktor og
+  gjennomsnittsfart; det finnes ingen dupliserte avstandsformler.
 - **Scoring er deterministisk og forklarbar.** `rankDispatchCandidates` er ren
   matematikk; tjenestelaget henter data og gir dem inn. Kompetansekrav,
   fravær, arbeidstid og overlapp er harde filtre. Poengsummen består av
@@ -278,15 +282,84 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   tillatt flere avdelingsrader for samme dag fordi NULL ikke er lik NULL.
   Prisma uttrykker ikke delvise indekser; indeksen ligger derfor i migreringen
   og blir ignorert av `migrate diff` (verifisert: drift = 0).
-- **`BookingHold` finnes ikke ennå.** `findSlot` tar høyde for visiter,
-  arbeidstid, kompetanse, fravær og reisetid, men ikke holds. 5A legger til
-  modellen; da skal aktive holds trekkes fra i samme funksjon. Dette er en
-  bevisst, dokumentert utsettelse – ikke en glemt integrasjon.
-- **Kartets teknikerlag er et integrasjonspunkt.** `/kart` kaller
-  `loadTechnicianMapLayer()`, som i denne fasen returnerer en tom, deaktivert
-  liste. 5C fyller den fra `VisitLocationPing`; Phase 6 legger ikke til
-  posisjonsmodellen eller skriver posisjoner.
+- **`findSlot` trekker fra aktive `BookingHold`.** 5A-modellen finnes nå, så
+  ledige tidsrom filtreres mot både visiter og uutløpte, ubekreftede holds.
+  Tørrkjøringen skriver ingen hold eller visiter.
+- **Kartets teknikerlag leser ferske pinger.** `/kart` viser tekniske
+  posisjoner fra siste `VisitLocationPing` for aktive `EN_ROUTE`/`ON_SITE`-
+  visiter i avdelinger med `trackingEnabled`. Ingen historikk, ingen pinger
+  eldre enn 24 timer, og ingen posisjon for avsluttede visiter.
 - **Ny rettighet: `dispatch.configure`.** Administrator og kontor får den i
   seed-migreringen; montører og kundeportal gjør det ikke. Den styrer
   territorier og fordelingsregler, mens selve tildelingen fortsatt bruker
   `workorders.assign`.
+
+## Phase 5A — ekte tilgjengelighetsbooking (2026-10-30)
+
+- **Samtidighet uten `btree_gist`.** Vi bruker `SERIALIZABLE`-transaksjon +
+  `pg_advisory_xact_lock` per montør, og kontrollerer tilgjengeligheten på nytt
+  inne i låsen. Det gir nøyaktig én bekreftet booking for samme montør og time
+  uten å kreve en PostgreSQL-extension. En eksklusjonsconstraint kan komme
+  senere når alle montører er representert i én egen tabell.
+- **30-minutters slots, 60 dagers horisont, maks tre per dag per montør.**
+  Slotmatematikken ligger i `src/lib/availability.ts` og er uten I/O.
+  `BusinessHours` snittes med `UserAvailability`; fravær, aktive visiter,
+  aktive `BookingHold` og 24 timers ledetid trekkes fra. `DONE` og `CANCELLED`
+  blokkerer ikke. Heldagsvisiter stenger hele kalenderdagen/de dagene de dekker.
+- **Manglende arbeidstid er en eksplisitt standard.** Har en montør ingen
+  `UserAvailability`, brukes avdelingens åpningstider og resultatet flagger
+  `unconfiguredPolicy = "business_hours"`. Har avdelingen ingen
+  `BusinessHours`, brukes hverdager 08–16 og `businessHoursConfigured = false`.
+  Valget er synlig i portalen, ikke en stille fallback.
+- **BookingHold varer i fem minutter.** Portalen reserverer timen før kunden
+  fyller ut skjemaet. Bekreftelse konsumerer reservasjonen i samme transaksjon
+  som `BookingRequest(CONFIRMED)` og `Visit(PLANNED)` opprettes. En
+  bakgrunnsjobb sletter utløpte/konsumerte rader, og utløpte `PENDING`-
+  forespørsler merkes `EXPIRED`.
+- **Direkte bekreftelse, med eldre kø bevart.** Nye bestillinger bekreftes
+  direkte mot en slot. `PENDING` beholdes for eldre forespørsler og vises i
+  kontorets `/bookinger`-kø, der de kan bekreftes mot en ledig montør eller
+  avlyses.
+- **Kundebestillingen lagrer et stedsnapshot.** `CustomerSite` er en enkel
+  liste per kunde. `BookingRequest.siteId` peker på stedet, og adressen kopieres
+  til oppdraget slik at senere endringer i stedsregisteret ikke flytter
+  historikken. Multi-site på oppdrag og utstyr er fortsatt Phase 5D.
+- **Ingen fakturering.** Prislister er referansedata; booking og visitt
+  inneholder ingen beløp, faktura eller betalingsflyt.
+
+## Live sporing og kundeomtaler (Phase 5C, 2026-10-30)
+
+- **Sporing er opt-in per avdeling.** `Department.trackingEnabled` er
+  `false` som standard (D-5). En avdeling uten sporing kan verken opprette
+  sporingslenker eller motta posisjonsping.
+- **Én aktiv lenke per visitt.** `TrackingLink.tokenHash` er unik, og nye
+  lenker tilbakekaller alle tidligere aktive lenker for samme visitt i samme
+  transaksjon. Tokenet er 32 tilfeldige byte (64 hex-tegn); bare SHA-256-hashen
+  lagres, og klarteksten returneres én gang ved oppretting.
+- **Lenken lever til visittens slutt + 2 timer.** Etter utløp, tilbakekalling,
+  `DONE`/`CANCELLED`, avslått sporing eller en visitt som ikke er
+  `EN_ROUTE`/`ON_SITE`, svarer den offentlige siden 404. Koordinater sendes
+  aldri til klienten.
+- **Statustidspunkt på visitten, ikke en hendelsestabell.** Vi valgte
+  `enRouteAt`, `onSiteAt` og `doneAt` direkte på `Visit`. Det er tilstrekkelig
+  for ETA, rapportering og revisjon i denne fasen, gir én atomisk UPDATE i
+  `setVisitStatus`, og unngår en ekstra join/tabell for en lineær statusflyt.
+  En `VisitEvent`-tabell kan senere innføres for vilkårlige hendelser, men er
+  ikke nødvendig for de tre faste milepælene. Når en visitt blir `DONE` eller
+  `CANCELLED`, tilbakekalles sporingslenker og alle posisjonsping slettes.
+- **ETA er luftlinje × 1,35 ÷ gjennomsnittsfart.** `src/lib/geo.ts` er eneste
+  kilde. Farten konfigureres med `TRACKING_AVERAGE_SPEED_KMH` (standard 50,
+  avgrenset til 5–120). Uten et faktisk posisjonsping eller destinasjons-
+  koordinater vises ingen ETA – aldri en falsk ankomst. Ingen ruteleverandør
+  er innført i sporingens standardvei; Phase 6-rutingen (OSRM når
+  `OSRM_BASE_URL` er satt) ligger bak samme `src/lib/geo.ts`-grunnlag og kan
+  brukes av sporingen senere uten å endre ETA-kontrakten.
+- **Posisjonsping er ferskvare.** Kun tildelt montør, kun egen visitt, kun
+  `EN_ROUTE`, kun aktiv avdeling med sporing. Klienten sender eksplisitt med
+  `cache: "no-store"` og køer aldri ping offline; gamle posisjoner spilles
+  ikke av. En sveipende jobb sletter ping eldre enn 24 timer.
+- **Omtaler er interne.** `Review.visitId` er unik, og `requestReview` bruker
+  `upsert`, så gjentatte kall er idempotente. Innsending er én atomisk
+  `updateMany` med `submittedAt: null`; andre forsøk får en konflikt. Omtaler
+  publiseres ikke, og dashbordet viser bare aggregert gjennomsnitt/antall
+  avgrenset av oppdragenes synlighetsomfang.

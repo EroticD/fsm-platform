@@ -1,15 +1,19 @@
-import { haversineKm } from "@/lib/geo";
+import {
+  DEFAULT_AVERAGE_SPEED_KMH,
+  ROAD_FACTOR,
+  haversineKm,
+} from "@/lib/geo";
 import type { RoutingProvider, TravelEstimate } from "./types";
 
 /**
- * Standardveifaktor når vi ikke har en ekstern ruteleverandør. 1,35 er et
- * konservativt gjennomsnitt for norske veier og gjør at planleggingen ikke
- * lover kortere reiser enn den faktisk kan levere.
+ * Standardveifaktor når vi ikke har en ekstern ruteleverandør. Den deles med
+ * ETA-beregningen i `src/lib/geo.ts`, slik at sporing og dispatch aldri kan
+ * love ulik reisetid for samme strekning.
  */
-export const HAVERSINE_ROAD_FACTOR = 1.35;
+export const HAVERSINE_ROAD_FACTOR = ROAD_FACTOR;
 
 /** Gjennomsnittsfart for blandet by/landevei. */
-export const HAVERSINE_AVG_SPEED_KMH = 50;
+export const HAVERSINE_AVG_SPEED_KMH = DEFAULT_AVERAGE_SPEED_KMH;
 
 export function estimateFromHaversine(
   distanceKm: number,

@@ -73,6 +73,7 @@ export async function getSettingsOverview(actor: ServiceActor) {
     postalCode: department.postalCode,
     isActive: department.isActive,
     isDefault: department.isDefault,
+    trackingEnabled: department.trackingEnabled,
     users: department._count.users,
     workOrders: department._count.workOrders,
     contracts: department._count.contracts,

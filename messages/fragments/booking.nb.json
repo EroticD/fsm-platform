@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "bookings": "Bookinger"
+  },
+  "portal": {
+    "bookingWizard": {
+      "siteStep": "1. Velg sted",
+      "siteLabel": "Sted",
+      "siteHint": "Stedet brukes som arbeidsadresse på bestillingen.",
+      "newSiteOption": "Nytt sted …",
+      "newSiteName": "Navn på stedet *",
+      "newSiteAddress": "Adresse",
+      "newSitePostalCode": "Postnummer",
+      "newSiteCity": "Poststed",
+      "serviceStep": "2. Velg tjeneste",
+      "serviceLabel": "Tjeneste",
+      "services": {
+        "general": "Generell service",
+        "maintenance": "Vedlikehold",
+        "repair": "Reparasjon",
+        "inspection": "Inspeksjon"
+      },
+      "slotStep": "3. Velg ledig time",
+      "legendFree": "Ledig",
+      "legendSlot": "{minutes} minutter per time",
+      "previousWeek": "Forrige uke",
+      "nextWeek": "Neste uke",
+      "earliest": "Tidligst",
+      "dayTitle": "Ledige timer {date}",
+      "loading": "Henter ledige timer …",
+      "noSlots": "Ingen ledige timer denne dagen.",
+      "tryAnotherDay": "Velg en annen dag i listen over.",
+      "pickSlot": "Velg en ledig time for å reservere den i fem minutter.",
+      "held": "Timen er reservert hos {technician} kl. {from}–{to}. Du har {minutes} minutter på deg.",
+      "release": "Frigjør timen",
+      "selectedSlot": "Valgt time: {technician}, {date} kl. {from}–{to}.",
+      "confirm": "Bekreft bookingen",
+      "confirming": "Bekrefter …",
+      "successConfirmedTitle": "Bookingen er bekreftet",
+      "successConfirmedBody": "Timen er satt av hos {technician}. Du ser den under «Dine bestillinger».",
+      "unconfiguredPolicy": "{count} montør(er) mangler arbeidstid. Standard arbeidstid fra avdelingens åpningstider er brukt.",
+      "defaultBusinessHours": "Avdelingen har ikke lagret åpningstider. Standard hverdager 08–16 brukes.",
+      "errors": {
+        "forbidden": "Du har ikke tilgang til å se ledige timer.",
+        "loadFailed": "Ledige timer kunne ikke hentes. Prøv igjen om litt.",
+        "holdFailed": "Timen kunne ikke reserveres. Prøv igjen.",
+        "slotTaken": "Timen ble nettopp tatt av en annen. Velg en ny time."
+      },
+      "leadTimeHint": "Tidligste start er {date}. Timen må være minst {hours} timer fram i tid."
+    },
+    "bookingRequests": {
+      "status": {
+        "expired": "Utløpt"
+      },
+      "event": {
+        "CONFIRMED": "Bekreftet",
+        "EXPIRED": "Utløpt"
+      }
+    },
+    "bookingQueue": {
+      "title": "Bookingkø",
+      "desc": "Bekreft kundens forespørsel mot en ledig time, eller avvis den. Bekreftede bookinger vises med status og montør.",
+      "empty": "Ingen bookinger i denne listen.",
+      "filterAll": "Alle",
+      "filterPending": "Venter",
+      "filterConfirmed": "Bekreftet",
+      "filterClosed": "Avsluttet",
+      "reference": "Referanse",
+      "customer": "Kunde",
+      "requested": "Ønsket tid",
+      "site": "Sted",
+      "service": "Tjeneste",
+      "technician": "Montør",
+      "confirm": "Bekreft booking",
+      "cancel": "Avlys",
+      "noTechnician": "Ingen ledig montør for ønsket tid",
+      "chooseTechnician": "Velg montør",
+      "status": {
+        "PENDING": "Venter",
+        "CONFIRMED": "Bekreftet",
+        "CANCELLED": "Avlyst",
+        "EXPIRED": "Utløpt"
+      }
+    }
+  }
+}

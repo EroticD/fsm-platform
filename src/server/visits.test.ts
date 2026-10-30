@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
       aggregate: vi.fn(),
     },
     user: { findMany: vi.fn() },
+    slaClock: { findMany: vi.fn() },
+    trackingLink: { updateMany: vi.fn() },
+    visitLocationPing: { deleteMany: vi.fn() },
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
@@ -135,6 +138,9 @@ beforeEach(() => {
       (where.id?.in ?? []).map((id) => ({ id, name: `Montør ${id}` })),
   );
   mocks.audit.mockResolvedValue(undefined);
+  mocks.prisma.trackingLink.updateMany.mockResolvedValue({ count: 0 });
+  mocks.prisma.visitLocationPing.deleteMany.mockResolvedValue({ count: 0 });
+  mocks.prisma.slaClock.findMany.mockResolvedValue([]);
 });
 
 describe("visitRangesOverlap", () => {
@@ -337,6 +343,32 @@ describe("status og sperrer", () => {
     expect(mocks.prisma.visit.aggregate).toHaveBeenCalled();
   });
 
+  it("setter statustidspunkt atomisk og rydder sporing ved DONE", async () => {
+    mocks.prisma.visit.findFirst.mockResolvedValue(
+      visitContext({ status: "ON_SITE" }),
+    );
+    mocks.prisma.visit.update.mockResolvedValue(visitModel({ status: "DONE" }));
+
+    const result = await setVisitStatus(
+      actor(["workorders.update"]),
+      "visit-1",
+      "DONE",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-1" },
+      data: { status: "DONE", doneAt: expect.any(Date) },
+    });
+    expect(mocks.prisma.trackingLink.updateMany).toHaveBeenCalledWith({
+      where: { visitId: "visit-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(mocks.prisma.visitLocationPing.deleteMany).toHaveBeenCalledWith({
+      where: { visitId: "visit-1" },
+    });
+  });
+
   it("avviser en statusovergang som ikke finnes i flyten", async () => {
     const result = await setVisitStatus(
       actor(["workorders.update"]),
@@ -527,6 +559,7 @@ describe("createDefaultVisit", () => {
         status: "PLANNED",
         technicians: { create: [{ userId: "tech-1" }] },
       },
+      select: { id: true },
     });
     expect(mocks.prisma.visit.aggregate).toHaveBeenCalled();
   });
@@ -548,6 +581,7 @@ describe("createDefaultVisit", () => {
         startsAt: new Date("2026-10-29T23:00:00.000Z"),
         endsAt: new Date("2026-10-30T23:00:00.000Z"),
       }),
+      select: { id: true },
     });
   });
 

@@ -41,6 +41,14 @@ import dispatchNb from "../../messages/fragments/dispatch.nb.json";
 import dispatchEn from "../../messages/fragments/dispatch.en.json";
 import dispatchPl from "../../messages/fragments/dispatch.pl.json";
 import dispatchDe from "../../messages/fragments/dispatch.de.json";
+import bookingNb from "../../messages/fragments/booking.nb.json";
+import bookingEn from "../../messages/fragments/booking.en.json";
+import bookingPl from "../../messages/fragments/booking.pl.json";
+import bookingDe from "../../messages/fragments/booking.de.json";
+import trackingNb from "../../messages/fragments/tracking.nb.json";
+import trackingEn from "../../messages/fragments/tracking.en.json";
+import trackingPl from "../../messages/fragments/tracking.pl.json";
+import trackingDe from "../../messages/fragments/tracking.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -86,6 +94,8 @@ const nbFragments = mergeAll([
   visitsNb,
   p4Nb,
   dispatchNb,
+  bookingNb,
+  trackingNb,
 ]);
 
 const enFragments = mergeAll([
@@ -106,6 +116,8 @@ const enFragments = mergeAll([
   visitsEn,
   p4En,
   dispatchEn,
+  bookingEn,
+  trackingEn,
 ]);
 
 /**
@@ -113,8 +125,8 @@ const enFragments = mergeAll([
  * `messages/fragments/` flettes inn her, slik at flere arbeidsstrømmer kan
  * oversette hver sin del uten å redigere samme JSON-fil.
  */
-const plFragments = mergeAll([p4Pl, dispatchPl]);
-const deFragments = mergeAll([p4De, dispatchDe]);
+const plFragments = mergeAll([p4Pl, dispatchPl, bookingPl, trackingPl]);
+const deFragments = mergeAll([p4De, dispatchDe, bookingDe, trackingDe]);
 
 export const messages = {
   nb: { common: merge(commonNb.common, nbFragments) },

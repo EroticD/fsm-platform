@@ -887,6 +887,19 @@ export async function findSlot(
     take: MAX_ASSIGNED_VISITS,
   });
 
+  // 5A: aktive, ubekreftede reservasjoner blokkerer samme tidsrom. Utløpte
+  // og konsumerte holds ignoreres, akkurat som i tilgjengelighetsmotoren.
+  const holds = await prisma.bookingHold.findMany({
+    where: {
+      startsAt: { lt: rangeEnd },
+      endsAt: { gt: rangeStart },
+      expiresAt: { gt: now },
+      consumedAt: null,
+    },
+    select: { startsAt: true, endsAt: true, technicianId: true },
+    take: 500,
+  });
+
   const calendar = await loadBusinessCalendar(
     prisma as unknown as Prisma.TransactionClient,
     workOrder.departmentId,
@@ -958,6 +971,14 @@ export async function findSlot(
               visit.endsAt > startsAt,
           );
           if (conflict) continue;
+          const held = holds.some(
+            (hold) =>
+              (hold.technicianId === null ||
+                hold.technicianId === candidate.id) &&
+              hold.startsAt < endsAt &&
+              hold.endsAt > startsAt,
+          );
+          if (held) continue;
 
           const previous = visits
             .filter(

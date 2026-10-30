@@ -40,6 +40,9 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/server/map-settings", () => ({
   getMapSettings: vi.fn(async () => ({})),
 }));
+vi.mock("@/lib/map-technician-layer", () => ({
+  loadTechnicianMapLayer: vi.fn(async () => ({ enabled: false, markers: [] })),
+}));
 vi.mock("@/components/WorkOrderMap", () => ({ default: () => null }));
 vi.mock("@/components/WorkOrderStatusLegend", () => ({
   default: () => null,

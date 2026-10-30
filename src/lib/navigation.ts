@@ -38,6 +38,10 @@ const AUTH_ROUTES = [
   "/glemt-passord",
   "/tilbakestill-passord",
   "/aktiver-konto",
+  // Offentlige token-sider: kunden skal ikke se appmenyen eller kunne navigere
+  // inn i saksbehandlingen fra en sporings- eller omtalelenke.
+  "/sporing",
+  "/anmeldelse",
 ];
 
 export function isAuthPath(pathname: string): boolean {
@@ -83,6 +87,13 @@ export const STAFF_NAV: NavItem[] = [
     icon: "building",
     requires: "customers.view",
     section: "primary",
+  },
+  {
+    href: "/bookinger",
+    labelKey: "bookings",
+    icon: "clipboard",
+    requires: "workorders.view",
+    section: "menu",
   },
   {
     href: "/avtaler",
