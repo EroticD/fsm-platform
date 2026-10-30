@@ -46,6 +46,13 @@ describe("chooseSettingsTab", () => {
 
     expect(chooseSettingsTab("roller", office)).toBe("ansatte");
     expect(chooseSettingsTab("avdelinger", office)).toBe("ansatte");
+    expect(chooseSettingsTab("api", office)).toBe("ansatte");
+  });
+
+  it("lar bare administrator åpne API-fanen", () => {
+    expect(chooseSettingsTab("api", admin)).toBe("api");
+    expect(isSettingsTabAllowed("api", admin)).toBe(true);
+    expect(isSettingsTabAllowed("api", noPermissions)).toBe(false);
   });
 
   it("lar alle innloggede åpne sikkerhetsfanen", () => {

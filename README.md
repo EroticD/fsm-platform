@@ -137,6 +137,17 @@ hele matrisen. Kontoene er `admin@example.test`, `kontor@example.test`,
 - **Markdown** (Obsidian + GFM) med felles visning på nett og i PDF; all input
   renses i `src/lib/sanitize.ts`.
 
+## REST API
+
+FSM-plattformen har et eget REST-API for oppdrag, kunder, rapporter og
+dokumenter. API-et bruker Bearer-nøkler (`fsm_...`) og er helt atskilt fra
+nettleserøkten. Administrator oppretter og tilbakekaller nøkler under
+**Innstillinger → API-nøkler**; nøkkelen vises bare én gang.
+
+- Full dokumentasjon med eksempler: [docs/API.md](docs/API.md)
+- Maskinlesbar OpenAPI 3.1-kontrakt: `/api/v1/openapi.json`
+- Grense: 120 forespørsler per minutt per nøkkel
+
 ## Sikkerhet
 
 - Passord hashes med bcrypt, og innlogging, opplasting, søk og kommentarer har

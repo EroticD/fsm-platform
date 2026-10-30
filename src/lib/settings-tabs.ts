@@ -8,6 +8,7 @@ export type SettingsTabKey =
   | "statistikk"
   | "roller"
   | "avdelinger"
+  | "api"
   | "sikkerhet";
 
 export type SettingsTabPermissions = {
@@ -32,6 +33,7 @@ const TAB_ORDER: SettingsTabKey[] = [
   "statistikk",
   "roller",
   "avdelinger",
+  "api",
   "sikkerhet",
 ];
 
@@ -56,6 +58,7 @@ export function isSettingsTabAllowed(
       return permissions.canStats;
     case "roller":
     case "avdelinger":
+    case "api":
       return permissions.isAdmin;
     case "sikkerhet":
       return true;

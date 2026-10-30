@@ -119,6 +119,7 @@ model User {
   notificationPreferences NotificationPreference[]
   savedSearches           SavedSearch[]
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
+  apiKeys                 ApiKey[]
 
   @@index([departmentId])
   @@index([role])
@@ -126,6 +127,27 @@ model User {
   @@index([customerId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_name_trgm")
   @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_email_trgm")
+}
+
+/// API-nøkkel for integrasjoner. Bare SHA-256-hashen lagres; klarteksttokenet
+/// vises én gang ved opprettelse. Prefix er de første tegnene, slik at nøkkelen
+/// kan gjenkjennes i grensesnittet uten å avsløre resten.
+model ApiKey {
+  id      String @id @default(cuid())
+  name    String
+  keyHash String @unique
+  prefix  String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@index([keyHash])
 }
 
 // Engangskoder for gjenoppretting av 2FA. Bare bcrypt-hashen lagres, og hver

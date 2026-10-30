@@ -15,7 +15,8 @@
       "roles": "Roles & permissions",
       "departments": "Departments",
       "security": "Security",
-      "map": "Map"
+      "map": "Map",
+      "api": "API keys"
     },
     "branding": {
       "title": "White-label settings",
@@ -190,6 +191,46 @@
       "activate": "Activate",
       "edit": "Edit department",
       "saveChanges": "Save changes"
+    },
+    "apiKeys": {
+      "title": "API keys",
+      "description": "Manage keys for REST API integrations. Each key has the same permissions as the user who created it.",
+      "docsLink": "Open the OpenAPI specification",
+      "createTitle": "New API key",
+      "createDesc": "The key is shown only once, right after it is created.",
+      "name": "Name",
+      "namePlaceholder": "E.g. field app integration",
+      "expiresAt": "Expires (optional)",
+      "expiresHint": "Leave empty for a key without an expiry date.",
+      "create": "Create key",
+      "creating": "Creating …",
+      "createdTitle": "Key created",
+      "createdWarning": "Copy the key now. It is shown only this once and cannot be retrieved again.",
+      "copy": "Copy key",
+      "copied": "Copied",
+      "done": "I have saved the key",
+      "listTitle": "Existing keys",
+      "listCount": "{count, plural, one {# key} other {# keys}}",
+      "empty": "There are no API keys yet.",
+      "ownerColumn": "Owner",
+      "createdColumn": "Created",
+      "lastUsedColumn": "Last used",
+      "expiresColumn": "Expires",
+      "never": "Never",
+      "unknownOwner": "Unknown",
+      "noExpiry": "No expiry",
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked",
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke the API key \"{name}\"? Integrations using it stop working immediately.",
+      "revokeLabel": "Revoke key",
+      "errors": {
+        "forbidden": "Only an administrator can manage API keys.",
+        "invalid": "Enter a name of 1–80 characters and a valid future expiry date.",
+        "not_found": "The key no longer exists.",
+        "error": "Something went wrong. Try again."
+      }
     },
     "security": {
       "enabled": "✅ Two-factor authentication is now enabled.",

@@ -15,7 +15,8 @@
       "roles": "Roller & rettigheter",
       "departments": "Avdelinger",
       "security": "Sikkerhet",
-      "map": "Kart"
+      "map": "Kart",
+      "api": "API-nøkler"
     },
     "branding": {
       "title": "White-label Innstillinger",
@@ -190,6 +191,46 @@
       "activate": "Aktiver",
       "edit": "Rediger avdeling",
       "saveChanges": "Lagre endringer"
+    },
+    "apiKeys": {
+      "title": "API-nøkler",
+      "description": "Administrer nøkler for integrasjoner mot REST-API-et. Hver nøkkel har samme rettigheter som brukeren som opprettet den.",
+      "docsLink": "Åpne OpenAPI-spesifikasjonen",
+      "createTitle": "Ny API-nøkkel",
+      "createDesc": "Nøkkelen vises bare én gang, rett etter at den er opprettet.",
+      "name": "Navn",
+      "namePlaceholder": "F.eks. feltapp-integrasjon",
+      "expiresAt": "Utløper (valgfritt)",
+      "expiresHint": "La stå tom for en nøkkel uten utløpsdato.",
+      "create": "Opprett nøkkel",
+      "creating": "Oppretter …",
+      "createdTitle": "Nøkkelen er opprettet",
+      "createdWarning": "Kopier nøkkelen nå. Den vises bare denne ene gangen og kan ikke hentes frem igjen.",
+      "copy": "Kopier nøkkelen",
+      "copied": "Kopiert",
+      "done": "Jeg har lagret nøkkelen",
+      "listTitle": "Eksisterende nøkler",
+      "listCount": "{count, plural, one {# nøkkel} other {# nøkler}}",
+      "empty": "Det finnes ingen API-nøkler ennå.",
+      "ownerColumn": "Eier",
+      "createdColumn": "Opprettet",
+      "lastUsedColumn": "Sist brukt",
+      "expiresColumn": "Utløper",
+      "never": "Aldri",
+      "unknownOwner": "Ukjent",
+      "noExpiry": "Ingen utløp",
+      "active": "Aktiv",
+      "expired": "Utløpt",
+      "revoked": "Tilbakekalt",
+      "revoke": "Tilbakekall",
+      "revokeConfirm": "Tilbakekalle API-nøkkelen «{name}»? Integrasjoner som bruker den slutter å virke med en gang.",
+      "revokeLabel": "Tilbakekall nøkkel",
+      "errors": {
+        "forbidden": "Bare administrator kan administrere API-nøkler.",
+        "invalid": "Fyll ut et navn på 1–80 tegn og en gyldig, fremtidig utløpsdato.",
+        "not_found": "Nøkkelen finnes ikke lenger.",
+        "error": "Noe gikk galt. Prøv igjen."
+      }
     },
     "security": {
       "enabled": "✅ To-trinns verifisering er nå slått på.",

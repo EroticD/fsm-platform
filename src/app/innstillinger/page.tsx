@@ -14,6 +14,7 @@ import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
+import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
@@ -26,6 +27,7 @@ import {
   getSettingsOverview,
   getStatistics,
 } from "@/server/settings";
+import { listApiKeys } from "@/server/api-keys";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -38,6 +40,7 @@ import {
   updateDocumentTagAction,
   updateTagAction,
 } from "./actions";
+import { createApiKeyAction, revokeApiKeyAction } from "./api-actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -150,6 +153,9 @@ export default async function SettingsPage({
           technician: technicianFilter,
         })
       : null;
+
+  const apiKeys =
+    currentTab === "api" && isAdmin ? await listApiKeys(user) : null;
 
   return (
     <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
@@ -316,6 +322,17 @@ export default async function SettingsPage({
             </div>
             <DepartmentsAdmin departments={departmentRows} />
           </div>
+        )}
+
+        {currentTab === "api" && isAdmin && (
+          <ApiKeysTab
+            keys={apiKeys?.ok ? apiKeys.keys : []}
+            error={
+              apiKeys && !apiKeys.ok ? apiKeys.error : resolvedParams.error
+            }
+            createKey={createApiKeyAction}
+            revokeKey={revokeApiKeyAction}
+          />
         )}
 
         {currentTab === "sikkerhet" && (

@@ -24,6 +24,27 @@ const linkClass = (active: boolean) =>
       : "border-transparent text-[var(--muted,#62685f)] hover:border-[var(--line,#dedcd1)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
   }`;
 
+/** Monokrom nøkkel med låsehake – samme strek som resten av ikonsettet. */
+function ApiKeyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 9-9" />
+      <path d="m17 6 2 2" />
+      <path d="m14 9 2 2" />
+    </svg>
+  );
+}
+
 export default function SettingsTabs({
   currentTab,
   canBranding,
@@ -183,6 +204,17 @@ export default function SettingsTabs({
           >
             <Icon name="building" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.departments")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=api"
+            ref={currentTab === "api" ? activeRef : undefined}
+            className={linkClass(currentTab === "api")}
+            aria-current={currentTab === "api" ? "page" : undefined}
+          >
+            <ApiKeyIcon className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.api")}
           </Link>
         )}
         <Link

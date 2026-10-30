@@ -13,6 +13,7 @@ const CUSTOMER_ALLOWED_PREFIXES = [
   "/api/rapporter", // selve PDF-filen (tilgang sjekkes per oppdrag i ruten)
   "/uploads", // bilder og vedlegg som vises i rapportene
   "/api/auth", // innlogging / utlogging
+  "/api/v1", // REST-API: autentiseres med API-nøkkel og svarer JSON ved manglende tilgang
   "/glemt-passord",
   "/tilbakestill-passord",
   "/aktiver-konto",
