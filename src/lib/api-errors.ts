@@ -330,7 +330,6 @@ export const API_ERROR_FALLBACKS: Record<string, string> = {
   "errors.api.invalidJson": "Ugyldig JSON.",
   "errors.api.bodyObject": "Body må være et JSON-objekt.",
   "errors.api.saveFailed": "Kunne ikke lagre filen.",
-  "errors.api.uploadFailed": "Kunne ikke laste opp fil.",
   "errors.api.invalidRequest": "Ugyldig forespørsel.",
   "errors.api.comments.rateLimited": "For mange kommentarer. Prøv igjen om litt.",
   "errors.api.comments.tooLarge": "Kommentaren er for stor.",
