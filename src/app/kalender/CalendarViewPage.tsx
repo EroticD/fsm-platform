@@ -1,16 +1,19 @@
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
 import FullCalendarClient from "@/app/kalender/FullCalendarClient";
 import CalendarFilters from "@/app/kalender/CalendarFilters";
 import CalendarShell from "@/app/kalender/CalendarShell";
-import { toCalendarEvent } from "@/lib/calendar-events";
+import { toVisitCalendarEvent } from "@/lib/calendar-events";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope, workOrderScope } from "@/lib/access";
 import {
+  addDaysUtc,
   addMonthsUtc,
   formatDateLocalized,
+  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -24,8 +27,9 @@ import {
 import { WORK_ORDER_STATUS_ORDER } from "@/lib/work-order-status-colors";
 
 /**
- * Felles implementasjon for måned-, uke- og to-ukersvisningen. Alle tre nås
- * via `/kalender?vis=...`, slik at visningsbyttet og URL-en alltid stemmer.
+ * Felles implementasjon for måned-, uke-, to-ukers-, timegrid- og dagvisning.
+ * Alle nås via `/kalender?vis=...`, slik at visningsbyttet og URL-en alltid
+ * stemmer.
  *
  * `dato` er ankerdatoen for visningen. FullCalendar oppdaterer den ved
  * navigering, slik at refresh, deling og tilbake-navigering beholder perioden.
@@ -54,11 +58,11 @@ export default async function CalendarViewPage({
   if (!hasPermission(user, "workorders.view")) redirect("/");
 
   const canCreate = hasPermission(user, "workorders.create");
-  // Dato-API-et krever workorders.update, ikke workorders.edit. Montørene skal
-  // kunne flytte feltjobber i egen avdeling, så kalenderen tilbyr dra-og-slipp
-  // til alle som faktisk kan lagre datoen. Den fulle redigeringssiden krever
-  // fortsatt workorders.edit og styres separat.
-  const canReschedule = hasPermission(user, "workorders.update");
+  // Flytting av en visitt er en planleggingshandling og krever
+  // workorders.assign, samme rettighet som PATCH /api/visits/[id] håndhever.
+  // Kalenderen skal derfor ikke tilby dra-og-slipp til brukere som bare kan
+  // oppdatere et oppdrag.
+  const canReschedule = hasPermission(user, "workorders.assign");
   const canEdit = hasPermission(user, "workorders.edit");
   const canDispatch = hasPermission(user, "workorders.assign");
   const canReports = hasPermission(user, "reports.view");
@@ -69,13 +73,15 @@ export default async function CalendarViewPage({
   const initialDate = normalizeCalendarDate(date, today);
   const todayDate = parseDateOnly(today) ?? new Date();
 
-  // Hent oppdrag i en bred datoøk (6 måneder bakover og fremover), slik at
+  // Hent visiter i en bred datoøk (6 måneder bakover og fremover), slik at
   // FullCalendar kan navigere uten å hente nye data for hver visning. Både
   // vinduet og 1000-grensen vises for brukeren lenger ned.
   const sixMonthsAgo = addMonthsUtc(todayDate, -6);
   const sixMonthsAhead = addMonthsUtc(todayDate, 6);
   const windowStart = toDateOnly(sixMonthsAgo);
   const windowEnd = toDateOnly(sixMonthsAhead);
+  const windowStartInstant = osloDayStart(windowStart);
+  const windowEndInstant = osloDayStart(toDateOnly(addDaysUtc(sixMonthsAhead, 1)));
 
   const technicians = await prisma.user.findMany({
     where: staffScope(user),
@@ -98,51 +104,48 @@ export default async function CalendarViewPage({
     ) ?? "";
   const unassignedFilter = canDispatch && unassigned === "1";
 
-  const workOrders = await prisma.workOrder.findMany({
+  const workOrderFilter: Prisma.WorkOrderWhereInput = {
+    AND: [
+      workOrderScope(user),
+      { status: statusFilter || { not: "CANCELLED" } },
+    ],
+  };
+
+  // Kalenderen planlegger visiter, ikke oppdragets avledede datoperiode.
+  // Uten visiter vises ingen hendelse – vi lager aldri en syntetisk tid for
+  // et eldre oppdrag. Montør- og ufordelt-filteret gjelder visittens egne
+  // montører, som er den faktiske bemanningen av tidsblokken.
+  const visits = await prisma.visit.findMany({
     where: {
-      AND: [
-        workOrderScope(user),
-        {
-          status: statusFilter || { not: "CANCELLED" },
-          scheduledFor: { not: null, lte: sixMonthsAhead },
-          OR: [
-            { scheduledFor: { gte: sixMonthsAgo } },
-            // Tar med oppdrag som startet før vinduet og varer inn i det.
-            { scheduledTo: { gte: sixMonthsAgo } },
-          ],
-          ...(technicianFilter
-            ? { technicians: { some: { id: technicianFilter } } }
-            : {}),
-          ...(unassignedFilter ? { technicians: { none: {} } } : {}),
-        },
-      ],
+      startsAt: { lt: windowEndInstant },
+      endsAt: { gt: windowStartInstant },
+      status: { not: "CANCELLED" },
+      workOrder: workOrderFilter,
+      ...(technicianFilter
+        ? { technicians: { some: { userId: technicianFilter } } }
+        : {}),
+      ...(unassignedFilter ? { technicians: { none: {} } } : {}),
     },
     include: {
-      customer: true,
-      technicians: true,
+      technicians: {
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+      workOrder: {
+        include: { customer: true },
+      },
     },
-    orderBy: {
-      scheduledFor: "asc",
-    },
+    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
     take: 1000,
   });
 
-  const events = workOrders.flatMap((workOrder) => {
-    const event = toCalendarEvent(workOrder);
-    return event
-      ? [
-          {
-            ...event,
-            extendedProps: {
-              ...event.extendedProps,
-              status: workOrder.status,
-            },
-          },
-        ]
-      : [];
+  const events = visits.flatMap((visit) => {
+    const event = toVisitCalendarEvent(visit);
+    return event ? [event] : [];
   });
 
-  const truncated = workOrders.length >= 1000;
+  const truncated = visits.length >= 1000;
   const tabQuery: CalendarTabQuery = {
     date: initialDate,
     technician: technicianFilter,
@@ -180,6 +183,15 @@ export default async function CalendarViewPage({
         technicians={technicians}
         showUnassigned={canDispatch}
       />
+
+      {visits.length === 0 && (
+        <div
+          role="status"
+          className="office-card px-4 py-3 text-sm font-medium text-[var(--muted,#62685f)]"
+        >
+          {t("calendar.visit.empty")}
+        </div>
+      )}
 
       <div
         className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs sm:px-4 ${

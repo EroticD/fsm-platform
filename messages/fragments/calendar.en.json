@@ -6,6 +6,8 @@
       "month": "Month",
       "week": "Week",
       "biweekly": "2 weeks",
+      "timeWeek": "Week (time)",
+      "timeDay": "Day",
       "dispatch": "Dispatch",
       "noDate": "No date",
       "noCustomer": "No customer",
@@ -32,8 +34,8 @@
       "reset": "Reset"
     },
     "window": {
-      "notice": "Work orders are loaded from {from} to {to} (±6 months). Periods outside the window may be missing work orders.",
-      "truncated": "A maximum of 1000 work orders is loaded. Some work orders in this period are not shown."
+      "notice": "Planned visits are loaded from {from} to {to} (±6 months). Periods outside the window may be missing visits.",
+      "truncated": "A maximum of 1000 visits is loaded. Some visits in this period are not shown."
     },
     "page": {
       "eyebrow": "Planning",
@@ -57,17 +59,28 @@
       "completed": "Completed"
     },
     "month": {
-      "subtitle": "Month view with week numbers. Drag work orders to change the date."
+      "subtitle": "Month view with week numbers. Drag visits to change the date and time."
     },
     "week": {
-      "subtitle": "Week view with week numbers. Drag work orders to change the date."
+      "subtitle": "Week view with week numbers. Drag visits to change the date and time."
     },
     "biweekly": {
-      "subtitle": "Two-week view with week numbers. Drag work orders to change the date."
+      "subtitle": "Two-week view with week numbers. Drag visits to change the date and time."
+    },
+    "timeWeek": {
+      "subtitle": "Week view with times, an all-day lane and week numbers. Drag visits to move them."
+    },
+    "day": {
+      "subtitle": "Day view with times and an all-day lane. Drag visits to move them."
+    },
+    "visit": {
+      "allDay": "All day",
+      "timeRange": "{start}–{end}",
+      "empty": "No planned visits in this period."
     },
     "dispatch": {
       "title": "Dispatch",
-      "subtitle": "Assign technicians to open work orders.",
+      "subtitle": "Assign technicians to planned visits.",
       "invalidStatus": "The status change is not allowed from the current state of the work order. Completed or cancelled work orders can only be reopened by an administrator.",
       "genericError": "The action could not be completed. Check the fields and try again.",
       "unassignedCount": "Without technician ({count})",
@@ -80,28 +93,36 @@
       "viewDetails": "View details",
       "empty": "No open work orders to assign.",
       "unassignedLane": "No technician",
-      "laneEmpty": "No work orders",
-      "dropHere": "Drop here to move to {name}",
-      "unassignDropHint": "Drop a card here to remove the source technician. Other technicians on the work order are kept.",
+      "laneEmpty": "No visits",
+      "dropHere": "Drop here to move the visit to {name}",
+      "unassignDropHint": "Drop a card here to remove the source technician. Other technicians on the visit are kept.",
       "assignTo": "Add technician",
       "removeTechnician": "Remove {name}",
-      "removeTechnicianAria": "Remove {name} from the work order",
+      "removeTechnicianAria": "Remove {name} from the visit",
       "statusFor": "Status for {title}",
-      "boardHint": "Drag a work order to a technician column to move it. Drop it on «No technician» to remove the source technician. Use the «Add» form to add an extra technician.",
+      "boardHint": "Drag a visit to a technician column to move it. Drop it on «No technician» to remove the source technician. Use the «Add» form to add an extra technician.",
       "attentionTitle": "Overdue / Unassigned",
       "attentionHint": "Always shown, regardless of the selected date range. The card is not moved into a date column.",
+      "attentionCount": "{count, plural, one {# work order} other {# work orders}}",
       "overdue": "Overdue",
       "dayCount": "{count, plural, one {# work order} other {# work orders}}",
+      "visitDayCount": "{count, plural, one {# visit} other {# visits}}",
       "resultRange": "Showing {from}–{to} of {total} work orders",
+      "resultRangeVisits": "Showing {from}–{to} of {total} scheduled blocks",
+      "noVisits": "No planned visits in the selected period.",
+      "visitStatusFor": "Visit status for {title}",
+      "visitOverlapError": "The move is not possible: a technician already has an overlapping visit.",
+      "visitLockedError": "The visit is completed or cancelled and cannot be changed.",
+      "visitStatusError": "That status change is not allowed for the visit.",
       "pagePrevious": "Previous",
       "pageNext": "Next",
       "pageOf": "Page {page} of {total}",
       "pages": "Pages",
-      "rowErrorNoAccess": "You do not have permission to change this work order.",
+      "rowErrorNoAccess": "You do not have permission to change this visit.",
       "rowErrorInvalidData": "The fields are invalid. Select a technician and try again.",
-      "rowErrorNoChange": "The work order is already assigned to this technician, or the technician is no longer on it.",
-      "rowErrorNotFound": "The work order no longer exists. Refresh the page.",
-      "rowErrorLocked": "The work order is completed or cancelled and cannot be changed.",
+      "rowErrorNoChange": "The visit is already assigned to this technician, or the technician is no longer on it.",
+      "rowErrorNotFound": "The visit no longer exists. Refresh the page.",
+      "rowErrorLocked": "The visit is completed or cancelled and cannot be changed.",
       "rowErrorLegalHold": "The work order has a legal hold and cannot be changed.",
       "rowErrorUnknown": "The action could not be completed. Try again.",
       "filters": {
@@ -111,7 +132,7 @@
         "searchPlaceholder": "Title, customer, address or order number",
         "apply": "Apply filter",
         "clear": "Reset",
-        "rangeError": "The from date cannot be after the to date. Correct the dates to see work orders.",
+        "rangeError": "The from date cannot be after the to date. Correct the dates to see visits.",
         "dateError": "One of the dates is invalid. Use the format YYYY-MM-DD."
       }
     },
@@ -120,7 +141,17 @@
       "month": "Month",
       "week": "Week",
       "biweekly": "2 weeks",
-      "saveError": "Could not save the new date."
+      "timeWeek": "Week (time)",
+      "timeDay": "Day",
+      "saveError": "Could not save the new date.",
+      "visitErrorSession": "Your session has expired. Sign in again and try once more.",
+      "visitErrorForbidden": "You do not have permission to move visits.",
+      "visitErrorNotFound": "The visit no longer exists. Refresh the page.",
+      "visitErrorInvalid": "The time range is invalid. The visit was moved back.",
+      "visitErrorOverlap": "The visit overlaps another visit for the same technician. The move was not saved.",
+      "visitErrorConflict": "The visit could not be moved because it is locked or in conflict. The move was not saved.",
+      "visitErrorRateLimited": "Too many moves in a short time. Wait a moment and try again.",
+      "visitErrorUnknown": "Could not move the visit. The move was not saved."
     },
     "a11y": {
       "previous": "Previous period",

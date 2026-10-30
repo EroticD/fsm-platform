@@ -33,7 +33,7 @@ type CalendarViewParam = {
   subtitleKey: string;
 };
 
-// Én kalenderrute, tre visninger. De gamle rutene redirecter hit.
+// Én kalenderrute, seks visninger. De gamle rutene redirecter hit.
 const CALENDAR_VIEWS: Record<string, CalendarViewParam> = {
   maned: {
     view: "dayGridMonth",
@@ -52,6 +52,18 @@ const CALENDAR_VIEWS: Record<string, CalendarViewParam> = {
     visParam: "2uker",
     active: "biweekly",
     subtitleKey: "calendar.biweekly.subtitle",
+  },
+  timegrid: {
+    view: "timeGridWeek",
+    visParam: "timegrid",
+    active: "timeWeek",
+    subtitleKey: "calendar.timeWeek.subtitle",
+  },
+  dag: {
+    view: "timeGridDay",
+    visParam: "dag",
+    active: "timeDay",
+    subtitleKey: "calendar.day.subtitle",
   },
 };
 

@@ -6,6 +6,8 @@
       "month": "Måned",
       "week": "Uke",
       "biweekly": "2 uker",
+      "timeWeek": "Uke (time)",
+      "timeDay": "Dag",
       "dispatch": "Dispatch",
       "noDate": "Ingen dato",
       "noCustomer": "Uten kunde",
@@ -32,8 +34,8 @@
       "reset": "Nullstill"
     },
     "window": {
-      "notice": "Oppdrag hentes fra {from} til {to} (±6 måneder). Perioder utenfor vinduet kan mangle oppdrag.",
-      "truncated": "Maks 1000 oppdrag er lastet. Noen oppdrag i denne perioden vises ikke."
+      "notice": "Planlagte visiter hentes fra {from} til {to} (±6 måneder). Perioder utenfor vinduet kan mangle visiter.",
+      "truncated": "Maks 1000 visiter er lastet. Noen visiter i denne perioden vises ikke."
     },
     "page": {
       "eyebrow": "Planlegging",
@@ -57,17 +59,28 @@
       "completed": "Fullført"
     },
     "month": {
-      "subtitle": "Månedsvisning med ukenumre. Dra oppdrag for å endre dato."
+      "subtitle": "Månedsvisning med ukenumre. Dra visiter for å endre dato og tid."
     },
     "week": {
-      "subtitle": "Ukevisning med ukenumre. Dra oppdrag for å endre dato."
+      "subtitle": "Ukevisning med ukenumre. Dra visiter for å endre dato og tid."
     },
     "biweekly": {
-      "subtitle": "To-ukers visning med ukenumre. Dra oppdrag for å endre dato."
+      "subtitle": "To-ukers visning med ukenumre. Dra visiter for å endre dato og tid."
+    },
+    "timeWeek": {
+      "subtitle": "Ukevisning med klokkeslett, heldagsbane og ukenumre. Dra visiter for å flytte dem."
+    },
+    "day": {
+      "subtitle": "Dagsvisning med klokkeslett og heldagsbane. Dra visiter for å flytte dem."
+    },
+    "visit": {
+      "allDay": "Hele dagen",
+      "timeRange": "{start}–{end}",
+      "empty": "Ingen planlagte visiter i denne perioden."
     },
     "dispatch": {
       "title": "Dispatch",
-      "subtitle": "Fordel montører på åpne oppdrag.",
+      "subtitle": "Fordel montører på planlagte visiter.",
       "invalidStatus": "Statusendringen er ikke lovlig fra oppdragets nåværende tilstand. Fullførte eller kansellerte oppdrag kan bare gjenåpnes av en administrator.",
       "genericError": "Handlingen kunne ikke utføres. Sjekk feltene og prøv igjen.",
       "unassignedCount": "Uten montør ({count})",
@@ -80,28 +93,36 @@
       "viewDetails": "Se detaljer",
       "empty": "Ingen åpne oppdrag å fordele.",
       "unassignedLane": "Uten montør",
-      "laneEmpty": "Ingen oppdrag",
-      "dropHere": "Slipp her for å flytte til {name}",
-      "unassignDropHint": "Slipp et kort her for å fjerne kilden montør. Andre montører på oppdraget beholdes.",
+      "laneEmpty": "Ingen visiter",
+      "dropHere": "Slipp her for å flytte visitten til {name}",
+      "unassignDropHint": "Slipp et kort her for å fjerne kilden montør. Andre montører på visitten beholdes.",
       "assignTo": "Legg til montør",
       "removeTechnician": "Fjern {name}",
-      "removeTechnicianAria": "Fjern {name} fra oppdraget",
+      "removeTechnicianAria": "Fjern {name} fra visitten",
       "statusFor": "Status for {title}",
-      "boardHint": "Dra et oppdrag til en montørs kolonne for å flytte det. Slipp på «Uten montør» for å fjerne kilden montør. Bruk «Legg til»-skjemaet for å sette på en ekstra montør.",
+      "boardHint": "Dra en visitt til en montørs kolonne for å flytte den. Slipp på «Uten montør» for å fjerne kilden montør. Bruk «Legg til»-skjemaet for å sette på en ekstra montør.",
       "attentionTitle": "Forfalte / Ufordelte",
       "attentionHint": "Vises alltid, uavhengig av valgt datoperiode. Kortet flyttes ikke til datokolonnen.",
+      "attentionCount": "{count, plural, one {# oppdrag} other {# oppdrag}}",
       "overdue": "Forfalt",
       "dayCount": "{count, plural, one {# oppdrag} other {# oppdrag}}",
+      "visitDayCount": "{count, plural, one {# visitt} other {# visiter}}",
       "resultRange": "Viser {from}–{to} av {total} oppdrag",
+      "resultRangeVisits": "Viser {from}–{to} av {total} planlagte blokker",
+      "noVisits": "Ingen planlagte visiter i valgt periode.",
+      "visitStatusFor": "Visittstatus for {title}",
+      "visitOverlapError": "Flyttingen er ikke mulig: en montør har allerede en overlappende visitt.",
+      "visitLockedError": "Visitten er fullført eller kansellert og kan ikke endres.",
+      "visitStatusError": "Statusendringen er ikke tillatt for visitten.",
       "pagePrevious": "Forrige",
       "pageNext": "Neste",
       "pageOf": "Side {page} av {total}",
       "pages": "Sider",
-      "rowErrorNoAccess": "Du har ikke tilgang til å endre dette oppdraget.",
+      "rowErrorNoAccess": "Du har ikke tilgang til å endre denne visitten.",
       "rowErrorInvalidData": "Feltene er ugyldige. Velg en montør og prøv igjen.",
-      "rowErrorNoChange": "Oppdraget er allerede tildelt denne montøren, eller montøren står ikke lenger på oppdraget.",
-      "rowErrorNotFound": "Oppdraget finnes ikke lenger. Oppdater siden.",
-      "rowErrorLocked": "Oppdraget er fullført eller kansellert og kan ikke endres.",
+      "rowErrorNoChange": "Visitten er allerede tildelt denne montøren, eller montøren står ikke lenger på visitten.",
+      "rowErrorNotFound": "Visitten finnes ikke lenger. Oppdater siden.",
+      "rowErrorLocked": "Visitten er fullført eller kansellert og kan ikke endres.",
       "rowErrorLegalHold": "Oppdraget har bevaringsplikt og kan ikke endres.",
       "rowErrorUnknown": "Handlingen kunne ikke utføres. Prøv igjen.",
       "filters": {
@@ -111,7 +132,7 @@
         "searchPlaceholder": "Tittel, kunde, adresse eller ordrenummer",
         "apply": "Bruk filter",
         "clear": "Nullstill",
-        "rangeError": "Fra-dato kan ikke være etter til-dato. Rett opp datoene for å se oppdrag.",
+        "rangeError": "Fra-dato kan ikke være etter til-dato. Rett opp datoene for å se visiter.",
         "dateError": "En av datoene er ugyldig. Bruk formatet ÅÅÅÅ-MM-DD."
       }
     },
@@ -120,7 +141,17 @@
       "month": "Måned",
       "week": "Uke",
       "biweekly": "2 uker",
-      "saveError": "Kunne ikke lagre den nye datoen."
+      "timeWeek": "Uke (time)",
+      "timeDay": "Dag",
+      "saveError": "Kunne ikke lagre den nye datoen.",
+      "visitErrorSession": "Økten er utløpt. Logg inn på nytt og prøv igjen.",
+      "visitErrorForbidden": "Du har ikke tilgang til å flytte visiter.",
+      "visitErrorNotFound": "Visitten finnes ikke lenger. Oppdater siden.",
+      "visitErrorInvalid": "Tidsrommet er ugyldig. Visitten er flyttet tilbake.",
+      "visitErrorOverlap": "Visitten overlapper en annen visitt for samme montør. Flyttingen er ikke lagret.",
+      "visitErrorConflict": "Visitten kunne ikke flyttes fordi den er låst eller i konflikt. Flyttingen er ikke lagret.",
+      "visitErrorRateLimited": "For mange flyttinger på kort tid. Vent litt og prøv igjen.",
+      "visitErrorUnknown": "Kunne ikke flytte visitten. Flyttingen er ikke lagret."
     },
     "a11y": {
       "previous": "Forrige periode",

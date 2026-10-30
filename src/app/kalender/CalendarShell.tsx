@@ -17,8 +17,9 @@ const EYEBROW =
 
 /**
  * Felles ramme for alle kalenderflatene: ressursoversikt, måned, uke,
- * to uker og dispatch. Ett tydelig sidehode («Kalender»), periode,
- * fanebyte og primærhandlingen «Nytt oppdrag» – uten dupliserte titler.
+ * to uker, timegrid, dag og dispatch. Ett tydelig sidehode («Kalender»),
+ * periode, fanebyte og primærhandlingen «Nytt oppdrag» – uten dupliserte
+ * titler.
  */
 export default async function CalendarShell({
   active,
