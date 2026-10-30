@@ -1159,6 +1159,7 @@ export async function getCapacityOverview(
       select: {
         startsAt: true,
         endsAt: true,
+        allDay: true,
         technicians: { select: { userId: true } },
         workOrder: { select: { departmentId: true } },
       },
@@ -1199,20 +1200,27 @@ export async function getCapacityOverview(
   const loadByTech = new Map<string, { minutes: number; visits: number }>();
   for (const visit of visits) {
     const date = dateOnlyInOslo(visit.startsAt);
-    const minutes = Math.max(
-      0,
-      Math.round(
-        (Math.min(
-          visit.endsAt.getTime(),
-          osloDayStart(toDateOnly(addDaysUtc(parseDateOnly(date)!, 1))).getTime(),
-        ) -
-          Math.max(
-            visit.startsAt.getTime(),
-            osloDayStart(date).getTime(),
-          )) /
-          60_000,
-      ),
-    );
+    // En heldagsvisitt er en planleggingsmarkør for hele arbeidsdagen, ikke
+    // 23–25 timer faktisk arbeid. Tell den som én normal arbeidsdag (8 t) slik
+    // at kapasitetsvisningen ikke viser 300–900 % for vanlige heldagsoppdrag.
+    const minutes = visit.allDay
+      ? 8 * 60
+      : Math.max(
+          0,
+          Math.round(
+            (Math.min(
+              visit.endsAt.getTime(),
+              osloDayStart(
+                toDateOnly(addDaysUtc(parseDateOnly(date)!, 1)),
+              ).getTime(),
+            ) -
+              Math.max(
+                visit.startsAt.getTime(),
+                osloDayStart(date).getTime(),
+              )) /
+              60_000,
+          ),
+        );
     for (const technician of visit.technicians) {
       const key = `${technician.userId}:${date}`;
       const current = loadByTech.get(key) ?? { minutes: 0, visits: 0 };

@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-30T19:45:05.306Z",
+  "generatedAt": "2026-10-30T22:52:49.837Z",
   "appVersion": "0.8.0",
   "baseUrl": "http://127.0.0.1:3100",
   "database": "fsm_ui_e2e (isolert E2E-database)",
   "fixtures": {
-    "customerId": "cmvvda5k80004gxfj9a7ucnyj",
-    "workOrderId": "cmvvda5nb000ogxfjh9kgl3qj",
-    "reportedWorkOrderId": "cmvvda5ok000ugxfjcz544c7i",
-    "reportId": "cmvvda5py0010gxfj8okc7500",
-    "productId": "cmvvda5l0000bgxfj4hcat50m",
-    "documentId": "cmvvda5qx0015gxfjo3ti6pnr",
-    "folderId": "cmvvda5qa0013gxfj8pkj6usd",
-    "templateId": "cmvvda5lt000igxfjgsoxihs2"
+    "customerId": "cmvvj42n70004e6fj3vyd9dsh",
+    "workOrderId": "cmvvj42qj000oe6fj8lcq5xx1",
+    "reportedWorkOrderId": "cmvvj42ro000ue6fj7jz87pzg",
+    "reportId": "cmvvj42sf0010e6fjih89gebc",
+    "productId": "cmvvj42nz000be6fjqetbtc2h",
+    "documentId": "cmvvj42tm0015e6fjt3jl3nhk",
+    "folderId": "cmvvj42su0013e6fjza68zbfz",
+    "templateId": "cmvvj42ow000ie6fj4jkb06nu"
   },
   "viewports": {
     "desktop": {
@@ -25,10 +25,10 @@
     }
   },
   "counts": {
-    "routes": 60,
-    "captures": 120,
-    "expectedCaptures": 120,
-    "skippedRoutes": 6,
+    "routes": 78,
+    "captures": 156,
+    "expectedCaptures": 156,
+    "skippedRoutes": 8,
     "legacyScreenshots": 15,
     "failures": 0
   },
@@ -45,7 +45,7 @@
         "width": 1440,
         "height": 900,
         "bytes": 25503,
-        "capturedAt": "2026-10-30T19:41:18.959Z",
+        "capturedAt": "2026-10-30T22:48:00.194Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/logg-inn",
         "finalPath": "/logg-inn",
@@ -62,7 +62,7 @@
         "width": 390,
         "height": 844,
         "bytes": 18388,
-        "capturedAt": "2026-10-30T19:43:14.058Z",
+        "capturedAt": "2026-10-30T22:50:27.481Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/logg-inn",
         "finalPath": "/logg-inn",
@@ -87,7 +87,7 @@
         "width": 1440,
         "height": 900,
         "bytes": 52521,
-        "capturedAt": "2026-10-30T19:41:20.485Z",
+        "capturedAt": "2026-10-30T22:48:01.744Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/glemt-passord",
         "finalPath": "/glemt-passord",
@@ -104,7 +104,7 @@
         "width": 390,
         "height": 844,
         "bytes": 25370,
-        "capturedAt": "2026-10-30T19:43:15.550Z",
+        "capturedAt": "2026-10-30T22:50:28.978Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/glemt-passord",
         "finalPath": "/glemt-passord",
@@ -129,7 +129,7 @@
         "width": 1440,
         "height": 900,
         "bytes": 47878,
-        "capturedAt": "2026-10-30T19:41:21.966Z",
+        "capturedAt": "2026-10-30T22:48:03.223Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/tilbakestill-passord",
         "finalPath": "/tilbakestill-passord",
@@ -146,7 +146,7 @@
         "width": 390,
         "height": 844,
         "bytes": 22730,
-        "capturedAt": "2026-10-30T19:43:17.047Z",
+        "capturedAt": "2026-10-30T22:50:30.443Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/tilbakestill-passord",
         "finalPath": "/tilbakestill-passord",
@@ -171,7 +171,7 @@
         "width": 1440,
         "height": 900,
         "bytes": 47987,
-        "capturedAt": "2026-10-30T19:41:23.397Z",
+        "capturedAt": "2026-10-30T22:48:04.691Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/aktiver-konto",
         "finalPath": "/aktiver-konto",
@@ -188,7 +188,7 @@
         "width": 390,
         "height": 844,
         "bytes": 22571,
-        "capturedAt": "2026-10-30T19:43:18.481Z",
+        "capturedAt": "2026-10-30T22:50:31.882Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/aktiver-konto",
         "finalPath": "/aktiver-konto",
@@ -213,7 +213,7 @@
         "width": 1440,
         "height": 900,
         "bytes": 55165,
-        "capturedAt": "2026-10-30T19:41:24.909Z",
+        "capturedAt": "2026-10-30T22:48:06.214Z",
         "httpStatus": 404,
         "finalUrl": "http://127.0.0.1:3100/finnes-ikke",
         "finalPath": "/finnes-ikke",
@@ -230,7 +230,7 @@
         "width": 390,
         "height": 844,
         "bytes": 24830,
-        "capturedAt": "2026-10-30T19:43:19.941Z",
+        "capturedAt": "2026-10-30T22:50:33.410Z",
         "httpStatus": 404,
         "finalUrl": "http://127.0.0.1:3100/finnes-ikke",
         "finalPath": "/finnes-ikke",
@@ -253,9 +253,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/dashbord.jpg",
         "width": 1440,
-        "height": 1181,
-        "bytes": 164175,
-        "capturedAt": "2026-10-30T19:41:26.751Z",
+        "height": 1583,
+        "bytes": 212307,
+        "capturedAt": "2026-10-30T22:48:08.210Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/",
         "finalPath": "/",
@@ -263,22 +263,22 @@
         "h1": [
           "Planlegging"
         ],
-        "bodyTextLength": 1345,
+        "bodyTextLength": 1821,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/01-dashbord.png",
           "width": 1440,
-          "height": 1181,
-          "bytes": 187977,
-          "capturedAt": "2026-10-30T19:41:26.751Z"
+          "height": 1583,
+          "bytes": 241369,
+          "capturedAt": "2026-10-30T22:48:08.210Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/dashbord.jpg",
         "width": 390,
-        "height": 2443,
-        "bytes": 129778,
-        "capturedAt": "2026-10-30T19:43:21.919Z",
+        "height": 3376,
+        "bytes": 169812,
+        "capturedAt": "2026-10-30T22:50:35.423Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/",
         "finalPath": "/",
@@ -286,14 +286,14 @@
         "h1": [
           "Planlegging"
         ],
-        "bodyTextLength": 1290,
+        "bodyTextLength": 1756,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/12-mobil-dashbord.png",
           "width": 390,
-          "height": 2443,
-          "bytes": 163746,
-          "capturedAt": "2026-10-30T19:43:21.919Z"
+          "height": 3376,
+          "bytes": 224481,
+          "capturedAt": "2026-10-30T22:50:35.423Z"
         }
       }
     },
@@ -307,9 +307,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/dashbord-tavle.jpg",
         "width": 1440,
-        "height": 1181,
-        "bytes": 167911,
-        "capturedAt": "2026-10-30T19:41:28.727Z",
+        "height": 1583,
+        "bytes": 214778,
+        "capturedAt": "2026-10-30T22:48:10.274Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/?vis=tavle",
         "finalPath": "/",
@@ -317,16 +317,16 @@
         "h1": [
           "Planlegging"
         ],
-        "bodyTextLength": 1373,
+        "bodyTextLength": 1849,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/dashbord-tavle.jpg",
         "width": 390,
-        "height": 2281,
-        "bytes": 113890,
-        "capturedAt": "2026-10-30T19:43:23.938Z",
+        "height": 3214,
+        "bytes": 154425,
+        "capturedAt": "2026-10-30T22:50:37.509Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/?vis=tavle",
         "finalPath": "/",
@@ -334,7 +334,7 @@
         "h1": [
           "Planlegging"
         ],
-        "bodyTextLength": 1318,
+        "bodyTextLength": 1784,
         "imageFailures": [],
         "legacy": null
       }
@@ -350,8 +350,8 @@
         "file": "screenshots/pages/desktop/oppdrag.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 146523,
-        "capturedAt": "2026-10-30T19:41:30.344Z",
+        "bytes": 150090,
+        "capturedAt": "2026-10-30T22:48:12.162Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag",
         "finalPath": "/oppdrag",
@@ -359,22 +359,22 @@
         "h1": [
           "Aktive6 oppdrag"
         ],
-        "bodyTextLength": 1372,
+        "bodyTextLength": 1444,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/02-oppdrag.png",
           "width": 1440,
           "height": 993,
-          "bytes": 165013,
-          "capturedAt": "2026-10-30T19:41:30.344Z"
+          "bytes": 168198,
+          "capturedAt": "2026-10-30T22:48:12.162Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/oppdrag.jpg",
         "width": 390,
-        "height": 1505,
-        "bytes": 90831,
-        "capturedAt": "2026-10-30T19:43:25.556Z",
+        "height": 1559,
+        "bytes": 93406,
+        "capturedAt": "2026-10-30T22:50:39.151Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag",
         "finalPath": "/oppdrag",
@@ -382,7 +382,7 @@
         "h1": [
           "Aktive6 oppdrag"
         ],
-        "bodyTextLength": 1265,
+        "bodyTextLength": 1327,
         "imageFailures": [],
         "legacy": null
       }
@@ -398,8 +398,8 @@
         "file": "screenshots/pages/desktop/oppdrag-ny.jpg",
         "width": 1440,
         "height": 2219,
-        "bytes": 210968,
-        "capturedAt": "2026-10-30T19:41:32.129Z",
+        "bytes": 211727,
+        "capturedAt": "2026-10-30T22:48:13.935Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/ny",
         "finalPath": "/oppdrag/ny",
@@ -407,7 +407,7 @@
         "h1": [
           "Opprett nytt oppdrag"
         ],
-        "bodyTextLength": 1460,
+        "bodyTextLength": 1470,
         "imageFailures": [],
         "legacy": null
       },
@@ -416,7 +416,7 @@
         "width": 390,
         "height": 2660,
         "bytes": 133695,
-        "capturedAt": "2026-10-30T19:43:27.190Z",
+        "capturedAt": "2026-10-30T22:50:40.756Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/ny",
         "finalPath": "/oppdrag/ny",
@@ -440,8 +440,8 @@
         "file": "screenshots/pages/desktop/oppdrag-slettede.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 82718,
-        "capturedAt": "2026-10-30T19:41:33.672Z",
+        "bytes": 83526,
+        "capturedAt": "2026-10-30T22:48:15.494Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/slettede",
         "finalPath": "/oppdrag/slettede",
@@ -449,7 +449,7 @@
         "h1": [
           "Papirkurv"
         ],
-        "bodyTextLength": 560,
+        "bodyTextLength": 570,
         "imageFailures": [],
         "legacy": null
       },
@@ -458,7 +458,7 @@
         "width": 390,
         "height": 1102,
         "bytes": 45266,
-        "capturedAt": "2026-10-30T19:43:28.735Z",
+        "capturedAt": "2026-10-30T22:50:42.279Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/slettede",
         "finalPath": "/oppdrag/slettede",
@@ -472,7 +472,7 @@
       }
     },
     {
-      "route": "/oppdrag/cmvvda5nb000ogxfjh9kgl3qj",
+      "route": "/oppdrag/cmvvj42qj000oe6fj8lcq5xx1",
       "slug": "oppdrag-detalj",
       "role": "admin",
       "title": "Oppdragsdetalj – Feilsøking – portåpner",
@@ -481,46 +481,46 @@
       "desktop": {
         "file": "screenshots/pages/desktop/oppdrag-detalj.jpg",
         "width": 1440,
-        "height": 2340,
-        "bytes": 241267,
-        "capturedAt": "2026-10-30T19:41:35.659Z",
+        "height": 2388,
+        "bytes": 253515,
+        "capturedAt": "2026-10-30T22:48:17.267Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvda5nb000ogxfjh9kgl3qj",
-        "finalPath": "/oppdrag/cmvvda5nb000ogxfjh9kgl3qj",
+        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvj42qj000oe6fj8lcq5xx1",
+        "finalPath": "/oppdrag/cmvvj42qj000oe6fj8lcq5xx1",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Feilsøking – portåpner"
         ],
-        "bodyTextLength": 2030,
+        "bodyTextLength": 2176,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/03-oppdrag-detalj.png",
           "width": 1440,
-          "height": 2340,
-          "bytes": 245737,
-          "capturedAt": "2026-10-30T19:41:35.659Z"
+          "height": 2388,
+          "bytes": 259407,
+          "capturedAt": "2026-10-30T22:48:17.267Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/oppdrag-detalj.jpg",
         "width": 390,
-        "height": 3663,
-        "bytes": 173965,
-        "capturedAt": "2026-10-30T19:43:30.722Z",
+        "height": 3871,
+        "bytes": 184320,
+        "capturedAt": "2026-10-30T22:50:44.064Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvda5nb000ogxfjh9kgl3qj",
-        "finalPath": "/oppdrag/cmvvda5nb000ogxfjh9kgl3qj",
+        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvj42qj000oe6fj8lcq5xx1",
+        "finalPath": "/oppdrag/cmvvj42qj000oe6fj8lcq5xx1",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Feilsøking – portåpner"
         ],
-        "bodyTextLength": 1975,
+        "bodyTextLength": 2111,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/oppdrag/cmvvda5nb000ogxfjh9kgl3qj/rediger",
+      "route": "/oppdrag/cmvvj42qj000oe6fj8lcq5xx1/rediger",
       "slug": "oppdrag-rediger",
       "role": "admin",
       "title": "Rediger oppdrag",
@@ -530,16 +530,16 @@
         "file": "screenshots/pages/desktop/oppdrag-rediger.jpg",
         "width": 1440,
         "height": 2172,
-        "bytes": 200190,
-        "capturedAt": "2026-10-30T19:41:37.449Z",
+        "bytes": 200916,
+        "capturedAt": "2026-10-30T22:48:19.329Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvda5nb000ogxfjh9kgl3qj/rediger",
-        "finalPath": "/oppdrag/cmvvda5nb000ogxfjh9kgl3qj/rediger",
+        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvj42qj000oe6fj8lcq5xx1/rediger",
+        "finalPath": "/oppdrag/cmvvj42qj000oe6fj8lcq5xx1/rediger",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rediger Oppdrag"
         ],
-        "bodyTextLength": 1248,
+        "bodyTextLength": 1258,
         "imageFailures": [],
         "legacy": null
       },
@@ -548,10 +548,10 @@
         "width": 390,
         "height": 2691,
         "bytes": 125839,
-        "capturedAt": "2026-10-30T19:43:32.299Z",
+        "capturedAt": "2026-10-30T22:50:45.761Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvda5nb000ogxfjh9kgl3qj/rediger",
-        "finalPath": "/oppdrag/cmvvda5nb000ogxfjh9kgl3qj/rediger",
+        "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvvj42qj000oe6fj8lcq5xx1/rediger",
+        "finalPath": "/oppdrag/cmvvj42qj000oe6fj8lcq5xx1/rediger",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rediger Oppdrag"
@@ -572,8 +572,8 @@
         "file": "screenshots/pages/desktop/kalender.jpg",
         "width": 1440,
         "height": 1601,
-        "bytes": 166625,
-        "capturedAt": "2026-10-30T19:41:39.386Z",
+        "bytes": 168077,
+        "capturedAt": "2026-10-30T22:48:20.985Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender",
         "finalPath": "/kalender",
@@ -581,7 +581,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1535,
+        "bodyTextLength": 1555,
         "imageFailures": [],
         "legacy": null
       },
@@ -590,7 +590,7 @@
         "width": 390,
         "height": 2382,
         "bytes": 124076,
-        "capturedAt": "2026-10-30T19:43:34.191Z",
+        "capturedAt": "2026-10-30T22:50:47.367Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender",
         "finalPath": "/kalender",
@@ -598,7 +598,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1480,
+        "bodyTextLength": 1490,
         "imageFailures": [],
         "legacy": null
       }
@@ -614,8 +614,8 @@
         "file": "screenshots/pages/desktop/kalender-maned.jpg",
         "width": 1440,
         "height": 1576,
-        "bytes": 166147,
-        "capturedAt": "2026-10-30T19:41:41.286Z",
+        "bytes": 167552,
+        "capturedAt": "2026-10-30T22:48:22.888Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=maned&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -623,14 +623,14 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1491,
+        "bodyTextLength": 1511,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/04-kalender.png",
           "width": 1440,
           "height": 1576,
-          "bytes": 158727,
-          "capturedAt": "2026-10-30T19:41:41.286Z"
+          "bytes": 160428,
+          "capturedAt": "2026-10-30T22:48:22.888Z"
         }
       },
       "mobile": {
@@ -638,7 +638,7 @@
         "width": 390,
         "height": 1904,
         "bytes": 88224,
-        "capturedAt": "2026-10-30T19:43:36.012Z",
+        "capturedAt": "2026-10-30T22:50:49.222Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=maned&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -646,7 +646,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1436,
+        "bodyTextLength": 1446,
         "imageFailures": [],
         "legacy": null
       }
@@ -662,8 +662,8 @@
         "file": "screenshots/pages/desktop/kalender-uke.jpg",
         "width": 1440,
         "height": 1305,
-        "bytes": 137417,
-        "capturedAt": "2026-10-30T19:41:43.198Z",
+        "bytes": 138870,
+        "capturedAt": "2026-10-30T22:48:24.800Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=uke&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -671,7 +671,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1244,
+        "bodyTextLength": 1264,
         "imageFailures": [],
         "legacy": null
       },
@@ -680,7 +680,7 @@
         "width": 390,
         "height": 1693,
         "bytes": 75884,
-        "capturedAt": "2026-10-30T19:43:37.796Z",
+        "capturedAt": "2026-10-30T22:50:50.996Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=uke&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -688,7 +688,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1189,
+        "bodyTextLength": 1199,
         "imageFailures": [],
         "legacy": null
       }
@@ -704,8 +704,8 @@
         "file": "screenshots/pages/desktop/kalender-timeuke.jpg",
         "width": 1440,
         "height": 2356,
-        "bytes": 241398,
-        "capturedAt": "2026-10-30T19:41:45.078Z",
+        "bytes": 242984,
+        "capturedAt": "2026-10-30T22:48:26.751Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=timegrid&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -713,7 +713,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1346,
+        "bodyTextLength": 1366,
         "imageFailures": [],
         "legacy": null
       },
@@ -721,8 +721,8 @@
         "file": "screenshots/pages/mobile/kalender-timeuke.jpg",
         "width": 390,
         "height": 2876,
-        "bytes": 112291,
-        "capturedAt": "2026-10-30T19:43:39.650Z",
+        "bytes": 112122,
+        "capturedAt": "2026-10-30T22:50:52.852Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=timegrid&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -730,7 +730,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1291,
+        "bodyTextLength": 1301,
         "imageFailures": [],
         "legacy": null
       }
@@ -746,8 +746,8 @@
         "file": "screenshots/pages/desktop/kalender-dag.jpg",
         "width": 1440,
         "height": 2309,
-        "bytes": 236878,
-        "capturedAt": "2026-10-30T19:41:46.967Z",
+        "bytes": 241348,
+        "capturedAt": "2026-10-30T22:48:28.631Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=dag&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -755,7 +755,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1133,
+        "bodyTextLength": 1153,
         "imageFailures": [],
         "legacy": null
       },
@@ -763,8 +763,8 @@
         "file": "screenshots/pages/mobile/kalender-dag.jpg",
         "width": 390,
         "height": 2862,
-        "bytes": 115872,
-        "capturedAt": "2026-10-30T19:43:41.506Z",
+        "bytes": 115880,
+        "capturedAt": "2026-10-30T22:50:54.734Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=dag&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -772,7 +772,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1078,
+        "bodyTextLength": 1088,
         "imageFailures": [],
         "legacy": null
       }
@@ -788,8 +788,8 @@
         "file": "screenshots/pages/desktop/kalender-2uker.jpg",
         "width": 1440,
         "height": 1306,
-        "bytes": 147533,
-        "capturedAt": "2026-10-30T19:41:48.772Z",
+        "bytes": 148978,
+        "capturedAt": "2026-10-30T22:48:30.431Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=2uker&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -797,7 +797,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1388,
+        "bodyTextLength": 1408,
         "imageFailures": [],
         "legacy": null
       },
@@ -806,7 +806,7 @@
         "width": 390,
         "height": 1745,
         "bytes": 78216,
-        "capturedAt": "2026-10-30T19:43:43.316Z",
+        "capturedAt": "2026-10-30T22:50:56.533Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=2uker&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -814,7 +814,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1268,
+        "bodyTextLength": 1278,
         "imageFailures": [],
         "legacy": null
       }
@@ -829,9 +829,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/kalender-dispatch.jpg",
         "width": 1440,
-        "height": 2844,
-        "bytes": 315259,
-        "capturedAt": "2026-10-30T19:41:50.546Z",
+        "height": 3759,
+        "bytes": 391643,
+        "capturedAt": "2026-10-30T22:48:32.510Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender/dispatch",
         "finalPath": "/kalender/dispatch",
@@ -839,16 +839,16 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 3682,
+        "bodyTextLength": 4775,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kalender-dispatch.jpg",
         "width": 390,
-        "height": 3845,
-        "bytes": 125906,
-        "capturedAt": "2026-10-30T19:43:45.028Z",
+        "height": 4820,
+        "bytes": 140095,
+        "capturedAt": "2026-10-30T22:50:58.581Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender/dispatch",
         "finalPath": "/kalender/dispatch",
@@ -856,7 +856,49 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 3627,
+        "bodyTextLength": 4710,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kalender/kapasitet",
+      "slug": "kalender-kapasitet",
+      "role": "admin",
+      "title": "Kalender – kapasitet",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kalender-kapasitet.jpg",
+        "width": 1440,
+        "height": 1338,
+        "bytes": 165880,
+        "capturedAt": "2026-10-30T22:48:34.108Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kalender/kapasitet",
+        "finalPath": "/kalender/kapasitet",
+        "documentTitle": "Kapasitet · FSM-plattformen",
+        "h1": [
+          "Kalender"
+        ],
+        "bodyTextLength": 1576,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kalender-kapasitet.jpg",
+        "width": 390,
+        "height": 1969,
+        "bytes": 93621,
+        "capturedAt": "2026-10-30T22:51:00.181Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kalender/kapasitet",
+        "finalPath": "/kalender/kapasitet",
+        "documentTitle": "Kapasitet · FSM-plattformen",
+        "h1": [
+          "Kalender"
+        ],
+        "bodyTextLength": 1511,
         "imageFailures": [],
         "legacy": null
       }
@@ -871,9 +913,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/kart.jpg",
         "width": 1440,
-        "height": 2045,
-        "bytes": 255782,
-        "capturedAt": "2026-10-30T19:41:52.681Z",
+        "height": 2139,
+        "bytes": 266728,
+        "capturedAt": "2026-10-30T22:48:36.259Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kart",
         "finalPath": "/kart",
@@ -881,16 +923,16 @@
         "h1": [
           "Kart"
         ],
-        "bodyTextLength": 1699,
+        "bodyTextLength": 1830,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kart.jpg",
         "width": 390,
-        "height": 2868,
-        "bytes": 147969,
-        "capturedAt": "2026-10-30T19:43:47.327Z",
+        "height": 2970,
+        "bytes": 156856,
+        "capturedAt": "2026-10-30T22:51:02.310Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kart",
         "finalPath": "/kart",
@@ -898,7 +940,7 @@
         "h1": [
           "Kart"
         ],
-        "bodyTextLength": 1644,
+        "bodyTextLength": 1765,
         "imageFailures": [],
         "legacy": null
       }
@@ -914,8 +956,8 @@
         "file": "screenshots/pages/desktop/kunder.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 108022,
-        "capturedAt": "2026-10-30T19:41:54.242Z",
+        "bytes": 108701,
+        "capturedAt": "2026-10-30T22:48:37.852Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder",
         "finalPath": "/kunder",
@@ -923,14 +965,14 @@
         "h1": [
           "Kundekatalog3 kunder"
         ],
-        "bodyTextLength": 670,
+        "bodyTextLength": 680,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/05-kunder.png",
           "width": 1440,
           "height": 993,
-          "bytes": 102670,
-          "capturedAt": "2026-10-30T19:41:54.242Z"
+          "bytes": 103681,
+          "capturedAt": "2026-10-30T22:48:37.852Z"
         }
       },
       "mobile": {
@@ -938,7 +980,7 @@
         "width": 390,
         "height": 1437,
         "bytes": 79740,
-        "capturedAt": "2026-10-30T19:43:48.895Z",
+        "capturedAt": "2026-10-30T22:51:03.866Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder",
         "finalPath": "/kunder",
@@ -952,7 +994,91 @@
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oversikt",
+      "route": "/bookinger",
+      "slug": "bookinger",
+      "role": "admin",
+      "title": "Bookingkø",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/bookinger.jpg",
+        "width": 1440,
+        "height": 900,
+        "bytes": 73866,
+        "capturedAt": "2026-10-30T22:48:39.476Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/bookinger",
+        "finalPath": "/bookinger",
+        "documentTitle": "Bookingkø · FSM-plattformen",
+        "h1": [
+          "Bookingkø"
+        ],
+        "bodyTextLength": 458,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/bookinger.jpg",
+        "width": 390,
+        "height": 844,
+        "bytes": 35045,
+        "capturedAt": "2026-10-30T22:51:05.365Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/bookinger",
+        "finalPath": "/bookinger",
+        "documentTitle": "Bookingkø · FSM-plattformen",
+        "h1": [
+          "Bookingkø"
+        ],
+        "bodyTextLength": 393,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/avtaler",
+      "slug": "avtaler",
+      "role": "admin",
+      "title": "Serviceavtaler",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/avtaler.jpg",
+        "width": 1440,
+        "height": 993,
+        "bytes": 83146,
+        "capturedAt": "2026-10-30T22:48:41.050Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/avtaler",
+        "finalPath": "/avtaler",
+        "documentTitle": "Serviceavtaler · FSM-plattformen",
+        "h1": [
+          "Serviceavtaler"
+        ],
+        "bodyTextLength": 458,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/avtaler.jpg",
+        "width": 390,
+        "height": 1102,
+        "bytes": 41404,
+        "capturedAt": "2026-10-30T22:51:06.916Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/avtaler",
+        "finalPath": "/avtaler",
+        "documentTitle": "Serviceavtaler · FSM-plattformen",
+        "h1": [
+          "Serviceavtaler"
+        ],
+        "bodyTextLength": 393,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oversikt",
       "slug": "kunde-oversikt",
       "role": "admin",
       "title": "Kunde – Nordvik Testindustri AS – oversikt",
@@ -962,45 +1088,45 @@
         "file": "screenshots/pages/desktop/kunde-oversikt.jpg",
         "width": 1440,
         "height": 1193,
-        "bytes": 153061,
-        "capturedAt": "2026-10-30T19:41:56.258Z",
+        "bytes": 155242,
+        "capturedAt": "2026-10-30T22:48:43.039Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oversikt",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oversikt",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1148,
+        "bodyTextLength": 1168,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/06-kunde-detalj.png",
           "width": 1440,
           "height": 1193,
-          "bytes": 172436,
-          "capturedAt": "2026-10-30T19:41:56.258Z"
+          "bytes": 174697,
+          "capturedAt": "2026-10-30T22:48:43.039Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kunde-oversikt.jpg",
         "width": 390,
         "height": 2242,
-        "bytes": 110168,
-        "capturedAt": "2026-10-30T19:43:50.788Z",
+        "bytes": 111262,
+        "capturedAt": "2026-10-30T22:51:08.566Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oversikt",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oversikt",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1093,
+        "bodyTextLength": 1103,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oppdrag",
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oppdrag",
       "slug": "kunde-oppdrag",
       "role": "admin",
       "title": "Kunde – Nordvik Testindustri AS – oppdrag",
@@ -1010,16 +1136,16 @@
         "file": "screenshots/pages/desktop/kunde-oppdrag.jpg",
         "width": 1440,
         "height": 1116,
-        "bytes": 135985,
-        "capturedAt": "2026-10-30T19:41:58.014Z",
+        "bytes": 138263,
+        "capturedAt": "2026-10-30T22:48:45.044Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oppdrag",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oppdrag",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 992,
+        "bodyTextLength": 1012,
         "imageFailures": [],
         "legacy": null
       },
@@ -1027,22 +1153,22 @@
         "file": "screenshots/pages/mobile/kunde-oppdrag.jpg",
         "width": 390,
         "height": 1557,
-        "bytes": 89222,
-        "capturedAt": "2026-10-30T19:43:52.399Z",
+        "bytes": 90196,
+        "capturedAt": "2026-10-30T22:51:10.480Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oppdrag",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oppdrag",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 937,
+        "bodyTextLength": 947,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=utstyr",
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=utstyr",
       "slug": "kunde-utstyr",
       "role": "admin",
       "title": "Kunde – Nordvik Testindustri AS – utstyr",
@@ -1052,39 +1178,39 @@
         "file": "screenshots/pages/desktop/kunde-utstyr.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 116582,
-        "capturedAt": "2026-10-30T19:41:59.623Z",
+        "bytes": 119346,
+        "capturedAt": "2026-10-30T22:48:46.945Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=utstyr",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=utstyr",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 738,
+        "bodyTextLength": 780,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kunde-utstyr.jpg",
         "width": 390,
-        "height": 1403,
-        "bytes": 73921,
-        "capturedAt": "2026-10-30T19:43:54.062Z",
+        "height": 1463,
+        "bytes": 78191,
+        "capturedAt": "2026-10-30T22:51:12.167Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=utstyr",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=utstyr",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 683,
+        "bodyTextLength": 715,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=avtaler",
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=avtaler",
       "slug": "kunde-avtaler",
       "role": "admin",
       "title": "Kunde – Nordvik Testindustri AS – avtaler",
@@ -1093,40 +1219,40 @@
       "desktop": {
         "file": "screenshots/pages/desktop/kunde-avtaler.jpg",
         "width": 1440,
-        "height": 1095,
-        "bytes": 129203,
-        "capturedAt": "2026-10-30T19:42:01.495Z",
+        "height": 2341,
+        "bytes": 250360,
+        "capturedAt": "2026-10-30T22:48:48.919Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=avtaler",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=avtaler",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1244,
+        "bodyTextLength": 2480,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kunde-avtaler.jpg",
         "width": 390,
-        "height": 1590,
-        "bytes": 87457,
-        "capturedAt": "2026-10-30T19:43:55.820Z",
+        "height": 4092,
+        "bytes": 185712,
+        "capturedAt": "2026-10-30T22:51:14.401Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=avtaler",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=avtaler",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1189,
+        "bodyTextLength": 2415,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=mer",
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=mer",
       "slug": "kunde-mer",
       "role": "admin",
       "title": "Kunde – Nordvik Testindustri AS – mer",
@@ -1136,16 +1262,16 @@
         "file": "screenshots/pages/desktop/kunde-mer.jpg",
         "width": 1440,
         "height": 2172,
-        "bytes": 217645,
-        "capturedAt": "2026-10-30T19:42:03.215Z",
+        "bytes": 219970,
+        "capturedAt": "2026-10-30T22:48:50.873Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=mer",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=mer",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1300,
+        "bodyTextLength": 1320,
         "imageFailures": [],
         "legacy": null
       },
@@ -1153,22 +1279,22 @@
         "file": "screenshots/pages/mobile/kunde-mer.jpg",
         "width": 390,
         "height": 2909,
-        "bytes": 138836,
-        "capturedAt": "2026-10-30T19:43:57.500Z",
+        "bytes": 139816,
+        "capturedAt": "2026-10-30T22:51:16.145Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=mer",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=mer",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1245,
+        "bodyTextLength": 1255,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oppdrag&vis=rapporter",
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oppdrag&vis=rapporter",
       "slug": "kunde-rapporter",
       "role": "admin",
       "title": "Kunde – Nordvik Testindustri AS – rapporter",
@@ -1178,16 +1304,16 @@
         "file": "screenshots/pages/desktop/kunde-rapporter.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 95440,
-        "capturedAt": "2026-10-30T19:42:05.056Z",
+        "bytes": 97796,
+        "capturedAt": "2026-10-30T22:48:52.457Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oppdrag&vis=rapporter",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oppdrag&vis=rapporter",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 505,
+        "bodyTextLength": 525,
         "imageFailures": [],
         "legacy": null
       },
@@ -1195,22 +1321,22 @@
         "file": "screenshots/pages/mobile/kunde-rapporter.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 50446,
-        "capturedAt": "2026-10-30T19:43:59.043Z",
+        "bytes": 51519,
+        "capturedAt": "2026-10-30T22:51:17.797Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj?tab=oppdrag&vis=rapporter",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh?tab=oppdrag&vis=rapporter",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 450,
+        "bodyTextLength": 460,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/kunder/cmvvda5k80004gxfj9a7ucnyj/rediger",
+      "route": "/kunder/cmvvj42n70004e6fj3vyd9dsh/rediger",
       "slug": "kunde-rediger",
       "role": "admin",
       "title": "Rediger kunde",
@@ -1219,40 +1345,124 @@
       "desktop": {
         "file": "screenshots/pages/desktop/kunde-rediger.jpg",
         "width": 1440,
-        "height": 1112,
-        "bytes": 115826,
-        "capturedAt": "2026-10-30T19:42:06.609Z",
+        "height": 1220,
+        "bytes": 124962,
+        "capturedAt": "2026-10-30T22:48:54.032Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj/rediger",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj/rediger",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh/rediger",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh/rediger",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rediger kunde"
         ],
-        "bodyTextLength": 856,
+        "bodyTextLength": 1009,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kunde-rediger.jpg",
         "width": 390,
-        "height": 2039,
-        "bytes": 83139,
-        "capturedAt": "2026-10-30T19:44:00.687Z",
+        "height": 2163,
+        "bytes": 91065,
+        "capturedAt": "2026-10-30T22:51:19.473Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvda5k80004gxfj9a7ucnyj/rediger",
-        "finalPath": "/kunder/cmvvda5k80004gxfj9a7ucnyj/rediger",
+        "finalUrl": "http://127.0.0.1:3100/kunder/cmvvj42n70004e6fj3vyd9dsh/rediger",
+        "finalPath": "/kunder/cmvvj42n70004e6fj3vyd9dsh/rediger",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rediger kunde"
         ],
-        "bodyTextLength": 801,
+        "bodyTextLength": 944,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/enheter/cmvvda5l0000bgxfj4hcat50m",
+      "route": "/enheter",
+      "slug": "enheter",
+      "role": "admin",
+      "title": "Utstyr og enheter",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/enheter.jpg",
+        "width": 1440,
+        "height": 993,
+        "bytes": 114131,
+        "capturedAt": "2026-10-30T22:48:55.700Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/enheter",
+        "finalPath": "/enheter",
+        "documentTitle": "Utstyr og enheter · FSM-plattformen",
+        "h1": [
+          "Utstyr og enheter"
+        ],
+        "bodyTextLength": 1099,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/enheter.jpg",
+        "width": 390,
+        "height": 1578,
+        "bytes": 82829,
+        "capturedAt": "2026-10-30T22:51:21.062Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/enheter",
+        "finalPath": "/enheter",
+        "documentTitle": "Utstyr og enheter · FSM-plattformen",
+        "h1": [
+          "Utstyr og enheter"
+        ],
+        "bodyTextLength": 1034,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/enheter/ny",
+      "slug": "enheter-ny",
+      "role": "admin",
+      "title": "Ny enhet",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/enheter-ny.jpg",
+        "width": 1440,
+        "height": 993,
+        "bytes": 84029,
+        "capturedAt": "2026-10-30T22:48:57.263Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/enheter/ny",
+        "finalPath": "/enheter/ny",
+        "documentTitle": "Ny enhet · FSM-plattformen",
+        "h1": [
+          "Ny enhet"
+        ],
+        "bodyTextLength": 820,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/enheter-ny.jpg",
+        "width": 390,
+        "height": 1507,
+        "bytes": 55116,
+        "capturedAt": "2026-10-30T22:51:22.633Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/enheter/ny",
+        "finalPath": "/enheter/ny",
+        "documentTitle": "Ny enhet · FSM-plattformen",
+        "h1": [
+          "Ny enhet"
+        ],
+        "bodyTextLength": 755,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/enheter/cmvvj42nz000be6fjqetbtc2h",
       "slug": "enhet-detalj",
       "role": "admin",
       "title": "Enhet – Portautomatikk PA-400",
@@ -1261,34 +1471,76 @@
       "desktop": {
         "file": "screenshots/pages/desktop/enhet-detalj.jpg",
         "width": 1440,
-        "height": 993,
-        "bytes": 78909,
-        "capturedAt": "2026-10-30T19:42:08.213Z",
+        "height": 2689,
+        "bytes": 237159,
+        "capturedAt": "2026-10-30T22:48:58.989Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/enheter/cmvvda5l0000bgxfj4hcat50m",
-        "finalPath": "/enheter/cmvvda5l0000bgxfj4hcat50m",
-        "documentTitle": "FSM-plattformen",
+        "finalUrl": "http://127.0.0.1:3100/enheter/cmvvj42nz000be6fjqetbtc2h",
+        "finalPath": "/enheter/cmvvj42nz000be6fjqetbtc2h",
+        "documentTitle": "Identitet · cmvvj42nz000be6fjqetbtc2h · FSM-plattformen",
         "h1": [
           "Portautomatikk PA-400"
         ],
-        "bodyTextLength": 417,
+        "bodyTextLength": 1750,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/enhet-detalj.jpg",
         "width": 390,
-        "height": 1102,
-        "bytes": 40278,
-        "capturedAt": "2026-10-30T19:44:02.215Z",
+        "height": 3436,
+        "bytes": 154577,
+        "capturedAt": "2026-10-30T22:51:24.308Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/enheter/cmvvda5l0000bgxfj4hcat50m",
-        "finalPath": "/enheter/cmvvda5l0000bgxfj4hcat50m",
-        "documentTitle": "FSM-plattformen",
+        "finalUrl": "http://127.0.0.1:3100/enheter/cmvvj42nz000be6fjqetbtc2h",
+        "finalPath": "/enheter/cmvvj42nz000be6fjqetbtc2h",
+        "documentTitle": "Identitet · cmvvj42nz000be6fjqetbtc2h · FSM-plattformen",
         "h1": [
           "Portautomatikk PA-400"
         ],
-        "bodyTextLength": 362,
+        "bodyTextLength": 1685,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/enheter/cmvvj42nz000be6fjqetbtc2h/etikett",
+      "slug": "enhet-etikett",
+      "role": "admin",
+      "title": "Utstyrsmerking",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/enhet-etikett.jpg",
+        "width": 1440,
+        "height": 993,
+        "bytes": 83891,
+        "capturedAt": "2026-10-30T22:49:00.592Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/enheter/cmvvj42nz000be6fjqetbtc2h/etikett",
+        "finalPath": "/enheter/cmvvj42nz000be6fjqetbtc2h/etikett",
+        "documentTitle": "Utstyrsmerking · FSM-plattformen",
+        "h1": [
+          "Portautomatikk PA-400"
+        ],
+        "bodyTextLength": 451,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/enhet-etikett.jpg",
+        "width": 390,
+        "height": 1102,
+        "bytes": 47217,
+        "capturedAt": "2026-10-30T22:51:25.850Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/enheter/cmvvj42nz000be6fjqetbtc2h/etikett",
+        "finalPath": "/enheter/cmvvj42nz000be6fjqetbtc2h/etikett",
+        "documentTitle": "Utstyrsmerking · FSM-plattformen",
+        "h1": [
+          "Portautomatikk PA-400"
+        ],
+        "bodyTextLength": 386,
         "imageFailures": [],
         "legacy": null
       }
@@ -1304,8 +1556,8 @@
         "file": "screenshots/pages/desktop/dokumenter.jpg",
         "width": 1440,
         "height": 1188,
-        "bytes": 152446,
-        "capturedAt": "2026-10-30T19:42:09.767Z",
+        "bytes": 153392,
+        "capturedAt": "2026-10-30T22:49:02.226Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter",
         "finalPath": "/dokumenter",
@@ -1313,14 +1565,14 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 1284,
+        "bodyTextLength": 1294,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/07-dokumenter.png",
           "width": 1440,
           "height": 1188,
-          "bytes": 162070,
-          "capturedAt": "2026-10-30T19:42:09.767Z"
+          "bytes": 162822,
+          "capturedAt": "2026-10-30T22:49:02.226Z"
         }
       },
       "mobile": {
@@ -1328,7 +1580,7 @@
         "width": 390,
         "height": 1898,
         "bytes": 99014,
-        "capturedAt": "2026-10-30T19:44:03.770Z",
+        "capturedAt": "2026-10-30T22:51:27.454Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter",
         "finalPath": "/dokumenter",
@@ -1342,7 +1594,7 @@
       }
     },
     {
-      "route": "/dokumenter?folder=cmvvda5qa0013gxfj8pkj6usd",
+      "route": "/dokumenter?folder=cmvvj42su0013e6fjza68zbfz",
       "slug": "dokumenter-mappe",
       "role": "admin",
       "title": "Dokumentmappe – Driftshåndbøker",
@@ -1352,23 +1604,23 @@
         "file": "screenshots/pages/desktop/dokumenter-mappe.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 105597,
-        "capturedAt": "2026-10-30T19:42:11.685Z",
+        "bytes": 106361,
+        "capturedAt": "2026-10-30T22:49:03.941Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/dokumenter?folder=cmvvda5qa0013gxfj8pkj6usd",
+        "finalUrl": "http://127.0.0.1:3100/dokumenter?folder=cmvvj42su0013e6fjza68zbfz",
         "finalPath": "/dokumenter",
         "documentTitle": "Dokumenter · FSM-plattformen",
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 649,
+        "bodyTextLength": 659,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/08-dokumenter-mappe.png",
           "width": 1440,
           "height": 993,
-          "bytes": 95591,
-          "capturedAt": "2026-10-30T19:42:11.685Z"
+          "bytes": 96306,
+          "capturedAt": "2026-10-30T22:49:03.941Z"
         }
       },
       "mobile": {
@@ -1376,9 +1628,9 @@
         "width": 390,
         "height": 1102,
         "bytes": 51056,
-        "capturedAt": "2026-10-30T19:44:05.280Z",
+        "capturedAt": "2026-10-30T22:51:29.033Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/dokumenter?folder=cmvvda5qa0013gxfj8pkj6usd",
+        "finalUrl": "http://127.0.0.1:3100/dokumenter?folder=cmvvj42su0013e6fjza68zbfz",
         "finalPath": "/dokumenter",
         "documentTitle": "Dokumenter · FSM-plattformen",
         "h1": [
@@ -1390,7 +1642,7 @@
       }
     },
     {
-      "route": "/dokumenter?doc=cmvvda5qx0015gxfjo3ti6pnr",
+      "route": "/dokumenter?doc=cmvvj42tm0015e6fjt3jl3nhk",
       "slug": "dokumenter-dokument",
       "role": "admin",
       "title": "Dokument – Bruksanvisning – portautomatikk.pdf",
@@ -1400,16 +1652,16 @@
         "file": "screenshots/pages/desktop/dokumenter-dokument.jpg",
         "width": 1440,
         "height": 1389,
-        "bytes": 173260,
-        "capturedAt": "2026-10-30T19:42:13.315Z",
+        "bytes": 173921,
+        "capturedAt": "2026-10-30T22:49:05.584Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/dokumenter?doc=cmvvda5qx0015gxfjo3ti6pnr",
+        "finalUrl": "http://127.0.0.1:3100/dokumenter?doc=cmvvj42tm0015e6fjt3jl3nhk",
         "finalPath": "/dokumenter",
         "documentTitle": "Dokumenter · FSM-plattformen",
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 1434,
+        "bodyTextLength": 1444,
         "imageFailures": [],
         "legacy": null
       },
@@ -1418,9 +1670,9 @@
         "width": 390,
         "height": 2179,
         "bytes": 112390,
-        "capturedAt": "2026-10-30T19:44:06.907Z",
+        "capturedAt": "2026-10-30T22:51:30.655Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/dokumenter?doc=cmvvda5qx0015gxfjo3ti6pnr",
+        "finalUrl": "http://127.0.0.1:3100/dokumenter?doc=cmvvj42tm0015e6fjt3jl3nhk",
         "finalPath": "/dokumenter",
         "documentTitle": "Dokumenter · FSM-plattformen",
         "h1": [
@@ -1442,8 +1694,8 @@
         "file": "screenshots/pages/desktop/rapporter.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 110240,
-        "capturedAt": "2026-10-30T19:42:14.873Z",
+        "bytes": 110858,
+        "capturedAt": "2026-10-30T22:49:07.211Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter",
         "finalPath": "/rapporter",
@@ -1451,14 +1703,14 @@
         "h1": [
           "Servicerapporter"
         ],
-        "bodyTextLength": 828,
+        "bodyTextLength": 838,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/09-rapporter.png",
           "width": 1440,
           "height": 993,
-          "bytes": 103311,
-          "capturedAt": "2026-10-30T19:42:14.873Z"
+          "bytes": 104122,
+          "capturedAt": "2026-10-30T22:49:07.211Z"
         }
       },
       "mobile": {
@@ -1466,7 +1718,7 @@
         "width": 390,
         "height": 1416,
         "bytes": 65416,
-        "capturedAt": "2026-10-30T19:44:08.480Z",
+        "capturedAt": "2026-10-30T22:51:32.210Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter",
         "finalPath": "/rapporter",
@@ -1480,7 +1732,7 @@
       }
     },
     {
-      "route": "/rapporter/cmvvda5ok000ugxfjcz544c7i?rapport=cmvvda5py0010gxfj8okc7500",
+      "route": "/rapporter/cmvvj42ro000ue6fj7jz87pzg?rapport=cmvvj42sf0010e6fjih89gebc",
       "slug": "rapport-visning",
       "role": "admin",
       "title": "Rapportvisning – Service – kjøleanlegg",
@@ -1490,16 +1742,16 @@
         "file": "screenshots/pages/desktop/rapport-visning.jpg",
         "width": 1440,
         "height": 900,
-        "bytes": 91102,
-        "capturedAt": "2026-10-30T19:42:16.858Z",
+        "bytes": 91128,
+        "capturedAt": "2026-10-30T22:49:09.080Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvda5ok000ugxfjcz544c7i?rapport=cmvvda5py0010gxfj8okc7500",
-        "finalPath": "/rapporter/cmvvda5ok000ugxfjcz544c7i",
+        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvj42ro000ue6fj7jz87pzg?rapport=cmvvj42sf0010e6fjih89gebc",
+        "finalPath": "/rapporter/cmvvj42ro000ue6fj7jz87pzg",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rapport: Service – kjøleanlegg"
         ],
-        "bodyTextLength": 328,
+        "bodyTextLength": 338,
         "imageFailures": [],
         "legacy": null
       },
@@ -1507,11 +1759,11 @@
         "file": "screenshots/pages/mobile/rapport-visning.jpg",
         "width": 390,
         "height": 844,
-        "bytes": 39292,
-        "capturedAt": "2026-10-30T19:44:10.163Z",
+        "bytes": 39268,
+        "capturedAt": "2026-10-30T22:51:33.908Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvda5ok000ugxfjcz544c7i?rapport=cmvvda5py0010gxfj8okc7500",
-        "finalPath": "/rapporter/cmvvda5ok000ugxfjcz544c7i",
+        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvj42ro000ue6fj7jz87pzg?rapport=cmvvj42sf0010e6fjih89gebc",
+        "finalPath": "/rapporter/cmvvj42ro000ue6fj7jz87pzg",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rapport: Service – kjøleanlegg"
@@ -1522,7 +1774,7 @@
       }
     },
     {
-      "route": "/rapporter/cmvvda5ok000ugxfjcz544c7i/revisjoner?rapport=cmvvda5py0010gxfj8okc7500",
+      "route": "/rapporter/cmvvj42ro000ue6fj7jz87pzg/revisjoner?rapport=cmvvj42sf0010e6fjih89gebc",
       "slug": "rapport-revisjoner",
       "role": "admin",
       "title": "Rapportrevisjoner",
@@ -1532,16 +1784,16 @@
         "file": "screenshots/pages/desktop/rapport-revisjoner.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 75318,
-        "capturedAt": "2026-10-30T19:42:18.420Z",
+        "bytes": 76006,
+        "capturedAt": "2026-10-30T22:49:10.727Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvda5ok000ugxfjcz544c7i/revisjoner?rapport=cmvvda5py0010gxfj8okc7500",
-        "finalPath": "/rapporter/cmvvda5ok000ugxfjcz544c7i/revisjoner",
+        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvj42ro000ue6fj7jz87pzg/revisjoner?rapport=cmvvj42sf0010e6fjih89gebc",
+        "finalPath": "/rapporter/cmvvj42ro000ue6fj7jz87pzg/revisjoner",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Revisjoner"
         ],
-        "bodyTextLength": 343,
+        "bodyTextLength": 353,
         "imageFailures": [],
         "legacy": null
       },
@@ -1550,10 +1802,10 @@
         "width": 390,
         "height": 1102,
         "bytes": 33481,
-        "capturedAt": "2026-10-30T19:44:11.711Z",
+        "capturedAt": "2026-10-30T22:51:35.459Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvda5ok000ugxfjcz544c7i/revisjoner?rapport=cmvvda5py0010gxfj8okc7500",
-        "finalPath": "/rapporter/cmvvda5ok000ugxfjcz544c7i/revisjoner",
+        "finalUrl": "http://127.0.0.1:3100/rapporter/cmvvj42ro000ue6fj7jz87pzg/revisjoner?rapport=cmvvj42sf0010e6fjih89gebc",
+        "finalPath": "/rapporter/cmvvj42ro000ue6fj7jz87pzg/revisjoner",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Revisjoner"
@@ -1574,8 +1826,8 @@
         "file": "screenshots/pages/desktop/sok.jpg",
         "width": 1440,
         "height": 1748,
-        "bytes": 105116,
-        "capturedAt": "2026-10-30T19:42:20.053Z",
+        "bytes": 105911,
+        "capturedAt": "2026-10-30T22:49:12.371Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok",
         "finalPath": "/sok",
@@ -1583,7 +1835,7 @@
         "h1": [
           "Søk"
         ],
-        "bodyTextLength": 1015,
+        "bodyTextLength": 1025,
         "imageFailures": [],
         "legacy": null
       },
@@ -1592,7 +1844,7 @@
         "width": 390,
         "height": 1102,
         "bytes": 38966,
-        "capturedAt": "2026-10-30T19:44:13.242Z",
+        "capturedAt": "2026-10-30T22:51:37.015Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok",
         "finalPath": "/sok",
@@ -1616,8 +1868,8 @@
         "file": "screenshots/pages/desktop/sok-service.jpg",
         "width": 1440,
         "height": 1953,
-        "bytes": 209557,
-        "capturedAt": "2026-10-30T19:42:21.987Z",
+        "bytes": 210333,
+        "capturedAt": "2026-10-30T22:49:14.342Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok?q=service",
         "finalPath": "/sok",
@@ -1625,7 +1877,7 @@
         "h1": [
           "Søk"
         ],
-        "bodyTextLength": 2263,
+        "bodyTextLength": 2273,
         "imageFailures": [],
         "legacy": null
       },
@@ -1634,7 +1886,7 @@
         "width": 390,
         "height": 2692,
         "bytes": 134133,
-        "capturedAt": "2026-10-30T19:44:15.153Z",
+        "capturedAt": "2026-10-30T22:51:38.937Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok?q=service",
         "finalPath": "/sok",
@@ -1658,8 +1910,8 @@
         "file": "screenshots/pages/desktop/sok-analyse.jpg",
         "width": 1440,
         "height": 1181,
-        "bytes": 104681,
-        "capturedAt": "2026-10-30T19:42:23.561Z",
+        "bytes": 105375,
+        "capturedAt": "2026-10-30T22:49:15.927Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok/analyse",
         "finalPath": "/sok/analyse",
@@ -1667,7 +1919,7 @@
         "h1": [
           "Søkeanalyse"
         ],
-        "bodyTextLength": 992,
+        "bodyTextLength": 1002,
         "imageFailures": [],
         "legacy": null
       },
@@ -1676,7 +1928,7 @@
         "width": 390,
         "height": 1981,
         "bytes": 78449,
-        "capturedAt": "2026-10-30T19:44:16.732Z",
+        "capturedAt": "2026-10-30T22:51:40.527Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok/analyse",
         "finalPath": "/sok/analyse",
@@ -1700,8 +1952,8 @@
         "file": "screenshots/pages/desktop/hms.jpg",
         "width": 1440,
         "height": 3040,
-        "bytes": 283521,
-        "capturedAt": "2026-10-30T19:42:25.517Z",
+        "bytes": 284372,
+        "capturedAt": "2026-10-30T22:49:17.730Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/hms",
         "finalPath": "/hms",
@@ -1709,7 +1961,7 @@
         "h1": [
           "HMS"
         ],
-        "bodyTextLength": 3451,
+        "bodyTextLength": 3461,
         "imageFailures": [],
         "legacy": null
       },
@@ -1718,7 +1970,7 @@
         "width": 390,
         "height": 4305,
         "bytes": 232148,
-        "capturedAt": "2026-10-30T19:44:18.423Z",
+        "capturedAt": "2026-10-30T22:51:42.208Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/hms",
         "finalPath": "/hms",
@@ -1727,6 +1979,48 @@
           "HMS"
         ],
         "bodyTextLength": 3396,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/meldinger",
+      "slug": "meldinger",
+      "role": "admin",
+      "title": "Meldinger",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/meldinger.jpg",
+        "width": 1440,
+        "height": 993,
+        "bytes": 73015,
+        "capturedAt": "2026-10-30T22:49:19.295Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/meldinger",
+        "finalPath": "/meldinger",
+        "documentTitle": "Meldinger · FSM-plattformen",
+        "h1": [
+          "Meldinger"
+        ],
+        "bodyTextLength": 326,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/meldinger.jpg",
+        "width": 390,
+        "height": 1102,
+        "bytes": 34874,
+        "capturedAt": "2026-10-30T22:51:43.707Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/meldinger",
+        "finalPath": "/meldinger",
+        "documentTitle": "Meldinger · FSM-plattformen",
+        "h1": [
+          "Meldinger"
+        ],
+        "bodyTextLength": 261,
         "imageFailures": [],
         "legacy": null
       }
@@ -1742,8 +2036,8 @@
         "file": "screenshots/pages/desktop/varsler.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 85934,
-        "capturedAt": "2026-10-30T19:42:27.084Z",
+        "bytes": 86710,
+        "capturedAt": "2026-10-30T22:49:20.908Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler",
         "finalPath": "/varsler",
@@ -1751,7 +2045,7 @@
         "h1": [
           "Varsler"
         ],
-        "bodyTextLength": 588,
+        "bodyTextLength": 598,
         "imageFailures": [],
         "legacy": null
       },
@@ -1759,8 +2053,8 @@
         "file": "screenshots/pages/mobile/varsler.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 50349,
-        "capturedAt": "2026-10-30T19:44:19.962Z",
+        "bytes": 50363,
+        "capturedAt": "2026-10-30T22:51:45.210Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler",
         "finalPath": "/varsler",
@@ -1783,9 +2077,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/varsler-innstillinger.jpg",
         "width": 1440,
-        "height": 993,
-        "bytes": 90235,
-        "capturedAt": "2026-10-30T19:42:28.657Z",
+        "height": 1240,
+        "bytes": 106299,
+        "capturedAt": "2026-10-30T22:49:22.480Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler/innstillinger",
         "finalPath": "/varsler/innstillinger",
@@ -1793,16 +2087,16 @@
         "h1": [
           "Varselinnstillinger"
         ],
-        "bodyTextLength": 1138,
+        "bodyTextLength": 1355,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/varsler-innstillinger.jpg",
         "width": 390,
-        "height": 1285,
-        "bytes": 56535,
-        "capturedAt": "2026-10-30T19:44:21.511Z",
+        "height": 1545,
+        "bytes": 64549,
+        "capturedAt": "2026-10-30T22:51:46.782Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler/innstillinger",
         "finalPath": "/varsler/innstillinger",
@@ -1810,7 +2104,7 @@
         "h1": [
           "Varselinnstillinger"
         ],
-        "bodyTextLength": 1083,
+        "bodyTextLength": 1290,
         "imageFailures": [],
         "legacy": null
       }
@@ -1826,8 +2120,8 @@
         "file": "screenshots/pages/desktop/innstillinger-branding.jpg",
         "width": 1440,
         "height": 1067,
-        "bytes": 93652,
-        "capturedAt": "2026-10-30T19:42:30.238Z",
+        "bytes": 96928,
+        "capturedAt": "2026-10-30T22:49:24.131Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=branding",
         "finalPath": "/innstillinger",
@@ -1835,14 +2129,14 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 863,
+        "bodyTextLength": 906,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/11-innstillinger-merkevare.png",
           "width": 1440,
           "height": 1067,
-          "bytes": 105319,
-          "capturedAt": "2026-10-30T19:42:30.238Z"
+          "bytes": 109624,
+          "capturedAt": "2026-10-30T22:49:24.131Z"
         }
       },
       "mobile": {
@@ -1850,7 +2144,7 @@
         "width": 390,
         "height": 1282,
         "bytes": 62703,
-        "capturedAt": "2026-10-30T19:44:23.050Z",
+        "capturedAt": "2026-10-30T22:51:48.293Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=branding",
         "finalPath": "/innstillinger",
@@ -1858,7 +2152,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 846,
+        "bodyTextLength": 879,
         "imageFailures": [],
         "legacy": null
       }
@@ -1874,8 +2168,8 @@
         "file": "screenshots/pages/desktop/innstillinger-kart.jpg",
         "width": 1440,
         "height": 1053,
-        "bytes": 91875,
-        "capturedAt": "2026-10-30T19:42:31.912Z",
+        "bytes": 95164,
+        "capturedAt": "2026-10-30T22:49:25.809Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=kart",
         "finalPath": "/innstillinger",
@@ -1883,7 +2177,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 913,
+        "bodyTextLength": 956,
         "imageFailures": [],
         "legacy": null
       },
@@ -1892,7 +2186,7 @@
         "width": 390,
         "height": 1448,
         "bytes": 65706,
-        "capturedAt": "2026-10-30T19:44:24.613Z",
+        "capturedAt": "2026-10-30T22:51:49.844Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=kart",
         "finalPath": "/innstillinger",
@@ -1900,7 +2194,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 896,
+        "bodyTextLength": 929,
         "imageFailures": [],
         "legacy": null
       }
@@ -1916,8 +2210,8 @@
         "file": "screenshots/pages/desktop/innstillinger-ansatte.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 95610,
-        "capturedAt": "2026-10-30T19:42:33.774Z",
+        "bytes": 98949,
+        "capturedAt": "2026-10-30T22:49:27.483Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -1925,7 +2219,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 849,
+        "bodyTextLength": 892,
         "imageFailures": [],
         "legacy": null
       },
@@ -1934,7 +2228,7 @@
         "width": 390,
         "height": 1119,
         "bytes": 56703,
-        "capturedAt": "2026-10-30T19:44:26.449Z",
+        "capturedAt": "2026-10-30T22:51:51.682Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -1942,7 +2236,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 747,
+        "bodyTextLength": 780,
         "imageFailures": [],
         "legacy": null
       }
@@ -1958,8 +2252,8 @@
         "file": "screenshots/pages/desktop/innstillinger-roller.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 90724,
-        "capturedAt": "2026-10-30T19:42:35.391Z",
+        "bytes": 94127,
+        "capturedAt": "2026-10-30T22:49:29.366Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=roller",
         "finalPath": "/innstillinger",
@@ -1967,7 +2261,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 787,
+        "bodyTextLength": 831,
         "imageFailures": [],
         "legacy": null
       },
@@ -1975,8 +2269,8 @@
         "file": "screenshots/pages/mobile/innstillinger-roller.jpg",
         "width": 390,
         "height": 1201,
-        "bytes": 58560,
-        "capturedAt": "2026-10-30T19:44:27.999Z",
+        "bytes": 58576,
+        "capturedAt": "2026-10-30T22:51:53.229Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=roller",
         "finalPath": "/innstillinger",
@@ -1984,7 +2278,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 770,
+        "bodyTextLength": 804,
         "imageFailures": [],
         "legacy": null
       }
@@ -1999,9 +2293,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/innstillinger-avdelinger.jpg",
         "width": 1440,
-        "height": 1141,
-        "bytes": 100132,
-        "capturedAt": "2026-10-30T19:42:37.028Z",
+        "height": 1261,
+        "bytes": 114258,
+        "capturedAt": "2026-10-30T22:49:30.993Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=avdelinger",
         "finalPath": "/innstillinger",
@@ -2009,16 +2303,16 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 868,
+        "bodyTextLength": 1075,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/innstillinger-avdelinger.jpg",
         "width": 390,
-        "height": 1739,
-        "bytes": 75448,
-        "capturedAt": "2026-10-30T19:44:29.587Z",
+        "height": 1859,
+        "bytes": 85225,
+        "capturedAt": "2026-10-30T22:51:54.778Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=avdelinger",
         "finalPath": "/innstillinger",
@@ -2026,7 +2320,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 851,
+        "bodyTextLength": 1048,
         "imageFailures": [],
         "legacy": null
       }
@@ -2042,8 +2336,8 @@
         "file": "screenshots/pages/desktop/innstillinger-maler.jpg",
         "width": 1440,
         "height": 1984,
-        "bytes": 232882,
-        "capturedAt": "2026-10-30T19:42:38.702Z",
+        "bytes": 236218,
+        "capturedAt": "2026-10-30T22:49:32.692Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=maler",
         "finalPath": "/innstillinger",
@@ -2051,7 +2345,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 2335,
+        "bodyTextLength": 2378,
         "imageFailures": [],
         "legacy": null
       },
@@ -2060,7 +2354,7 @@
         "width": 390,
         "height": 3469,
         "bytes": 187788,
-        "capturedAt": "2026-10-30T19:44:31.236Z",
+        "capturedAt": "2026-10-30T22:51:56.488Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=maler",
         "finalPath": "/innstillinger",
@@ -2068,7 +2362,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 2318,
+        "bodyTextLength": 2351,
         "imageFailures": [],
         "legacy": null
       }
@@ -2084,8 +2378,8 @@
         "file": "screenshots/pages/desktop/innstillinger-tags.jpg",
         "width": 1440,
         "height": 1162,
-        "bytes": 103865,
-        "capturedAt": "2026-10-30T19:42:40.291Z",
+        "bytes": 107207,
+        "capturedAt": "2026-10-30T22:49:34.327Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=tags",
         "finalPath": "/innstillinger",
@@ -2093,7 +2387,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 738,
+        "bodyTextLength": 781,
         "imageFailures": [],
         "legacy": null
       },
@@ -2102,7 +2396,7 @@
         "width": 390,
         "height": 1525,
         "bytes": 68861,
-        "capturedAt": "2026-10-30T19:44:32.793Z",
+        "capturedAt": "2026-10-30T22:51:58.082Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=tags",
         "finalPath": "/innstillinger",
@@ -2110,7 +2404,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 721,
+        "bodyTextLength": 754,
         "imageFailures": [],
         "legacy": null
       }
@@ -2126,8 +2420,8 @@
         "file": "screenshots/pages/desktop/innstillinger-auditlog.jpg",
         "width": 1440,
         "height": 2777,
-        "bytes": 316067,
-        "capturedAt": "2026-10-30T19:42:42.011Z",
+        "bytes": 319143,
+        "capturedAt": "2026-10-30T22:49:36.319Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=auditlog",
         "finalPath": "/innstillinger",
@@ -2135,7 +2429,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 3550,
+        "bodyTextLength": 3611,
         "imageFailures": [],
         "legacy": null
       },
@@ -2143,8 +2437,8 @@
         "file": "screenshots/pages/mobile/innstillinger-auditlog.jpg",
         "width": 390,
         "height": 5988,
-        "bytes": 261969,
-        "capturedAt": "2026-10-30T19:44:34.844Z",
+        "bytes": 262404,
+        "capturedAt": "2026-10-30T22:52:00.149Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=auditlog",
         "finalPath": "/innstillinger",
@@ -2152,7 +2446,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 3486,
+        "bodyTextLength": 3537,
         "imageFailures": [],
         "legacy": null
       }
@@ -2168,8 +2462,8 @@
         "file": "screenshots/pages/desktop/innstillinger-statistikk.jpg",
         "width": 1440,
         "height": 1687,
-        "bytes": 126787,
-        "capturedAt": "2026-10-30T19:42:43.645Z",
+        "bytes": 130151,
+        "capturedAt": "2026-10-30T22:49:37.967Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=statistikk",
         "finalPath": "/innstillinger",
@@ -2177,7 +2471,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 908,
+        "bodyTextLength": 951,
         "imageFailures": [],
         "legacy": null
       },
@@ -2185,8 +2479,8 @@
         "file": "screenshots/pages/mobile/innstillinger-statistikk.jpg",
         "width": 390,
         "height": 2156,
-        "bytes": 78663,
-        "capturedAt": "2026-10-30T19:44:36.434Z",
+        "bytes": 78620,
+        "capturedAt": "2026-10-30T22:52:01.778Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=statistikk",
         "finalPath": "/innstillinger",
@@ -2194,7 +2488,133 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 891,
+        "bodyTextLength": 924,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/innstillinger?tab=sla",
+      "slug": "innstillinger-sla",
+      "role": "admin",
+      "title": "Innstillinger – SLA og åpningstider",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/innstillinger-sla.jpg",
+        "width": 1440,
+        "height": 2068,
+        "bytes": 172283,
+        "capturedAt": "2026-10-30T22:49:39.723Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sla",
+        "finalPath": "/innstillinger",
+        "documentTitle": "Innstillinger · FSM-plattformen",
+        "h1": [
+          "Innstillinger"
+        ],
+        "bodyTextLength": 1437,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/innstillinger-sla.jpg",
+        "width": 390,
+        "height": 3935,
+        "bytes": 138756,
+        "capturedAt": "2026-10-30T22:52:03.444Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sla",
+        "finalPath": "/innstillinger",
+        "documentTitle": "Innstillinger · FSM-plattformen",
+        "h1": [
+          "Innstillinger"
+        ],
+        "bodyTextLength": 1410,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/innstillinger?tab=dispatch",
+      "slug": "innstillinger-dispatch",
+      "role": "admin",
+      "title": "Innstillinger – Dispatch",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/innstillinger-dispatch.jpg",
+        "width": 1440,
+        "height": 1248,
+        "bytes": 109095,
+        "capturedAt": "2026-10-30T22:49:41.391Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=dispatch",
+        "finalPath": "/innstillinger",
+        "documentTitle": "Innstillinger · FSM-plattformen",
+        "h1": [
+          "Innstillinger"
+        ],
+        "bodyTextLength": 912,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/innstillinger-dispatch.jpg",
+        "width": 390,
+        "height": 1832,
+        "bytes": 74039,
+        "capturedAt": "2026-10-30T22:52:05.028Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=dispatch",
+        "finalPath": "/innstillinger",
+        "documentTitle": "Innstillinger · FSM-plattformen",
+        "h1": [
+          "Innstillinger"
+        ],
+        "bodyTextLength": 885,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/innstillinger?tab=sms",
+      "slug": "innstillinger-sms",
+      "role": "admin",
+      "title": "Innstillinger – SMS",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/innstillinger-sms.jpg",
+        "width": 1440,
+        "height": 7762,
+        "bytes": 594279,
+        "capturedAt": "2026-10-30T22:49:43.416Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sms",
+        "finalPath": "/innstillinger",
+        "documentTitle": "Innstillinger · FSM-plattformen",
+        "h1": [
+          "Innstillinger"
+        ],
+        "bodyTextLength": 4305,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/innstillinger-sms.jpg",
+        "width": 390,
+        "height": 9006,
+        "bytes": 461579,
+        "capturedAt": "2026-10-30T22:52:07.044Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sms",
+        "finalPath": "/innstillinger",
+        "documentTitle": "Innstillinger · FSM-plattformen",
+        "h1": [
+          "Innstillinger"
+        ],
+        "bodyTextLength": 4278,
         "imageFailures": [],
         "legacy": null
       }
@@ -2210,8 +2630,8 @@
         "file": "screenshots/pages/desktop/innstillinger-sikkerhet.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 75017,
-        "capturedAt": "2026-10-30T19:42:45.206Z",
+        "bytes": 78154,
+        "capturedAt": "2026-10-30T22:49:45.038Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sikkerhet",
         "finalPath": "/innstillinger",
@@ -2219,22 +2639,22 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 596,
+        "bodyTextLength": 639,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/10-innstillinger-sikkerhet.png",
           "width": 1440,
           "height": 993,
-          "bytes": 80048,
-          "capturedAt": "2026-10-30T19:42:45.206Z"
+          "bytes": 84094,
+          "capturedAt": "2026-10-30T22:49:45.038Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/innstillinger-sikkerhet.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 43138,
-        "capturedAt": "2026-10-30T19:44:37.962Z",
+        "bytes": 43127,
+        "capturedAt": "2026-10-30T22:52:08.573Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sikkerhet",
         "finalPath": "/innstillinger",
@@ -2242,7 +2662,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 579,
+        "bodyTextLength": 612,
         "imageFailures": [],
         "legacy": null
       }
@@ -2258,8 +2678,8 @@
         "file": "screenshots/pages/desktop/innstillinger-api.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 88975,
-        "capturedAt": "2026-10-30T19:42:46.859Z",
+        "bytes": 92216,
+        "capturedAt": "2026-10-30T22:49:46.782Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=api",
         "finalPath": "/innstillinger",
@@ -2267,7 +2687,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 760,
+        "bodyTextLength": 803,
         "imageFailures": [],
         "legacy": null
       },
@@ -2275,8 +2695,8 @@
         "file": "screenshots/pages/mobile/innstillinger-api.jpg",
         "width": 390,
         "height": 1243,
-        "bytes": 60669,
-        "capturedAt": "2026-10-30T19:44:39.509Z",
+        "bytes": 60573,
+        "capturedAt": "2026-10-30T22:52:10.093Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=api",
         "finalPath": "/innstillinger",
@@ -2284,13 +2704,13 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 743,
+        "bodyTextLength": 776,
         "imageFailures": [],
         "legacy": null
       }
     },
     {
-      "route": "/innstillinger/maler/cmvvda5lt000igxfjgsoxihs2",
+      "route": "/innstillinger/maler/cmvvj42ow000ie6fj4jkb06nu",
       "slug": "mal-rediger",
       "role": "admin",
       "title": "Rediger mal – Service av porter",
@@ -2300,16 +2720,16 @@
         "file": "screenshots/pages/desktop/mal-rediger.jpg",
         "width": 1440,
         "height": 1931,
-        "bytes": 147136,
-        "capturedAt": "2026-10-30T19:42:53.918Z",
+        "bytes": 147918,
+        "capturedAt": "2026-10-30T22:49:53.855Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/innstillinger/maler/cmvvda5lt000igxfjgsoxihs2",
-        "finalPath": "/innstillinger/maler/cmvvda5lt000igxfjgsoxihs2",
+        "finalUrl": "http://127.0.0.1:3100/innstillinger/maler/cmvvj42ow000ie6fj4jkb06nu",
+        "finalPath": "/innstillinger/maler/cmvvj42ow000ie6fj4jkb06nu",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rediger Mal"
         ],
-        "bodyTextLength": 1259,
+        "bodyTextLength": 1269,
         "imageFailures": [],
         "legacy": null
       },
@@ -2318,10 +2738,10 @@
         "width": 390,
         "height": 2551,
         "bytes": 117612,
-        "capturedAt": "2026-10-30T19:44:46.572Z",
+        "capturedAt": "2026-10-30T22:52:17.178Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/innstillinger/maler/cmvvda5lt000igxfjgsoxihs2",
-        "finalPath": "/innstillinger/maler/cmvvda5lt000igxfjgsoxihs2",
+        "finalUrl": "http://127.0.0.1:3100/innstillinger/maler/cmvvj42ow000ie6fj4jkb06nu",
+        "finalPath": "/innstillinger/maler/cmvvj42ow000ie6fj4jkb06nu",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Rediger Mal"
@@ -2342,8 +2762,8 @@
         "file": "screenshots/pages/desktop/brukere.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 95610,
-        "capturedAt": "2026-10-30T19:42:55.921Z",
+        "bytes": 98949,
+        "capturedAt": "2026-10-30T22:49:55.840Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -2351,7 +2771,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 849,
+        "bodyTextLength": 892,
         "imageFailures": [],
         "legacy": null
       },
@@ -2360,7 +2780,7 @@
         "width": 390,
         "height": 1119,
         "bytes": 56703,
-        "capturedAt": "2026-10-30T19:44:48.209Z",
+        "capturedAt": "2026-10-30T22:52:19.195Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -2368,7 +2788,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 747,
+        "bodyTextLength": 780,
         "imageFailures": [],
         "legacy": null
       }
@@ -2384,8 +2804,8 @@
         "file": "screenshots/pages/desktop/mine-oppdrag.jpg",
         "width": 1440,
         "height": 3028,
-        "bytes": 216021,
-        "capturedAt": "2026-10-30T19:42:57.887Z",
+        "bytes": 215988,
+        "capturedAt": "2026-10-30T22:49:57.850Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag",
         "finalPath": "/mine-oppdrag",
@@ -2401,8 +2821,8 @@
         "file": "screenshots/pages/mobile/mine-oppdrag.jpg",
         "width": 390,
         "height": 3359,
-        "bytes": 167363,
-        "capturedAt": "2026-10-30T19:44:50.268Z",
+        "bytes": 167267,
+        "capturedAt": "2026-10-30T22:52:21.358Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag",
         "finalPath": "/mine-oppdrag",
@@ -2416,7 +2836,7 @@
       }
     },
     {
-      "route": "/mine-oppdrag/cmvvda5mm000kgxfj0804jeef",
+      "route": "/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00",
       "slug": "mine-oppdrag-detalj",
       "role": "technician",
       "title": "Mine oppdrag – Service – automatiske dører",
@@ -2427,10 +2847,10 @@
         "width": 1440,
         "height": 2947,
         "bytes": 198705,
-        "capturedAt": "2026-10-30T19:42:59.943Z",
+        "capturedAt": "2026-10-30T22:49:59.870Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvda5mm000kgxfj0804jeef",
-        "finalPath": "/mine-oppdrag/cmvvda5mm000kgxfj0804jeef",
+        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00",
+        "finalPath": "/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Service – automatiske dører"
@@ -2444,10 +2864,10 @@
         "width": 390,
         "height": 3459,
         "bytes": 147732,
-        "capturedAt": "2026-10-30T19:44:52.272Z",
+        "capturedAt": "2026-10-30T22:52:23.204Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvda5mm000kgxfj0804jeef",
-        "finalPath": "/mine-oppdrag/cmvvda5mm000kgxfj0804jeef",
+        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00",
+        "finalPath": "/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Service – automatiske dører"
@@ -2459,12 +2879,12 @@
           "width": 390,
           "height": 3459,
           "bytes": 203181,
-          "capturedAt": "2026-10-30T19:44:52.272Z"
+          "capturedAt": "2026-10-30T22:52:23.204Z"
         }
       }
     },
     {
-      "route": "/mine-oppdrag/cmvvda5mm000kgxfj0804jeef/skjema/cmvvda5lt000igxfjgsoxihs2",
+      "route": "/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00/skjema/cmvvj42ow000ie6fj4jkb06nu",
       "slug": "mine-oppdrag-skjema",
       "role": "technician",
       "title": "Skjema – Service av porter",
@@ -2475,10 +2895,10 @@
         "width": 1440,
         "height": 2678,
         "bytes": 208380,
-        "capturedAt": "2026-10-30T19:43:07.093Z",
+        "capturedAt": "2026-10-30T22:50:07.087Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvda5mm000kgxfj0804jeef/skjema/cmvvda5lt000igxfjgsoxihs2",
-        "finalPath": "/mine-oppdrag/cmvvda5mm000kgxfj0804jeef/skjema/cmvvda5lt000igxfjgsoxihs2",
+        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00/skjema/cmvvj42ow000ie6fj4jkb06nu",
+        "finalPath": "/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00/skjema/cmvvj42ow000ie6fj4jkb06nu",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Service av porter"
@@ -2492,10 +2912,10 @@
         "width": 390,
         "height": 4100,
         "bytes": 175295,
-        "capturedAt": "2026-10-30T19:44:59.586Z",
+        "capturedAt": "2026-10-30T22:52:30.572Z",
         "httpStatus": 200,
-        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvda5mm000kgxfj0804jeef/skjema/cmvvda5lt000igxfjgsoxihs2",
-        "finalPath": "/mine-oppdrag/cmvvda5mm000kgxfj0804jeef/skjema/cmvvda5lt000igxfjgsoxihs2",
+        "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00/skjema/cmvvj42ow000ie6fj4jkb06nu",
+        "finalPath": "/mine-oppdrag/cmvvj42ps000ke6fjkno7xw00/skjema/cmvvj42ow000ie6fj4jkb06nu",
         "documentTitle": "FSM-plattformen",
         "h1": [
           "Service av porter"
@@ -2517,7 +2937,7 @@
         "width": 1440,
         "height": 1711,
         "bytes": 111283,
-        "capturedAt": "2026-10-30T19:43:08.681Z",
+        "capturedAt": "2026-10-30T22:50:08.683Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/ny",
         "finalPath": "/mine-oppdrag/ny",
@@ -2534,7 +2954,7 @@
         "width": 390,
         "height": 2128,
         "bytes": 87683,
-        "capturedAt": "2026-10-30T19:45:01.176Z",
+        "capturedAt": "2026-10-30T22:52:32.196Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/ny",
         "finalPath": "/mine-oppdrag/ny",
@@ -2559,7 +2979,7 @@
         "width": 1440,
         "height": 1036,
         "bytes": 84647,
-        "capturedAt": "2026-10-30T19:43:10.195Z",
+        "capturedAt": "2026-10-30T22:50:10.192Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/kunder",
         "finalPath": "/mine-oppdrag/kunder",
@@ -2576,7 +2996,7 @@
         "width": 390,
         "height": 1640,
         "bytes": 70062,
-        "capturedAt": "2026-10-30T19:45:02.734Z",
+        "capturedAt": "2026-10-30T22:52:33.760Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/kunder",
         "finalPath": "/mine-oppdrag/kunder",
@@ -2599,9 +3019,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/kundeportal.jpg",
         "width": 1440,
-        "height": 3186,
-        "bytes": 299356,
-        "capturedAt": "2026-10-30T19:43:12.358Z",
+        "height": 3547,
+        "bytes": 304739,
+        "capturedAt": "2026-10-30T22:50:12.436Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kundeportal",
         "finalPath": "/kundeportal",
@@ -2609,22 +3029,22 @@
         "h1": [
           "Min Bedrift: Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 3444,
+        "bodyTextLength": 2916,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/14-kundeportal.png",
           "width": 1440,
-          "height": 3186,
-          "bytes": 338544,
-          "capturedAt": "2026-10-30T19:43:12.358Z"
+          "height": 3547,
+          "bytes": 344840,
+          "capturedAt": "2026-10-30T22:50:12.436Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kundeportal.jpg",
         "width": 390,
-        "height": 4918,
-        "bytes": 253259,
-        "capturedAt": "2026-10-30T19:45:04.967Z",
+        "height": 5350,
+        "bytes": 250040,
+        "capturedAt": "2026-10-30T22:52:36.078Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kundeportal",
         "finalPath": "/kundeportal",
@@ -2632,15 +3052,351 @@
         "h1": [
           "Min Bedrift: Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 3412,
+        "bodyTextLength": 2884,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/15-kundeportal-mobil.png",
           "width": 390,
-          "height": 4918,
-          "bytes": 322838,
-          "capturedAt": "2026-10-30T19:45:04.967Z"
+          "height": 5350,
+          "bytes": 325913,
+          "capturedAt": "2026-10-30T22:52:36.078Z"
         }
+      }
+    },
+    {
+      "route": "/kundeportal/bestillinger",
+      "slug": "kundeportal-bestillinger",
+      "role": "customer",
+      "title": "Kundeportal – Bestillinger",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-bestillinger.jpg",
+        "width": 1440,
+        "height": 2116,
+        "bytes": 169237,
+        "capturedAt": "2026-10-30T22:50:14.609Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/bestillinger",
+        "finalPath": "/kundeportal/bestillinger",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 1515,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-bestillinger.jpg",
+        "width": 390,
+        "height": 2967,
+        "bytes": 130828,
+        "capturedAt": "2026-10-30T22:52:38.018Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/bestillinger",
+        "finalPath": "/kundeportal/bestillinger",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 1483,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/rapporter",
+      "slug": "kundeportal-rapporter",
+      "role": "customer",
+      "title": "Kundeportal – Rapporter",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-rapporter.jpg",
+        "width": 1440,
+        "height": 964,
+        "bytes": 66326,
+        "capturedAt": "2026-10-30T22:50:16.258Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/rapporter",
+        "finalPath": "/kundeportal/rapporter",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 645,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-rapporter.jpg",
+        "width": 390,
+        "height": 908,
+        "bytes": 46474,
+        "capturedAt": "2026-10-30T22:52:39.664Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/rapporter",
+        "finalPath": "/kundeportal/rapporter",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 613,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/dokumenter",
+      "slug": "kundeportal-dokumenter",
+      "role": "customer",
+      "title": "Kundeportal – Dokumenter",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-dokumenter.jpg",
+        "width": 1440,
+        "height": 964,
+        "bytes": 59027,
+        "capturedAt": "2026-10-30T22:50:17.835Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/dokumenter",
+        "finalPath": "/kundeportal/dokumenter",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 462,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-dokumenter.jpg",
+        "width": 390,
+        "height": 908,
+        "bytes": 40080,
+        "capturedAt": "2026-10-30T22:52:41.296Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/dokumenter",
+        "finalPath": "/kundeportal/dokumenter",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 430,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/utstyr",
+      "slug": "kundeportal-utstyr",
+      "role": "customer",
+      "title": "Kundeportal – Utstyr",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-utstyr.jpg",
+        "width": 1440,
+        "height": 964,
+        "bytes": 64779,
+        "capturedAt": "2026-10-30T22:50:19.405Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/utstyr",
+        "finalPath": "/kundeportal/utstyr",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 599,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-utstyr.jpg",
+        "width": 390,
+        "height": 946,
+        "bytes": 48559,
+        "capturedAt": "2026-10-30T22:52:42.873Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/utstyr",
+        "finalPath": "/kundeportal/utstyr",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 567,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/avtaler",
+      "slug": "kundeportal-avtaler",
+      "role": "customer",
+      "title": "Kundeportal – Avtaler",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-avtaler.jpg",
+        "width": 1440,
+        "height": 964,
+        "bytes": 60982,
+        "capturedAt": "2026-10-30T22:50:21.071Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/avtaler",
+        "finalPath": "/kundeportal/avtaler",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 540,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-avtaler.jpg",
+        "width": 390,
+        "height": 908,
+        "bytes": 43792,
+        "capturedAt": "2026-10-30T22:52:44.462Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/avtaler",
+        "finalPath": "/kundeportal/avtaler",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 508,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/besok",
+      "slug": "kundeportal-besok",
+      "role": "customer",
+      "title": "Kundeportal – Besøk",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-besok.jpg",
+        "width": 1440,
+        "height": 1050,
+        "bytes": 91604,
+        "capturedAt": "2026-10-30T22:50:22.660Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/besok",
+        "finalPath": "/kundeportal/besok",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 924,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-besok.jpg",
+        "width": 390,
+        "height": 1406,
+        "bytes": 71095,
+        "capturedAt": "2026-10-30T22:52:46.105Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/besok",
+        "finalPath": "/kundeportal/besok",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 892,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/meldinger",
+      "slug": "kundeportal-meldinger",
+      "role": "customer",
+      "title": "Kundeportal – Meldinger",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-meldinger.jpg",
+        "width": 1440,
+        "height": 964,
+        "bytes": 54732,
+        "capturedAt": "2026-10-30T22:50:24.278Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/meldinger",
+        "finalPath": "/kundeportal/meldinger",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 447,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-meldinger.jpg",
+        "width": 390,
+        "height": 908,
+        "bytes": 38023,
+        "capturedAt": "2026-10-30T22:52:47.966Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/meldinger",
+        "finalPath": "/kundeportal/meldinger",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 415,
+        "imageFailures": [],
+        "legacy": null
+      }
+    },
+    {
+      "route": "/kundeportal/kontakt",
+      "slug": "kundeportal-kontakt",
+      "role": "customer",
+      "title": "Kundeportal – Kontakt",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/kundeportal-kontakt.jpg",
+        "width": 1440,
+        "height": 964,
+        "bytes": 76677,
+        "capturedAt": "2026-10-30T22:50:25.914Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/kontakt",
+        "finalPath": "/kundeportal/kontakt",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 633,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/kundeportal-kontakt.jpg",
+        "width": 390,
+        "height": 1224,
+        "bytes": 58832,
+        "capturedAt": "2026-10-30T22:52:49.595Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/kundeportal/kontakt",
+        "finalPath": "/kundeportal/kontakt",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Min Bedrift: Nordvik Testindustri AS"
+        ],
+        "bodyTextLength": 601,
+        "imageFailures": [],
+        "legacy": null
       }
     }
   ],
@@ -2666,14 +3422,24 @@
       "reason": "Bakoverkompatibel alias som redirecter til /kalender?vis=2uker. To-ukersvisningen er fanget der."
     },
     {
-      "route": "/enheter",
-      "role": "admin",
-      "reason": "Legacy-rute som redirecter til /kunder?varsel=enheter. Kundekatalogen og enhetsdetaljen er fanget separat."
-    },
-    {
       "route": "/sikkerhet",
       "role": "admin",
       "reason": "Legacy-rute som redirecter til /innstillinger?tab=sikkerhet. Sikkerhetsfanen er fanget der."
+    },
+    {
+      "route": "/meldinger/[id]",
+      "role": "admin",
+      "reason": "Samtaletråden krever en eksisterende tråd. Listen /meldinger er fanget; trådvisningen dekkes av integrasjonstestene."
+    },
+    {
+      "route": "/sporing/[token]",
+      "role": "public",
+      "reason": "Offentlig sporingslenke krever et gyldig, kortlivet token fra en aktiv visitt. Tokenflyten dekkes av integrasjonstestene."
+    },
+    {
+      "route": "/anmeldelse/[token]",
+      "role": "public",
+      "reason": "Omtalesiden krever et gyldig engangstoken fra en fullført visitt. Tokenflyten dekkes av integrasjonstestene."
     }
   ],
   "redirectChecks": [
@@ -2728,19 +3494,6 @@
       "pass": true
     },
     {
-      "description": "gammel enhetsliste",
-      "from": "/enheter",
-      "role": "admin",
-      "expectedPath": "/kunder",
-      "expectedSearch": {
-        "varsel": "enheter"
-      },
-      "finalUrl": "http://127.0.0.1:3100/kunder?varsel=enheter",
-      "finalPath": "/kunder",
-      "finalSearch": "?varsel=enheter",
-      "pass": true
-    },
-    {
       "description": "gammel sikkerhetsrute",
       "from": "/sikkerhet",
       "role": "admin",
@@ -2773,7 +3526,7 @@
       "width": 1440,
       "height": 900,
       "bytes": 25503,
-      "capturedAt": "2026-10-30T19:41:18.959Z",
+      "capturedAt": "2026-10-30T22:48:00.194Z",
       "httpStatus": 200,
       "finalUrl": "http://127.0.0.1:3100/logg-inn",
       "finalPath": "/logg-inn",
@@ -2790,7 +3543,7 @@
       "width": 1440,
       "height": 900,
       "bytes": 55165,
-      "capturedAt": "2026-10-30T19:41:24.909Z",
+      "capturedAt": "2026-10-30T22:48:06.214Z",
       "httpStatus": 404,
       "finalUrl": "http://127.0.0.1:3100/finnes-ikke",
       "finalPath": "/finnes-ikke",
@@ -2806,8 +3559,8 @@
       "file": "screenshots/pages/desktop/brukere.jpg",
       "width": 1440,
       "height": 993,
-      "bytes": 95610,
-      "capturedAt": "2026-10-30T19:42:55.921Z",
+      "bytes": 98949,
+      "capturedAt": "2026-10-30T22:49:55.840Z",
       "httpStatus": 200,
       "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
       "finalPath": "/innstillinger",
@@ -2815,7 +3568,7 @@
       "h1": [
         "Innstillinger"
       ],
-      "bodyTextLength": 849,
+      "bodyTextLength": 892,
       "imageFailures": [],
       "legacy": null
     },
@@ -2835,107 +3588,107 @@
     {
       "file": "screenshots/01-dashbord.png",
       "width": 1440,
-      "height": 1181,
-      "bytes": 187977,
-      "capturedAt": "2026-10-30T19:41:26.751Z"
+      "height": 1583,
+      "bytes": 241369,
+      "capturedAt": "2026-10-30T22:48:08.210Z"
     },
     {
       "file": "screenshots/02-oppdrag.png",
       "width": 1440,
       "height": 993,
-      "bytes": 165013,
-      "capturedAt": "2026-10-30T19:41:30.344Z"
+      "bytes": 168198,
+      "capturedAt": "2026-10-30T22:48:12.162Z"
     },
     {
       "file": "screenshots/03-oppdrag-detalj.png",
       "width": 1440,
-      "height": 2340,
-      "bytes": 245737,
-      "capturedAt": "2026-10-30T19:41:35.659Z"
+      "height": 2388,
+      "bytes": 259407,
+      "capturedAt": "2026-10-30T22:48:17.267Z"
     },
     {
       "file": "screenshots/04-kalender.png",
       "width": 1440,
       "height": 1576,
-      "bytes": 158727,
-      "capturedAt": "2026-10-30T19:41:41.286Z"
+      "bytes": 160428,
+      "capturedAt": "2026-10-30T22:48:22.888Z"
     },
     {
       "file": "screenshots/05-kunder.png",
       "width": 1440,
       "height": 993,
-      "bytes": 102670,
-      "capturedAt": "2026-10-30T19:41:54.242Z"
+      "bytes": 103681,
+      "capturedAt": "2026-10-30T22:48:37.852Z"
     },
     {
       "file": "screenshots/06-kunde-detalj.png",
       "width": 1440,
       "height": 1193,
-      "bytes": 172436,
-      "capturedAt": "2026-10-30T19:41:56.258Z"
+      "bytes": 174697,
+      "capturedAt": "2026-10-30T22:48:43.039Z"
     },
     {
       "file": "screenshots/07-dokumenter.png",
       "width": 1440,
       "height": 1188,
-      "bytes": 162070,
-      "capturedAt": "2026-10-30T19:42:09.767Z"
+      "bytes": 162822,
+      "capturedAt": "2026-10-30T22:49:02.226Z"
     },
     {
       "file": "screenshots/08-dokumenter-mappe.png",
       "width": 1440,
       "height": 993,
-      "bytes": 95591,
-      "capturedAt": "2026-10-30T19:42:11.685Z"
+      "bytes": 96306,
+      "capturedAt": "2026-10-30T22:49:03.941Z"
     },
     {
       "file": "screenshots/09-rapporter.png",
       "width": 1440,
       "height": 993,
-      "bytes": 103311,
-      "capturedAt": "2026-10-30T19:42:14.873Z"
+      "bytes": 104122,
+      "capturedAt": "2026-10-30T22:49:07.211Z"
     },
     {
       "file": "screenshots/11-innstillinger-merkevare.png",
       "width": 1440,
       "height": 1067,
-      "bytes": 105319,
-      "capturedAt": "2026-10-30T19:42:30.238Z"
+      "bytes": 109624,
+      "capturedAt": "2026-10-30T22:49:24.131Z"
     },
     {
       "file": "screenshots/10-innstillinger-sikkerhet.png",
       "width": 1440,
       "height": 993,
-      "bytes": 80048,
-      "capturedAt": "2026-10-30T19:42:45.206Z"
+      "bytes": 84094,
+      "capturedAt": "2026-10-30T22:49:45.038Z"
     },
     {
       "file": "screenshots/14-kundeportal.png",
       "width": 1440,
-      "height": 3186,
-      "bytes": 338544,
-      "capturedAt": "2026-10-30T19:43:12.358Z"
+      "height": 3547,
+      "bytes": 344840,
+      "capturedAt": "2026-10-30T22:50:12.436Z"
     },
     {
       "file": "screenshots/12-mobil-dashbord.png",
       "width": 390,
-      "height": 2443,
-      "bytes": 163746,
-      "capturedAt": "2026-10-30T19:43:21.919Z"
+      "height": 3376,
+      "bytes": 224481,
+      "capturedAt": "2026-10-30T22:50:35.423Z"
     },
     {
       "file": "screenshots/13-mobil-oppdrag.png",
       "width": 390,
       "height": 3459,
       "bytes": 203181,
-      "capturedAt": "2026-10-30T19:44:52.272Z"
+      "capturedAt": "2026-10-30T22:52:23.204Z"
     },
     {
       "file": "screenshots/15-kundeportal-mobil.png",
       "width": 390,
-      "height": 4918,
-      "bytes": 322838,
-      "capturedAt": "2026-10-30T19:45:04.967Z"
+      "height": 5350,
+      "bytes": 325913,
+      "capturedAt": "2026-10-30T22:52:36.078Z"
     }
   ],
   "failures": []
