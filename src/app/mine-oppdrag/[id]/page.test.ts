@@ -341,7 +341,13 @@ describe("feltdetalj – framdrift og CTA", () => {
 
 describe("feltdetalj – visitt", () => {
   it("viser dagens visitt med ekte start–slutt, sted, status og montører", async () => {
-    const html = await render({ visits: [makeVisit()] });
+    // Datoen må være relativ til «nå», ellers slutter testen å være en
+    // dagens-visitt-test dagen etter at den ble skrevet.
+    const startsAt = new Date();
+    startsAt.setHours(9, 0, 0, 0);
+    const endsAt = new Date(startsAt);
+    endsAt.setHours(11, 0, 0, 0);
+    const html = await render({ visits: [makeVisit({ startsAt, endsAt })] });
 
     expect(html).toContain("orders.fieldDetail.visits.todayTitle");
     expect(html).toContain("09:00");
