@@ -246,6 +246,69 @@ describe("restoreLocalDraft", () => {
     });
   });
 
+  it("rydder dupliserte registrerte enheter fra en eldre kladd", () => {
+    const restored = restoreLocalDraft({
+      requiresUnits: true,
+      fallback: seed(),
+      snapshot: {
+        state: {
+          counter: 3,
+          units: [
+            {
+              key: "unit-0",
+              productId: "prod1",
+              label: "Port Nord",
+              serialNumber: "SN-1",
+              location: "Bygg A",
+              status: "AVVIK",
+              comment: "Første rad",
+              answers: { f1: "Avvik" },
+            },
+            {
+              key: "unit-1",
+              productId: "prod1",
+              label: "Port Nord",
+              serialNumber: "SN-1",
+              location: "Bygg A",
+              status: "GODKJENT",
+              comment: "Duplikat",
+              answers: { f1: "OK" },
+            },
+            {
+              key: "unit-2",
+              productId: "prod2",
+              label: "Port Sør",
+              serialNumber: "SN-2",
+              location: "Bygg B",
+              status: "GODKJENT",
+              comment: "",
+              answers: {},
+            },
+          ],
+        },
+      },
+    });
+
+    expect(restored?.duplicateProductsCleared).toBe(1);
+    expect(restored?.state.units.map((unit) => unit.productId)).toEqual([
+      "prod1",
+      "",
+      "prod2",
+    ]);
+    // Duplikatraden beholder svarene sine, så montøren ikke mister arbeid.
+    expect(restored?.state.units[1]).toMatchObject({
+      label: "Port Nord",
+      status: "GODKJENT",
+      comment: "Duplikat",
+      answers: { f1: "OK" },
+    });
+    expect(restored?.seed.units.map((unit) => unit.productId)).toEqual([
+      "prod1",
+      "",
+      "prod2",
+    ]);
+  });
+
   it("avviser kladder uten brukbar state", () => {
     expect(
       restoreLocalDraft({

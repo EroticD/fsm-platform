@@ -148,4 +148,77 @@ describe("ReportForm – stegstripe og live telling", () => {
     expect(html).toContain("orders.reportForm.unassessed");
     expect(html).not.toContain("orders.reportForm.overallApproved");
   });
+
+  it("tilbyr ikke en registrert enhet som allerede er valgt i en annen rad", () => {
+    const customerUnits = [
+      { id: "prod-1", model: "Port Nord", serialNumber: "SN-1", location: "Bygg A" },
+      { id: "prod-2", model: "Port Sør", serialNumber: "SN-2", location: "Bygg B" },
+    ];
+    const html = render({
+      customerUnits,
+      initialReport: report({
+        units: [
+          {
+            productId: "prod-1",
+            label: "Port Nord",
+            serialNumber: "SN-1",
+            location: "Bygg A",
+            status: "UNASSESSED",
+            comment: "",
+            answers: {},
+          },
+          {
+            productId: "",
+            label: "Ny enhet",
+            serialNumber: "",
+            location: "",
+            status: "UNASSESSED",
+            comment: "",
+            answers: {},
+          },
+        ],
+      }),
+    });
+
+    // Første rad beholder sitt eget valg. Andre rad får ikke tilbud om det.
+    expect((html.match(/value="prod-1"/g) ?? []).length).toBe(1);
+    expect((html.match(/value="prod-2"/g) ?? []).length).toBe(2);
+    expect(html).toContain("orders.reportForm.unitUniqueHint");
+  });
+
+  it("rydder eldre dupliserte enhetsvalg og viser en tydelig melding", () => {
+    const customerUnits = [
+      { id: "prod-1", model: "Port Nord", serialNumber: "SN-1", location: "Bygg A" },
+    ];
+    const html = render({
+      customerUnits,
+      initialReport: report({
+        units: [
+          {
+            productId: "prod-1",
+            label: "Port Nord",
+            serialNumber: "SN-1",
+            location: "Bygg A",
+            status: "UNASSESSED",
+            comment: "",
+            answers: {},
+          },
+          {
+            productId: "prod-1",
+            label: "Port Nord",
+            serialNumber: "SN-1",
+            location: "Bygg A",
+            status: "UNASSESSED",
+            comment: "",
+            answers: {},
+          },
+        ],
+      }),
+    });
+
+    expect((html.match(/value="prod-1"/g) ?? []).length).toBe(1);
+    expect(html).toContain(
+      "orders.reportForm.duplicateProductsCleared {&quot;count&quot;:1}",
+    );
+  });
 });

@@ -14,6 +14,7 @@ import {
   REPORT_STATUS_UNASSESSED,
   lineCommentKey,
 } from "@/lib/report-answers";
+import { dedupeUnitProductIds } from "./unit-selection";
 
 export type UnitStatus =
   | typeof REPORT_STATUS_APPROVED
@@ -185,18 +186,31 @@ export function restoreLocalDraft(input: {
   snapshot: LocalDraftSnapshot;
   requiresUnits: boolean;
   fallback?: ReportSeed;
-}): { state: ReportFormState; seed: ReportSeed } | null {
+}): {
+  state: ReportFormState;
+  seed: ReportSeed;
+  /** Antall dupliserte produktvalg som ble ryddet under gjenopprettingen. */
+  duplicateProductsCleared: number;
+} | null {
   const normalized = normalizeState(input.snapshot, input.requiresUnits);
   if (!normalized) return null;
 
   const { snapshot, fallback } = input;
   const form = snapshot.form;
-  const state = mergeFormIntoState(normalized, form);
+  // Eldre kladder kan ha samme registrerte enhet i flere rader. Første rad
+  // beholder koblingen; senere rader beholder svar og metadata, men mister
+  // produktkoblingen slik at ingen enhet blir rapportert to ganger.
+  const deduped = dedupeUnitProductIds(normalized.units);
+  const state = mergeFormIntoState(
+    { ...normalized, units: deduped.units },
+    form,
+  );
   const notes =
     formValue(form, "notes") ?? snapshot.notes ?? fallback?.notes ?? "";
 
   return {
     state,
+    duplicateProductsCleared: deduped.cleared,
     seed: {
       notes,
       technicianSignatureUrl:

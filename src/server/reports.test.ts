@@ -565,6 +565,25 @@ describe("reports-tjenesten", () => {
     );
   });
 
+  it("avviser kladd når samme registrerte enhet er valgt i flere rader", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const data = formData();
+    data.set(
+      "unitsJson",
+      JSON.stringify([
+        { key: "unit-0", label: "Pumpe", productId: "prod-1" },
+        { key: "unit-1", label: "Pumpe igjen", productId: "prod-1" },
+      ]),
+    );
+    data.set("status__unit-1", "GODKJENT");
+
+    const result = await saveDraft(actor(), data);
+
+    expect(result).toEqual({ ok: false });
+    expect(mocks.prisma.reportDraft.upsert).not.toHaveBeenCalled();
+  });
+
   it("lagrer en uvurdert enhet som UNASSESSED i kladden", async () => {
     mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
     mocks.prisma.report.findUnique.mockResolvedValue(null);
@@ -729,6 +748,85 @@ describe("reports-tjenesten", () => {
       error: "mangler-enhet",
       returnTo: "/oppdrag/wo1",
     });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser innsending når samme registrerte enhet er valgt i flere rader", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(workOrder());
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    const data = formData();
+    data.set(
+      "unitsJson",
+      JSON.stringify([
+        {
+          key: "unit-0",
+          label: "Pumpe",
+          productId: "prod-1",
+          serialNumber: "SN-1",
+          location: "Kjeller",
+        },
+        {
+          key: "unit-1",
+          label: "Pumpe igjen",
+          productId: "prod-1",
+          serialNumber: "SN-1",
+          location: "Kjeller",
+        },
+      ]),
+    );
+    data.set("status__unit-1", "GODKJENT");
+    data.set("answer__unit-1__f1", "OK");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-data",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it("avviser to rader som løses til samme registrerte enhet", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      customerId: "cust-1",
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.product.findFirst.mockResolvedValue({ id: "prod-1" });
+    const data = formData();
+    data.set(
+      "unitsJson",
+      JSON.stringify([
+        {
+          key: "unit-0",
+          label: "Pumpe",
+          productId: "",
+          serialNumber: "SN-1",
+          location: "Kjeller",
+        },
+        {
+          key: "unit-1",
+          label: "Pumpe",
+          productId: "",
+          serialNumber: "SN-1",
+          location: "Kjeller",
+        },
+      ]),
+    );
+    data.set("status__unit-1", "GODKJENT");
+    data.set("answer__unit-1__f1", "OK");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-data",
+      returnTo: "/oppdrag/wo1",
+    });
+    expect(mocks.prisma.product.findFirst).toHaveBeenCalledTimes(2);
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 

@@ -410,6 +410,26 @@ function parseUnits(raw: unknown): UnitPayload[] {
   }
 }
 
+/**
+ * Registrerte enheter som er valgt mer enn én gang i samme rapport.
+ *
+ * En fysisk enhet skal ikke kunne rapporteres to ganger i samme sjekkliste.
+ * Tomme produkt-id-er er «ny enhet» og kan gjentas. Sjekken gjøres før rader
+ * opprettes, slik at serveren aldri lagrer et duplikat – verken i kladd eller
+ * signert rapport.
+ */
+function duplicateProductIds(units: UnitPayload[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const unit of units) {
+    const productId = typeof unit.productId === "string" ? unit.productId.trim() : "";
+    if (!productId) continue;
+    if (seen.has(productId)) duplicates.add(productId);
+    else seen.add(productId);
+  }
+  return [...duplicates];
+}
+
 function parseFields(fieldsJson: string | null | undefined): TemplateField[] {
   try {
     const parsed = JSON.parse(fieldsJson || "[]");
@@ -809,7 +829,12 @@ export async function saveDraft(
   // kreves, som i databasen.
   const draftRequiresUnits = template.requiresUnits !== false;
 
-  const units = parseUnits(parsedInput.data.unitsJson).map((unit) => ({
+  const parsedUnits = parseUnits(parsedInput.data.unitsJson);
+  if (draftRequiresUnits && duplicateProductIds(parsedUnits).length > 0) {
+    return { ok: false };
+  }
+
+  const units = parsedUnits.map((unit) => ({
     productId: unit.productId || "",
     label: cleanText(unit.label, { maxLength: LIMITS.title }),
     serialNumber: cleanText(unit.serialNumber, { maxLength: LIMITS.line }),
@@ -1012,6 +1037,17 @@ export async function submitReport(
   // Eldre maler (og testdata) kan mangle feltet; standarden er at enheter
   // kreves, som i databasen.
   const templateRequiresUnits = template.requiresUnits !== false;
+  const parsedUnits = parseUnits(formData.get("unitsJson"));
+
+  // Samme registrerte enhet kan ikke rapporteres to ganger. Avvis før noe
+  // skrives, med samme stabile feilkode som annen ugyldig data.
+  if (templateRequiresUnits && duplicateProductIds(parsedUnits).length > 0) {
+    return {
+      ok: false,
+      error: "ugyldig-data",
+      returnTo: returnPathFrom(formData, workOrderId),
+    };
+  }
 
   // Én rapport per sjekkliste per oppdrag. Er den allerede fylt ut og låst, kan
   // den ikke endres før en administrator har låst den opp.
@@ -1088,7 +1124,8 @@ export async function submitReport(
   }> = [];
 
   if (templateRequiresUnits) {
-    for (const [index, unit] of parseUnits(formData.get("unitsJson")).entries()) {
+    const usedProductIds = new Set<string>();
+    for (const [index, unit] of parsedUnits.entries()) {
       const label = cleanText(unit.label, { maxLength: LIMITS.title });
       if (!label) continue; // hopper over tomme rader
 
@@ -1113,14 +1150,29 @@ export async function submitReport(
 
       const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
       const location = cleanText(unit.location, { maxLength: LIMITS.line }) || null;
+      const productId = await resolveProductId(workOrder.customerId, {
+        productId: unit.productId || "",
+        label,
+        serialNumber: serialNumber ?? "",
+        location: location ?? "",
+      });
+
+      // To ulike produkt-id-er kan peke på samme registrerte enhet (for
+      // eksempel når resolveProductId gjenbruker en enhet på serienummer).
+      // Da ville rapporten fått to rader for samme fysiske enhet.
+      if (productId) {
+        if (usedProductIds.has(productId)) {
+          return {
+            ok: false,
+            error: "ugyldig-data",
+            returnTo: returnPathFrom(formData, workOrderId),
+          };
+        }
+        usedProductIds.add(productId);
+      }
 
       unitRows.push({
-        productId: await resolveProductId(workOrder.customerId, {
-          productId: unit.productId || "",
-          label,
-          serialNumber: serialNumber ?? "",
-          location: location ?? "",
-        }),
+        productId,
         label,
         serialNumber,
         location,
@@ -1135,7 +1187,7 @@ export async function submitReport(
     // eventuell produkt-/enhetsmetadata fra klienten ignoreres. Nøkkelen
     // brukes bare for å lese svarfeltene i skjemaet. Den anonyme raden får
     // en nøytral status: det finnes ingen enhet å godkjenne eller melde avvik på.
-    const [anonymous] = parseUnits(formData.get("unitsJson"));
+    const [anonymous] = parsedUnits;
     const key = anonymous?.key || "report";
     unitRows.push({
       productId: null,

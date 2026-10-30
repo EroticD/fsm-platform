@@ -22,6 +22,12 @@ import {
 import { saveDraft, submitReport } from "./actions";
 import { canSubmitReport, useOnlineStatus } from "./submit-connectivity";
 import {
+  countDuplicateUnitProductIds,
+  dedupeUnitProductIds,
+  linkUnitToProduct,
+  selectableCustomerUnits,
+} from "./unit-selection";
+import {
   loadDraftLocally,
   queueDraftForRetry,
   removeOutboxForReport,
@@ -220,10 +226,24 @@ export default function ReportForm({
             ];
           })();
 
-    return { counter: startUnits.length, units: startUnits };
+    return {
+      counter: startUnits.length,
+      units: dedupeUnitProductIds(startUnits).units,
+    };
   });
 
   const { units } = state;
+  // En rapport skrevet før enhetsregelen kan ha samme registrerte enhet i
+  // flere rader. Da er duplikatene alt ryddet i startstate-en, og montøren får
+  // en tydelig melding om at raden må kobles på nytt.
+  const [duplicateProductsCleared, setDuplicateProductsCleared] = useState(
+    () => (requiresUnits ? countDuplicateUnitProductIds(seed?.units ?? []) : 0),
+  );
+  // Raden som sist prøvde å velge en enhet som alt er brukt. Vises som en
+  // tilgjengelig feilmelding under riktig select.
+  const [duplicateProductUnitKey, setDuplicateProductUnitKey] = useState<
+    string | null
+  >(null);
   const imageFields = fields.filter((field) => field.type === "IMAGE");
 
   // Bildeantallet oppdateres av bildefeltene etter hvert som opplastinger
@@ -478,6 +498,7 @@ export default function ReportForm({
         // remonterer de ukontrollerte feltene med de gjenopprettede verdiene.
         setState(restored.state);
         setSeed(restored.seed);
+        setDuplicateProductsCleared(restored.duplicateProductsCleared);
         setFormVersion((version) => version + 1);
         setLocalDraftRestored(true);
         setDraftStatus("saved");
@@ -534,19 +555,32 @@ export default function ReportForm({
     scheduleSave();
   };
 
-  /** Velger en registrert enhet fra kundekortet og fyller inn feltene. */
+  /**
+   * Velger en registrert enhet fra kundekortet og fyller inn feltene.
+   *
+   * En registrert enhet skal bare brukes én gang i rapporten. Valget avvises
+   * hvis en annen rad alt bruker den – også hvis to valg skulle komme i samme
+   * render. Kontrollen kjøres derfor både mot fersk state og inne i updateren.
+   */
   const linkRegisteredUnit = (key: string, productId: string) => {
-    const found = customerUnits.find((u) => u.id === productId);
-    if (!found) {
-      patchUnit(key, { productId: "" });
+    const found = customerUnits.find((u) => u.id === productId) ?? null;
+    const linked = linkUnitToProduct(stateRef.current.units, key, found);
+    if (linked.duplicate) {
+      setDuplicateProductUnitKey(key);
       return;
     }
-    patchUnit(key, {
-      productId: found.id,
-      label: found.model,
-      serialNumber: found.serialNumber ?? "",
-      location: found.location ?? "",
+
+    setDuplicateProductUnitKey(null);
+    if (!linked.changed) return;
+
+    setState((s) => {
+      const latest = linkUnitToProduct(s.units, key, found);
+      // En samtidig endring kan ha tatt enheten mens denne raden ventet.
+      // Da står begge radene urørt og enheten forblir unik.
+      if (latest.duplicate || !latest.changed) return s;
+      return { ...s, units: latest.units };
     });
+    scheduleSave();
   };
 
   // Samlet resultat er bare godkjent når hver enhet er eksplisitt godkjent.
@@ -687,6 +721,13 @@ export default function ReportForm({
 
   const statusLabel = "block text-xs font-black uppercase tracking-wider text-gray-600 mb-2";
   const visibility = reportFormSections(requiresUnits);
+  // Hver rad får bare de registrerte enhetene som ikke er valgt i en annen rad.
+  const selectableUnitsByKey = new Map(
+    units.map((unit) => [
+      unit.key,
+      selectableCustomerUnits(customerUnits, units, unit.key),
+    ]),
+  );
 
   // Stegstripen viser hvor langt montøren er, uten å måtte lese hele skjemaet.
   const checkpointProgress = units.reduce(
@@ -976,7 +1017,7 @@ export default function ReportForm({
           <button
             type="button"
             onClick={() => void saveDraftNow()}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
+            className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
           >
             <Icon name="sync" className="h-3.5 w-3.5" />
             {t("orders.reportForm.saveDraftNow")}
@@ -987,6 +1028,21 @@ export default function ReportForm({
       {(initialDraft || localDraftRestored) && (
         <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm font-medium">
           {t("orders.reportForm.draftRestored")}
+        </div>
+      )}
+
+      {duplicateProductsCleared > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900"
+        >
+          <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {t("orders.reportForm.duplicateProductsCleared", {
+              count: duplicateProductsCleared,
+            })}
+          </span>
         </div>
       )}
 
@@ -1022,7 +1078,7 @@ export default function ReportForm({
             <button
               type="button"
               onClick={addUnit}
-              className="bg-signal text-ink px-4 py-2 rounded-xl text-sm font-black hover:brightness-95 transition shadow-sm whitespace-nowrap"
+              className="min-h-12 bg-signal text-ink px-4 py-2 rounded-xl text-sm font-black hover:brightness-95 transition shadow-sm whitespace-nowrap"
             >
               {t("orders.reportForm.addUnit")}
             </button>
@@ -1065,7 +1121,7 @@ export default function ReportForm({
                 <button
                   type="button"
                   onClick={() => setUnitToRemove(unit.key)}
-                  className="text-[11px] font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
+                  className="inline-flex min-h-12 items-center text-[11px] font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
                 >
                   {t("orders.reportForm.removeUnit")}
                 </button>
@@ -1223,10 +1279,22 @@ export default function ReportForm({
                         id={`${formId}-${unit.key}-product`}
                         value={unit.productId}
                         onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
-                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        aria-describedby={`${formId}-${unit.key}-product-hint${
+                          duplicateProductUnitKey === unit.key
+                            ? ` ${formId}-${unit.key}-product-error`
+                            : ""
+                        }`}
+                        aria-invalid={
+                          duplicateProductUnitKey === unit.key || undefined
+                        }
+                        className={`min-h-12 w-full rounded-xl border-2 p-2.5 text-base font-bold text-ink outline-none focus:border-success sm:text-sm ${
+                          duplicateProductUnitKey === unit.key
+                            ? "border-red-600 bg-red-50"
+                            : "border-line bg-white"
+                        }`}
                       >
                         <option value="">{t("orders.reportForm.newUnit")}</option>
-                        {customerUnits.map((u) => (
+                        {(selectableUnitsByKey.get(unit.key) ?? []).map((u) => (
                           <option key={u.id} value={u.id}>
                             {u.model}
                             {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
@@ -1234,6 +1302,22 @@ export default function ReportForm({
                           </option>
                         ))}
                       </select>
+                      <p
+                        id={`${formId}-${unit.key}-product-hint`}
+                        className="mt-1.5 text-[11px] font-medium text-gray-600"
+                      >
+                        {t("orders.reportForm.unitUniqueHint")}
+                      </p>
+                      {duplicateProductUnitKey === unit.key && (
+                        <p
+                          id={`${formId}-${unit.key}-product-error`}
+                          role="alert"
+                          className="mt-1.5 flex items-start gap-1.5 text-xs font-bold text-red-700"
+                        >
+                          <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>{t("orders.reportForm.unitAlreadyUsed")}</span>
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1254,7 +1338,7 @@ export default function ReportForm({
                           if (details) details.open = true;
                         }}
                         placeholder={t("orders.reportForm.labelPlaceholder")}
-                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       />
                     </div>
                     <div>
@@ -1265,7 +1349,7 @@ export default function ReportForm({
                         value={unit.serialNumber}
                         onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
                         placeholder={t("orders.reportForm.serialNumberPlaceholder")}
-                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       />
                     </div>
                     <div>
@@ -1276,7 +1360,7 @@ export default function ReportForm({
                         value={unit.location}
                         onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
                         placeholder={t("orders.reportForm.locationPlaceholder")}
-                        className="w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
                       />
                     </div>
                   </div>
