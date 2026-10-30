@@ -973,7 +973,8 @@
       "units": "{count, plural, one {# enhet} other {# enheter}}",
       "noUnits": "uten enheter",
       "deviation": "avvik",
-      "approved": "godkjent"
+      "approved": "godkjent",
+      "acknowledged": "Kunden kvitterte for rapporten"
     },
     "customer": {
       "created": "Opprettet kunde: {name}",
@@ -995,11 +996,99 @@
       "created": "Opprettet serviceavtale: {title} ({interval})",
       "activated": "Aktiverte serviceavtale: {title}",
       "paused": "Pauset serviceavtale: {title}",
-      "deleted": "Slettet serviceavtale: {title}"
+      "deleted": "Slettet serviceavtale: {title}",
+      "recurringCreated": "Opprettet gjentagende oppdrag fra serviceavtalen «{title}»"
     },
     "attachment": {
       "added": "La ved fil: {name}",
       "deleted": "Slettet vedlegg: {name}"
+    },
+    "auth": {
+      "login": "Logget inn",
+      "loginRecovery": "Logget inn med gjenopprettingskode",
+      "passwordReset": "Tilbakestilte passord med e-postlenke"
+    },
+    "security": {
+      "twoFactorFailed": "2FA: feilet verifisering",
+      "twoFactorSetupExpired": "2FA: oppsett utløpt",
+      "twoFactorSetupStarted": "Startet oppsett av to-trinns verifisering",
+      "twoFactorSetupCancelled": "Avbrøt oppsett av to-trinns verifisering",
+      "twoFactorEnabled": "Slå på to-trinns verifisering",
+      "twoFactorDisabled": "Slå av to-trinns verifisering",
+      "twoFactorRecoveryRegenerated": "Genererte nye gjenopprettingskoder for to-trinns verifisering",
+      "twoFactorReset": "Tilbakestilte to-trinns verifisering for {name}"
+    },
+    "users": {
+      "created": "Opprettet bruker: {name} ({role})",
+      "portalCreated": "Opprettet kundeportalbruker: {name} ({email})",
+      "activated": "Aktiverte bruker: {name}",
+      "deactivated": "Deaktiverte bruker: {name}",
+      "portalActivated": "Aktiverte kundeportalbruker: {name}",
+      "portalDeactivated": "Deaktiverte kundeportalbruker: {name}",
+      "departmentChanged": "Endret avdeling for {name} til {department}",
+      "roleChanged": "Endret rolle for {name} til {role}",
+      "phoneChanged": "Endret telefonnummer for {name}",
+      "invitationCreated": "Genererte ny invitasjonslenke for: {name}",
+      "invitationResent": "Sendte ny invitasjonslenke til kundeportalbruker: {name}",
+      "deleted": "Slettet bruker: {name}",
+      "permissionsReset": "Tilbakestilte rettigheter til rollen for {name}"
+    },
+    "departments": {
+      "created": "Opprettet avdeling: {name}",
+      "updated": "Oppdaterte avdeling: {from} → {to}",
+      "activated": "Aktiverte avdeling: {name}",
+      "deactivated": "Deaktiverte avdeling: {name}",
+      "defaultChanged": "Satte {name} som standardavdeling"
+    },
+    "roles": {
+      "created": "Opprettet rolle: {label} ({count, plural, one {# rettighet} other {# rettigheter}})",
+      "updated": "Oppdaterte rolle: {from} → {to} ({count, plural, one {# rettighet} other {# rettigheter}})",
+      "deleted": "Slettet rolle: {label}"
+    },
+    "documents": {
+      "uploaded": "Lastet opp dokument: {title}",
+      "updated": "Oppdaterte dokument: {title}",
+      "restored": "Gjenopprettet dokumentet «{title}»",
+      "versionRestored": "Gjenopprettet tidligere versjon av dokument: {title}",
+      "reindexed": "Reindekserte dokumentet for fulltekst-søk",
+      "deleted": "Slettet dokumentet «{title}» (myk sletting – kan gjenopprettes)",
+      "folderCreated": "Opprettet mappe: {name}",
+      "folderMoved": "Flyttet mappen: {name}",
+      "folderRenamed": "Ga mappen nytt navn: {from} → {to}",
+      "folderDeleted": "Slettet mappe: {name}",
+      "tagsAdded": "La til tagger på dokumentet «{title}»: {tags}",
+      "movedToFolder": "Flyttet dokumentet «{title}» til mappen {folder}",
+      "movedToRoot": "Flyttet dokumentet «{title}» til rot",
+      "tagCreated": "Opprettet dokument-tag: {name}",
+      "tagUpdated": "Oppdaterte dokument-tag: {from} -> {to}",
+      "tagDeleted": "Slettet dokument-tag: {name}"
+    },
+    "settings": {
+      "brandingUpdated": "Oppdaterte merkevareinnstillinger: {company}",
+      "mapUpdated": "Oppdaterte kartinnstillinger"
+    },
+    "templates": {
+      "created": "Opprettet sjekkliste: {title}",
+      "deleted": "Slettet sjekkliste: {title}",
+      "deleteBlocked": "Blokkerte sletting av sjekklisten «{title}» fordi den er i bruk",
+      "tagCreated": "Opprettet tag: {name}",
+      "tagUpdated": "Oppdaterte tag: {from} -> {to}",
+      "tagDeleted": "Slettet tag: {name}"
+    },
+    "workforce": {
+      "skillCreated": "Opprettet kompetanse: {label}",
+      "skillUpdated": "Endret kompetanse: {label}",
+      "skillDeleted": "Slettet kompetanse: {label}",
+      "userSkillUpdated": "Oppdaterte kompetanse for {name}",
+      "absenceCreated": "Registrerte fravær for {name}",
+      "absenceUpdated": "Endret fravær for {name}",
+      "absenceDeleted": "Slettet fravær for {name}",
+      "availabilityUpdated": "Endret arbeidstid for {name}"
+    },
+    "portal": {
+      "bookingCreated": "Kunde booket nytt oppdrag: {title}",
+      "rescheduleRequested": "Kunden ba om ny tid",
+      "bookingCancelled": "Kunden kansellerte bestillingen"
     }
   }
 }

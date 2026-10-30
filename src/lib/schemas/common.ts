@@ -46,7 +46,7 @@ export const optionalDateOnlySchema = z.preprocess(
 
 /** Kort tekst med en øvre grense. */
 export function limitedText(maxLength: number = LIMITS.text) {
-  return z.string().max(maxLength, "For lang tekst");
+  return z.string().max(maxLength, "Text is too long");
 }
 
 /** Fritekst som kan inneholde Markdown. */
@@ -57,8 +57,8 @@ export function requiredText(maxLength: number = LIMITS.title) {
   return z
     .string()
     .trim()
-    .min(1, "Feltet er påkrevd")
-    .max(maxLength, "For lang tekst");
+    .min(1, "Field is required")
+    .max(maxLength, "Text is too long");
 }
 
 /** Gyldig oppdragsstatus (samme verdier som WorkStatus i Prisma). */

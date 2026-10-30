@@ -892,6 +892,163 @@
       "global": {
         "title": "Etwas ist schiefgelaufen",
         "description": "Wir konnten die App nicht laden. Versuchen Sie es gleich noch einmal. Wenn das Problem weiterhin besteht, wenden Sie sich an den Support und nennen Sie die Fehler-ID."
+      },
+      "api": {
+        "unauthorized": "Nicht authentifiziert.",
+        "forbidden": "Kein Zugriff.",
+        "notFound": "Objekt nicht gefunden.",
+        "validation": "Die Felder sind ungültig.",
+        "conflict": "Der Konflikt kann nicht gelöst werden.",
+        "rateLimited": "Zu viele API-Aufrufe. Versuchen Sie es später erneut.",
+        "serverError": "Die Anfrage konnte nicht verarbeitet werden.",
+        "invalidOrigin": "Ungültiger Ursprung.",
+        "notAuthenticated": "Nicht authentifiziert.",
+        "userNotFound": "Benutzer nicht gefunden.",
+        "invalidRequest": "Ungültige Anfrage.",
+        "invalidJson": "Ungültiges JSON.",
+        "missingField": "Ein Pflichtfeld fehlt.",
+        "invalidData": "Ungültige Daten.",
+        "tooLarge": "Die Anfrage ist zu groß.",
+        "uploadBusy": "Die Upload-Warteschlange ist ausgelastet. Versuchen Sie es gleich erneut.",
+        "noFile": "Keine Datei ausgewählt.",
+        "invalidFileType": "Ungültiger Dateityp. Nur Bilder und PDF sind erlaubt.",
+        "mimeMismatch": "Der Dateiinhalt passt nicht zum Dateityp.",
+        "imageProcessingFailed": "Die Datei konnte nicht als Bild verarbeitet werden.",
+        "storageQuotaExceeded": "Das tägliche Speicherkontingent ist erreicht. Versuchen Sie es später erneut.",
+        "workOrderLocked": "Der Auftrag ist gesperrt.",
+        "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht.",
+        "departmentInactive": "Die Abteilung ist deaktiviert.",
+        "invalidFile": "Ungültige Datei.",
+        "fileNotFound": "Datei nicht gefunden.",
+        "invalidPath": "Ungültiger Pfad.",
+        "saveFailed": "Die Datei konnte nicht gespeichert werden.",
+        "invalidDate": "Ungültiges Datum.",
+        "dateMissing": "Ein Datum ist erforderlich.",
+        "invalidEndDate": "Ungültiges Enddatum.",
+        "endBeforeStart": "Das Enddatum darf nicht vor dem Startdatum liegen.",
+        "invalidStatus": "Ungültiger Status.",
+        "unknownEntity": "Unbekannter Objekttyp.",
+        "exportTooLarge": "Der Export ist zu groß. Kontaktieren Sie uns für einen größeren Auszug.",
+        "invalidReportId": "Ungültige Berichts-ID.",
+        "workOrders": {
+          "forbidden": "Kein Zugriff auf Aufträge.",
+          "notFound": "Auftrag nicht gefunden.",
+          "conflict": "Der Auftrag kann nicht geändert werden.",
+          "validation": "Die Felder sind ungültig.",
+          "serverError": "Der Auftrag konnte nicht aktualisiert werden.",
+          "createForbidden": "Kein Zugriff zum Erstellen von Aufträgen.",
+          "updateForbidden": "Kein Zugriff zum Ändern des Auftrags.",
+          "invalidStatusFilter": "Ungültiger Statusfilter.",
+          "invalidFromDate": "Ungültiges Von-Datum.",
+          "invalidToDate": "Ungültiges Bis-Datum.",
+          "fromAfterTo": "Das Von-Datum darf nicht nach dem Bis-Datum liegen.",
+          "invalidTimestamp": "Ungültiger Zeitstempel.",
+          "unknownField": "Unbekanntes Feld.",
+          "invalidJson": "Ungültiges JSON.",
+          "bodyObject": "Der Body muss ein JSON-Objekt sein.",
+          "noFields": "Mindestens eines der Felder status, scheduledFor oder scheduledTo muss gesendet werden.",
+          "invalidStatus": "Ungültiger Status.",
+          "invalidStartDate": "Ungültiges Startdatum.",
+          "missingStartDate": "Dem Auftrag fehlt ein Startdatum. Senden Sie scheduledFor zusammen mit scheduledTo.",
+          "invalidEndDate": "Ungültiges Enddatum.",
+          "reasonText": "Der Grund muss Text sein.",
+          "titleRequired": "Titel ist erforderlich.",
+          "startDateRequired": "Ein gültiges Startdatum ist erforderlich.",
+          "textFields": "Die Felder müssen Text sein.",
+          "textLists": "Die Listenfelder müssen Textlisten sein."
+        },
+        "customers": {
+          "forbidden": "Kein Zugriff auf Kunden.",
+          "notFound": "Kunde nicht gefunden."
+        },
+        "documents": {
+          "forbidden": "Kein Zugriff auf Dokumente.",
+          "notFound": "Dokument nicht gefunden."
+        },
+        "reports": {
+          "forbidden": "Kein Zugriff auf Berichte.",
+          "notFound": "Bericht nicht gefunden.",
+          "invalidLocked": "Ungültiger Wert für locked.",
+          "invalidAcknowledged": "Ungültiger Wert für acknowledged."
+        },
+        "visits": {
+          "forbidden": "Kein Zugriff auf den Termin.",
+          "createForbidden": "Kein Zugriff zum Erstellen von Terminen.",
+          "updateForbidden": "Kein Zugriff zum Ändern des Termins.",
+          "deleteForbidden": "Kein Zugriff zum Löschen des Termins.",
+          "notFound": "Termin nicht gefunden.",
+          "conflict": "Der Termin kann nicht geändert werden.",
+          "rateLimited": "Zu viele API-Aufrufe. Versuchen Sie es später erneut.",
+          "serverError": "Der Termin konnte nicht aktualisiert werden.",
+          "validation": "Die Felder sind ungültig.",
+          "unknownField": "Unbekanntes Feld.",
+          "noFields": "Mindestens eines der Felder startsAt/endsAt, status, technicianIds, notes, allDay oder sequence muss gesendet werden.",
+          "oneOperation": "Es kann nur eine Operation gleichzeitig gesendet werden.",
+          "rangeTogether": "startsAt und endsAt müssen zusammen gesendet werden.",
+          "invalidStart": "Ungültige Startzeit.",
+          "invalidEnd": "Ungültige Endzeit.",
+          "endBeforeStart": "Das Ende muss nach dem Start liegen.",
+          "invalidStatus": "Ungültiger Status.",
+          "technicianIds": "technicianIds muss eine Liste von IDs sein.",
+          "notesText": "notes muss Text sein.",
+          "allDayBoolean": "allDay muss ein boolescher Wert sein.",
+          "sequenceInteger": "sequence muss eine Ganzzahl sein.",
+          "startRequired": "Eine gültige Startzeit (ISO 8601) ist erforderlich.",
+          "endRequired": "Eine gültige Endzeit (ISO 8601) ist erforderlich."
+        },
+        "apiKey": {
+          "invalid": "Ungültiger oder abgelaufener API-Schlüssel.",
+          "missing": "Bearer-Token fehlt.",
+          "authFailed": "Die API-Anfrage konnte nicht authentifiziert werden."
+        },
+        "attachment": {
+          "notFound": "Anhang nicht gefunden.",
+          "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht.",
+          "locked": "Der Auftrag ist gesperrt.",
+          "saveFailed": "Der Anhang konnte nicht gespeichert werden.",
+          "deleteFailed": "Der Anhang konnte nicht gelöscht werden."
+        },
+        "comments": {
+          "rateLimited": "Zu viele Kommentare. Versuchen Sie es gleich erneut.",
+          "tooLarge": "Der Kommentar ist zu groß.",
+          "invalidData": "Ungültige Daten.",
+          "unknownType": "Unbekannter Objekttyp.",
+          "missingField": "Ein Pflichtfeld fehlt.",
+          "workOrderNotFound": "Auftrag nicht gefunden.",
+          "customerNotFound": "Kunde nicht gefunden.",
+          "contactNotFound": "Kontakt nicht gefunden.",
+          "saveFailed": "Der Kommentar konnte nicht gespeichert werden."
+        },
+        "upload": {
+          "invalidOrigin": "Ungültiger Ursprung.",
+          "tooLarge": "Die Datei ist zu groß.",
+          "rateLimited": "Zu viele Uploads. Versuchen Sie es gleich erneut.",
+          "busy": "Der Upload ist ausgelastet. Versuchen Sie es gleich erneut.",
+          "noFile": "Keine Datei ausgewählt.",
+          "invalidType": "Ungültiger Dateityp. Nur Bilder und PDF sind erlaubt.",
+          "mimeMismatch": "Der Dateiinhalt passt nicht zum Dateityp.",
+          "quota": "Das tägliche Speicherkontingent ist erreicht. Versuchen Sie es später erneut.",
+          "imageFailed": "Die Datei konnte nicht als Bild verarbeitet werden.",
+          "saveFailed": "Die Datei konnte nicht gespeichert werden.",
+          "failed": "Die Datei konnte nicht hochgeladen werden.",
+          "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht.",
+          "locked": "Der Auftrag ist gesperrt.",
+          "departmentInactive": "Die Abteilung ist deaktiviert."
+        },
+        "export": {
+          "rateLimited": "Zu viele Exporte. Versuchen Sie es später erneut.",
+          "tooLarge": "Der Export ist auf 5000 Aufträge begrenzt. Kontaktieren Sie uns für einen größeren Auszug."
+        },
+        "date": {
+          "invalid": "Ungültiges Datum.",
+          "missing": "Ein Datum ist erforderlich.",
+          "invalidEnd": "Ungültiges Enddatum.",
+          "endBeforeStart": "Das Enddatum darf nicht vor dem Startdatum liegen.",
+          "notFound": "Auftrag nicht gefunden.",
+          "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht; er kann nicht verschoben werden.",
+          "saveFailed": "Das Datum konnte nicht aktualisiert werden."
+        },
+        "bodyObject": "Der Body muss ein JSON-Objekt sein."
       }
     },
     "orders": {
@@ -3837,7 +3994,8 @@
         "units": "{count, plural, one {# Gerät} other {# Geräte}}",
         "noUnits": "keine Geräte",
         "deviation": "Abweichung",
-        "approved": "genehmigt"
+        "approved": "genehmigt",
+        "acknowledged": "Kunde hat den Bericht bestätigt"
       },
       "customer": {
         "created": "Kunde erstellt: {name}",
@@ -3859,7 +4017,8 @@
         "created": "Servicevertrag erstellt: {title} ({interval})",
         "activated": "Servicevertrag aktiviert: {title}",
         "paused": "Servicevertrag pausiert: {title}",
-        "deleted": "Servicevertrag gelöscht: {title}"
+        "deleted": "Servicevertrag gelöscht: {title}",
+        "recurringCreated": "Wiederkehrenden Auftrag aus Servicevertrag «{title}» erstellt"
       },
       "attachment": {
         "added": "Datei angehängt: {name}",
@@ -3873,6 +4032,93 @@
         "unassigned": "Techniker entfernt: {names}",
         "statusChanged": "Besuchsstatus geändert: {from} → {to}",
         "deleted": "Besuch gelöscht: {title} ({range})"
+      },
+      "auth": {
+        "login": "Angemeldet",
+        "loginRecovery": "Mit Wiederherstellungscode angemeldet",
+        "passwordReset": "Passwort per E-Mail-Link zurückgesetzt"
+      },
+      "security": {
+        "twoFactorFailed": "2FA: Verifizierung fehlgeschlagen",
+        "twoFactorSetupExpired": "2FA: Einrichtung abgelaufen",
+        "twoFactorSetupStarted": "Einrichtung der Zwei-Faktor-Authentifizierung gestartet",
+        "twoFactorSetupCancelled": "Einrichtung der Zwei-Faktor-Authentifizierung abgebrochen",
+        "twoFactorEnabled": "Zwei-Faktor-Authentifizierung aktiviert",
+        "twoFactorDisabled": "Zwei-Faktor-Authentifizierung deaktiviert",
+        "twoFactorRecoveryRegenerated": "Neue Zwei-Faktor-Wiederherstellungscodes erzeugt",
+        "twoFactorReset": "Zwei-Faktor-Authentifizierung für {name} zurückgesetzt"
+      },
+      "users": {
+        "created": "Benutzer erstellt: {name} ({role})",
+        "portalCreated": "Kundenportal-Benutzer erstellt: {name} ({email})",
+        "activated": "Benutzer aktiviert: {name}",
+        "deactivated": "Benutzer deaktiviert: {name}",
+        "portalActivated": "Kundenportal-Benutzer aktiviert: {name}",
+        "portalDeactivated": "Kundenportal-Benutzer deaktiviert: {name}",
+        "departmentChanged": "Abteilung für {name} auf {department} geändert",
+        "roleChanged": "Rolle für {name} auf {role} geändert",
+        "phoneChanged": "Telefonnummer für {name} geändert",
+        "invitationCreated": "Neuen Einladungslink erzeugt für: {name}",
+        "invitationResent": "Neuen Einladungslink an Kundenportal-Benutzer gesendet: {name}",
+        "deleted": "Benutzer gelöscht: {name}",
+        "permissionsReset": "Berechtigungen für {name} auf Rollenstandard zurückgesetzt"
+      },
+      "departments": {
+        "created": "Abteilung erstellt: {name}",
+        "updated": "Abteilung aktualisiert: {from} → {to}",
+        "activated": "Abteilung aktiviert: {name}",
+        "deactivated": "Abteilung deaktiviert: {name}",
+        "defaultChanged": "{name} als Standardabteilung festgelegt"
+      },
+      "roles": {
+        "created": "Rolle erstellt: {label} ({count, plural, one {# Berechtigung} other {# Berechtigungen}})",
+        "updated": "Rolle aktualisiert: {from} → {to} ({count, plural, one {# Berechtigung} other {# Berechtigungen}})",
+        "deleted": "Rolle gelöscht: {label}"
+      },
+      "documents": {
+        "uploaded": "Dokument hochgeladen: {title}",
+        "updated": "Dokument aktualisiert: {title}",
+        "restored": "Dokument «{title}» wiederhergestellt",
+        "versionRestored": "Frühere Version des Dokuments wiederhergestellt: {title}",
+        "reindexed": "Dokument für die Volltextsuche neu indiziert",
+        "deleted": "Dokument «{title}» gelöscht (Soft-Delete – wiederherstellbar)",
+        "folderCreated": "Ordner erstellt: {name}",
+        "folderMoved": "Ordner verschoben: {name}",
+        "folderRenamed": "Ordner umbenannt: {from} → {to}",
+        "folderDeleted": "Ordner gelöscht: {name}",
+        "tagsAdded": "Tags zum Dokument «{title}» hinzugefügt: {tags}",
+        "movedToFolder": "Dokument «{title}» in Ordner {folder} verschoben",
+        "movedToRoot": "Dokument «{title}» in das Stammverzeichnis verschoben",
+        "tagCreated": "Dokument-Tag erstellt: {name}",
+        "tagUpdated": "Dokument-Tag aktualisiert: {from} -> {to}",
+        "tagDeleted": "Dokument-Tag gelöscht: {name}"
+      },
+      "settings": {
+        "brandingUpdated": "Branding-Einstellungen aktualisiert: {company}",
+        "mapUpdated": "Karteneinstellungen aktualisiert"
+      },
+      "templates": {
+        "created": "Checkliste erstellt: {title}",
+        "deleted": "Checkliste gelöscht: {title}",
+        "deleteBlocked": "Löschen der Checkliste «{title}» blockiert, weil sie verwendet wird",
+        "tagCreated": "Tag erstellt: {name}",
+        "tagUpdated": "Tag aktualisiert: {from} -> {to}",
+        "tagDeleted": "Tag gelöscht: {name}"
+      },
+      "workforce": {
+        "skillCreated": "Qualifikation erstellt: {label}",
+        "skillUpdated": "Qualifikation geändert: {label}",
+        "skillDeleted": "Qualifikation gelöscht: {label}",
+        "userSkillUpdated": "Qualifikationen für {name} aktualisiert",
+        "absenceCreated": "Abwesenheit für {name} erfasst",
+        "absenceUpdated": "Abwesenheit für {name} geändert",
+        "absenceDeleted": "Abwesenheit für {name} gelöscht",
+        "availabilityUpdated": "Arbeitszeiten für {name} geändert"
+      },
+      "portal": {
+        "bookingCreated": "Kunde hat einen neuen Auftrag gebucht: {title}",
+        "rescheduleRequested": "Kunde hat um einen neuen Termin gebeten",
+        "bookingCancelled": "Kunde hat die Buchung storniert"
       }
     }
   }

@@ -20,7 +20,7 @@ function safeFileName(name: string): string {
     .basename(name)
     .replace(/[\u0000-\u001f\u007f"\\/]/g, "")
     .trim();
-  return base || "fil";
+  return base || "file";
 }
 
 /**
@@ -66,11 +66,11 @@ export async function GET(
   // økt, og tilgangen avgjøres per fil ut fra Upload-raden.
   const user = await getCurrentUser();
   if (!user?.isActive) {
-    return new NextResponse("Ikke autentisert", { status: 401 });
+    return new NextResponse("Not authenticated", { status: 401 });
   }
 
   if (await staffDepartmentInactive(user)) {
-    return new NextResponse("Ingen tilgang", { status: 403 });
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const { path: segments } = await params;
@@ -79,7 +79,7 @@ export async function GET(
 
   // Aldri les filer utenfor opplastingsmappen.
   if (filePath !== root && !filePath.startsWith(root + path.sep)) {
-    return new NextResponse("Ugyldig sti", { status: 400 });
+    return new NextResponse("Invalid path", { status: 400 });
   }
 
   const storedName = path.basename(filePath);
@@ -89,7 +89,7 @@ export async function GET(
     // Eldre filer uten metadata: bare administrator kan lese dem. Backfill-
     // skriptet (scripts/backfill-uploads.mjs) registrerer dem.
     if (user.role !== "ADMIN") {
-      return new NextResponse("Fant ikke filen", { status: 404 });
+      return new NextResponse("File not found", { status: 404 });
     }
   } else {
     // Oppdragsfilen lastes før tilgangskontrollen, slik at en deaktivert
@@ -113,7 +113,7 @@ export async function GET(
         departmentIsActive: workOrder?.department?.isActive,
       })
     ) {
-      return new NextResponse("Ingen tilgang", { status: 403 });
+      return new NextResponse("Forbidden", { status: 403 });
     }
 
     // En oppdragsfil skal ikke være lesbar etter at oppdraget er mykt slettet.
@@ -125,12 +125,12 @@ export async function GET(
       user.role !== "ADMIN"
     ) {
       if (!workOrder || workOrder.deletedAt) {
-        return new NextResponse("Fant ikke filen", { status: 404 });
+        return new NextResponse("File not found", { status: 404 });
       }
 
       // Kansellerte oppdrag er lukket for montørene, også filene deres.
       if (user.role === "TECHNICIAN" && workOrder.status === "CANCELLED") {
-        return new NextResponse("Ingen tilgang", { status: 403 });
+        return new NextResponse("Forbidden", { status: 403 });
       }
 
       // En slettet kunde skal ikke kunne lese oppdragsfilene via portalen.
@@ -138,7 +138,7 @@ export async function GET(
         user.role === "CUSTOMER" &&
         (!workOrder.customer || workOrder.customer.deletedAt)
       ) {
-        return new NextResponse("Fant ikke filen", { status: 404 });
+        return new NextResponse("File not found", { status: 404 });
       }
 
       // En rapport-PDF lagres som en WORK_ORDER-opplasting, men inneholder
@@ -154,16 +154,16 @@ export async function GET(
       });
       if (reportPdf) {
         if (reportPdf.deletedAt || reportPdf.workOrder?.deletedAt) {
-          return new NextResponse("Fant ikke filen", { status: 404 });
+          return new NextResponse("File not found", { status: 404 });
         }
         if (
           user.role === "TECHNICIAN" &&
           reportPdf.workOrder?.status === "CANCELLED"
         ) {
-          return new NextResponse("Ingen tilgang", { status: 403 });
+          return new NextResponse("Forbidden", { status: 403 });
         }
         if (!hasPermission(user, "reports.view")) {
-          return new NextResponse("Ingen tilgang", { status: 403 });
+          return new NextResponse("Forbidden", { status: 403 });
         }
       }
     }
@@ -178,7 +178,7 @@ export async function GET(
           select: { deletedAt: true },
         });
         if (!customer || customer.deletedAt) {
-          return new NextResponse("Fant ikke filen", { status: 404 });
+          return new NextResponse("File not found", { status: 404 });
         }
       }
     }
@@ -193,7 +193,7 @@ export async function GET(
         select: { deletedAt: true },
       });
       if (!document || document.deletedAt) {
-        return new NextResponse("Fant ikke filen", { status: 404 });
+        return new NextResponse("File not found", { status: 404 });
       }
     }
   }
@@ -224,6 +224,6 @@ export async function GET(
       },
     );
   } catch {
-    return new NextResponse("Fant ikke filen", { status: 404 });
+    return new NextResponse("File not found", { status: 404 });
   }
 }

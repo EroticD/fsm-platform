@@ -1,3 +1,4 @@
+// i18n-ignore-file: kommunenavn er normaliserte dataoppslag, ikke UI-tekst.
 import { normalizeSearchText } from "@/lib/fuzzy";
 
 /**

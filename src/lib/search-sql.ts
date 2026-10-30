@@ -1,3 +1,4 @@
+// i18n-ignore-file: SQL-fragmenter og PostgreSQL-konfigurasjon, ikke UI-tekst.
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { normalizeSearchCompact, normalizeSearchText } from "@/lib/fuzzy";

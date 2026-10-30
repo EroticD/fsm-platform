@@ -171,8 +171,20 @@ const NORWEGIAN_WORDS =
 function looksNorwegian(value) {
   if (value.length < 2) return false;
   if (/^[/#]/.test(value) || value.includes("://")) return false;
-  if (/[æøåÆØÅ]/.test(value)) return true;
-  return /\s/.test(value) && NORWEGIAN_WORDS.test(value);
+
+  // Malstrenger kan inneholde kode. Vurder bare den faste teksten rundt
+  // `${...}`; en URL, CSS-regel eller klasse er ikke UI-prosa.
+  const literalParts = value.replace(/\$\{[\s\S]*?\}/g, "").trim();
+  if (!literalParts) return false;
+  if (/^[?&.#]/.test(literalParts)) return false;
+  if (literalParts.includes("/api/") || literalParts.includes("--")) return false;
+  if (/[{}]/.test(literalParts)) return false;
+
+  // Flersidige kodestumper som havner i en malstreng er ikke UI-tekst.
+  if (value.includes("\n") && /(?:[;{}]|=>|\/\/)/.test(value)) return false;
+
+  if (/[æøåÆØÅ]/.test(literalParts)) return true;
+  return /\s/.test(literalParts) && NORWEGIAN_WORDS.test(literalParts);
 }
 
 const sourceFiles = walk(path.join(root, "src"), [".ts", ".tsx"]);
@@ -198,10 +210,6 @@ for (const file of sourceFiles) {
   const source = fs.readFileSync(file, "utf8");
   // Bevisste unntak dokumenteres i filen med en i18n-ignore-file-kommentar.
   if (source.includes("i18n-ignore-file")) continue;
-  // PDF-motoren (react-pdf) har ikke tilgang til next-intl-konteksten. PDF-
-  // etikettene er derfor bevisst norske inntil PDF-malen får en egen locale.
-  if (file.endsWith("ReportDocument.tsx")) continue;
-
   const stripped = stripComments(source);
 
   for (const match of stripped.matchAll(norwegianText)) {
@@ -214,6 +222,8 @@ for (const file of sourceFiles) {
   for (const match of stripped.matchAll(attributeText)) {
     const value = (match[3] ?? match[4] ?? "").trim();
     if (!/[A-Za-zÆØÅæøå]/.test(value)) continue;
+    // Formatmasker (YYYY-MM-DD, XXXX-XXXX) er ikke språklig tekst.
+    if (/^(?:[Xx]{4}-[Xx]{4}|[Yy]{4}-[Mm]{2}-[Dd]{2})$/.test(value)) continue;
     report(file, `${match[1]}="${value}"`, "attr");
   }
 

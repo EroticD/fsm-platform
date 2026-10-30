@@ -320,6 +320,350 @@ const rules: Rule[] = [
     pattern: /^Gjenopprettet kunden «(.*)»$/,
     translate: (m, t) => t("auditActions.customer.restored", { name: m[1] }),
   },
+
+  // --------------------------------------------------------------- innlogging
+  {
+    pattern: /^Logget inn$/,
+    translate: (_m, t) => t("auditActions.auth.login"),
+  },
+  {
+    pattern: /^Logget inn med gjenopprettingskode$/,
+    translate: (_m, t) => t("auditActions.auth.loginRecovery"),
+  },
+  {
+    pattern: /^Tilbakestilte passord med e-postlenke$/,
+    translate: (_m, t) => t("auditActions.auth.passwordReset"),
+  },
+  {
+    pattern: /^2FA: feilet verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorFailed"),
+  },
+  {
+    pattern: /^2FA: oppsett utløpt$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorSetupExpired"),
+  },
+  {
+    pattern: /^Startet oppsett av to-trinns verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorSetupStarted"),
+  },
+  {
+    pattern: /^Avbrøt oppsett av to-trinns verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorSetupCancelled"),
+  },
+  {
+    pattern: /^Slå på to-trinns verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorEnabled"),
+  },
+  {
+    pattern: /^Slå av to-trinns verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorDisabled"),
+  },
+  {
+    pattern: /^Genererte nye gjenopprettingskoder for to-trinns verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorRecoveryRegenerated"),
+  },
+  {
+    pattern: /^Tilbaketstilte to-trinns verifisering for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.security.twoFactorReset", { name: m[1] }),
+  },
+
+  // -------------------------------------------------------------------- brukere
+  {
+    pattern: /^Opprettet bruker: (.*) \((.*)\)$/,
+    translate: (m, t) =>
+      t("auditActions.users.created", { name: m[1], role: m[2] }),
+  },
+  {
+    pattern: /^Opprettet kundeportalbruker: (.*) \((.*)\)$/,
+    translate: (m, t) =>
+      t("auditActions.users.portalCreated", { name: m[1], email: m[2] }),
+  },
+  {
+    pattern: /^Aktiverte bruker: (.*)$/,
+    translate: (m, t) => t("auditActions.users.activated", { name: m[1] }),
+  },
+  {
+    pattern: /^Deaktiverte bruker: (.*)$/,
+    translate: (m, t) => t("auditActions.users.deactivated", { name: m[1] }),
+  },
+  {
+    pattern: /^Aktiverte kundeportalbruker: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.portalActivated", { name: m[1] }),
+  },
+  {
+    pattern: /^Deaktiverte kundeportalbruker: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.portalDeactivated", { name: m[1] }),
+  },
+  {
+    pattern: /^Endret avdeling for (.*) til (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.departmentChanged", {
+        name: m[1],
+        department: m[2],
+      }),
+  },
+  {
+    pattern: /^Endret rolle for (.*) til (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.roleChanged", { name: m[1], role: m[2] }),
+  },
+  {
+    pattern: /^Endret telefonnummer for (.*)$/,
+    translate: (m, t) => t("auditActions.users.phoneChanged", { name: m[1] }),
+  },
+  {
+    pattern: /^Genererte ny invitasjonslenke for: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.invitationCreated", { name: m[1] }),
+  },
+  {
+    pattern: /^Sendte ny invitasjonslenke til kundeportalbruker: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.invitationResent", { name: m[1] }),
+  },
+  {
+    pattern: /^Slettet bruker: (.*)$/,
+    translate: (m, t) => t("auditActions.users.deleted", { name: m[1] }),
+  },
+  {
+    pattern: /^Tilbakestilte rettigheter til rollen for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.users.permissionsReset", { name: m[1] }),
+  },
+
+  // ------------------------------------------------------------------ avdelinger
+  {
+    pattern: /^Opprettet avdeling: (.*)$/,
+    translate: (m, t) => t("auditActions.departments.created", { name: m[1] }),
+  },
+  {
+    pattern: /^Oppdaterte avdeling: (.*) → (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.departments.updated", { from: m[1], to: m[2] }),
+  },
+  {
+    pattern: /^Aktiverte avdeling: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.departments.activated", { name: m[1] }),
+  },
+  {
+    pattern: /^Deaktiverte avdeling: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.departments.deactivated", { name: m[1] }),
+  },
+  {
+    pattern: /^Satte (.*) som standardavdeling$/,
+    translate: (m, t) =>
+      t("auditActions.departments.defaultChanged", { name: m[1] }),
+  },
+
+  // ---------------------------------------------------------------------- roller
+  {
+    pattern: /^Opprettet rolle: (.*) \((\d+) rettigheter\)$/,
+    translate: (m, t) =>
+      t("auditActions.roles.created", { label: m[1], count: Number(m[2]) }),
+  },
+  {
+    pattern: /^Oppdaterte rolle: (.*) → (.*) \((\d+) rettigheter\)$/,
+    translate: (m, t) =>
+      t("auditActions.roles.updated", {
+        from: m[1],
+        to: m[2],
+        count: Number(m[3]),
+      }),
+  },
+  {
+    pattern: /^Slettet rolle: (.*)$/,
+    translate: (m, t) => t("auditActions.roles.deleted", { label: m[1] }),
+  },
+
+  // ------------------------------------------------------------------ dokumenter
+  {
+    pattern: /^Lastet opp dokument: (.*)$/,
+    translate: (m, t) => t("auditActions.documents.uploaded", { title: m[1] }),
+  },
+  {
+    pattern: /^Oppdaterte dokument: (.*)$/,
+    translate: (m, t) => t("auditActions.documents.updated", { title: m[1] }),
+  },
+  {
+    pattern: /^Gjenopprettet dokumentet «(.*)»$/,
+    translate: (m, t) => t("auditActions.documents.restored", { title: m[1] }),
+  },
+  {
+    pattern: /^Gjenopprettet tidligere versjon av dokument: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.versionRestored", { title: m[1] }),
+  },
+  {
+    pattern: /^Reindekserte dokumentet for fulltekst-søk$/,
+    translate: (_m, t) => t("auditActions.documents.reindexed"),
+  },
+  {
+    pattern: /^Slettet dokumentet «(.*)» \(myk sletting – kan gjenopprettes\)$/,
+    translate: (m, t) => t("auditActions.documents.deleted", { title: m[1] }),
+  },
+  {
+    pattern: /^Opprettet mappe: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.folderCreated", { name: m[1] }),
+  },
+  {
+    pattern: /^Flyttet mappen: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.folderMoved", { name: m[1] }),
+  },
+  {
+    pattern: /^Ga mappen nytt navn: (.*) → (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.folderRenamed", { from: m[1], to: m[2] }),
+  },
+  {
+    pattern: /^Slettet mappe: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.folderDeleted", { name: m[1] }),
+  },
+  {
+    pattern: /^La til tagger på dokumentet «(.*)»: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.tagsAdded", { title: m[1], tags: m[2] }),
+  },
+  {
+    pattern: /^Flyttet dokumentet «(.*)» til mappen (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.movedToFolder", {
+        title: m[1],
+        folder: m[2],
+      }),
+  },
+  {
+    pattern: /^Flyttet dokumentet «(.*)» til rot$/,
+    translate: (m, t) =>
+      t("auditActions.documents.movedToRoot", { title: m[1] }),
+  },
+
+  // ------------------------------------------------------------------ innstillinger
+  {
+    pattern: /^Oppdaterte merkevareinnstillinger: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.settings.brandingUpdated", { company: m[1] }),
+  },
+  {
+    pattern: /^Oppdaterte kartinnstillinger$/,
+    translate: (_m, t) => t("auditActions.settings.mapUpdated"),
+  },
+  {
+    pattern: /^Opprettet sjekkliste: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.templates.created", { title: m[1] }),
+  },
+  {
+    pattern: /^Slettet sjekkliste: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.templates.deleted", { title: m[1] }),
+  },
+  {
+    pattern: /^Blokkerte sletting av sjekklisten «(.*)» fordi den er i bruk$/,
+    translate: (m, t) =>
+      t("auditActions.templates.deleteBlocked", { title: m[1] }),
+  },
+  {
+    pattern: /^Opprettet tag: (.*)$/,
+    translate: (m, t) => t("auditActions.templates.tagCreated", { name: m[1] }),
+  },
+  {
+    pattern: /^Oppdaterte tag: (.*) -> (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.templates.tagUpdated", { from: m[1], to: m[2] }),
+  },
+  {
+    pattern: /^Slettet tag: (.*)$/,
+    translate: (m, t) => t("auditActions.templates.tagDeleted", { name: m[1] }),
+  },
+  {
+    pattern: /^Opprettet dokument-tag: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.tagCreated", { name: m[1] }),
+  },
+  {
+    pattern: /^Oppdaterte dokument-tag: (.*) -> (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.tagUpdated", { from: m[1], to: m[2] }),
+  },
+  {
+    pattern: /^Slettet dokument-tag: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.documents.tagDeleted", { name: m[1] }),
+  },
+
+  // ------------------------------------------------------------------- bemanning
+  {
+    pattern: /^Opprettet kompetanse: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.skillCreated", { label: m[1] }),
+  },
+  {
+    pattern: /^Endret kompetanse: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.skillUpdated", { label: m[1] }),
+  },
+  {
+    pattern: /^Slettet kompetanse: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.skillDeleted", { label: m[1] }),
+  },
+  {
+    pattern: /^Oppdaterte kompetanse for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.userSkillUpdated", { name: m[1] }),
+  },
+  {
+    pattern: /^Registrerte fravær for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.absenceCreated", { name: m[1] }),
+  },
+  {
+    pattern: /^Endret fravær for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.absenceUpdated", { name: m[1] }),
+  },
+  {
+    pattern: /^Slettet fravær for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.absenceDeleted", { name: m[1] }),
+  },
+  {
+    pattern: /^Endret arbeidstid for (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.workforce.availabilityUpdated", { name: m[1] }),
+  },
+
+  // ------------------------------------------------------------------ kundeportal
+  {
+    pattern: /^Kunde booket nytt oppdrag: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.portal.bookingCreated", { title: m[1] }),
+  },
+  {
+    pattern: /^Kunden ba om ny tid$/,
+    translate: (_m, t) => t("auditActions.portal.rescheduleRequested"),
+  },
+  {
+    pattern: /^Kunden kansellerte bestillingen$/,
+    translate: (_m, t) => t("auditActions.portal.bookingCancelled"),
+  },
+  {
+    pattern: /^Kunden kvitterte for rapporten$/,
+    translate: (_m, t) => t("auditActions.report.acknowledged"),
+  },
+  {
+    pattern: /^Opprettet gjentagende oppdrag fra serviceavtalen «(.*)»$/,
+    translate: (m, t) =>
+      t("auditActions.contract.recurringCreated", { title: m[1] }),
+  },
 ];
 
 /**

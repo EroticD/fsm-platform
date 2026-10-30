@@ -12,6 +12,7 @@ import {
 } from "@/lib/report-images";
 import { MarkdownPdf } from "@/lib/markdown-pdf";
 import { formatDate } from "@/lib/dates";
+import { getPdfLabels } from "@/lib/pdf-labels";
 import type { HmsFormType, TemplateCategory } from "@prisma/client";
 import {
   HMS_TYPE_LABELS,
@@ -169,6 +170,7 @@ export default function ReportDocument({
   globalCompanyName,
   baseUrl,
   pdfImages,
+  locale,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
@@ -179,7 +181,10 @@ export default function ReportDocument({
   baseUrl?: string;
   /** Nedskalerte bilder, nøklet på den opprinnelige URL-en. */
   pdfImages?: Record<string, PdfImage>;
+  /** PDF-språk. Standard er norsk fordi arkiverte rapporter er norske. */
+  locale?: string | null;
 }) {
+  const labels = getPdfLabels(locale);
   // `data` er oppdraget, med rapportene sine i `reports`.
   const workOrder = data.workOrder || data || {};
   const reports: RawReport[] = data.reports || (data.report ? [data.report] : []);
@@ -243,7 +248,9 @@ export default function ReportDocument({
   // Én rapport gir et presist dokumentnavn; flere sjekklister på samme
   // oppdrag beholder den generelle tittelen.
   const documentTitle =
-    blocks.length === 1 && blocks[0]?.name ? blocks[0].name : "Servicerapport";
+    blocks.length === 1 && blocks[0]?.name
+      ? blocks[0].name
+      : labels.documentTitle;
 
   // Kategori/type vises i toppen av PDF-en. Én HMS-rapport får den konkrete
   // undertypen; et oppdrag med flere skjemaer får en nøytral merking.
@@ -252,12 +259,12 @@ export default function ReportDocument({
     hmsBlocks.length === 0
       ? null
       : blocks.length === 1
-        ? `HMS-dokumentasjon${
+        ? `${labels.hmsDocumentation}${
             hmsBlocks[0].hmsType
               ? ` · ${HMS_TYPE_LABELS[hmsBlocks[0].hmsType]}`
               : ""
           }`
-        : "Inneholder HMS-dokumentasjon";
+        : labels.hmsIncluded;
 
   // Hvem som utførte jobben: navnene fra rapportene (signatur eller brukeren som
   // lagret). Bare hvis ingen rapport har navn, faller vi tilbake på montørene
@@ -277,7 +284,7 @@ export default function ReportDocument({
 
   const brandColor = globalPrimaryColor || "#2563eb";
   const logoUrl = globalLogoUrl || null;
-  const companyName = globalCompanyName || "FSM System";
+  const companyName = globalCompanyName || labels.companyFallback;
 
   /**
    * Bildet slik det skal tegnes.
@@ -294,9 +301,9 @@ export default function ReportDocument({
     );
 
   const answerText = (field: TemplateFieldDef | null, answer: unknown): string => {
-    if (field?.type === "CHECKBOX") return answer ? "Ja / utført" : "Nei / ikke krysset ut";
+    if (field?.type === "CHECKBOX") return answer ? labels.answerYes : labels.answerNo;
     if (field?.type === "IMAGE") return "";
-    if (answer === undefined || answer === null || answer === "") return "Ikke besvart";
+    if (answer === undefined || answer === null || answer === "") return labels.answerUnanswered;
     return String(answer);
   };
 
@@ -608,7 +615,7 @@ export default function ReportDocument({
    */
   const renderFooter = () => (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>{companyName} – generert av FSM-plattformen</Text>
+      <Text style={styles.footerText}>{labels.footer(companyName)}</Text>
       <Text style={styles.footerText}>
         {formatDate(new Date())}
       </Text>
@@ -625,7 +632,7 @@ export default function ReportDocument({
           // eslint-disable-next-line jsx-a11y/alt-text
           <Image src={image.src} style={styles.signatureImage} />
         ) : (
-          <Text style={styles.signatureMissing}>Ikke signert</Text>
+          <Text style={styles.signatureMissing}>{labels.notSigned}</Text>
         )}
         <Text style={styles.signatureLine}>{name || "—"}</Text>
       </View>
@@ -662,7 +669,7 @@ export default function ReportDocument({
       ) : null}
       {row.comment ? (
         <View style={styles.lineCommentBlock}>
-          <Text style={styles.lineComment}>» Kommentar</Text>
+          <Text style={styles.lineComment}>{labels.lineComment}</Text>
           <MarkdownPdf value={row.comment} base={styles.lineComment} />
         </View>
       ) : null}
@@ -672,13 +679,13 @@ export default function ReportDocument({
             <View key={image.n} style={styles.thumbBox}>
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
               <Image src={image.image.src} style={styles.thumbImage} />
-              <Text style={styles.thumbLabel}>Bilde {image.n}</Text>
+              <Text style={styles.thumbLabel}>{labels.image(image.n)}</Text>
             </View>
           ))}
         </View>
       )}
       {row.images.length === 0 && row.isImage && (
-        <Text style={styles.missingImage}>Ingen bilder lagt ved</Text>
+        <Text style={styles.missingImage}>{labels.noImages}</Text>
       )}
     </View>
   );
@@ -702,12 +709,12 @@ export default function ReportDocument({
             {hmsHeader && <Text style={styles.headerHms}>{hmsHeader}</Text>}
             {workOrder.orderNumber && (
               <Text style={styles.headerOrder}>
-                Ordrenr. {workOrder.orderNumber}
+                {labels.orderNumberPrefix} {workOrder.orderNumber}
               </Text>
             )}
             {blocks.length === 1 && blocks[0]?.reportNumber && (
               <Text style={styles.headerOrder}>
-                Rapportnr. {blocks[0].reportNumber}
+                {labels.reportNumberSuffix(blocks[0].reportNumber).trim()}
               </Text>
             )}
             <Text style={styles.companyName}>{companyName}</Text>
@@ -717,20 +724,20 @@ export default function ReportDocument({
         {/* KUNDE OG OPPDRAGSINFO */}
         <View style={styles.infoGrid}>
           <View style={styles.infoBox}>
-            <Text style={styles.label}>Kunde</Text>
-            <Text style={styles.value}>{customer.name || "Ikke angitt"}</Text>
+            <Text style={styles.label}>{labels.customer}</Text>
+            <Text style={styles.value}>{customer.name || labels.notSpecified}</Text>
             {customer.address && <Text style={styles.value}>{customer.address}, {customer.city}</Text>}
             {customer.phone && <Text style={styles.value}>{customer.phone}</Text>}
           </View>
           <View style={styles.infoBox}>
-            <Text style={styles.label}>Oppdrag</Text>
-            <Text style={styles.value}>{workOrder.title || "Ikke angitt"}</Text>
-            <Text style={styles.value}>Status: {workOrder.status || 'Ukjent'}</Text>
+            <Text style={styles.label}>{labels.workOrder}</Text>
+            <Text style={styles.value}>{workOrder.title || labels.notSpecified}</Text>
+            <Text style={styles.value}>{labels.statusPrefix} {workOrder.status || labels.unknownStatus}</Text>
             <Text style={styles.value}>
-              Dato: {formatDate(workOrder.scheduledFor, "Ingen dato")}
+              {labels.datePrefix} {formatDate(workOrder.scheduledFor, labels.noDate)}
             </Text>
             <Text style={styles.value}>
-              Utførende tekniker: {technicianNames.length > 0 ? technicianNames.join(", ") : "Ikke angitt"}
+              {labels.technicianPrefix} {technicianNames.length > 0 ? technicianNames.join(", ") : labels.notSpecified}
             </Text>
           </View>
         </View>
@@ -739,8 +746,12 @@ export default function ReportDocument({
         {hasUnitReports && (
           <View style={styles.statusBox}>
             <Text style={styles.statusText}>
-              {overallStatus === "GODKJENT" ? "Godkjent / utført" : overallStatus === "AVVIK" ? "Avvik funnet" : "Ukjent resultat"}
-              {totalUnits > 0 ? ` – ${totalUnits} ${totalUnits === 1 ? "enhet" : "enheter"} kontrollert` : ""}
+              {overallStatus === "GODKJENT"
+                ? labels.approved
+                : overallStatus === "AVVIK"
+                  ? labels.deviationFound
+                  : labels.unknownResult}
+              {totalUnits > 0 ? labels.unitCount(totalUnits) : ""}
             </Text>
           </View>
         )}
@@ -750,14 +761,14 @@ export default function ReportDocument({
           <View key={block.id} style={styles.section} wrap>
             {blocks.length > 1 || block.name ? (
               <Text style={styles.reportTitle}>
-                {block.name || `Sjekkliste ${blockIndex + 1}`}
-                {block.category === "HMS" ? "  •  HMS-dokumentasjon" : ""}
-                {block.reportNumber ? `  •  Rapportnr. ${block.reportNumber}` : ""}
+                {block.name || labels.checklist(blockIndex + 1)}
+                {block.category === "HMS" ? labels.hmsSuffix : ""}
+                {block.reportNumber ? labels.reportNumberSuffix(block.reportNumber) : ""}
                 {block.date ? `  •  ${block.date}` : ""}
                 {block.requiresUnits && block.status !== "UKJENT"
                   ? block.status === "AVVIK"
-                    ? "  –  Avvik"
-                    : "  –  Godkjent"
+                    ? labels.deviationSuffix
+                    : labels.approvedSuffix
                   : ""}
               </Text>
             ) : null}
@@ -770,7 +781,7 @@ export default function ReportDocument({
                     <View style={styles.unitHeaderText}>
                       <Text style={styles.unitTitle}>{index + 1}. {unit.label}</Text>
                       <Text style={styles.unitMeta}>
-                        {unit.serialNumber ? `SN: ${unit.serialNumber}` : "Uten serienummer"}
+                        {unit.serialNumber ? `${labels.serialPrefix} ${unit.serialNumber}` : labels.noSerial}
                         {unit.location ? `  •  ${unit.location}` : ""}
                       </Text>
                     </View>
@@ -781,7 +792,7 @@ export default function ReportDocument({
                         color: unit.status === "AVVIK" ? '#991b1b' : '#166534'
                       }}
                     >
-                      {unit.status === "AVVIK" ? "AVVIK" : "GODKJENT"}
+                      {unit.status === "AVVIK" ? labels.deviationShort : labels.approvedShort}
                     </Text>
                   </View>
 
@@ -810,15 +821,15 @@ export default function ReportDocument({
 
             {block.comments && (
               <View style={{ marginTop: 10 }}>
-                <Text style={styles.label}>Montørens kommentar</Text>
+                <Text style={styles.label}>{labels.technicianComment}</Text>
                 <MarkdownPdf value={block.comments} base={styles.value} />
               </View>
             )}
 
             {/* Signaturer: holdes samlet og dyttes til neste side om det blir for trangt */}
             <View style={{ ...styles.signatureGrid, marginTop: 10 }} wrap={false}>
-              {signatureBox("Montør / tekniker", block.technicianSignatureUrl, block.technicianName)}
-              {signatureBox("Kunde", block.customerSignatureUrl, block.customerName)}
+              {signatureBox(labels.signatureTechnician, block.technicianSignatureUrl, block.technicianName)}
+              {signatureBox(labels.signatureCustomer, block.customerSignatureUrl, block.customerName)}
             </View>
           </View>
         ))}
@@ -838,16 +849,16 @@ export default function ReportDocument({
           <Page key={attachment.n} size="A4" style={styles.page}>
             <View style={styles.attachmentHeader}>
               <View>
-                <Text style={styles.attachmentKicker}>Vedlegg – bilde</Text>
+                <Text style={styles.attachmentKicker}>{labels.attachmentKicker}</Text>
                 <Text style={styles.attachmentTitle}>
-                  {attachment.n} av {attachments.length}
+                  {labels.attachmentPosition(attachment.n, attachments.length)}
                 </Text>
               </View>
               <View style={styles.headerTextBlock}>
                 <Text style={styles.attachmentKicker}>{documentTitle}</Text>
                 {workOrder.orderNumber && (
                   <Text style={styles.headerOrder}>
-                    Ordrenr. {workOrder.orderNumber}
+                    {labels.orderNumberPrefix} {workOrder.orderNumber}
                   </Text>
                 )}
                 <Text style={styles.companyName}>{companyName}</Text>
@@ -868,28 +879,28 @@ export default function ReportDocument({
 
             <View style={styles.attachmentMeta}>
               <Text style={styles.metaRow}>
-                <Text style={styles.metaKey}>Sjekkpunkt: </Text>
+                <Text style={styles.metaKey}>{labels.attachmentPoint} </Text>
                 {attachment.point}
               </Text>
               {attachment.requiresUnits && (
                 <Text style={styles.metaRow}>
-                  <Text style={styles.metaKey}>Enhet: </Text>
-                  {attachment.unitLabel || "Uten enhet"}
-                  {attachment.serialNumber ? `  •  Serienummer: ${attachment.serialNumber}` : ""}
-                  {attachment.location ? `  •  Plassering: ${attachment.location}` : ""}
+                  <Text style={styles.metaKey}>{labels.attachmentUnit} </Text>
+                  {attachment.unitLabel || labels.noUnit}
+                  {attachment.serialNumber ? labels.attachmentSerial(attachment.serialNumber) : ""}
+                  {attachment.location ? labels.attachmentLocation(attachment.location) : ""}
                 </Text>
               )}
               <Text style={styles.metaRow}>
-                <Text style={styles.metaKey}>Sjekkliste: </Text>
+                <Text style={styles.metaKey}>{labels.attachmentChecklist} </Text>
                 {attachment.checklist}
                 {attachment.date ? `  •  ${attachment.date}` : ""}
                 {attachment.requiresUnits && attachment.status
-                  ? `  •  ${attachment.status === "AVVIK" ? "Avvik" : "Godkjent"}`
+                  ? `  •  ${attachment.status === "AVVIK" ? labels.deviationShort : labels.approvedShort}`
                   : ""}
               </Text>
               {attachment.comment ? (
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaKey}>Kommentar: </Text>
+                  <Text style={styles.metaKey}>{labels.attachmentComment} </Text>
                   <MarkdownPdf value={attachment.comment} base={styles.metaRow} />
                 </View>
               ) : null}

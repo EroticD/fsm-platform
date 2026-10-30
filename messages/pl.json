@@ -892,6 +892,163 @@
       "global": {
         "title": "Coś poszło nie tak",
         "description": "Nie udało się załadować aplikacji. Spróbuj ponownie za chwilę. Jeśli problem będzie się powtarzał, skontaktuj się z pomocą techniczną i podaj identyfikator błędu."
+      },
+      "api": {
+        "unauthorized": "Nie uwierzytelniono.",
+        "forbidden": "Brak dostępu.",
+        "notFound": "Nie znaleziono obiektu.",
+        "validation": "Pola są nieprawidłowe.",
+        "conflict": "Nie można rozwiązać konfliktu.",
+        "rateLimited": "Zbyt wiele wywołań API. Spróbuj ponownie później.",
+        "serverError": "Nie udało się przetworzyć żądania.",
+        "invalidOrigin": "Nieprawidłowe źródło.",
+        "notAuthenticated": "Nie uwierzytelniono.",
+        "userNotFound": "Nie znaleziono użytkownika.",
+        "invalidRequest": "Nieprawidłowe żądanie.",
+        "invalidJson": "Nieprawidłowy JSON.",
+        "missingField": "Brakuje wymaganego pola.",
+        "invalidData": "Nieprawidłowe dane.",
+        "tooLarge": "Żądanie jest zbyt duże.",
+        "uploadBusy": "Kolejka przesyłania jest zajęta. Spróbuj ponownie za chwilę.",
+        "noFile": "Nie wybrano pliku.",
+        "invalidFileType": "Nieprawidłowy typ pliku. Dozwolone są tylko obrazy i PDF.",
+        "mimeMismatch": "Zawartość pliku nie odpowiada jego typowi.",
+        "imageProcessingFailed": "Nie udało się przetworzyć pliku jako obrazu.",
+        "storageQuotaExceeded": "Osiągnięto dzienny limit pamięci. Spróbuj ponownie później.",
+        "workOrderLocked": "Zlecenie jest zablokowane.",
+        "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania.",
+        "departmentInactive": "Dział jest nieaktywny.",
+        "invalidFile": "Nieprawidłowy plik.",
+        "fileNotFound": "Nie znaleziono pliku.",
+        "invalidPath": "Nieprawidłowa ścieżka.",
+        "saveFailed": "Nie udało się zapisać pliku.",
+        "invalidDate": "Nieprawidłowa data.",
+        "dateMissing": "Brakuje daty.",
+        "invalidEndDate": "Nieprawidłowa data końcowa.",
+        "endBeforeStart": "Data końcowa nie może być wcześniejsza niż początkowa.",
+        "invalidStatus": "Nieprawidłowy status.",
+        "unknownEntity": "Nieznany typ obiektu.",
+        "exportTooLarge": "Eksport jest zbyt duży. Skontaktuj się z nami po większy zakres.",
+        "invalidReportId": "Nieprawidłowy identyfikator raportu.",
+        "workOrders": {
+          "forbidden": "Brak dostępu do zleceń.",
+          "notFound": "Nie znaleziono zlecenia.",
+          "conflict": "Nie można zmienić zlecenia.",
+          "validation": "Pola są nieprawidłowe.",
+          "serverError": "Nie udało się zaktualizować zlecenia.",
+          "createForbidden": "Brak dostępu do tworzenia zleceń.",
+          "updateForbidden": "Brak dostępu do zmiany zlecenia.",
+          "invalidStatusFilter": "Nieprawidłowy filtr statusu.",
+          "invalidFromDate": "Nieprawidłowa data początkowa.",
+          "invalidToDate": "Nieprawidłowa data końcowa.",
+          "fromAfterTo": "Data początkowa nie może być późniejsza niż końcowa.",
+          "invalidTimestamp": "Nieprawidłowy znacznik czasu.",
+          "unknownField": "Nieznane pole.",
+          "invalidJson": "Nieprawidłowy JSON.",
+          "bodyObject": "Treść musi być obiektem JSON.",
+          "noFields": "Należy przesłać co najmniej jedno z pól status, scheduledFor lub scheduledTo.",
+          "invalidStatus": "Nieprawidłowy status.",
+          "invalidStartDate": "Nieprawidłowa data początkowa.",
+          "missingStartDate": "Zlecenie nie ma daty początkowej. Wyślij scheduledFor razem z scheduledTo.",
+          "invalidEndDate": "Nieprawidłowa data końcowa.",
+          "reasonText": "Powód musi być tekstem.",
+          "titleRequired": "Tytuł jest wymagany.",
+          "startDateRequired": "Wymagana jest prawidłowa data początkowa.",
+          "textFields": "Pola muszą być tekstem.",
+          "textLists": "Pola list muszą być listami tekstu."
+        },
+        "customers": {
+          "forbidden": "Brak dostępu do klientów.",
+          "notFound": "Nie znaleziono klienta."
+        },
+        "documents": {
+          "forbidden": "Brak dostępu do dokumentów.",
+          "notFound": "Nie znaleziono dokumentu."
+        },
+        "reports": {
+          "forbidden": "Brak dostępu do raportów.",
+          "notFound": "Nie znaleziono raportu.",
+          "invalidLocked": "Nieprawidłowa wartość pola locked.",
+          "invalidAcknowledged": "Nieprawidłowa wartość pola acknowledged."
+        },
+        "visits": {
+          "forbidden": "Brak dostępu do wizyty.",
+          "createForbidden": "Brak dostępu do tworzenia wizyt.",
+          "updateForbidden": "Brak dostępu do zmiany wizyty.",
+          "deleteForbidden": "Brak dostępu do usunięcia wizyty.",
+          "notFound": "Nie znaleziono wizyty.",
+          "conflict": "Nie można zmienić wizyty.",
+          "rateLimited": "Zbyt wiele wywołań API. Spróbuj ponownie później.",
+          "serverError": "Nie udało się zaktualizować wizyty.",
+          "validation": "Pola są nieprawidłowe.",
+          "unknownField": "Nieznane pole.",
+          "noFields": "Należy przesłać co najmniej jedno z pól startsAt/endsAt, status, technicianIds, notes, allDay lub sequence.",
+          "oneOperation": "Można wysłać tylko jedną operację naraz.",
+          "rangeTogether": "startsAt i endsAt należy przesłać razem.",
+          "invalidStart": "Nieprawidłowa godzina rozpoczęcia.",
+          "invalidEnd": "Nieprawidłowa godzina zakończenia.",
+          "endBeforeStart": "Koniec musi być po początku.",
+          "invalidStatus": "Nieprawidłowy status.",
+          "technicianIds": "technicianIds musi być listą identyfikatorów.",
+          "notesText": "notes musi być tekstem.",
+          "allDayBoolean": "allDay musi być wartością logiczną.",
+          "sequenceInteger": "sequence musi być liczbą całkowitą.",
+          "startRequired": "Wymagana jest prawidłowa godzina rozpoczęcia (ISO 8601).",
+          "endRequired": "Wymagana jest prawidłowa godzina zakończenia (ISO 8601)."
+        },
+        "apiKey": {
+          "invalid": "Nieprawidłowy lub wygasły klucz API.",
+          "missing": "Brak tokenu Bearer.",
+          "authFailed": "Nie udało się uwierzytelnić żądania API."
+        },
+        "attachment": {
+          "notFound": "Nie znaleziono załącznika.",
+          "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania.",
+          "locked": "Zlecenie jest zablokowane.",
+          "saveFailed": "Nie udało się zapisać załącznika.",
+          "deleteFailed": "Nie udało się usunąć załącznika."
+        },
+        "comments": {
+          "rateLimited": "Zbyt wiele komentarzy. Spróbuj ponownie za chwilę.",
+          "tooLarge": "Komentarz jest zbyt duży.",
+          "invalidData": "Nieprawidłowe dane.",
+          "unknownType": "Nieznany typ obiektu.",
+          "missingField": "Brakuje wymaganego pola.",
+          "workOrderNotFound": "Nie znaleziono zlecenia.",
+          "customerNotFound": "Nie znaleziono klienta.",
+          "contactNotFound": "Nie znaleziono kontaktu.",
+          "saveFailed": "Nie udało się zapisać komentarza."
+        },
+        "upload": {
+          "invalidOrigin": "Nieprawidłowe źródło.",
+          "tooLarge": "Plik jest zbyt duży.",
+          "rateLimited": "Zbyt wiele przesyłań. Spróbuj ponownie za chwilę.",
+          "busy": "Przesyłanie jest zajęte. Spróbuj ponownie za chwilę.",
+          "noFile": "Nie wybrano pliku.",
+          "invalidType": "Nieprawidłowy typ pliku. Dozwolone są tylko obrazy i PDF.",
+          "mimeMismatch": "Zawartość pliku nie odpowiada jego typowi.",
+          "quota": "Osiągnięto dzienny limit pamięci. Spróbuj ponownie później.",
+          "imageFailed": "Nie udało się przetworzyć pliku jako obrazu.",
+          "saveFailed": "Nie udało się zapisać pliku.",
+          "failed": "Nie udało się przesłać pliku.",
+          "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania.",
+          "locked": "Zlecenie jest zablokowane.",
+          "departmentInactive": "Dział jest nieaktywny."
+        },
+        "export": {
+          "rateLimited": "Zbyt wiele eksportów. Spróbuj ponownie później.",
+          "tooLarge": "Eksport jest ograniczony do 5000 zleceń. Skontaktuj się z nami po większy zakres."
+        },
+        "date": {
+          "invalid": "Nieprawidłowa data.",
+          "missing": "Brakuje daty.",
+          "invalidEnd": "Nieprawidłowa data końcowa.",
+          "endBeforeStart": "Data końcowa nie może być wcześniejsza niż początkowa.",
+          "notFound": "Nie znaleziono zlecenia.",
+          "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania i nie można go przenieść.",
+          "saveFailed": "Nie udało się zaktualizować daty."
+        },
+        "bodyObject": "Treść musi być obiektem JSON."
       }
     },
     "orders": {
@@ -3837,7 +3994,8 @@
         "units": "{count, plural, one {# urządzenie} few {# urządzenia} many {# urządzeń} other {# urządzenia}}",
         "noUnits": "brak urządzeń",
         "deviation": "odchylenie",
-        "approved": "zatwierdzony"
+        "approved": "zatwierdzony",
+        "acknowledged": "Klient potwierdził raport"
       },
       "customer": {
         "created": "Utworzono klienta: {name}",
@@ -3859,7 +4017,8 @@
         "created": "Utworzono umowę serwisową: {title} ({interval})",
         "activated": "Aktywowano umowę serwisową: {title}",
         "paused": "Wstrzymano umowę serwisową: {title}",
-        "deleted": "Usunięto umowę serwisową: {title}"
+        "deleted": "Usunięto umowę serwisową: {title}",
+        "recurringCreated": "Utworzono zlecenie cykliczne z umowy serwisowej «{title}»"
       },
       "attachment": {
         "added": "Załączono plik: {name}",
@@ -3873,6 +4032,93 @@
         "unassigned": "Usunięto technika: {names}",
         "statusChanged": "Zmieniono status wizyty: {from} → {to}",
         "deleted": "Usunięto wizytę: {title} ({range})"
+      },
+      "auth": {
+        "login": "Zalogowano",
+        "loginRecovery": "Zalogowano przy użyciu kodu odzyskiwania",
+        "passwordReset": "Zresetowano hasło przez link e-mail"
+      },
+      "security": {
+        "twoFactorFailed": "2FA: weryfikacja nie powiodła się",
+        "twoFactorSetupExpired": "2FA: konfiguracja wygasła",
+        "twoFactorSetupStarted": "Rozpoczęto konfigurację weryfikacji dwuetapowej",
+        "twoFactorSetupCancelled": "Anulowano konfigurację weryfikacji dwuetapowej",
+        "twoFactorEnabled": "Włączono weryfikację dwuetapową",
+        "twoFactorDisabled": "Wyłączono weryfikację dwuetapową",
+        "twoFactorRecoveryRegenerated": "Wygenerowano nowe kody odzyskiwania 2FA",
+        "twoFactorReset": "Zresetowano weryfikację dwuetapową dla {name}"
+      },
+      "users": {
+        "created": "Utworzono użytkownika: {name} ({role})",
+        "portalCreated": "Utworzono użytkownika portalu klienta: {name} ({email})",
+        "activated": "Aktywowano użytkownika: {name}",
+        "deactivated": "Dezaktywowano użytkownika: {name}",
+        "portalActivated": "Aktywowano użytkownika portalu klienta: {name}",
+        "portalDeactivated": "Dezaktywowano użytkownika portalu klienta: {name}",
+        "departmentChanged": "Zmieniono dział użytkownika {name} na {department}",
+        "roleChanged": "Zmieniono rolę użytkownika {name} na {role}",
+        "phoneChanged": "Zmieniono numer telefonu użytkownika {name}",
+        "invitationCreated": "Wygenerowano nowy link zaproszenia dla: {name}",
+        "invitationResent": "Wysłano nowy link zaproszenia do użytkownika portalu klienta: {name}",
+        "deleted": "Usunięto użytkownika: {name}",
+        "permissionsReset": "Przywrócono uprawnienia roli dla {name}"
+      },
+      "departments": {
+        "created": "Utworzono dział: {name}",
+        "updated": "Zaktualizowano dział: {from} → {to}",
+        "activated": "Aktywowano dział: {name}",
+        "deactivated": "Dezaktywowano dział: {name}",
+        "defaultChanged": "Ustawiono {name} jako dział domyślny"
+      },
+      "roles": {
+        "created": "Utworzono rolę: {label} ({count, plural, one {# uprawnienie} other {# uprawnień}})",
+        "updated": "Zaktualizowano rolę: {from} → {to} ({count, plural, one {# uprawnienie} other {# uprawnień}})",
+        "deleted": "Usunięto rolę: {label}"
+      },
+      "documents": {
+        "uploaded": "Przesłano dokument: {title}",
+        "updated": "Zaktualizowano dokument: {title}",
+        "restored": "Przywrócono dokument «{title}»",
+        "versionRestored": "Przywrócono poprzednią wersję dokumentu: {title}",
+        "reindexed": "Zreindeksowano dokument do wyszukiwania pełnotekstowego",
+        "deleted": "Usunięto dokument «{title}» (miękkie usunięcie – można przywrócić)",
+        "folderCreated": "Utworzono folder: {name}",
+        "folderMoved": "Przeniesiono folder: {name}",
+        "folderRenamed": "Zmieniono nazwę folderu: {from} → {to}",
+        "folderDeleted": "Usunięto folder: {name}",
+        "tagsAdded": "Dodano tagi do dokumentu «{title}»: {tags}",
+        "movedToFolder": "Przeniesiono dokument «{title}» do folderu {folder}",
+        "movedToRoot": "Przeniesiono dokument «{title}» do katalogu głównego",
+        "tagCreated": "Utworzono tag dokumentu: {name}",
+        "tagUpdated": "Zaktualizowano tag dokumentu: {from} -> {to}",
+        "tagDeleted": "Usunięto tag dokumentu: {name}"
+      },
+      "settings": {
+        "brandingUpdated": "Zaktualizowano ustawienia marki: {company}",
+        "mapUpdated": "Zaktualizowano ustawienia mapy"
+      },
+      "templates": {
+        "created": "Utworzono listę kontrolną: {title}",
+        "deleted": "Usunięto listę kontrolną: {title}",
+        "deleteBlocked": "Zablokowano usunięcie listy kontrolnej «{title}», ponieważ jest używana",
+        "tagCreated": "Utworzono tag: {name}",
+        "tagUpdated": "Zaktualizowano tag: {from} -> {to}",
+        "tagDeleted": "Usunięto tag: {name}"
+      },
+      "workforce": {
+        "skillCreated": "Utworzono kompetencję: {label}",
+        "skillUpdated": "Zaktualizowano kompetencję: {label}",
+        "skillDeleted": "Usunięto kompetencję: {label}",
+        "userSkillUpdated": "Zaktualizowano kompetencje użytkownika {name}",
+        "absenceCreated": "Zarejestrowano nieobecność {name}",
+        "absenceUpdated": "Zaktualizowano nieobecność {name}",
+        "absenceDeleted": "Usunięto nieobecność {name}",
+        "availabilityUpdated": "Zaktualizowano godziny pracy {name}"
+      },
+      "portal": {
+        "bookingCreated": "Klient zarezerwował nowe zlecenie: {title}",
+        "rescheduleRequested": "Klient poprosił o nowy termin",
+        "bookingCancelled": "Klient anulował rezerwację"
       }
     }
   }

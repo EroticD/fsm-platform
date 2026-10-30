@@ -973,7 +973,8 @@
       "units": "{count, plural, one {# unit} other {# units}}",
       "noUnits": "no units",
       "deviation": "deviation",
-      "approved": "approved"
+      "approved": "approved",
+      "acknowledged": "Customer acknowledged the report"
     },
     "customer": {
       "created": "Created customer: {name}",
@@ -995,11 +996,99 @@
       "created": "Created service agreement: {title} ({interval})",
       "activated": "Activated service agreement: {title}",
       "paused": "Paused service agreement: {title}",
-      "deleted": "Deleted service agreement: {title}"
+      "deleted": "Deleted service agreement: {title}",
+      "recurringCreated": "Created recurring work order from service contract «{title}»"
     },
     "attachment": {
       "added": "Attached file: {name}",
       "deleted": "Deleted attachment: {name}"
+    },
+    "auth": {
+      "login": "Signed in",
+      "loginRecovery": "Signed in with a recovery code",
+      "passwordReset": "Reset the password via email link"
+    },
+    "security": {
+      "twoFactorFailed": "2FA: verification failed",
+      "twoFactorSetupExpired": "2FA: setup expired",
+      "twoFactorSetupStarted": "Started two-factor authentication setup",
+      "twoFactorSetupCancelled": "Cancelled two-factor authentication setup",
+      "twoFactorEnabled": "Enabled two-factor authentication",
+      "twoFactorDisabled": "Disabled two-factor authentication",
+      "twoFactorRecoveryRegenerated": "Generated new two-factor recovery codes",
+      "twoFactorReset": "Reset two-factor authentication for {name}"
+    },
+    "users": {
+      "created": "Created user: {name} ({role})",
+      "portalCreated": "Created customer portal user: {name} ({email})",
+      "activated": "Activated user: {name}",
+      "deactivated": "Deactivated user: {name}",
+      "portalActivated": "Activated customer portal user: {name}",
+      "portalDeactivated": "Deactivated customer portal user: {name}",
+      "departmentChanged": "Changed department for {name} to {department}",
+      "roleChanged": "Changed role for {name} to {role}",
+      "phoneChanged": "Changed phone number for {name}",
+      "invitationCreated": "Generated a new invitation link for: {name}",
+      "invitationResent": "Sent a new invitation link to customer portal user: {name}",
+      "deleted": "Deleted user: {name}",
+      "permissionsReset": "Reset permissions to the role defaults for {name}"
+    },
+    "departments": {
+      "created": "Created department: {name}",
+      "updated": "Updated department: {from} → {to}",
+      "activated": "Activated department: {name}",
+      "deactivated": "Deactivated department: {name}",
+      "defaultChanged": "Set {name} as the default department"
+    },
+    "roles": {
+      "created": "Created role: {label} ({count, plural, one {# permission} other {# permissions}})",
+      "updated": "Updated role: {from} → {to} ({count, plural, one {# permission} other {# permissions}})",
+      "deleted": "Deleted role: {label}"
+    },
+    "documents": {
+      "uploaded": "Uploaded document: {title}",
+      "updated": "Updated document: {title}",
+      "restored": "Restored document «{title}»",
+      "versionRestored": "Restored a previous version of document: {title}",
+      "reindexed": "Reindexed the document for full-text search",
+      "deleted": "Deleted document «{title}» (soft delete – can be restored)",
+      "folderCreated": "Created folder: {name}",
+      "folderMoved": "Moved folder: {name}",
+      "folderRenamed": "Renamed folder: {from} → {to}",
+      "folderDeleted": "Deleted folder: {name}",
+      "tagsAdded": "Added tags to document «{title}»: {tags}",
+      "movedToFolder": "Moved document «{title}» to folder {folder}",
+      "movedToRoot": "Moved document «{title}» to the root",
+      "tagCreated": "Created document tag: {name}",
+      "tagUpdated": "Updated document tag: {from} -> {to}",
+      "tagDeleted": "Deleted document tag: {name}"
+    },
+    "settings": {
+      "brandingUpdated": "Updated branding settings: {company}",
+      "mapUpdated": "Updated map settings"
+    },
+    "templates": {
+      "created": "Created checklist: {title}",
+      "deleted": "Deleted checklist: {title}",
+      "deleteBlocked": "Blocked deletion of checklist «{title}» because it is in use",
+      "tagCreated": "Created tag: {name}",
+      "tagUpdated": "Updated tag: {from} -> {to}",
+      "tagDeleted": "Deleted tag: {name}"
+    },
+    "workforce": {
+      "skillCreated": "Created skill: {label}",
+      "skillUpdated": "Updated skill: {label}",
+      "skillDeleted": "Deleted skill: {label}",
+      "userSkillUpdated": "Updated skills for {name}",
+      "absenceCreated": "Registered absence for {name}",
+      "absenceUpdated": "Updated absence for {name}",
+      "absenceDeleted": "Deleted absence for {name}",
+      "availabilityUpdated": "Updated working hours for {name}"
+    },
+    "portal": {
+      "bookingCreated": "Customer booked a new work order: {title}",
+      "rescheduleRequested": "Customer requested a new time",
+      "bookingCancelled": "Customer cancelled the booking"
     }
   }
 }

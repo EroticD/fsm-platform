@@ -8,9 +8,9 @@ export const userCreateSchema = z.object({
   email: z
     .string()
     .trim()
-    .min(1, "E-post er påkrevd")
-    .max(254, "For lang e-post")
-    .email("Ugyldig e-post"),
+    .min(1, "Email is required")
+    .max(254, "Email is too long")
+    .email("Invalid email"),
   phone: limitedText(40).default(""),
   role: requiredText(LIMITS.short),
   departmentId: optionalIdSchema,

@@ -1,3 +1,5 @@
+// i18n-ignore-file: transaksjons-e-poster rendres utenfor request-locale og
+// lokaliseres sammen med varselmalene i Phase 5B (C-23).
 import nodemailer from "nodemailer";
 import prisma from "@/lib/prisma";
 import { LIMITS, cleanColor, cleanText, escapeHtml } from "@/lib/sanitize";

@@ -120,7 +120,7 @@ export async function enqueuePdfText(
     // Kallestedene er server actions som ikke venter på køen; en feil her skal
     // ikke velte selve opplastingen.
     console.error(
-      `Kunne ikke legge tekstuttrekk for dokument ${documentId} i køen:`,
+      `Could not enqueue text extraction for document ${documentId}:`,
       error,
     );
     return null;
@@ -167,13 +167,13 @@ export async function requeueStalePdfTextJobs(): Promise<number> {
     `;
 
     if (rows.length > 0) {
-      logger.warn("Tekstuttrekk: la fastlåste jobber tilbake i køen", {
+      logger.warn("Text extraction: requeued stale jobs", {
         count: rows.length,
       });
     }
     return rows.length;
   } catch (error) {
-    logger.error("Kunne ikke rydde fastlåste tekstuttrekksjobber", {
+    logger.error("Could not requeue stale text extraction jobs", {
       error: error instanceof Error ? error.message : String(error),
     });
     return 0;
@@ -192,7 +192,7 @@ async function failOrRetryPdfTextJob(
       where: { id: job.id },
       data: { status: "FAILED", lockedAt: null, lastError },
     });
-    logger.error("Tekstuttrekk feilet etter maks antall forsøk", {
+    logger.error("Text extraction failed after the maximum number of attempts", {
       documentId: job.documentId,
       attempts: job.attempts,
       error: message,
@@ -207,7 +207,7 @@ async function failOrRetryPdfTextJob(
     data: { status: "PENDING", lockedAt: null, runAt, lastError },
   });
 
-  logger.warn("Tekstuttrekk feilet; prøver igjen", {
+  logger.warn("Text extraction failed; retrying", {
     documentId: job.documentId,
     attempts: job.attempts,
     runAt: runAt.toISOString(),
@@ -223,13 +223,13 @@ export async function processPdfTextJob(
   job: PdfTextJob,
 ): Promise<"done" | "retry" | "failed"> {
   try {
-    if (!job.documentId) throw new Error("Jobben mangler dokument-id");
+    if (!job.documentId) throw new Error("The job is missing a document id");
 
     const document = await prisma.document.findUnique({
       where: { id: job.documentId },
       select: { id: true, filePath: true },
     });
-    if (!document) throw new Error("Dokumentet finnes ikke lenger");
+    if (!document) throw new Error("The document no longer exists");
 
     const { text, pages } = await extractPdfText(document.filePath);
 
@@ -253,7 +253,7 @@ export async function processPdfTextJob(
     } catch (updateError) {
       // Klarte vi ikke å oppdatere jobben, blir den stående i RUNNING og tas
       // tilbake av requeueStalePdfTextJobs senere.
-      logger.error("Kunne ikke oppdatere tekstuttrekksjobb", {
+      logger.error("Could not update text extraction job", {
         jobId: job.id,
         error: updateError instanceof Error ? updateError.message : String(updateError),
       });
@@ -314,7 +314,7 @@ export async function cleanupExpiredDrafts(now = new Date()): Promise<number> {
   }
 
   if (deleted > 0) {
-    logger.info("Ryddet utløpte rapportkladder", { count: deleted });
+    logger.info("Cleaned up expired report drafts", { count: deleted });
   }
   return deleted;
 }
@@ -330,7 +330,7 @@ export function startDraftCleanup(): void {
 
   const run = () => {
     void cleanupExpiredDrafts().catch((error) => {
-      logger.error("Kunne ikke rydde utløpte rapportkladder", {
+      logger.error("Could not clean up expired report drafts", {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -355,7 +355,7 @@ export async function cleanupExpiredSearchLogs(now = new Date()): Promise<number
   });
 
   if (result.count > 0) {
-    logger.info("Ryddet utløpte søkelogger", {
+    logger.info("Cleaned up expired search logs", {
       count: result.count,
       retentionDays: SEARCH_LOG_RETENTION_DAYS,
     });
@@ -374,7 +374,7 @@ export function startSearchLogCleanup(): void {
 
   const run = () => {
     void cleanupExpiredSearchLogs().catch((error) => {
-      logger.error("Kunne ikke rydde utløpte søkelogger", {
+      logger.error("Could not clean up expired search logs", {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -470,7 +470,7 @@ export async function cleanupRetainedWorkOrders(
         }
       }
     } catch (error) {
-      logger.error("Kunne ikke hard-slette utløpt oppdrag", {
+      logger.error("Could not hard-delete expired work order", {
         workOrderId: workOrder.id,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -478,7 +478,7 @@ export async function cleanupRetainedWorkOrders(
   }
 
   if (deleted > 0) {
-    logger.info("Hard-slettet utløpte oppdrag etter bevaringsperioden", {
+    logger.info("Hard-deleted expired work orders after the retention period", {
       count: deleted,
       retentionDays: RETENTION_DAYS,
     });
@@ -497,7 +497,7 @@ export function startWorkOrderRetentionCleanup(): void {
 
   const run = () => {
     void cleanupRetainedWorkOrders().catch((error) => {
-      logger.error("Kunne ikke kjøre bevaringsjobben for oppdrag", {
+      logger.error("Could not run the work order retention job", {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -558,7 +558,7 @@ export function startJobWorker(): void {
   // har resetAt i fremtiden og røres ikke.
   const pruneRateLimits = () => {
     void cleanupRateLimits().catch((error) => {
-      logger.error("Kunne ikke rydde rate-limit-tabellen", {
+      logger.error("Could not clean up the rate limit table", {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -571,7 +571,7 @@ export function startJobWorker(): void {
   // SMTP-server blokkerer da ikke handlingen som utløste varselet.
   const processNotifications = () => {
     void processPendingNotificationEmails().catch((error) => {
-      logger.error("Kunne ikke sende varsel-e-poster", {
+      logger.error("Could not send notification emails", {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -583,7 +583,7 @@ export function startJobWorker(): void {
   // Én overdue-sjekk ved oppstart og deretter hvert sjette døgn.
   const notifyOverdue = () => {
     void notifyOverdueWorkOrders().catch((error) => {
-      logger.error("Kunne ikke varsle om forfalte oppdrag", {
+      logger.error("Could not notify about overdue work orders", {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -592,7 +592,7 @@ export function startJobWorker(): void {
   const overdueTimer = setInterval(notifyOverdue, 6 * 60 * 60_000);
   overdueTimer.unref?.();
 
-  logger.info("Tekstuttrekk: jobbworker startet", {
+  logger.info("Text extraction: job worker started", {
     concurrency: JOB_WORKER_CONCURRENCY,
   });
 }

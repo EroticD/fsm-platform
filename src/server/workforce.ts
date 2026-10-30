@@ -1,3 +1,5 @@
+// i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
+// oversettes ved visning i audit-actions.ts.
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
