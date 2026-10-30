@@ -9,6 +9,12 @@ import {
   moveTechnician as moveTechnicianService,
   unassignTechnician as unassignTechnicianService,
 } from "@/server/work-orders";
+import {
+  assignVisit,
+  setVisitStatus,
+  unassignVisit,
+} from "@/server/visits";
+import type { VisitStatus } from "@prisma/client";
 import type { DispatchActionResult } from "./types";
 
 const DISPATCH_PATH = "/kalender/dispatch";
@@ -19,6 +25,30 @@ function fail(error: string): DispatchActionResult {
 
 function readId(formData: FormData, key: string): string {
   return cleanText(formData.get(key), { maxLength: LIMITS.line });
+}
+
+/** Beholder tjenestens stabile feilkode (f.eks. visits.errors.overlap). */
+function serviceError(result: {
+  reason: string;
+  details?: unknown;
+}): string {
+  const details = result.details;
+  if (details && typeof details === "object") {
+    const code = (details as { code?: unknown }).code;
+    if (typeof code === "string" && code.length > 0) return code;
+  }
+  return result.reason;
+}
+
+function readTechnicianIds(formData: FormData): string[] {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("technicianId")
+        .map((value) => cleanText(value, { maxLength: LIMITS.line }))
+        .filter((value) => value.length > 0),
+    ),
+  ).slice(0, 100);
 }
 
 export async function assignTechnicianAction(
@@ -135,6 +165,85 @@ export async function updateStatusAction(
     return { ok: true };
   } catch (error) {
     console.error("Feil ved oppdatering av status:", error);
+    return fail("ukjent");
+  }
+}
+
+/**
+ * Erstatter montørlisten på en visitt. Dispatch sender hele den ønskede
+ * listen, slik at drag mellom to kolonner både fjerner kilden og legger til
+ * målet i én operasjon. Tjenesten kontrollerer overlapp og avdeling på nytt.
+ */
+export async function assignVisitTechniciansAction(
+  formData: FormData,
+): Promise<DispatchActionResult> {
+  const workOrderId = readId(formData, "workOrderId");
+  const visitId = readId(formData, "visitId");
+  const technicianIds = readTechnicianIds(formData);
+  if (!workOrderId || !visitId || technicianIds.length === 0) {
+    return fail("ugyldig-data");
+  }
+
+  const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+  if (!access) return fail("ikke-tilgang");
+
+  try {
+    const result = await assignVisit(access.user, visitId, technicianIds);
+    if (!result.ok) return fail(serviceError(result));
+    revalidatePath(DISPATCH_PATH);
+    return { ok: true };
+  } catch (error) {
+    console.error("Feil ved tildeling av montør til visitt:", error);
+    return fail("ukjent");
+  }
+}
+
+/** Fjerner én montør fra visitten; de øvrige beholder tildelingen. */
+export async function unassignVisitTechnicianAction(
+  formData: FormData,
+): Promise<DispatchActionResult> {
+  const workOrderId = readId(formData, "workOrderId");
+  const visitId = readId(formData, "visitId");
+  const technicianId = readId(formData, "technicianId");
+  if (!workOrderId || !visitId || !technicianId) {
+    return fail("ugyldig-data");
+  }
+
+  const access = await requireWorkOrderAccess("workorders.assign", workOrderId);
+  if (!access) return fail("ikke-tilgang");
+
+  try {
+    const result = await unassignVisit(access.user, visitId, technicianId);
+    if (!result.ok) return fail(serviceError(result));
+    revalidatePath(DISPATCH_PATH);
+    return { ok: true };
+  } catch (error) {
+    console.error("Feil ved fjerning av montør fra visitt:", error);
+    return fail("ukjent");
+  }
+}
+
+/** Statusendring på visitten, med samme tilstandsmaskin som resten av appen. */
+export async function updateVisitStatusAction(
+  formData: FormData,
+): Promise<DispatchActionResult> {
+  const workOrderId = readId(formData, "workOrderId");
+  const visitId = readId(formData, "visitId");
+  const status = cleanText(formData.get("status"), {
+    maxLength: LIMITS.line,
+  }).toUpperCase() as VisitStatus;
+  if (!workOrderId || !visitId || !status) return fail("ugyldig-data");
+
+  const access = await requireWorkOrderAccess("workorders.update", workOrderId);
+  if (!access) return fail("ikke-tilgang");
+
+  try {
+    const result = await setVisitStatus(access.user, visitId, status);
+    if (!result.ok) return fail(serviceError(result));
+    revalidatePath(DISPATCH_PATH);
+    return { ok: true };
+  } catch (error) {
+    console.error("Feil ved oppdatering av visittstatus:", error);
     return fail("ukjent");
   }
 }

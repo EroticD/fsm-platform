@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type DispatchDayLike = {
   date: string;
-  kind?: string;
-  workOrders: Array<{
+  label: string;
+  visits: Array<{
     id: string;
+    workOrderId: string;
+    visitStatus: string;
     statusOptions: string[];
-    canComplete: boolean;
-    canCancel: boolean;
-    isOverdue: boolean;
+    timeLabel: string;
+    dateLabel: string;
   }>;
 };
 
@@ -22,7 +23,8 @@ const mocks = vi.hoisted(() => ({
   ),
   getLocale: vi.fn(async () => "nb"),
   workOrderFindMany: vi.fn(),
-  workOrderCount: vi.fn(async () => 0),
+  visitFindMany: vi.fn(),
+  visitCount: vi.fn(async () => 0),
   userFindMany: vi.fn(async () => []),
 }));
 
@@ -40,7 +42,10 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     workOrder: {
       findMany: mocks.workOrderFindMany,
-      count: mocks.workOrderCount,
+    },
+    visit: {
+      findMany: mocks.visitFindMany,
+      count: mocks.visitCount,
     },
     user: { findMany: mocks.userFindMany },
   },
@@ -61,20 +66,51 @@ const admin = {
   roleDefinition: null,
 };
 
-function row(
+function attentionRow(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    id: "wo-1",
-    title: "Service",
+    id: "wo-attention",
+    title: "Forfalt service",
     status: "OPEN",
     description: null,
-    scheduledFor: new Date("2026-10-29T00:00:00.000Z"),
+    scheduledFor: new Date("2026-10-20T00:00:00.000Z"),
     scheduledTo: null,
     customer: null,
     product: null,
     technicians: [],
     createdAt: new Date("2026-10-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function visitRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: "visit-1",
+    workOrderId: "wo-1",
+    sequence: 0,
+    startsAt: new Date("2026-11-02T09:00:00.000Z"),
+    endsAt: new Date("2026-11-02T11:00:00.000Z"),
+    allDay: false,
+    status: "PLANNED",
+    notes: null,
+    technicians: [],
+    workOrder: {
+      id: "wo-1",
+      title: "Service",
+      status: "OPEN",
+      description: null,
+      scheduledFor: new Date("2026-11-02T00:00:00.000Z"),
+      scheduledTo: null,
+      customer: {
+        name: "Kunde AS",
+        address: "Storgata 1",
+        postalCode: "6002",
+        city: "Ålesund",
+      },
+      product: null,
+      technicians: [],
+    },
     ...overrides,
   };
 }
@@ -124,12 +160,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getCurrentUser.mockResolvedValue(admin);
   mocks.workOrderFindMany.mockResolvedValue([]);
-  mocks.workOrderCount.mockResolvedValue(0);
+  mocks.visitFindMany.mockResolvedValue([]);
+  mocks.visitCount.mockResolvedValue(0);
   mocks.userFindMany.mockResolvedValue([]);
 });
 
-describe("dispatch page – forfalte og ufordelte", () => {
-  it("henter ufordelte og forfalte utenfor valgt datoperiode", async () => {
+describe("dispatch page – visiter som planlagte blokker", () => {
+  it("henter visiter i valgt periode og utelater forfalte/ufordelte", async () => {
     await render({ fra: "2026-11-01", til: "2026-11-07" });
 
     const attentionArgs = mocks.workOrderFindMany.mock.calls[0][0] as {
@@ -146,95 +183,130 @@ describe("dispatch page – forfalte og ufordelte", () => {
       ]),
     );
 
-    const dateArgs = mocks.workOrderFindMany.mock.calls[1][0] as {
-      where: { AND: Array<Record<string, unknown>> };
+    const visitArgs = mocks.visitFindMany.mock.calls[0][0] as {
+      where: {
+        AND: Array<Record<string, unknown>>;
+      };
+      take: number;
     };
-    expect(dateArgs.where.AND).toContainEqual({ NOT: { OR: attention } });
-    expect(dateArgs.where.AND).toContainEqual({
-      scheduledFor: { gte: expect.any(Date) },
+    expect(visitArgs.take).toBe(80);
+    expect(visitArgs.where.AND).toContainEqual({
+      status: { not: "CANCELLED" },
     });
-    expect(dateArgs.where.AND).toContainEqual({
-      scheduledFor: { lte: expect.any(Date) },
+    const workOrderFilter = visitArgs.where.AND.find(
+      (filter) => "workOrder" in filter,
+    )?.workOrder as { AND: Array<Record<string, unknown>> };
+    expect(workOrderFilter.AND).toContainEqual({ departmentId: "dep-a" });
+    expect(workOrderFilter.AND).toContainEqual({
+      status: { not: "COMPLETED" },
+    });
+    expect(workOrderFilter.AND).toContainEqual({
+      NOT: { OR: attention },
+    });
+    expect(visitArgs.where.AND).toContainEqual({
+      startsAt: { gte: expect.any(Date) },
+    });
+    expect(visitArgs.where.AND).toContainEqual({
+      startsAt: { lt: expect.any(Date) },
     });
   });
 
-  it("viser varselseksjonen først uten å duplisere kort i datokolonnen", async () => {
-    mocks.workOrderFindMany
-      .mockResolvedValueOnce([
-        row({
-          id: "wo-overdue",
-          scheduledFor: new Date("2026-10-20T00:00:00.000Z"),
-        }),
-      ])
-      .mockResolvedValueOnce([row({ id: "wo-in-range" })]);
+  it("grupperer på visittens startdato og sorterer dagene", async () => {
+    mocks.visitFindMany.mockResolvedValue([
+      visitRow({
+        id: "visit-late",
+        startsAt: new Date("2026-11-03T09:00:00.000Z"),
+        endsAt: new Date("2026-11-03T10:00:00.000Z"),
+      }),
+      visitRow({
+        id: "visit-early",
+        startsAt: new Date("2026-11-02T09:00:00.000Z"),
+        endsAt: new Date("2026-11-02T10:00:00.000Z"),
+      }),
+    ]);
 
-    const element = await render();
+    const element = await render({
+      fra: "2026-11-01",
+      til: "2026-11-07",
+    });
     const days = findBoardDays(element);
 
     expect(days?.map((day) => day.date)).toEqual([
-      "attention",
-      "2026-10-29",
+      "2026-11-02",
+      "2026-11-03",
     ]);
-    expect(days?.[0].kind).toBe("attention");
-    expect(days?.[0].workOrders.map((workOrder) => workOrder.id)).toEqual([
-      "wo-overdue",
+    expect(days?.[0].visits.map((visit) => visit.id)).toEqual([
+      "visit-early",
     ]);
-    expect(days?.[1].workOrders.map((workOrder) => workOrder.id)).toEqual([
-      "wo-in-range",
+    expect(days?.[1].visits.map((visit) => visit.id)).toEqual([
+      "visit-late",
     ]);
+    expect(days?.[0].visits[0].timeLabel).toBe("calendar.visit.timeRange");
   });
 
-  it("teller bare ufordelte kort som faktisk vises", async () => {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  it("viser forfalte/ufordelte i egen seksjon uten å duplisere dem i dagene", async () => {
     mocks.workOrderFindMany.mockResolvedValueOnce([
-      row({ id: "wo-future", scheduledFor: tomorrow }),
-      row({ id: "wo-unassigned", scheduledFor: tomorrow }),
+      attentionRow({ id: "wo-overdue" }),
     ]);
-    mocks.workOrderFindMany.mockResolvedValueOnce([]);
+    mocks.visitFindMany.mockResolvedValueOnce([
+      visitRow({ id: "visit-in-range" }),
+    ]);
 
     const element = await render();
     const days = findBoardDays(element);
     const text = collectText(element).join(" ");
 
-    expect(days?.[0].workOrders).toHaveLength(2);
-    expect(days?.[0].workOrders.every((workOrder) => workOrder.isOverdue)).toBe(
-      false,
-    );
-    expect(text).toContain("calendar.dispatch.unassignedCount:2");
+    expect(days?.map((day) => day.date)).toEqual(["2026-11-02"]);
+    expect(days?.[0].visits.map((visit) => visit.id)).toEqual([
+      "visit-in-range",
+    ]);
+    expect(text).toContain("calendar.dispatch.attentionCount:1");
   });
-});
 
-describe("dispatch page – statussikkerhet", () => {
-  it("tilbyr ikke fullført/kansellert i statusnedtrekket", async () => {
-    mocks.workOrderFindMany.mockResolvedValueOnce([]);
-    mocks.workOrderFindMany.mockResolvedValueOnce([row()]);
+  it("tilbyr bare lovlige visittstatusoverganger", async () => {
+    mocks.visitFindMany.mockResolvedValueOnce([
+      visitRow({ status: "PLANNED" }),
+    ]);
 
     const element = await render();
-    const days = findBoardDays(element);
-    const workOrder = days?.[0].workOrders[0];
+    const visit = findBoardDays(element)?.[0].visits[0];
 
-    expect(workOrder?.statusOptions).not.toContain("COMPLETED");
-    expect(workOrder?.statusOptions).not.toContain("CANCELLED");
-    expect(workOrder?.canComplete).toBe(true);
-    expect(workOrder?.canCancel).toBe(true);
+    expect(visit?.statusOptions).toEqual([
+      "ASSIGNED",
+      "EN_ROUTE",
+      "CANCELLED",
+    ]);
+    expect(visit?.statusOptions).not.toContain("DONE");
   });
 
-  it("skjuler kansellering for brukere uten workorders.edit", async () => {
+  it("skjuler statusvalg uten workorders.update", async () => {
     mocks.getCurrentUser.mockResolvedValue({
       ...admin,
       role: "OFFICE",
       permissionsCustomized: true,
-      permissions: ["workorders.assign", "workorders.update"],
+      permissions: ["workorders.assign"],
     });
-    mocks.workOrderFindMany.mockResolvedValueOnce([]);
-    mocks.workOrderFindMany.mockResolvedValueOnce([row()]);
+    mocks.visitFindMany.mockResolvedValueOnce([visitRow()]);
+
+    const element = await render();
+    const visit = findBoardDays(element)?.[0].visits[0];
+
+    expect(visit?.statusOptions).toEqual([]);
+  });
+
+  it("teller visiter i dagoverskriften", async () => {
+    mocks.visitFindMany.mockResolvedValueOnce([
+      visitRow({ id: "visit-a" }),
+      visitRow({ id: "visit-b" }),
+    ]);
 
     const element = await render();
     const days = findBoardDays(element);
-    const workOrder = days?.[0].workOrders[0];
 
-    expect(workOrder?.canComplete).toBe(true);
-    expect(workOrder?.canCancel).toBe(false);
-    expect(workOrder?.statusOptions).not.toContain("CANCELLED");
+    expect(days).toHaveLength(1);
+    expect(days?.[0].visits.map((visit) => visit.id)).toEqual([
+      "visit-a",
+      "visit-b",
+    ]);
   });
 });

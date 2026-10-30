@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import type { Prisma, WorkStatus } from "@prisma/client";
+import type { Prisma, VisitStatus } from "@prisma/client";
 import { getLocale, getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
@@ -7,8 +7,9 @@ import CalendarShell from "@/app/kalender/CalendarShell";
 import Icon from "@/components/icons";
 import DispatchBoard from "@/app/kalender/dispatch/DispatchBoard";
 import type {
+  DispatchAttentionItem,
   DispatchDay,
-  DispatchWorkOrder,
+  DispatchVisit,
 } from "@/app/kalender/dispatch/types";
 import {
   dispatchAttentionConditions,
@@ -20,6 +21,7 @@ import { markdownToPlainText } from "@/lib/markdown";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
+  dateOnlyInOslo,
   formatDateLocalized,
   formatDateRangeLocalized,
   parseDateOnly,
@@ -32,9 +34,8 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope } from "@/lib/access";
 import {
-  STATUS_OPTION_ORDER,
-  allowedTransitions,
-} from "@/lib/work-order-status";
+  allowedVisitTransitions,
+} from "@/lib/visit-status";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -47,15 +48,24 @@ type DispatchWorkOrderRow = Prisma.WorkOrderGetPayload<{
   include: { customer: true; technicians: true; product: true };
 }>;
 
+type DispatchVisitRow = Prisma.VisitGetPayload<{
+  include: {
+    technicians: {
+      include: { user: { select: { id: true; name: true; email: true } } };
+    };
+    workOrder: { include: { customer: true; product: true } };
+  };
+}>;
+
 /**
- * Dispatch-tavla: oppdrag gruppert per dag, med én kolonne per montør.
- * Alle handlinger går via server actions som kontrollerer rettighetene på
- * nytt. Tavla viser bare lovlige statusoverganger og feilmeldinger på raden
- * som feilet.
+ * Dispatch-tavla: planlagte visiter gruppert per startdag, med én kolonne per
+ * montør. Hver visitt er en tidsblokk og viser start–slutt, dato og
+ * visittstatus. Alle handlinger går via server actions som kontrollerer
+ * rettighetene på nytt.
  *
- * Forfalte og ufordelte oppdrag hentes utenfor datoperioden og vises i en
+ * Forfalte og ufordelte oppdrag hentes utenfor visittperioden og vises i en
  * egen varselseksjon. De fjernes fra datoperioden med `NOT`, slik at samme
- * kort aldri dukker opp to steder.
+ * oppdrag aldri dukker opp to steder.
  */
 export default async function DispatchPage({
   searchParams,
@@ -78,8 +88,6 @@ export default async function DispatchPage({
   const canReports = hasPermission(user, "reports.view");
   const canCreate = hasPermission(user, "workorders.create");
   const canUpdateStatus = hasPermission(user, "workorders.update");
-  const canCancelPermission = hasPermission(user, "workorders.edit");
-  const isAdmin = user.role === "ADMIN";
 
   const query = (firstParam(params.q) ?? "").trim().slice(0, 100);
   const today = parseDateOnly(todayInOslo());
@@ -115,7 +123,7 @@ export default async function DispatchPage({
       orderBy: [{ scheduledFor: "asc" }, { createdAt: "asc" }],
       take: ATTENTION_LIMIT,
     }),
-    prisma.workOrder.count({ where: dateWhere }),
+    prisma.visit.count({ where: dateWhere }),
     prisma.user.findMany({
       where: staffScope(user),
       orderBy: { name: "asc" },
@@ -130,106 +138,119 @@ export default async function DispatchPage({
     80,
   );
 
-  const dateWorkOrders = await prisma.workOrder.findMany({
+  // Planlagte blokker er visiter. De hentes med oppdrag, kunde og visittens
+  // egne montører, slik at kortet kan vises uten flere oppslag.
+  const dateVisits = await prisma.visit.findMany({
     where: dateWhere,
     include: {
-      customer: true,
-      technicians: true,
-      product: true,
+      technicians: {
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+      workOrder: { include: { customer: true, product: true } },
     },
-    orderBy: [{ scheduledFor: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
     skip: pagination.skip,
     take: pagination.take,
   });
 
-  function toDispatchWorkOrder(
-    workOrder: DispatchWorkOrderRow,
-  ): DispatchWorkOrder {
-    const status = workOrder.status as WorkStatus;
-    const allowed = new Set(allowedTransitions(status, isAdmin));
-    // Fullføring og kansellering er egne handlinger med bekreftelse, ikke valg
-    // i statusnedtrekket. Kansellering krever workorders.edit, som i detaljen.
-    const statusOptions = canUpdateStatus
-      ? STATUS_OPTION_ORDER.filter(
-          (candidate) =>
-            candidate !== "PENDING" &&
-            candidate !== "COMPLETED" &&
-            candidate !== "CANCELLED" &&
-            allowed.has(candidate),
-        )
-      : [];
+  function formatTime(value: Date): string {
+    return formatDateLocalized(value, locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
+  function toDispatchAttention(
+    workOrder: DispatchWorkOrderRow,
+  ): DispatchAttentionItem {
     return {
       id: workOrder.id,
       title: workOrder.title,
-      status: workOrder.status,
       customerName:
         workOrder.customer?.name || t("calendar.common.noCustomer"),
-      address: formatAddress(workOrder.customer),
-      productModel: workOrder.product?.model ?? null,
-      description: workOrder.description
-        ? markdownToPlainText(workOrder.description).slice(0, 240)
-        : "",
       dateRange: formatDateRangeLocalized(
         workOrder.scheduledFor,
         workOrder.scheduledTo,
         locale,
       ),
+      isOverdue: Boolean(
+        today && workOrder.scheduledFor && workOrder.scheduledFor < today,
+      ),
       technicians: workOrder.technicians.map((technician) => ({
         id: technician.id,
         name: technician.name ?? technician.email ?? technician.id,
       })),
-      statusOptions,
-      canComplete: canUpdateStatus && allowed.has("COMPLETED"),
-      canCancel:
-        canUpdateStatus &&
-        canCancelPermission &&
-        allowed.has("CANCELLED"),
-      isOverdue: Boolean(
-        today && workOrder.scheduledFor && workOrder.scheduledFor < today,
-      ),
     };
   }
 
-  const attentionDay: DispatchDay | null =
-    attentionRows.length > 0
-      ? {
-          date: "attention",
-          label: t("calendar.dispatch.attentionTitle"),
-          kind: "attention",
-          workOrders: attentionRows.map(toDispatchWorkOrder),
-        }
-      : null;
+  function toDispatchVisit(visit: DispatchVisitRow): DispatchVisit {
+    const status = visit.status as VisitStatus;
+    const statusOptions = canUpdateStatus
+      ? allowedVisitTransitions(status)
+      : [];
+
+    return {
+      id: visit.id,
+      workOrderId: visit.workOrderId,
+      title: visit.workOrder.title,
+      workOrderStatus: visit.workOrder.status,
+      visitStatus: visit.status,
+      customerName:
+        visit.workOrder.customer?.name || t("calendar.common.noCustomer"),
+      address: formatAddress(visit.workOrder.customer),
+      productModel: visit.workOrder.product?.model ?? null,
+      description: visit.workOrder.description
+        ? markdownToPlainText(visit.workOrder.description).slice(0, 240)
+        : "",
+      dateLabel: formatDateLocalized(visit.startsAt, locale, {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }),
+      timeLabel: visit.allDay
+        ? t("calendar.visit.allDay")
+        : t("calendar.visit.timeRange", {
+            start: formatTime(visit.startsAt),
+            end: formatTime(visit.endsAt),
+          }),
+      technicians: visit.technicians.map((technician) => ({
+        id: technician.user.id,
+        name:
+          technician.user.name ??
+          technician.user.email ??
+          technician.user.id,
+      })),
+      statusOptions,
+    };
+  }
+
+  const attentionItems = attentionRows.map(toDispatchAttention);
 
   const groups = new Map<string, DispatchDay>();
 
-  for (const workOrder of dateWorkOrders) {
-    const date = toDateOnly(workOrder.scheduledFor);
-    const key = date || "9999-12-31";
-    const group = groups.get(key) ?? {
-      date: date || "none",
-      label: date
-        ? formatDateLocalized(date, locale, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })
-        : t("calendar.common.noDate"),
-      kind: "date" as const,
-      workOrders: [],
+  for (const visit of dateVisits) {
+    // Grupper på startdagen i Oslo, ikke UTC: en visitt kl. 00:30 norsk tid
+    // hører til den norske dagen, selv om UTC fortsatt viser gårsdagen.
+    const date = dateOnlyInOslo(visit.startsAt);
+    const group = groups.get(date) ?? {
+      date,
+      label: formatDateLocalized(date, locale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }),
+      visits: [],
     };
 
-    group.workOrders.push(toDispatchWorkOrder(workOrder));
-    groups.set(key, group);
+    group.visits.push(toDispatchVisit(visit));
+    groups.set(date, group);
   }
 
-  const dateDays: DispatchDay[] = [...groups.entries()]
+  const days: DispatchDay[] = [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, group]) => group);
-
-  const days: DispatchDay[] = attentionDay
-    ? [attentionDay, ...dateDays]
-    : dateDays;
 
   // Tellingen skal vise det som faktisk står i tavla. Ufordelte oppdrag ligger
   // alltid i varselseksjonen, også når de faller utenfor valgt datoperiode.
@@ -237,7 +258,7 @@ export default async function DispatchPage({
     (workOrder) => workOrder.technicians.length === 0,
   ).length;
   const total = attentionRows.length + dateTotal;
-  const shownOnPage = attentionRows.length + dateWorkOrders.length;
+  const shownOnPage = attentionRows.length + dateVisits.length;
   const resultFrom = total === 0 ? 0 : Math.min(total, pagination.skip + 1);
   const resultTo =
     total === 0 ? 0 : Math.min(total, pagination.skip + shownOnPage);
@@ -378,9 +399,70 @@ export default async function DispatchPage({
         </div>
       )}
 
+      {attentionItems.length > 0 && (
+        <section
+          aria-labelledby="dispatch-attention-title"
+          className="office-card min-w-0 border-l-4 border-l-[var(--risk,#f04427)] p-4"
+        >
+          <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+            <div className="min-w-0">
+              <h2
+                id="dispatch-attention-title"
+                className="flex items-center gap-2 text-base font-black tracking-tight text-[var(--ink,#101310)]"
+              >
+                <Icon
+                  name="alert"
+                  className="h-4 w-4 shrink-0 text-[var(--risk-text,#b42318)]"
+                />
+                {t("calendar.dispatch.attentionTitle")}
+              </h2>
+              <p className="mt-1 text-xs font-medium text-[#7a4f0c]">
+                {t("calendar.dispatch.attentionHint")}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
+              {t("calendar.dispatch.attentionCount", {
+                count: attentionItems.length,
+              })}
+            </span>
+          </div>
+          <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {attentionItems.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={`/oppdrag/${item.id}`}
+                  className="flex h-full flex-col rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+                >
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 break-words text-sm font-bold leading-tight text-[var(--ink,#101310)]">
+                      {item.title}
+                    </span>
+                    {item.isOverdue && (
+                      <span className="shrink-0 rounded bg-[#fdf5e4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#7a4f0c]">
+                        {t("calendar.dispatch.overdue")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                    <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{item.customerName}</span>
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                    <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      {item.dateRange || t("calendar.common.noDate")}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted,#62685f)]">
         <span className="min-w-0 break-words font-semibold">
-          {t("calendar.dispatch.resultRange", {
+          {t("calendar.dispatch.resultRangeVisits", {
             from: resultFrom,
             to: resultTo,
             total,

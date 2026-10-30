@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   unassignTechnician: vi.fn(),
   moveTechnician: vi.fn(),
   changeWorkOrderStatus: vi.fn(),
+  assignVisit: vi.fn(),
+  unassignVisit: vi.fn(),
+  setVisitStatus: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -19,10 +22,18 @@ vi.mock("@/server/work-orders", () => ({
   moveTechnician: mocks.moveTechnician,
   changeWorkOrderStatus: mocks.changeWorkOrderStatus,
 }));
+vi.mock("@/server/visits", () => ({
+  assignVisit: mocks.assignVisit,
+  unassignVisit: mocks.unassignVisit,
+  setVisitStatus: mocks.setVisitStatus,
+}));
 
 import {
+  assignVisitTechniciansAction,
   moveTechnicianAction,
+  unassignVisitTechnicianAction,
   updateStatusAction,
+  updateVisitStatusAction,
 } from "./actions";
 
 const user = { id: "u1", name: "Kari", email: "kari@example.com" };
@@ -118,6 +129,174 @@ describe("moveTechnicianAction", () => {
 
     expect(result).toEqual({ ok: false, error: "workorder-locked" });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("assignVisitTechniciansAction", () => {
+  it("sender hele den ønskede montørlisten til visittjenesten", async () => {
+    mocks.assignVisit.mockResolvedValue({ ok: true });
+
+    const result = await assignVisitTechniciansAction(
+      form({
+        workOrderId: "wo-1",
+        visitId: "visit-1",
+        technicianId: "tech-1",
+      }),
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.requireWorkOrderAccess).toHaveBeenCalledWith(
+      "workorders.assign",
+      "wo-1",
+    );
+    expect(mocks.assignVisit).toHaveBeenCalledWith(
+      user,
+      "visit-1",
+      ["tech-1"],
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/kalender/dispatch");
+  });
+
+  it("støtter flere montører på samme visitt", async () => {
+    mocks.assignVisit.mockResolvedValue({ ok: true });
+    const data = form({
+      workOrderId: "wo-1",
+      visitId: "visit-1",
+      technicianId: "tech-1",
+    });
+    data.append("technicianId", "tech-2");
+
+    await assignVisitTechniciansAction(data);
+
+    expect(mocks.assignVisit).toHaveBeenCalledWith(
+      user,
+      "visit-1",
+      ["tech-1", "tech-2"],
+    );
+  });
+
+  it("videresender overlappkoden uten å revalidere", async () => {
+    mocks.assignVisit.mockResolvedValue({
+      ok: false,
+      reason: "conflict",
+      details: { code: "visits.errors.overlap", conflicts: [] },
+    });
+
+    const result = await assignVisitTechniciansAction(
+      form({
+        workOrderId: "wo-1",
+        visitId: "visit-1",
+        technicianId: "tech-1",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "visits.errors.overlap",
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("avviser tom montørliste før tjenesten kalles", async () => {
+    const result = await assignVisitTechniciansAction(
+      form({ workOrderId: "wo-1", visitId: "visit-1" }),
+    );
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.assignVisit).not.toHaveBeenCalled();
+  });
+});
+
+describe("unassignVisitTechnicianAction", () => {
+  it("fjerner én montør og beholder de øvrige", async () => {
+    mocks.unassignVisit.mockResolvedValue({ ok: true });
+
+    const result = await unassignVisitTechnicianAction(
+      form({
+        workOrderId: "wo-1",
+        visitId: "visit-1",
+        technicianId: "tech-1",
+      }),
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.unassignVisit).toHaveBeenCalledWith(
+      user,
+      "visit-1",
+      "tech-1",
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/kalender/dispatch");
+  });
+
+  it("avviser manglende montør før tjenesten kalles", async () => {
+    const result = await unassignVisitTechnicianAction(
+      form({ workOrderId: "wo-1", visitId: "visit-1" }),
+    );
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.unassignVisit).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateVisitStatusAction", () => {
+  it("bruker visittens tilstandsmaskin", async () => {
+    mocks.setVisitStatus.mockResolvedValue({ ok: true });
+
+    const result = await updateVisitStatusAction(
+      form({
+        workOrderId: "wo-1",
+        visitId: "visit-1",
+        status: "ON_SITE",
+      }),
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(mocks.requireWorkOrderAccess).toHaveBeenCalledWith(
+      "workorders.update",
+      "wo-1",
+    );
+    expect(mocks.setVisitStatus).toHaveBeenCalledWith(
+      user,
+      "visit-1",
+      "ON_SITE",
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/kalender/dispatch");
+  });
+
+  it("videresender en ulovlig statusovergang", async () => {
+    mocks.setVisitStatus.mockResolvedValue({
+      ok: false,
+      reason: "invalid",
+      details: { code: "visits.errors.statusTransition" },
+    });
+
+    const result = await updateVisitStatusAction(
+      form({
+        workOrderId: "wo-1",
+        visitId: "visit-1",
+        status: "DONE",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "visits.errors.statusTransition",
+    });
+  });
+
+  it("avviser en uinnlogget/uten tilgang før tjenesten kalles", async () => {
+    mocks.requireWorkOrderAccess.mockResolvedValue(null);
+
+    const result = await updateVisitStatusAction(
+      form({
+        workOrderId: "wo-1",
+        visitId: "visit-1",
+        status: "DONE",
+      }),
+    );
+
+    expect(result).toEqual({ ok: false, error: "ikke-tilgang" });
+    expect(mocks.setVisitStatus).not.toHaveBeenCalled();
   });
 });
 
