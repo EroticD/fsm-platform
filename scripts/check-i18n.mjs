@@ -305,8 +305,21 @@ for (const file of sourceFiles) {
   }
 }
 
+/**
+ * Nøkler som bygges fra data i stedet for en literals i JSX. De kan ikke
+ * avgjøres statisk og skal derfor ikke rapporteres som ubrukte.
+ */
+const DYNAMIC_KEY_PREFIXES = [
+  "auditActions.",
+  "errors.",
+  "metadata.",
+  "settings.permissions.items.",
+  "settings.roles.builtIn.",
+];
+
 const unusedKeys = [...nbKeys].filter((key) => {
   if (referenced.has(key)) return false;
+  if (DYNAMIC_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
   for (const prefix of prefixes) {
     if (key.startsWith(prefix)) return false;
   }
