@@ -799,7 +799,9 @@
         "page": "Strona {page} z {pages}",
         "sortLabel": "Sortuj",
         "sortUrgency": "Najpilniejsze najpierw",
-        "sortNewest": "Najnowsze najpierw"
+        "sortNewest": "Najnowsze najpierw",
+        "chooseTechnician": "Wybierz technika",
+        "assign": "Przypisz"
       },
       "formSections": {
         "customerPlace": "Klient i lokalizacja",
@@ -1522,7 +1524,8 @@
         "visitAssigned": "Technicy na wizycie zostali zaktualizowani.",
         "visitUpdated": "Wizyta została zaktualizowana.",
         "visitDeleted": "Wizyta została usunięta.",
-        "visitStatusUpdated": "Status wizyty został zaktualizowany."
+        "visitStatusUpdated": "Status wizyty został zaktualizowany.",
+        "assigned": "Przypisano technika."
       },
       "reportsPage": {
         "title": "Raporty serwisowe",

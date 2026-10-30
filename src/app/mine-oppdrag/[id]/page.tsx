@@ -549,10 +549,10 @@ export default async function TechnicianWorkOrderPage({
           })
         : "";
   const currentVisitStartTime = currentVisit
-    ? formatDateLocalized(currentVisit.startsAt, locale, { timeStyle: "short" })
+    ? formatDateLocalized(currentVisit.startsAt, locale, { timeStyle: "short", hourCycle: "h23" })
     : "";
   const currentVisitEndTime = currentVisit
-    ? formatDateLocalized(currentVisit.endsAt, locale, { timeStyle: "short" })
+    ? formatDateLocalized(currentVisit.endsAt, locale, { timeStyle: "short", hourCycle: "h23" })
     : "";
   const currentVisitSameDay = Boolean(
     currentVisit &&

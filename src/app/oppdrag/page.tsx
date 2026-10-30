@@ -11,6 +11,7 @@ import CustomerToast from "@/components/customer/CustomerToast";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon, { type IconName } from "@/components/icons";
 import OrderViewTabs from "./ViewTabs";
+import { quickAssignTechnician } from "./assign-actions";
 import { formatAddress } from "@/lib/address";
 import {
   addDaysUtc,
@@ -20,7 +21,7 @@ import {
 } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
-import { workOrderScope } from "@/lib/access";
+import { staffScope, workOrderScope } from "@/lib/access";
 import {
   workOrderListSearchWhere,
   workOrderTagWhere,
@@ -79,6 +80,7 @@ const SORT_OPTIONS: Array<{ key: SortKey; labelKey: string }> = [
 const LIST_FEEDBACK_MESSAGE_KEYS: Record<string, string> = {
   slettet: "orders.feedback.deleted",
   gjenopprettet: "orders.feedback.restored",
+  montor: "orders.feedback.assigned",
 };
 
 const LIST_ERROR_MESSAGE_KEYS: Record<string, string> = {
@@ -258,6 +260,7 @@ export default async function WorkOrdersPage({
   // Kontor og montører ser samme liste; montørene oppretter oppdrag i feltportalen.
   const office = user.role === "ADMIN" || user.role === "OFFICE";
   const canCreate = hasPermission(user, "workorders.create");
+  const canAssign = hasPermission(user, "workorders.assign");
 
   const { vis, q, side, tag, sort: rawSort, error, ok } = await searchParams;
   const requestedView: ViewKey = vis && isViewKey(vis) ? vis : "alle";
@@ -338,6 +341,15 @@ export default async function WorkOrdersPage({
     },
   });
 
+  const staff = canAssign
+    ? await prisma.user.findMany({
+        where: staffScope(user),
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+        take: 200,
+      })
+    : [];
+
   const countByStatus = (s: string) => statusGroups.find((g) => g.status === s)?._count._all ?? 0;
   const sumStatuses = (statuses: string[]) =>
     statuses.reduce((sum, s) => sum + countByStatus(s), 0);
@@ -371,6 +383,8 @@ export default async function WorkOrdersPage({
     const qs = params.toString();
     return `/oppdrag${qs ? `?${qs}` : ""}`;
   };
+
+  const listReturnTo = linkFor(view);
 
   const sortLinkFor = (key: SortKey) => {
     const params = new URLSearchParams();
@@ -662,17 +676,58 @@ export default async function WorkOrdersPage({
                           <td className="whitespace-nowrap px-3 py-2 align-top">
                             {statusPill(wo.status)}
                           </td>
-                          <td className="max-w-[10rem] px-3 py-2 align-top text-xs">
-                            {wo.technicians.length === 0 ? (
-                              <span className="font-bold text-[var(--risk-text,#b42318)]">
-                                {t("orders.list.unassigned")}
-                              </span>
-                            ) : (
+                          <td className="max-w-[15rem] px-3 py-2 align-top text-xs">
+                            {wo.technicians.length > 0 ? (
                               <span className="block truncate font-bold">
                                 {wo.technicians
                                   .map((tech) => tech.name)
                                   .filter(Boolean)
                                   .join(", ")}
+                              </span>
+                            ) : canAssign ? (
+                              <form
+                                action={quickAssignTechnician}
+                                className="flex min-w-0 flex-wrap items-center gap-1"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="workOrderId"
+                                  value={wo.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="returnTo"
+                                  value={listReturnTo}
+                                />
+                                <span className="w-full font-bold text-[var(--risk-text,#b42318)]">
+                                  {t("orders.list.unassigned")}
+                                </span>
+                                <select
+                                  name="technicianId"
+                                  required
+                                  defaultValue=""
+                                  aria-label={t("orders.list.chooseTechnician")}
+                                  className="min-h-9 min-w-0 max-w-full flex-1 rounded-md border border-[var(--line,#d8d3c5)] bg-white px-1.5 text-xs text-[var(--ink,#101310)]"
+                                >
+                                  <option value="" disabled>
+                                    {t("orders.list.chooseTechnician")}
+                                  </option>
+                                  {staff.map((member) => (
+                                    <option key={member.id} value={member.id}>
+                                      {member.name || member.id}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="submit"
+                                  className="min-h-9 rounded-md bg-[var(--ink,#101310)] px-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:bg-[#2a3027]"
+                                >
+                                  {t("orders.list.assign")}
+                                </button>
+                              </form>
+                            ) : (
+                              <span className="font-bold text-[var(--risk-text,#b42318)]">
+                                {t("orders.list.unassigned")}
                               </span>
                             )}
                           </td>
@@ -723,12 +778,12 @@ export default async function WorkOrdersPage({
                     scheduledEnd < dates.startOfToday &&
                     !CLOSED_STATUSES.includes(wo.status);
                   return (
-                    <Link
-                      key={wo.id}
-                      href={`/oppdrag/${wo.id}`}
-                      prefetch={false}
-                      className="block px-3 py-2.5 transition hover:bg-[#f4f7e8]"
-                    >
+                    <div key={wo.id}>
+                      <Link
+                        href={`/oppdrag/${wo.id}`}
+                        prefetch={false}
+                        className="block px-3 py-2.5 transition hover:bg-[#f4f7e8]"
+                      >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p
@@ -784,7 +839,39 @@ export default async function WorkOrdersPage({
                         {t("orders.list.openOrder")}
                         <Icon name="arrowRight" className="ml-1 inline-block h-3.5 w-3.5 align-[-0.125em]" />
                       </span>
-                    </Link>
+                      </Link>
+                      {canAssign && wo.technicians.length === 0 && (
+                        <form
+                          action={quickAssignTechnician}
+                          className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5"
+                        >
+                          <input type="hidden" name="workOrderId" value={wo.id} />
+                          <input type="hidden" name="returnTo" value={listReturnTo} />
+                          <select
+                            name="technicianId"
+                            required
+                            defaultValue=""
+                            aria-label={t("orders.list.chooseTechnician")}
+                            className="min-h-10 min-w-0 flex-1 rounded-lg border border-[var(--line,#d8d3c5)] bg-white px-2 text-xs font-medium text-[var(--ink,#101310)]"
+                          >
+                            <option value="" disabled>
+                              {t("orders.list.chooseTechnician")}
+                            </option>
+                            {staff.map((member) => (
+                              <option key={member.id} value={member.id}>
+                                {member.name || member.id}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            className="min-h-10 rounded-lg bg-[var(--ink,#101310)] px-3 text-xs font-bold text-[var(--paper,#f2efe6)]"
+                          >
+                            {t("orders.list.assign")}
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   );
                 })}
               </div>
