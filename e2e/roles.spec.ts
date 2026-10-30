@@ -110,7 +110,7 @@ test("office: innstillinger ligger bare i menyen, og ansattefanen er tilgjengeli
     .getByRole("navigation", { name: "Hovedmeny" })
     .first();
   await expect(primaryNav).toBeVisible();
-  await expect(primaryNav.getByRole("link")).toHaveCount(5);
+  await expect(primaryNav.getByRole("link")).toHaveCount(6);
   await expect(
     primaryNav.getByRole("link", { name: /Innstillinger/ }),
   ).toHaveCount(0);

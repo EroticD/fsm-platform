@@ -391,7 +391,7 @@ export default function DispatchBoard({
                   className={`flex min-w-0 items-center justify-between gap-2 rounded-md px-1.5 py-1 text-[11px] ${
                     candidate.eligible
                       ? "font-bold text-[var(--ink,#101310)]"
-                      : "text-[var(--muted,#62685f)] opacity-80"
+                      : "text-[var(--muted,#62685f)]"
                   }`}
                 >
                   <span className="min-w-0 truncate">
