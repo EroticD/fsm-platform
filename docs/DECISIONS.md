@@ -219,3 +219,16 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   `workorders.assign` og `moveTechnician`/`assignTechnician`; kolonner er
   prioritetsbøtter og er bevisst ikke slippmål. Kalender og dispatch har egne,
   eksplisitte dato-/tidsflytter.
+
+## Språk (2026-10-30)
+
+- Plattformen har fire fullstendige kataloger: **norsk, engelsk, polsk og tysk**.
+  `messages/pl.json` og `messages/de.json` er komplette oversettelser av den
+  flettede engelske katalogen, med samme nøkkelsett som nb/en.
+- Språkvelgeren er en native `<select>` i topplinjen. Valget lagres i
+  `NEXT_LOCALE`-cookien og bruker `router.refresh()`, uten URL-prefiks.
+- Datoer, tall og relativ tid følger språket via `intlLocale` (`nb-NO`,
+  `en-GB`, `pl-PL`, `de-DE`). PWA-manifestet har egne navn og beskrivelser for
+  alle fire språk.
+- Paritetskontrollen `npm run check:i18n` sammenligner nå alle fire kataloger;
+  hardkodede norske strenger og ubrukte nøkler rapporteres fortsatt som før.
