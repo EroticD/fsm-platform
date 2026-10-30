@@ -107,19 +107,32 @@ derfor norsk uavhengig av grensesnittspråket.
 
 Når du legger til tekst:
 
-- Legg nøkler i `messages/nb.json`, `messages/en.json` eller riktig fragment,
-  og hold nb/en i par. `npm run check:i18n` feiler ved manglende nøkler.
+- Legg nøkler i `messages/nb.json`, `messages/en.json` eller riktig fragment.
+  `pl` og `de` er fullstendige kataloger i `messages/pl.json` og
+  `messages/de.json`; nye nøkler skal legges i **alle fire** kataloger i samme
+  commit. `npm run check:i18n:strict` feiler ved manglende paritet.
 - Metadata: bruk `getTranslations("common")` og `metadata.*`-nøklene, ikke
   hardkodede titler i `layout.tsx` eller `page.tsx`.
 - Revisjonsloggen lagrer stabile norske handlingsstrenger. Nye handlinger skal
   legges inn i mønsteroversettelsen i `src/lib/audit-actions.ts` og få nb/en-
-  tekster under `auditActions.*`.
+  tekster under `auditActions.*`. Lagrede rader skal aldri skrives om.
+- API-feil skal bruke en stabil kode fra `src/lib/api-errors.ts`, ikke
+  prosa. Offentlige `/api/v1`-svar har `{ error: { code, message, messageKey,
+  details? } }`; interne ruter bruker `internalApiError` og klienten oversetter
+  `messageKey`.
+- PDF-etiketter skal ligge i `src/lib/pdf-labels.ts` (locale-nøklet, norsk
+  standard), ikke i `ReportDocument.tsx`.
 - Valideringsfeil fra zod skal være stabile koder/nøkler (for eksempel
   `orders.errors.endBeforeStart`), ikke ferdige setninger. Oversett ved
   visning.
 - `node scripts/check-i18n.mjs --strict` feiler også på hardkodede norske
   strenger og ubrukte nøkler. Bevisste unntak markeres med
-  `i18n-ignore-file` øverst i filen og en kort begrunnelse.
+  `i18n-ignore-file` øverst i filen og en kort begrunnelse. Dynamiske prefikser
+  (`errors.*`, `auditActions.*`, `metadata.*`, `settings.permissions.items.*`,
+  `settings.roles.builtIn.*`) er dokumentert i sjekken.
+- Bruk `npm run i18n:unused` for å se ubrukte nøkler før du sletter dem. En
+  nøkkel skal ikke fjernes før den er bekreftet ubrukt, også i dynamiske
+  oppslag.
 
 ## Lisens på bidrag
 
