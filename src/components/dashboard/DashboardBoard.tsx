@@ -1,13 +1,31 @@
 import Link from "next/link";
 import Icon from "@/components/icons";
 import DraggableWorkOrder from "@/components/dnd/DraggableWorkOrder";
-import { formatDateRangeLocalized } from "@/lib/dates";
+import { formatDateLocalized, toDateOnly } from "@/lib/dates";
 import type {
   BoardColumn,
   BoardColumnKey,
   DashboardOrder,
 } from "./helpers";
 import StatusPill, { statusLabel } from "./StatusPill";
+
+
+function boardDateLabel(order: DashboardOrder, locale: string): string {
+  if (!order.scheduledFor) return "";
+  const start = formatDateLocalized(order.scheduledFor, locale, {
+    day: "2-digit",
+    month: "short",
+  });
+  if (!order.scheduledTo) return start;
+  if (toDateOnly(order.scheduledTo) <= toDateOnly(order.scheduledFor)) {
+    return start;
+  }
+  const end = formatDateLocalized(order.scheduledTo, locale, {
+    day: "2-digit",
+    month: "short",
+  });
+  return `${start} – ${end}`;
+}
 
 const COLUMN_META: Record<
   BoardColumnKey,
@@ -124,11 +142,8 @@ export default function DashboardBoard({
                                   : "text-[var(--muted,#62685f)]"
                               }`}
                             >
-                              {formatDateRangeLocalized(
-                                order.scheduledFor,
-                                order.scheduledTo,
-                                locale,
-                              ) || t("dashboard.orderList.noDate")}
+                              {boardDateLabel(order, locale) ||
+                                t("dashboard.orderList.noDate")}
                             </span>
                             <div className="flex shrink-0 items-center gap-1.5">
                               <span
