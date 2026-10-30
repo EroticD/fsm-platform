@@ -1,7 +1,7 @@
 # REST API
 
-FSM-plattformen har et lesbart REST-API for oppdrag, kunder, rapporter og
-dokumenter. API-et bruker egne API-nøkler og er helt atskilt fra
+FSM-plattformen har et lesbart REST-API for oppdrag, visiter, kunder, rapporter
+og dokumenter. API-et bruker egne API-nøkler og er helt atskilt fra
 nettleserøkten: informasjonskapsler godtas aldri, og alle kall må sende en
 Bearer-nøkkel.
 
@@ -48,6 +48,11 @@ betyr blant annet:
 | `POST /work-orders` | `workorders.create` |
 | `GET /work-orders/{id}` | `workorders.view` + oppdraget i brukerens omfang |
 | `PATCH /work-orders/{id}` | `workorders.update` |
+| `GET /work-orders/{id}/visits` | `workorders.view` + oppdraget i brukerens omfang |
+| `POST /work-orders/{id}/visits` | `workorders.edit` |
+| `GET /visits/{id}` | `workorders.view` + oppdraget i brukerens omfang |
+| `PATCH /visits/{id}` | `workorders.assign` (flytting/montører), `workorders.update` (status) eller `workorders.edit` (metadata) |
+| `DELETE /visits/{id}` | `workorders.edit` |
 | `GET /customers`, `GET /customers/{id}` | `customers.view` |
 | `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/pdf` | `reports.view` |
 | `GET /documents`, `GET /documents/{id}` | `documents.view` |
@@ -124,7 +129,7 @@ nøkkel, ikke per bruker eller IP. Ved overskridelse svarer API-et `429` med
 | 401 | `unauthorized` | Manglende, ugyldig, utløpt eller tilbakekalt nøkkel |
 | 403 | `forbidden` | Nøkkelens bruker mangler rettigheten |
 | 404 | `not_found` | Objektet finnes ikke eller er utenfor brukerens omfang |
-| 409 | `conflict` | Duplikat ordrenummer, låst oppdrag eller bevaringsplikt |
+| 409 | `conflict` | Duplikat ordrenummer, låst oppdrag, bevaringsplikt eller overlappende visitt |
 | 413 | `validation_error` | JSON-body er større enn grensen |
 | 422 | `validation_error` | Feltvalidering feilet |
 | 429 | `rate_limited` | Mer enn 120 kall per minutt |
@@ -143,6 +148,11 @@ avdelings- eller kundeomfanget, slik at API-et ikke røper at det finnes.
 | `POST` | `/work-orders` | `workorders.create` | Opprette oppdrag |
 | `GET` | `/work-orders/{id}` | `workorders.view` | Oppdragsdetaljer |
 | `PATCH` | `/work-orders/{id}` | `workorders.update` | Endre status og/eller datoer |
+| `GET` | `/work-orders/{id}/visits` | `workorders.view` | Visiter på oppdraget |
+| `POST` | `/work-orders/{id}/visits` | `workorders.edit` | Opprette visitt |
+| `GET` | `/visits/{id}` | `workorders.view` | Visitt med montører og oppdrag |
+| `PATCH` | `/visits/{id}` | avhengig av operasjon | Flytt, tildel, endre status eller metadata |
+| `DELETE` | `/visits/{id}` | `workorders.edit` | Slette visitt |
 | `GET` | `/customers` | `customers.view` | Kunde liste med søk |
 | `GET` | `/customers/{id}` | `customers.view` | Kundekort |
 | `GET` | `/reports` | `reports.view` | Rapportliste |
@@ -187,7 +197,9 @@ curl -s "$FSM_BASE_URL/api/v1/me" \
 ### `GET /work-orders`
 
 Returnerer oppdrag brukeren har tilgang til, avgrenset til egen avdeling med
-mindre brukeren er administrator. Myk-slettede oppdrag vises ikke.
+mindre brukeren er administrator. Myk-slettede oppdrag vises ikke. Hvert
+oppdrag har en `visits`-liste med opptil 20 visiter; bruk
+`/work-orders/{id}/visits` for full, paginert liste.
 
 **Query-parametere**
 
@@ -222,6 +234,21 @@ curl -s "$FSM_BASE_URL/api/v1/work-orders?status=PLANNED&page=1&limit=25" \
       "technicians": [{ "id": "cm...", "name": "Ola Montør", "email": "ola@firma.no" }],
       "department": { "id": "cm...", "name": "Oslo" },
       "reportCount": 0,
+      "visits": [
+        {
+          "id": "cm...",
+          "workOrderId": "cm...",
+          "sequence": 0,
+          "startsAt": "2026-11-03T09:00:00.000Z",
+          "endsAt": "2026-11-03T11:00:00.000Z",
+          "allDay": false,
+          "status": "ASSIGNED",
+          "notes": null,
+          "technicians": [{ "id": "cm...", "name": "Ola Montør", "email": "ola@firma.no" }],
+          "createdAt": "2026-10-30T08:15:00.000Z",
+          "updatedAt": "2026-10-30T09:15:00.000Z"
+        }
+      ],
       "createdAt": "2026-10-30T08:15:00.000Z",
       "updatedAt": "2026-10-30T08:15:00.000Z"
     }
@@ -233,8 +260,9 @@ curl -s "$FSM_BASE_URL/api/v1/work-orders?status=PLANNED&page=1&limit=25" \
 ### `GET /work-orders/{id}`
 
 Returnerer detaljer med beskrivelse, adresse, kontakt, tags, maler,
-rapportoversikt, siste kommentarer og vedleggsmetadata. Selve filinnholdet
-inngår ikke. Ukjent eller utilgjengelig id gir `404 not_found`.
+rapportoversikt, siste kommentarer, vedleggsmetadata og opptil 20 innebygde
+visiter. Selve filinnholdet inngår ikke. Ukjent eller utilgjengelig id gir
+`404 not_found`.
 
 ```bash
 curl -s "$FSM_BASE_URL/api/v1/work-orders/cm123" \
@@ -284,6 +312,196 @@ curl -s -X PATCH "$FSM_BASE_URL/api/v1/work-orders/cm123" \
   -H "Content-Type: application/json" \
   -d '{ "scheduledFor": "2026-11-14", "scheduledTo": "2026-11-15" }'
 ```
+
+---
+
+## Visiter
+
+En visitt er en tidsblokk i et oppdrag. Oppdragets `scheduledFor`/`scheduledTo`
+er avledet fra de aktive visitene. Alle tidsstempler er ISO 8601 med klokkeslett
+og tidssone, for eksempel `2026-11-03T09:00:00.000Z`. `endsAt` er eksklusiv, så
+en visitt som slutter `11:00` opptar ikke tidsrommet fra og med `11:00`.
+
+Statusene følger flyten `PLANNED → ASSIGNED → EN_ROUTE → ON_SITE → DONE`, med
+`CANCELLED` som alternativ før visitten er fullført. `DONE` og `CANCELLED` er
+lukkede tilstander.
+
+### `GET /work-orders/{id}/visits`
+
+Visiter på oppdraget, sortert på `startsAt`. Krever `workorders.view` og at
+oppdraget ligger i brukerens avdeling eller kundeomfang. Ukjent eller
+utilgjengelig oppdrag gir `404 not_found`.
+
+| Parameter | Type | Beskrivelse |
+| --- | --- | --- |
+| `page` | heltall | Side, standard 1 |
+| `limit` | heltall | Rader per side, maks 100 |
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/work-orders/cm123/visits?page=1&limit=25" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "cm...",
+      "workOrderId": "cm...",
+      "sequence": 0,
+      "startsAt": "2026-11-03T09:00:00.000Z",
+      "endsAt": "2026-11-03T11:00:00.000Z",
+      "allDay": false,
+      "status": "ASSIGNED",
+      "notes": "Ta med filter.",
+      "technicians": [
+        { "id": "cm...", "name": "Ola Montør", "email": "ola@firma.no" }
+      ],
+      "createdAt": "2026-10-30T08:15:00.000Z",
+      "updatedAt": "2026-10-30T09:15:00.000Z"
+    }
+  ],
+  "meta": { "page": 1, "limit": 25, "total": 1, "totalPages": 1 }
+}
+```
+
+### `POST /work-orders/{id}/visits`
+
+Oppretter en visitt. Krever `workorders.edit`. Svarer `201` med
+`Location: /api/v1/visits/{id}`.
+
+| Felt | Type | Påkrevd | Beskrivelse |
+| --- | --- | --- | --- |
+| `startsAt` | dato-tid | Ja | ISO 8601 med klokkeslett |
+| `endsAt` | dato-tid | Ja | ISO 8601, etter `startsAt`; maks 31 døgn |
+| `allDay` | boolsk | Nei | Standard `false` |
+| `technicianIds` | streng[] | Nei | Aktive ansatte i oppdragets avdeling |
+| `notes` | streng \| null | Nei | Fritekst |
+| `sequence` | heltall | Nei | Rekkefølge innen samme tid, standard `0` |
+
+Ukjente felt gir `400 validation_error`. Overlappende visitt for en montør gir
+`409 conflict` med `details.code: "visits.errors.overlap"`.
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/work-orders/cm123/visits" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "startsAt": "2026-11-03T09:00:00.000Z",
+    "endsAt": "2026-11-03T11:00:00.000Z",
+    "technicianIds": ["cm_user"],
+    "notes": "Ta med filter."
+  }'
+```
+
+```json
+{ "data": { "id": "cm_visit" } }
+```
+
+### `GET /visits/{id}`
+
+Returnerer visitten med montører og et kort oppdragssammendrag. Krever
+`workorders.view`, og visitten slås alltid opp gjennom oppdragets omfang.
+Ukjent eller utilgjengelig visitt gir `404 not_found`.
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/visits/cm123" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+```json
+{
+  "data": {
+    "id": "cm...",
+    "workOrderId": "cm...",
+    "sequence": 0,
+    "startsAt": "2026-11-03T09:00:00.000Z",
+    "endsAt": "2026-11-03T11:00:00.000Z",
+    "allDay": false,
+    "status": "ASSIGNED",
+    "notes": null,
+    "technicians": [
+      { "id": "cm...", "name": "Ola Montør", "email": "ola@firma.no" }
+    ],
+    "createdAt": "2026-10-30T08:15:00.000Z",
+    "updatedAt": "2026-10-30T09:15:00.000Z",
+    "workOrder": {
+      "id": "cm...",
+      "title": "Service av varmepumpe",
+      "orderNumber": "2026-1042",
+      "status": "PLANNED",
+      "scheduledFor": "2026-11-03",
+      "scheduledTo": null,
+      "customer": { "id": "cm...", "name": "Nordlys Eiendom AS" },
+      "department": { "id": "cm...", "name": "Oslo" }
+    }
+  }
+}
+```
+
+### `PATCH /visits/{id}`
+
+Endrer **én operasjon om gangen**. En kropp som blander flere operasjoner gir
+`400 validation_error`, slik at det er entydig hvilken tjeneste og
+revisjonslogg som gjelder.
+
+| Operasjon | Felt | Rettighet | Beskrivelse |
+| --- | --- | --- | --- |
+| Flytting | `startsAt` + `endsAt` | `workorders.assign` | Begge må sendes sammen. Overlapp kontrolleres på nytt |
+| Status | `status` | `workorders.update` | Må være en lovlig overgang |
+| Montører | `technicianIds` | `workorders.assign` | Erstatter hele listen; minst én id |
+| Metadata | `notes`, `allDay`, `sequence` | `workorders.edit` | Kan kombineres |
+
+```bash
+# Flytt
+curl -s -X PATCH "$FSM_BASE_URL/api/v1/visits/cm123" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "startsAt": "2026-11-04T09:00:00.000Z", "endsAt": "2026-11-04T12:00:00.000Z" }'
+
+# Endre status
+curl -s -X PATCH "$FSM_BASE_URL/api/v1/visits/cm123" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "ON_SITE" }'
+
+# Erstatt montørlisten
+curl -s -X PATCH "$FSM_BASE_URL/api/v1/visits/cm123" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "technicianIds": ["cm_user"] }'
+```
+
+Svaret er den oppdaterte visitten på samme form som `GET /visits/{id}`.
+
+### `DELETE /visits/{id}`
+
+Sletter visitten permanent og svarer `204` uten body. Oppdraget og
+revisjonsloggen består. Krever `workorders.edit`. Bevaringsplikt eller låst
+oppdrag gir `409 conflict`.
+
+```bash
+curl -s -X DELETE "$FSM_BASE_URL/api/v1/visits/cm123" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+### Feilkoder for visiter
+
+Felt- og tilstandsfeil har alltid `details.code`:
+
+| `details.code` | HTTP | Betydning |
+| --- | --- | --- |
+| `visits.errors.invalidTimeRange` | 422 | Manglende/ugyldig tidsrom, eller slutt før start |
+| `visits.errors.durationTooLong` | 422 | Visitten er lengre enn 31 døgn |
+| `visits.errors.invalidSequence` | 422 | `sequence` er ikke et ikke-negativt heltall |
+| `visits.errors.invalidTechnician` | 422 | Ukjent/inaktiv montør, eller montør utenfor avdelingen |
+| `visits.errors.statusTransition` | 422 | Ukjent status eller ulovlig overgang |
+| `visits.errors.invalidInput` | 422 | Ugyldig id eller annet inndata |
+| `visits.errors.noChange` | 422 | Ingen faktisk endring (f.eks. tom montørliste) |
+| `visits.errors.overlap` | 409 | Montøren er booket i overlappende visitt |
+| `visits.errors.legalHold` | 409 | Oppdraget har bevaringsplikt |
+| `visits.errors.workOrderLocked` | 409 | Oppdraget er låst i en avsluttet status |
+| `visits.errors.visitLocked` | 409 | Visitten er `DONE` eller `CANCELLED` |
 
 ---
 

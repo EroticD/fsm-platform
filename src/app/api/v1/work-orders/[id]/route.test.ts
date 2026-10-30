@@ -70,6 +70,23 @@ const summaryRow = {
   createdAt: new Date("2026-10-30T08:15:00.000Z"),
   updatedAt: new Date("2026-10-30T09:15:00.000Z"),
   _count: { reports: 1 },
+  visits: [
+    {
+      id: "visit-1",
+      workOrderId: "wo-1",
+      sequence: 0,
+      startsAt: new Date("2026-11-14T09:00:00.000Z"),
+      endsAt: new Date("2026-11-14T11:00:00.000Z"),
+      allDay: false,
+      status: "ASSIGNED",
+      notes: null,
+      createdAt: new Date("2026-10-30T08:00:00.000Z"),
+      updatedAt: new Date("2026-10-30T08:30:00.000Z"),
+      technicians: [
+        { user: { id: "tech-1", name: "Ola", email: "ola@example.test" } },
+      ],
+    },
+  ],
 };
 
 const detailRow = {
@@ -139,6 +156,10 @@ describe("GET /api/v1/work-orders/[id]", () => {
       department: { isActive: true },
       deletedAt: null,
     });
+    expect(call.select.visits).toMatchObject({
+      orderBy: [{ sequence: "asc" }, { startsAt: "asc" }],
+      take: 20,
+    });
   });
 
   it("viser detaljer, rapportoversikt, kommentarer og vedlegg uten filinnhold", async () => {
@@ -168,6 +189,23 @@ describe("GET /api/v1/work-orders/[id]", () => {
       ],
       comments: [{ id: "comment-1", body: "Ringte kunden." }],
       attachments: [{ id: "att-1", fileName: "bilde.jpg" }],
+      visits: [
+        {
+          id: "visit-1",
+          workOrderId: "wo-1",
+          sequence: 0,
+          startsAt: "2026-11-14T09:00:00.000Z",
+          endsAt: "2026-11-14T11:00:00.000Z",
+          allDay: false,
+          status: "ASSIGNED",
+          notes: null,
+          technicians: [
+            { id: "tech-1", name: "Ola", email: "ola@example.test" },
+          ],
+          createdAt: "2026-10-30T08:00:00.000Z",
+          updatedAt: "2026-10-30T08:30:00.000Z",
+        },
+      ],
     });
     expect(body.data.attachments[0].dataUrl).toBeUndefined();
   });

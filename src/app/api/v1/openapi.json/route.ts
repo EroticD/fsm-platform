@@ -20,12 +20,14 @@ const openApiDocument = {
   info: {
     title: "FSM-plattformen REST API",
     version: "1.0.0",
-    summary: "Oppdrag, kunder, rapporter og dokumenter for FSM-plattformen.",
+    summary: "Oppdrag, visiter, kunder, rapporter og dokumenter for FSM-plattformen.",
     description:
       "Alle dataendepunkter under /api/v1 krever en API-nøkkel sendt som " +
       "`Authorization: Bearer fsm_...`. Responser bruker konvolutten " +
       "`{ data, meta? }`; feil bruker `{ error: { code, message, details? } }`. " +
-      "API-et har ingen nettlesersesjon og godtar aldri informasjonskapsler.",
+      "Visiter har stabile feilkoder i `details.code` på formen " +
+      "`visits.errors.*`. API-et har ingen nettlesersesjon og godtar aldri " +
+      "informasjonskapsler.",
     license: { name: "BUSL-1.1", identifier: "BUSL-1.1" },
   },
   servers: [
@@ -37,6 +39,10 @@ const openApiDocument = {
   tags: [
     { name: "Auth", description: "Identitet og rettigheter for nøkkelen." },
     { name: "Work orders", description: "Oppdrag og planlegging." },
+    {
+      name: "Visits",
+      description: "Planlagte visiter, flytting, tildeling og status.",
+    },
     { name: "Customers", description: "Kunder og kundekort." },
     { name: "Reports", description: "Signerte servicerapporter." },
     { name: "Documents", description: "Dokumentbiblioteket." },
@@ -266,6 +272,182 @@ const openApiDocument = {
           "409": { $ref: "#/components/responses/Conflict" },
           "413": { $ref: "#/components/responses/PayloadTooLarge" },
           "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/work-orders/{id}/visits": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Visits"],
+        operationId: "listWorkOrderVisits",
+        summary: "List visiter på et oppdrag",
+        description:
+          "Visiter på oppdraget, sortert på starttidspunkt. Krever " +
+          "`workorders.view` og at oppdraget ligger i brukerens omfang. " +
+          "Listen er paginert med maks 100 rader per side.",
+        parameters: [
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+        ],
+        responses: {
+          "200": {
+            description: "Side med visiter.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/VisitList" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Visits"],
+        operationId: "createWorkOrderVisit",
+        summary: "Opprett visitt",
+        description:
+          "Oppretter en visitt på oppdraget. Krever `workorders.edit`. " +
+          "`startsAt` og `endsAt` er ISO 8601 med klokkeslett, og slutten må " +
+          "ligge etter starten. Overlapp, ugyldige montører, bevaringsplikt og " +
+          "låst oppdrag avvises med `details.code` fra `visits.errors.*`. " +
+          "Svarer med `Location` til den nye visitten.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/VisitCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Visitten er opprettet.",
+            headers: {
+              Location: {
+                description: "Relativ adresse til den nye visitten.",
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/VisitConflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/VisitValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/visits/{id}": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Visits"],
+        operationId: "getVisit",
+        summary: "Hent visitt",
+        description:
+          "Visitt med montører og et kort oppdragssammendrag. Krever " +
+          "`workorders.view`. Ukjente visiter og visiter utenfor brukerens " +
+          "omfang gir 404.",
+        responses: {
+          "200": {
+            description: "Visitten.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/VisitDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      patch: {
+        tags: ["Visits"],
+        operationId: "updateVisit",
+        summary: "Flytt, tildel eller endre visitt",
+        description:
+          "Endrer én operasjon om gangen. `startsAt` og `endsAt` må sendes " +
+          "sammen for flytting (`workorders.assign`); `status` går gjennom " +
+          "tilstandsmaskinen (`workorders.update`); `technicianIds` erstatter " +
+          "montørlisten (`workorders.assign`); `notes`, `allDay` og `sequence` " +
+          "kan kombineres (`workorders.edit`). Blandede operasjoner gir 400. " +
+          "Konflikter og feltfeil har `details.code` fra `visits.errors.*`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/VisitPatch" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Oppdatert visitt.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/VisitDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/VisitConflict" },
+          "413": { $ref: "#/components/responses/PayloadTooLarge" },
+          "422": { $ref: "#/components/responses/VisitValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      delete: {
+        tags: ["Visits"],
+        operationId: "deleteVisit",
+        summary: "Slett visitt",
+        description:
+          "Sletter visitten permanent. Selve oppdraget og revisjonsloggen " +
+          "består. Krever `workorders.edit`, og er sperret av bevaringsplikt " +
+          "eller låst oppdrag. Svarer 204 uten body.",
+        responses: {
+          "204": { description: "Visitten er slettet." },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/VisitConflict" },
           "429": { $ref: "#/components/responses/RateLimited" },
         },
       },
@@ -642,6 +824,109 @@ const openApiDocument = {
           },
         },
       },
+      VisitConflict: {
+        description:
+          "Visitten kan ikke endres: overlappende montør, låst oppdrag, " +
+          "bevaringsplikt eller avsluttet visitt.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorResponse" },
+            examples: {
+              overlap: {
+                summary: "Montøren er allerede booket i tidsrommet.",
+                value: {
+                  error: {
+                    code: "conflict",
+                    message: "Visitten kan ikke endres.",
+                    details: {
+                      code: "visits.errors.overlap",
+                      conflicts: [
+                        {
+                          visitId: "cm_visit",
+                          workOrderId: "cm_workorder",
+                          startsAt: "2026-11-03T09:00:00.000Z",
+                          endsAt: "2026-11-03T11:00:00.000Z",
+                          technicianIds: ["cm_user"],
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+              legalHold: {
+                summary: "Oppdraget har bevaringsplikt.",
+                value: {
+                  error: {
+                    code: "conflict",
+                    message: "Visitten kan ikke endres.",
+                    details: { code: "visits.errors.legalHold" },
+                  },
+                },
+              },
+              visitLocked: {
+                summary: "Visitten er fullført eller kansellert.",
+                value: {
+                  error: {
+                    code: "conflict",
+                    message: "Visitten kan ikke endres.",
+                    details: { code: "visits.errors.visitLocked" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      VisitValidationError: {
+        description: "Feltvalidering eller en ulovlig visittoperasjon feilet.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorResponse" },
+            examples: {
+              invalidTimeRange: {
+                summary: "Slutten ligger før starten.",
+                value: {
+                  error: {
+                    code: "validation_error",
+                    message: "Feltene er ikke gyldige.",
+                    details: {
+                      field: "endsAt",
+                      code: "visits.errors.invalidTimeRange",
+                    },
+                  },
+                },
+              },
+              statusTransition: {
+                summary: "Statusovergangen er ikke lovlig.",
+                value: {
+                  error: {
+                    code: "validation_error",
+                    message: "Feltene er ikke gyldige.",
+                    details: {
+                      code: "visits.errors.statusTransition",
+                      from: "DONE",
+                      to: "ON_SITE",
+                    },
+                  },
+                },
+              },
+              invalidTechnician: {
+                summary: "Montøren er ikke aktiv i oppdragets avdeling.",
+                value: {
+                  error: {
+                    code: "validation_error",
+                    message: "Feltene er ikke gyldige.",
+                    details: {
+                      code: "visits.errors.invalidTechnician",
+                      technicianIds: ["cm_user"],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       RateLimited: {
         description: "Mer enn 120 forespørsler per minutt for nøkkelen.",
         headers: {
@@ -778,6 +1063,12 @@ const openApiDocument = {
           },
           department: { $ref: "#/components/schemas/Ref" },
           reportCount: { type: "integer", minimum: 0 },
+          visits: {
+            type: "array",
+            description:
+              "Opptil 20 visiter, sortert på rekkefølge og starttidspunkt.",
+            items: { $ref: "#/components/schemas/VisitSummary" },
+          },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -929,6 +1220,142 @@ const openApiDocument = {
             type: "string",
             description: "Påkrevd for enkelte statusoverganger.",
           },
+        },
+        additionalProperties: false,
+      },
+      VisitSummary: {
+        type: "object",
+        required: [
+          "id",
+          "workOrderId",
+          "sequence",
+          "startsAt",
+          "endsAt",
+          "allDay",
+          "status",
+          "technicians",
+          "createdAt",
+          "updatedAt",
+        ],
+        properties: {
+          id: { type: "string" },
+          workOrderId: { type: "string" },
+          sequence: { type: "integer", minimum: 0 },
+          startsAt: { type: "string", format: "date-time" },
+          endsAt: { type: "string", format: "date-time" },
+          allDay: { type: "boolean" },
+          status: {
+            type: "string",
+            enum: [
+              "PLANNED",
+              "ASSIGNED",
+              "EN_ROUTE",
+              "ON_SITE",
+              "DONE",
+              "CANCELLED",
+            ],
+          },
+          notes: nullableString,
+          technicians: {
+            type: "array",
+            items: { $ref: "#/components/schemas/PersonRef" },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      VisitDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/VisitSummary" },
+          {
+            type: "object",
+            required: ["workOrder"],
+            properties: {
+              workOrder: {
+                type: "object",
+                required: ["id", "title", "status", "department"],
+                properties: {
+                  id: { type: "string" },
+                  title: { type: "string" },
+                  orderNumber: nullableString,
+                  status: { type: "string" },
+                  scheduledFor: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                  scheduledTo: {
+                    type: ["string", "null"],
+                    format: "date",
+                  },
+                  customer: {
+                    oneOf: [
+                      { $ref: "#/components/schemas/Ref" },
+                      { type: "null" },
+                    ],
+                  },
+                  department: { $ref: "#/components/schemas/Ref" },
+                },
+              },
+            },
+          },
+        ],
+      },
+      VisitList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/VisitSummary" },
+          },
+          meta: { $ref: "#/components/schemas/Meta" },
+        },
+      },
+      VisitCreate: {
+        type: "object",
+        required: ["startsAt", "endsAt"],
+        properties: {
+          startsAt: {
+            type: "string",
+            format: "date-time",
+            description: "ISO 8601 med klokkeslett.",
+          },
+          endsAt: {
+            type: "string",
+            format: "date-time",
+            description: "ISO 8601 med klokkeslett, etter startsAt.",
+          },
+          allDay: { type: "boolean", default: false },
+          technicianIds: { type: "array", items: { type: "string" } },
+          notes: nullableString,
+          sequence: { type: "integer", minimum: 0, default: 0 },
+        },
+        additionalProperties: false,
+      },
+      VisitPatch: {
+        type: "object",
+        description:
+          "Nøyaktig én operasjon per forespørsel: flytting, status, " +
+          "montørliste eller metadata. `startsAt` og `endsAt` må sendes " +
+          "sammen. `notes`, `allDay` og `sequence` kan kombineres.",
+        properties: {
+          startsAt: { type: "string", format: "date-time" },
+          endsAt: { type: "string", format: "date-time" },
+          status: {
+            type: "string",
+            enum: [
+              "PLANNED",
+              "ASSIGNED",
+              "EN_ROUTE",
+              "ON_SITE",
+              "DONE",
+              "CANCELLED",
+            ],
+          },
+          technicianIds: { type: "array", items: { type: "string" } },
+          notes: nullableString,
+          allDay: { type: "boolean" },
+          sequence: { type: "integer", minimum: 0 },
         },
         additionalProperties: false,
       },
