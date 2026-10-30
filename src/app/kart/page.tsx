@@ -22,6 +22,7 @@ import Icon from "@/components/icons";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 import { effectiveAddress } from "@/lib/geocode";
 import { getMapSettings } from "@/server/map-settings";
+import { geocodeMissingAction } from "./actions";
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
   WORK_ORDER_STATUS_ORDER,
@@ -66,6 +67,9 @@ export default async function MapPage({
     technician?: string | string[];
     dateFrom?: string | string[];
     dateTo?: string | string[];
+    geokodet?: string | string[];
+    geokodingsgjenstår?: string | string[];
+    geokodingsfeil?: string | string[];
   }>;
 }) {
   const t = await getTranslations("common");
@@ -76,6 +80,7 @@ export default async function MapPage({
 
   const mapSettings = await getMapSettings();
   const params = await searchParams;
+  const canGeocode = hasPermission(user, "workorders.edit");
   const technicianId = (firstParam(params.technician) ?? "").trim();
 
   const today = parseDateOnly(todayInOslo());
@@ -113,7 +118,25 @@ export default async function MapPage({
 
   const where: Prisma.WorkOrderWhereInput = { AND: filters };
 
-  const [totalCount, workOrders] = await Promise.all([
+  const missingCoordinatesWhere: Prisma.WorkOrderWhereInput = {
+    AND: [
+      workOrderScope(user),
+      { latitude: null },
+      { longitude: null },
+      { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+      {
+        OR: [
+          { address: { not: null } },
+          { postalCode: { not: null } },
+          { city: { not: null } },
+          { customer: { address: { not: null } } },
+          { customer: { city: { not: null } } },
+        ],
+      },
+    ],
+  };
+
+  const [totalCount, workOrders, missingCoordinates] = await Promise.all([
     prisma.workOrder.count({ where }),
     prisma.workOrder.findMany({
       where,
@@ -136,6 +159,7 @@ export default async function MapPage({
       orderBy: [{ scheduledFor: "asc" }, { createdAt: "desc" }],
       take: MAP_LIMIT,
     }),
+    prisma.workOrder.count({ where: missingCoordinatesWhere }),
   ]);
 
   const statusLabel = (status: string) => {
@@ -279,6 +303,39 @@ export default async function MapPage({
             {t("p3.map.filters.clear")}
           </Link>
         </form>
+
+        {canGeocode && missingCoordinates > 0 && (
+          <div className="office-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                {t("p3.map.geocode.missing", { count: missingCoordinates })}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
+                {t("p3.map.geocode.hint")}
+              </p>
+            </div>
+            <form action={geocodeMissingAction}>
+              <button type="submit" className="signal-button text-sm">
+                <Icon name="map" className="h-4 w-4" />
+                {t("p3.map.geocode.action")}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {(firstParam(params.geokodet) || firstParam(params.geokodingsfeil)) && (
+          <div
+            role="status"
+            className="office-card border-[var(--line,#dedcd1)] p-4 text-sm font-bold text-[var(--ink,#101310)]"
+          >
+            {firstParam(params.geokodingsfeil) === "rate"
+              ? t("p3.map.geocode.rateLimited")
+              : t("p3.map.geocode.result", {
+                  count: Number(firstParam(params.geokodet) ?? 0),
+                  remaining: Number(firstParam(params.geokodingsgjenstår) ?? 0),
+                })}
+          </div>
+        )}
 
         {range.invalid && (
           <div

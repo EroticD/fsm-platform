@@ -43,13 +43,13 @@ function withoutLeadingSymbol(value: string) {
 export default async function AdminCreateWorkOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; customerId?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
   if (!hasPermission(user, "workorders.create")) redirect("/");
 
-  const { error } = await searchParams;
+  const { error, customerId: requestedCustomerId } = await searchParams;
   const t = await getTranslations("common");
   const isAdmin = user.role === "ADMIN";
   const departments = await getActiveDepartments();
@@ -68,6 +68,31 @@ export default async function AdminCreateWorkOrderPage({
     take: 20,
     select: { id: true, name: true, city: true, customerNumber: true },
   });
+
+  // Kommer man fra et kundekort med ?customerId=..., skal kunden være valgt
+  // allerede. Validerer at kunden finnes og ikke er slettet; ukjente id-er
+  // ignoreres stille, slik at en gammel lenke ikke blokkerer skjemaet.
+  const selectedCustomerId = requestedCustomerId?.trim() || "";
+  const selectedCustomer = selectedCustomerId
+    ? await prisma.customer.findFirst({
+        where: { id: selectedCustomerId, deletedAt: null },
+        select: { id: true, name: true, city: true, customerNumber: true },
+      })
+    : null;
+  const selectedCustomerContacts = selectedCustomer
+    ? await prisma.contact.findMany({
+        where: { customerId: selectedCustomer.id },
+        orderBy: { name: "asc" },
+        take: 100,
+        select: { id: true, name: true, role: true, customerId: true },
+      })
+    : [];
+  const customerOptions = selectedCustomer
+    ? [
+        selectedCustomer,
+        ...customers.filter((customer) => customer.id !== selectedCustomer.id),
+      ]
+    : customers;
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const { service: serviceTemplates, hms: hmsTemplates } =
     splitTemplatesByCategory(templates);
@@ -224,7 +249,9 @@ export default async function AdminCreateWorkOrderPage({
               </div>
 
               <CustomerSelect
-                customers={customers}
+                customers={customerOptions}
+                selectedCustomer={selectedCustomer}
+                contacts={selectedCustomerContacts}
                 optional={true}
                 persistenceKey="fsm:office-create-work-order"
                 restoreSelection={Boolean(error)}

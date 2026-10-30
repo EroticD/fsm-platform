@@ -164,6 +164,13 @@
         "topo": "Topographic",
         "light": "Light",
         "satellite": "Satellite"
+      },
+      "geocode": {
+        "missing": "{count} active work orders are missing coordinates",
+        "hint": "They appear at the customer city until the address is geocoded. Up to 3 addresses per click.",
+        "action": "Geocode addresses",
+        "result": "Geocoded {count} addresses. {remaining} remain from this batch.",
+        "rateLimited": "Too many geocoding attempts. Wait a moment and try again."
       }
     },
     "signature": {

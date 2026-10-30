@@ -164,6 +164,13 @@
         "topo": "Topografisk",
         "light": "Lys",
         "satellite": "Satellitt"
+      },
+      "geocode": {
+        "missing": "{count} aktive oppdrag mangler koordinater",
+        "hint": "De vises på kundens by til adressen er geokodet. Opptil 3 adresser per klikk.",
+        "action": "Geokod adresser",
+        "result": "Geokodet {count} adresser. {remaining} gjenstår i denne runden.",
+        "rateLimited": "For mange geokodingsforsøk. Vent litt og prøv igjen."
       }
     },
     "signature": {
