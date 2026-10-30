@@ -263,9 +263,9 @@ export default function FullCalendarView({
       initialDate: initialDateRef.current,
       headerToolbar: {
         left: 'prev,next today',
-        // Perioden vises i sidehodet. FullCalendar skal ikke gjenta den som en
-        // egen tittel, og visningsbyttet ligger i fanene over kalenderen.
-        center: '',
+        // Måned/periode skal stå rett ved navigeringspilene, ikke bare i
+        // sidehodet. Tittelen oppdateres automatisk per visning.
+        center: 'title',
         right: '',
       },
       views: {
@@ -680,9 +680,17 @@ export default function FullCalendarView({
           .kalender-container .fc-icon {
             font-size: 0.9em;
           }
+          .kalender-container .fc-toolbar {
+            justify-content: flex-start;
+            gap: 0.75rem;
+          }
+          .kalender-container .fc-toolbar-chunk:nth-child(2) {
+            text-align: left;
+          }
           .kalender-container .fc-toolbar-title {
             font-size: 1rem;
             font-weight: 800;
+            text-transform: capitalize;
           }
 
           /* Dagoverskrifter */
