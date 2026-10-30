@@ -3646,22 +3646,12 @@
         "noDate": "Kein Datum"
       },
       "pagination": {
-        "newest": "Neueste",
-        "showMore": "Mehr anzeigen",
         "showing": "{from}–{to} von {total} werden angezeigt"
-      },
-      "history": {
-        "title": "Serviceverlauf & Berichte",
-        "desc": "Abgeschlossene und stornierte Aufträge mit Berichten.",
-        "empty": "Noch kein Verlauf.",
-        "download": "PDF herunterladen",
-        "noReport": "Kein Bericht"
       },
       "availability": {
         "title": "Verfügbare Techniker",
         "desc": "Übersicht über die verfügbaren und belegten Tage der Techniker für die nächsten 7 Tage.",
         "empty": "Keine Techniker registriert.",
-        "technician": "Techniker",
         "busy": "Belegt",
         "free": "Verfügbar",
         "pickHint": "Wählen Sie einen verfügbaren Tag, um ihn in Ihrer Anfrage zu verwenden.",

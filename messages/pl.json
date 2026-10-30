@@ -3646,22 +3646,12 @@
         "noDate": "Brak daty"
       },
       "pagination": {
-        "newest": "Najnowsze",
-        "showMore": "Pokaż więcej",
         "showing": "Wyświetlanie {from}–{to} z {total}"
-      },
-      "history": {
-        "title": "Historia serwisu i raporty",
-        "desc": "Zakończone i anulowane zadania wraz z raportami.",
-        "empty": "Brak historii.",
-        "download": "Pobierz PDF",
-        "noReport": "Brak raportu"
       },
       "availability": {
         "title": "Dostępni technicy",
         "desc": "Przegląd dni dostępnych i zajętych techników na najbliższe 7 dni.",
         "empty": "Brak zarejestrowanych techników.",
-        "technician": "Technik",
         "busy": "Zajęty",
         "free": "Dostępny",
         "pickHint": "Wybierz dostępny dzień, aby użyć go w prośbie.",
