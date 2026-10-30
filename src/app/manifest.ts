@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
+import { BRAND_COLORS } from "@/lib/brand";
 
 function preferredLocale(acceptLanguage: string | null): "nb" | "en" {
   const first = acceptLanguage?.split(",")[0]?.trim().toLowerCase() ?? "";
@@ -34,8 +35,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: "/mine-oppdrag",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0F2E4C",
-    theme_color: "#0F2E4C",
+    background_color: BRAND_COLORS.ink,
+    theme_color: BRAND_COLORS.ink,
     icons: [
       {
         src: "/android-chrome-192x192.png",

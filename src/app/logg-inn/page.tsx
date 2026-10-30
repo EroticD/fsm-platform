@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import ErrorBanner from "@/components/ErrorBanner";
+import BrandMark from "@/components/BrandMark";
 import { controlClassName } from "@/components/ui/controlStyles";
 import { loginAction } from "./actions";
 import SubmitButton from "./SubmitButton";
@@ -60,16 +61,7 @@ export default async function LoginPage({
           className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
         />
         <div className="mb-6 flex flex-col items-center">
-          <div
-            className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-xl font-bold text-[var(--paper,#f2efe6)] shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
-            suppressHydrationWarning
-          >
-            {companyName.charAt(0).toUpperCase()}
-            <span
-              aria-hidden="true"
-              className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
-            />
-          </div>
+          <BrandMark size={48} className="mb-3" />
           <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
             {t("loginTitle")}
           </h1>

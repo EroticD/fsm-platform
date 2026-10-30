@@ -18,6 +18,7 @@ import prisma from "@/lib/prisma";
 import WorkOrderMap from "@/components/WorkOrderMap";
 import WorkOrderStatusLegend from "@/components/WorkOrderStatusLegend";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import IsoDateInput from "@/components/IsoDateInput";
 import Icon from "@/components/icons";
 import { cityCoordinates, offsetCityPoint } from "@/lib/map-coordinates";
 import { effectiveAddress } from "@/lib/geocode";
@@ -274,8 +275,7 @@ export default async function MapPage({
           </label>
           <label className="flex flex-col gap-1 text-xs font-bold text-[var(--ink,#101310)]">
             {t("p3.map.filters.dateFrom")}
-            <input
-              type="date"
+            <IsoDateInput
               name="dateFrom"
               defaultValue={range.fromText}
               className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)]"
@@ -283,8 +283,7 @@ export default async function MapPage({
           </label>
           <label className="flex flex-col gap-1 text-xs font-bold text-[var(--ink,#101310)]">
             {t("p3.map.filters.dateTo")}
-            <input
-              type="date"
+            <IsoDateInput
               name="dateTo"
               defaultValue={range.toText}
               className="min-h-11 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-sm text-[var(--ink,#101310)]"

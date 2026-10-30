@@ -503,6 +503,14 @@ function buildRoutes(fixtures) {
       legacy: { desktop: "01-dashbord.png", mobile: "12-mobil-dashbord.png" },
     },
     {
+      slug: "dashbord-tavle",
+      route: "/?vis=tavle",
+      role: "admin",
+      title: "Dashbord – tavle",
+      heading: "Planlegging",
+      expectTexts: ["Forfalt", "I dag", "Pågår", "Ikke tildelt"],
+    },
+    {
       slug: "oppdrag",
       route: "/oppdrag",
       role: "admin",

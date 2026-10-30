@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
+import BrandMark from "@/components/BrandMark";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 
@@ -15,7 +16,6 @@ export default async function NotFound() {
 
   const branding = await prisma.branding.findFirst().catch(() => null);
   const companyName = branding?.companyName?.trim() || "FSM System";
-  const initial = companyName.charAt(0).toUpperCase();
 
   // 404-siden skal ikke krasje selv om sesjonen eller databasen er midlertidig
   // utilgjengelig. Da viser vi bare de nøytrale lenkene.
@@ -30,12 +30,7 @@ export default async function NotFound() {
   return (
     <div className="office-app flex min-h-[60vh] items-center justify-center p-4 sm:p-8">
       <div className="office-card w-full max-w-md p-8 text-center [--focus-ring:var(--ink,#101310)]">
-        <div
-          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ink,#101310)] text-2xl font-black text-[var(--paper,#f2efe6)] shadow-[3px_3px_0_var(--signal,#d8ff3e)]"
-          aria-hidden="true"
-        >
-          {initial}
-        </div>
+        <BrandMark size={56} className="mx-auto mb-4" />
         <p className="text-sm font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]">
           404
         </p>

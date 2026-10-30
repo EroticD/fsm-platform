@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { BRAND_CHECK_PATH, BRAND_PIN_PATH } from "@/lib/brand";
+
 /**
  * Monokrome, geometriske ikoner i Lucide-stil. Alle tegnes med samme
  * strektykkelse og arver fargen fra teksten rundt seg, slik at de kan brukes
@@ -22,6 +24,7 @@ export const ICON_NAMES = [
   "chevronDown",
   "phone",
   "navigation",
+  "brandNav",
   "arrowRight",
   "check",
   "alert",
@@ -46,6 +49,7 @@ export const ICON_NAMES = [
   "play",
   "building",
   "pin",
+  "brandPin",
   "mail",
   "note",
   "list",
@@ -54,6 +58,28 @@ export const ICON_NAMES = [
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
+
+/**
+ * Navigasjonspilen inne i merkenålen. Tegnet i samme 64 × 64-rutenett som
+ * nålen og haken i `@/lib/brand`, men bare brukt av ikonet – ikke av merket.
+ */
+const BRAND_NAV_ARROW_PATH = "M42.5 17.5 22 27l9.5 3.5L35 40Z";
+
+/**
+ * Merkenålen fra BrandMark skalert fra 64- til 24-rutenettet. `vectorEffect`
+ * holder streken like tykk som på de andre ikonene selv om gruppen skaleres.
+ */
+function BrandPinGlyph({ mark }: { mark: "check" | "nav" }) {
+  return (
+    <g transform="scale(0.375)">
+      <path d={BRAND_PIN_PATH} vectorEffect="non-scaling-stroke" />
+      <path
+        d={mark === "check" ? BRAND_CHECK_PATH : BRAND_NAV_ARROW_PATH}
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
+  );
+}
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   home: (
@@ -139,7 +165,8 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
   phone: (
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
   ),
-  navigation: <path d="m3 11 19-9-9 19-2-8-8-2z" />,
+  navigation: <BrandPinGlyph mark="nav" />,
+  brandNav: <BrandPinGlyph mark="nav" />,
   arrowRight: (
     <>
       <path d="M5 12h14" />
@@ -287,6 +314,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <circle cx="12" cy="10" r="3" />
     </>
   ),
+  brandPin: <BrandPinGlyph mark="check" />,
   mail: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-30T17:10:24.639Z",
+  "generatedAt": "2026-10-30T18:27:24.751Z",
   "appVersion": "0.8.0",
   "baseUrl": "http://127.0.0.1:3100",
   "database": "fsm_ui_e2e (isolert E2E-database)",
@@ -25,9 +25,9 @@
     }
   },
   "counts": {
-    "routes": 57,
-    "captures": 114,
-    "expectedCaptures": 114,
+    "routes": 58,
+    "captures": 116,
+    "expectedCaptures": 116,
     "skippedRoutes": 6,
     "legacyScreenshots": 15,
     "failures": 0
@@ -44,8 +44,8 @@
         "file": "screenshots/pages/desktop/logg-inn.jpg",
         "width": 1440,
         "height": 900,
-        "bytes": 25313,
-        "capturedAt": "2026-10-30T17:06:49.211Z",
+        "bytes": 25503,
+        "capturedAt": "2026-10-30T18:23:46.152Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/logg-inn",
         "finalPath": "/logg-inn",
@@ -53,7 +53,7 @@
         "h1": [
           "Logg inn"
         ],
-        "bodyTextLength": 116,
+        "bodyTextLength": 114,
         "imageFailures": [],
         "legacy": null
       },
@@ -61,8 +61,8 @@
         "file": "screenshots/pages/mobile/logg-inn.jpg",
         "width": 390,
         "height": 844,
-        "bytes": 18146,
-        "capturedAt": "2026-10-30T17:08:38.302Z",
+        "bytes": 18388,
+        "capturedAt": "2026-10-30T18:25:37.534Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/logg-inn",
         "finalPath": "/logg-inn",
@@ -70,7 +70,7 @@
         "h1": [
           "Logg inn"
         ],
-        "bodyTextLength": 116,
+        "bodyTextLength": 114,
         "imageFailures": [],
         "legacy": null
       }
@@ -86,8 +86,8 @@
         "file": "screenshots/pages/desktop/glemt-passord.jpg",
         "width": 1440,
         "height": 900,
-        "bytes": 30264,
-        "capturedAt": "2026-10-30T17:06:50.724Z",
+        "bytes": 52521,
+        "capturedAt": "2026-10-30T18:23:47.685Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/glemt-passord",
         "finalPath": "/glemt-passord",
@@ -103,8 +103,8 @@
         "file": "screenshots/pages/mobile/glemt-passord.jpg",
         "width": 390,
         "height": 844,
-        "bytes": 21615,
-        "capturedAt": "2026-10-30T17:08:39.822Z",
+        "bytes": 25370,
+        "capturedAt": "2026-10-30T18:25:39.052Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/glemt-passord",
         "finalPath": "/glemt-passord",
@@ -128,8 +128,8 @@
         "file": "screenshots/pages/desktop/tilbakestill-passord.jpg",
         "width": 1440,
         "height": 900,
-        "bytes": 24821,
-        "capturedAt": "2026-10-30T17:06:52.184Z",
+        "bytes": 47878,
+        "capturedAt": "2026-10-30T18:23:49.144Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/tilbakestill-passord",
         "finalPath": "/tilbakestill-passord",
@@ -145,8 +145,8 @@
         "file": "screenshots/pages/mobile/tilbakestill-passord.jpg",
         "width": 390,
         "height": 844,
-        "bytes": 18283,
-        "capturedAt": "2026-10-30T17:08:41.333Z",
+        "bytes": 22730,
+        "capturedAt": "2026-10-30T18:25:40.557Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/tilbakestill-passord",
         "finalPath": "/tilbakestill-passord",
@@ -170,8 +170,8 @@
         "file": "screenshots/pages/desktop/aktiver-konto.jpg",
         "width": 1440,
         "height": 900,
-        "bytes": 24902,
-        "capturedAt": "2026-10-30T17:06:53.616Z",
+        "bytes": 47987,
+        "capturedAt": "2026-10-30T18:23:50.576Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/aktiver-konto",
         "finalPath": "/aktiver-konto",
@@ -187,8 +187,8 @@
         "file": "screenshots/pages/mobile/aktiver-konto.jpg",
         "width": 390,
         "height": 844,
-        "bytes": 18116,
-        "capturedAt": "2026-10-30T17:08:42.782Z",
+        "bytes": 22571,
+        "capturedAt": "2026-10-30T18:25:41.967Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/aktiver-konto",
         "finalPath": "/aktiver-konto",
@@ -212,8 +212,8 @@
         "file": "screenshots/pages/desktop/404-finnes-ikke.jpg",
         "width": 1440,
         "height": 900,
-        "bytes": 32082,
-        "capturedAt": "2026-10-30T17:06:55.144Z",
+        "bytes": 55208,
+        "capturedAt": "2026-10-30T18:23:52.082Z",
         "httpStatus": 404,
         "finalUrl": "http://127.0.0.1:3100/finnes-ikke",
         "finalPath": "/finnes-ikke",
@@ -221,7 +221,7 @@
         "h1": [
           "Siden finnes ikke"
         ],
-        "bodyTextLength": 186,
+        "bodyTextLength": 182,
         "imageFailures": [],
         "legacy": null
       },
@@ -229,8 +229,8 @@
         "file": "screenshots/pages/mobile/404-finnes-ikke.jpg",
         "width": 390,
         "height": 844,
-        "bytes": 21911,
-        "capturedAt": "2026-10-30T17:08:44.248Z",
+        "bytes": 24789,
+        "capturedAt": "2026-10-30T18:25:43.451Z",
         "httpStatus": 404,
         "finalUrl": "http://127.0.0.1:3100/finnes-ikke",
         "finalPath": "/finnes-ikke",
@@ -238,7 +238,7 @@
         "h1": [
           "Siden finnes ikke"
         ],
-        "bodyTextLength": 174,
+        "bodyTextLength": 170,
         "imageFailures": [],
         "legacy": null
       }
@@ -253,9 +253,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/dashbord.jpg",
         "width": 1440,
-        "height": 1006,
-        "bytes": 146007,
-        "capturedAt": "2026-10-30T17:06:57.218Z",
+        "height": 1179,
+        "bytes": 162347,
+        "capturedAt": "2026-10-30T18:23:53.937Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/",
         "finalPath": "/",
@@ -263,22 +263,22 @@
         "h1": [
           "Planlegging"
         ],
-        "bodyTextLength": 1415,
+        "bodyTextLength": 1270,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/01-dashbord.png",
           "width": 1440,
-          "height": 1006,
-          "bytes": 171527,
-          "capturedAt": "2026-10-30T17:06:57.218Z"
+          "height": 1179,
+          "bytes": 186171,
+          "capturedAt": "2026-10-30T18:23:53.937Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/dashbord.jpg",
         "width": 390,
-        "height": 1896,
-        "bytes": 104425,
-        "capturedAt": "2026-10-30T17:08:46.126Z",
+        "height": 2440,
+        "bytes": 127803,
+        "capturedAt": "2026-10-30T18:25:45.245Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/",
         "finalPath": "/",
@@ -286,15 +286,57 @@
         "h1": [
           "Planlegging"
         ],
-        "bodyTextLength": 1191,
+        "bodyTextLength": 1215,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/12-mobil-dashbord.png",
           "width": 390,
-          "height": 1896,
-          "bytes": 135775,
-          "capturedAt": "2026-10-30T17:08:46.126Z"
+          "height": 2440,
+          "bytes": 161894,
+          "capturedAt": "2026-10-30T18:25:45.245Z"
         }
+      }
+    },
+    {
+      "route": "/?vis=tavle",
+      "slug": "dashbord-tavle",
+      "role": "admin",
+      "title": "Dashbord – tavle",
+      "note": null,
+      "special": false,
+      "desktop": {
+        "file": "screenshots/pages/desktop/dashbord-tavle.jpg",
+        "width": 1440,
+        "height": 1179,
+        "bytes": 166979,
+        "capturedAt": "2026-10-30T18:23:55.896Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/?vis=tavle",
+        "finalPath": "/",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Planlegging"
+        ],
+        "bodyTextLength": 1318,
+        "imageFailures": [],
+        "legacy": null
+      },
+      "mobile": {
+        "file": "screenshots/pages/mobile/dashbord-tavle.jpg",
+        "width": 390,
+        "height": 2278,
+        "bytes": 113624,
+        "capturedAt": "2026-10-30T18:25:47.216Z",
+        "httpStatus": 200,
+        "finalUrl": "http://127.0.0.1:3100/?vis=tavle",
+        "finalPath": "/",
+        "documentTitle": "FSM-plattformen",
+        "h1": [
+          "Planlegging"
+        ],
+        "bodyTextLength": 1263,
+        "imageFailures": [],
+        "legacy": null
       }
     },
     {
@@ -308,8 +350,8 @@
         "file": "screenshots/pages/desktop/oppdrag.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 131980,
-        "capturedAt": "2026-10-30T17:06:58.950Z",
+        "bytes": 146414,
+        "capturedAt": "2026-10-30T18:23:57.495Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag",
         "finalPath": "/oppdrag",
@@ -317,22 +359,22 @@
         "h1": [
           "Aktive6 oppdrag"
         ],
-        "bodyTextLength": 1339,
+        "bodyTextLength": 1337,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/02-oppdrag.png",
           "width": 1440,
           "height": 993,
-          "bytes": 162383,
-          "capturedAt": "2026-10-30T17:06:58.950Z"
+          "bytes": 165163,
+          "capturedAt": "2026-10-30T18:23:57.495Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/oppdrag.jpg",
         "width": 390,
         "height": 1505,
-        "bytes": 88326,
-        "capturedAt": "2026-10-30T17:08:47.861Z",
+        "bytes": 90828,
+        "capturedAt": "2026-10-30T18:25:48.805Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag",
         "finalPath": "/oppdrag",
@@ -340,7 +382,7 @@
         "h1": [
           "Aktive6 oppdrag"
         ],
-        "bodyTextLength": 1232,
+        "bodyTextLength": 1230,
         "imageFailures": [],
         "legacy": null
       }
@@ -356,8 +398,8 @@
         "file": "screenshots/pages/desktop/oppdrag-ny.jpg",
         "width": 1440,
         "height": 2219,
-        "bytes": 170674,
-        "capturedAt": "2026-10-30T17:07:00.715Z",
+        "bytes": 211001,
+        "capturedAt": "2026-10-30T18:23:59.261Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/ny",
         "finalPath": "/oppdrag/ny",
@@ -365,7 +407,7 @@
         "h1": [
           "Opprett nytt oppdrag"
         ],
-        "bodyTextLength": 1427,
+        "bodyTextLength": 1425,
         "imageFailures": [],
         "legacy": null
       },
@@ -373,8 +415,8 @@
         "file": "screenshots/pages/mobile/oppdrag-ny.jpg",
         "width": 390,
         "height": 2660,
-        "bytes": 131310,
-        "capturedAt": "2026-10-30T17:08:49.494Z",
+        "bytes": 133725,
+        "capturedAt": "2026-10-30T18:25:50.424Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/ny",
         "finalPath": "/oppdrag/ny",
@@ -382,7 +424,7 @@
         "h1": [
           "Opprett nytt oppdrag"
         ],
-        "bodyTextLength": 1372,
+        "bodyTextLength": 1370,
         "imageFailures": [],
         "legacy": null
       }
@@ -398,8 +440,8 @@
         "file": "screenshots/pages/desktop/oppdrag-slettede.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 58856,
-        "capturedAt": "2026-10-30T17:07:02.300Z",
+        "bytes": 82765,
+        "capturedAt": "2026-10-30T18:24:00.792Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/slettede",
         "finalPath": "/oppdrag/slettede",
@@ -407,7 +449,7 @@
         "h1": [
           "Papirkurv"
         ],
-        "bodyTextLength": 527,
+        "bodyTextLength": 525,
         "imageFailures": [],
         "legacy": null
       },
@@ -415,8 +457,8 @@
         "file": "screenshots/pages/mobile/oppdrag-slettede.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 40361,
-        "capturedAt": "2026-10-30T17:08:51.018Z",
+        "bytes": 45234,
+        "capturedAt": "2026-10-30T18:25:51.936Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/slettede",
         "finalPath": "/oppdrag/slettede",
@@ -424,7 +466,7 @@
         "h1": [
           "Papirkurv"
         ],
-        "bodyTextLength": 472,
+        "bodyTextLength": 470,
         "imageFailures": [],
         "legacy": null
       }
@@ -439,9 +481,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/oppdrag-detalj.jpg",
         "width": 1440,
-        "height": 2337,
-        "bytes": 188662,
-        "capturedAt": "2026-10-30T17:07:04.000Z",
+        "height": 2340,
+        "bytes": 229982,
+        "capturedAt": "2026-10-30T18:24:02.752Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvv6v4yy000m5xfjld164fuw",
         "finalPath": "/oppdrag/cmvv6v4yy000m5xfjld164fuw",
@@ -449,22 +491,22 @@
         "h1": [
           "Feilsøking – portåpner"
         ],
-        "bodyTextLength": 1792,
+        "bodyTextLength": 1790,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/03-oppdrag-detalj.png",
           "width": 1440,
-          "height": 2337,
-          "bytes": 213703,
-          "capturedAt": "2026-10-30T17:07:04.000Z"
+          "height": 2340,
+          "bytes": 223892,
+          "capturedAt": "2026-10-30T18:24:02.752Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/oppdrag-detalj.jpg",
         "width": 390,
-        "height": 3222,
-        "bytes": 153088,
-        "capturedAt": "2026-10-30T17:08:52.983Z",
+        "height": 3274,
+        "bytes": 155418,
+        "capturedAt": "2026-10-30T18:25:53.604Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvv6v4yy000m5xfjld164fuw",
         "finalPath": "/oppdrag/cmvv6v4yy000m5xfjld164fuw",
@@ -472,7 +514,7 @@
         "h1": [
           "Feilsøking – portåpner"
         ],
-        "bodyTextLength": 1737,
+        "bodyTextLength": 1735,
         "imageFailures": [],
         "legacy": null
       }
@@ -488,8 +530,8 @@
         "file": "screenshots/pages/desktop/oppdrag-rediger.jpg",
         "width": 1440,
         "height": 2172,
-        "bytes": 160832,
-        "capturedAt": "2026-10-30T17:07:05.781Z",
+        "bytes": 200233,
+        "capturedAt": "2026-10-30T18:24:04.602Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvv6v4yy000m5xfjld164fuw/rediger",
         "finalPath": "/oppdrag/cmvv6v4yy000m5xfjld164fuw/rediger",
@@ -497,7 +539,7 @@
         "h1": [
           "Rediger Oppdrag"
         ],
-        "bodyTextLength": 1215,
+        "bodyTextLength": 1213,
         "imageFailures": [],
         "legacy": null
       },
@@ -505,8 +547,8 @@
         "file": "screenshots/pages/mobile/oppdrag-rediger.jpg",
         "width": 390,
         "height": 2691,
-        "bytes": 123218,
-        "capturedAt": "2026-10-30T17:08:54.598Z",
+        "bytes": 125863,
+        "capturedAt": "2026-10-30T18:25:55.448Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/oppdrag/cmvv6v4yy000m5xfjld164fuw/rediger",
         "finalPath": "/oppdrag/cmvv6v4yy000m5xfjld164fuw/rediger",
@@ -514,7 +556,7 @@
         "h1": [
           "Rediger Oppdrag"
         ],
-        "bodyTextLength": 1160,
+        "bodyTextLength": 1158,
         "imageFailures": [],
         "legacy": null
       }
@@ -530,8 +572,8 @@
         "file": "screenshots/pages/desktop/kalender.jpg",
         "width": 1440,
         "height": 1559,
-        "bytes": 150851,
-        "capturedAt": "2026-10-30T17:07:07.411Z",
+        "bytes": 163402,
+        "capturedAt": "2026-10-30T18:24:06.252Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender",
         "finalPath": "/kalender",
@@ -539,7 +581,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1301,
+        "bodyTextLength": 1299,
         "imageFailures": [],
         "legacy": null
       },
@@ -547,8 +589,8 @@
         "file": "screenshots/pages/mobile/kalender.jpg",
         "width": 390,
         "height": 2340,
-        "bytes": 116283,
-        "capturedAt": "2026-10-30T17:08:56.239Z",
+        "bytes": 119656,
+        "capturedAt": "2026-10-30T18:25:57.047Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender",
         "finalPath": "/kalender",
@@ -556,7 +598,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1246,
+        "bodyTextLength": 1244,
         "imageFailures": [],
         "legacy": null
       }
@@ -572,8 +614,8 @@
         "file": "screenshots/pages/desktop/kalender-maned.jpg",
         "width": 1440,
         "height": 1568,
-        "bytes": 151422,
-        "capturedAt": "2026-10-30T17:07:09.313Z",
+        "bytes": 163494,
+        "capturedAt": "2026-10-30T18:24:08.157Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=maned&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -581,22 +623,22 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1382,
+        "bodyTextLength": 1380,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/04-kalender.png",
           "width": 1440,
           "height": 1568,
-          "bytes": 152782,
-          "capturedAt": "2026-10-30T17:07:09.313Z"
+          "bytes": 156294,
+          "capturedAt": "2026-10-30T18:24:08.157Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kalender-maned.jpg",
         "width": 390,
         "height": 1888,
-        "bytes": 85044,
-        "capturedAt": "2026-10-30T17:08:58.070Z",
+        "bytes": 87792,
+        "capturedAt": "2026-10-30T18:25:58.866Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=maned&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -604,7 +646,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1327,
+        "bodyTextLength": 1325,
         "imageFailures": [],
         "legacy": null
       }
@@ -620,8 +662,8 @@
         "file": "screenshots/pages/desktop/kalender-uke.jpg",
         "width": 1440,
         "height": 1305,
-        "bytes": 125353,
-        "capturedAt": "2026-10-30T17:07:11.221Z",
+        "bytes": 135693,
+        "capturedAt": "2026-10-30T18:24:10.071Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=uke&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -629,7 +671,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1157,
+        "bodyTextLength": 1155,
         "imageFailures": [],
         "legacy": null
       },
@@ -637,8 +679,8 @@
         "file": "screenshots/pages/mobile/kalender-uke.jpg",
         "width": 390,
         "height": 1677,
-        "bytes": 73000,
-        "capturedAt": "2026-10-30T17:08:59.856Z",
+        "bytes": 75589,
+        "capturedAt": "2026-10-30T18:26:00.648Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=uke&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -646,7 +688,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1102,
+        "bodyTextLength": 1100,
         "imageFailures": [],
         "legacy": null
       }
@@ -662,8 +704,8 @@
         "file": "screenshots/pages/desktop/kalender-2uker.jpg",
         "width": 1440,
         "height": 1306,
-        "bytes": 135347,
-        "capturedAt": "2026-10-30T17:07:13.021Z",
+        "bytes": 145287,
+        "capturedAt": "2026-10-30T18:24:12.003Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=2uker&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -671,7 +713,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1290,
+        "bodyTextLength": 1288,
         "imageFailures": [],
         "legacy": null
       },
@@ -679,8 +721,8 @@
         "file": "screenshots/pages/mobile/kalender-2uker.jpg",
         "width": 390,
         "height": 1729,
-        "bytes": 75252,
-        "capturedAt": "2026-10-30T17:09:01.686Z",
+        "bytes": 77838,
+        "capturedAt": "2026-10-30T18:26:02.435Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender?vis=2uker&dato=2026-10-30",
         "finalPath": "/kalender",
@@ -688,7 +730,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 1170,
+        "bodyTextLength": 1168,
         "imageFailures": [],
         "legacy": null
       }
@@ -704,8 +746,8 @@
         "file": "screenshots/pages/desktop/kalender-dispatch.jpg",
         "width": 1440,
         "height": 3577,
-        "bytes": 348513,
-        "capturedAt": "2026-10-30T17:07:14.780Z",
+        "bytes": 369662,
+        "capturedAt": "2026-10-30T18:24:14.036Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender/dispatch",
         "finalPath": "/kalender/dispatch",
@@ -713,7 +755,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 4154,
+        "bodyTextLength": 4152,
         "imageFailures": [],
         "legacy": null
       },
@@ -721,8 +763,8 @@
         "file": "screenshots/pages/mobile/kalender-dispatch.jpg",
         "width": 390,
         "height": 4768,
-        "bytes": 151107,
-        "capturedAt": "2026-10-30T17:09:03.473Z",
+        "bytes": 156026,
+        "capturedAt": "2026-10-30T18:26:04.166Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kalender/dispatch",
         "finalPath": "/kalender/dispatch",
@@ -730,7 +772,7 @@
         "h1": [
           "Kalender"
         ],
-        "bodyTextLength": 4099,
+        "bodyTextLength": 4097,
         "imageFailures": [],
         "legacy": null
       }
@@ -746,8 +788,8 @@
         "file": "screenshots/pages/desktop/kart.jpg",
         "width": 1440,
         "height": 1959,
-        "bytes": 219570,
-        "capturedAt": "2026-10-30T17:07:16.597Z",
+        "bytes": 248347,
+        "capturedAt": "2026-10-30T18:24:15.884Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kart",
         "finalPath": "/kart",
@@ -755,7 +797,7 @@
         "h1": [
           "Kart"
         ],
-        "bodyTextLength": 1499,
+        "bodyTextLength": 1567,
         "imageFailures": [],
         "legacy": null
       },
@@ -763,8 +805,8 @@
         "file": "screenshots/pages/mobile/kart.jpg",
         "width": 390,
         "height": 2766,
-        "bytes": 136341,
-        "capturedAt": "2026-10-30T17:09:05.408Z",
+        "bytes": 142109,
+        "capturedAt": "2026-10-30T18:26:05.996Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kart",
         "finalPath": "/kart",
@@ -772,7 +814,7 @@
         "h1": [
           "Kart"
         ],
-        "bodyTextLength": 1444,
+        "bodyTextLength": 1512,
         "imageFailures": [],
         "legacy": null
       }
@@ -788,8 +830,8 @@
         "file": "screenshots/pages/desktop/kunder.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 88676,
-        "capturedAt": "2026-10-30T17:07:18.142Z",
+        "bytes": 108020,
+        "capturedAt": "2026-10-30T18:24:17.444Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder",
         "finalPath": "/kunder",
@@ -797,22 +839,22 @@
         "h1": [
           "Kundekatalog3 kunder"
         ],
-        "bodyTextLength": 637,
+        "bodyTextLength": 635,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/05-kunder.png",
           "width": 1440,
           "height": 993,
-          "bytes": 100312,
-          "capturedAt": "2026-10-30T17:07:18.142Z"
+          "bytes": 103110,
+          "capturedAt": "2026-10-30T18:24:17.444Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kunder.jpg",
         "width": 390,
         "height": 1437,
-        "bytes": 77513,
-        "capturedAt": "2026-10-30T17:09:06.951Z",
+        "bytes": 79726,
+        "capturedAt": "2026-10-30T18:26:07.513Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder",
         "finalPath": "/kunder",
@@ -820,7 +862,7 @@
         "h1": [
           "Kundekatalog3 kunder"
         ],
-        "bodyTextLength": 688,
+        "bodyTextLength": 686,
         "imageFailures": [],
         "legacy": null
       }
@@ -836,8 +878,8 @@
         "file": "screenshots/pages/desktop/kunde-oversikt.jpg",
         "width": 1440,
         "height": 1193,
-        "bytes": 141087,
-        "capturedAt": "2026-10-30T17:07:20.135Z",
+        "bytes": 153047,
+        "capturedAt": "2026-10-30T18:24:19.458Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=oversikt",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -845,22 +887,22 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1115,
+        "bodyTextLength": 1113,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/06-kunde-detalj.png",
           "width": 1440,
           "height": 1193,
-          "bytes": 167827,
-          "capturedAt": "2026-10-30T17:07:20.135Z"
+          "bytes": 172828,
+          "capturedAt": "2026-10-30T18:24:19.458Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kunde-oversikt.jpg",
         "width": 390,
-        "height": 2214,
-        "bytes": 107858,
-        "capturedAt": "2026-10-30T17:09:08.609Z",
+        "height": 2242,
+        "bytes": 110161,
+        "capturedAt": "2026-10-30T18:26:09.407Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=oversikt",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -868,7 +910,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1060,
+        "bodyTextLength": 1058,
         "imageFailures": [],
         "legacy": null
       }
@@ -884,8 +926,8 @@
         "file": "screenshots/pages/desktop/kunde-oppdrag.jpg",
         "width": 1440,
         "height": 1116,
-        "bytes": 125365,
-        "capturedAt": "2026-10-30T17:07:22.100Z",
+        "bytes": 135948,
+        "capturedAt": "2026-10-30T18:24:21.215Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=oppdrag",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -893,7 +935,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 959,
+        "bodyTextLength": 957,
         "imageFailures": [],
         "legacy": null
       },
@@ -901,8 +943,8 @@
         "file": "screenshots/pages/mobile/kunde-oppdrag.jpg",
         "width": 390,
         "height": 1557,
-        "bytes": 87403,
-        "capturedAt": "2026-10-30T17:09:10.238Z",
+        "bytes": 89196,
+        "capturedAt": "2026-10-30T18:26:11.230Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=oppdrag",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -910,7 +952,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 904,
+        "bodyTextLength": 902,
         "imageFailures": [],
         "legacy": null
       }
@@ -926,8 +968,8 @@
         "file": "screenshots/pages/desktop/kunde-utstyr.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 106061,
-        "capturedAt": "2026-10-30T17:07:23.968Z",
+        "bytes": 116557,
+        "capturedAt": "2026-10-30T18:24:23.066Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=utstyr",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -935,7 +977,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 705,
+        "bodyTextLength": 703,
         "imageFailures": [],
         "legacy": null
       },
@@ -943,8 +985,8 @@
         "file": "screenshots/pages/mobile/kunde-utstyr.jpg",
         "width": 390,
         "height": 1403,
-        "bytes": 72451,
-        "capturedAt": "2026-10-30T17:09:12.193Z",
+        "bytes": 73921,
+        "capturedAt": "2026-10-30T18:26:13.168Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=utstyr",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -952,7 +994,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 650,
+        "bodyTextLength": 648,
         "imageFailures": [],
         "legacy": null
       }
@@ -968,8 +1010,8 @@
         "file": "screenshots/pages/desktop/kunde-avtaler.jpg",
         "width": 1440,
         "height": 1095,
-        "bytes": 120251,
-        "capturedAt": "2026-10-30T17:07:25.566Z",
+        "bytes": 129226,
+        "capturedAt": "2026-10-30T18:24:24.943Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=avtaler",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -977,7 +1019,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1211,
+        "bodyTextLength": 1209,
         "imageFailures": [],
         "legacy": null
       },
@@ -985,8 +1027,8 @@
         "file": "screenshots/pages/mobile/kunde-avtaler.jpg",
         "width": 390,
         "height": 1590,
-        "bytes": 85901,
-        "capturedAt": "2026-10-30T17:09:13.953Z",
+        "bytes": 87454,
+        "capturedAt": "2026-10-30T18:26:14.913Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=avtaler",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -994,7 +1036,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1156,
+        "bodyTextLength": 1154,
         "imageFailures": [],
         "legacy": null
       }
@@ -1010,8 +1052,8 @@
         "file": "screenshots/pages/desktop/kunde-mer.jpg",
         "width": 1440,
         "height": 2172,
-        "bytes": 197477,
-        "capturedAt": "2026-10-30T17:07:27.251Z",
+        "bytes": 217637,
+        "capturedAt": "2026-10-30T18:24:26.904Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=mer",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -1019,7 +1061,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1267,
+        "bodyTextLength": 1265,
         "imageFailures": [],
         "legacy": null
       },
@@ -1027,8 +1069,8 @@
         "file": "screenshots/pages/mobile/kunde-mer.jpg",
         "width": 390,
         "height": 2909,
-        "bytes": 135837,
-        "capturedAt": "2026-10-30T17:09:15.941Z",
+        "bytes": 138907,
+        "capturedAt": "2026-10-30T18:26:16.915Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=mer",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -1036,7 +1078,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 1212,
+        "bodyTextLength": 1210,
         "imageFailures": [],
         "legacy": null
       }
@@ -1052,8 +1094,8 @@
         "file": "screenshots/pages/desktop/kunde-rapporter.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 76053,
-        "capturedAt": "2026-10-30T17:07:28.851Z",
+        "bytes": 95446,
+        "capturedAt": "2026-10-30T18:24:28.513Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=oppdrag&vis=rapporter",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -1061,7 +1103,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 472,
+        "bodyTextLength": 470,
         "imageFailures": [],
         "legacy": null
       },
@@ -1069,8 +1111,8 @@
         "file": "screenshots/pages/mobile/kunde-rapporter.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 47826,
-        "capturedAt": "2026-10-30T17:09:17.498Z",
+        "bytes": 50437,
+        "capturedAt": "2026-10-30T18:26:18.752Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu?tab=oppdrag&vis=rapporter",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu",
@@ -1078,7 +1120,7 @@
         "h1": [
           "Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 417,
+        "bodyTextLength": 415,
         "imageFailures": [],
         "legacy": null
       }
@@ -1094,8 +1136,8 @@
         "file": "screenshots/pages/desktop/kunde-rediger.jpg",
         "width": 1440,
         "height": 1112,
-        "bytes": 101016,
-        "capturedAt": "2026-10-30T17:07:30.432Z",
+        "bytes": 115833,
+        "capturedAt": "2026-10-30T18:24:30.077Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu/rediger",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu/rediger",
@@ -1103,7 +1145,7 @@
         "h1": [
           "Rediger kunde"
         ],
-        "bodyTextLength": 823,
+        "bodyTextLength": 821,
         "imageFailures": [],
         "legacy": null
       },
@@ -1111,8 +1153,8 @@
         "file": "screenshots/pages/mobile/kunde-rediger.jpg",
         "width": 390,
         "height": 2039,
-        "bytes": 81334,
-        "capturedAt": "2026-10-30T17:09:19.088Z",
+        "bytes": 83119,
+        "capturedAt": "2026-10-30T18:26:20.317Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kunder/cmvv6v4wv00045xfjqy0wgdmu/rediger",
         "finalPath": "/kunder/cmvv6v4wv00045xfjqy0wgdmu/rediger",
@@ -1120,7 +1162,7 @@
         "h1": [
           "Rediger kunde"
         ],
-        "bodyTextLength": 768,
+        "bodyTextLength": 766,
         "imageFailures": [],
         "legacy": null
       }
@@ -1136,8 +1178,8 @@
         "file": "screenshots/pages/desktop/enhet-detalj.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 55430,
-        "capturedAt": "2026-10-30T17:07:32.012Z",
+        "bytes": 79098,
+        "capturedAt": "2026-10-30T18:24:31.679Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/enheter/cmvv6v4xf000b5xfjaz43cro7",
         "finalPath": "/enheter/cmvv6v4xf000b5xfjaz43cro7",
@@ -1145,7 +1187,7 @@
         "h1": [
           "Portautomatikk PA-400"
         ],
-        "bodyTextLength": 384,
+        "bodyTextLength": 382,
         "imageFailures": [],
         "legacy": null
       },
@@ -1153,8 +1195,8 @@
         "file": "screenshots/pages/mobile/enhet-detalj.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 36325,
-        "capturedAt": "2026-10-30T17:09:20.654Z",
+        "bytes": 40246,
+        "capturedAt": "2026-10-30T18:26:21.834Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/enheter/cmvv6v4xf000b5xfjaz43cro7",
         "finalPath": "/enheter/cmvv6v4xf000b5xfjaz43cro7",
@@ -1162,7 +1204,7 @@
         "h1": [
           "Portautomatikk PA-400"
         ],
-        "bodyTextLength": 329,
+        "bodyTextLength": 327,
         "imageFailures": [],
         "legacy": null
       }
@@ -1178,8 +1220,8 @@
         "file": "screenshots/pages/desktop/dokumenter.jpg",
         "width": 1440,
         "height": 1188,
-        "bytes": 138281,
-        "capturedAt": "2026-10-30T17:07:33.818Z",
+        "bytes": 152495,
+        "capturedAt": "2026-10-30T18:24:33.237Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter",
         "finalPath": "/dokumenter",
@@ -1187,22 +1229,22 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 1251,
+        "bodyTextLength": 1249,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/07-dokumenter.png",
           "width": 1440,
           "height": 1188,
-          "bytes": 158612,
-          "capturedAt": "2026-10-30T17:07:33.818Z"
+          "bytes": 162487,
+          "capturedAt": "2026-10-30T18:24:33.237Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/dokumenter.jpg",
         "width": 390,
         "height": 1898,
-        "bytes": 96415,
-        "capturedAt": "2026-10-30T17:09:22.202Z",
+        "bytes": 99024,
+        "capturedAt": "2026-10-30T18:26:23.392Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter",
         "finalPath": "/dokumenter",
@@ -1210,7 +1252,7 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 1086,
+        "bodyTextLength": 1084,
         "imageFailures": [],
         "legacy": null
       }
@@ -1226,8 +1268,8 @@
         "file": "screenshots/pages/desktop/dokumenter-mappe.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 88441,
-        "capturedAt": "2026-10-30T17:07:35.482Z",
+        "bytes": 105642,
+        "capturedAt": "2026-10-30T18:24:34.915Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter?folder=cmvv6v50e000v5xfjoncsifgs",
         "finalPath": "/dokumenter",
@@ -1235,22 +1277,22 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 616,
+        "bodyTextLength": 614,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/08-dokumenter-mappe.png",
           "width": 1440,
           "height": 993,
-          "bytes": 93207,
-          "capturedAt": "2026-10-30T17:07:35.482Z"
+          "bytes": 95990,
+          "capturedAt": "2026-10-30T18:24:34.915Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/dokumenter-mappe.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 48554,
-        "capturedAt": "2026-10-30T17:09:23.749Z",
+        "bytes": 51050,
+        "capturedAt": "2026-10-30T18:26:24.899Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter?folder=cmvv6v50e000v5xfjoncsifgs",
         "finalPath": "/dokumenter",
@@ -1258,7 +1300,7 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 457,
+        "bodyTextLength": 455,
         "imageFailures": [],
         "legacy": null
       }
@@ -1274,8 +1316,8 @@
         "file": "screenshots/pages/desktop/dokumenter-dokument.jpg",
         "width": 1440,
         "height": 1389,
-        "bytes": 157469,
-        "capturedAt": "2026-10-30T17:07:37.386Z",
+        "bytes": 173201,
+        "capturedAt": "2026-10-30T18:24:36.548Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter?doc=cmvv6v519000x5xfjy7h5j6uv",
         "finalPath": "/dokumenter",
@@ -1283,7 +1325,7 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 1401,
+        "bodyTextLength": 1399,
         "imageFailures": [],
         "legacy": null
       },
@@ -1291,8 +1333,8 @@
         "file": "screenshots/pages/mobile/dokumenter-dokument.jpg",
         "width": 390,
         "height": 2179,
-        "bytes": 109731,
-        "capturedAt": "2026-10-30T17:09:25.358Z",
+        "bytes": 112356,
+        "capturedAt": "2026-10-30T18:26:26.525Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/dokumenter?doc=cmvv6v519000x5xfjy7h5j6uv",
         "finalPath": "/dokumenter",
@@ -1300,7 +1342,7 @@
         "h1": [
           "Dokumentbibliotek"
         ],
-        "bodyTextLength": 1236,
+        "bodyTextLength": 1234,
         "imageFailures": [],
         "legacy": null
       }
@@ -1316,8 +1358,8 @@
         "file": "screenshots/pages/desktop/rapporter.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 94300,
-        "capturedAt": "2026-10-30T17:07:38.979Z",
+        "bytes": 110210,
+        "capturedAt": "2026-10-30T18:24:38.390Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter",
         "finalPath": "/rapporter",
@@ -1325,22 +1367,22 @@
         "h1": [
           "Servicerapporter"
         ],
-        "bodyTextLength": 795,
+        "bodyTextLength": 793,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/09-rapporter.png",
           "width": 1440,
           "height": 993,
-          "bytes": 100813,
-          "capturedAt": "2026-10-30T17:07:38.979Z"
+          "bytes": 103515,
+          "capturedAt": "2026-10-30T18:24:38.390Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/rapporter.jpg",
         "width": 390,
         "height": 1416,
-        "bytes": 64112,
-        "capturedAt": "2026-10-30T17:09:26.984Z",
+        "bytes": 65444,
+        "capturedAt": "2026-10-30T18:26:28.101Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter",
         "finalPath": "/rapporter",
@@ -1348,7 +1390,7 @@
         "h1": [
           "Servicerapporter"
         ],
-        "bodyTextLength": 695,
+        "bodyTextLength": 693,
         "imageFailures": [],
         "legacy": null
       }
@@ -1365,7 +1407,7 @@
         "width": 1440,
         "height": 900,
         "bytes": 91102,
-        "capturedAt": "2026-10-30T17:07:40.861Z",
+        "capturedAt": "2026-10-30T18:24:40.384Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter/cmvv6v4zk000p5xfjenek6nxw?rapport=cmvv6v504000s5xfj3sffcmml",
         "finalPath": "/rapporter/cmvv6v4zk000p5xfjenek6nxw",
@@ -1373,7 +1415,7 @@
         "h1": [
           "Rapport: Service – kjøleanlegg"
         ],
-        "bodyTextLength": 295,
+        "bodyTextLength": 293,
         "imageFailures": [],
         "legacy": null
       },
@@ -1382,7 +1424,7 @@
         "width": 390,
         "height": 844,
         "bytes": 39292,
-        "capturedAt": "2026-10-30T17:09:28.714Z",
+        "capturedAt": "2026-10-30T18:26:29.816Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter/cmvv6v4zk000p5xfjenek6nxw?rapport=cmvv6v504000s5xfj3sffcmml",
         "finalPath": "/rapporter/cmvv6v4zk000p5xfjenek6nxw",
@@ -1390,7 +1432,7 @@
         "h1": [
           "Rapport: Service – kjøleanlegg"
         ],
-        "bodyTextLength": 240,
+        "bodyTextLength": 238,
         "imageFailures": [],
         "legacy": null
       }
@@ -1406,8 +1448,8 @@
         "file": "screenshots/pages/desktop/rapport-revisjoner.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 50977,
-        "capturedAt": "2026-10-30T17:07:42.427Z",
+        "bytes": 75303,
+        "capturedAt": "2026-10-30T18:24:41.959Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter/cmvv6v4zk000p5xfjenek6nxw/revisjoner?rapport=cmvv6v504000s5xfj3sffcmml",
         "finalPath": "/rapporter/cmvv6v4zk000p5xfjenek6nxw/revisjoner",
@@ -1415,7 +1457,7 @@
         "h1": [
           "Revisjoner"
         ],
-        "bodyTextLength": 310,
+        "bodyTextLength": 308,
         "imageFailures": [],
         "legacy": null
       },
@@ -1423,8 +1465,8 @@
         "file": "screenshots/pages/mobile/rapport-revisjoner.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 28358,
-        "capturedAt": "2026-10-30T17:09:30.287Z",
+        "bytes": 33470,
+        "capturedAt": "2026-10-30T18:26:31.401Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/rapporter/cmvv6v4zk000p5xfjenek6nxw/revisjoner?rapport=cmvv6v504000s5xfj3sffcmml",
         "finalPath": "/rapporter/cmvv6v4zk000p5xfjenek6nxw/revisjoner",
@@ -1432,7 +1474,7 @@
         "h1": [
           "Revisjoner"
         ],
-        "bodyTextLength": 255,
+        "bodyTextLength": 253,
         "imageFailures": [],
         "legacy": null
       }
@@ -1448,8 +1490,8 @@
         "file": "screenshots/pages/desktop/sok.jpg",
         "width": 1440,
         "height": 1748,
-        "bytes": 105151,
-        "capturedAt": "2026-10-30T17:07:44.057Z",
+        "bytes": 105163,
+        "capturedAt": "2026-10-30T18:24:43.569Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok",
         "finalPath": "/sok",
@@ -1457,7 +1499,7 @@
         "h1": [
           "Søk"
         ],
-        "bodyTextLength": 982,
+        "bodyTextLength": 980,
         "imageFailures": [],
         "legacy": null
       },
@@ -1465,8 +1507,8 @@
         "file": "screenshots/pages/mobile/sok.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 38334,
-        "capturedAt": "2026-10-30T17:09:31.816Z",
+        "bytes": 38982,
+        "capturedAt": "2026-10-30T18:26:32.955Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok",
         "finalPath": "/sok",
@@ -1474,7 +1516,7 @@
         "h1": [
           "Søk"
         ],
-        "bodyTextLength": 295,
+        "bodyTextLength": 293,
         "imageFailures": [],
         "legacy": null
       }
@@ -1490,8 +1532,8 @@
         "file": "screenshots/pages/desktop/sok-service.jpg",
         "width": 1440,
         "height": 1953,
-        "bytes": 209599,
-        "capturedAt": "2026-10-30T17:07:46.045Z",
+        "bytes": 209693,
+        "capturedAt": "2026-10-30T18:24:45.502Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok?q=service",
         "finalPath": "/sok",
@@ -1499,7 +1541,7 @@
         "h1": [
           "Søk"
         ],
-        "bodyTextLength": 2230,
+        "bodyTextLength": 2228,
         "imageFailures": [],
         "legacy": null
       },
@@ -1507,8 +1549,8 @@
         "file": "screenshots/pages/mobile/sok-service.jpg",
         "width": 390,
         "height": 2692,
-        "bytes": 133531,
-        "capturedAt": "2026-10-30T17:09:33.775Z",
+        "bytes": 134123,
+        "capturedAt": "2026-10-30T18:26:34.847Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok?q=service",
         "finalPath": "/sok",
@@ -1516,7 +1558,7 @@
         "h1": [
           "Søk"
         ],
-        "bodyTextLength": 1567,
+        "bodyTextLength": 1565,
         "imageFailures": [],
         "legacy": null
       }
@@ -1532,8 +1574,8 @@
         "file": "screenshots/pages/desktop/sok-analyse.jpg",
         "width": 1440,
         "height": 1181,
-        "bytes": 104645,
-        "capturedAt": "2026-10-30T17:07:47.600Z",
+        "bytes": 104684,
+        "capturedAt": "2026-10-30T18:24:47.094Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok/analyse",
         "finalPath": "/sok/analyse",
@@ -1541,7 +1583,7 @@
         "h1": [
           "Søkeanalyse"
         ],
-        "bodyTextLength": 959,
+        "bodyTextLength": 957,
         "imageFailures": [],
         "legacy": null
       },
@@ -1549,8 +1591,8 @@
         "file": "screenshots/pages/mobile/sok-analyse.jpg",
         "width": 390,
         "height": 1981,
-        "bytes": 77843,
-        "capturedAt": "2026-10-30T17:09:35.376Z",
+        "bytes": 78429,
+        "capturedAt": "2026-10-30T18:26:36.449Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/sok/analyse",
         "finalPath": "/sok/analyse",
@@ -1558,7 +1600,7 @@
         "h1": [
           "Søkeanalyse"
         ],
-        "bodyTextLength": 865,
+        "bodyTextLength": 863,
         "imageFailures": [],
         "legacy": null
       }
@@ -1574,8 +1616,8 @@
         "file": "screenshots/pages/desktop/hms.jpg",
         "width": 1440,
         "height": 3040,
-        "bytes": 283580,
-        "capturedAt": "2026-10-30T17:07:49.279Z",
+        "bytes": 283595,
+        "capturedAt": "2026-10-30T18:24:49.087Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/hms",
         "finalPath": "/hms",
@@ -1583,7 +1625,7 @@
         "h1": [
           "HMS"
         ],
-        "bodyTextLength": 3418,
+        "bodyTextLength": 3416,
         "imageFailures": [],
         "legacy": null
       },
@@ -1591,8 +1633,8 @@
         "file": "screenshots/pages/mobile/hms.jpg",
         "width": 390,
         "height": 4305,
-        "bytes": 231517,
-        "capturedAt": "2026-10-30T17:09:37.102Z",
+        "bytes": 232206,
+        "capturedAt": "2026-10-30T18:26:38.187Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/hms",
         "finalPath": "/hms",
@@ -1600,7 +1642,7 @@
         "h1": [
           "HMS"
         ],
-        "bodyTextLength": 3363,
+        "bodyTextLength": 3361,
         "imageFailures": [],
         "legacy": null
       }
@@ -1616,8 +1658,8 @@
         "file": "screenshots/pages/desktop/varsler.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 68044,
-        "capturedAt": "2026-10-30T17:07:50.843Z",
+        "bytes": 85461,
+        "capturedAt": "2026-10-30T18:24:50.640Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler",
         "finalPath": "/varsler",
@@ -1625,7 +1667,7 @@
         "h1": [
           "Varsler"
         ],
-        "bodyTextLength": 555,
+        "bodyTextLength": 545,
         "imageFailures": [],
         "legacy": null
       },
@@ -1633,8 +1675,8 @@
         "file": "screenshots/pages/mobile/varsler.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 48264,
-        "capturedAt": "2026-10-30T17:09:38.631Z",
+        "bytes": 49879,
+        "capturedAt": "2026-10-30T18:26:39.760Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler",
         "finalPath": "/varsler",
@@ -1642,7 +1684,7 @@
         "h1": [
           "Varsler"
         ],
-        "bodyTextLength": 500,
+        "bodyTextLength": 490,
         "imageFailures": [],
         "legacy": null
       }
@@ -1658,8 +1700,8 @@
         "file": "screenshots/pages/desktop/varsler-innstillinger.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 74629,
-        "capturedAt": "2026-10-30T17:07:52.425Z",
+        "bytes": 90307,
+        "capturedAt": "2026-10-30T18:24:52.193Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler/innstillinger",
         "finalPath": "/varsler/innstillinger",
@@ -1667,7 +1709,7 @@
         "h1": [
           "Varselinnstillinger"
         ],
-        "bodyTextLength": 1105,
+        "bodyTextLength": 1103,
         "imageFailures": [],
         "legacy": null
       },
@@ -1675,8 +1717,8 @@
         "file": "screenshots/pages/mobile/varsler-innstillinger.jpg",
         "width": 390,
         "height": 1285,
-        "bytes": 54500,
-        "capturedAt": "2026-10-30T17:09:40.132Z",
+        "bytes": 56553,
+        "capturedAt": "2026-10-30T18:26:41.247Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/varsler/innstillinger",
         "finalPath": "/varsler/innstillinger",
@@ -1684,7 +1726,7 @@
         "h1": [
           "Varselinnstillinger"
         ],
-        "bodyTextLength": 1050,
+        "bodyTextLength": 1048,
         "imageFailures": [],
         "legacy": null
       }
@@ -1700,8 +1742,8 @@
         "file": "screenshots/pages/desktop/innstillinger-branding.jpg",
         "width": 1440,
         "height": 1067,
-        "bytes": 93689,
-        "capturedAt": "2026-10-30T17:07:54.027Z",
+        "bytes": 93708,
+        "capturedAt": "2026-10-30T18:24:53.793Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=branding",
         "finalPath": "/innstillinger",
@@ -1709,22 +1751,22 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 830,
+        "bodyTextLength": 828,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/11-innstillinger-merkevare.png",
           "width": 1440,
           "height": 1067,
-          "bytes": 105378,
-          "capturedAt": "2026-10-30T17:07:54.027Z"
+          "bytes": 105723,
+          "capturedAt": "2026-10-30T18:24:53.793Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/innstillinger-branding.jpg",
         "width": 390,
         "height": 1282,
-        "bytes": 61984,
-        "capturedAt": "2026-10-30T17:09:41.667Z",
+        "bytes": 62641,
+        "capturedAt": "2026-10-30T18:26:42.812Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=branding",
         "finalPath": "/innstillinger",
@@ -1732,7 +1774,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 813,
+        "bodyTextLength": 811,
         "imageFailures": [],
         "legacy": null
       }
@@ -1748,8 +1790,8 @@
         "file": "screenshots/pages/desktop/innstillinger-kart.jpg",
         "width": 1440,
         "height": 1053,
-        "bytes": 91939,
-        "capturedAt": "2026-10-30T17:07:55.680Z",
+        "bytes": 92003,
+        "capturedAt": "2026-10-30T18:24:55.457Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=kart",
         "finalPath": "/innstillinger",
@@ -1757,7 +1799,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 880,
+        "bodyTextLength": 878,
         "imageFailures": [],
         "legacy": null
       },
@@ -1765,8 +1807,8 @@
         "file": "screenshots/pages/mobile/innstillinger-kart.jpg",
         "width": 390,
         "height": 1448,
-        "bytes": 65036,
-        "capturedAt": "2026-10-30T17:09:43.233Z",
+        "bytes": 65687,
+        "capturedAt": "2026-10-30T18:26:44.353Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=kart",
         "finalPath": "/innstillinger",
@@ -1774,7 +1816,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 863,
+        "bodyTextLength": 861,
         "imageFailures": [],
         "legacy": null
       }
@@ -1790,8 +1832,8 @@
         "file": "screenshots/pages/desktop/innstillinger-ansatte.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 95646,
-        "capturedAt": "2026-10-30T17:07:57.338Z",
+        "bytes": 95649,
+        "capturedAt": "2026-10-30T18:24:57.106Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -1799,7 +1841,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 816,
+        "bodyTextLength": 814,
         "imageFailures": [],
         "legacy": null
       },
@@ -1807,8 +1849,8 @@
         "file": "screenshots/pages/mobile/innstillinger-ansatte.jpg",
         "width": 390,
         "height": 1119,
-        "bytes": 55987,
-        "capturedAt": "2026-10-30T17:09:45.072Z",
+        "bytes": 56652,
+        "capturedAt": "2026-10-30T18:26:45.913Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -1816,7 +1858,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 714,
+        "bodyTextLength": 712,
         "imageFailures": [],
         "legacy": null
       }
@@ -1832,8 +1874,8 @@
         "file": "screenshots/pages/desktop/innstillinger-roller.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 90759,
-        "capturedAt": "2026-10-30T17:07:59.214Z",
+        "bytes": 90760,
+        "capturedAt": "2026-10-30T18:24:58.723Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=roller",
         "finalPath": "/innstillinger",
@@ -1841,7 +1883,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 754,
+        "bodyTextLength": 752,
         "imageFailures": [],
         "legacy": null
       },
@@ -1849,8 +1891,8 @@
         "file": "screenshots/pages/mobile/innstillinger-roller.jpg",
         "width": 390,
         "height": 1201,
-        "bytes": 57906,
-        "capturedAt": "2026-10-30T17:09:46.864Z",
+        "bytes": 58553,
+        "capturedAt": "2026-10-30T18:26:47.463Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=roller",
         "finalPath": "/innstillinger",
@@ -1858,7 +1900,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 737,
+        "bodyTextLength": 735,
         "imageFailures": [],
         "legacy": null
       }
@@ -1874,8 +1916,8 @@
         "file": "screenshots/pages/desktop/innstillinger-avdelinger.jpg",
         "width": 1440,
         "height": 1141,
-        "bytes": 100141,
-        "capturedAt": "2026-10-30T17:08:00.831Z",
+        "bytes": 100132,
+        "capturedAt": "2026-10-30T18:25:00.293Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=avdelinger",
         "finalPath": "/innstillinger",
@@ -1883,7 +1925,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 835,
+        "bodyTextLength": 833,
         "imageFailures": [],
         "legacy": null
       },
@@ -1891,8 +1933,8 @@
         "file": "screenshots/pages/mobile/innstillinger-avdelinger.jpg",
         "width": 390,
         "height": 1739,
-        "bytes": 74799,
-        "capturedAt": "2026-10-30T17:09:48.401Z",
+        "bytes": 75394,
+        "capturedAt": "2026-10-30T18:26:49.019Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=avdelinger",
         "finalPath": "/innstillinger",
@@ -1900,7 +1942,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 818,
+        "bodyTextLength": 816,
         "imageFailures": [],
         "legacy": null
       }
@@ -1916,8 +1958,8 @@
         "file": "screenshots/pages/desktop/innstillinger-maler.jpg",
         "width": 1440,
         "height": 1984,
-        "bytes": 232987,
-        "capturedAt": "2026-10-30T17:08:02.515Z",
+        "bytes": 232948,
+        "capturedAt": "2026-10-30T18:25:02.023Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=maler",
         "finalPath": "/innstillinger",
@@ -1925,7 +1967,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 2302,
+        "bodyTextLength": 2300,
         "imageFailures": [],
         "legacy": null
       },
@@ -1933,8 +1975,8 @@
         "file": "screenshots/pages/mobile/innstillinger-maler.jpg",
         "width": 390,
         "height": 3469,
-        "bytes": 187380,
-        "capturedAt": "2026-10-30T17:09:50.079Z",
+        "bytes": 187753,
+        "capturedAt": "2026-10-30T18:26:50.694Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=maler",
         "finalPath": "/innstillinger",
@@ -1942,7 +1984,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 2285,
+        "bodyTextLength": 2283,
         "imageFailures": [],
         "legacy": null
       }
@@ -1958,8 +2000,8 @@
         "file": "screenshots/pages/desktop/innstillinger-tags.jpg",
         "width": 1440,
         "height": 1162,
-        "bytes": 103893,
-        "capturedAt": "2026-10-30T17:08:04.100Z",
+        "bytes": 103936,
+        "capturedAt": "2026-10-30T18:25:03.661Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=tags",
         "finalPath": "/innstillinger",
@@ -1967,7 +2009,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 705,
+        "bodyTextLength": 703,
         "imageFailures": [],
         "legacy": null
       },
@@ -1975,8 +2017,8 @@
         "file": "screenshots/pages/mobile/innstillinger-tags.jpg",
         "width": 390,
         "height": 1525,
-        "bytes": 68217,
-        "capturedAt": "2026-10-30T17:09:51.703Z",
+        "bytes": 68882,
+        "capturedAt": "2026-10-30T18:26:52.247Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=tags",
         "finalPath": "/innstillinger",
@@ -1984,7 +2026,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 688,
+        "bodyTextLength": 686,
         "imageFailures": [],
         "legacy": null
       }
@@ -2000,8 +2042,8 @@
         "file": "screenshots/pages/desktop/innstillinger-auditlog.jpg",
         "width": 1440,
         "height": 2777,
-        "bytes": 318165,
-        "capturedAt": "2026-10-30T17:08:06.065Z",
+        "bytes": 312782,
+        "capturedAt": "2026-10-30T18:25:05.617Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=auditlog",
         "finalPath": "/innstillinger",
@@ -2009,7 +2051,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 3568,
+        "bodyTextLength": 3481,
         "imageFailures": [],
         "legacy": null
       },
@@ -2017,8 +2059,8 @@
         "file": "screenshots/pages/mobile/innstillinger-auditlog.jpg",
         "width": 390,
         "height": 5988,
-        "bytes": 262674,
-        "capturedAt": "2026-10-30T17:09:53.750Z",
+        "bytes": 257999,
+        "capturedAt": "2026-10-30T18:26:54.281Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=auditlog",
         "finalPath": "/innstillinger",
@@ -2026,7 +2068,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 3504,
+        "bodyTextLength": 3417,
         "imageFailures": [],
         "legacy": null
       }
@@ -2042,8 +2084,8 @@
         "file": "screenshots/pages/desktop/innstillinger-statistikk.jpg",
         "width": 1440,
         "height": 1687,
-        "bytes": 126813,
-        "capturedAt": "2026-10-30T17:08:07.740Z",
+        "bytes": 126861,
+        "capturedAt": "2026-10-30T18:25:07.275Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=statistikk",
         "finalPath": "/innstillinger",
@@ -2051,7 +2093,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 875,
+        "bodyTextLength": 873,
         "imageFailures": [],
         "legacy": null
       },
@@ -2059,8 +2101,8 @@
         "file": "screenshots/pages/mobile/innstillinger-statistikk.jpg",
         "width": 390,
         "height": 2156,
-        "bytes": 77994,
-        "capturedAt": "2026-10-30T17:09:55.349Z",
+        "bytes": 78570,
+        "capturedAt": "2026-10-30T18:26:55.864Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=statistikk",
         "finalPath": "/innstillinger",
@@ -2068,7 +2110,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 858,
+        "bodyTextLength": 856,
         "imageFailures": [],
         "legacy": null
       }
@@ -2084,8 +2126,8 @@
         "file": "screenshots/pages/desktop/innstillinger-sikkerhet.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 75077,
-        "capturedAt": "2026-10-30T17:08:09.349Z",
+        "bytes": 75052,
+        "capturedAt": "2026-10-30T18:25:08.873Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sikkerhet",
         "finalPath": "/innstillinger",
@@ -2093,22 +2135,22 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 563,
+        "bodyTextLength": 561,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/10-innstillinger-sikkerhet.png",
           "width": 1440,
           "height": 993,
-          "bytes": 80106,
-          "capturedAt": "2026-10-30T17:08:09.349Z"
+          "bytes": 80460,
+          "capturedAt": "2026-10-30T18:25:08.873Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/innstillinger-sikkerhet.jpg",
         "width": 390,
         "height": 1102,
-        "bytes": 42447,
-        "capturedAt": "2026-10-30T17:09:56.903Z",
+        "bytes": 43125,
+        "capturedAt": "2026-10-30T18:26:57.361Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=sikkerhet",
         "finalPath": "/innstillinger",
@@ -2116,7 +2158,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 546,
+        "bodyTextLength": 544,
         "imageFailures": [],
         "legacy": null
       }
@@ -2132,8 +2174,8 @@
         "file": "screenshots/pages/desktop/innstillinger-api.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 88970,
-        "capturedAt": "2026-10-30T17:08:11.014Z",
+        "bytes": 88931,
+        "capturedAt": "2026-10-30T18:25:10.525Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=api",
         "finalPath": "/innstillinger",
@@ -2141,7 +2183,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 727,
+        "bodyTextLength": 725,
         "imageFailures": [],
         "legacy": null
       },
@@ -2149,8 +2191,8 @@
         "file": "screenshots/pages/mobile/innstillinger-api.jpg",
         "width": 390,
         "height": 1243,
-        "bytes": 60055,
-        "capturedAt": "2026-10-30T17:09:58.448Z",
+        "bytes": 60647,
+        "capturedAt": "2026-10-30T18:26:58.870Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=api",
         "finalPath": "/innstillinger",
@@ -2158,7 +2200,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 710,
+        "bodyTextLength": 708,
         "imageFailures": [],
         "legacy": null
       }
@@ -2174,8 +2216,8 @@
         "file": "screenshots/pages/desktop/mal-rediger.jpg",
         "width": 1440,
         "height": 1931,
-        "bytes": 147099,
-        "capturedAt": "2026-10-30T17:08:18.073Z",
+        "bytes": 147134,
+        "capturedAt": "2026-10-30T18:25:17.583Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger/maler/cmvv6v4y1000i5xfj3ejc9r9y",
         "finalPath": "/innstillinger/maler/cmvv6v4y1000i5xfj3ejc9r9y",
@@ -2183,7 +2225,7 @@
         "h1": [
           "Rediger Mal"
         ],
-        "bodyTextLength": 1226,
+        "bodyTextLength": 1224,
         "imageFailures": [],
         "legacy": null
       },
@@ -2191,8 +2233,8 @@
         "file": "screenshots/pages/mobile/mal-rediger.jpg",
         "width": 390,
         "height": 2551,
-        "bytes": 116935,
-        "capturedAt": "2026-10-30T17:10:05.531Z",
+        "bytes": 117620,
+        "capturedAt": "2026-10-30T18:27:05.901Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger/maler/cmvv6v4y1000i5xfj3ejc9r9y",
         "finalPath": "/innstillinger/maler/cmvv6v4y1000i5xfj3ejc9r9y",
@@ -2200,7 +2242,7 @@
         "h1": [
           "Rediger Mal"
         ],
-        "bodyTextLength": 1171,
+        "bodyTextLength": 1169,
         "imageFailures": [],
         "legacy": null
       }
@@ -2216,8 +2258,8 @@
         "file": "screenshots/pages/desktop/brukere.jpg",
         "width": 1440,
         "height": 993,
-        "bytes": 95646,
-        "capturedAt": "2026-10-30T17:08:20.093Z",
+        "bytes": 95649,
+        "capturedAt": "2026-10-30T18:25:19.596Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -2225,7 +2267,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 816,
+        "bodyTextLength": 814,
         "imageFailures": [],
         "legacy": null
       },
@@ -2233,8 +2275,8 @@
         "file": "screenshots/pages/mobile/brukere.jpg",
         "width": 390,
         "height": 1119,
-        "bytes": 55987,
-        "capturedAt": "2026-10-30T17:10:07.501Z",
+        "bytes": 56652,
+        "capturedAt": "2026-10-30T18:27:07.883Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
         "finalPath": "/innstillinger",
@@ -2242,7 +2284,7 @@
         "h1": [
           "Innstillinger"
         ],
-        "bodyTextLength": 714,
+        "bodyTextLength": 712,
         "imageFailures": [],
         "legacy": null
       }
@@ -2257,9 +2299,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/mine-oppdrag.jpg",
         "width": 1440,
-        "height": 3013,
-        "bytes": 205542,
-        "capturedAt": "2026-10-30T17:08:22.239Z",
+        "height": 3021,
+        "bytes": 207488,
+        "capturedAt": "2026-10-30T18:25:21.709Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag",
         "finalPath": "/mine-oppdrag",
@@ -2267,7 +2309,7 @@
         "h1": [
           "Hei, Demo Montør"
         ],
-        "bodyTextLength": 1651,
+        "bodyTextLength": 1649,
         "imageFailures": [],
         "legacy": null
       },
@@ -2275,8 +2317,8 @@
         "file": "screenshots/pages/mobile/mine-oppdrag.jpg",
         "width": 390,
         "height": 3232,
-        "bytes": 156440,
-        "capturedAt": "2026-10-30T17:10:09.658Z",
+        "bytes": 158303,
+        "capturedAt": "2026-10-30T18:27:09.978Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag",
         "finalPath": "/mine-oppdrag",
@@ -2284,7 +2326,7 @@
         "h1": [
           "Hei, Demo Montør"
         ],
-        "bodyTextLength": 1633,
+        "bodyTextLength": 1631,
         "imageFailures": [],
         "legacy": null
       }
@@ -2299,9 +2341,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/mine-oppdrag-detalj.jpg",
         "width": 1440,
-        "height": 2720,
-        "bytes": 180288,
-        "capturedAt": "2026-10-30T17:08:24.047Z",
+        "height": 2723,
+        "bytes": 182721,
+        "capturedAt": "2026-10-30T18:25:23.466Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00",
         "finalPath": "/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00",
@@ -2309,16 +2351,16 @@
         "h1": [
           "Service – automatiske dører"
         ],
-        "bodyTextLength": 1282,
+        "bodyTextLength": 1280,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/mine-oppdrag-detalj.jpg",
         "width": 390,
-        "height": 3147,
-        "bytes": 133918,
-        "capturedAt": "2026-10-30T17:10:11.460Z",
+        "height": 3171,
+        "bytes": 134107,
+        "capturedAt": "2026-10-30T18:27:12.048Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00",
         "finalPath": "/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00",
@@ -2326,14 +2368,14 @@
         "h1": [
           "Service – automatiske dører"
         ],
-        "bodyTextLength": 1270,
+        "bodyTextLength": 1268,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/13-mobil-oppdrag.png",
           "width": 390,
-          "height": 3147,
-          "bytes": 184630,
-          "capturedAt": "2026-10-30T17:10:11.460Z"
+          "height": 3171,
+          "bytes": 184345,
+          "capturedAt": "2026-10-30T18:27:12.048Z"
         }
       }
     },
@@ -2347,9 +2389,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/mine-oppdrag-skjema.jpg",
         "width": 1440,
-        "height": 2670,
-        "bytes": 207649,
-        "capturedAt": "2026-10-30T17:08:31.217Z",
+        "height": 2678,
+        "bytes": 208024,
+        "capturedAt": "2026-10-30T18:25:30.609Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00/skjema/cmvv6v4y1000i5xfj3ejc9r9y",
         "finalPath": "/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00/skjema/cmvv6v4y1000i5xfj3ejc9r9y",
@@ -2357,16 +2399,16 @@
         "h1": [
           "Service av porter"
         ],
-        "bodyTextLength": 1871,
+        "bodyTextLength": 1869,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/mine-oppdrag-skjema.jpg",
         "width": 390,
-        "height": 4092,
-        "bytes": 174755,
-        "capturedAt": "2026-10-30T17:10:18.853Z",
+        "height": 4100,
+        "bytes": 174918,
+        "capturedAt": "2026-10-30T18:27:19.322Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00/skjema/cmvv6v4y1000i5xfj3ejc9r9y",
         "finalPath": "/mine-oppdrag/cmvv6v4yh000k5xfjemzrrl00/skjema/cmvv6v4y1000i5xfj3ejc9r9y",
@@ -2374,7 +2416,7 @@
         "h1": [
           "Service av porter"
         ],
-        "bodyTextLength": 1874,
+        "bodyTextLength": 1872,
         "imageFailures": [],
         "legacy": null
       }
@@ -2389,9 +2431,9 @@
       "desktop": {
         "file": "screenshots/pages/desktop/mine-oppdrag-ny.jpg",
         "width": 1440,
-        "height": 1703,
-        "bytes": 110771,
-        "capturedAt": "2026-10-30T17:08:32.826Z",
+        "height": 1711,
+        "bytes": 110969,
+        "capturedAt": "2026-10-30T18:25:32.181Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/ny",
         "finalPath": "/mine-oppdrag/ny",
@@ -2399,16 +2441,16 @@
         "h1": [
           "Opprett nytt oppdrag"
         ],
-        "bodyTextLength": 874,
+        "bodyTextLength": 872,
         "imageFailures": [],
         "legacy": null
       },
       "mobile": {
         "file": "screenshots/pages/mobile/mine-oppdrag-ny.jpg",
         "width": 390,
-        "height": 2120,
-        "bytes": 87136,
-        "capturedAt": "2026-10-30T17:10:20.453Z",
+        "height": 2128,
+        "bytes": 87255,
+        "capturedAt": "2026-10-30T18:27:20.916Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/ny",
         "finalPath": "/mine-oppdrag/ny",
@@ -2416,7 +2458,7 @@
         "h1": [
           "Opprett nytt oppdrag"
         ],
-        "bodyTextLength": 862,
+        "bodyTextLength": 860,
         "imageFailures": [],
         "legacy": null
       }
@@ -2432,8 +2474,8 @@
         "file": "screenshots/pages/desktop/mine-oppdrag-kunder.jpg",
         "width": 1440,
         "height": 1036,
-        "bytes": 83421,
-        "capturedAt": "2026-10-30T17:08:34.378Z",
+        "bytes": 84280,
+        "capturedAt": "2026-10-30T18:25:33.673Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/kunder",
         "finalPath": "/mine-oppdrag/kunder",
@@ -2441,7 +2483,7 @@
         "h1": [
           "Kunde- og utstyrsarkiv"
         ],
-        "bodyTextLength": 640,
+        "bodyTextLength": 638,
         "imageFailures": [],
         "legacy": null
       },
@@ -2449,8 +2491,8 @@
         "file": "screenshots/pages/mobile/mine-oppdrag-kunder.jpg",
         "width": 390,
         "height": 1640,
-        "bytes": 68897,
-        "capturedAt": "2026-10-30T17:10:22.001Z",
+        "bytes": 69664,
+        "capturedAt": "2026-10-30T18:27:22.449Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/mine-oppdrag/kunder",
         "finalPath": "/mine-oppdrag/kunder",
@@ -2458,7 +2500,7 @@
         "h1": [
           "Kunde- og utstyrsarkiv"
         ],
-        "bodyTextLength": 628,
+        "bodyTextLength": 626,
         "imageFailures": [],
         "legacy": null
       }
@@ -2474,8 +2516,8 @@
         "file": "screenshots/pages/desktop/kundeportal.jpg",
         "width": 1440,
         "height": 3186,
-        "bytes": 299639,
-        "capturedAt": "2026-10-30T17:08:36.539Z",
+        "bytes": 299245,
+        "capturedAt": "2026-10-30T18:25:35.814Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kundeportal",
         "finalPath": "/kundeportal",
@@ -2483,22 +2525,22 @@
         "h1": [
           "Min Bedrift: Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 3411,
+        "bodyTextLength": 3409,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/14-kundeportal.png",
           "width": 1440,
           "height": 3186,
-          "bytes": 339057,
-          "capturedAt": "2026-10-30T17:08:36.539Z"
+          "bytes": 338831,
+          "capturedAt": "2026-10-30T18:25:35.814Z"
         }
       },
       "mobile": {
         "file": "screenshots/pages/mobile/kundeportal.jpg",
         "width": 390,
         "height": 4918,
-        "bytes": 253141,
-        "capturedAt": "2026-10-30T17:10:24.277Z",
+        "bytes": 253183,
+        "capturedAt": "2026-10-30T18:27:24.413Z",
         "httpStatus": 200,
         "finalUrl": "http://127.0.0.1:3100/kundeportal",
         "finalPath": "/kundeportal",
@@ -2506,14 +2548,14 @@
         "h1": [
           "Min Bedrift: Nordvik Testindustri AS"
         ],
-        "bodyTextLength": 3379,
+        "bodyTextLength": 3377,
         "imageFailures": [],
         "legacy": {
           "file": "screenshots/15-kundeportal-mobil.png",
           "width": 390,
           "height": 4918,
-          "bytes": 322715,
-          "capturedAt": "2026-10-30T17:10:24.277Z"
+          "bytes": 323009,
+          "capturedAt": "2026-10-30T18:27:24.413Z"
         }
       }
     }
@@ -2646,8 +2688,8 @@
       "file": "screenshots/pages/desktop/logg-inn.jpg",
       "width": 1440,
       "height": 900,
-      "bytes": 25313,
-      "capturedAt": "2026-10-30T17:06:49.211Z",
+      "bytes": 25503,
+      "capturedAt": "2026-10-30T18:23:46.152Z",
       "httpStatus": 200,
       "finalUrl": "http://127.0.0.1:3100/logg-inn",
       "finalPath": "/logg-inn",
@@ -2655,7 +2697,7 @@
       "h1": [
         "Logg inn"
       ],
-      "bodyTextLength": 116,
+      "bodyTextLength": 114,
       "imageFailures": [],
       "legacy": null
     },
@@ -2663,8 +2705,8 @@
       "file": "screenshots/pages/desktop/404-finnes-ikke.jpg",
       "width": 1440,
       "height": 900,
-      "bytes": 32082,
-      "capturedAt": "2026-10-30T17:06:55.144Z",
+      "bytes": 55208,
+      "capturedAt": "2026-10-30T18:23:52.082Z",
       "httpStatus": 404,
       "finalUrl": "http://127.0.0.1:3100/finnes-ikke",
       "finalPath": "/finnes-ikke",
@@ -2672,7 +2714,7 @@
       "h1": [
         "Siden finnes ikke"
       ],
-      "bodyTextLength": 186,
+      "bodyTextLength": 182,
       "imageFailures": [],
       "legacy": null
     },
@@ -2680,8 +2722,8 @@
       "file": "screenshots/pages/desktop/brukere.jpg",
       "width": 1440,
       "height": 993,
-      "bytes": 95646,
-      "capturedAt": "2026-10-30T17:08:20.093Z",
+      "bytes": 95649,
+      "capturedAt": "2026-10-30T18:25:19.596Z",
       "httpStatus": 200,
       "finalUrl": "http://127.0.0.1:3100/innstillinger?tab=ansatte",
       "finalPath": "/innstillinger",
@@ -2689,7 +2731,7 @@
       "h1": [
         "Innstillinger"
       ],
-      "bodyTextLength": 816,
+      "bodyTextLength": 814,
       "imageFailures": [],
       "legacy": null
     },
@@ -2709,107 +2751,107 @@
     {
       "file": "screenshots/01-dashbord.png",
       "width": 1440,
-      "height": 1006,
-      "bytes": 171527,
-      "capturedAt": "2026-10-30T17:06:57.218Z"
+      "height": 1179,
+      "bytes": 186171,
+      "capturedAt": "2026-10-30T18:23:53.937Z"
     },
     {
       "file": "screenshots/02-oppdrag.png",
       "width": 1440,
       "height": 993,
-      "bytes": 162383,
-      "capturedAt": "2026-10-30T17:06:58.950Z"
+      "bytes": 165163,
+      "capturedAt": "2026-10-30T18:23:57.495Z"
     },
     {
       "file": "screenshots/03-oppdrag-detalj.png",
       "width": 1440,
-      "height": 2337,
-      "bytes": 213703,
-      "capturedAt": "2026-10-30T17:07:04.000Z"
+      "height": 2340,
+      "bytes": 223892,
+      "capturedAt": "2026-10-30T18:24:02.752Z"
     },
     {
       "file": "screenshots/04-kalender.png",
       "width": 1440,
       "height": 1568,
-      "bytes": 152782,
-      "capturedAt": "2026-10-30T17:07:09.313Z"
+      "bytes": 156294,
+      "capturedAt": "2026-10-30T18:24:08.157Z"
     },
     {
       "file": "screenshots/05-kunder.png",
       "width": 1440,
       "height": 993,
-      "bytes": 100312,
-      "capturedAt": "2026-10-30T17:07:18.142Z"
+      "bytes": 103110,
+      "capturedAt": "2026-10-30T18:24:17.444Z"
     },
     {
       "file": "screenshots/06-kunde-detalj.png",
       "width": 1440,
       "height": 1193,
-      "bytes": 167827,
-      "capturedAt": "2026-10-30T17:07:20.135Z"
+      "bytes": 172828,
+      "capturedAt": "2026-10-30T18:24:19.458Z"
     },
     {
       "file": "screenshots/07-dokumenter.png",
       "width": 1440,
       "height": 1188,
-      "bytes": 158612,
-      "capturedAt": "2026-10-30T17:07:33.818Z"
+      "bytes": 162487,
+      "capturedAt": "2026-10-30T18:24:33.237Z"
     },
     {
       "file": "screenshots/08-dokumenter-mappe.png",
       "width": 1440,
       "height": 993,
-      "bytes": 93207,
-      "capturedAt": "2026-10-30T17:07:35.482Z"
+      "bytes": 95990,
+      "capturedAt": "2026-10-30T18:24:34.915Z"
     },
     {
       "file": "screenshots/09-rapporter.png",
       "width": 1440,
       "height": 993,
-      "bytes": 100813,
-      "capturedAt": "2026-10-30T17:07:38.979Z"
+      "bytes": 103515,
+      "capturedAt": "2026-10-30T18:24:38.390Z"
     },
     {
       "file": "screenshots/11-innstillinger-merkevare.png",
       "width": 1440,
       "height": 1067,
-      "bytes": 105378,
-      "capturedAt": "2026-10-30T17:07:54.027Z"
+      "bytes": 105723,
+      "capturedAt": "2026-10-30T18:24:53.793Z"
     },
     {
       "file": "screenshots/10-innstillinger-sikkerhet.png",
       "width": 1440,
       "height": 993,
-      "bytes": 80106,
-      "capturedAt": "2026-10-30T17:08:09.349Z"
+      "bytes": 80460,
+      "capturedAt": "2026-10-30T18:25:08.873Z"
     },
     {
       "file": "screenshots/14-kundeportal.png",
       "width": 1440,
       "height": 3186,
-      "bytes": 339057,
-      "capturedAt": "2026-10-30T17:08:36.539Z"
+      "bytes": 338831,
+      "capturedAt": "2026-10-30T18:25:35.814Z"
     },
     {
       "file": "screenshots/12-mobil-dashbord.png",
       "width": 390,
-      "height": 1896,
-      "bytes": 135775,
-      "capturedAt": "2026-10-30T17:08:46.126Z"
+      "height": 2440,
+      "bytes": 161894,
+      "capturedAt": "2026-10-30T18:25:45.245Z"
     },
     {
       "file": "screenshots/13-mobil-oppdrag.png",
       "width": 390,
-      "height": 3147,
-      "bytes": 184630,
-      "capturedAt": "2026-10-30T17:10:11.460Z"
+      "height": 3171,
+      "bytes": 184345,
+      "capturedAt": "2026-10-30T18:27:12.048Z"
     },
     {
       "file": "screenshots/15-kundeportal-mobil.png",
       "width": 390,
       "height": 4918,
-      "bytes": 322715,
-      "capturedAt": "2026-10-30T17:10:24.277Z"
+      "bytes": 323009,
+      "capturedAt": "2026-10-30T18:27:24.413Z"
     }
   ],
   "failures": []

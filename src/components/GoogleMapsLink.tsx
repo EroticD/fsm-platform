@@ -1,5 +1,7 @@
 "use client";
 
+import Icon from "@/components/icons";
+
 export default function GoogleMapsLink({
   address,
   postalCode,
@@ -7,6 +9,7 @@ export default function GoogleMapsLink({
   label,
   newTabLabel,
   className,
+  showIcon = true,
 }: {
   address?: string | null;
   postalCode?: string | null;
@@ -15,6 +18,8 @@ export default function GoogleMapsLink({
   /** Skjermlesertekst som forklarer at lenken åpnes i ny fane. */
   newTabLabel?: string;
   className?: string;
+  /** Vis merkenålen foran lenketeksten. På som standard. */
+  showIcon?: boolean;
 }) {
   const parts = [address, postalCode, city].filter(Boolean);
   const query = parts.join(", ");
@@ -28,8 +33,14 @@ export default function GoogleMapsLink({
       href={mapsUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`text-blue-600 font-bold hover:underline transition ${className || ""}`}
+      className={`inline-flex items-center gap-1.5 font-bold text-[var(--ink,#101310)] transition hover:text-[var(--ink,#101310)] ${className || ""}`}
     >
+      {showIcon ? (
+        <Icon
+          name="brandNav"
+          className="mr-1.5 inline-block h-4 w-4 shrink-0 align-[-0.125em]"
+        />
+      ) : null}
       {label || query}
       {newTabLabel ? <span className="sr-only"> ({newTabLabel})</span> : null}
     </a>

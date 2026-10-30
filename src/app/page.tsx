@@ -10,10 +10,10 @@ import Icon, { type IconName } from "@/components/icons";
 import {
   addDaysUtc,
   formatDateLocalized,
-  formatDateRangeLocalized,
   formatDateTimeLocalized,
   isoWeekNumber,
   parseDateOnly,
+  toDateOnly,
   todayInOslo,
 } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
@@ -22,6 +22,24 @@ import { hasPermission } from "@/lib/permissions";
 import { departmentUsersScope, workOrderScope } from "@/lib/access";
 import { reportWorkOrderScope } from "@/lib/report-scope";
 import { homePathForRole } from "@/lib/navigation";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import DashboardMetricCards, {
+  type DashboardMetricCard,
+} from "@/components/dashboard/DashboardMetricCards";
+import DashboardBoard from "@/components/dashboard/DashboardBoard";
+import PriorityQueue from "@/components/dashboard/PriorityQueue";
+import DashboardRail from "@/components/dashboard/DashboardRail";
+import {
+  QUEUE_SORT_KEYS,
+  buildBoardColumns,
+  resolveDashboardView,
+  resolveQueueSort,
+  sortQueueRows,
+  type BoardColumnKey,
+  type DashboardView,
+  type QueueKey,
+  type QueueSort,
+} from "@/components/dashboard/helpers";
 
 // ------------------------------------------------------------------
 // Command Center-flater. Klassenavnene under er de samme verdiene som
@@ -29,10 +47,6 @@ import { homePathForRole } from "@/lib/navigation";
 // Fallbackene holder flaten riktig også før tokenlaget er lastet.
 // ------------------------------------------------------------------
 const CARD = "office-card";
-const INK_BUTTON =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
-const SIGNAL_BUTTON =
-  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
 const EYEBROW =
   "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
 const MUTED = "text-[var(--muted,#62685f)]";
@@ -56,23 +70,9 @@ const AWAITING_STATUSES: WorkStatus[] = [
   "WAITING",
 ];
 
-const STATUS_LABEL_KEYS: Record<string, string> = {
-  OPEN: "statusOpen",
-  PENDING: "statusPending",
-  PLANNED: "statusPlanned",
-  IN_PROGRESS: "statusInProgress",
-  WAITING: "statusWaiting",
-  COMPLETED: "statusCompleted",
-  CANCELLED: "statusCancelled",
-};
-
-const STATUS_TONE: Record<string, string> = {
-  IN_PROGRESS:
-    "border-[var(--ink,#131711)] bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]",
-  COMPLETED: "border-[#a9c96a] bg-[#eef7d6] text-[#283509]",
-  CANCELLED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
-  WAITING: "border-[#e4c98f] bg-[#fdf5e4] text-[#7a4f0c]",
-};
+// Tavlekortene henter litt flere rader enn den kompakte køen, men alltid
+// avgrenset. Kolonnene kappes til `BOARD_COLUMN_LIMIT` etter prioritering.
+const BOARD_SCAN_LIMIT = 24;
 
 // Dagens dato-grenser til bruk i spørringene. Kalenderdatoer er `date` i
 // databasen, så grensene regnes som rene datoer i Oslo – ikke lokal tid på
@@ -138,7 +138,72 @@ function unassignedWhere(
   };
 }
 
-type QueueKey = "overdue" | "today" | "unassigned";
+// Tavlekolonnene har samme prioritet som `buildBoardColumns`: forfalt først,
+// deretter pågående, dagens og til slutt ikke-tildelte. Telle-spørringene
+// bruker derfor de samme unntakene, slik at kolonnetallet matcher kortene.
+function inProgressBucketWhere(
+  scope: Prisma.WorkOrderWhereInput,
+  visibleStatus: Prisma.WorkOrderWhereInput,
+  dates: DateContext,
+): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      scope,
+      visibleStatus,
+      { status: "IN_PROGRESS" },
+      { NOT: overdueWhere(scope, visibleStatus, dates) },
+    ],
+  };
+}
+
+function todayBucketWhere(
+  scope: Prisma.WorkOrderWhereInput,
+  visibleStatus: Prisma.WorkOrderWhereInput,
+  dates: DateContext,
+): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      todayWhere(scope, visibleStatus, dates),
+      { status: { not: "IN_PROGRESS" } },
+    ],
+  };
+}
+
+function unassignedBucketWhere(
+  scope: Prisma.WorkOrderWhereInput,
+  visibleStatus: Prisma.WorkOrderWhereInput,
+  dates: DateContext,
+): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      unassignedWhere(scope, visibleStatus),
+      { status: { not: "IN_PROGRESS" } },
+      {
+        NOT: {
+          OR: [
+            overdueWhere(scope, visibleStatus, dates),
+            todayWhere(scope, visibleStatus, dates),
+          ],
+        },
+      },
+    ],
+  };
+}
+
+function completedTodayWhere(
+  scope: Prisma.WorkOrderWhereInput,
+  visibleStatus: Prisma.WorkOrderWhereInput,
+  { startOfToday, endOfToday }: DateContext,
+): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      scope,
+      visibleStatus,
+      scheduledTodayWhere(startOfToday, endOfToday),
+      { status: "COMPLETED" },
+    ],
+  };
+}
 
 type PriorityQueueGroup<T extends { id: string }> = {
   key: QueueKey;
@@ -180,52 +245,6 @@ export function buildPriorityQueue<T extends { id: string }>(
   });
 }
 
-function initials(name: string | null) {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  return `${parts[0]?.charAt(0) ?? "?"}${parts[1]?.charAt(0) ?? ""}`;
-}
-
-function statusLabel(
-  t: (key: string) => string,
-  status: string,
-) {
-  return t(STATUS_LABEL_KEYS[status] ?? "statusOpen");
-}
-
-function StatusPill({
-  status,
-  label,
-}: {
-  status: string;
-  label: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold ${
-        STATUS_TONE[status] ?? "border-[var(--line,#d8d3c5)] bg-white"
-      }`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-      {label}
-    </span>
-  );
-}
-
-/** Kompakt tomtilstand i køen – ingen stor illustrasjon eller kortstabel. */
-function QueueEmpty({ title }: { title: string }) {
-  return (
-    <div className="flex items-center gap-3 px-4 py-6 text-sm">
-      <span
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--signal,#c8f135)] text-sm font-black text-[var(--ink,#131711)]"
-        aria-hidden
-      >
-        <Icon name="check" className="h-4 w-4" />
-      </span>
-      <p className="font-bold text-[var(--ink,#131711)]">{title}</p>
-    </div>
-  );
-}
-
 type QuickAction = {
   href: string;
   icon: IconName;
@@ -249,6 +268,8 @@ async function DashboardOverview({
   dateContext,
   locale,
   canAssign,
+  view,
+  sort,
   footer,
 }: {
   scope: Prisma.WorkOrderWhereInput;
@@ -257,18 +278,25 @@ async function DashboardOverview({
   dateContext: DateContext;
   locale: string;
   canAssign: boolean;
+  view: DashboardView;
+  sort: QueueSort;
   footer?: ReactNode;
 }) {
   const t = await getTranslations("common");
-  const { startOfToday } = dateContext;
 
   const [
     statusGroups,
     todayCount,
     overdueCount,
     unassignedCount,
+    todayBucketCount,
+    inProgressBucketCount,
+    unassignedBucketCount,
+    completedTodayCount,
+    todayInProgressCount,
     overdueOrders,
     todayOrders,
+    inProgressOrders,
     unassignedOrders,
     team,
   ] = await Promise.all([
@@ -286,16 +314,42 @@ async function DashboardOverview({
     prisma.workOrder.count({ where: todayWhere(scope, visibleStatus, dateContext) }),
     prisma.workOrder.count({ where: overdueWhere(scope, visibleStatus, dateContext) }),
     prisma.workOrder.count({ where: unassignedWhere(scope, visibleStatus) }),
+    prisma.workOrder.count({
+      where: todayBucketWhere(scope, visibleStatus, dateContext),
+    }),
+    prisma.workOrder.count({
+      where: inProgressBucketWhere(scope, visibleStatus, dateContext),
+    }),
+    prisma.workOrder.count({
+      where: unassignedBucketWhere(scope, visibleStatus, dateContext),
+    }),
+    prisma.workOrder.count({
+      where: completedTodayWhere(scope, visibleStatus, dateContext),
+    }),
+    prisma.workOrder.count({
+      where: {
+        AND: [
+          todayWhere(scope, visibleStatus, dateContext),
+          { status: "IN_PROGRESS" },
+        ],
+      },
+    }),
     prisma.workOrder.findMany({
       where: overdueWhere(scope, visibleStatus, dateContext),
       orderBy: { scheduledFor: "asc" },
-      take: GROUP_LIMIT,
+      take: BOARD_SCAN_LIMIT,
       include: { customer: true, technicians: true },
     }),
     prisma.workOrder.findMany({
       where: todayWhere(scope, visibleStatus, dateContext),
       orderBy: { scheduledFor: "asc" },
-      take: GROUP_LIMIT,
+      take: BOARD_SCAN_LIMIT,
+      include: { customer: true, technicians: true },
+    }),
+    prisma.workOrder.findMany({
+      where: inProgressBucketWhere(scope, visibleStatus, dateContext),
+      orderBy: [{ scheduledFor: { sort: "asc", nulls: "last" } }],
+      take: BOARD_SCAN_LIMIT,
       include: { customer: true, technicians: true },
     }),
     prisma.workOrder.findMany({
@@ -329,16 +383,6 @@ async function DashboardOverview({
     (sum, status) => sum + countByStatus(status),
     0,
   );
-  const dateLabel = (() => {
-    const date = formatDateLocalized(
-      startOfToday,
-      locale,
-      undefined,
-      t("dashboard.orderList.noDate"),
-    );
-    const week = isoWeekNumber(startOfToday);
-    return week ? `${date} · ${t("dashboard.weekLabel", { week })}` : date;
-  })();
 
   const groups = buildPriorityQueue(
     {
@@ -352,529 +396,144 @@ async function DashboardOverview({
       unassigned: unassignedCount,
     },
   );
-  const visibleGroups = groups.filter((group) => group.orders.length > 0);
-  const rows = groups.flatMap((group) =>
-    group.orders.map((order) => ({ order, queueKey: group.key })),
+  const rows = sortQueueRows(
+    groups.flatMap((group) =>
+      group.orders.map((order) => ({ order, queueKey: group.key })),
+    ),
+    sort,
   );
 
-  const groupMeta: Record<QueueKey, { href: string; action: string }> = {
-    overdue: {
-      href: "/oppdrag?vis=forfalte",
-      action: t("dashboard.queue.viewAllOverdue"),
+  const boardTotals: Record<BoardColumnKey, number> = {
+    overdue: overdueCount,
+    today: todayBucketCount,
+    inProgress: inProgressBucketCount,
+    unassigned: unassignedBucketCount,
+  };
+  const boardColumns = buildBoardColumns(
+    {
+      overdue: overdueOrders,
+      today: todayOrders,
+      inProgress: inProgressOrders,
+      unassigned: unassignedOrders,
     },
-    today: {
-      href: "/oppdrag?vis=idag",
-      action: t("dashboard.queue.viewAllToday"),
-    },
-    unassigned: {
-      href: canAssign ? "/kalender/dispatch" : "/oppdrag?vis=ikke-tildelt",
-      action: canAssign
-        ? t("dashboard.queue.openDispatch")
-        : t("dashboard.queue.viewAllUnassigned"),
-    },
+    boardTotals,
+  );
+  const boardHrefs: Record<BoardColumnKey, string> = {
+    overdue: "/oppdrag?vis=forfalte",
+    today: "/oppdrag?vis=idag",
+    inProgress: "/oppdrag?vis=pagaaende",
+    unassigned: "/oppdrag?vis=ikke-tildelt",
   };
 
-  const nextOverdue = overdueOrders[0];
+  const nextOverdue = overdueOrders[0] ?? null;
   const teamSorted = [...team].sort(
     (a, b) =>
       b._count.workOrders - a._count.workOrders ||
       (a.name ?? "").localeCompare(b.name ?? "", "nb"),
   );
-  const teamMax = Math.max(
-    1,
-    ...teamSorted.map((member) => member._count.workOrders),
-  );
+  const teamRows = teamSorted.map((member) => ({
+    id: member.id,
+    name: member.name,
+    count: member._count.workOrders,
+  }));
 
-  const exceptions = [
+  const metricCards: DashboardMetricCard[] = [
     {
       key: "overdue",
       label: t("dashboard.kpi.overdue"),
-      sub: t("dashboard.kpi.overdueSub"),
+      foot: t("dashboard.kpi.overdueSub"),
       value: overdueCount,
       href: "/oppdrag?vis=forfalte",
-      valueClass:
-        overdueCount > 0
-          ? "bg-[var(--risk-text,#b42318)] text-white"
-          : "bg-[#e9e6db] text-[var(--ink,#131711)]",
-      marker: "bg-[var(--risk,#b42318)]",
+      tone: "ink",
+      icon: "alert",
     },
     {
       key: "today",
       label: t("dashboard.kpi.today"),
-      sub: dateLabel,
+      foot: t("dashboard.kpi.todaySub"),
       value: todayCount,
       href: "/oppdrag?vis=idag",
-      valueClass:
-        "bg-[var(--signal,#c8f135)] text-[var(--ink,#131711)]",
-      marker: "bg-[var(--signal,#c8f135)]",
+      tone: "signal",
+      icon: "calendar",
     },
     {
       key: "unassigned",
       label: t("dashboard.kpi.unassigned"),
-      sub: t("dashboard.kpi.unassignedSub"),
+      foot: t("dashboard.kpi.unassignedSub"),
       value: unassignedCount,
       href: "/oppdrag?vis=ikke-tildelt",
-      valueClass:
-        unassignedCount > 0
-          ? "bg-[#f4d79b] text-[#4b3205]"
-          : "bg-[#e9e6db] text-[var(--ink,#131711)]",
-      marker: "bg-[#c78b16]",
+      tone: "paper",
+      icon: "plus",
     },
     {
       key: "inProgress",
       label: t("dashboard.kpi.inProgress"),
-      sub: t("dashboard.kpi.awaiting", { count: awaitingCount }),
+      foot: t("dashboard.kpi.awaiting", { count: awaitingCount }),
       value: inProgressCount,
       href: "/oppdrag?vis=pagaaende",
-      valueClass:
-        "bg-[var(--ink,#131711)] text-[var(--paper,#fbfaf4)]",
-      marker: "bg-[var(--ink,#131711)]",
+      tone: "paper",
+      marker: "signal",
     },
   ];
 
+  const sortLinks = QUEUE_SORT_KEYS.reduce(
+    (links, key) => {
+      links[key] = `/?vis=liste${key === "dato" ? "" : `&sort=${key}`}`;
+      return links;
+    },
+    {} as Record<QueueSort, string>,
+  );
+
+  const updatedTime = formatDateLocalized(new Date(), locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+
   return (
     <>
-      <section aria-labelledby="dashboard-exceptions-title">
-        <h2 id="dashboard-exceptions-title" className="sr-only">
-          {t("dashboard.primaryKpisTitle")}
-        </h2>
-        <div
-          className={`${CARD} grid grid-cols-2 divide-x divide-y divide-[var(--line,#d8d3c5)] overflow-hidden lg:grid-cols-4 lg:divide-y-0`}
-        >
-          {exceptions.map((item) => (
-            <Link
-              key={item.key}
-              href={item.href}
-              className="flex items-center justify-between gap-3 px-3 py-2.5 transition hover:bg-[#f3f6e7] sm:px-4"
-            >
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#5e6356]">
-                  <span
-                    className={`h-2 w-2 rounded-full ${item.marker}`}
-                    aria-hidden
-                  />
-                  {item.label}
-                </p>
-                <p className={`mt-0.5 truncate text-xs ${MUTED}`}>
-                  {item.sub}
-                </p>
-              </div>
-              <span
-                className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-xl font-black tabular-nums ${item.valueClass}`}
-              >
-                {item.value}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <DashboardMetricCards
+        cards={metricCards}
+        title={t("dashboard.primaryKpisTitle")}
+      />
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <section className={`${CARD} overflow-hidden lg:col-start-1 lg:row-start-1`} aria-labelledby="queue-title">
-          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--line,#d8d3c5)] px-4 py-3">
-            <div className="min-w-0">
-              <h2 id="queue-title" className="text-sm font-black tracking-tight">
-                {t("dashboard.queue.title")}
-              </h2>
-              <p className={`mt-0.5 hidden text-xs sm:block ${MUTED}`}>
-                {t("dashboard.queue.description")}
-              </p>
-            </div>
-            <Link
-              href="/oppdrag"
-              className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4 hover:decoration-[var(--ink,#131711)]"
-            >
-              {t("dashboard.allOrders")}
-              <Icon name="arrowRight" className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          {rows.length === 0 ? (
-            <QueueEmpty title={t("dashboard.queue.empty")} />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+          {view === "tavle" ? (
+            <DashboardBoard
+              columns={boardColumns}
+              hrefs={boardHrefs}
+              locale={locale}
+              title={t("dashboard.header.viewBoard")}
+              t={t}
+            />
           ) : (
-            <>
-              {/* Desktop: tett tabell med samme kolonner som planleggeren. */}
-              <div className="hidden overflow-x-auto md:block">
-                <table className="office-table" style={{ tableLayout: "fixed" }}>
-                  <colgroup>
-                    <col style={{ width: "7rem" }} />
-                    <col />
-                    <col style={{ width: "8.5rem" }} />
-                    <col style={{ width: "11rem" }} />
-                    <col style={{ width: "8.5rem" }} />
-                    <col style={{ width: "5.5rem" }} />
-                  </colgroup>
-                  <thead>
-                    <tr className="bg-[var(--ink,#101310)]">
-                      {[
-                        t("dashboard.queue.date"),
-                        t("dashboard.queue.order"),
-                        t("dashboard.queue.customer"),
-                        t("dashboard.queue.status"),
-                        t("dashboard.queue.technician"),
-                        t("dashboard.queue.action"),
-                      ].map((label, index) => (
-                        <th
-                          key={label}
-                          scope="col"
-                          style={{
-                            color: "var(--paper, #f2efe6)",
-                            borderBottomColor: "var(--signal, #d8ff3e)",
-                            borderBottomWidth: "2px",
-                            fontSize: "0.75rem",
-                            textAlign: index === 5 ? "right" : "left",
-                          }}
-                          className="whitespace-nowrap"
-                        >
-                          {label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(({ order, queueKey }) => {
-                      const address = [
-                        order.customer?.postalCode,
-                        order.customer?.city,
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
-                      return (
-                        <tr
-                          key={order.id}
-                          className={`border-b border-[var(--line,#d8d3c5)] transition last:border-0 hover:bg-[#f4f7e8] ${
-                            queueKey === "overdue" ? "bg-[#fdf4f2]" : ""
-                          }`}
-                        >
-                          <td className="whitespace-nowrap px-3 py-2 align-top">
-                            <span className="block text-xs font-bold tabular-nums">
-                              {formatDateRangeLocalized(
-                                order.scheduledFor,
-                                order.scheduledTo,
-                                locale,
-                              ) || t("dashboard.orderList.noDate")}
-                            </span>
-                            <span
-                              className={`mt-0.5 block text-xs font-bold ${
-                                queueKey === "overdue"
-                                  ? "text-[var(--risk-text,#b42318)]"
-                                  : queueKey === "today"
-                                    ? "text-[#3f4a1a]"
-                                    : "text-[#7a5a12]"
-                              }`}
-                            >
-                              {queueKey === "overdue"
-                                ? t("dashboard.kpi.overdue")
-                                : queueKey === "today"
-                                  ? t("dashboard.kpi.today")
-                                  : t("dashboard.kpi.unassigned")}
-                            </span>
-                          </td>
-                          <td className="max-w-[18rem] px-3 py-2 align-top">
-                            <Link
-                              href={`/oppdrag/${order.id}`}
-                              className="line-clamp-2 font-bold leading-5 text-[var(--ink,#131711)] hover:underline"
-                            >
-                              {order.title}
-                            </Link>
-                          </td>
-                          <td className="max-w-[12rem] px-3 py-2 align-top text-xs">
-                            <span className="block truncate font-bold">
-                              {order.customer?.name ||
-                                t("dashboard.orderList.noCustomer")}
-                            </span>
-                            {address ? (
-                              <span className="block truncate text-[#5f655b]">
-                                {address}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 align-top">
-                            <StatusPill
-                              status={order.status}
-                              label={statusLabel(t, order.status)}
-                            />
-                          </td>
-                          <td className="max-w-[10rem] px-3 py-2 align-top text-xs">
-                            {order.technicians.length > 0 ? (
-                              <span className="block truncate font-bold">
-                                {order.technicians
-                                  .map((tech) => tech.name)
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </span>
-                            ) : (
-                              <span className="font-bold text-[var(--risk-text,#b42318)]">
-                                {t("dashboard.orderList.unassigned")}
-                              </span>
-                            )}
-                          </td>
-                          <td
-                            className="whitespace-nowrap"
-                            style={{ textAlign: "right" }}
-                          >
-                            <Link
-                              href={`/oppdrag/${order.id}`}
-                              className="inline-flex items-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2 py-1 text-xs font-bold transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
-                            >
-                              {t("dashboard.queue.open")}
-                              <Icon name="arrowRight" className="h-3.5 w-3.5" />
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobil: samme kø som kompakte rader, ikke kort på 300 px. */}
-              <div className="divide-y divide-[var(--line,#d8d3c5)] md:hidden">
-                {rows.map(({ order, queueKey }) => (
-                  <Link
-                    key={order.id}
-                    href={`/oppdrag/${order.id}`}
-                    className={`block px-3 py-2.5 transition hover:bg-[#f4f7e8] ${
-                      queueKey === "overdue" ? "bg-[#fdf4f2]" : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p
-                          className={`text-xs font-bold ${
-                            queueKey === "overdue"
-                              ? "text-[var(--risk-text,#b42318)]"
-                              : MUTED
-                          }`}
-                        >
-                          {formatDateRangeLocalized(
-                            order.scheduledFor,
-                            order.scheduledTo,
-                            locale,
-                          ) || t("dashboard.orderList.noDate")}
-                          {" · "}
-                          {queueKey === "overdue"
-                            ? t("dashboard.kpi.overdue")
-                            : queueKey === "today"
-                              ? t("dashboard.kpi.today")
-                              : t("dashboard.kpi.unassigned")}
-                        </p>
-                        <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-5">
-                          {order.title}
-                        </p>
-                        <p className="truncate text-xs text-[#5e6356]">
-                          {order.customer?.name ||
-                            t("dashboard.orderList.noCustomer")}
-                          {order.technicians.length === 0
-                            ? ` · ${t("dashboard.orderList.unassigned")}`
-                            : ` · ${order.technicians
-                                .map((tech) => tech.name)
-                                .filter(Boolean)
-                                .join(", ")}`}
-                        </p>
-                      </div>
-                      <StatusPill
-                        status={order.status}
-                        label={statusLabel(t, order.status)}
-                      />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
+            <PriorityQueue
+              rows={rows}
+              sort={sort}
+              sortLinks={sortLinks}
+              filterHref="/oppdrag"
+              locale={locale}
+              t={t}
+            />
           )}
+        </div>
 
-          {visibleGroups.length > 0 && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-4 py-2">
-              {visibleGroups.map((group) => (
-                <Link
-                  key={group.key}
-                  href={groupMeta[group.key].href}
-                  className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--line,#d8d3c5)] decoration-2 underline-offset-4 hover:decoration-[var(--signal,#c8f135)]"
-                >
-                  {groupMeta[group.key].action}
-                  {group.hasMore ? ` (${group.total})` : ""}
-                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <aside className="space-y-4 lg:col-start-2 lg:row-span-2">
-          {/* Neste handling: ett forfalt oppdrag med tydelig tildelingsvalg. */}
-          <section
-            className={`${CARD} overflow-hidden`}
-            aria-labelledby="next-action-title"
-          >
-            <div className="flex items-center justify-between border-b border-[var(--line,#d8d3c5)] px-4 py-2.5">
-              <h2
-                id="next-action-title"
-                className="text-xs font-black uppercase tracking-[0.14em]"
-              >
-                {t("dashboard.nextAction.title")}
-              </h2>
-              <span
-                className="h-2 w-2 rounded-full bg-[var(--risk,#b42318)]"
-                aria-hidden
-              />
-            </div>
-            {nextOverdue ? (
-              <div className="p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-[var(--risk-text,#b42318)]">
-                  {t("dashboard.kpi.overdue")} ·{" "}
-                  {formatDateRangeLocalized(
-                    nextOverdue.scheduledFor,
-                    nextOverdue.scheduledTo,
-                    locale,
-                  ) || t("dashboard.orderList.noDate")}
-                </p>
-                <h3 className="mt-1 text-base font-black leading-6">
-                  {nextOverdue.title}
-                </h3>
-                <p className="mt-1 text-xs text-[#5e6356]">
-                  {nextOverdue.customer?.name ||
-                    t("dashboard.orderList.noCustomer")}
-                  {nextOverdue.technicians.length > 0
-                    ? ` · ${nextOverdue.technicians
-                        .map((tech) => tech.name)
-                        .filter(Boolean)
-                        .join(", ")}`
-                    : ` · ${t("dashboard.orderList.unassigned")}`}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {canAssign ? (
-                    <Link
-                      href={`/oppdrag/${nextOverdue.id}#tildel`}
-                      className={SIGNAL_BUTTON}
-                    >
-                      {t("dashboard.nextAction.assign")}
-                      <Icon name="arrowRight" className="h-3.5 w-3.5" />
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/oppdrag/${nextOverdue.id}`}
-                      className={SIGNAL_BUTTON}
-                    >
-                      {t("dashboard.nextAction.open")}
-                      <Icon name="arrowRight" className="h-3.5 w-3.5" />
-                    </Link>
-                  )}
-                  <Link
-                    href={`/oppdrag/${nextOverdue.id}`}
-                    className={INK_BUTTON}
-                  >
-                    {t("dashboard.queue.open")}
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="p-4">
-                <p className="flex items-center gap-2 text-sm font-black">
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--signal,#c8f135)] text-xs"
-                    aria-hidden
-                  >
-                    <Icon name="check" className="h-3.5 w-3.5" />
-                  </span>
-                  {t("dashboard.nextAction.emptyTitle")}
-                </p>
-                <p className={`mt-1 text-xs ${MUTED}`}>
-                  {t("dashboard.nextAction.emptyDescription")}
-                </p>
-                <Link
-                  href="/oppdrag?vis=forfalte"
-                  className={`${INK_BUTTON} mt-3 w-full`}
-                >
-                  {t("dashboard.nextAction.allOverdue")}
-                </Link>
-              </div>
-            )}
-          </section>
-
-          {/* Team i dag: kompakt belastningsliste basert på dagens tildelinger. */}
-          <section
-            className={`${CARD} overflow-hidden`}
-            aria-labelledby="team-title"
-          >
-            <div className="flex items-center justify-between border-b border-[var(--line,#d8d3c5)] px-4 py-2.5">
-              <h2
-                id="team-title"
-                className="text-xs font-black uppercase tracking-[0.14em]"
-              >
-                {t("dashboard.team.title")}
-              </h2>
-              <Link
-                href="/oppdrag?vis=idag"
-                className="text-xs font-bold underline decoration-[var(--line,#d8d3c5)] decoration-2 underline-offset-4 hover:decoration-[var(--signal,#c8f135)]"
-              >
-                {t("dashboard.team.viewToday")}
-                <Icon name="arrowRight" className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            {teamSorted.length === 0 ? (
-              <p className={`px-4 py-4 text-xs ${MUTED}`}>
-                {t("dashboard.team.empty")}
-              </p>
-            ) : (
-              <ul className="divide-y divide-[var(--line,#d8d3c5)]">
-                {teamSorted.map((member) => {
-                  const load = member._count.workOrders;
-                  return (
-                    <li
-                      key={member.id}
-                      className="flex items-center gap-2.5 px-4 py-2"
-                    >
-                      <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--ink,#131711)] text-xs font-black uppercase text-[var(--signal,#c8f135)]"
-                        aria-hidden
-                      >
-                        {initials(member.name)}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="truncate text-sm font-bold">
-                            {member.name || t("dashboard.unknownUser")}
-                          </span>
-                          <span className="shrink-0 text-xs font-bold tabular-nums">
-                            {t("dashboard.team.load", { count: load })}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e7e3d7]">
-                          <div
-                            className={`h-full rounded-full ${
-                              load === 0
-                                ? "bg-transparent"
-                                : "bg-[var(--signal,#c8f135)]"
-                            }`}
-                            style={{
-                              width: `${load === 0 ? 0 : Math.max(12, Math.round((load / teamMax) * 100))}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <div className="border-t border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-4 py-2">
-              <Link
-                href="/oppdrag?vis=ikke-tildelt"
-                className="flex items-center justify-between gap-2 text-xs font-bold"
-              >
-                <span>{t("dashboard.kpi.unassigned")}</span>
-                <span className="flex items-center gap-1.5 text-[var(--risk-text,#b42318)]">
-                  <span
-                    className="h-1.5 w-1.5 rounded-full bg-current"
-                    aria-hidden
-                  />
-                  {unassignedCount}
-                </span>
-              </Link>
-            </div>
-          </section>
-        </aside>
+        <DashboardRail
+          nextOrder={nextOverdue}
+          team={teamRows}
+          counts={{
+            unassigned: unassignedCount,
+            completedToday: completedTodayCount,
+            todayTotal: todayCount + completedTodayCount,
+            todayRemaining: todayCount,
+            todayInProgress: todayInProgressCount,
+          }}
+          updatedAt={updatedTime}
+          locale={locale}
+          canAssign={canAssign}
+          t={t}
+        />
 
         {footer ? (
           <div className="space-y-4 lg:col-start-1 lg:row-start-2">{footer}</div>
@@ -1136,20 +795,32 @@ function OverviewFallback({ label }: { label: string }) {
   return (
     <>
       <section role="status" aria-label={label}>
-        <Skeleton className="h-[4.25rem] rounded-xl" />
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton
+              key={index}
+              className="h-[8.75rem] rounded-2xl"
+            />
+          ))}
+        </div>
       </section>
-      <section role="status" aria-label={label} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <section
+        role="status"
+        aria-label={label}
+        className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]"
+      >
         <div className={`${CARD} p-4`}>
           <Skeleton className="h-5 w-40" />
           <div className="mt-3 space-y-2">
             {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-9" />
+              <Skeleton key={index} className="h-14" />
             ))}
           </div>
         </div>
         <div className={`${CARD} p-4`}>
           <Skeleton className="h-4 w-28" />
           <Skeleton className="mt-3 h-16" />
+          <Skeleton className="mt-3 h-24" />
         </div>
       </section>
     </>
@@ -1172,12 +843,28 @@ function ActivityFallback({ label }: { label: string }) {
   );
 }
 
-export default async function AdminDashboard() {
+function dashboardHref(view: DashboardView, sort: QueueSort) {
+  const params = new URLSearchParams({ vis: view });
+  if (sort !== "dato") params.set("sort", sort);
+  return `/?${params.toString()}`;
+}
+
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    vis?: string | string[];
+    sort?: string | string[];
+  }>;
+} = {}) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 
   const t = await getTranslations("common");
   const locale = await getLocale();
+  const params = (await searchParams) ?? {};
+  const view = resolveDashboardView(params.vis);
+  const sort = resolveQueueSort(params.sort);
 
   // Dashbordet bygger på oppdrag. En bruker med utvidede rettigheter, men uten
   // oppdragstilgang, sendes til den første siden vedkommende faktisk kan bruke.
@@ -1290,57 +977,34 @@ export default async function AdminDashboard() {
         : { id: { in: [] } }),
   };
 
-  const branding = await prisma.branding.findFirst();
-  const companyName = branding?.companyName || "FSM System";
   const dateContext = getDateContext();
   const loadingLabel = t("components.skeleton.loading");
-  const dateLabel = (() => {
-    const date = formatDateLocalized(
-      dateContext.startOfToday,
-      locale,
-      undefined,
-      t("dashboard.orderList.noDate"),
-    );
-    const week = isoWeekNumber(dateContext.startOfToday);
-    return week ? `${date} · ${t("dashboard.weekLabel", { week })}` : date;
-  })();
-  const firstName = user.name?.split(" ")[0] || t("admin");
-  const canOpenNew = canCreate;
+  const fullDate = formatDateLocalized(
+    dateContext.startOfToday,
+    locale,
+    { dateStyle: "full" },
+    t("dashboard.orderList.noDate"),
+  );
+  const dateIso = toDateOnly(dateContext.startOfToday);
+  const week = isoWeekNumber(dateContext.startOfToday);
+  const newOrderHref = office ? "/oppdrag/ny" : "/mine-oppdrag/ny";
 
   return (
-    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+    <div className="office-app office-dashboard min-h-screen p-3 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-4">
-        <header className="flex flex-col gap-3 border-b border-[var(--line,#d8d3c5)] pb-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className={EYEBROW}>{t("dashboard.planningEyebrow")}</p>
-            <h1 className="mt-0.5 text-3xl font-black tracking-tight sm:text-4xl">
-              {t("dashboard.planningTitle")}
-            </h1>
-            <p className={`mt-1 text-sm ${MUTED}`}>
-              {t("dashboard.planningSubtitle", { name: firstName })}
-              {companyName ? (
-                <>
-                  {" · "}
-                  {t("dashboard.adminOf", { companyName })}
-                </>
-              ) : null}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#fbfaf4)] px-3 py-1.5">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#5e6356]">
-                {t("dashboard.planningDate")}
-              </p>
-              <p className="text-sm font-black tabular-nums">{dateLabel}</p>
-            </div>
-            {canOpenNew ? (
-              <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className={SIGNAL_BUTTON}>
-                {t("dashboard.quickActions.newWorkOrder")}
-                <Icon name="arrowRight" className="h-4 w-4" />
-              </Link>
-            ) : null}
-          </div>
-        </header>
+        <DashboardHeader
+          view={view}
+          week={week}
+          fullDate={fullDate}
+          dateIso={dateIso}
+          listHref={dashboardHref("liste", sort)}
+          boardHref={dashboardHref("tavle", sort)}
+          newOrderHref={newOrderHref}
+          canCreate={canCreate}
+          scope={scope}
+          visibleStatus={visibleStatus}
+          t={t}
+        />
 
         {/* Fast rekkefølge: unntak, prioritert kø med høyrespor, verktøy,
             nøkkeltall og til slutt sammenklappet aktivitet. Verktøy og tall
@@ -1353,6 +1017,8 @@ export default async function AdminDashboard() {
             dateContext={dateContext}
             locale={locale}
             canAssign={canAssign}
+            view={view}
+            sort={sort}
             footer={
               <>
                 <section className={`${CARD} px-4 py-3`}>

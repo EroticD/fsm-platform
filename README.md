@@ -60,6 +60,12 @@ Alle sidevisninger er også fanget i desktop- og mobilformat under
 `manifest.json`. `npm run screenshots:verify` kontrollerer at hver `page.tsx`
 er dekket.
 
+## Designsystem
+
+Visuell retning, fargepalett, typografi, UX-prinsipper og komponentregler er
+dokumentert i [`docs/DESIGN.md`](docs/DESIGN.md). Merkegeometrien ligger i
+`src/lib/brand.ts`; `npm run brand:assets` regenererer favicon og PWA-ikoner.
+
 ## Kom i gang lokalt
 
 Forutsetninger: Node.js 22+, Docker og npm.

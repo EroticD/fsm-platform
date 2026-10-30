@@ -16,6 +16,15 @@ vi.mock("@/lib/session", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/lib/prisma", () => ({ default: {} }));
 
 import AdminDashboard, { buildPriorityQueue } from "./page";
+import {
+  buildBoardColumns,
+  resolveDashboardView,
+  resolveQueueSort,
+  sortQueueRows,
+  type QueueKey,
+  type QueueRow,
+  type SortableOrder,
+} from "@/components/dashboard/helpers";
 
 const technician = {
   id: "tech-1",
@@ -131,5 +140,129 @@ describe("prioritert kø", () => {
     expect(groups[0].orders).toHaveLength(5);
     expect(groups[1].orders).toHaveLength(3);
     expect(groups[2].orders).toHaveLength(0);
+  });
+});
+
+describe("sortering av køen", () => {
+  const rows: Array<QueueRow<SortableOrder>> = [
+    {
+      order: {
+        id: "zeta",
+        title: "Zeta",
+        status: "OPEN",
+        scheduledFor: new Date("2026-10-31T00:00:00.000Z"),
+        customer: { name: "Alfa" },
+      },
+      queueKey: "today" as QueueKey,
+    },
+    {
+      order: {
+        id: "alfa",
+        title: "Alfa",
+        status: "IN_PROGRESS",
+        scheduledFor: new Date("2026-10-29T00:00:00.000Z"),
+        customer: { name: "Beta" },
+      },
+      queueKey: "overdue" as QueueKey,
+    },
+    {
+      order: {
+        id: "beta",
+        title: "Beta",
+        status: "PLANNED",
+        scheduledFor: null,
+        customer: { name: "Cecil" },
+      },
+      queueKey: "unassigned" as QueueKey,
+    },
+  ];
+
+  it("sorterer eldste først og legger udaterte sist", () => {
+    expect(sortQueueRows(rows, "dato").map((row) => row.order.id)).toEqual([
+      "alfa",
+      "zeta",
+      "beta",
+    ]);
+  });
+
+  it("sorterer på kunde, status og tittel uten å mutere kilden", () => {
+    expect(sortQueueRows(rows, "kunde").map((row) => row.order.id)).toEqual([
+      "zeta",
+      "alfa",
+      "beta",
+    ]);
+    expect(sortQueueRows(rows, "status").map((row) => row.order.id)).toEqual([
+      "alfa",
+      "zeta",
+      "beta",
+    ]);
+    expect(sortQueueRows(rows, "tittel").map((row) => row.order.id)).toEqual([
+      "alfa",
+      "beta",
+      "zeta",
+    ]);
+    expect(rows.map((row) => row.order.id)).toEqual(["zeta", "alfa", "beta"]);
+  });
+
+  it("faller tilbake til dato for ukjente parametere", () => {
+    expect(resolveQueueSort("tittel")).toBe("tittel");
+    expect(resolveQueueSort("ukjent")).toBe("dato");
+    expect(resolveQueueSort(undefined)).toBe("dato");
+    expect(resolveDashboardView("tavle")).toBe("tavle");
+    expect(resolveDashboardView("ukjent")).toBe("liste");
+  });
+});
+
+describe("tavlekolonner", () => {
+  it("fordeler etter prioritet uten duplikater", () => {
+    const a = { id: "a" };
+    const b = { id: "b" };
+    const c = { id: "c" };
+    const d = { id: "d" };
+    const e = { id: "e" };
+    const f = { id: "f" };
+
+    const columns = buildBoardColumns(
+      {
+        overdue: [a, b],
+        today: [b, c, d],
+        inProgress: [c, e],
+        unassigned: [a, d, e, f],
+      },
+      { overdue: 2, today: 1, inProgress: 2, unassigned: 1 },
+    );
+
+    expect(columns.map((column) => column.key)).toEqual([
+      "overdue",
+      "today",
+      "inProgress",
+      "unassigned",
+    ]);
+    expect(columns.map((column) => column.orders.map((item) => item.id))).toEqual([
+      ["a", "b"],
+      ["d"],
+      ["c", "e"],
+      ["f"],
+    ]);
+
+    const ids = columns.flatMap((column) =>
+      column.orders.map((item) => item.id),
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("kapper hver kolonne og markerer at det finnes flere", () => {
+    const overdue = Array.from({ length: 4 }, (_, index) => ({
+      id: `o${index}`,
+    }));
+    const columns = buildBoardColumns(
+      { overdue, today: [], inProgress: [], unassigned: [] },
+      { overdue: 9, today: 0, inProgress: 0, unassigned: 0 },
+      2,
+    );
+
+    expect(columns[0].orders.map((item) => item.id)).toEqual(["o0", "o1"]);
+    expect(columns[0].hasMore).toBe(true);
+    expect(columns[0].total).toBe(9);
   });
 });
