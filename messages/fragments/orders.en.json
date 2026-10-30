@@ -891,7 +891,10 @@
       "reportLegalHoldOn": "Enabled legal hold for the report «{name}»",
       "reportLegalHoldOff": "Disabled legal hold for the report «{name}»",
       "deleted": "Deleted the work order «{title}»{customer, select, none {} other { ({customer})}} (soft delete – can be restored)",
-      "restored": "Restored the work order «{title}»"
+      "restored": "Restored the work order «{title}»",
+      "completed": "Completed work order",
+      "statusGeneric": "Changed status",
+      "updatedGeneric": "Updated"
     },
     "report": {
       "acknowledgementWithdrawnResubmit": "The customer acknowledgement was withdrawn on resubmission",
@@ -907,13 +910,15 @@
       "noUnits": "no units",
       "deviation": "deviation",
       "approved": "approved",
-      "acknowledged": "Customer acknowledged the report"
+      "acknowledged": "Customer acknowledged the report",
+      "signed": "Signed report"
     },
     "customer": {
       "created": "Created customer: {name}",
       "updated": "Changed customer information: {name}",
       "deleted": "Deleted the customer «{name}» (soft delete – can be restored)",
-      "restored": "Restored the customer «{name}»"
+      "restored": "Restored the customer «{name}»",
+      "updatedGeneric": "Changed customer"
     },
     "contact": {
       "created": "Added contact person: {name}",

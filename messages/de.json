@@ -3455,7 +3455,10 @@
         "reportLegalHoldOn": "Rechtssperre für den Bericht «{name}» aktiviert",
         "reportLegalHoldOff": "Rechtssperre für den Bericht «{name}» deaktiviert",
         "deleted": "Auftrag «{title}» gelöscht{customer, select, none {} other { ({customer})}} (Soft-Delete – kann wiederhergestellt werden)",
-        "restored": "Auftrag «{title}» wiederhergestellt"
+        "restored": "Auftrag «{title}» wiederhergestellt",
+        "completed": "Auftrag abgeschlossen",
+        "statusGeneric": "Status geändert",
+        "updatedGeneric": "Aktualisiert"
       },
       "report": {
         "acknowledgementWithdrawnResubmit": "Die Kundenbestätigung wurde bei der erneuten Übermittlung zurückgezogen",
@@ -3471,13 +3474,15 @@
         "noUnits": "keine Geräte",
         "deviation": "Abweichung",
         "approved": "genehmigt",
-        "acknowledged": "Kunde hat den Bericht bestätigt"
+        "acknowledged": "Kunde hat den Bericht bestätigt",
+        "signed": "Bericht unterschrieben"
       },
       "customer": {
         "created": "Kunde erstellt: {name}",
         "updated": "Kundeninformationen geändert: {name}",
         "deleted": "Kunde «{name}» gelöscht (Soft-Delete – kann wiederhergestellt werden)",
-        "restored": "Kunde «{name}» wiederhergestellt"
+        "restored": "Kunde «{name}» wiederhergestellt",
+        "updatedGeneric": "Kunde geändert"
       },
       "contact": {
         "created": "Ansprechpartner hinzugefügt: {name}",

@@ -321,6 +321,29 @@ const rules: Rule[] = [
     translate: (m, t) => t("auditActions.customer.restored", { name: m[1] }),
   },
 
+
+  // Eldre handlinger som fortsatt finnes i lagrede rader.
+  {
+    pattern: /^Fullførte oppdrag$/,
+    translate: (_m, t) => t("auditActions.workOrder.completed"),
+  },
+  {
+    pattern: /^Signerte rapport$/,
+    translate: (_m, t) => t("auditActions.report.signed"),
+  },
+  {
+    pattern: /^Endret status$/,
+    translate: (_m, t) => t("auditActions.workOrder.statusGeneric"),
+  },
+  {
+    pattern: /^Oppdatert$/,
+    translate: (_m, t) => t("auditActions.workOrder.updatedGeneric"),
+  },
+  {
+    pattern: /^Endret kunde$/,
+    translate: (_m, t) => t("auditActions.customer.updatedGeneric"),
+  },
+
   // --------------------------------------------------------------- innlogging
   {
     pattern: /^Logget inn$/,

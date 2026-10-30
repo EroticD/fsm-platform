@@ -891,7 +891,10 @@
       "reportLegalHoldOn": "Slo på bevaringsplikt for rapporten «{name}»",
       "reportLegalHoldOff": "Slo av bevaringsplikt for rapporten «{name}»",
       "deleted": "Slettet oppdraget «{title}»{customer, select, none {} other { ({customer})}} (myk sletting – kan gjenopprettes)",
-      "restored": "Gjenopprettet oppdraget «{title}»"
+      "restored": "Gjenopprettet oppdraget «{title}»",
+      "completed": "Fullførte oppdrag",
+      "statusGeneric": "Endret status",
+      "updatedGeneric": "Oppdatert"
     },
     "report": {
       "acknowledgementWithdrawnResubmit": "Kundens kvittering ble trukket tilbake ved ny innsending",
@@ -907,13 +910,15 @@
       "noUnits": "uten enheter",
       "deviation": "avvik",
       "approved": "godkjent",
-      "acknowledged": "Kunden kvitterte for rapporten"
+      "acknowledged": "Kunden kvitterte for rapporten",
+      "signed": "Signerte rapport"
     },
     "customer": {
       "created": "Opprettet kunde: {name}",
       "updated": "Endret kundeinformasjon: {name}",
       "deleted": "Slettet kunden «{name}» (myk sletting – kan gjenopprettes)",
-      "restored": "Gjenopprettet kunden «{name}»"
+      "restored": "Gjenopprettet kunden «{name}»",
+      "updatedGeneric": "Endret kunde"
     },
     "contact": {
       "created": "La til kontaktperson: {name}",

@@ -3455,7 +3455,10 @@
         "reportLegalHoldOn": "Włączono blokadę prawną dla raportu «{name}»",
         "reportLegalHoldOff": "Wyłączono blokadę prawną dla raportu «{name}»",
         "deleted": "Usunięto zlecenie «{title}»{customer, select, none {} other { ({customer})}} (miękkie usunięcie – można przywrócić)",
-        "restored": "Przywrócono zlecenie «{title}»"
+        "restored": "Przywrócono zlecenie «{title}»",
+        "completed": "Zakończono zlecenie",
+        "statusGeneric": "Zmieniono status",
+        "updatedGeneric": "Zaktualizowano"
       },
       "report": {
         "acknowledgementWithdrawnResubmit": "Potwierdzenie klienta zostało wycofane przy ponownym przesłaniu",
@@ -3471,13 +3474,15 @@
         "noUnits": "brak urządzeń",
         "deviation": "odchylenie",
         "approved": "zatwierdzony",
-        "acknowledged": "Klient potwierdził raport"
+        "acknowledged": "Klient potwierdził raport",
+        "signed": "Podpisano raport"
       },
       "customer": {
         "created": "Utworzono klienta: {name}",
         "updated": "Zmieniono dane klienta: {name}",
         "deleted": "Usunięto klienta «{name}» (miękkie usunięcie – można przywrócić)",
-        "restored": "Przywrócono klienta «{name}»"
+        "restored": "Przywrócono klienta «{name}»",
+        "updatedGeneric": "Zmieniono klienta"
       },
       "contact": {
         "created": "Dodano osobę kontaktową: {name}",
