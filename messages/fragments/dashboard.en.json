@@ -2,13 +2,20 @@
   "dashboard": {
     "greeting": "Welcome, {name} 👋",
     "planningTitle": "Planning",
-    "planningEyebrow": "Operations",
+    "planningEyebrow": "Planning",
     "planningSubtitle": "Daily queue for {name}",
     "planningDate": "Day plan",
     "adminOf": "You are managing {companyName}",
+    "header": {
+      "orderCount": "{count, plural, one {# work order} other {# work orders}}",
+      "live": "Live",
+      "viewLabel": "Choose dashboard view",
+      "viewList": "List",
+      "viewBoard": "Board"
+    },
     "primaryKpisTitle": "Exceptions needing action",
     "queue": {
-      "title": "Priority queue",
+      "title": "Queue",
       "description": "Overdue first, then today and unassigned. Each work order appears only once.",
       "empty": "No work orders need action right now.",
       "overdue": "Overdue",
@@ -24,7 +31,21 @@
       "status": "Status",
       "technician": "Technician",
       "action": "Action",
-      "open": "Open"
+      "open": "Open",
+      "sortLabel": "Sort",
+      "sortDate": "Date",
+      "sortCustomer": "Customer",
+      "sortStatus": "Status",
+      "sortTitle": "Title",
+      "sortOldestFirst": "Oldest first",
+      "sortCustomerAsc": "Customer A–Z",
+      "sortStatusAsc": "Status",
+      "sortTitleAsc": "Title A–Z",
+      "filter": "Filter in the work order list"
+    },
+    "board": {
+      "empty": "No work orders in this column.",
+      "viewAll": "View all ({count})"
     },
     "nextAction": {
       "title": "Next action",
@@ -34,12 +55,24 @@
       "emptyDescription": "The queue is up to date. The next job is today or later.",
       "allOverdue": "View all overdue"
     },
+    "progress": {
+      "title": "Today's progress",
+      "remaining": "left",
+      "ofToday": "of {count} today",
+      "percent": "{percent}%",
+      "inProgress": "{count} in progress",
+      "completed": "{count} completed",
+      "empty": "No work orders scheduled today."
+    },
     "team": {
       "title": "Team today",
       "empty": "No technicians are scheduled today.",
       "load": "{count} work orders",
-      "viewToday": "Today's work orders"
+      "viewToday": "Today's work orders",
+      "coverage": "{percent}% covered",
+      "coverageDetail": "{active} of {total} out"
     },
+    "updatedAt": "Updated {time} · Europe/Oslo",
     "allOrders": "All work orders",
     "keyFigures": "Key figures",
     "quickActionsTitle": "Quick actions",
@@ -61,6 +94,7 @@
       "awaiting": "{count} waiting to start",
       "inProgress": "In progress",
       "today": "Today",
+      "todaySub": "Today's work orders",
       "overdue": "Overdue",
       "overdueSub": "Not completed on time",
       "unassigned": "Unassigned",

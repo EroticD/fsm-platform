@@ -730,7 +730,9 @@ function navLinkClass(isActive: boolean, mobile: boolean) {
       ? "w-full px-4 py-3 rounded-xl text-sm font-bold transition-all text-left border border-transparent"
       : "px-2.5 xl:px-3 py-2 rounded-xl text-[13px] xl:text-sm font-medium transition-all whitespace-nowrap border border-transparent",
     isActive
-      ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] font-bold text-[var(--ink,#101310)] shadow-[inset_0_-2px_0_var(--ink,#101310)]"
+      ? mobile
+        ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] font-bold text-[var(--ink,#101310)] shadow-[inset_0_-2px_0_var(--ink,#101310)]"
+        : "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] font-bold text-[var(--paper,#f2efe6)]"
       : mobile
         ? "text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
         : "text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]",
@@ -756,14 +758,19 @@ function NavLink({
       aria-current={isActive ? "page" : undefined}
       className={navLinkClass(isActive, mobile)}
     >
-      {item.icon && (
+      {isActive && !mobile ? (
+        <span
+          aria-hidden
+          className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[var(--signal,#d8ff3e)] align-[-0.0625em]"
+        />
+      ) : item.icon ? (
         <Icon
           name={item.icon}
           className={`mr-1.5 h-4 w-4 align-[-0.125em] ${
             mobile ? "inline-block" : "hidden xl:inline-block"
           }`}
         />
-      )}
+      ) : null}
       {t(`nav.${item.labelKey}`)}
     </Link>
   );

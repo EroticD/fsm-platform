@@ -2,13 +2,20 @@
   "dashboard": {
     "greeting": "Velkommen, {name} 👋",
     "planningTitle": "Planlegging",
-    "planningEyebrow": "Drift",
+    "planningEyebrow": "Planlegging",
     "planningSubtitle": "Daglig kø for {name}",
     "planningDate": "Dagsplan",
     "adminOf": "Du administrerer {companyName}",
+    "header": {
+      "orderCount": "{count, plural, one {# oppdrag} other {# oppdrag}}",
+      "live": "Sanntid",
+      "viewLabel": "Velg visning",
+      "viewList": "Liste",
+      "viewBoard": "Tavle"
+    },
     "primaryKpisTitle": "Unntak som krever handling",
     "queue": {
-      "title": "Prioritert kø",
+      "title": "Køen",
       "description": "Forfalt først, deretter i dag og ikke tildelt. Hvert oppdrag vises bare én gang.",
       "empty": "Ingen oppdrag krever handling nå.",
       "overdue": "Forfalt",
@@ -24,7 +31,21 @@
       "status": "Status",
       "technician": "Montør",
       "action": "Handling",
-      "open": "Åpne"
+      "open": "Åpne",
+      "sortLabel": "Sorter",
+      "sortDate": "Dato",
+      "sortCustomer": "Kunde",
+      "sortStatus": "Status",
+      "sortTitle": "Tittel",
+      "sortOldestFirst": "Eldste først",
+      "sortCustomerAsc": "Kunde A–Å",
+      "sortStatusAsc": "Status",
+      "sortTitleAsc": "Tittel A–Å",
+      "filter": "Filtrer i oppdragslisten"
+    },
+    "board": {
+      "empty": "Ingen oppdrag i denne kolonnen.",
+      "viewAll": "Se alle ({count})"
     },
     "nextAction": {
       "title": "Neste handling",
@@ -34,12 +55,24 @@
       "emptyDescription": "Køen er ajour. Neste oppdrag ligger i dag eller senere.",
       "allOverdue": "Se alle forfalte"
     },
+    "progress": {
+      "title": "Dagens fremdrift",
+      "remaining": "igjen",
+      "ofToday": "av {count} i dag",
+      "percent": "{percent} %",
+      "inProgress": "{count} pågår",
+      "completed": "{count} fullført",
+      "empty": "Ingen oppdrag planlagt i dag."
+    },
     "team": {
       "title": "Team i dag",
       "empty": "Ingen montører er satt opp i dag.",
       "load": "{count} oppdrag",
-      "viewToday": "Dagens oppdrag"
+      "viewToday": "Dagens oppdrag",
+      "coverage": "{percent} % dekket",
+      "coverageDetail": "{active} av {total} ute"
     },
+    "updatedAt": "Oppdatert {time} · Europe/Oslo",
     "allOrders": "Alle oppdrag",
     "keyFigures": "Nøkkeltall",
     "quickActionsTitle": "Hurtighandlinger",
@@ -61,6 +94,7 @@
       "awaiting": "{count} venter på oppstart",
       "inProgress": "Pågår",
       "today": "I dag",
+      "todaySub": "Dagens oppdrag",
       "overdue": "Forfalt",
       "overdueSub": "Ikke fullført i tide",
       "unassigned": "Ikke tildelt",

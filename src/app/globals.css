@@ -141,8 +141,22 @@ body {
 
 .office-app {
   background-color: var(--canvas);
+  /* Diskret papirkorn: prikkene ligger langt bak innholdet og skal bare
+     merkes som tekstur, ikke som et mønster som konkurrerer med teksten. */
+  background-image: radial-gradient(
+    circle,
+    rgb(16 19 16 / 0.055) 1px,
+    transparent 1.2px
+  );
+  background-size: 18px 18px;
   color: var(--ink);
   font-family: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Dashbordet får en lime topplinje som markerer at dette er kontorets
+   planleggingsflate. Andre office-app-sider beholder ren canvas. */
+.office-dashboard {
+  border-top: 4px solid var(--signal);
 }
 
 .office-card {
@@ -277,7 +291,7 @@ body {
 }
 
 .field-cta {
-  min-height: 56px;
+  min-height: 64px;
   padding: 0.875rem 1.25rem;
   border-radius: 12px;
   background-color: var(--signal);
