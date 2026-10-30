@@ -90,7 +90,7 @@ export const STAFF_NAV: NavItem[] = [
   },
   {
     href: "/meldinger",
-    labelKey: "sms.nav",
+    labelKey: "sms",
     icon: "mail",
     requires: "workorders.view",
     section: "primary",

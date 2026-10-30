@@ -643,7 +643,6 @@ function buildRoutes(fixtures) {
       role: "admin",
       title: "Bookingkø",
       heading: "Bookingkø",
-      activeNav: "Bookinger",
     },
     {
       slug: "avtaler",

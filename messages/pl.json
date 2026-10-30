@@ -445,7 +445,9 @@
       "security": "Bezpieczeństwo",
       "users": "Pracownicy",
       "accountSecurity": "Konto i bezpieczeństwo",
-      "contracts": "Umowy"
+      "contracts": "Umowy",
+      "sms": "Wiadomości",
+      "bookings": "Rezerwacje"
     },
     "loginErrorTwoFactorUnavailable": "Uwierzytelnianie dwuskładnikowe nie jest poprawnie skonfigurowane. Skontaktuj się z administratorem.",
     "auth": {

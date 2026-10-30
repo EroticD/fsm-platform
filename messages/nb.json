@@ -144,7 +144,10 @@
       "search": "Søk",
       "security": "Sikkerhet",
       "users": "Ansatte",
-      "accountSecurity": "Konto & sikkerhet"
+      "accountSecurity": "Konto & sikkerhet",
+      "sms": "Meldinger",
+      "bookings": "Bookinger",
+      "contracts": "Avtaler"
     },
     "loginErrorTwoFactorUnavailable": "To-trinns verifisering er ikke riktig konfigurert. Kontakt administrator.",
     "assets": {

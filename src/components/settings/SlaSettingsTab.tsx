@@ -463,7 +463,7 @@ export default async function SlaSettingsTab({
               return (
                 <div
                   key={weekday}
-                  className="grid grid-cols-[minmax(6rem,1fr)_auto_auto_auto] items-end gap-2"
+                  className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(6rem,1fr)_auto_auto_auto]"
                 >
                   <span className="min-h-11 py-3 text-sm font-bold">
                     {t(`settings.sla.weekdays.${weekday}`)}

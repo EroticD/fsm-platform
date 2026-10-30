@@ -445,7 +445,9 @@
       "security": "Sicherheit",
       "users": "Mitarbeiter",
       "accountSecurity": "Konto & Sicherheit",
-      "contracts": "Verträge"
+      "contracts": "Verträge",
+      "sms": "Nachrichten",
+      "bookings": "Buchungen"
     },
     "loginErrorTwoFactorUnavailable": "Die Zwei-Faktor-Authentifizierung ist nicht korrekt konfiguriert. Wenden Sie sich an einen Administrator.",
     "auth": {

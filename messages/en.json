@@ -144,7 +144,10 @@
       "search": "Search",
       "security": "Security",
       "users": "Employees",
-      "accountSecurity": "Account & security"
+      "accountSecurity": "Account & security",
+      "sms": "Messages",
+      "bookings": "Bookings",
+      "contracts": "Contracts"
     },
     "loginErrorTwoFactorUnavailable": "Two-factor authentication is not configured correctly. Contact an administrator.",
     "assets": {
