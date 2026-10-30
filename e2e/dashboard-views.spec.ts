@@ -26,7 +26,7 @@ test("office: bytter mellom liste og tavle på dashbordet", async ({ page }) => 
   await expect(page).toHaveURL(/[?&]vis=tavle/);
 
   for (const column of ["Forfalt", "I dag", "Pågår", "Ikke tildelt"]) {
-    await expect(page.getByRole("region", { name: column })).toBeVisible();
+    await expect(page.getByRole("region", { name: column, exact: true })).toBeVisible();
   }
 
   await page.getByRole("link", { name: "Liste", exact: true }).click();

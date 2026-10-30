@@ -126,8 +126,8 @@ export default function DashboardRail({
 
           {nextOrder ? (
             <>
-              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--risk,#f04427)] px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.08em] text-white">
-                <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden />
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--risk,#f04427)] px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.08em] text-[var(--ink,#101310)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--ink,#101310)]" aria-hidden />
                 {t("dashboard.kpi.overdue")}
                 <span aria-hidden>·</span>
                 {formatDateRangeLocalized(

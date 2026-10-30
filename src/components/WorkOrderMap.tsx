@@ -120,7 +120,13 @@ export default function WorkOrderMap({
         wheelDebounceTime: 40,
         wheelPxPerZoomLevel: 90,
         keyboard: true,
-        zoomControl: true,
+        zoomControl: false,
+        // Kartet er en visuell hjelp, ikke en animert flate. Uten zoom- og
+        // fadeanimasjon er markørene i endelig størrelse med en gang, også
+        // når axe skanner touchflater rett etter sidebytte.
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false,
       });
 
       const apiKey = settings.apiKey ? encodeURIComponent(settings.apiKey) : "";
@@ -213,6 +219,9 @@ export default function WorkOrderMap({
         ] ?? baseLayers[layerKeys[0]];
       selectedLayer.addTo(map);
       L.control.layers(baseLayers, undefined, { collapsed: true }).addTo(map);
+      // Zoom nede til høyre, slik at kontrollen ikke dekker markører eller
+      // touchflater nær kartets øvre venstre hjørne.
+      L.control.zoom({ position: "bottomright" }).addTo(map);
 
       const markerLayer = L.layerGroup().addTo(map);
 
@@ -261,10 +270,11 @@ export default function WorkOrderMap({
         const icon = L.divIcon({
           className: "work-order-map-marker",
           html: buildPinElement(point),
-          // Nålen er 32 × 32 i DOM, men selve spissen ligger på y = 59/64.
-          iconSize: [32, 32],
-          iconAnchor: [16, 30],
-          popupAnchor: [0, -28],
+          // Treffflaten er 44 × 44 for touch, mens nålen tegnes 32 × 32.
+          // Spissen ligger 6 px inn i flaten (y = 30/32 + 6).
+          iconSize: [44, 44],
+          iconAnchor: [22, 36],
+          popupAnchor: [0, -34],
         });
 
         const marker = L.marker([point.lat, point.lng], {
@@ -292,8 +302,8 @@ export default function WorkOrderMap({
         const icon = L.divIcon({
           className: "work-order-map-cluster-icon",
           html: badge,
-          iconSize: [42, 42],
-          iconAnchor: [21, 21],
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
         });
 
         const marker = L.marker(groupBounds.getCenter(), {
@@ -400,6 +410,9 @@ export default function WorkOrderMap({
           border: none;
         }
         .work-order-map-marker {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           border-radius: 6px;
         }
         .work-order-map-pin {
