@@ -11,6 +11,7 @@ import {
   addDaysUtc,
   formatDateLocalized,
   formatDateRangeLocalized,
+  intlLocale,
   parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
@@ -223,7 +224,7 @@ function routeDistanceKm(
 }
 
 function formatRouteDistance(km: number, locale: string): string {
-  return new Intl.NumberFormat(locale === "nb" ? "nb-NO" : "en-GB", {
+  return new Intl.NumberFormat(intlLocale(locale), {
     maximumFractionDigits: 1,
     minimumFractionDigits: 0,
   }).format(km);

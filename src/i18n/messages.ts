@@ -1,5 +1,7 @@
 import commonNb from "../../messages/nb.json";
 import commonEn from "../../messages/en.json";
+import commonPl from "../../messages/pl.json";
+import commonDe from "../../messages/de.json";
 
 import authNb from "../../messages/fragments/auth.nb.json";
 import authEn from "../../messages/fragments/auth.en.json";
@@ -102,4 +104,6 @@ const enFragments = mergeAll([
 export const messages = {
   nb: { common: merge(commonNb.common, nbFragments) },
   en: { common: merge(commonEn.common, enFragments) },
+  pl: { common: commonPl.common },
+  de: { common: commonDe.common },
 };

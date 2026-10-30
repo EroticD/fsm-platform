@@ -281,8 +281,11 @@ export function formatDateRange(
 
 export type DateDisplayOptions = Intl.DateTimeFormatOptions;
 
-function intlLocale(locale?: string | null): string {
-  if (locale?.toLowerCase().startsWith("en")) return "en-GB";
+export function intlLocale(locale?: string | null): string {
+  const value = locale?.toLowerCase() ?? "";
+  if (value.startsWith("en")) return "en-GB";
+  if (value.startsWith("de")) return "de-DE";
+  if (value.startsWith("pl")) return "pl-PL";
   return "nb-NO";
 }
 

@@ -2,9 +2,14 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { BRAND_COLORS } from "@/lib/brand";
 
-function preferredLocale(acceptLanguage: string | null): "nb" | "en" {
+function preferredLocale(
+  acceptLanguage: string | null,
+): "nb" | "en" | "pl" | "de" {
   const first = acceptLanguage?.split(",")[0]?.trim().toLowerCase() ?? "";
-  return first.startsWith("en") ? "en" : "nb";
+  if (first.startsWith("pl")) return "pl";
+  if (first.startsWith("de")) return "de";
+  if (first.startsWith("en")) return "en";
+  return "nb";
 }
 
 /**
@@ -23,11 +28,26 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
           short_name: "FSM",
           description: "Work orders, checklists and documents in the field.",
         }
-      : {
-          name: "FSM – feltapp",
-          short_name: "FSM",
-          description: "Serviceoppdrag, sjekklister og dokumenter i felt.",
-        };
+      : locale === "pl"
+        ? {
+            name: "FSM – serwis terenowy",
+            short_name: "FSM",
+            description:
+              "Zlecenia, listy kontrolne i dokumenty w terenie.",
+          }
+        : locale === "de"
+          ? {
+              name: "FSM – Außendienst",
+              short_name: "FSM",
+              description:
+                "Aufträge, Checklisten und Dokumente im Außendienst.",
+            }
+          : {
+              name: "FSM – feltapp",
+              short_name: "FSM",
+              description:
+                "Serviceoppdrag, sjekklister og dokumenter i felt.",
+            };
 
   return {
     ...localized,

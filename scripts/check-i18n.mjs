@@ -64,19 +64,34 @@ function flatten(value, prefix = "", out = []) {
   return out;
 }
 
-const nbKeys = new Set(flatten(readMessages("nb")));
-const enKeys = new Set(flatten(readMessages("en")));
-const missingInEn = [...nbKeys].filter((key) => !enKeys.has(key));
-const missingInNb = [...enKeys].filter((key) => !nbKeys.has(key));
+const CHECKED_LOCALES = ["nb", "en", "pl", "de"];
+const referenceLocale = "nb";
+const nbKeys = new Set(flatten(readMessages(referenceLocale)));
 
 let failed = false;
-if (missingInEn.length || missingInNb.length) {
-  failed = true;
-  console.error("✖ i18n: nøklene stemmer ikke");
-  if (missingInEn.length) console.error("  Mangler i en:", missingInEn.join(", "));
-  if (missingInNb.length) console.error("  Mangler i nb:", missingInNb.join(", "));
-} else {
-  console.log(`✓ i18n: ${nbKeys.size} nøkler i begge språk`);
+for (const locale of CHECKED_LOCALES) {
+  if (locale === referenceLocale) continue;
+  let keys;
+  try {
+    keys = new Set(flatten(readMessages(locale)));
+  } catch (error) {
+    failed = true;
+    console.error(`✖ i18n: kunne ikke lese ${locale}: ${error.message}`);
+    continue;
+  }
+  const missing = [...nbKeys].filter((key) => !keys.has(key));
+  const extra = [...keys].filter((key) => !nbKeys.has(key));
+  if (missing.length || extra.length) {
+    failed = true;
+    console.error(`✖ i18n: nøklene stemmer ikke for ${locale}`);
+    if (missing.length) console.error(`  Mangler i ${locale}:`, missing.join(", "));
+    if (extra.length) console.error(`  Ekstra i ${locale}:`, extra.join(", "));
+  }
+}
+if (!failed) {
+  console.log(
+    `✓ i18n: ${nbKeys.size} nøkler i alle språk (${CHECKED_LOCALES.join(", ")})`,
+  );
 }
 
 function walk(directory, extensions, out = []) {

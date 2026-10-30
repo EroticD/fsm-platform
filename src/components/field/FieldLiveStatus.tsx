@@ -1,5 +1,7 @@
 "use client";
 
+import { intlLocale } from "@/lib/dates";
+
 import { useEffect, useState } from "react";
 import Icon from "@/components/icons";
 
@@ -40,7 +42,7 @@ export default function FieldLiveStatus({
   }, []);
 
   const clock = now
-    ? new Intl.DateTimeFormat(locale === "nb" ? "nb-NO" : "en-GB", {
+    ? new Intl.DateTimeFormat(intlLocale(locale), {
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",

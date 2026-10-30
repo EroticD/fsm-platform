@@ -1,3 +1,5 @@
+import { intlLocale } from "@/lib/dates";
+
 /**
  * Relativ tid for varsler. Bare hendelser siste døgn vises relativt; eldre
  * varsler får en lokalisert dato og klokkeslett av komponenten.
@@ -15,7 +17,7 @@ export function relativeTimeLabel(
   if (Math.abs(diffSeconds) >= 86_400) return null;
 
   const formatter = new Intl.RelativeTimeFormat(
-    locale?.toLowerCase().startsWith("en") ? "en-GB" : "nb-NO",
+    intlLocale(locale),
     { numeric: "auto" },
   );
 
