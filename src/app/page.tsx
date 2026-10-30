@@ -12,6 +12,7 @@ import {
   formatDateLocalized,
   formatDateRangeLocalized,
   formatDateTimeLocalized,
+  isoWeekNumber,
   parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
@@ -328,12 +329,16 @@ async function DashboardOverview({
     (sum, status) => sum + countByStatus(status),
     0,
   );
-  const dateLabel = formatDateLocalized(
-    startOfToday,
-    locale,
-    undefined,
-    t("dashboard.orderList.noDate"),
-  );
+  const dateLabel = (() => {
+    const date = formatDateLocalized(
+      startOfToday,
+      locale,
+      undefined,
+      t("dashboard.orderList.noDate"),
+    );
+    const week = isoWeekNumber(startOfToday);
+    return week ? `${date} · ${t("dashboard.weekLabel", { week })}` : date;
+  })();
 
   const groups = buildPriorityQueue(
     {
@@ -1289,12 +1294,16 @@ export default async function AdminDashboard() {
   const companyName = branding?.companyName || "FSM System";
   const dateContext = getDateContext();
   const loadingLabel = t("components.skeleton.loading");
-  const dateLabel = formatDateLocalized(
-    dateContext.startOfToday,
-    locale,
-    undefined,
-    t("dashboard.orderList.noDate"),
-  );
+  const dateLabel = (() => {
+    const date = formatDateLocalized(
+      dateContext.startOfToday,
+      locale,
+      undefined,
+      t("dashboard.orderList.noDate"),
+    );
+    const week = isoWeekNumber(dateContext.startOfToday);
+    return week ? `${date} · ${t("dashboard.weekLabel", { week })}` : date;
+  })();
   const firstName = user.name?.split(" ")[0] || t("admin");
   const canOpenNew = canCreate;
 

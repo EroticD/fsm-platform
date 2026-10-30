@@ -187,6 +187,28 @@ export function inclusiveLastDay(endExclusive: string | Date | null | undefined)
   return toDateOnly(addDaysUtc(date, -1));
 }
 
+/**
+ * ISO-ukenummer (1–53) for en kalenderdato. Datoer uten klokkeslett tolkes
+ * som UTC-midnatt, samme konvensjon som resten av datohjelperne.
+ */
+export function isoWeekNumber(
+  value: Date | string | null | undefined,
+): number | null {
+  const date =
+    typeof value === "string" ? parseDateOnly(value) : (value ?? null);
+  if (!date || Number.isNaN(date.getTime())) return null;
+
+  const utc = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  return Math.ceil(
+    ((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+  );
+}
+
 const pad2 = (num: number) => String(num).padStart(2, "0");
 
 /** Formaterer en dato som ISO 8601 (YYYY-MM-DD). */

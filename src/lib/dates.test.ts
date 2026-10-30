@@ -10,6 +10,7 @@ import {
   formatDateTime,
   formatDateTimeLocalized,
   inclusiveLastDay,
+  isoWeekNumber,
   latestOccurrenceOnOrBefore,
   osloDayEnd,
   osloDayStart,
@@ -228,4 +229,16 @@ describe("lokalisert visning", () => {
       "Ingen dato",
     );
   });
+  it("beregner ISO-ukenummer på tvers av årsskifter", () => {
+    expect(isoWeekNumber("2026-10-29")).toBe(44);
+    expect(isoWeekNumber("2026-01-01")).toBe(1);
+    expect(isoWeekNumber("2027-01-01")).toBe(53);
+    expect(isoWeekNumber("2026-12-31")).toBe(53);
+  });
+
+  it("returnerer null for ugyldig ukedato", () => {
+    expect(isoWeekNumber(null)).toBeNull();
+    expect(isoWeekNumber("ikke-en-dato")).toBeNull();
+  });
+
 });

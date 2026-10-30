@@ -80,6 +80,7 @@
     "activityTitle": "Recent activity",
     "viewAllActivity": "View all activity",
     "noActivity": "No activity registered.",
-    "unknownUser": "Unknown"
+    "unknownUser": "Unknown",
+    "weekLabel": "Week {week}"
   }
 }
