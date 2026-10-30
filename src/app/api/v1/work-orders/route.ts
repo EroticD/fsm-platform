@@ -30,6 +30,28 @@ function isWorkOrderStatus(value: string): value is WorkOrderStatus {
   return (WORK_ORDER_STATUSES as readonly string[]).includes(value);
 }
 
+/** Antall visiter som embeddes i en oppdragsliste. Resten hentes via /visits. */
+const EMBEDDED_VISIT_LIMIT = 20;
+
+const EMBEDDED_VISIT_SELECT = {
+  id: true,
+  workOrderId: true,
+  sequence: true,
+  startsAt: true,
+  endsAt: true,
+  allDay: true,
+  status: true,
+  notes: true,
+  createdAt: true,
+  updatedAt: true,
+  technicians: {
+    orderBy: { userId: "asc" },
+    select: {
+      user: { select: { id: true, name: true, email: true } },
+    },
+  },
+} as const;
+
 const SUMMARY_SELECT = {
   id: true,
   title: true,
@@ -43,7 +65,26 @@ const SUMMARY_SELECT = {
   createdAt: true,
   updatedAt: true,
   _count: { select: { reports: { where: { deletedAt: null } } } },
-} as const;
+  visits: {
+    orderBy: [{ sequence: "asc" }, { startsAt: "asc" }],
+    take: EMBEDDED_VISIT_LIMIT,
+    select: EMBEDDED_VISIT_SELECT,
+  },
+} satisfies Prisma.WorkOrderSelect;
+
+type EmbeddedVisitSource = {
+  id: string;
+  workOrderId: string;
+  sequence: number;
+  startsAt: Date;
+  endsAt: Date;
+  allDay: boolean;
+  status: string;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  technicians: { user: { id: string; name: string | null; email: string | null } }[];
+};
 
 type SummarySource = {
   id: string;
@@ -58,7 +99,24 @@ type SummarySource = {
   createdAt: Date;
   updatedAt: Date;
   _count?: { reports: number };
+  visits?: EmbeddedVisitSource[];
 };
+
+function toEmbeddedVisit(visit: EmbeddedVisitSource) {
+  return {
+    id: visit.id,
+    workOrderId: visit.workOrderId,
+    sequence: visit.sequence,
+    startsAt: visit.startsAt.toISOString(),
+    endsAt: visit.endsAt.toISOString(),
+    allDay: visit.allDay,
+    status: visit.status,
+    notes: visit.notes,
+    technicians: visit.technicians.map((technician) => technician.user),
+    createdAt: visit.createdAt.toISOString(),
+    updatedAt: visit.updatedAt.toISOString(),
+  };
+}
 
 function dateOnlyOrNull(value: Date | null | undefined): string | null {
   return value ? toDateOnly(value) || null : null;
@@ -76,6 +134,7 @@ function toSummary(row: SummarySource) {
     technicians: row.technicians ?? [],
     department: row.department,
     reportCount: row._count?.reports ?? 0,
+    visits: (row.visits ?? []).map(toEmbeddedVisit),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

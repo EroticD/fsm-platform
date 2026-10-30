@@ -73,6 +73,23 @@ const listRow = {
   createdAt: new Date("2026-10-30T08:15:00.000Z"),
   updatedAt: new Date("2026-10-30T09:15:00.000Z"),
   _count: { reports: 2 },
+  visits: [
+    {
+      id: "visit-1",
+      workOrderId: "wo-1",
+      sequence: 0,
+      startsAt: new Date("2026-11-03T09:00:00.000Z"),
+      endsAt: new Date("2026-11-03T11:00:00.000Z"),
+      allDay: false,
+      status: "ASSIGNED",
+      notes: null,
+      createdAt: new Date("2026-10-30T08:00:00.000Z"),
+      updatedAt: new Date("2026-10-30T08:30:00.000Z"),
+      technicians: [
+        { user: { id: "tech-1", name: "Ola", email: "ola@example.test" } },
+      ],
+    },
+  ],
 };
 
 beforeEach(() => {
@@ -145,6 +162,23 @@ describe("GET /api/v1/work-orders", () => {
         ],
         department: { id: "dep-a", name: "Oslo" },
         reportCount: 2,
+        visits: [
+          {
+            id: "visit-1",
+            workOrderId: "wo-1",
+            sequence: 0,
+            startsAt: "2026-11-03T09:00:00.000Z",
+            endsAt: "2026-11-03T11:00:00.000Z",
+            allDay: false,
+            status: "ASSIGNED",
+            notes: null,
+            technicians: [
+              { id: "tech-1", name: "Ola", email: "ola@example.test" },
+            ],
+            createdAt: "2026-10-30T08:00:00.000Z",
+            updatedAt: "2026-10-30T08:30:00.000Z",
+          },
+        ],
         createdAt: "2026-10-30T08:15:00.000Z",
         updatedAt: "2026-10-30T09:15:00.000Z",
       },
@@ -184,6 +218,10 @@ describe("GET /api/v1/work-orders", () => {
     });
     expect(call.skip).toBe(10);
     expect(call.take).toBe(10);
+    expect(call.select.visits).toMatchObject({
+      orderBy: [{ sequence: "asc" }, { startsAt: "asc" }],
+      take: 20,
+    });
   });
 
   it("kapper limit til 100 og avviser ugyldig status", async () => {
