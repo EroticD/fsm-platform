@@ -45,7 +45,8 @@
     },
     "board": {
       "empty": "No work orders in this column.",
-      "viewAll": "View all ({count})"
+      "viewAll": "View all ({count})",
+      "dragWorkOrder": "Drag «{title}» to assign a technician"
     },
     "nextAction": {
       "title": "Next action",
@@ -70,7 +71,18 @@
       "load": "{count} work orders",
       "viewToday": "Today's work orders",
       "coverage": "{percent}% covered",
-      "coverageDetail": "{active} of {total} out"
+      "coverageDetail": "{active} of {total} out",
+      "dragHint": "Drag a card to a technician to assign it",
+      "dropLabel": "Drop to assign",
+      "dropZoneLabel": "Assign a work order to {name}"
+    },
+    "dnd": {
+      "errorNoAccess": "You do not have permission to assign this work order.",
+      "errorInvalidData": "The assignment is invalid. Try again.",
+      "errorNotFound": "The work order no longer exists. Refresh the page.",
+      "errorLocked": "The work order is completed or cancelled and cannot be assigned.",
+      "errorLegalHold": "The work order has a legal hold and cannot be changed.",
+      "errorUnknown": "Could not assign the work order. Try again."
     },
     "updatedAt": "Updated {time} · Europe/Oslo",
     "allOrders": "All work orders",

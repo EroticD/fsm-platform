@@ -13,6 +13,8 @@ import CalendarShell from "@/app/kalender/CalendarShell";
 import CalendarLegend from "@/app/kalender/CalendarLegend";
 import CalendarViewPage from "@/app/kalender/CalendarViewPage";
 import Icon, { type IconName } from "@/components/icons";
+import DraggableWorkOrder from "@/components/dnd/DraggableWorkOrder";
+import TechnicianDropZone from "@/components/dnd/TechnicianDropZone";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { staffScope, workOrderScope } from "@/lib/access";
@@ -251,6 +253,12 @@ export default async function CalendarPage({
 
       <CalendarLegend title={t("calendar.legend.title")} items={legendItems} />
 
+      {office ? (
+        <p id="calendar-resource-dnd-hint" className="sr-only">
+          {t("calendar.dnd.instructions")}
+        </p>
+      ) : null}
+
       {office && unassignedJobs.length > 0 && (
         <section
           aria-labelledby="calendar-unassigned-title"
@@ -275,46 +283,61 @@ export default async function CalendarPage({
               <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
                 {t("calendar.page.unassignedWarning")}
               </p>
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs font-bold text-[var(--ink,#101310)]">
+                <Icon
+                  name="dots"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 rotate-90 text-[var(--muted,#62685f)]"
+                />
+                {t("calendar.dnd.resourceHint")}
+              </p>
             </div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {unassignedJobs.map((workOrder) => (
-              <Link
-                href={`/oppdrag/${workOrder.id}`}
+              <DraggableWorkOrder
                 key={workOrder.id}
-                className="group block rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+                workOrderId={workOrder.id}
+                label={t("calendar.dnd.dragWorkOrder", {
+                  title: workOrder.title,
+                })}
               >
-                <span className={`${EYEBROW} block`}>
-                  {formatDateRangeLocalized(
-                    workOrder.scheduledFor,
-                    workOrder.scheduledTo,
-                    locale,
-                  ) || t("calendar.common.noDate")}
-                </span>
-                <p className="mt-1 text-sm font-bold leading-tight text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
-                  {workOrder.title}
-                </p>
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
-                  <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">
-                    {workOrder.customer?.name ||
-                      t("calendar.common.noCustomer")}
+                <Link
+                  href={`/oppdrag/${workOrder.id}`}
+                  draggable={false}
+                  className="group block rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+                >
+                  <span className={`${EYEBROW} block`}>
+                    {formatDateRangeLocalized(
+                      workOrder.scheduledFor,
+                      workOrder.scheduledTo,
+                      locale,
+                    ) || t("calendar.common.noDate")}
                   </span>
-                </p>
-                {formatAddress(workOrder.customer) && (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
-                    <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+                  <p className="mt-1 text-sm font-bold leading-tight text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                    {workOrder.title}
+                  </p>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                    <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">
-                      {formatAddress(workOrder.customer)}
+                      {workOrder.customer?.name ||
+                        t("calendar.common.noCustomer")}
                     </span>
                   </p>
-                )}
-                <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]">
-                  {t("calendar.page.assignTechnician")}
-                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
-                </span>
-              </Link>
+                  {formatAddress(workOrder.customer) && (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                      <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {formatAddress(workOrder.customer)}
+                      </span>
+                    </p>
+                  )}
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]">
+                    {t("calendar.page.assignTechnician")}
+                    <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              </DraggableWorkOrder>
             ))}
           </div>
         </section>
@@ -333,6 +356,15 @@ export default async function CalendarPage({
             >
               {t("calendar.page.technicianOverview")}
             </h2>
+            {office ? (
+              <p className="mt-1 flex items-start gap-1.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                <Icon
+                  name="dots"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 rotate-90"
+                />
+                {t("calendar.dnd.resourceHint")}
+              </p>
+            ) : null}
           </div>
           <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 py-1 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
             {t("calendar.page.technicianCount", {
@@ -363,8 +395,28 @@ export default async function CalendarPage({
               );
 
               return (
-                <article
+                <TechnicianDropZone
                   key={technician.id}
+                  as="article"
+                  technicianId={technician.id}
+                  enabled={office}
+                  label={t("calendar.dnd.dropZoneLabel", {
+                    name:
+                      technician.name ??
+                      t("calendar.filters.unnamedTechnician"),
+                  })}
+                  describedBy={
+                    office ? "calendar-resource-dnd-hint" : undefined
+                  }
+                  dropLabel={t("calendar.dnd.dropLabel")}
+                  errorMessages={{
+                    "ikke-tilgang": t("calendar.dnd.errorNoAccess"),
+                    "ugyldig-data": t("calendar.dnd.errorInvalidData"),
+                    "ikke-funnet": t("calendar.dnd.errorNotFound"),
+                    "workorder-locked": t("calendar.dnd.errorLocked"),
+                    "legal-hold": t("calendar.dnd.errorLegalHold"),
+                    ukjent: t("calendar.dnd.errorUnknown"),
+                  }}
                   className="office-card flex h-full flex-col p-4"
                 >
                   <div className="flex items-start justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-3">
@@ -413,61 +465,72 @@ export default async function CalendarPage({
                           ];
 
                         return (
-                          <Link
-                            href={`/oppdrag/${workOrder.id}`}
+                          <DraggableWorkOrder
                             key={workOrder.id}
-                            className="group block rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+                            workOrderId={workOrder.id}
+                            fromTechnicianId={technician.id}
+                            label={t("calendar.dnd.dragWorkOrder", {
+                              title: workOrder.title,
+                            })}
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)]">
+                            <Link
+                              href={`/oppdrag/${workOrder.id}`}
+                              draggable={false}
+                              className="group block rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 transition hover:border-[var(--ink,#101310)] hover:shadow-[2px_2px_0_var(--signal,#d8ff3e)]"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)]">
+                                  <Icon
+                                    name="calendar"
+                                    className="h-3.5 w-3.5 shrink-0"
+                                  />
+                                  {formatDateRangeLocalized(
+                                    workOrder.scheduledFor,
+                                    workOrder.scheduledTo,
+                                    locale,
+                                  ) || t("calendar.common.noDate")}
+                                </span>
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
+                                  <span
+                                    aria-hidden="true"
+                                    className="h-1.5 w-1.5 rounded-full"
+                                    style={{
+                                      backgroundColor: workOrderStatusColor(
+                                        workOrder.status,
+                                      ),
+                                    }}
+                                  />
+                                  {statusLabel
+                                    ? t(statusLabel)
+                                    : workOrder.status}
+                                </span>
+                              </div>
+                              <p className="mt-1.5 text-sm font-bold leading-tight text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
+                                {workOrder.title}
+                              </p>
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
                                 <Icon
-                                  name="calendar"
-                                  className="h-3.5 w-3.5 shrink-0"
-                                />
-                                {formatDateRangeLocalized(
-                                  workOrder.scheduledFor,
-                                  workOrder.scheduledTo,
-                                  locale,
-                                ) || t("calendar.common.noDate")}
-                              </span>
-                              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
-                                <span
-                                  aria-hidden="true"
-                                  className="h-1.5 w-1.5 rounded-full"
-                                  style={{
-                                    backgroundColor: workOrderStatusColor(
-                                      workOrder.status,
-                                    ),
-                                  }}
-                                />
-                                {statusLabel ? t(statusLabel) : workOrder.status}
-                              </span>
-                            </div>
-                            <p className="mt-1.5 text-sm font-bold leading-tight text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
-                              {workOrder.title}
-                            </p>
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
-                              <Icon
-                                name="building"
-                                className="h-3.5 w-3.5 shrink-0"
-                              />
-                              <span className="truncate">
-                                {workOrder.customer?.name ||
-                                  t("calendar.common.noCustomer")}
-                              </span>
-                            </p>
-                            {formatAddress(workOrder.customer) && (
-                              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
-                                <Icon
-                                  name="pin"
+                                  name="building"
                                   className="h-3.5 w-3.5 shrink-0"
                                 />
                                 <span className="truncate">
-                                  {formatAddress(workOrder.customer)}
+                                  {workOrder.customer?.name ||
+                                    t("calendar.common.noCustomer")}
                                 </span>
                               </p>
-                            )}
-                          </Link>
+                              {formatAddress(workOrder.customer) && (
+                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                                  <Icon
+                                    name="pin"
+                                    className="h-3.5 w-3.5 shrink-0"
+                                  />
+                                  <span className="truncate">
+                                    {formatAddress(workOrder.customer)}
+                                  </span>
+                                </p>
+                              )}
+                            </Link>
+                          </DraggableWorkOrder>
                         );
                       })
                     )}
@@ -499,7 +562,7 @@ export default async function CalendarPage({
                       </div>
                     </div>
                   )}
-                </article>
+                </TechnicianDropZone>
               );
             })}
           </div>

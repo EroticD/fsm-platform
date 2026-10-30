@@ -45,7 +45,8 @@
     },
     "board": {
       "empty": "Ingen oppdrag i denne kolonnen.",
-      "viewAll": "Se alle ({count})"
+      "viewAll": "Se alle ({count})",
+      "dragWorkOrder": "Dra «{title}» for å tildele montør"
     },
     "nextAction": {
       "title": "Neste handling",
@@ -70,7 +71,18 @@
       "load": "{count} oppdrag",
       "viewToday": "Dagens oppdrag",
       "coverage": "{percent} % dekket",
-      "coverageDetail": "{active} av {total} ute"
+      "coverageDetail": "{active} av {total} ute",
+      "dragHint": "Dra et kort til en montør for å tildele",
+      "dropLabel": "Slipp for å tildele",
+      "dropZoneLabel": "Tildel et oppdrag til {name}"
+    },
+    "dnd": {
+      "errorNoAccess": "Du har ikke tilgang til å tildele dette oppdraget.",
+      "errorInvalidData": "Tildelingen er ugyldig. Prøv igjen.",
+      "errorNotFound": "Oppdraget finnes ikke lenger. Oppdater siden.",
+      "errorLocked": "Oppdraget er fullført eller kansellert og kan ikke tildeles.",
+      "errorLegalHold": "Oppdraget har bevaringsplikt og kan ikke endres.",
+      "errorUnknown": "Kunne ikke tildele oppdraget. Prøv igjen."
     },
     "updatedAt": "Oppdatert {time} · Europe/Oslo",
     "allOrders": "Alle oppdrag",
