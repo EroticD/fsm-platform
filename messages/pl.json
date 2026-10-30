@@ -2519,34 +2519,6 @@
         "selected": "Wybrane tagi:"
       }
     },
-    "equipment": {
-      "list": {
-        "title": "🔧 Sprzęt i urządzenia",
-        "subtitle": "Wszystkie zarejestrowane urządzenia u klientów",
-        "summary": "{units, plural, one {# urządzenie} few {# urządzenia} many {# urządzeń} other {# urządzenia}} u {customers, plural, one {# klienta} few {# klientów} many {# klientów} other {# klienta}}",
-        "dashboard": "Panel",
-        "customers": "Klienci",
-        "units": "Urządzenia",
-        "withHistory": "Ma historię serwisową",
-        "withDeviation": "Z odchyleniami",
-        "searchPlaceholder": "Szukaj według modelu, numeru seryjnego, lokalizacji lub klienta ...",
-        "search": "Szukaj",
-        "reset": "Resetuj",
-        "hits": "Wyniki dla „{query}”: {total}.",
-        "noMatches": "Brak urządzeń pasujących do „{query}”.",
-        "empty": "Nie zarejestrowano jeszcze żadnych urządzeń.",
-        "emptyHint": "Urządzenia dodaje się na karcie klienta, w zakładce „Sprzęt / urządzenia”.",
-        "goToCustomers": "Przejdź do klientów",
-        "deviations": "{count, plural, one {# odchylenie} few {# odchylenia} many {# odchyleń} other {# odchylenia}}",
-        "serviceCount": "{count, plural, one {# serwis} few {# serwisy} many {# serwisów} other {# serwisu}}",
-        "neverChecked": "Nigdy nie sprawdzano",
-        "lastService": "ostatnio {date}",
-        "never": "Nigdy",
-        "firstPage": "Pierwsza strona",
-        "showMore": "Pokaż więcej",
-        "showing": "Wyświetlono {shown} z {total} urządzeń. Użyj wyszukiwania, aby zawęzić wyniki."
-      }
-    },
     "settings": {
       "title": "Ustawienia",
       "subtitle": "Zarządzaj systemem, brandingiem i formularzami.",

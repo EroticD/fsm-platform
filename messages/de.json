@@ -2519,34 +2519,6 @@
         "selected": "Ausgewählte Tags:"
       }
     },
-    "equipment": {
-      "list": {
-        "title": "🔧 Geräte & Einheiten",
-        "subtitle": "Alle registrierten Geräte bei Kunden",
-        "summary": "{units, plural, one {# Einheit} other {# Einheiten}} bei {customers, plural, one {# Kunde} other {# Kunden}}",
-        "dashboard": "Dashboard",
-        "customers": "Kunden",
-        "units": "Einheiten",
-        "withHistory": "Hat Serviceverlauf",
-        "withDeviation": "Mit Abweichungen",
-        "searchPlaceholder": "Nach Modell, Seriennummer, Standort oder Kunde suchen ...",
-        "search": "Suchen",
-        "reset": "Zurücksetzen",
-        "hits": "{total} Treffer für \"{query}\".",
-        "noMatches": "Keine Einheiten entsprechen \"{query}\".",
-        "empty": "Noch keine Einheiten registriert.",
-        "emptyHint": "Einheiten werden auf der Kundenkarte unter dem Tab \"Geräte / Einheiten\" hinzugefügt.",
-        "goToCustomers": "Zu den Kunden",
-        "deviations": "{count} Abweichungen",
-        "serviceCount": "{count, plural, one {# Service} other {# Services}}",
-        "neverChecked": "Nie geprüft",
-        "lastService": "zuletzt {date}",
-        "never": "Nie",
-        "firstPage": "Erste Seite",
-        "showMore": "Mehr anzeigen",
-        "showing": "{shown} von {total} Einheiten werden angezeigt. Verwenden Sie die Suche, um die Ergebnisse einzugrenzen."
-      }
-    },
     "settings": {
       "title": "Einstellungen",
       "subtitle": "System, Branding und Formulare verwalten.",
