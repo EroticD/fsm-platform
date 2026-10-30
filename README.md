@@ -55,6 +55,11 @@ signerte servicerapporten kan lastes ned som PDF.
 
 </details>
 
+Alle sidevisninger er også fanget i desktop- og mobilformat under
+[`screenshots/pages/`](screenshots/pages/), med rutedekning i
+`manifest.json`. `npm run screenshots:verify` kontrollerer at hver `page.tsx`
+er dekket.
+
 ## Kom i gang lokalt
 
 Forutsetninger: Node.js 22+, Docker og npm.
