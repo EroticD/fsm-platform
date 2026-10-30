@@ -1012,6 +1012,20 @@ const SKIPPED_ROUTES = [
       "Omtalesiden krever et gyldig engangstoken fra en fullført visitt. " +
       "Tokenflyten dekkes av integrasjonstestene.",
   },
+  {
+    route: "/enheter/qr/[token]",
+    role: "public",
+    reason:
+      "QR-oppslaget krever en gyldig, roterbar enhetstoken. Token- og " +
+      "rotasjonsflyten dekkes av integrasjonstestene.",
+  },
+  {
+    route: "/kundeportal/meldinger/[id]",
+    role: "customer",
+    reason:
+      "Kundeportalens trådvisning krever en eksisterende meldingstråd. " +
+      "Portalens meldingsliste /kundeportal/meldinger er fanget.",
+  },
 ];
 
 const REDIRECT_CHECKS = [
