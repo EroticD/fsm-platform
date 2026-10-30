@@ -23,6 +23,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:i18n:strict": "node scripts/check-i18n.mjs --strict",
     "test:coverage": "vitest run --coverage",
     "test:lighthouse": "node scripts/lighthouse-a11y.mjs"
   },
