@@ -101,6 +101,12 @@ describe("GET /api/v1/maintenance-plans", () => {
     });
     const response = await GET(request());
     expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "forbidden",
+        messageKey: "errors.api.maintenance.forbidden",
+      },
+    });
   });
 });
 
@@ -110,6 +116,13 @@ describe("POST /api/v1/maintenance-plans", () => {
       request("POST", { title: "Plan", trigger: "CALENDAR", ukjent: true }),
     );
     expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "validation_error",
+        messageKey: "errors.api.maintenance.unknownField",
+        details: { field: "ukjent" },
+      },
+    });
     expect(mocks.createMaintenancePlan).not.toHaveBeenCalled();
   });
 

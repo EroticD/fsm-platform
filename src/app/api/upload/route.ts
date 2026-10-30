@@ -182,7 +182,7 @@ export async function POST(request: Request) {
       ownerCustomerId = workOrder.customerId;
     } else if (equipmentId) {
       if (!hasPermission(user, "equipment.manage")) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       const equipment = await prisma.product.findFirst({
         where: { id: equipmentId, customer: { deletedAt: null } },
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
         },
       });
       if (!equipment) {
-        return jsonError("Ingen tilgang", 403);
+        return jsonError("forbidden", 403);
       }
       ownerType = "EQUIPMENT";
       ownerId = equipment.id;

@@ -100,6 +100,13 @@ describe("POST /api/v1/equipment/{id}/meters", () => {
   it("avviser ukjente felt", async () => {
     const response = await POST(request("POST", { value: 1, ukjent: true }), params);
     expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "validation_error",
+        messageKey: "errors.api.equipment.unknownField",
+        details: { field: "ukjent" },
+      },
+    });
     expect(mocks.addMeterReading).not.toHaveBeenCalled();
   });
 
@@ -128,6 +135,8 @@ describe("POST /api/v1/equipment/{id}/meters", () => {
     );
     expect(response.status).toBe(409);
     const body = await response.json();
+    expect(body.error.code).toBe("conflict");
+    expect(body.error.messageKey).toBe("errors.api.equipment.conflict");
     expect(body.error.details.code).toBe("equipment.errors.retired");
   });
 });

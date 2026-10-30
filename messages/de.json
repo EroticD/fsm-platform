@@ -700,7 +700,31 @@
           "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht; er kann nicht verschoben werden.",
           "saveFailed": "Das Datum konnte nicht aktualisiert werden."
         },
-        "bodyObject": "Der Body muss ein JSON-Objekt sein."
+        "bodyObject": "Der Body muss ein JSON-Objekt sein.",
+        "equipment": {
+          "forbidden": "Kein Zugriff auf Geräte.",
+          "createForbidden": "Kein Zugriff zum Anlegen von Geräten.",
+          "updateForbidden": "Kein Zugriff zum Ändern von Geräten.",
+          "metersForbidden": "Kein Zugriff auf Messwerte.",
+          "meterCreateForbidden": "Kein Zugriff zum Erfassen von Messwerten.",
+          "notFound": "Gerät nicht gefunden.",
+          "conflict": "Das Gerät kann nicht geändert werden.",
+          "validation": "Die Felder sind ungültig.",
+          "serverError": "Die Geräteanfrage konnte nicht verarbeitet werden.",
+          "bodyObject": "Der Body muss ein JSON-Objekt sein.",
+          "unknownField": "Unbekanntes Feld.",
+          "noFields": "Mindestens ein Feld muss angegeben werden."
+        },
+        "maintenance": {
+          "forbidden": "Kein Zugriff auf Wartungspläne.",
+          "createForbidden": "Kein Zugriff zum Erstellen von Wartungsplänen.",
+          "notFound": "Wartungsplan nicht gefunden.",
+          "conflict": "Der Wartungsplan kann nicht geändert werden.",
+          "validation": "Die Felder sind ungültig.",
+          "serverError": "Die Wartungsanfrage konnte nicht verarbeitet werden.",
+          "bodyObject": "Der Body muss ein JSON-Objekt sein.",
+          "unknownField": "Unbekanntes Feld."
+        }
       }
     },
     "orders": {
@@ -1828,13 +1852,7 @@
         "resetSearch": "Zurücksetzen",
         "noMatches": "Keine Einheiten entsprechen \"{query}\".",
         "showing": "{shown} von {total} Einheiten werden angezeigt.",
-        "openUnit": "Öffnen",
-        "detailSubtitle": "Einheit bei {customer}",
-        "backToCustomer": "Zurück zur Kundenkarte",
-        "backToCustomers": "Zu den Kunden",
-        "customerLabel": "Kunde",
-        "notFound": "Die Einheit existiert nicht",
-        "historyHidden": "Sie haben keinen Zugriff auf Berichte, daher ist der Serviceverlauf ausgeblendet."
+        "openUnit": "Öffnen"
       },
       "contacts": {
         "title": "Kontakte",
@@ -3617,22 +3635,17 @@
         "allStatuses": "Alle Status",
         "category": "Kategorie",
         "allCategories": "Alle Kategorien",
-        "customer": "Kunde",
-        "allCustomers": "Alle Kunden",
         "hierarchy": "Hierarchie anzeigen",
         "hierarchyHint": "Zeigt Gebäude, Systeme und Geräte als Baum.",
-        "results": "{count, plural, one {# Anlage} other {# Anlagen}}",
         "showing": "{shown} von {total} angezeigt",
         "empty": "Keine Anlagen gefunden",
         "emptyHint": "Suche anpassen oder eine neue Anlage erfassen.",
         "treeTruncated": "Die ersten {limit} Anlagen im Baum werden angezeigt. Suche eingrenzen.",
         "open": "Anlage öffnen",
-        "parent": "Übergeordnet",
         "children": "Untergeordnete Anlagen",
         "meterReadings": "Messwerte",
         "plans": "Pläne",
         "serviceHistory": "Servicehistorie",
-        "noResultsTitle": "Keine Treffer",
         "openModule": "Im Anlagenmodul öffnen"
       },
       "status": {
@@ -3674,12 +3687,10 @@
         "warrantyExpiring": "Garantie läuft bald ab ({date})",
         "warrantyExpired": "Garantie abgelaufen am {date}",
         "warrantyValid": "Garantie bis {date}",
-        "statusLabel": "Betriebsstatus",
         "criticality": "Kritikalität",
         "meter": "Zähler",
         "meterUnit": "Zählereinheit",
         "noMeterUnit": "Nicht gewählt",
-        "lastReading": "Letzter Messwert",
         "noReadings": "Noch keine Messwerte erfasst.",
         "addReading": "Messwert erfassen",
         "readingValue": "Wert",
@@ -3689,7 +3700,6 @@
         "saveReading": "Messwert speichern",
         "chartTitle": "Zählerverlauf",
         "chartEmpty": "Das Diagramm erscheint ab zwei Messwerten.",
-        "chartAria": "Zählerverlauf für {model}. Letzter Wert {value} {unit}.",
         "plansTitle": "Wartungspläne",
         "plansEmpty": "Keine Wartungspläne für diese Anlage.",
         "newPlan": "Neuer Wartungsplan",
@@ -3703,11 +3713,9 @@
         "paused": "Pausiert",
         "pause": "Pausieren",
         "resume": "Aktivieren",
-        "occurrences": "Letzte Vorkommen",
         "noOccurrences": "Noch keine Vorkommen.",
         "timeline": "Zeitleiste",
         "timelineEmpty": "Keine Aktivität für diese Anlage erfasst.",
-        "documents": "Dokumente",
         "qr": "QR-Etikett",
         "qrDescription": "Das Etikett öffnet diese Anlage. Token rotieren, wenn das Etikett verloren oder geteilt wurde.",
         "rotateQr": "QR-Token rotieren",
@@ -3719,9 +3727,7 @@
         "moveSave": "Platzierung speichern",
         "save": "Änderungen speichern",
         "editTitle": "Anlage bearbeiten",
-        "openCustomer": "Kunde öffnen",
         "unknown": "Unbekannt",
-        "history": "Historie",
         "dangerous": "Gefahrenbereich",
         "delete": "Anlage löschen",
         "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden."
@@ -3742,8 +3748,7 @@
         "meterUnit": "Zählereinheit",
         "meterUnitHint": "Zum Beispiel Stunden, km oder Zyklen.",
         "submit": "Anlage erfassen",
-        "cancel": "Abbrechen",
-        "optional": "Optional"
+        "cancel": "Abbrechen"
       },
       "label": {
         "title": "Anlagenetikett",
@@ -3765,11 +3770,8 @@
       "documents": {
         "title": "Dokumente",
         "hint": "Bilder oder PDFs hochladen, die zur Anlage gehören.",
-        "upload": "Dokument hochladen",
         "uploading": "Wird hochgeladen …",
         "empty": "Keine Dokumente hochgeladen.",
-        "open": "Dokument öffnen",
-        "uploaded": "Das Dokument wurde hochgeladen.",
         "uploadError": "Der Upload ist fehlgeschlagen. Bitte erneut versuchen.",
         "uploadLabel": "Dateien auswählen"
       },

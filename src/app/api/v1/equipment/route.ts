@@ -54,7 +54,9 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "equipment.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til utstyr.");
+    return apiError("forbidden", 403, {
+      messageKey: "errors.api.equipment.forbidden",
+    });
   }
 
   const url = new URL(request.url);
@@ -98,25 +100,32 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "equipment.manage")) {
-    return apiError(
-      403,
-      "forbidden",
-      "Du har ikke tilgang til å registrere utstyr.",
-    );
+    return apiError("forbidden", 403, {
+      messageKey: "errors.api.equipment.createForbidden",
+    });
   }
 
   const parsed = await readJsonWithLimit<unknown>(request, JSON_BODY_LIMIT);
   if (!parsed.ok) {
     return parsed.status === 413
-      ? apiError(413, "validation_error", "Forespørselen er for stor.")
-      : apiError(422, "validation_error", "Ugyldig JSON.");
+      ? apiError("validation_error", 413, {
+        messageKey: "errors.api.tooLarge",
+      })
+      : apiError("validation_error", 422, {
+        messageKey: "errors.api.invalidJson",
+      });
   }
   if (!isRecord(parsed.data)) {
-    return apiError(422, "validation_error", "Forventet et JSON-objekt.");
+    return apiError("validation_error", 422, {
+      messageKey: "errors.api.equipment.bodyObject",
+    });
   }
   for (const key of Object.keys(parsed.data)) {
     if (!CREATE_FIELDS.has(key)) {
-      return apiError(422, "validation_error", `Ukjent felt: ${key}.`);
+      return apiError("validation_error", 422, {
+        messageKey: "errors.api.equipment.unknownField",
+        details: { field: key },
+      });
     }
   }
 

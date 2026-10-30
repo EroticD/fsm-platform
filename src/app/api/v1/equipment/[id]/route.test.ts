@@ -139,6 +139,12 @@ describe("GET /api/v1/equipment/{id}", () => {
     mocks.getEquipment.mockResolvedValue({ ok: false, reason: "not_found" });
     const response = await GET(request(), params("mangler"));
     expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "not_found",
+        messageKey: "errors.api.equipment.notFound",
+      },
+    });
   });
 });
 
@@ -146,6 +152,13 @@ describe("PATCH /api/v1/equipment/{id}", () => {
   it("avviser ukjente felt", async () => {
     const response = await PATCH(request("PATCH", { ukjent: 1 }), params());
     expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "validation_error",
+        messageKey: "errors.api.equipment.unknownField",
+        details: { field: "ukjent" },
+      },
+    });
     expect(mocks.updateEquipment).not.toHaveBeenCalled();
   });
 

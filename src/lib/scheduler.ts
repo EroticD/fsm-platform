@@ -22,10 +22,10 @@ async function runOnce() {
   if (contracts.status === "fulfilled") {
     const created = contracts.value.filter((result) => result.workOrderId).length;
     if (created > 0) {
-      logger.info("Serviceavtaler: opprettet nye oppdrag", { created });
+      logger.info("contracts: created work orders", { created });
     }
   } else {
-    logger.error("Serviceavtaler: generering feilet", {
+    logger.error("contracts: generation failed", {
       error:
         contracts.reason instanceof Error
           ? contracts.reason.message
@@ -36,10 +36,10 @@ async function runOnce() {
   if (maintenance.status === "fulfilled") {
     const created = maintenance.value.filter((result) => result.workOrderId).length;
     if (created > 0) {
-      logger.info("Vedlikeholdsplaner: opprettet nye oppdrag", { created });
+      logger.info("maintenance: created work orders", { created });
     }
   } else {
-    logger.error("Vedlikeholdsplaner: generering feilet", {
+    logger.error("maintenance: generation failed", {
       error:
         maintenance.reason instanceof Error
           ? maintenance.reason.message
@@ -51,12 +51,12 @@ async function runOnce() {
   try {
     const warranty = await notifyWarrantyExpiring();
     if (warranty.notified > 0) {
-      logger.info("Utstyr: sendte garantivarsler", {
+      logger.info("warranty: sent expiry notifications", {
         notified: warranty.notified,
       });
     }
   } catch (error) {
-    logger.error("Utstyr: garantivarsling feilet", {
+    logger.error("warranty: notification run failed", {
       error: error instanceof Error ? error.message : String(error),
     });
   }

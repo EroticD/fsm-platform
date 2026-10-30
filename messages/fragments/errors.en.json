@@ -169,7 +169,31 @@
         "legalHold": "The work order is under legal hold and cannot be moved.",
         "saveFailed": "Could not update the date."
       },
-      "bodyObject": "The body must be a JSON object."
+      "bodyObject": "The body must be a JSON object.",
+      "equipment": {
+        "forbidden": "You do not have access to equipment.",
+        "createForbidden": "You are not allowed to register equipment.",
+        "updateForbidden": "You are not allowed to change equipment.",
+        "metersForbidden": "You do not have access to meter readings.",
+        "meterCreateForbidden": "You are not allowed to register meter readings.",
+        "notFound": "Equipment not found.",
+        "conflict": "The equipment cannot be changed.",
+        "validation": "The fields are not valid.",
+        "serverError": "Could not process the equipment request.",
+        "bodyObject": "The body must be a JSON object.",
+        "unknownField": "Unknown field.",
+        "noFields": "At least one field must be provided."
+      },
+      "maintenance": {
+        "forbidden": "You do not have access to maintenance plans.",
+        "createForbidden": "You are not allowed to create maintenance plans.",
+        "notFound": "Maintenance plan not found.",
+        "conflict": "The maintenance plan cannot be changed.",
+        "validation": "The fields are not valid.",
+        "serverError": "Could not process the maintenance request.",
+        "bodyObject": "The body must be a JSON object.",
+        "unknownField": "Unknown field."
+      }
     }
   },
   "notFound": {

@@ -1,31 +1,22 @@
-// i18n-ignore-file: API v1 beholder den eksisterende kontrakten med korte
-// norske meldinger ved siden av stabile maskinlesbare koder i error.details.code.
-import { apiError } from "@/lib/api-response";
+import { apiError } from "@/lib/api-errors";
 import type { ServiceFailure } from "@/server/actor";
-import {
-  equipmentFailureStatus,
-} from "@/server/equipment";
+import { equipmentFailureStatus } from "@/server/equipment";
 
-/** Felles feilmapping for utstyrs- og vedlikeholdsrutene i API v1. */
+export type EquipmentApiDomain = "equipment" | "maintenance";
+
+/**
+ * Felles feilmapping for utstyrs- og vedlikeholdsrutene i API v1.
+ *
+ * `messageKey` følger Phase 2-konvensjonen, slik at klienten kan oversette
+ * teksten. `details.code` beholder de domenespesifikke, stabile kodene
+ * (`equipment.errors.*` og `maintenance.errors.*`).
+ */
 export function equipmentApiError(
   failure: ServiceFailure,
-  messages: Partial<Record<ServiceFailure["reason"], string>> = {},
+  domain: EquipmentApiDomain = "equipment",
 ) {
   const status = equipmentFailureStatus(failure);
-  const fallback =
-    status === 403
-      ? "Du har ikke tilgang."
-      : status === 404
-        ? "Fant ikke ressursen."
-        : status === 409
-          ? "Ressursen kan ikke endres."
-          : status === 429
-            ? "For mange API-kall. Prøv igjen senere."
-            : status === 500
-              ? "Kunne ikke fullføre forespørselen."
-              : "Feltene er ikke gyldige.";
-  return apiError(
-    status,
+  const code =
     status === 403
       ? "forbidden"
       : status === 404
@@ -36,10 +27,26 @@ export function equipmentApiError(
             ? "rate_limited"
             : status === 500
               ? "server_error"
-              : "validation_error",
-    messages[failure.reason] ?? fallback,
-    failure.details,
-  );
+              : "validation_error";
+  const messageKey =
+    status === 429
+      ? "errors.api.rateLimited"
+      : `errors.api.${domain}.${
+          status === 403
+            ? "forbidden"
+            : status === 404
+              ? "notFound"
+              : status === 409
+                ? "conflict"
+                : status === 500
+                  ? "serverError"
+                  : "validation"
+        }`;
+
+  return apiError(code, status, {
+    messageKey,
+    details: failure.details,
+  });
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

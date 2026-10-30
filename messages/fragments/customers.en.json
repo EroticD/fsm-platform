@@ -252,13 +252,7 @@
       "resetSearch": "Reset",
       "noMatches": "No units match \"{query}\".",
       "showing": "Showing {shown} of {total} units.",
-      "openUnit": "Open",
-      "detailSubtitle": "Unit at {customer}",
-      "backToCustomer": "Back to the customer card",
-      "backToCustomers": "To customers",
-      "customerLabel": "Customer",
-      "notFound": "The unit does not exist",
-      "historyHidden": "You do not have access to reports, so the service history is hidden."
+      "openUnit": "Open"
     },
     "contacts": {
       "title": "Contacts",

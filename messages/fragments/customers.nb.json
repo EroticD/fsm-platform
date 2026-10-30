@@ -252,13 +252,7 @@
       "resetSearch": "Nullstill",
       "noMatches": "Ingen enheter matcher «{query}».",
       "showing": "Viser {shown} av {total} enheter.",
-      "openUnit": "Åpne",
-      "detailSubtitle": "Enhet hos {customer}",
-      "backToCustomer": "Tilbake til kundekortet",
-      "backToCustomers": "Til kundene",
-      "customerLabel": "Kunde",
-      "notFound": "Enheten finnes ikke",
-      "historyHidden": "Du mangler tilgang til rapporter, så servicehistorikken vises ikke."
+      "openUnit": "Åpne"
     },
     "contacts": {
       "title": "Kontaktpersoner",

@@ -700,7 +700,31 @@
           "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania i nie można go przenieść.",
           "saveFailed": "Nie udało się zaktualizować daty."
         },
-        "bodyObject": "Treść musi być obiektem JSON."
+        "bodyObject": "Treść musi być obiektem JSON.",
+        "equipment": {
+          "forbidden": "Brak dostępu do urządzeń.",
+          "createForbidden": "Brak dostępu do rejestrowania urządzeń.",
+          "updateForbidden": "Brak dostępu do zmiany urządzeń.",
+          "metersForbidden": "Brak dostępu do odczytów.",
+          "meterCreateForbidden": "Brak dostępu do rejestrowania odczytów.",
+          "notFound": "Nie znaleziono urządzenia.",
+          "conflict": "Nie można zmienić urządzenia.",
+          "validation": "Pola są nieprawidłowe.",
+          "serverError": "Nie udało się przetworzyć żądania urządzenia.",
+          "bodyObject": "Treść musi być obiektem JSON.",
+          "unknownField": "Nieznane pole.",
+          "noFields": "Należy podać co najmniej jedno pole."
+        },
+        "maintenance": {
+          "forbidden": "Brak dostępu do planów konserwacji.",
+          "createForbidden": "Brak dostępu do tworzenia planów konserwacji.",
+          "notFound": "Nie znaleziono planu konserwacji.",
+          "conflict": "Nie można zmienić planu konserwacji.",
+          "validation": "Pola są nieprawidłowe.",
+          "serverError": "Nie udało się przetworzyć żądania konserwacji.",
+          "bodyObject": "Treść musi być obiektem JSON.",
+          "unknownField": "Nieznane pole."
+        }
       }
     },
     "orders": {
@@ -1828,13 +1852,7 @@
         "resetSearch": "Resetuj",
         "noMatches": "Brak urządzeń pasujących do „{query}”.",
         "showing": "Wyświetlono {shown} z {total} urządzeń.",
-        "openUnit": "Otwórz",
-        "detailSubtitle": "Urządzenie u klienta {customer}",
-        "backToCustomer": "Powrót do karty klienta",
-        "backToCustomers": "Do klientów",
-        "customerLabel": "Klient",
-        "notFound": "Urządzenie nie istnieje",
-        "historyHidden": "Nie masz dostępu do raportów, więc historia serwisowa jest ukryta."
+        "openUnit": "Otwórz"
       },
       "contacts": {
         "title": "Kontakty",
@@ -3617,22 +3635,17 @@
         "allStatuses": "Wszystkie statusy",
         "category": "Kategoria",
         "allCategories": "Wszystkie kategorie",
-        "customer": "Klient",
-        "allCustomers": "Wszyscy klienci",
         "hierarchy": "Pokaż hierarchię",
         "hierarchyHint": "Pokazuje budynki, systemy i urządzenia jako drzewo.",
-        "results": "{count, plural, one {# urządzenie} few {# urządzenia} many {# urządzeń} other {# urządzenia}}",
         "showing": "Wyświetlono {shown} z {total}",
         "empty": "Nie znaleziono urządzeń",
         "emptyHint": "Zmień wyszukiwanie lub dodaj nowe urządzenie.",
         "treeTruncated": "Wyświetlono pierwsze {limit} urządzeń w drzewie. Zawęź wyszukiwanie.",
         "open": "Otwórz urządzenie",
-        "parent": "Nadrzędne",
         "children": "Urządzenia podrzędne",
         "meterReadings": "Odczyty",
         "plans": "Plany",
         "serviceHistory": "Historia serwisowa",
-        "noResultsTitle": "Brak wyników",
         "openModule": "Otwórz w module urządzeń"
       },
       "status": {
@@ -3674,12 +3687,10 @@
         "warrantyExpiring": "Gwarancja wkrótce wygasa ({date})",
         "warrantyExpired": "Gwarancja wygasła {date}",
         "warrantyValid": "Gwarancja do {date}",
-        "statusLabel": "Status eksploatacji",
         "criticality": "Krytyczność",
         "meter": "Licznik",
         "meterUnit": "Jednostka licznika",
         "noMeterUnit": "Nie wybrano",
-        "lastReading": "Ostatni odczyt",
         "noReadings": "Brak zarejestrowanych odczytów.",
         "addReading": "Zarejestruj odczyt",
         "readingValue": "Wartość",
@@ -3689,7 +3700,6 @@
         "saveReading": "Zapisz odczyt",
         "chartTitle": "Trend licznika",
         "chartEmpty": "Wykres pojawi się przy co najmniej dwóch odczytach.",
-        "chartAria": "Trend licznika dla {model}. Ostatnia wartość {value} {unit}.",
         "plansTitle": "Plany konserwacji",
         "plansEmpty": "Brak planów konserwacji dla tego urządzenia.",
         "newPlan": "Nowy plan konserwacji",
@@ -3703,11 +3713,9 @@
         "paused": "Wstrzymany",
         "pause": "Wstrzymaj",
         "resume": "Aktywuj",
-        "occurrences": "Ostatnie wystąpienia",
         "noOccurrences": "Brak wystąpień.",
         "timeline": "Os czasu",
         "timelineEmpty": "Brak aktywności dla tego urządzenia.",
-        "documents": "Dokumenty",
         "qr": "Etykieta QR",
         "qrDescription": "Etykieta prowadzi do tego urządzenia. Obróć token, jeśli etykieta została zgubiona lub udostępniona.",
         "rotateQr": "Obróć token QR",
@@ -3719,9 +3727,7 @@
         "moveSave": "Zapisz położenie",
         "save": "Zapisz zmiany",
         "editTitle": "Edytuj urządzenie",
-        "openCustomer": "Otwórz klienta",
         "unknown": "Nieznane",
-        "history": "Historia",
         "dangerous": "Strefa zagrożenia",
         "delete": "Usuń urządzenie",
         "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć."
@@ -3742,8 +3748,7 @@
         "meterUnit": "Jednostka licznika",
         "meterUnitHint": "Na przykład godziny, km lub cykle.",
         "submit": "Zarejestruj urządzenie",
-        "cancel": "Anuluj",
-        "optional": "Opcjonalne"
+        "cancel": "Anuluj"
       },
       "label": {
         "title": "Etykieta urządzenia",
@@ -3765,11 +3770,8 @@
       "documents": {
         "title": "Dokumenty",
         "hint": "Prześlij obrazy lub pliki PDF należące do urządzenia.",
-        "upload": "Prześlij dokument",
         "uploading": "Przesyłanie …",
         "empty": "Brak przesłanych dokumentów.",
-        "open": "Otwórz dokument",
-        "uploaded": "Dokument został przesłany.",
         "uploadError": "Przesyłanie nie powiodło się. Spróbuj ponownie.",
         "uploadLabel": "Wybierz pliki"
       },

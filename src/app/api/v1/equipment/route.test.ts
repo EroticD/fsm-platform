@@ -109,6 +109,12 @@ describe("GET /api/v1/equipment", () => {
     );
     const response = await GET(request());
     expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "forbidden",
+        messageKey: "errors.api.equipment.forbidden",
+      },
+    });
   });
 
   it("sender søk, filtre og paginering videre", async () => {
@@ -156,6 +162,13 @@ describe("POST /api/v1/equipment", () => {
   it("avviser ukjente felt", async () => {
     const response = await POST(post({ customerId: "c", model: "M", ukjent: true }));
     expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "validation_error",
+        messageKey: "errors.api.equipment.unknownField",
+        details: { field: "ukjent" },
+      },
+    });
     expect(mocks.createEquipment).not.toHaveBeenCalled();
   });
 
@@ -181,6 +194,7 @@ describe("POST /api/v1/equipment", () => {
     expect(response.status).toBe(409);
     const body = await response.json();
     expect(body.error.code).toBe("conflict");
+    expect(body.error.messageKey).toBe("errors.api.equipment.conflict");
     expect(body.error.details).toEqual({
       code: "equipment.errors.hierarchyCycle",
     });

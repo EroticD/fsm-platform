@@ -169,7 +169,31 @@
         "legalHold": "Oppdraget har bevaringsplikt og kan ikke flyttes.",
         "saveFailed": "Kunne ikke oppdatere dato."
       },
-      "bodyObject": "Body må være et JSON-objekt."
+      "bodyObject": "Body må være et JSON-objekt.",
+      "equipment": {
+        "forbidden": "Du har ikke tilgang til utstyr.",
+        "createForbidden": "Du har ikke tilgang til å registrere utstyr.",
+        "updateForbidden": "Du har ikke tilgang til å endre utstyr.",
+        "metersForbidden": "Du har ikke tilgang til målinger.",
+        "meterCreateForbidden": "Du har ikke tilgang til å registrere målinger.",
+        "notFound": "Fant ikke utstyret.",
+        "conflict": "Utstyret kan ikke endres.",
+        "validation": "Feltene er ikke gyldige.",
+        "serverError": "Kunne ikke behandle utstyrsforespørselen.",
+        "bodyObject": "Body må være et JSON-objekt.",
+        "unknownField": "Ukjent felt.",
+        "noFields": "Minst ett felt må oppgis."
+      },
+      "maintenance": {
+        "forbidden": "Du har ikke tilgang til vedlikeholdsplaner.",
+        "createForbidden": "Du har ikke tilgang til å opprette vedlikeholdsplaner.",
+        "notFound": "Fant ikke vedlikeholdsplanen.",
+        "conflict": "Vedlikeholdsplanen kan ikke endres.",
+        "validation": "Feltene er ikke gyldige.",
+        "serverError": "Kunne ikke behandle vedlikeholdsforespørselen.",
+        "bodyObject": "Body må være et JSON-objekt.",
+        "unknownField": "Ukjent felt."
+      }
     }
   },
   "notFound": {
