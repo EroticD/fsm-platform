@@ -25,6 +25,7 @@ describe("toppnavigasjon", () => {
       "/oppdrag",
       "/kalender",
       "/kunder",
+      "/meldinger",
       "/rapporter",
     ]);
   });
@@ -39,6 +40,7 @@ describe("toppnavigasjon", () => {
       "/oppdrag",
       "/kalender",
       "/kunder",
+      "/meldinger",
     ]);
     expect(primaryNavFor(items)[0].labelKey).toBe("today");
   });
@@ -85,6 +87,7 @@ describe("toppnavigasjon", () => {
       "/oppdrag",
       "/kalender",
       "/kunder",
+      "/meldinger",
       "/rapporter",
     ]);
     expect(hrefs(menuNavFor(items))).toEqual([
@@ -162,6 +165,7 @@ describe("toppnavigasjon", () => {
       "/oppdrag",
       "/kalender",
       "/kunder",
+      "/meldinger",
       "/avtaler",
       "/enheter",
       "/rapporter",

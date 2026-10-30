@@ -1,0 +1,116 @@
+{
+  "settings": {
+    "tabs": {
+      "sms": "SMS"
+    }
+  },
+  "sms": {
+    "nav": "Nachrichten",
+    "page": {
+      "title": "Nachrichten",
+      "subtitle": "{unread} ungelesene Unterhaltungen. Kundenantworten erscheinen hier.",
+      "search": "Suchen",
+      "searchPlaceholder": "Kunde, Kontakt oder Auftrag",
+      "all": "Alle",
+      "unreadOnly": "Nur ungelesene",
+      "emptyTitle": "Keine Nachrichten",
+      "emptyDescription": "Wenn ein Kunde per SMS antwortet, erscheint die Unterhaltung hier.",
+      "noMessages": "Noch keine Nachrichten",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite {page} von {pages}",
+      "clearFilters": "Filter entfernen",
+      "startThread": "Unterhaltung starten"
+    },
+    "thread": {
+      "title": "Unterhaltung",
+      "back": "Zurück zu Nachrichten",
+      "customer": "Kunde",
+      "workOrder": "Auftrag",
+      "contact": "Kontakt",
+      "send": "Senden",
+      "placeholder": "Nachricht an den Kunden schreiben …",
+      "empty": "Diese Unterhaltung enthält noch keine Nachrichten.",
+      "inbound": "Eingehend",
+      "outbound": "Ausgehend",
+      "status": "Status",
+      "quickTitle": "Schnellnachrichten",
+      "quickHint": "Verwendet die bearbeitbare Vorlage für das Ereignis.",
+      "quickBooking": "Buchungsbestätigung senden",
+      "quickReminder": "Erinnerung senden",
+      "quickOnMyWay": "„Unterwegs“ senden",
+      "quickDone": "„Abgeschlossen“ senden",
+      "quickReview": "Um Bewertung bitten",
+      "sent": "Die Nachricht wurde eingereiht."
+    },
+    "consent": {
+      "title": "Einwilligung und Abmeldung",
+      "description": "SMS wird nur gesendet, wenn der Empfänger zugestimmt hat. Eine STOP-Antwort meldet die Nummer automatisch ab.",
+      "optedIn": "Einwilligung registriert",
+      "unknown": "Nicht registriert",
+      "grant": "Einwilligung registrieren",
+      "revoke": "Nummer abmelden",
+      "granted": "Die Einwilligung wurde registriert.",
+      "revoked": "Die Nummer wurde abgemeldet."
+    },
+    "status": {
+      "QUEUED": "In Warteschlange",
+      "SENDING": "Wird gesendet",
+      "SENT": "Gesendet",
+      "DELIVERED": "Zugestellt",
+      "FAILED": "Fehlgeschlagen",
+      "DEAD_LETTER": "Aufgegeben",
+      "RECEIVED": "Empfangen"
+    },
+    "settings": {
+      "title": "SMS und Nachrichten",
+      "description": "Der Anbieter wird über die Umgebungsvariable SMS_PROVIDER gewählt. Vorlagen und Abmelderegeln werden hier bearbeitet.",
+      "provider": "Anbieter",
+      "sender": "Absender",
+      "dryRunOn": "Trockenlauf – keine Nachricht verlässt das System.",
+      "dryRunOff": "Aktiver Anbieter.",
+      "signature": "Webhook-Signatur",
+      "signatureOn": "Eine Signatur ist konfiguriert.",
+      "signatureOff": "Keine Signatur konfiguriert. Der Webhook lehnt Zustellungen ab.",
+      "defaultLocale": "Standardsupräche",
+      "optOutKeywords": "Abmeldebegriffe",
+      "optInKeywords": "Zustimmungsbegriffe",
+      "keywordsHint": "Ein Begriff pro Zeile oder durch Kommas getrennt.",
+      "monthlyCap": "Monatliches Limit",
+      "monthlyCapHint": "0 bedeutet kein Limit.",
+      "save": "Einstellungen speichern",
+      "saved": "Die Einstellungen wurden gespeichert.",
+      "templates": "Vorlagen pro Ereignis",
+      "templatesHint": "Platzhalter müssen in der Liste der erlaubten Variablen stehen.",
+      "body": "Text",
+      "variables": "Erlaubte Variablen",
+      "active": "Aktiv",
+      "saveTemplate": "Vorlage speichern",
+      "templateSaved": "Die Vorlage wurde gespeichert.",
+      "noTemplates": "Es wurden keine Vorlagen angelegt.",
+      "errorForbidden": "Sie haben keinen Zugriff auf die SMS-Einstellungen.",
+      "errorInvalid": "Die Felder sind ungültig. Prüfen Sie Vorlage und Platzhalter."
+    },
+    "events": {
+      "BOOKING_CONFIRMED": "Buchung bestätigt",
+      "VISIT_REMINDER": "Terminerinnerung",
+      "ON_MY_WAY": "Techniker unterwegs",
+      "VISIT_DONE": "Termin abgeschlossen",
+      "REVIEW_REQUEST": "Um Bewertung bitten"
+    },
+    "notifications": {
+      "type": "Nachricht",
+      "title": "Neue SMS",
+      "body": "{preview}"
+    },
+    "errors": {
+      "forbidden": "Kein Zugriff.",
+      "not_found": "Die Unterhaltung wurde nicht gefunden.",
+      "invalid": "Die Felder sind ungültig.",
+      "invalid_contact": "Der Kontakt hat keine Telefonnummer.",
+      "noConsent": "Der Kontakt hat der SMS nicht zugestimmt.",
+      "rate_limited": "Das monatliche SMS-Limit wurde erreicht.",
+      "generic": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+    }
+  }
+}

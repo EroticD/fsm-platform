@@ -60,6 +60,19 @@ export async function readJsonWithLimit<T = unknown>(
   }
 }
 
+/**
+ * Leser rå tekst med samme grense. Webhooker må verifisere signaturen mot
+ * nøyaktig de bytene leverandøren sendte, før noe parses.
+ */
+export async function readTextWithLimit(
+  request: Request,
+  maxBytes: number = JSON_BODY_LIMIT,
+): Promise<LimitedBodyResult<string>> {
+  const raw = await readRawBody(request, maxBytes);
+  if (!raw.ok) return raw;
+  return { ok: true, data: raw.buffer.toString("utf8") };
+}
+
 /** Leser multipart/skjemadata, men aldri mer enn `maxBytes` byte. */
 export async function readFormDataWithLimit(
   request: Request,

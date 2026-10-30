@@ -14,6 +14,7 @@ const noPermissions: SettingsTabPermissions = {
   canAudit: false,
   canStats: false,
   canSla: false,
+  canSms: false,
   isAdmin: false,
 };
 
@@ -27,6 +28,7 @@ const admin: SettingsTabPermissions = {
   canAudit: true,
   canStats: true,
   canSla: true,
+  canSms: true,
   isAdmin: true,
 };
 
@@ -57,6 +59,14 @@ describe("chooseSettingsTab", () => {
     expect(
       chooseSettingsTab("sla", { ...noPermissions, canSla: true }),
     ).toBe("sla");
+  });
+
+  it("viser SMS-fanen bare med settings.manage", () => {
+    expect(isSettingsTabAllowed("sms", admin)).toBe(true);
+    expect(isSettingsTabAllowed("sms", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("sms", { ...noPermissions, canSms: true }),
+    ).toBe("sms");
   });
 
   it("lar bare administrator åpne API-fanen", () => {

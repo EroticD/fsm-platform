@@ -16,6 +16,7 @@ import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
+import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
@@ -30,6 +31,7 @@ import {
 } from "@/server/settings";
 import { listApiKeys } from "@/server/api-keys";
 import { getSlaSettingsView } from "@/server/sla";
+import { getSmsSettingsView } from "@/server/sms";
 import { listPriceLists } from "@/server/contracts";
 import {
   createDocumentTagAction,
@@ -54,6 +56,10 @@ import {
   saveHolidayAction,
   saveSlaPolicyAction,
 } from "./sla-actions";
+import {
+  saveSmsSettingsAction,
+  saveSmsTemplateAction,
+} from "./sms-actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -94,6 +100,7 @@ export default async function SettingsPage({
   const canAudit = hasPermission(user, "audit.view");
   const canStats = hasPermission(user, "reports.view");
   const canSla = hasPermission(user, "sla.manage");
+  const canSms = hasPermission(user, "settings.manage");
   const canUseSettings =
     canBranding ||
     canMap ||
@@ -103,6 +110,7 @@ export default async function SettingsPage({
     canAudit ||
     canStats ||
     canSla ||
+    canSms ||
     isAdmin;
   // Lesetilgang til statistikk/aktivitetslogg er ikke det samme som å kunne
   // administrere systemet. Tekstene skal ikke love mer enn rettighetene.
@@ -134,6 +142,7 @@ export default async function SettingsPage({
     canAudit,
     canStats,
     canSla,
+    canSms,
     isAdmin,
   });
   const searchQuery = resolvedParams.search || "";
@@ -185,6 +194,8 @@ export default async function SettingsPage({
     currentTab === "sla" && canSla
       ? await getSlaSettingsView(user, resolvedParams.department)
       : null;
+  const smsSettings =
+    currentTab === "sms" && canSms ? await getSmsSettingsView(user) : null;
   const priceLists =
     currentTab === "sla" && hasPermission(user, "contracts.manage")
       ? await listPriceLists(user)
@@ -222,6 +233,7 @@ export default async function SettingsPage({
           canAudit={canAudit}
           canStats={canStats}
           canSla={canSla}
+          canSms={canSms}
           isAdmin={isAdmin}
         />
 
@@ -333,6 +345,24 @@ export default async function SettingsPage({
             createPriceList={createPriceListAction}
             addPriceItem={addPriceListItemAction}
             deletePriceItem={deletePriceListItemAction}
+          />
+        )}
+
+        {currentTab === "sms" && canSms && smsSettings?.ok && (
+          <SmsSettingsTab
+            settings={{
+              defaultLocale: smsSettings.data.settings.defaultLocale,
+              optOutKeywords: smsSettings.data.settings.optOutKeywords,
+              optInKeywords: smsSettings.data.settings.optInKeywords,
+              monthlyCap: smsSettings.data.settings.monthlyCap,
+            }}
+            templates={smsSettings.data.templates}
+            provider={smsSettings.data.provider}
+            senderId={smsSettings.data.senderId}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            saveSettings={saveSmsSettingsAction}
+            saveTemplate={saveSmsTemplateAction}
           />
         )}
 

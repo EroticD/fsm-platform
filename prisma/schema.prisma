@@ -40,6 +40,8 @@ model Department {
   businessHours    BusinessHours[]
   holidays         Holiday[]
   maintenancePlans MaintenancePlan[]
+  messageThreads   MessageThread[]
+  smsMessages      SmsMessage[]
 
   @@index([isActive])
 }
@@ -100,6 +102,9 @@ model User {
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
 
+  /// Språket mottakeren skal få SMS og e-post på. Standard er norsk.
+  locale String @default("nb")
+
   // Ansatte tilhører en avdeling. Kundeportalbrukere kan stå uten.
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
@@ -128,6 +133,11 @@ model User {
   savedSearches           SavedSearch[]
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   apiKeys                 ApiKey[]
+
+  // Meldinger skrevet av brukeren, og SMS-samtykke for ansatte.
+  messageAuthors     Message[]
+  channelPreferences ChannelPreference[]
+  smsMessages        SmsMessage[]
 
   // Planlegging: visittildelinger, kompetanse, arbeidstid og fravær.
   visitAssignments VisitTechnician[]
@@ -221,6 +231,7 @@ model Customer {
   comments         Comment[]
   attachments      CustomerAttachment[]
   maintenancePlans MaintenancePlan[]
+  messageThreads   MessageThread[]
 
   users User[]
 
@@ -249,6 +260,12 @@ model Contact {
   comments  Comment[]
   users     User[]
   contracts Contract[]
+
+  /// Språket kontaktpersonen skal få SMS på. Standard er norsk.
+  locale             String              @default("nb")
+  messageThreads     MessageThread[]
+  smsMessages        SmsMessage[]
+  channelPreferences ChannelPreference[]
 
   @@index([customerId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm")
@@ -747,6 +764,8 @@ model WorkOrder {
   slaClocks         SlaClock[]
   trackingLinks     TrackingLink[]
   reviews           Review[]
+  messageThreads    MessageThread[]
+  smsMessages       SmsMessage[]
 
   /// Forekomst av en vedlikeholdsplan som genererte dette oppdraget.
   maintenanceOccurrence MaintenancePlanOccurrence?
@@ -1353,10 +1372,16 @@ model Notification {
   id                 String    @id @default(cuid())
   userId             String
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// ASSIGNMENT | DATE_CHANGED | CANCELLED | REPORT_READY | BOOKING | CONTRACT_DUE | OVERDUE
+  /// ASSIGNMENT | DATE_CHANGED | CANCELLED | REPORT_READY | BOOKING | CONTRACT_DUE | OVERDUE | MESSAGE
   type               String
   title              String
+  /// Når varselet er laget med en oversettbar nøkkel, er dette nøkkelen og
+  /// `title` er tom. Eldre varsler har vanlig tekst i `title`.
+  titleKey           String?
   body               String?
+  bodyKey            String?
+  /// Verdier til {placeholder}-plassholdere i titleKey/bodyKey.
+  params             Json?
   /// Menneskevennlig kilde, f.eks. «Oppdrag: testoppdrag · Biniam» eller
   /// «Kunde: Pipelife Norge AS». Frosset ved opprettelse slik at varselet
   /// fortsatt viser hvor det kom fra selv om oppdraget senere endres.
@@ -1463,4 +1488,159 @@ model MapSettings {
   centerLng       Float?
   scrollWheelZoom Boolean  @default(true)
   updatedAt       DateTime @updatedAt
+}
+
+/// Utgående og innkommende SMS.
+///
+/// Utgående rader er den vedvarende køen: `QUEUED` → `SENDING` → `SENT`/
+/// `DELIVERED`, eller `DEAD_LETTER` etter tre mislykkede forsøk. Innkommende
+/// webhook-leveranser lagres også her, med `direction = INBOUND`, slik at
+/// `@@unique([provider, providerId])` gjør gjentatt levering idempotent.
+model SmsMessage {
+  id             String    @id @default(cuid())
+  direction      String    @default("OUTBOUND")
+  /// console | linkmobility | pswincom | twilio
+  provider       String    @default("console")
+  providerId     String?
+  to             String
+  from           String?
+  body           String
+  templateKey    String?
+  locale         String?
+  /// QUEUED | SENDING | SENT | DELIVERED | FAILED | DEAD_LETTER | RECEIVED
+  status         String    @default("QUEUED")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lockedAt       DateTime?
+  lockedBy       String?
+  lastError      String?
+  workOrderId    String?
+  contactId      String?
+  userId         String?
+  departmentId   String?
+  threadId       String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  deadLetteredAt DateTime?
+
+  workOrder  WorkOrder?     @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  contact    Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  thread     MessageThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerId])
+  @@index([status, nextAttemptAt])
+  @@index([status, createdAt])
+  @@index([contactId, createdAt])
+  @@index([workOrderId, createdAt])
+  @@index([threadId, createdAt])
+}
+
+/// Én samtale mellom kunden og kontoret. `threadKey` er en stabil, beregnet
+/// nøkkel (kunde + kontakt + eventuelt oppdrag), slik at to samtidige
+/// innkommende meldinger ikke lager hver sin tråd.
+model MessageThread {
+  id            String      @id @default(cuid())
+  threadKey     String      @unique
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  workOrderId   String?
+  workOrder     WorkOrder?  @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  contactId     String?
+  contact       Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  subject       String?
+  /// Antall innkommende meldinger kontoret ennå ikke har lest.
+  unreadCount   Int         @default(0)
+  lastMessageAt DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  messages    Message[]
+  smsMessages SmsMessage[]
+
+  @@index([customerId, lastMessageAt])
+  @@index([departmentId, lastMessageAt])
+  @@index([workOrderId])
+  @@index([contactId])
+}
+
+/// En melding i en tråd, uavhengig av kanal. Innkommende SMS har også en
+/// `SmsMessage`-rad for idempotens; `smsMessageId` peker på den.
+model Message {
+  id           String        @id @default(cuid())
+  threadId     String
+  thread       MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  /// INBOUND | OUTBOUND
+  direction    String
+  /// SMS | PORTAL | EMAIL
+  channel      String        @default("SMS")
+  body         String
+  authorUserId String?
+  author       User?         @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  smsMessageId String?
+  fromAddress  String?
+  toAddress    String?
+  readAt       DateTime?
+  createdAt    DateTime      @default(now())
+
+  @@index([threadId, createdAt])
+  @@index([smsMessageId])
+  @@index([authorUserId])
+}
+
+/// Samtykke og reservasjon per kanal. En rad med `optedIn = true` og
+/// `optedOut = false` er den eneste tilstanden som tillater utsending.
+/// Manglende rad betyr «ukjent» og blokkerer SMS.
+model ChannelPreference {
+  id          String    @id @default(cuid())
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerId  String?
+  /// SMS | EMAIL | PORTAL
+  channel     String    @default("SMS")
+  optedIn     Boolean   @default(false)
+  optedOut    Boolean   @default(false)
+  consentedAt DateTime?
+  optedOutAt  DateTime?
+  source      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([contactId, channel])
+  @@unique([userId, channel])
+  @@index([customerId, channel])
+}
+
+/// Redigerbar SMS-mal per hendelse og språk. `variables` er den eksplisitte
+/// listen over {plassholdere} malen kan bruke.
+model SmsTemplate {
+  id        String   @id @default(cuid())
+  eventKey  String
+  locale    String   @default("nb")
+  body      String
+  variables String[] @default([])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventKey, locale])
+  @@index([eventKey, isActive])
+}
+
+/// Globale SMS-innstillinger. Én rad med id "default". Leverandør og
+/// avsendernavn kommer fra miljøet og vises bare lesbart i UI-en.
+model SmsSetting {
+  id             String   @id @default("default")
+  defaultLocale  String   @default("nb")
+  optOutKeywords String[] @default(["STOP", "STOPP", "MELD AV", "AVMELD", "UNSUBSCRIBE"])
+  optInKeywords  String[] @default(["START", "JA", "MELD PÅ", "PÅMELD", "SUBSCRIBE"])
+  /// 0 eller null betyr ingen månedlig grense.
+  monthlyCap     Int?     @default(0)
+  updatedAt      DateTime @updatedAt
 }

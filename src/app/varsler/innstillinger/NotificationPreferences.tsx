@@ -26,6 +26,7 @@ export default async function NotificationPreferences() {
     SLA_AT_RISK: t("p3.notificationSettings.labels.SLA_AT_RISK"),
     SLA_BREACHED: t("p3.notificationSettings.labels.SLA_BREACHED"),
     WARRANTY: t("p3.notificationSettings.labels.WARRANTY"),
+    MESSAGE: t("sms.notifications.type"),
 
   };
 

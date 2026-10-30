@@ -787,6 +787,13 @@ export default async function AdminWorkOrderPage({
                           </a>
                         )}
                       </p>
+                      <Link
+                        href={`/meldinger?oppdrag=${workOrder.id}`}
+                        className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)] hover:underline"
+                      >
+                        <Icon name="mail" className="h-3.5 w-3.5 shrink-0" />
+                        {t("sms.nav")}
+                      </Link>
                     </>
                   ) : (
                     <p className="mt-1 text-xs italic text-[#5e6356]">

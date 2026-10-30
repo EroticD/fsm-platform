@@ -19,12 +19,15 @@ describe("notificationTypePresentation", () => {
       "SLA_AT_RISK",
       "SLA_BREACHED",
       "WARRANTY",
+      "MESSAGE",
     ];
 
     for (const type of types) {
       const presentation = notificationTypePresentation(type);
       expect(presentation).not.toBeNull();
-      expect(presentation?.labelKey).toBe(`p3.notifications.types.${type}`);
+      expect(presentation?.labelKey).toBe(
+        type === "MESSAGE" ? "sms.notifications.type" : `p3.notifications.types.${type}`,
+      );
       expect(presentation?.icon.length).toBeGreaterThan(0);
       expect(presentation?.tone.length).toBeGreaterThan(0);
     }

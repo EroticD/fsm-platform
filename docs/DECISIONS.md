@@ -290,3 +290,46 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   `updateMany` med `submittedAt: null`; andre forsøk får en konflikt. Omtaler
   publiseres ikke, og dashbordet viser bare aggregert gjennomsnitt/antall
   avgrenset av oppdragenes synlighetsomfang.
+
+## SMS og toveismeldinger (Phase 5B, 2026-10-30)
+
+- **Leverandør velges med miljøet, ikke i databasen (D-2).** `SMS_PROVIDER`
+  er `console` som standard: en tørrkjøring som aldri gjør nettverkskall.
+  `linkmobility`, `pswincom` og `twilio` bruker bare `fetch` og HMAC – ingen
+  leverandør-SDK er innført. Avsendernavn kommer fra `SMS_SENDER_ID`.
+- **Ingen SMS uten et registrert samtykke.** `ChannelPreference` har både
+  `optedIn` og `optedOut`. Manglende rad betyr «ukjent» og blokkerer sending;
+  bare `optedIn = true` og `optedOut = false` slipper gjennom. STOP/START
+  håndheves fra `SmsSetting.optOutKeywords`/`optInKeywords`, med norske,
+  engelske og lokale varianter. Samtykket kontrolleres både ved køing og av
+  workeren rett før sending; en sen STOPP gir `FAILED` uten nettverkskall. Et
+  `SMS_ALLOWLIST` kan begrense test- og stagingutsendelser ytterligere.
+- **Utgående SMS er en databasekø.** `SmsMessage` har `QUEUED` → `SENDING` →
+  `SENT`/`DELIVERED`, `attempts`, `nextAttemptAt`, lease (`lockedAt`/
+  `lockedBy`) og `DEAD_LETTER`. Claimet er én `UPDATE … FOR UPDATE SKIP
+  LOCKED`, så to instanser aldri sender samme rad. Etter tre forsøk
+  dead-letteres meldingen. Workeren har eget `SMS_WORKER`-flagg og starter
+  uavhengig av PDF-jobben.
+- **Innkommende webhook er idempotent.** `@@unique([provider, providerId])`
+  gjør at samme levering bare gir én `SmsMessage` og én `Message`, selv om
+  leverandøren prøver på nytt. Ruten leser rå body før parsing, verifiserer
+  HMAC/Twilio-signatur, rate-limiter per leverandør og IP, og har bevisst
+  ingen same-origin-sjekk. Svaret er leverandørspesifikt (JSON, tekst eller
+  TwiML), men alltid «ok» for en duplikat.
+- **Samtaler er avgrenset som oppdrag.** `MessageThread` har `departmentId`
+  og arver avdelingen fra oppdraget/kunden. Kontoret ser bare egne
+  avdelinger; kundeportalbrukere bare egen kunde. `threadKey` er en stabil
+  beregnet nøkkel, slik at samtidige innkommende meldinger ikke lager to
+  tråder.
+- **Maler er data med hviteliste.** `SmsTemplate` har `(eventKey, locale)` som
+  unik nøkkel og en eksplisitt `variables`-liste. Tjenestelaget avviser
+  ukjente `{plassholdere}`. Standardmalene for `BOOKING_CONFIRMED`,
+  `VISIT_REMINDER`, `ON_MY_WAY`, `VISIT_DONE` og `REVIEW_REQUEST` seedes i
+  migreringen for nb/en/pl/de.
+- **5A-kobling.** 5B kompilerer uten 5A. `sendBookingConfirmedSms()` og
+  `sendWorkOrderEventSms(..., "BOOKING_CONFIRMED")` refererer ikke til
+  `BookingRequestStatus.CONFIRMED`. Når 5A er merget, kaller
+  `src/server/availability.ts` `sendBookingConfirmedSms(actor, workOrderId,
+  {}, tx)` med bookingenes transaksjonsklient, slik at bekreftelsen, visitten
+  og SMS-køraden committes atomisk. Uten `tx` bruker tjenesten den globale
+  klienten. Det er den eneste merge-haken som gjenstår.

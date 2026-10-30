@@ -1,0 +1,116 @@
+{
+  "settings": {
+    "tabs": {
+      "sms": "SMS"
+    }
+  },
+  "sms": {
+    "nav": "Meldinger",
+    "page": {
+      "title": "Meldinger",
+      "subtitle": "{unread} uleste samtaler. Meldinger fra kunder havner her.",
+      "search": "Søk",
+      "searchPlaceholder": "Kunde, kontakt eller oppdrag",
+      "all": "Alle",
+      "unreadOnly": "Bare uleste",
+      "emptyTitle": "Ingen meldinger",
+      "emptyDescription": "Når en kunde svarer på SMS, dukker samtalen opp her.",
+      "noMessages": "Ingen meldinger ennå",
+      "previous": "Forrige",
+      "next": "Neste",
+      "pageOf": "Side {page} av {pages}",
+      "clearFilters": "Fjern filtre",
+      "startThread": "Start samtale"
+    },
+    "thread": {
+      "title": "Samtale",
+      "back": "Til meldinger",
+      "customer": "Kunde",
+      "workOrder": "Oppdrag",
+      "contact": "Kontakt",
+      "send": "Send",
+      "placeholder": "Skriv en melding til kunden …",
+      "empty": "Ingen meldinger i denne samtalen ennå.",
+      "inbound": "Innkommende",
+      "outbound": "Utgående",
+      "status": "Status",
+      "quickTitle": "Hurtigmeldinger",
+      "quickHint": "Bruker den redigerbare malen for hendelsen.",
+      "quickBooking": "Send bookingbekreftelse",
+      "quickReminder": "Send påminnelse",
+      "quickOnMyWay": "Send «på vei»",
+      "quickDone": "Send «ferdig»",
+      "quickReview": "Be om vurdering",
+      "sent": "Meldingen er lagt i kø."
+    },
+    "consent": {
+      "title": "Samtykke og reservasjon",
+      "description": "SMS sendes bare når mottakeren har et registrert samtykke. STOP fra kunden reserverer nummeret automatisk.",
+      "optedIn": "Samtykke registrert",
+      "unknown": "Ikke registrert",
+      "grant": "Registrer samtykke",
+      "revoke": "Reserver nummeret",
+      "granted": "Samtykke er registrert.",
+      "revoked": "Nummeret er reservert."
+    },
+    "status": {
+      "QUEUED": "I kø",
+      "SENDING": "Sendes",
+      "SENT": "Sendt",
+      "DELIVERED": "Levert",
+      "FAILED": "Feilet",
+      "DEAD_LETTER": "Gitt opp",
+      "RECEIVED": "Mottatt"
+    },
+    "settings": {
+      "title": "SMS og meldinger",
+      "description": "Leverandør velges med miljøvariabelen SMS_PROVIDER. Malene og reservasjonsreglene redigeres her.",
+      "provider": "Leverandør",
+      "sender": "Avsender",
+      "dryRunOn": "Tørrkjøring – ingen meldinger forlater systemet.",
+      "dryRunOff": "Aktiv leverandør.",
+      "signature": "Webhook-signatur",
+      "signatureOn": "Signatur er konfigurert.",
+      "signatureOff": "Signatur mangler. Webhooken avviser leveringer.",
+      "defaultLocale": "Standardspråk",
+      "optOutKeywords": "Reservasjonsord",
+      "optInKeywords": "Samtykkeord",
+      "keywordsHint": "Ett ord eller uttrykk per linje, eller kommaseparert.",
+      "monthlyCap": "Månedlig grense",
+      "monthlyCapHint": "0 betyr ingen grense.",
+      "save": "Lagre innstillinger",
+      "saved": "Innstillingene er lagret.",
+      "templates": "Maler per hendelse",
+      "templatesHint": "Plassholdere må stå i listen over tillatte variabler.",
+      "body": "Tekst",
+      "variables": "Tillatte variabler",
+      "active": "Aktiv",
+      "saveTemplate": "Lagre malen",
+      "templateSaved": "Malen er lagret.",
+      "noTemplates": "Ingen maler er lagt inn.",
+      "errorForbidden": "Du har ikke tilgang til å endre SMS-innstillingene.",
+      "errorInvalid": "Feltene er ikke gyldige. Sjekk malteksten og plassholderne."
+    },
+    "events": {
+      "BOOKING_CONFIRMED": "Booking bekreftet",
+      "VISIT_REMINDER": "Påminnelse om besøk",
+      "ON_MY_WAY": "Montør på vei",
+      "VISIT_DONE": "Besøk fullført",
+      "REVIEW_REQUEST": "Be om vurdering"
+    },
+    "notifications": {
+      "type": "Melding",
+      "title": "Ny SMS",
+      "body": "{preview}"
+    },
+    "errors": {
+      "forbidden": "Du har ikke tilgang.",
+      "not_found": "Fant ikke samtalen.",
+      "invalid": "Feltene er ikke gyldige.",
+      "invalid_contact": "Kontaktpersonen mangler telefonnummer.",
+      "noConsent": "Kontakten har ikke samtykket til SMS.",
+      "rate_limited": "Den månedlige SMS-grensen er nådd.",
+      "generic": "Noe gikk galt. Prøv igjen."
+    }
+  }
+}

@@ -12,7 +12,10 @@ type RecentNotification = {
   id: string;
   type: string;
   title: string;
+  titleKey: string | null;
   body: string | null;
+  bodyKey: string | null;
+  params: unknown;
   sourceLabel: string | null;
   href: string | null;
   readAt: Date | null;
@@ -45,7 +48,10 @@ export async function GET() {
       id: notification.id,
       type: notification.type,
       title: notification.title,
+      titleKey: notification.titleKey,
       body: notification.body ? notification.body.slice(0, 180) : null,
+      bodyKey: notification.bodyKey,
+      params: notification.params,
       sourceLabel: notification.sourceLabel,
       hasTarget: isSafeNotificationHref(target),
       readAt: notification.readAt ? notification.readAt.toISOString() : null,

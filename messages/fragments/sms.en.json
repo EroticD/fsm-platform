@@ -1,0 +1,116 @@
+{
+  "settings": {
+    "tabs": {
+      "sms": "SMS"
+    }
+  },
+  "sms": {
+    "nav": "Messages",
+    "page": {
+      "title": "Messages",
+      "subtitle": "{unread} unread conversations. Customer replies appear here.",
+      "search": "Search",
+      "searchPlaceholder": "Customer, contact or work order",
+      "all": "All",
+      "unreadOnly": "Unread only",
+      "emptyTitle": "No messages",
+      "emptyDescription": "When a customer replies by SMS, the conversation appears here.",
+      "noMessages": "No messages yet",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {pages}",
+      "clearFilters": "Clear filters",
+      "startThread": "Start conversation"
+    },
+    "thread": {
+      "title": "Conversation",
+      "back": "Back to messages",
+      "customer": "Customer",
+      "workOrder": "Work order",
+      "contact": "Contact",
+      "send": "Send",
+      "placeholder": "Write a message to the customer …",
+      "empty": "No messages in this conversation yet.",
+      "inbound": "Inbound",
+      "outbound": "Outbound",
+      "status": "Status",
+      "quickTitle": "Quick messages",
+      "quickHint": "Uses the editable template for the event.",
+      "quickBooking": "Send booking confirmation",
+      "quickReminder": "Send reminder",
+      "quickOnMyWay": "Send on my way",
+      "quickDone": "Send completed",
+      "quickReview": "Request review",
+      "sent": "The message has been queued."
+    },
+    "consent": {
+      "title": "Consent and opt-out",
+      "description": "SMS is only sent when the recipient has registered consent. A STOP reply opts the number out automatically.",
+      "optedIn": "Consent registered",
+      "unknown": "Not registered",
+      "grant": "Register consent",
+      "revoke": "Opt out the number",
+      "granted": "Consent has been registered.",
+      "revoked": "The number has been opted out."
+    },
+    "status": {
+      "QUEUED": "Queued",
+      "SENDING": "Sending",
+      "SENT": "Sent",
+      "DELIVERED": "Delivered",
+      "FAILED": "Failed",
+      "DEAD_LETTER": "Gave up",
+      "RECEIVED": "Received"
+    },
+    "settings": {
+      "title": "SMS and messaging",
+      "description": "The provider is selected with the SMS_PROVIDER environment variable. Edit templates and opt-out rules here.",
+      "provider": "Provider",
+      "sender": "Sender",
+      "dryRunOn": "Dry run – no messages leave the system.",
+      "dryRunOff": "Live provider.",
+      "signature": "Webhook signature",
+      "signatureOn": "A signature is configured.",
+      "signatureOff": "No signature configured. The webhook rejects deliveries.",
+      "defaultLocale": "Default language",
+      "optOutKeywords": "Opt-out keywords",
+      "optInKeywords": "Opt-in keywords",
+      "keywordsHint": "One keyword per line, or comma separated.",
+      "monthlyCap": "Monthly limit",
+      "monthlyCapHint": "0 means no limit.",
+      "save": "Save settings",
+      "saved": "Settings saved.",
+      "templates": "Templates per event",
+      "templatesHint": "Placeholders must be in the list of allowed variables.",
+      "body": "Text",
+      "variables": "Allowed variables",
+      "active": "Active",
+      "saveTemplate": "Save template",
+      "templateSaved": "Template saved.",
+      "noTemplates": "No templates have been added.",
+      "errorForbidden": "You do not have access to change SMS settings.",
+      "errorInvalid": "The fields are not valid. Check the template text and placeholders."
+    },
+    "events": {
+      "BOOKING_CONFIRMED": "Booking confirmed",
+      "VISIT_REMINDER": "Visit reminder",
+      "ON_MY_WAY": "Technician on the way",
+      "VISIT_DONE": "Visit completed",
+      "REVIEW_REQUEST": "Request a review"
+    },
+    "notifications": {
+      "type": "Message",
+      "title": "New SMS",
+      "body": "{preview}"
+    },
+    "errors": {
+      "forbidden": "You do not have access.",
+      "not_found": "The conversation was not found.",
+      "invalid": "The fields are not valid.",
+      "invalid_contact": "The contact has no phone number.",
+      "noConsent": "The contact has not consented to SMS.",
+      "rate_limited": "The monthly SMS limit has been reached.",
+      "generic": "Something went wrong. Try again."
+    }
+  }
+}

@@ -89,6 +89,13 @@ export const STAFF_NAV: NavItem[] = [
     section: "primary",
   },
   {
+    href: "/meldinger",
+    labelKey: "sms.nav",
+    icon: "mail",
+    requires: "workorders.view",
+    section: "primary",
+  },
+  {
     href: "/avtaler",
     labelKey: "contracts",
     icon: "file",

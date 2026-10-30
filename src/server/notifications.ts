@@ -14,6 +14,11 @@ import { cleanText } from "@/lib/sanitize";
 import { neutralizeUrls } from "@/lib/neutralize-urls";
 import { publishRealtime } from "@/lib/realtime";
 import {
+  notificationBodyFor,
+  notificationTitleFor,
+  type NotificationTextParams,
+} from "@/lib/notification-text";
+import {
   fail,
   ok,
   type ServiceActor,
@@ -32,6 +37,7 @@ export const NOTIFICATION_TYPES = [
   "SLA_AT_RISK",
   "SLA_BREACHED",
   "WARRANTY",
+  "MESSAGE",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -96,11 +102,14 @@ function customerSourceLabel(name: string | null | undefined): string {
 }
 
 /** E-postteksten får kilde-etiketten øverst, uten å endre selve køen. */
-function emailBodyWithSource(notification: {
-  sourceLabel?: string | null;
-  body?: string | null;
-}): string {
-  const body = neutralizeUrls(notification.body ?? "");
+function emailBodyWithSource(
+  notification: {
+    sourceLabel?: string | null;
+    body?: string | null;
+  },
+  bodyOverride?: string | null,
+): string {
+  const body = neutralizeUrls(bodyOverride ?? notification.body ?? "");
   const source = sanitizeSourceLabel(notification.sourceLabel);
   if (!source) return body;
   return body ? `${source}\n\n${body}` : source;
@@ -365,8 +374,13 @@ export async function updateNotificationPreferences(
 export type NotifyInput = {
   userId: string;
   type: NotificationType;
-  title: string;
+  /** Klartekst for eldre kall. Nye kall bør bruke `titleKey`. */
+  title?: string | null;
+  titleKey?: string | null;
   body?: string | null;
+  bodyKey?: string | null;
+  /** Verdier til {placeholder} i titleKey/bodyKey. */
+  params?: NotificationTextParams | null;
   href?: string | null;
   /** Menneskevennlig kilde, f.eks. «Oppdrag: testoppdrag · Biniam». */
   sourceLabel?: string | null;
@@ -411,7 +425,12 @@ export async function notifyUser(
         // Titler og brødtekst kan inneholde oppdragstitler eller meldinger fra
         // kundeportalen. URL-er nøytraliseres før lagring, slik at de verken
         // blir klikkbare i varsellisten eller i e-posten.
-        title: neutralizeUrls(input.title).slice(0, 200),
+        title: neutralizeUrls(input.title ?? "").slice(0, 200),
+        titleKey: input.titleKey?.slice(0, 200) ?? null,
+        bodyKey: input.bodyKey?.slice(0, 200) ?? null,
+        params: input.params
+          ? (input.params as Prisma.InputJsonValue)
+          : undefined,
         body: input.body ? neutralizeUrls(input.body).slice(0, 4000) : null,
         sourceLabel: sourceLabel || null,
         href: isSafeNotificationHref(input.href)
@@ -593,7 +612,16 @@ export async function processPendingNotificationEmails(
       },
       orderBy: { createdAt: "asc" },
       take: limit,
-      include: { user: { select: { email: true, role: true, isActive: true } } },
+      include: {
+        user: {
+          select: {
+            email: true,
+            role: true,
+            isActive: true,
+            locale: true,
+          },
+        },
+      },
     });
 
     let sent = 0;
@@ -655,8 +683,11 @@ export async function processPendingNotificationEmails(
         );
         const okSent = await sendNotificationEmail(
           email,
-          notification.title,
-          emailBodyWithSource(notification),
+          notificationTitleFor(notification, notification.user.locale),
+          emailBodyWithSource(
+            notification,
+            notificationBodyFor(notification, notification.user.locale),
+          ),
           emailHref ?? undefined,
         );
         if (!okSent) throw new Error("SMTP er ikke konfigurert");

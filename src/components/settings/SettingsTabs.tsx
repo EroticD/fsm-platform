@@ -15,6 +15,7 @@ type SettingsTabsProps = {
   canAudit: boolean;
   canStats: boolean;
   canSla: boolean;
+  canSms: boolean;
   isAdmin: boolean;
 };
 
@@ -56,6 +57,7 @@ export default function SettingsTabs({
   canAudit,
   canStats,
   canSla,
+  canSms,
   isAdmin,
 }: SettingsTabsProps) {
   const t = useTranslations("common");
@@ -195,6 +197,17 @@ export default function SettingsTabs({
           >
             <Icon name="clock" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.sla")}
+          </Link>
+        )}
+        {canSms && (
+          <Link
+            href="?tab=sms"
+            ref={currentTab === "sms" ? activeRef : undefined}
+            className={linkClass(currentTab === "sms")}
+            aria-current={currentTab === "sms" ? "page" : undefined}
+          >
+            <Icon name="mail" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.sms")}
           </Link>
         )}
         {isAdmin && (

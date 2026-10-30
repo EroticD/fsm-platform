@@ -8,7 +8,7 @@
  *
  * Begge kan slås av hver for seg med `RECURRING_SCHEDULER=false` og
  * `PDF_JOB_WORKER=false` – for eksempel når en ekstern arbeidsprosess gjør
- * jobben.
+ * jobben. SMS-køen har sin egen bryter, `SMS_WORKER=false`.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -39,6 +39,16 @@ export async function register() {
       startJobWorker();
     } catch (error) {
       console.error("Kunne ikke starte jobbkøen for PDF-tekst:", error);
+    }
+  }
+
+  // SMS-køen har sin egen markør og kan kjøre uavhengig av PDF-workeren.
+  if (process.env.SMS_WORKER !== "false") {
+    try {
+      const { startSmsWorker } = await import("@/server/sms");
+      startSmsWorker();
+    } catch (error) {
+      console.error("Kunne ikke starte SMS-køen:", error);
     }
   }
 }

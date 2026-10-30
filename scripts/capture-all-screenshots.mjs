@@ -445,6 +445,7 @@ function buildRoutes(fixtures) {
     ["auditlog", "Aktivitetslogg"],
     ["statistikk", "Statistikk"],
     ["sla", "SLA og åpningstider"],
+    ["sms", "SMS"],
     ["sikkerhet", "Sikkerhet"],
     ["api", "API-nøkler"],
   ];
@@ -804,6 +805,14 @@ function buildRoutes(fixtures) {
       role: "admin",
       title: "HMS",
       heading: "HMS",
+    },
+    {
+      slug: "meldinger",
+      route: "/meldinger",
+      role: "admin",
+      title: "Meldinger",
+      heading: "Meldinger",
+      activeNav: "Meldinger",
     },
     {
       slug: "varsler",

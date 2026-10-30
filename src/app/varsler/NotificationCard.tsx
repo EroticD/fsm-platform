@@ -5,6 +5,10 @@ import {
   notificationSourceText,
   notificationTypePresentation,
 } from "@/lib/notification-display";
+import {
+  notificationBodyFor,
+  notificationTitleFor,
+} from "@/lib/notification-text";
 import Icon, { type IconName } from "@/components/icons";
 import { markReadFormAction } from "./actions";
 
@@ -12,7 +16,10 @@ export type NotificationCardItem = {
   id: string;
   type: string;
   title: string;
+  titleKey?: string | null;
   body: string | null;
+  bodyKey?: string | null;
+  params?: unknown;
   sourceLabel: string | null;
   readAt: Date | null;
   createdAt: Date;
@@ -30,7 +37,7 @@ const NOTIFICATION_ICONS: Record<string, IconName> = {
   SLA_AT_RISK: "clock",
   SLA_BREACHED: "alert",
   WARRANTY: "shield",
-
+  MESSAGE: "mail",
 };
 
 /**
@@ -57,6 +64,8 @@ export default async function NotificationCard({
   const unread = !notification.readAt;
   const absolute = formatDateTimeLocalized(notification.createdAt, locale);
   const relative = relativeTimeLabel(notification.createdAt, locale);
+  const title = notificationTitleFor(notification, locale);
+  const body = notificationBodyFor(notification, locale);
 
   const content = (
     <>
@@ -90,12 +99,12 @@ export default async function NotificationCard({
             : "text-[#3f453d]"
         }`}
       >
-        {notification.title}
+        {title}
       </span>
 
-      {notification.body && (
+      {body && (
         <span className="mt-1 block whitespace-pre-line text-sm text-[var(--muted,#62685f)]">
-          {notification.body}
+          {body}
         </span>
       )}
 
@@ -124,7 +133,7 @@ export default async function NotificationCard({
       <a
         href={`/varsler/apne/${notification.id}`}
         aria-label={t("p3.notifications.openAria", {
-          title: notification.title,
+          title,
         })}
         className="group block cursor-pointer p-4 pl-5 text-left transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)]"
       >
@@ -138,7 +147,7 @@ export default async function NotificationCard({
             <button
               type="submit"
               aria-label={t("p3.notifications.markReadAria", {
-                title: notification.title,
+                title,
               })}
               className="cursor-pointer rounded-lg px-1 py-1 text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
             >

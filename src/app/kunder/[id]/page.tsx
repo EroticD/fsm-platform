@@ -309,6 +309,15 @@ export default async function CustomerDetailPage({
               )}
               {office && (
                 <Link
+                  href={`/meldinger?kunde=${customer.id}`}
+                  className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                >
+                  <Icon name="mail" className="h-4 w-4 shrink-0" />
+                  {t("sms.nav")}
+                </Link>
+              )}
+              {office && (
+                <Link
                   href={`/kunder/${customerId}/rediger`}
                   className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
                 >

@@ -79,6 +79,11 @@ export const NOTIFICATION_TYPE_PRESENTATION: Record<
     labelKey: "p3.notifications.types.WARRANTY",
     tone: "amber",
   },
+  MESSAGE: {
+    icon: "💬",
+    labelKey: "sms.notifications.type",
+    tone: "blue",
+  },
 };
 
 /**

@@ -1,0 +1,116 @@
+{
+  "settings": {
+    "tabs": {
+      "sms": "SMS"
+    }
+  },
+  "sms": {
+    "nav": "Wiadomości",
+    "page": {
+      "title": "Wiadomości",
+      "subtitle": "{unread} nieprzeczytanych rozmów. Odpowiedzi klientów pojawiają się tutaj.",
+      "search": "Szukaj",
+      "searchPlaceholder": "Klient, kontakt lub zlecenie",
+      "all": "Wszystkie",
+      "unreadOnly": "Tylko nieprzeczytane",
+      "emptyTitle": "Brak wiadomości",
+      "emptyDescription": "Gdy klient odpowie SMS-em, rozmowa pojawi się tutaj.",
+      "noMessages": "Brak wiadomości",
+      "previous": "Poprzednia",
+      "next": "Następna",
+      "pageOf": "Strona {page} z {pages}",
+      "clearFilters": "Wyczyść filtry",
+      "startThread": "Rozpocznij rozmowę"
+    },
+    "thread": {
+      "title": "Rozmowa",
+      "back": "Wróć do wiadomości",
+      "customer": "Klient",
+      "workOrder": "Zlecenie",
+      "contact": "Kontakt",
+      "send": "Wyślij",
+      "placeholder": "Napisz wiadomość do klienta …",
+      "empty": "Ta rozmowa nie ma jeszcze wiadomości.",
+      "inbound": "Przychodzące",
+      "outbound": "Wychodzące",
+      "status": "Status",
+      "quickTitle": "Szybkie wiadomości",
+      "quickHint": "Używa edytowalnego szablonu dla zdarzenia.",
+      "quickBooking": "Wyślij potwierdzenie rezerwacji",
+      "quickReminder": "Wyślij przypomnienie",
+      "quickOnMyWay": "Wyślij „w drodze”",
+      "quickDone": "Wyślij „zakończone”",
+      "quickReview": "Poproś o opinię",
+      "sent": "Wiadomość została dodana do kolejki."
+    },
+    "consent": {
+      "title": "Zgoda i rezygnacja",
+      "description": "SMS jest wysyłany tylko wtedy, gdy odbiorca wyraził zgodę. Odpowiedź STOP automatycznie wyrejestrowuje numer.",
+      "optedIn": "Zgoda zarejestrowana",
+      "unknown": "Niezarejestrowany",
+      "grant": "Zarejestruj zgodę",
+      "revoke": "Wyrejestruj numer",
+      "granted": "Zgoda została zarejestrowana.",
+      "revoked": "Numer został wyrejestrowany."
+    },
+    "status": {
+      "QUEUED": "W kolejce",
+      "SENDING": "Wysyłanie",
+      "SENT": "Wysłano",
+      "DELIVERED": "Dostarczono",
+      "FAILED": "Niepowodzenie",
+      "DEAD_LETTER": "Poddano",
+      "RECEIVED": "Odebrano"
+    },
+    "settings": {
+      "title": "SMS i wiadomości",
+      "description": "Dostawcę wybiera zmienna środowiskowa SMS_PROVIDER. Tutaj edytujesz szablony i zasady rezygnacji.",
+      "provider": "Dostawca",
+      "sender": "Nadawca",
+      "dryRunOn": "Próba – żadne wiadomości nie opuszczają systemu.",
+      "dryRunOff": "Aktywny dostawca.",
+      "signature": "Podpis webhooka",
+      "signatureOn": "Podpis jest skonfigurowany.",
+      "signatureOff": "Brak podpisu. Webhook odrzuca dostawy.",
+      "defaultLocale": "Domyślny język",
+      "optOutKeywords": "Słowa rezygnacji",
+      "optInKeywords": "Słowa zgody",
+      "keywordsHint": "Jedno słowo w wierszu lub oddzielone przecinkami.",
+      "monthlyCap": "Miesięczny limit",
+      "monthlyCapHint": "0 oznacza brak limitu.",
+      "save": "Zapisz ustawienia",
+      "saved": "Ustawienia zostały zapisane.",
+      "templates": "Szablony według zdarzeń",
+      "templatesHint": "Placeholdery muszą znajdować się na liście dozwolonych zmiennych.",
+      "body": "Tekst",
+      "variables": "Dozwolone zmienne",
+      "active": "Aktywny",
+      "saveTemplate": "Zapisz szablon",
+      "templateSaved": "Szablon został zapisany.",
+      "noTemplates": "Nie dodano żadnych szablonów.",
+      "errorForbidden": "Nie masz dostępu do zmiany ustawień SMS.",
+      "errorInvalid": "Pola są nieprawidłowe. Sprawdź tekst szablonu i placeholdery."
+    },
+    "events": {
+      "BOOKING_CONFIRMED": "Rezerwacja potwierdzona",
+      "VISIT_REMINDER": "Przypomnienie o wizycie",
+      "ON_MY_WAY": "Technik w drodze",
+      "VISIT_DONE": "Wizyta zakończona",
+      "REVIEW_REQUEST": "Poproś o opinię"
+    },
+    "notifications": {
+      "type": "Wiadomość",
+      "title": "Nowy SMS",
+      "body": "{preview}"
+    },
+    "errors": {
+      "forbidden": "Brak dostępu.",
+      "not_found": "Nie znaleziono rozmowy.",
+      "invalid": "Pola są nieprawidłowe.",
+      "invalid_contact": "Kontakt nie ma numeru telefonu.",
+      "noConsent": "Kontakt nie wyraził zgody na SMS.",
+      "rate_limited": "Osiągnięto miesięczny limit SMS.",
+      "generic": "Coś poszło nie tak. Spróbuj ponownie."
+    }
+  }
+}

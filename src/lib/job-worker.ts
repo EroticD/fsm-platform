@@ -84,6 +84,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmWorkOrderRetentionStarted?: boolean;
   __fsmSearchLogCleanupStarted?: boolean;
   __fsmLocationPingCleanupStarted?: boolean;
+  __fsmSmsWorkerStarted?: boolean;
 };
 
 /** Eksponentiell pause etter et mislykket forsøk (1 → 30 s, 2 → 60 s, 3 → 120 s). */
@@ -641,4 +642,7 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmWorkOrderRetentionStarted = false;
   scope.__fsmSearchLogCleanupStarted = false;
   scope.__fsmLocationPingCleanupStarted = false;
+  // SMS-workeren har eget startflagg; nullstilles her slik at tester som
+  // kaller resetJobWorkerForTests også kan starte SMS-køen på nytt.
+  scope.__fsmSmsWorkerStarted = false;
 }

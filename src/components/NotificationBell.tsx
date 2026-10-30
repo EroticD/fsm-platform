@@ -10,6 +10,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { formatDateTimeLocalized } from "@/lib/dates";
 import { relativeTimeLabel } from "@/lib/notification-time";
+import { notificationBodyFor, notificationTitleFor } from "@/lib/notification-text";
 import {
   NOTIFICATION_REALTIME_EVENT,
   ensureAudioContext,
@@ -26,7 +27,10 @@ type RecentNotification = {
   id: string;
   type: string;
   title: string;
+  titleKey?: string | null;
   body: string | null;
+  bodyKey?: string | null;
+  params?: unknown;
   sourceLabel: string | null;
   hasTarget: boolean;
   readAt: string | null;
@@ -45,7 +49,7 @@ const NOTIFICATION_ICONS: Record<string, IconName> = {
   SLA_AT_RISK: "clock",
   SLA_BREACHED: "alert",
   WARRANTY: "shield",
-
+  MESSAGE: "mail",
 };
 
 /**
@@ -337,6 +341,8 @@ export default function NotificationBell({ role }: { role?: string }) {
                   const time = new Date(notification.createdAt);
                   const absolute = formatDateTimeLocalized(time, locale);
                   const relative = relativeTimeLabel(time, locale);
+                  const title = notificationTitleFor(notification, locale);
+                  const body = notificationBodyFor(notification, locale);
                   return (
                     <li key={notification.id}>
                       <a
@@ -363,12 +369,12 @@ export default function NotificationBell({ role }: { role?: string }) {
                                 className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)]"
                               />
                               <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
-                                {notification.title}
+                                {title}
                               </span>
                             </span>
-                            {notification.body && (
+                            {body && (
                               <span className="mt-0.5 block line-clamp-2 text-xs text-[var(--muted,#62685f)]">
-                                {notification.body}
+                                {body}
                               </span>
                             )}
                             <time
