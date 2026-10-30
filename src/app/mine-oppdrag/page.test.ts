@@ -97,6 +97,7 @@ function row(overrides: Record<string, unknown> = {}) {
       email: "kari@example.test",
     },
     tags: [],
+    visits: [],
     templates: [{ id: "tpl-1", title: "Service" }],
     reportDrafts: [
       {
@@ -189,6 +190,9 @@ describe("/mine-oppdrag – feltets I dag", () => {
         phone: true,
       });
       expect(args.select.reportDrafts.where).toEqual({ userId: "tech-1" });
+      expect(args.select.visits.where).toEqual({
+        status: { not: "CANCELLED" },
+      });
     }
   });
 
@@ -255,7 +259,8 @@ describe("/mine-oppdrag – feltets I dag", () => {
     expect(html).toContain("field-hero");
     expect(html).toContain("field-cta");
     expect(html).toContain("field-sheet");
-    expect(html).toContain("09:00");
+    expect(html).toContain("orders.fieldList.timeNotSet");
+    expect(html).not.toContain("09:00");
     expect(html).toContain("Storgata 1");
     expect(html).toContain("1/2");
     expect(html).toContain("orders.fieldList.jobPosition");
@@ -367,5 +372,104 @@ describe("/mine-oppdrag – feltets I dag", () => {
 
     expect(html).toContain("orders.fieldList.historyTitle");
     expect(html).toContain("/mine-oppdrag/wo-old");
+  });
+
+  it("viser visittens ekte starttid i stedet for en fast oppmøtetid", async () => {
+    queue(
+      {
+        today: [
+          row({
+            reportDrafts: [],
+            visits: [
+              {
+                id: "visit-1",
+                startsAt: new Date("2026-10-29T12:45:00.000Z"),
+                endsAt: new Date("2026-10-29T14:15:00.000Z"),
+                allDay: false,
+                status: "PLANNED",
+              },
+            ],
+          }),
+        ],
+      },
+      { today: 1 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).toContain("13:45");
+    expect(html).not.toContain("09:00");
+    expect(html).not.toContain("orders.fieldList.timeNotSet");
+  });
+
+  it("viser «Hele dagen» for heldagsvisitt uten oppdiktet klokkeslett", async () => {
+    queue(
+      {
+        today: [
+          row({
+            reportDrafts: [],
+            visits: [
+              {
+                id: "visit-1",
+                startsAt: new Date("2026-10-29T00:00:00.000Z"),
+                endsAt: new Date("2026-10-30T00:00:00.000Z"),
+                allDay: true,
+                status: "PLANNED",
+              },
+            ],
+          }),
+        ],
+      },
+      { today: 1 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).toContain("orders.fieldList.allDay");
+    expect(html).not.toContain("orders.fieldList.timeNotSet");
+  });
+
+  it("sorterer dagens kort etter visittstart", async () => {
+    queue(
+      {
+        today: [
+          row({
+            id: "wo-sen",
+            title: "Sen jobb",
+            reportDrafts: [],
+            visits: [
+              {
+                id: "visit-sen",
+                startsAt: new Date("2026-10-29T13:00:00.000Z"),
+                endsAt: new Date("2026-10-29T14:00:00.000Z"),
+                allDay: false,
+                status: "PLANNED",
+              },
+            ],
+          }),
+          row({
+            id: "wo-tidlig",
+            title: "Tidlig jobb",
+            reportDrafts: [],
+            visits: [
+              {
+                id: "visit-tidlig",
+                startsAt: new Date("2026-10-29T07:00:00.000Z"),
+                endsAt: new Date("2026-10-29T08:00:00.000Z"),
+                allDay: false,
+                status: "PLANNED",
+              },
+            ],
+          }),
+        ],
+      },
+      { today: 2 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html.indexOf("Tidlig jobb")).toBeLessThan(
+      html.indexOf("Sen jobb"),
+    );
   });
 });

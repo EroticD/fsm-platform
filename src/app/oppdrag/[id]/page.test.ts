@@ -39,16 +39,22 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("./actions", () => ({
   addContactToCustomer: vi.fn(),
   assignTechnician: vi.fn(),
+  assignVisit: vi.fn(),
   cloneWorkOrder: vi.fn(),
+  createVisit: vi.fn(),
+  deleteVisit: vi.fn(),
   deleteWorkOrder: vi.fn(),
+  moveVisit: vi.fn(),
   setContact: vi.fn(),
   setReportLegalHold: vi.fn(),
   setReportLock: vi.fn(),
   setTags: vi.fn(),
   setTemplate: vi.fn(),
+  setVisitStatus: vi.fn(),
   setWorkOrderLegalHold: vi.fn(),
   unassignTechnician: vi.fn(),
   updateStatus: vi.fn(),
+  updateVisit: vi.fn(),
 }));
 
 import AdminWorkOrderPage from "./page";
@@ -128,6 +134,7 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     technicians: [],
     templates: [],
     tags: [],
+    visits: [],
     reports: [],
     workComments: [],
     attachments: [],
@@ -139,6 +146,27 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     city: null,
     orderNumber: "1001",
     deletedAt: null,
+    ...overrides,
+  };
+}
+
+function makeVisit(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "visit-1",
+    workOrderId: "wo1",
+    sequence: 0,
+    startsAt: new Date("2026-10-30T08:00:00.000Z"),
+    endsAt: new Date("2026-10-30T10:00:00.000Z"),
+    allDay: false,
+    status: "PLANNED",
+    notes: "Ta med nøkkel",
+    technicians: [
+      {
+        visitId: "visit-1",
+        userId: "tech-1",
+        user: { id: "tech-1", name: "Ola Montør", email: "ola@example.test" },
+      },
+    ],
     ...overrides,
   };
 }
@@ -164,11 +192,14 @@ function collect(node: unknown, result: Collected = { text: [], hrefs: [] }): Co
   return result;
 }
 
-async function render(overrides: Record<string, unknown> = {}) {
+async function render(
+  overrides: Record<string, unknown> = {},
+  searchParams: Record<string, string> = {},
+) {
   mocks.workOrderFindFirst.mockResolvedValue(makeWorkOrder(overrides));
   const element = await AdminWorkOrderPage({
     params: Promise.resolve({ id: "wo1" }),
-    searchParams: Promise.resolve({}),
+    searchParams: Promise.resolve(searchParams),
   });
   return collect(element);
 }
@@ -266,5 +297,71 @@ describe("oppdragsdetaljer – rapporter uten mal", () => {
 
     expect(text).toContain("orders.detail.noChecklists");
     expect(text).not.toContain("orders.detail.orphanReport");
+  });
+});
+
+describe("oppdragsdetaljer – visittplanlegging", () => {
+  it("viser tomtilstand og en tydelig «legg til visitt»-knapp", async () => {
+    const { text, hrefs } = await render({ status: "IN_PROGRESS", visits: [] });
+
+    expect(text).toContain("orders.detail.planning.empty");
+    expect(text).toContain("orders.detail.planning.addVisit");
+    expect(hrefs).toContain("#ny-visitt");
+  });
+
+  it("lister visitt med dato, tid, status, montør og notat", async () => {
+    const { text } = await render({
+      status: "IN_PROGRESS",
+      visits: [makeVisit()],
+    });
+
+    expect(text).toContain("orders.detail.planning.title");
+    expect(text.join(" | ")).toContain("fredag 30. oktober");
+    expect(text.join(" | ")).toContain("09:00–11:00");
+    expect(text).toContain("visits.status.planned");
+    expect(text).toContain("Ola Montør");
+    expect(text).toContain("Ta med nøkkel");
+    expect(text).toContain("orders.detail.planning.editVisit");
+  });
+
+  it("merker heldagsvisitt og viser notat uten oppdiktet klokkeslett", async () => {
+    const { text } = await render({
+      visits: [
+        makeVisit({
+          allDay: true,
+          startsAt: new Date("2026-10-30T00:00:00.000Z"),
+          endsAt: new Date("2026-10-31T00:00:00.000Z"),
+        }),
+      ],
+    });
+
+    expect(text).toContain("orders.detail.planning.allDay");
+    expect(text).toContain("orders.detail.planning.allDayMarker");
+    expect(text).not.toContain("09:00–11:00");
+  });
+
+  it("viser inline feil fra visittjenesten", async () => {
+    const { text } = await render(
+      { visits: [] },
+      { planningError: "overlap" },
+    );
+
+    expect(text).toContain("orders.detail.planning.errors.overlap");
+  });
+
+  it("henter visittene sammen med oppdraget", async () => {
+    await render({ visits: [] });
+
+    expect(mocks.workOrderFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          visits: expect.objectContaining({
+            include: expect.objectContaining({
+              technicians: expect.anything(),
+            }),
+          }),
+        }),
+      }),
+    );
   });
 });

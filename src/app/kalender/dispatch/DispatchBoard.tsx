@@ -4,29 +4,30 @@ import { useState, type DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import Icon from "@/components/icons";
 import {
-  assignTechnicianAction,
-  moveTechnicianAction,
-  unassignTechnicianAction,
-  updateStatusAction,
+  assignVisitTechniciansAction,
+  unassignVisitTechnicianAction,
+  updateVisitStatusAction,
 } from "./actions";
 import type {
   DispatchActionResult,
   DispatchDay,
   DispatchTechnician,
-  DispatchWorkOrder,
+  DispatchVisit,
 } from "./types";
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
   workOrderStatusColor,
 } from "@/lib/work-order-status-colors";
-import type { WorkStatus } from "@prisma/client";
+import {
+  VISIT_STATUS_LABEL_KEYS,
+} from "@/lib/visit-status";
+import type { VisitStatus, WorkStatus } from "@prisma/client";
 
 type ServerAction = (formData: FormData) => Promise<DispatchActionResult>;
 
-const WORK_ORDER_MIME = "text/work-order-id";
+const VISIT_MIME = "text/visit-id";
 const TECHNICIAN_MIME = "text/technician-id";
 const UNASSIGNED_LANE = "unassigned";
 
@@ -45,31 +46,45 @@ export default function DispatchBoard({
 
   function errorMessage(code: string): string {
     switch (code) {
-      case "ugyldig-status":
-        return t("calendar.dispatch.invalidStatus");
       case "ikke-tilgang":
         return t("calendar.dispatch.rowErrorNoAccess");
       case "ugyldig-data":
         return t("calendar.dispatch.rowErrorInvalidData");
+      case "visits.errors.noChange":
       case "ingen-endring":
         return t("calendar.dispatch.rowErrorNoChange");
       case "ikke-funnet":
         return t("calendar.dispatch.rowErrorNotFound");
       case "workorder-locked":
+      case "visits.errors.workOrderLocked":
         return t("calendar.dispatch.rowErrorLocked");
       case "legal-hold":
+      case "visits.errors.legalHold":
         return t("calendar.dispatch.rowErrorLegalHold");
+      case "visits.errors.visitLocked":
+        return t("calendar.dispatch.visitLockedError");
+      case "visits.errors.overlap":
+        return t("calendar.dispatch.visitOverlapError");
+      case "visits.errors.invalidTechnician":
+        return t("visits.errors.invalidTechnician");
+      case "visits.errors.statusTransition":
+        return t("calendar.dispatch.visitStatusError");
+      case "visits.errors.invalidTimeRange":
+        return t("visits.errors.invalidTimeRange");
       default:
         return t("calendar.dispatch.rowErrorUnknown");
     }
   }
 
-  function focusRow(workOrderId: string, rowId?: string) {
+  function rowIdFor(day: DispatchDay, laneKey: string, visitId: string) {
+    return `${day.date}:${laneKey}:${visitId}`;
+  }
+
+  function focusRow(rowId: string) {
     requestAnimationFrame(() => {
-      const selector = rowId
-        ? `[data-dispatch-row="${CSS.escape(rowId)}"]`
-        : `[data-dispatch-work-order="${CSS.escape(workOrderId)}"]`;
-      const card = document.querySelector<HTMLElement>(selector);
+      const card = document.querySelector<HTMLElement>(
+        `[data-dispatch-row="${CSS.escape(rowId)}"]`,
+      );
       card?.scrollIntoView({ behavior: "smooth", block: "center" });
       card
         ?.querySelector<HTMLElement>("[data-dispatch-error]")
@@ -79,15 +94,16 @@ export default function DispatchBoard({
 
   async function run(
     action: ServerAction,
-    workOrderId: string,
+    visit: DispatchVisit,
     formData: FormData,
-    rowId?: string,
+    rowId: string,
   ) {
-    formData.set("workOrderId", workOrderId);
-    setPendingId(workOrderId);
+    formData.set("visitId", visit.id);
+    formData.set("workOrderId", visit.workOrderId);
+    setPendingId(visit.id);
     setErrors((current) => {
       const next = { ...current };
-      delete next[workOrderId];
+      delete next[visit.id];
       return next;
     });
 
@@ -96,18 +112,18 @@ export default function DispatchBoard({
       if (!result.ok) {
         setErrors((current) => ({
           ...current,
-          [workOrderId]: errorMessage(result.error),
+          [visit.id]: errorMessage(result.error),
         }));
-        focusRow(workOrderId, rowId);
+        focusRow(rowId);
         return;
       }
       router.refresh();
     } catch {
       setErrors((current) => ({
         ...current,
-        [workOrderId]: errorMessage("ukjent"),
+        [visit.id]: errorMessage("ukjent"),
       }));
-      focusRow(workOrderId, rowId);
+      focusRow(rowId);
     } finally {
       setPendingId(null);
     }
@@ -118,73 +134,100 @@ export default function DispatchBoard({
     return source === UNASSIGNED_LANE ? "" : source;
   }
 
-  function draggedWorkOrderId(event: DragEvent<HTMLDivElement>): string {
+  function draggedVisitId(event: DragEvent<HTMLDivElement>): string {
     return (
-      event.dataTransfer.getData(WORK_ORDER_MIME) ||
+      event.dataTransfer.getData(VISIT_MIME) ||
       event.dataTransfer.getData("text/plain")
     );
   }
 
   function dropOnTechnician(
     event: DragEvent<HTMLDivElement>,
+    day: DispatchDay,
+    laneKey: string,
     technicianId: string,
   ) {
     event.preventDefault();
     setDragOverLane(null);
-    const workOrderId = draggedWorkOrderId(event);
-    if (!workOrderId) return;
+    const visitId = draggedVisitId(event);
+    const visit = day.visits.find((candidate) => candidate.id === visitId);
+    if (!visit) return;
 
     const fromTechnicianId = sourceTechnicianId(event);
-    // Samme kolonne er en no-op; serveren avviser det også.
+    // Samme kolonne er en no-op; tjenesten avviser det også.
     if (fromTechnicianId === technicianId) return;
 
+    const nextIds = new Set(visit.technicians.map((tech) => tech.id));
+    if (fromTechnicianId) nextIds.delete(fromTechnicianId);
+    nextIds.add(technicianId);
+    if (nextIds.size === 0) return;
+
     const formData = new FormData();
-    formData.set("fromTechnicianId", fromTechnicianId);
-    formData.set("technicianId", technicianId);
-    void run(moveTechnicianAction, workOrderId, formData);
+    for (const id of nextIds) formData.append("technicianId", id);
+    void run(
+      assignVisitTechniciansAction,
+      visit,
+      formData,
+      rowIdFor(day, laneKey, visit.id),
+    );
   }
 
-  function dropOnUnassigned(event: DragEvent<HTMLDivElement>) {
+  function dropOnUnassigned(
+    event: DragEvent<HTMLDivElement>,
+    day: DispatchDay,
+    laneKey: string,
+  ) {
     event.preventDefault();
     setDragOverLane(null);
-    const workOrderId = draggedWorkOrderId(event);
+    const visitId = draggedVisitId(event);
+    const visit = day.visits.find((candidate) => candidate.id === visitId);
     const fromTechnicianId = sourceTechnicianId(event);
     // Kort som allerede står uten montør, har ingenting å fjerne.
-    if (!workOrderId || !fromTechnicianId) return;
+    if (!visit || !fromTechnicianId) return;
 
     const formData = new FormData();
-    formData.set("fromTechnicianId", fromTechnicianId);
-    void run(moveTechnicianAction, workOrderId, formData);
+    formData.set("technicianId", fromTechnicianId);
+    void run(
+      unassignVisitTechnicianAction,
+      visit,
+      formData,
+      rowIdFor(day, laneKey, visit.id),
+    );
   }
 
   function renderCard(
     day: DispatchDay,
     laneKey: string,
-    workOrder: DispatchWorkOrder,
+    visit: DispatchVisit,
   ) {
-    const statusLabelKey =
-      WORK_ORDER_STATUS_LABEL_KEYS[workOrder.status as WorkStatus];
-    const statusLabel = statusLabelKey
-      ? t(statusLabelKey)
-      : workOrder.status;
-    const pending = pendingId === workOrder.id;
-    const assignedIds = new Set(workOrder.technicians.map((tech) => tech.id));
+    const workOrderStatusLabelKey =
+      WORK_ORDER_STATUS_LABEL_KEYS[visit.workOrderStatus as WorkStatus];
+    const workOrderStatusLabel = workOrderStatusLabelKey
+      ? t(workOrderStatusLabelKey)
+      : visit.workOrderStatus;
+    const visitStatusLabelKey =
+      VISIT_STATUS_LABEL_KEYS[visit.visitStatus as VisitStatus];
+    const visitStatusLabel = visitStatusLabelKey
+      ? t(visitStatusLabelKey)
+      : visit.visitStatus;
+    const pending = pendingId === visit.id;
+    const assignedIds = new Set(visit.technicians.map((tech) => tech.id));
     const available = technicians.filter((tech) => !assignedIds.has(tech.id));
-    const fieldId = `${day.date}-${laneKey}-${workOrder.id}`;
+    const fieldId = rowIdFor(day, laneKey, visit.id);
 
     return (
       <article
         key={fieldId}
-        data-dispatch-work-order={workOrder.id}
+        data-dispatch-visit={visit.id}
         data-dispatch-row={fieldId}
         draggable
         onDragStart={(event) => {
-          event.dataTransfer.setData(WORK_ORDER_MIME, workOrder.id);
+          event.dataTransfer.setData(VISIT_MIME, visit.id);
           event.dataTransfer.setData(
             TECHNICIAN_MIME,
             laneKey === UNASSIGNED_LANE ? UNASSIGNED_LANE : laneKey,
           );
-          event.dataTransfer.setData("text/plain", workOrder.id);
+          event.dataTransfer.setData("text/plain", visit.id);
           event.dataTransfer.effectAllowed = "move";
         }}
         onDragEnd={() => {
@@ -201,57 +244,57 @@ export default function DispatchBoard({
           <span
             aria-hidden="true"
             className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: workOrderStatusColor(workOrder.status) }}
+            style={{
+              backgroundColor: workOrderStatusColor(visit.workOrderStatus),
+            }}
           />
           <div className="min-w-0 flex-1">
             <Link
-              href={`/oppdrag/${workOrder.id}`}
+              href={`/oppdrag/${visit.workOrderId}`}
               draggable={false}
               className="block font-bold leading-tight text-[var(--ink,#101310)] decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:underline"
             >
-              {workOrder.title}
+              {visit.title}
             </Link>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
-                {statusLabel}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
+                {workOrderStatusLabel}
               </span>
-              {workOrder.isOverdue && (
-                <span className="rounded bg-[#fdf5e4] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#7a4f0c]">
-                  {t("calendar.dispatch.overdue")}
-                </span>
-              )}
+              <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--ink,#101310)]">
+                {visitStatusLabel}
+              </span>
             </div>
           </div>
         </div>
 
-        <p className="flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
-          <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 truncate">
-            {workOrder.customerName}
-            {workOrder.productModel ? ` · ${workOrder.productModel}` : ""}
+        <p className="flex items-center gap-1.5 text-xs font-bold tabular-nums text-[var(--ink,#101310)]">
+          <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            {visit.dateLabel} · {visit.timeLabel}
           </span>
         </p>
-        {workOrder.address && (
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+          <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">
+            {visit.customerName}
+            {visit.productModel ? ` · ${visit.productModel}` : ""}
+          </span>
+        </p>
+        {visit.address && (
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
             <Icon name="pin" className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{workOrder.address}</span>
+            <span className="truncate">{visit.address}</span>
           </p>
         )}
-        {workOrder.dateRange && (
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
-            <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
-            <span>{workOrder.dateRange}</span>
-          </p>
-        )}
-        {workOrder.description && (
+        {visit.description && (
           <p className="mt-1 line-clamp-2 text-xs italic text-[var(--muted,#62685f)]">
-            {workOrder.description}
+            {visit.description}
           </p>
         )}
 
-        {workOrder.technicians.length > 0 && (
+        {visit.technicians.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {workOrder.technicians.map((tech) => (
+            {visit.technicians.map((tech) => (
               <button
                 key={tech.id}
                 type="button"
@@ -260,8 +303,8 @@ export default function DispatchBoard({
                   const formData = new FormData();
                   formData.set("technicianId", tech.id);
                   void run(
-                    unassignTechnicianAction,
-                    workOrder.id,
+                    unassignVisitTechnicianAction,
+                    visit,
                     formData,
                     fieldId,
                   );
@@ -284,13 +327,15 @@ export default function DispatchBoard({
             onSubmit={(event) => {
               event.preventDefault();
               const formData = new FormData(event.currentTarget);
-              void run(assignTechnicianAction, workOrder.id, formData, fieldId);
+              const selected = String(formData.get("technicianId") ?? "");
+              if (!selected) return;
+              const next = new FormData();
+              for (const id of assignedIds) next.append("technicianId", id);
+              next.append("technicianId", selected);
+              void run(assignVisitTechniciansAction, visit, next, fieldId);
             }}
           >
-            <label
-              htmlFor={`assign-${fieldId}`}
-              className="sr-only"
-            >
+            <label htmlFor={`assign-${fieldId}`} className="sr-only">
               {t("calendar.dispatch.assignTo")}
             </label>
             <select
@@ -321,23 +366,27 @@ export default function DispatchBoard({
           </form>
         )}
 
-        {workOrder.statusOptions.length > 0 && (
+        {visit.statusOptions.length > 0 && (
           <form
             className="relative mt-2 flex min-w-0 items-center gap-1.5"
             onSubmit={(event) => {
               event.preventDefault();
               const formData = new FormData(event.currentTarget);
-              void run(updateStatusAction, workOrder.id, formData, fieldId);
+              void run(
+                updateVisitStatusAction,
+                visit,
+                formData,
+                fieldId,
+              );
             }}
           >
-            <label
-              htmlFor={`status-${fieldId}`}
-              className="sr-only"
-            >
-              {t("calendar.dispatch.statusFor", { title: workOrder.title })}
+            <label htmlFor={`status-${fieldId}`} className="sr-only">
+              {t("calendar.dispatch.visitStatusFor", {
+                title: visit.title,
+              })}
             </label>
             <select
-              key={`status-${fieldId}-${workOrder.status}`}
+              key={`status-${fieldId}-${visit.visitStatus}`}
               id={`status-${fieldId}`}
               name="status"
               required
@@ -346,11 +395,11 @@ export default function DispatchBoard({
               className="min-h-8 min-w-0 max-w-full flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-2 text-xs text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
             >
               <option value="" disabled>
-                {statusLabel}
+                {visitStatusLabel}
               </option>
-              {workOrder.statusOptions.map((status) => {
+              {visit.statusOptions.map((status) => {
                 const labelKey =
-                  WORK_ORDER_STATUS_LABEL_KEYS[status as WorkStatus];
+                  VISIT_STATUS_LABEL_KEYS[status as VisitStatus];
                 return (
                   <option key={status} value={status}>
                     {labelKey ? t(labelKey) : status}
@@ -368,62 +417,19 @@ export default function DispatchBoard({
           </form>
         )}
 
-        {workOrder.canComplete && (
-          <ConfirmSubmitForm
-            action={(formData) =>
-              run(updateStatusAction, workOrder.id, formData, fieldId)
-            }
-            confirmMessage={t("orders.detail.completeConfirm")}
-            confirmLabel={t("orders.fieldDetail.stickyComplete")}
-            className="mt-2 flex min-w-0 items-center gap-1.5"
-          >
-            <input type="hidden" name="status" value="COMPLETED" />
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-2.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--signal,#d8ff3e)] disabled:opacity-50"
-            >
-              <Icon name="check" className="h-3.5 w-3.5" />
-              {t("orders.fieldDetail.stickyComplete")}
-            </button>
-          </ConfirmSubmitForm>
-        )}
-
-        {workOrder.canCancel && (
-          <ConfirmSubmitForm
-            action={(formData) =>
-              run(updateStatusAction, workOrder.id, formData, fieldId)
-            }
-            confirmMessage={t("orders.detail.cancelConfirm")}
-            confirmLabel={t("orders.detail.cancelWorkOrder")}
-            danger
-            className="mt-2 flex min-w-0 items-center gap-1.5"
-          >
-            <input type="hidden" name="status" value="CANCELLED" />
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] px-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] disabled:opacity-50"
-            >
-              <Icon name="close" className="h-3.5 w-3.5" />
-              {t("orders.detail.cancelWorkOrder")}
-            </button>
-          </ConfirmSubmitForm>
-        )}
-
-        {errors[workOrder.id] && (
+        {errors[visit.id] && (
           <p
             data-dispatch-error
             role="alert"
             tabIndex={-1}
             className="mt-2 rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] p-2 text-xs font-bold text-[var(--risk-text,#b42318)] focus:outline-none focus:ring-2 focus:ring-[var(--risk,#f04427)]"
           >
-            {errors[workOrder.id]}
+            {errors[visit.id]}
           </p>
         )}
 
         <Link
-          href={`/oppdrag/${workOrder.id}`}
+          href={`/oppdrag/${visit.workOrderId}`}
           draggable={false}
           className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-[var(--ink,#101310)] decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:underline"
         >
@@ -438,44 +444,32 @@ export default function DispatchBoard({
     const laneKey = technician?.id ?? UNASSIGNED_LANE;
     const laneId = `${day.date}:${laneKey}`;
     const items = technician
-      ? day.workOrders.filter((workOrder) =>
-          workOrder.technicians.some((tech) => tech.id === technician.id),
+      ? day.visits.filter((visit) =>
+          visit.technicians.some((tech) => tech.id === technician.id),
         )
-      : day.workOrders.filter(
-          (workOrder) => workOrder.technicians.length === 0,
-        );
-    // Datokolonnene tar alltid imot kort. «Uten montør» er også et bevisst
-    // slippmål: det fjerner kilden montør, men aldri flere montører samtidig.
-    const isDropTarget = true;
+      : day.visits.filter((visit) => visit.technicians.length === 0);
 
     return (
       <div
         key={laneId}
         data-dispatch-lane={laneKey}
-        onDragOver={
-          isDropTarget
-            ? (event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setDragOverLane(laneId);
-              }
-            : undefined
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setDragOverLane(laneId);
+        }}
+        onDragLeave={() =>
+          setDragOverLane((current) =>
+            current === laneId ? null : current,
+          )
         }
-        onDragLeave={
-          isDropTarget
-            ? () => setDragOverLane((current) => (current === laneId ? null : current))
-            : undefined
-        }
-        onDrop={
-          isDropTarget
-            ? (event) =>
-                technician
-                  ? dropOnTechnician(event, technician.id)
-                  : dropOnUnassigned(event)
-            : undefined
+        onDrop={(event) =>
+          technician
+            ? dropOnTechnician(event, day, laneKey, technician.id)
+            : dropOnUnassigned(event, day, laneKey)
         }
         className={`relative flex w-72 max-w-full shrink-0 flex-col rounded-xl border p-2 ${
-          isDropTarget && dragOverLane === laneId
+          dragOverLane === laneId
             ? "border-[var(--ink,#101310)] bg-[color-mix(in_srgb,var(--signal,#d8ff3e)_24%,var(--surface,#fffdf8))] ring-2 ring-[var(--signal,#d8ff3e)]"
             : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/70"
         }`}
@@ -512,7 +506,7 @@ export default function DispatchBoard({
                 : t("calendar.dispatch.laneEmpty")}
             </p>
           ) : (
-            items.map((workOrder) => renderCard(day, laneKey, workOrder))
+            items.map((visit) => renderCard(day, laneKey, visit))
           )}
         </div>
       </div>
@@ -523,7 +517,7 @@ export default function DispatchBoard({
     return (
       <div className="office-card p-8 text-center">
         <p className="text-sm italic text-[var(--muted,#62685f)]">
-          {t("calendar.dispatch.empty")}
+          {t("calendar.dispatch.noVisits")}
         </p>
       </div>
     );
@@ -545,11 +539,7 @@ export default function DispatchBoard({
         <section
           key={day.date}
           aria-labelledby={`dispatch-day-${day.date}`}
-          className={`office-card min-w-0 max-w-full p-3 sm:p-4 ${
-            day.kind === "attention"
-              ? "border-l-4 border-l-[var(--risk,#f04427)]"
-              : ""
-          }`}
+          className="office-card min-w-0 max-w-full p-3 sm:p-4"
         >
           <div className="mb-3 flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
             <div className="min-w-0">
@@ -558,24 +548,15 @@ export default function DispatchBoard({
                 className="flex items-center gap-2 break-words text-lg font-black tracking-tight text-[var(--ink,#101310)]"
               >
                 <Icon
-                  name={day.kind === "attention" ? "alert" : "calendar"}
-                  className={`h-4 w-4 shrink-0 ${
-                    day.kind === "attention"
-                      ? "text-[var(--risk-text,#b42318)]"
-                      : "text-[var(--muted,#62685f)]"
-                  }`}
+                  name="calendar"
+                  className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)]"
                 />
                 {day.label}
               </h2>
-              {day.kind === "attention" && (
-                <p className="mt-1 text-xs font-medium text-[#7a4f0c]">
-                  {t("calendar.dispatch.attentionHint")}
-                </p>
-              )}
             </div>
             <span className="shrink-0 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold tabular-nums text-[var(--muted,#62685f)]">
-              {t("calendar.dispatch.dayCount", {
-                count: day.workOrders.length,
+              {t("calendar.dispatch.visitDayCount", {
+                count: day.visits.length,
               })}
             </span>
           </div>

@@ -14,8 +14,18 @@ vi.mock("@/lib/report-pdf-store", () => ({
   getOrRenderReportPdf: vi.fn(),
 }));
 
+vi.mock("@/server/visits", () => ({
+  createDefaultVisit: vi.fn(),
+  recomputeWorkOrderSchedule: vi.fn(),
+}));
+
 import prisma from "@/lib/prisma";
 import { getOrRenderReportPdf } from "@/lib/report-pdf-store";
+import {
+  createDefaultVisit,
+  recomputeWorkOrderSchedule,
+} from "@/server/visits";
+import { osloDayStart } from "@/lib/dates";
 import {
   generateDueRecurringWorkOrders,
   generateRecurringWorkOrderForContract,
@@ -29,6 +39,10 @@ const mocked = prisma as unknown as {
   $transaction: Mock;
 };
 const mockedPdfStore = vi.mocked(getOrRenderReportPdf);
+const mockedCreateDefaultVisit = vi.mocked(createDefaultVisit);
+const mockedRecomputeWorkOrderSchedule = vi.mocked(
+  recomputeWorkOrderSchedule,
+);
 
 function contract(overrides: Record<string, unknown> = {}) {
   return {
@@ -82,6 +96,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocked.$transaction.mockReset();
   mockedPdfStore.mockReset();
+  mockedCreateDefaultVisit.mockReset();
+  mockedRecomputeWorkOrderSchedule.mockReset();
   mocked.contract.findUnique.mockResolvedValue(contract());
   mocked.contract.findMany.mockResolvedValue([]);
   mocked.workOrder.findFirst.mockResolvedValue(null);
@@ -179,6 +195,21 @@ describe("generateRecurringWorkOrderForContract", () => {
     );
     // Ingen tidligere rapport: verken PDF eller vedlegg.
     expect(mocked.attachment.create).not.toHaveBeenCalled();
+  });
+
+  it("oppretter en all-day-visitt på serviceoppdraget i samme transaksjon", async () => {
+    const tx = claimTransaction();
+    useTransaction(tx);
+
+    await generateRecurringWorkOrderForContract("contract-1", now);
+
+    expect(mockedCreateDefaultVisit).toHaveBeenCalledWith(tx, {
+      workOrderId: "wo-new",
+      startsAt: osloDayStart("2026-01-01"),
+      endsAt: osloDayStart("2026-01-02"),
+      allDay: true,
+    });
+    expect(mockedRecomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
   });
 
   it("bruker pg_try_advisory_xact_lock, ikke den sesjonsscoped varianten", async () => {

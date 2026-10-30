@@ -18,9 +18,14 @@ const osloDateFormatter = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+/** Kalenderdatoen et tidsstempel faller på i Oslo, som YYYY-MM-DD. */
+export function dateOnlyInOslo(value: Date): DateOnly {
+  return osloDateFormatter.format(value);
+}
+
 /** Dagens dato i Oslo som YYYY-MM-DD. */
 export function todayInOslo(now = new Date()): DateOnly {
-  return osloDateFormatter.format(now);
+  return dateOnlyInOslo(now);
 }
 
 /** Hvor mange minutter Oslo ligger foran UTC på et gitt tidspunkt. */

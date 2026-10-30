@@ -1,0 +1,36 @@
+{
+  "visits": {
+    "status": {
+      "planned": "Planlagt",
+      "assigned": "Tildelt",
+      "enRoute": "På vei",
+      "onSite": "På stedet",
+      "done": "Fullført",
+      "cancelled": "Kansellert"
+    },
+    "errors": {
+      "overlap": "En eller flere montører er allerede tildelt en overlappende visitt.",
+      "invalidTimeRange": "Sluttidspunktet må være etter starttidspunktet.",
+      "durationTooLong": "En visitt kan vare i maksimalt 31 dager.",
+      "invalidTechnician": "En eller flere valgte montører tilhører ikke avdelingen.",
+      "invalidInput": "Visitten mangler gyldige data.",
+      "invalidSequence": "Rekkefølgen må være et heltall som ikke er negativt.",
+      "legalHold": "Visitten kan ikke endres fordi oppdraget har bevaringsplikt.",
+      "workOrderLocked": "Visitten kan ikke endres fordi oppdraget er fullført eller kansellert.",
+      "visitLocked": "Visitten er fullført eller kansellert og kan ikke endres.",
+      "statusTransition": "Statusendringen er ikke tillatt.",
+      "noChange": "Ingen endring ble utført."
+    }
+  },
+  "auditActions": {
+    "visit": {
+      "created": "Opprettet visitt: {title} ({range})",
+      "updated": "Oppdaterte visitten: {title} ({range})",
+      "moved": "Flyttet visitt: {title} ({range})",
+      "assigned": "Tildelte montør: {names}",
+      "unassigned": "Fjernet montør: {names}",
+      "statusChanged": "Endret visittstatus: {from} → {to}",
+      "deleted": "Slettet visitt: {title} ({range})"
+    }
+  }
+}

@@ -69,6 +69,17 @@ function listSelect(userId: string) {
     },
     contact: { select: { id: true, name: true, phone: true, email: true } },
     tags: { select: { id: true, name: true, color: true } },
+    visits: {
+      where: { status: { not: "CANCELLED" as const } },
+      orderBy: { startsAt: "asc" as const },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        allDay: true,
+        status: true,
+      },
+    },
     templates: {
       select: { id: true, title: true },
       orderBy: { title: "asc" as const },
@@ -114,15 +125,61 @@ const BADGE_TONES = {
   neutral: "bg-white/10 text-paper/85",
 } as const;
 
-function jobTimeLabel(value: Date | null, locale: string): string {
-  if (!value) return "09:00";
-  const hours = value.getUTCHours();
-  const minutes = value.getUTCMinutes();
-  // Datoene i feltportalen er rene kalenderdatoer. Da viser vi feltets faste
-  // oppmøtetid i stedet for en misvisende 00:00.
-  if (hours === 0 && minutes === 0) return "09:00";
-  return (
-    formatDateLocalized(value, locale, { timeStyle: "short" }) || "09:00"
+type ListVisit = {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  allDay: boolean;
+  status: string;
+};
+
+type TimeLabelSource = {
+  scheduledFor?: Date | null;
+  visits?: readonly ListVisit[] | null;
+};
+
+function activeVisits(visits: readonly ListVisit[] | null | undefined) {
+  return (visits ?? []).filter((visit) => visit.status !== "CANCELLED");
+}
+
+/**
+ * Tiden som vises på feltkortet. En tidsstyrt visitt er sannheten; heldags-
+ * visiter viser «Hele dagen». Uten en tidsstyrt visitt dikter vi ikke opp en
+ * oppmøtetid – da står det «Tid ikke satt».
+ */
+function workOrderTimeLabel(
+  workOrder: TimeLabelSource,
+  locale: string,
+  labels: { timeNotSet: string; allDay: string },
+): string {
+  const visits = activeVisits(workOrder.visits);
+  const timedVisit = visits.find((visit) => !visit.allDay);
+  if (timedVisit) {
+    return (
+      formatDateLocalized(timedVisit.startsAt, locale, { timeStyle: "short" }) ||
+      labels.timeNotSet
+    );
+  }
+  if (visits.some((visit) => visit.allDay)) return labels.allDay;
+  return labels.timeNotSet;
+}
+
+/** Sorterer på første visittstart, med oppdragets dato som fallback. */
+function visitSortKey(workOrder: TimeLabelSource): number {
+  const visits = activeVisits(workOrder.visits);
+  const timedVisit = visits.find((visit) => !visit.allDay);
+  const firstVisit = timedVisit ?? visits[0];
+  if (firstVisit) return firstVisit.startsAt.getTime();
+  return workOrder.scheduledFor?.getTime() ?? Number.MAX_SAFE_INTEGER;
+}
+
+function sortByVisitStart<T extends TimeLabelSource & { id?: string }>(
+  workOrders: T[],
+): T[] {
+  return [...workOrders].sort(
+    (first, second) =>
+      visitSortKey(first) - visitSortKey(second) ||
+      (first.id ?? "").localeCompare(second.id ?? ""),
   );
 }
 
@@ -428,17 +485,41 @@ export default async function TechnicianDashboard({
     // Ruten skal dekke alle dagens jobber, ikke bare de 25 første kortene.
     prisma.workOrder.findMany({
       where: todayWhere,
-      select: { latitude: true, longitude: true },
+      select: {
+        id: true,
+        scheduledFor: true,
+        latitude: true,
+        longitude: true,
+        visits: {
+          where: { status: { not: "CANCELLED" as const } },
+          orderBy: { startsAt: "asc" as const },
+          select: {
+            id: true,
+            startsAt: true,
+            endsAt: true,
+            allDay: true,
+            status: true,
+          },
+        },
+      },
       orderBy: [{ scheduledFor: "asc" }, { id: "asc" }],
       take: LIST_MAX_LIMIT,
     }),
   ]);
 
-  const overdueVisible = overdueRows.slice(0, assignedLimit);
-  const todayVisible = todayRows.slice(0, assignedLimit);
-  const laterVisible = laterRows.slice(0, assignedLimit);
-  const unassignedVisible = unassignedRows.slice(0, unassignedLimit);
-  const completedAssigned = completedRows.slice(0, historyLimit);
+  // Visitstarten er den reelle rekkefølgen montøren møter dagen i. Eldre
+  // oppdrag uten visitt faller tilbake til oppdragets dato.
+  const overdueVisible = sortByVisitStart(overdueRows).slice(0, assignedLimit);
+  const todayVisible = sortByVisitStart(todayRows).slice(0, assignedLimit);
+  const laterVisible = sortByVisitStart(laterRows).slice(0, assignedLimit);
+  const unassignedVisible = sortByVisitStart(unassignedRows).slice(
+    0,
+    unassignedLimit,
+  );
+  const completedAssigned = sortByVisitStart(completedRows).slice(
+    0,
+    historyLimit,
+  );
   const assignedTotal = overdueTotal + todayTotal + laterTotal;
 
   const moreHref = (key: "a" | "u" | "h", current: number, total: number) => {
@@ -529,6 +610,10 @@ export default async function TechnicianDashboard({
       ? `/mine-oppdrag/${hero.id}/skjema/${heroTemplateId}`
       : `/mine-oppdrag/${hero.id}`
     : "";
+  const timeLabels = {
+    timeNotSet: t("orders.fieldList.timeNotSet"),
+    allDay: t("orders.fieldList.allDay"),
+  };
   const heroDateLabel = hero
     ? formatDateLocalized(hero.scheduledFor, locale, {
         weekday: "long",
@@ -536,12 +621,12 @@ export default async function TechnicianDashboard({
         month: "long",
       }) || t("orders.fieldList.noDate")
     : "";
-  const heroTime = jobTimeLabel(hero?.scheduledFor ?? null, locale);
+  const heroTime = hero ? workOrderTimeLabel(hero, locale, timeLabels) : "";
   const heroDraftTime = heroDraft
     ? formatDateLocalized(heroDraft.updatedAt, locale, { timeStyle: "short" })
     : "";
   const heroOrderNumber = hero?.orderNumber?.trim() || "";
-  const routeKm = routeDistanceKm(todayRouteRows);
+  const routeKm = routeDistanceKm(sortByVisitStart(todayRouteRows));
   const routeDistanceLabel =
     routeKm === null ? "" : formatRouteDistance(routeKm, locale);
   const laterTodayPreview = todayAfterHero.slice(0, 3);
@@ -737,11 +822,19 @@ export default async function TechnicianDashboard({
           <div
             className={`mt-1 flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs font-medium ${footerClass} ${mutedClass}`}
           >
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold ${metaChip}`}
-            >
-              <Icon name="calendar" className="h-3.5 w-3.5 opacity-70" />
-              {dateLabel}
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold ${metaChip}`}
+              >
+                <Icon name="calendar" className="h-3.5 w-3.5 opacity-70" />
+                {dateLabel}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold tabular-nums ${metaChip}`}
+              >
+                <Icon name="clock" className="h-3.5 w-3.5 opacity-70" />
+                {workOrderTimeLabel(wo, locale, timeLabels)}
+              </span>
             </span>
             <span
               className={`inline-flex items-center gap-1 font-black ${openClass}`}
@@ -1056,7 +1149,7 @@ export default async function TechnicianDashboard({
           ) : (
             <div className="space-y-2">
               {laterTodayPreview.map((wo) => {
-                const time = jobTimeLabel(wo.scheduledFor, locale);
+                const time = workOrderTimeLabel(wo, locale, timeLabels);
                 return (
                   <Link
                     key={wo.id}

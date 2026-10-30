@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDaysUtc,
   addMonthsUtc,
+  dateOnlyInOslo,
   firstOccurrenceOnOrAfter,
   formatDate,
   formatDateLocalized,
@@ -24,6 +25,32 @@ describe("todayInOslo", () => {
     expect(todayInOslo(new Date("2026-01-15T23:30:00.000Z"))).toBe("2026-01-16");
     expect(todayInOslo(new Date("2026-07-01T21:30:00.000Z"))).toBe("2026-07-01");
     expect(todayInOslo(new Date("2026-07-01T22:30:00.000Z"))).toBe("2026-07-02");
+  });
+});
+
+describe("dateOnlyInOslo", () => {
+  it("bruker Oslo-dato rundt midnatt, ikke UTC-datoen", () => {
+    expect(dateOnlyInOslo(new Date("2026-10-30T23:30:00.000Z"))).toBe(
+      "2026-10-31",
+    );
+    expect(dateOnlyInOslo(new Date("2026-10-31T22:30:00.000Z"))).toBe(
+      "2026-10-31",
+    );
+    expect(dateOnlyInOslo(new Date("2026-10-31T23:30:00.000Z"))).toBe(
+      "2026-11-01",
+    );
+  });
+
+  it("håndterer overgangene til og fra sommertid", () => {
+    expect(dateOnlyInOslo(new Date("2026-03-28T23:30:00.000Z"))).toBe(
+      "2026-03-29",
+    );
+    expect(dateOnlyInOslo(new Date("2026-03-29T21:30:00.000Z"))).toBe(
+      "2026-03-29",
+    );
+    expect(dateOnlyInOslo(new Date("2026-10-24T22:30:00.000Z"))).toBe(
+      "2026-10-25",
+    );
   });
 });
 

@@ -25,7 +25,7 @@ export default async function Loading() {
         </div>
 
         <div className="office-card flex gap-1 overflow-hidden px-2 pt-2">
-          {Array.from({ length: 5 }).map((_, index) => (
+          {Array.from({ length: 7 }).map((_, index) => (
             <Skeleton key={index} className="h-10 w-28 rounded-t-md" />
           ))}
         </div>

@@ -16,6 +16,8 @@ describe("kalenderfaner", () => {
       "month",
       "week",
       "biweekly",
+      "timeWeek",
+      "timeDay",
     ]);
     expect(keys(true, false)).toContain("dispatch");
     expect(keys(true, false)).not.toContain("reports");
@@ -26,6 +28,8 @@ describe("kalenderfaner", () => {
       "month",
       "week",
       "biweekly",
+      "timeWeek",
+      "timeDay",
       "dispatch",
       "reports",
     ]);
@@ -43,6 +47,12 @@ describe("kalenderfaner", () => {
     expect(tabs.find((tab) => tab.key === "biweekly")?.href).toBe(
       "/kalender?vis=2uker",
     );
+    expect(tabs.find((tab) => tab.key === "timeWeek")?.href).toBe(
+      "/kalender?vis=timegrid",
+    );
+    expect(tabs.find((tab) => tab.key === "timeDay")?.href).toBe(
+      "/kalender?vis=dag",
+    );
     expect(tabs.find((tab) => tab.key === "reports")?.href).toBe("/rapporter");
     expect(tabs.find((tab) => tab.key === "dispatch")?.href).toBe(
       "/kalender/dispatch",
@@ -58,6 +68,8 @@ describe("kalenderfaner", () => {
       month: "calendar",
       week: "list",
       biweekly: "columns",
+      timeWeek: "clock",
+      timeDay: "calendar",
       dispatch: "users",
       reports: "chart",
     });
@@ -83,6 +95,12 @@ describe("kalenderfaner", () => {
     );
     expect(tabs.find((tab) => tab.key === "biweekly")?.href).toBe(
       "/kalender?vis=2uker&dato=2026-10-19&tekniker=user-1&status=PLANNED",
+    );
+    expect(tabs.find((tab) => tab.key === "timeWeek")?.href).toBe(
+      "/kalender?vis=timegrid&dato=2026-10-19&tekniker=user-1&status=PLANNED",
+    );
+    expect(tabs.find((tab) => tab.key === "timeDay")?.href).toBe(
+      "/kalender?vis=dag&dato=2026-10-19&tekniker=user-1&status=PLANNED",
     );
     // Ressursoversikten og de separate sidene skal ikke arve perioden.
     expect(tabs.find((tab) => tab.key === "resources")?.href).toBe("/kalender");
@@ -158,6 +176,35 @@ describe("calendarPeriodLabel", () => {
         weekLabel: "Uke",
       }),
     ).toBe("Uke 43–44 · 19. okt. 2026 – 1. nov. 2026");
+
+    expect(
+      calendarPeriodLabel({
+        view: "timegrid",
+        date: "2026-10-19",
+        locale: "nb",
+        weekLabel: "Uke",
+      }),
+    ).toBe("Uke 43 · 19. okt. 2026 – 25. okt. 2026");
+  });
+
+  it("viser ukedag og dato for dagsvisningen", () => {
+    expect(
+      calendarPeriodLabel({
+        view: "dag",
+        date: "2026-10-19",
+        locale: "nb",
+        weekLabel: "Uke",
+      }),
+    ).toBe("mandag 19. oktober 2026");
+
+    expect(
+      calendarPeriodLabel({
+        view: "dag",
+        date: "2026-10-19",
+        locale: "en",
+        weekLabel: "Week",
+      }),
+    ).toBe("Monday, 19 October 2026");
   });
 
   it("følger språket og avviser ukjente visninger", () => {

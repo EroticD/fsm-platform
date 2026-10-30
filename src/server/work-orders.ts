@@ -15,7 +15,12 @@ import {
   type AccessUser,
 } from "@/lib/access";
 import { markdownToPlainText } from "@/lib/markdown";
-import { addDaysUtc, parseDateOnly, toDateOnly } from "@/lib/dates";
+import {
+  addDaysUtc,
+  osloDayStart,
+  parseDateOnly,
+  toDateOnly,
+} from "@/lib/dates";
 import {
   LIMITS,
   cleanEmail,
@@ -35,6 +40,7 @@ import {
 import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 import { isClosedStatus } from "@/lib/work-order-status";
+import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -68,11 +74,13 @@ export type WorkOrderError =
   | "avdeling"
   | "ukjent";
 
-export type WorkOrderResult = { ok: true } | { ok: false; error: WorkOrderError };
+export type WorkOrderResult =
+  | { ok: true }
+  | { ok: false; error: WorkOrderError; detail?: string };
 
 export type CreateWorkOrderResult =
   | { ok: true; id: string }
-  | { ok: false; error: WorkOrderError };
+  | { ok: false; error: WorkOrderError; detail?: string };
 
 export type AddContactResult =
   | { ok: true; contactId: string; customerId: string }
@@ -91,7 +99,7 @@ export type UpdateDateError =
 
 export type UpdateDateResult =
   | { ok: true }
-  | { ok: false; error: UpdateDateError };
+  | { ok: false; error: UpdateDateError; detail?: string };
 
 type Actor = AccessUser | null;
 
@@ -236,6 +244,114 @@ function dateRangeError(
     return "sluttdato-for-startdato";
   }
   return null;
+}
+
+/** En visitt slik datorekonsolideringen trenger å se den. */
+type VisitSummary = {
+  id: string;
+  status: string;
+};
+
+/**
+ * Domeneavvik ved datoflytting som ikke har en egen gammel feilkode.
+ * `detail` er en stabil nøkkel som API/UI kan oversette; selve `error`-koden
+ * holder seg til det eksisterende kontraktet.
+ */
+class VisitScheduleError extends Error {
+  readonly detail: string;
+
+  constructor(detail: string) {
+    super(detail);
+    this.name = "VisitScheduleError";
+    this.detail = detail;
+  }
+}
+
+/**
+ * Datoendringer på oppdragsnivå kan bare konsolidere én planlagt visitt.
+ * Flere visiter eies av visit-nivået, og en pågående visitt skal aldri flyttes
+ * under montørens føtter.
+ */
+function assertVisitsCanBeRescheduled(visits: VisitSummary[]): void {
+  if (visits.some((visit) => ["EN_ROUTE", "ON_SITE"].includes(visit.status))) {
+    throw new VisitScheduleError("visits.errors.visitInProgress");
+  }
+  if (visits.length > 1) {
+    throw new VisitScheduleError("visits.errors.multipleVisits");
+  }
+}
+
+/**
+ * All-day-vinduet for en datoperiode. Datoene er rene kalenderdatoer, mens
+ * visiten lagres som absolutte tidspunkt. Start er Oslo-midnatt første dag og
+ * slutt er Oslo-midnatt dagen etter siste dag, slik at hele dagen dekkes også
+ * når sommertid endrer døgnets lengde.
+ */
+function allDayVisitWindow(
+  scheduledFor: Date,
+  scheduledTo: Date | null,
+): { startsAt: Date; endsAt: Date } {
+  const lastDay =
+    scheduledTo && scheduledTo > scheduledFor ? scheduledTo : scheduledFor;
+  return {
+    startsAt: osloDayStart(toDateOnly(scheduledFor)),
+    endsAt: osloDayStart(toDateOnly(addDaysUtc(lastDay, 1))),
+  };
+}
+
+/** Legger brukeren til på alle visitene i samme transaksjon. */
+async function addVisitTechnician(
+  tx: Prisma.TransactionClient,
+  visits: VisitSummary[],
+  userId: string,
+): Promise<void> {
+  if (visits.length === 0) return;
+  await tx.visitTechnician.createMany({
+    data: visits.map((visit) => ({ visitId: visit.id, userId })),
+    skipDuplicates: true,
+  });
+}
+
+/** Fjerner brukeren fra alle visitene i samme transaksjon. */
+async function removeVisitTechnician(
+  tx: Prisma.TransactionClient,
+  visits: VisitSummary[],
+  userId: string,
+): Promise<void> {
+  if (visits.length === 0) return;
+  await tx.visitTechnician.deleteMany({
+    where: { visitId: { in: visits.map((visit) => visit.id) }, userId },
+  });
+}
+
+/**
+ * Speiler oppdragets montørliste nøyaktig på visitene. Oppdragslisten er
+ * kontraktet mot resten av systemet; visitene skal aldri kunne peke på en
+ * annen mengde folk.
+ */
+async function syncVisitTechniciansExact(
+  tx: Prisma.TransactionClient,
+  visits: VisitSummary[],
+  technicianIds: string[],
+): Promise<void> {
+  if (visits.length === 0) return;
+  const visitIds = visits.map((visit) => visit.id);
+
+  await tx.visitTechnician.deleteMany({
+    where: {
+      visitId: { in: visitIds },
+      ...(technicianIds.length > 0 ? { userId: { notIn: technicianIds } } : {}),
+    },
+  });
+
+  if (technicianIds.length > 0) {
+    await tx.visitTechnician.createMany({
+      data: visits.flatMap((visit) =>
+        technicianIds.map((userId) => ({ visitId: visit.id, userId })),
+      ),
+      skipDuplicates: true,
+    });
+  }
 }
 
 export type CreateWorkOrderInput = {
@@ -401,6 +517,19 @@ export async function createWorkOrder(
         select: { id: true },
       });
 
+      // Et datofestet oppdrag har alltid minst én planlagt visitt. Visiten er
+      // den tildelbare tidsblokken; `scheduledFor`/`scheduledTo` avledes av
+      // visitene og holdes i takt i samme transaksjon.
+      const visitWindow = allDayVisitWindow(scheduledFor, scheduledTo);
+      await createDefaultVisit(tx, {
+        workOrderId: newWorkOrder.id,
+        startsAt: visitWindow.startsAt,
+        endsAt: visitWindow.endsAt,
+        allDay: true,
+        technicianIds,
+      });
+      await recomputeWorkOrderSchedule(tx, newWorkOrder.id);
+
       await audit(tx, {
         entityType: "WorkOrder",
         entityId: newWorkOrder.id,
@@ -471,6 +600,10 @@ export async function updateWorkOrder(
       latitude: true,
       longitude: true,
       geoAddressHash: true,
+      scheduledFor: true,
+      scheduledTo: true,
+      // Datoflytting på oppdragsnivå kan bare konsolidere én visitt.
+      visits: { select: { id: true, status: true }, orderBy: { sequence: "asc" } },
       // Bevis og bestillinger hører til den opprinnelige kunden. Rapportene
       // hentes uten filter, slik at også mykt slettede signerte rapporter
       // blokkerer en kundeflytting.
@@ -573,6 +706,13 @@ export async function updateWorkOrder(
   const orderNumberNormalized = normalizeOrderNumber(orderNumberValue);
   const scheduledForDate = scheduledFor ? parseDateOnly(scheduledFor) : null;
   const scheduledToDate = scheduledTo ? parseDateOnly(scheduledTo) : null;
+  const nextScheduledTo =
+    scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
+      ? scheduledToDate
+      : null;
+  const datesChanged =
+    toDateOnly(currentWorkOrder.scheduledFor) !== toDateOnly(scheduledForDate) ||
+    toDateOnly(currentWorkOrder.scheduledTo) !== toDateOnly(nextScheduledTo);
 
   // Ordrenummeret er unikt per avdeling. Sjekk før skriving, slik at brukeren
   // får en tydelig feil i stedet for en generell databasefeil.
@@ -620,6 +760,16 @@ export async function updateWorkOrder(
       );
       if (finalGuard) return finalGuard;
 
+      let visits = await tx.visit.findMany({
+        where: { workOrderId },
+        select: { id: true, status: true },
+        orderBy: { sequence: "asc" },
+      });
+
+      // Avvis datoflyttingen før noe skrives: en pågående visitt skal ikke
+      // flyttes, og flere visiter eies av visit-nivået.
+      if (datesChanged) assertVisitsCanBeRescheduled(visits);
+
       await tx.workOrder.update({
         where: { id: workOrderId },
         data: {
@@ -638,10 +788,7 @@ export async function updateWorkOrder(
           customerId: nextCustomerId,
           contactId: validContactId || null,
           scheduledFor: scheduledForDate,
-          scheduledTo:
-            scheduledToDate && scheduledForDate && scheduledToDate > scheduledForDate
-              ? scheduledToDate
-              : null,
+          scheduledTo: nextScheduledTo,
           technicians: { set: validTechnicianIds.map((id) => ({ id })) },
           tags: {
             set: [],
@@ -652,6 +799,43 @@ export async function updateWorkOrder(
           },
         },
       });
+
+      if (datesChanged) {
+        if (!scheduledForDate) {
+          // Datoene er fjernet. Da skal oppdraget ikke beholde en foreldreløs
+          // standardvisitt.
+          if (visits.length === 1) {
+            await tx.visit.delete({ where: { id: visits[0].id } });
+            visits = [];
+          }
+        } else if (visits.length === 1) {
+          // Én visitt følger datoperioden. Flere visiter er allerede avvist.
+          const window = allDayVisitWindow(scheduledForDate, nextScheduledTo);
+          await tx.visit.update({
+            where: { id: visits[0].id },
+            data: {
+              startsAt: window.startsAt,
+              endsAt: window.endsAt,
+              allDay: true,
+            },
+          });
+        } else if (visits.length === 0) {
+          // Eldre oppdrag kan mangle visitt. Den repareres i samme transaksjon.
+          const window = allDayVisitWindow(scheduledForDate, nextScheduledTo);
+          await createDefaultVisit(tx, {
+            workOrderId,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt,
+            allDay: true,
+            technicianIds: validTechnicianIds,
+          });
+        }
+
+        await recomputeWorkOrderSchedule(tx, workOrderId);
+      }
+
+      // Oppdragslisten og visitene skal alltid vise samme montører.
+      await syncVisitTechniciansExact(tx, visits, validTechnicianIds);
 
       await audit(tx, {
         entityType: "WorkOrder",
@@ -689,6 +873,9 @@ export async function updateWorkOrder(
     });
     if (blocked) return { ok: false, error: blocked };
   } catch (error) {
+    if (error instanceof VisitScheduleError) {
+      return { ok: false, error: "ugyldig-data", detail: error.detail };
+    }
     if (isUniqueViolation(error)) {
       return { ok: false, error: "duplikat-ordrenummer" };
     }
@@ -850,11 +1037,19 @@ export async function updateWorkOrderDate(
           legalHold: true,
           scheduledFor: true,
           scheduledTo: true,
+          technicians: { select: { id: true } },
         },
       });
       if (!before) return { count: 0 };
       if (before.legalHold) return { legalHold: true } as const;
       if (isClosedStatus(before.status as WorkStatus)) return { count: 0 };
+
+      const visits = await tx.visit.findMany({
+        where: { workOrderId },
+        select: { id: true, status: true },
+        orderBy: { sequence: "asc" },
+      });
+      assertVisitsCanBeRescheduled(visits);
 
       // Mangler `newEnd`, flyttes hele intervallet: samme antall dager som før.
       // Da kan scheduledTo aldri havne før scheduledFor.
@@ -882,6 +1077,32 @@ export async function updateWorkOrderDate(
       });
 
       if (result.count > 0) {
+        // Én visitt (eller ingen, for eldre rader) følger den nye perioden.
+        // Flere visiter og pågående visiter er avvist lenger opp.
+        if (visits.length === 1) {
+          const window = allDayVisitWindow(scheduledFor, nextScheduledTo);
+          await tx.visit.update({
+            where: { id: visits[0].id },
+            data: {
+              startsAt: window.startsAt,
+              endsAt: window.endsAt,
+              allDay: true,
+            },
+          });
+        } else if (visits.length === 0) {
+          const window = allDayVisitWindow(scheduledFor, nextScheduledTo);
+          await createDefaultVisit(tx, {
+            workOrderId: before.id,
+            startsAt: window.startsAt,
+            endsAt: window.endsAt,
+            allDay: true,
+            technicianIds: (before.technicians ?? []).map(
+              (technician) => technician.id,
+            ),
+          });
+        }
+        await recomputeWorkOrderSchedule(tx, before.id);
+
         await audit(tx, {
           entityType: "WorkOrder",
           entityId: before.id,
@@ -921,7 +1142,10 @@ export async function updateWorkOrderDate(
       // Varsling er best effort.
     }
     return { ok: true };
-  } catch {
+  } catch (error) {
+    if (error instanceof VisitScheduleError) {
+      return { ok: false, error: "ugyldig-dato", detail: error.detail };
+    }
     return { ok: false, error: "ukjent" };
   }
 }
@@ -1201,6 +1425,12 @@ async function changeTechnician(
     const finalGuard = await mutationBlockedInTransaction(tx, user, workOrderId);
     if (finalGuard) return finalGuard;
 
+    const visits = await tx.visit.findMany({
+      where: { workOrderId },
+      select: { id: true, status: true },
+      orderBy: { sequence: "asc" },
+    });
+
     await tx.workOrder.update({
       where: { id: workOrderId },
       data: {
@@ -1210,6 +1440,15 @@ async function changeTechnician(
             : { disconnect: { id: userId } },
       },
     });
+
+    // Oppdraget og visitene skal alltid ha samme montører. Endringen skjer i
+    // samme transaksjon som selve tildelingen.
+    if (options.mode === "connect") {
+      await addVisitTechnician(tx, visits, userId);
+    } else {
+      await removeVisitTechnician(tx, visits, userId);
+    }
+
     await audit(tx, {
       entityType: "WorkOrder",
       entityId: workOrderId,
@@ -1332,6 +1571,7 @@ export async function moveTechnician(
         status: true,
         legalHold: true,
         technicians: { select: { id: true } },
+        visits: { select: { id: true, status: true }, orderBy: { sequence: "asc" } },
       },
     });
     const finalGuard = mutationBlocked(current);
@@ -1362,6 +1602,14 @@ export async function moveTechnician(
         },
       },
     });
+
+    const visits = current?.visits ?? [];
+    if (sourceTechnicianId) {
+      await removeVisitTechnician(tx, visits, sourceTechnicianId);
+    }
+    if (targetTechnicianId) {
+      await addVisitTechnician(tx, visits, targetTechnicianId);
+    }
 
     const action = targetTechnicianId
       ? sourceTechnicianId
@@ -1447,6 +1695,17 @@ export async function cloneWorkOrder(
       technicians: { select: { id: true } },
       templates: { select: { id: true } },
       tags: { select: { name: true } },
+      visits: {
+        select: {
+          sequence: true,
+          startsAt: true,
+          endsAt: true,
+          allDay: true,
+          notes: true,
+          technicians: { select: { userId: true } },
+        },
+        orderBy: { sequence: "asc" },
+      },
     },
   });
   if (!source) return { ok: false, error: "ikke-funnet" };
@@ -1481,6 +1740,49 @@ export async function cloneWorkOrder(
         },
         select: { id: true },
       });
+
+      const sourceVisits = source.visits ?? [];
+      if (sourceVisits.length > 0) {
+        // Tidsblokkene kopieres med sine absolutte tider, slik at en klone av
+        // et flervisitsoppdrag beholder planen. Klonen er en ny, åpen sak, så
+        // statusen starter på PLANNED.
+        for (const visit of sourceVisits) {
+          await tx.visit.create({
+            data: {
+              workOrderId: created.id,
+              sequence: visit.sequence,
+              startsAt: visit.startsAt,
+              endsAt: visit.endsAt,
+              allDay: visit.allDay,
+              notes: visit.notes,
+              status: "PLANNED",
+              technicians: {
+                create: visit.technicians.map((technician) => ({
+                  userId: technician.userId,
+                })),
+              },
+            },
+          });
+        }
+      } else if (source.scheduledFor) {
+        // Eldre oppdrag kan mangle visitt selv om de har dato. Da lager
+        // klonen én standard all-day-visitt, med samme montører som oppdraget.
+        const window = allDayVisitWindow(
+          source.scheduledFor,
+          source.scheduledTo,
+        );
+        await createDefaultVisit(tx, {
+          workOrderId: created.id,
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
+          allDay: true,
+          technicianIds: source.technicians.map((technician) => technician.id),
+        });
+      }
+
+      if (sourceVisits.length > 0 || source.scheduledFor) {
+        await recomputeWorkOrderSchedule(tx, created.id);
+      }
 
       await audit(tx, {
         entityType: "WorkOrder",

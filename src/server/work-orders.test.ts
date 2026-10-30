@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccessUser } from "@/lib/access";
+import { osloDayStart } from "@/lib/dates";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -24,9 +25,15 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   getDefaultDepartmentId: vi.fn(),
+  createDefaultVisit: vi.fn(),
+  recomputeWorkOrderSchedule: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
+vi.mock("./visits", () => ({
+  createDefaultVisit: mocks.createDefaultVisit,
+  recomputeWorkOrderSchedule: mocks.recomputeWorkOrderSchedule,
+}));
 vi.mock("@/lib/access", () => ({
   workOrderScope: vi.fn(() => ({})),
   staffForDepartment: vi.fn(() => ({})),
@@ -89,6 +96,18 @@ function txClient() {
     },
     contact: { create: vi.fn(async () => ({ id: "contact-new" })) },
     comment: { create: vi.fn(async () => ({ id: "comment-1" })) },
+    visit: {
+      findMany: vi.fn(
+        async (): Promise<Array<{ id: string; status: string }>> => [],
+      ),
+      create: vi.fn(async () => ({ id: "visit-new" })),
+      update: vi.fn(async () => ({})),
+      delete: vi.fn(async () => ({})),
+    },
+    visitTechnician: {
+      createMany: vi.fn(async () => ({ count: 0 })),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+    },
     report: { updateMany: vi.fn(async () => ({ count: 0 })), findFirst: vi.fn(), update: vi.fn() },
     upload: { updateMany: vi.fn(async () => ({ count: 0 })) },
     auditLog: { create: vi.fn(async () => ({})) },
@@ -106,6 +125,8 @@ describe("work-orders-tjenesten", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getDefaultDepartmentId.mockResolvedValue("dep-default");
+    mocks.createDefaultVisit.mockResolvedValue(undefined);
+    mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
     mocks.prisma.workOrder.count.mockResolvedValue(0);
     mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-new" });
   });
@@ -1307,6 +1328,15 @@ describe("work-orders-tjenesten", () => {
       }),
       select: { id: true },
     });
+    // Kilden mangler visitt, men har dato: klonen får én all-day-visitt.
+    expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
+      workOrderId: "wo-new",
+      startsAt: osloDayStart("2026-10-24"),
+      endsAt: osloDayStart("2026-10-25"),
+      allDay: true,
+      technicianIds: ["tech-1"],
+    });
+    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
   });
 
   it("avviser alle metadataendringer når oppdraget har bevaringsplikt", async () => {
@@ -1635,5 +1665,392 @@ describe("updateWorkOrderDate – flerdagsoppdrag", () => {
 
     expect(result).toEqual({ ok: false, error: "ugyldig-dato" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("visits – oppdrag og standardvisitt holdes i takt", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getDefaultDepartmentId.mockResolvedValue("dep-default");
+    mocks.createDefaultVisit.mockResolvedValue(undefined);
+    mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+    mocks.prisma.workOrder.count.mockResolvedValue(0);
+    mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-new" });
+  });
+
+  it("oppretter én all-day-visitt med montører når oppdraget får dato", async () => {
+    mocks.prisma.user.findMany.mockResolvedValue([{ id: "tech-1" }]);
+    const tx = withTransaction();
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "2026-10-25",
+      technicianIds: ["tech-1"],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true, id: "wo-new" });
+    expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
+      workOrderId: "wo-new",
+      startsAt: osloDayStart("2026-10-24"),
+      endsAt: osloDayStart("2026-10-26"),
+      allDay: true,
+      technicianIds: ["tech-1"],
+    });
+    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
+  });
+
+  it("flytter den ene visiten når kalenderdatoen endres", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      title: "Service",
+      legalHold: false,
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+    });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      legalHold: false,
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: new Date("2026-10-21T00:00:00.000Z"),
+      technicians: [{ id: "tech-1" }],
+    });
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+    ]);
+
+    const result = await updateWorkOrderDate(actor(), "wo-1", {
+      newDate: "2026-11-02",
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-1" },
+      data: {
+        startsAt: osloDayStart("2026-11-02"),
+        endsAt: osloDayStart("2026-11-05"),
+        allDay: true,
+      },
+    });
+    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-1");
+  });
+
+  it("avviser datoflytting når oppdraget har flere visiter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      title: "Service",
+      legalHold: false,
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: null,
+    });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      legalHold: false,
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: null,
+      technicians: [],
+    });
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+      { id: "visit-2", status: "PLANNED" },
+    ]);
+
+    const result = await updateWorkOrderDate(actor(), "wo-1", {
+      newDate: "2026-11-02",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-dato",
+      detail: "visits.errors.multipleVisits",
+    });
+    expect(tx.workOrder.updateMany).not.toHaveBeenCalled();
+    expect(tx.visit.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser datoflytting når en visitt er på vei eller på stedet", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      title: "Service",
+      legalHold: false,
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: null,
+    });
+    const tx = withTransaction();
+    tx.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      status: "OPEN",
+      legalHold: false,
+      scheduledFor: new Date("2026-10-19T00:00:00.000Z"),
+      scheduledTo: null,
+      technicians: [],
+    });
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "EN_ROUTE" },
+    ]);
+
+    const result = await updateWorkOrderDate(actor(), "wo-1", {
+      newDate: "2026-11-02",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-dato",
+      detail: "visits.errors.visitInProgress",
+    });
+    expect(tx.workOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("speiler oppdragets montørliste på alle visiter ved redigering", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+      orderNumber: null,
+      orderNumberNormalized: null,
+      scheduledFor: new Date("2026-10-24T00:00:00.000Z"),
+      scheduledTo: null,
+      visits: [{ id: "visit-1", status: "PLANNED" }],
+      reports: [],
+      bookingRequest: null,
+    });
+    mocks.prisma.user.findMany.mockResolvedValue([
+      { id: "tech-1" },
+      { id: "tech-2" },
+    ]);
+    const tx = withTransaction();
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+    ]);
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: ["tech-1", "tech-2"],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.visitTechnician.deleteMany).toHaveBeenCalledWith({
+      where: {
+        visitId: { in: ["visit-1"] },
+        userId: { notIn: ["tech-1", "tech-2"] },
+      },
+    });
+    expect(tx.visitTechnician.createMany).toHaveBeenCalledWith({
+      data: [
+        { visitId: "visit-1", userId: "tech-1" },
+        { visitId: "visit-1", userId: "tech-2" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("legger tildelt montør på alle visiter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+    });
+    mocks.prisma.user.findFirst.mockResolvedValue({
+      id: "tech-1",
+      name: "Tore",
+    });
+    const tx = withTransaction();
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+      { id: "visit-2", status: "PLANNED" },
+    ]);
+
+    const result = await assignTechnician(actor(), "wo-1", "tech-1");
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.visitTechnician.createMany).toHaveBeenCalledWith({
+      data: [
+        { visitId: "visit-1", userId: "tech-1" },
+        { visitId: "visit-2", userId: "tech-1" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("fjerner montøren fra alle visiter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+    });
+    mocks.prisma.user.findFirst.mockResolvedValue({
+      id: "tech-1",
+      name: "Tore",
+    });
+    const tx = withTransaction();
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+    ]);
+
+    const result = await removeTechnician(actor(), "wo-1", "tech-1");
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.visitTechnician.deleteMany).toHaveBeenCalledWith({
+      where: { visitId: { in: ["visit-1"] }, userId: "tech-1" },
+    });
+  });
+
+  it("oppdaterer den ene visiten når redigeringen endrer datoene", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+      orderNumber: null,
+      orderNumberNormalized: null,
+      scheduledFor: new Date("2026-10-24T00:00:00.000Z"),
+      scheduledTo: null,
+      visits: [{ id: "visit-1", status: "PLANNED" }],
+      reports: [],
+      bookingRequest: null,
+    });
+    const tx = withTransaction();
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+    ]);
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-11-02",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.visit.update).toHaveBeenCalledWith({
+      where: { id: "visit-1" },
+      data: {
+        startsAt: osloDayStart("2026-11-02"),
+        endsAt: osloDayStart("2026-11-03"),
+        allDay: true,
+      },
+    });
+  });
+
+  it("avviser datoredigering når oppdraget har flere visiter", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      legalHold: false,
+      orderNumber: null,
+      orderNumberNormalized: null,
+      scheduledFor: new Date("2026-10-24T00:00:00.000Z"),
+      scheduledTo: null,
+      visits: [
+        { id: "visit-1", status: "PLANNED" },
+        { id: "visit-2", status: "PLANNED" },
+      ],
+      reports: [],
+      bookingRequest: null,
+    });
+    const tx = withTransaction();
+    tx.visit.findMany.mockResolvedValue([
+      { id: "visit-1", status: "PLANNED" },
+      { id: "visit-2", status: "PLANNED" },
+    ]);
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-11-02",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "ugyldig-data",
+      detail: "visits.errors.multipleVisits",
+    });
+    expect(tx.workOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("kopierer visiter og visittmontører ved kloning", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      title: "Service",
+      description: "Beskrivelse",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: null,
+      scheduledFor: new Date("2026-10-24T00:00:00.000Z"),
+      scheduledTo: null,
+      technicians: [{ id: "tech-1" }],
+      templates: [],
+      tags: [],
+      visits: [
+        {
+          sequence: 0,
+          startsAt: new Date("2026-10-24T06:00:00.000Z"),
+          endsAt: new Date("2026-10-24T10:00:00.000Z"),
+          allDay: false,
+          notes: "Port 2",
+          technicians: [{ userId: "tech-1" }],
+        },
+      ],
+    });
+    const tx = withTransaction();
+
+    const result = await cloneWorkOrder(actor(), "wo-1");
+
+    expect(result).toEqual({ ok: true, id: "wo-new" });
+    expect(tx.visit.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        workOrderId: "wo-new",
+        sequence: 0,
+        startsAt: new Date("2026-10-24T06:00:00.000Z"),
+        endsAt: new Date("2026-10-24T10:00:00.000Z"),
+        allDay: false,
+        notes: "Port 2",
+        status: "PLANNED",
+        technicians: { create: [{ userId: "tech-1" }] },
+      }),
+    });
+    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
   });
 });

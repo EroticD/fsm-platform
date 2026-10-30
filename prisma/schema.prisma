@@ -68,8 +68,8 @@ model User {
   resetToken       String?
   resetTokenExpiry DateTime?
 
-  isTwoFactorEnabled    Boolean   @default(false)
-  twoFactorSecret       String?
+  isTwoFactorEnabled      Boolean   @default(false)
+  twoFactorSecret         String?
   // Når det pågående 2FA-oppsettet ble startet. Oppsett eldre enn 10 minutter
   // avvises, slik at en gammel hemmelighet ikke kan bekreftes senere.
   twoFactorSetupStartedAt DateTime?
@@ -120,6 +120,12 @@ model User {
   savedSearches           SavedSearch[]
   twoFactorRecoveryCodes  TwoFactorRecoveryCode[]
   apiKeys                 ApiKey[]
+
+  // Planlegging: visittildelinger, kompetanse, arbeidstid og fravær.
+  visitAssignments VisitTechnician[]
+  skills           UserSkill[]
+  availability     UserAvailability[]
+  absences         Absence[]
 
   @@index([departmentId])
   @@index([role])
@@ -345,6 +351,18 @@ enum BookingEventType {
   CANCELLED
 }
 
+/// Status for en planlagt visitt. Flyten er PLANNED → ASSIGNED → EN_ROUTE →
+/// ON_SITE → DONE, med CANCELLED som alternativ før visitten er fullført.
+/// DONE og CANCELLED er lukkede tilstander.
+enum VisitStatus {
+  PLANNED
+  ASSIGNED
+  EN_ROUTE
+  ON_SITE
+  DONE
+  CANCELLED
+}
+
 model WorkOrder {
   id                    String     @id @default(cuid())
   title                 String
@@ -404,6 +422,11 @@ model WorkOrder {
   reportDrafts   ReportDraft[]
   bookingRequest BookingRequest?
 
+  // Planlagte visiter og påkrevd kompetanse. `scheduledFor`/`scheduledTo`
+  // speiler fortsatt min/maks av visitene for eksisterende konsumenter.
+  visits            Visit[]
+  skillRequirements WorkOrderSkill[]
+
   @@unique([departmentId, orderNumberNormalized])
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
   @@unique([contractId, scheduledFor])
@@ -418,6 +441,105 @@ model WorkOrder {
   @@index([deletedAt])
   @@index([departmentId, status, scheduledFor])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WorkOrder_title_trgm")
+}
+
+/// En planlagt, tildelbar tidsblokk i et oppdrag. Et oppdrag kan ha flere
+/// visiter; `WorkOrder.scheduledFor`/`scheduledTo` er avledet fra disse.
+/// Tidsstemplene er absolutte tidspunkt (timestamptz), slik at sommertid
+/// håndteres riktig uten å endre veggklokketiden i databasen.
+model Visit {
+  id          String      @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  sequence    Int         @default(0)
+  startsAt    DateTime    @db.Timestamptz(3)
+  endsAt      DateTime    @db.Timestamptz(3)
+  allDay      Boolean     @default(false)
+  status      VisitStatus @default(PLANNED)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
+
+  technicians VisitTechnician[]
+
+  @@index([workOrderId, startsAt])
+  @@index([startsAt, endsAt])
+  @@index([status])
+}
+
+model VisitTechnician {
+  visitId String
+  userId  String
+  visit   Visit  @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([visitId, userId])
+  @@index([userId])
+}
+
+/// Kompetanse som kan kreves av et oppdrag og tildeles en montør.
+model Skill {
+  id       String  @id @default(cuid())
+  key      String  @unique
+  label    String
+  category String?
+
+  users      UserSkill[]
+  workOrders WorkOrderSkill[]
+}
+
+model UserSkill {
+  userId     String
+  skillId    String
+  level      Int?
+  validUntil DateTime?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+  @@index([skillId])
+}
+
+model WorkOrderSkill {
+  workOrderId String
+  skillId     String
+  mandatory   Boolean @default(true)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([workOrderId, skillId])
+  @@index([skillId])
+}
+
+/// Gjentakende ukentlig arbeidstid. Minutter fra midnatt, lokal tid
+/// (Europe/Oslo), med 0 = mandag … 6 = søndag.
+model UserAvailability {
+  id          String @id @default(cuid())
+  userId      String
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, weekday])
+}
+
+/// Fravær som blokkerer tildeling i en periode. `kind` er FERIE | SYKDOM |
+/// KURS | ANNET.
+model Absence {
+  id       String   @id @default(cuid())
+  userId   String
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+  kind     String
+  note     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startsAt, endsAt])
 }
 
 /// Kundens bestillingsforespørsel. Oppdraget er den operative saken; denne

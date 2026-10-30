@@ -7,29 +7,40 @@ export type DispatchTechnician = {
   name: string;
 };
 
-export type DispatchWorkOrder = {
+export type DispatchVisit = {
+  /** Visittens id. Kortet representerer én tidsblokk, ikke hele oppdraget. */
   id: string;
+  workOrderId: string;
   title: string;
-  status: string;
+  /** Oppdragets status, brukt til farge og statusmerke. */
+  workOrderStatus: string;
+  /** Visittens status (PLANNED, ASSIGNED, ON_SITE …). */
+  visitStatus: string;
   customerName: string;
   address: string;
   productModel: string | null;
   description: string;
-  dateRange: string;
+  /** Lokalisert «fre. 30. okt.» for kortet. */
+  dateLabel: string;
+  /** Lokalisert klokkeslett eller «Hele dagen». */
+  timeLabel: string;
   technicians: DispatchTechnician[];
-  /** Lovlige neste statuser, beregnet med allowedTransitions på serveren. */
+  /** Lovlige neste visittstatusser, beregnet på serveren. */
   statusOptions: string[];
-  /** Fullføring og kansellering er egne, bekreftede handlinger. */
-  canComplete: boolean;
-  canCancel: boolean;
-  /** Planlagt før i dag, men fortsatt åpen. */
-  isOverdue: boolean;
 };
 
 export type DispatchDay = {
   date: string;
   label: string;
-  /** «attention» samler forfalte og ufordelte oppdrag utenfor datofilteret. */
-  kind?: "date" | "attention";
-  workOrders: DispatchWorkOrder[];
+  visits: DispatchVisit[];
+};
+
+/** Kompakt rad for forfalte/ufordelte oppdrag utenfor datoperioden. */
+export type DispatchAttentionItem = {
+  id: string;
+  title: string;
+  customerName: string;
+  dateRange: string;
+  isOverdue: boolean;
+  technicians: DispatchTechnician[];
 };

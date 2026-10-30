@@ -1,0 +1,36 @@
+{
+  "visits": {
+    "status": {
+      "planned": "Planned",
+      "assigned": "Assigned",
+      "enRoute": "En route",
+      "onSite": "On site",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "errors": {
+      "overlap": "One or more technicians are already assigned to an overlapping visit.",
+      "invalidTimeRange": "The end time must be after the start time.",
+      "durationTooLong": "A visit can last for at most 31 days.",
+      "invalidTechnician": "One or more selected technicians do not belong to the department.",
+      "invalidInput": "The visit is missing valid data.",
+      "invalidSequence": "The sequence must be a non-negative integer.",
+      "legalHold": "The visit cannot be changed because the work order has legal hold.",
+      "workOrderLocked": "The visit cannot be changed because the work order is completed or cancelled.",
+      "visitLocked": "The visit is completed or cancelled and cannot be changed.",
+      "statusTransition": "That status change is not allowed.",
+      "noChange": "No change was made."
+    }
+  },
+  "auditActions": {
+    "visit": {
+      "created": "Created visit: {title} ({range})",
+      "updated": "Updated the visit: {title} ({range})",
+      "moved": "Moved visit: {title} ({range})",
+      "assigned": "Assigned technician: {names}",
+      "unassigned": "Removed technician: {names}",
+      "statusChanged": "Changed visit status: {from} → {to}",
+      "deleted": "Deleted visit: {title} ({range})"
+    }
+  }
+}

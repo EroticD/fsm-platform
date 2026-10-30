@@ -12,6 +12,8 @@ export type CalendarTabKey =
   | "month"
   | "week"
   | "biweekly"
+  | "timeWeek"
+  | "timeDay"
   | "dispatch"
   | "reports";
 
@@ -110,6 +112,20 @@ const BASE_TABS: CalendarTabDefinition[] = [
     icon: "columns",
     viewParam: "2uker",
   },
+  {
+    key: "timeWeek",
+    href: calendarViewHref("timegrid"),
+    labelKey: "calendar.common.timeWeek",
+    icon: "clock",
+    viewParam: "timegrid",
+  },
+  {
+    key: "timeDay",
+    href: calendarViewHref("dag"),
+    labelKey: "calendar.common.timeDay",
+    icon: "calendar",
+    viewParam: "dag",
+  },
 ];
 
 /**
@@ -117,9 +133,9 @@ const BASE_TABS: CalendarTabDefinition[] = [
  * den ville fanen bare sendt brukeren tilbake til dashbordet. Rapporter vises
  * bare med reports.view, og erstatter den gamle snarveien fra kalenderen.
  *
- * `query` gjør at dato og filtre følger med når brukeren bytter mellom måned,
- * uke og to uker. Ressursoversikten, dispatch og rapporter er egne sider og
- * skal ikke arve kalenderens periode.
+ * `query` gjør at dato og filtre følger med når brukeren bytter mellom
+ * måned, uke, to uker, timegrid og dag. Ressursoversikten, dispatch og
+ * rapporter er egne sider og skal ikke arve kalenderens periode.
  */
 export function calendarTabsFor({
   canDispatch,
@@ -204,18 +220,27 @@ export function calendarPeriodLabel({
     });
   }
 
-  if (view === "uke" || view === "2uker") {
+  if (view === "uke" || view === "2uker" || view === "timegrid") {
     const start = startOfIsoWeek(anchor);
-    const end = addDaysUtc(start, view === "uke" ? 6 : 13);
+    const end = addDaysUtc(start, view === "uke" || view === "timegrid" ? 6 : 13);
     const firstWeek = isoWeekNumber(start);
     const lastWeek =
-      view === "uke"
+      view === "uke" || view === "timegrid"
         ? firstWeek
         : isoWeekNumber(addDaysUtc(start, 7));
     const weeks =
       firstWeek === lastWeek ? `${firstWeek}` : `${firstWeek}–${lastWeek}`;
     const range = formatDateRangeLocalized(start, end, locale);
     return range ? `${weekLabel} ${weeks} · ${range}` : `${weekLabel} ${weeks}`;
+  }
+
+  if (view === "dag") {
+    return formatDateLocalized(anchor, locale, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   }
 
   return null;

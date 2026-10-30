@@ -101,6 +101,50 @@ function dateOnly(offsetDays = 0) {
   );
 }
 
+const OSLO_TZ = "Europe/Oslo";
+
+/** Hvor mange minutter Oslo ligger foran UTC på et gitt tidspunkt. */
+function osloOffsetMinutes(date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: OSLO_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const value = (type) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  const asUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
+  return (asUtc - Math.floor(date.getTime() / 1000) * 1000) / 60_000;
+}
+
+/** Første UTC-tidspunkt for en Oslo-dag, gitt en UTC-midnatt-dato. */
+function osloDayStart(date) {
+  const utcMidnight = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  );
+  let instant = new Date(utcMidnight);
+  // To iterasjoner håndterer sommertidsovergangene.
+  for (let i = 0; i < 2; i += 1) {
+    instant = new Date(utcMidnight - osloOffsetMinutes(instant) * 60_000);
+  }
+  return instant;
+}
+
 function dateTimeAtNoon(offsetDays = 0) {
   return new Date(dateOnly(offsetDays).getTime() + 12 * 60 * 60 * 1000);
 }
@@ -435,12 +479,14 @@ async function main() {
     },
   });
 
-  const createWorkOrder = (input) =>
-    prisma.workOrder.create({
+  const createWorkOrder = (input) => {
+    const scheduledFor = dateOnly(input.offsetDays);
+
+    return prisma.workOrder.create({
       data: {
         title: input.title,
         description: input.description ?? null,
-        scheduledFor: dateOnly(input.offsetDays),
+        scheduledFor,
         status: input.status,
         departmentId: department.id,
         customerId: input.customer?.id ?? null,
@@ -449,6 +495,23 @@ async function main() {
         productId: input.product?.id ?? null,
         contactId: input.contact?.id ?? null,
         creatorName: admin.name,
+        // Hvert datofestede demo-oppdrag får én all-day-visitt med samme
+        // montør. Sletting av oppdraget cascade-sletter visiten, så seeden
+        // forblir idempotent med delete/recreate-flyten.
+        visits: {
+          create: {
+            startsAt: osloDayStart(scheduledFor),
+            endsAt: osloDayStart(dateOnly(input.offsetDays + 1)),
+            allDay: true,
+            ...(input.technician
+              ? {
+                  technicians: {
+                    create: [{ userId: input.technician.id }],
+                  },
+                }
+              : {}),
+          },
+        },
         technicians: input.technician
           ? { connect: { id: input.technician.id } }
           : undefined,
@@ -456,6 +519,7 @@ async function main() {
         tags: input.tag ? { connect: { id: input.tag.id } } : undefined,
       },
     });
+  };
 
   const order1 = await createWorkOrder({
     title: "Service – automatiske dører",

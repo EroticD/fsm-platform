@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { workOrderScope, type AccessUser } from "@/lib/access";
 import type { ResolvedDateRange } from "@/lib/date-range";
+import { addDaysUtc, osloDayStart, toDateOnly } from "@/lib/dates";
 
 /**
  * Felles filter for alle spørringene på dispatch-tavla. Dato og «forfalt /
@@ -54,25 +55,45 @@ export function dispatchAttentionWhere(
 }
 
 /**
- * Datoperioden. `NOT` fjerner alt som havner i «Forfalte / Ufordelte», slik at
+ * Datoperioden for planlagte visiter.
+ *
+ * Visiter er tidsstempler, så grensene regnes som Oslo-midnatt for valgte
+ * datoer. En visitt som starter på sluttdagen er med, mens neste midnatt er
+ * eksklusiv. `NOT` fjerner oppdrag som havner i «Forfalte / Ufordelte», slik at
  * samme kort aldri vises både i varselseksjonen og i en datokolonne.
  */
 export function dispatchDateWhere(
   baseFilters: Prisma.WorkOrderWhereInput[],
   range: ResolvedDateRange,
   attentionConditions: Prisma.WorkOrderWhereInput[],
-): Prisma.WorkOrderWhereInput {
-  const filters: Prisma.WorkOrderWhereInput[] = [];
+): Prisma.VisitWhereInput {
+  const filters: Prisma.VisitWhereInput[] = [
+    { status: { not: "CANCELLED" } },
+    {
+      workOrder: {
+        AND: [...baseFilters, { NOT: { OR: attentionConditions } }],
+      },
+    },
+  ];
 
   if (range.invalid) {
     // Ugyldig periode skal ikke gi et stille, misvisende resultat. Varsler om
     // forfalte/ufordelte vises fortsatt, med feilmeldingen over tavla.
     filters.push({ id: { in: [] } });
   } else {
-    if (range.from) filters.push({ scheduledFor: { gte: range.from } });
-    if (range.to) filters.push({ scheduledFor: { lte: range.to } });
+    if (range.from) {
+      filters.push({
+        startsAt: { gte: osloDayStart(toDateOnly(range.from)) },
+      });
+    }
+    if (range.to) {
+      filters.push({
+        startsAt: {
+          lt: osloDayStart(toDateOnly(addDaysUtc(range.to, 1))),
+        },
+      });
+    }
   }
 
-  filters.push({ NOT: { OR: attentionConditions } });
-  return { AND: [...baseFilters, ...filters] };
+  return { AND: filters };
 }

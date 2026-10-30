@@ -6,9 +6,19 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Calendar, type EventDropArg } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin, { type EventResizeDoneArg } from '@fullcalendar/interaction';
-import { formatDateLocalized, inclusiveLastDay } from '@/lib/dates';
+import {
+  addDaysUtc,
+  formatDateLocalized,
+  formatDateTimeLocalized,
+  osloDayStart,
+  parseDateOnly,
+  toDateOnly,
+} from '@/lib/dates';
 import { calendarEditingOptions } from '@/lib/calendar-events';
+import { VISIT_STATUS_LABEL_KEYS } from '@/lib/visit-status';
+import type { VisitStatus } from '@prisma/client';
 import {
   WORK_ORDER_STATUS_LABEL_KEYS,
   WORK_ORDER_STATUS_ORDER,
@@ -21,13 +31,21 @@ type EventData = {
   id: string;
   title: string;
   start: string;
-  /** Eksklusiv sluttdato for heldagshendelser. */
+  /** Eksklusiv sluttdato for heldagshendelser, ISO-tidspunkt ellers. */
   end?: string;
   allDay: boolean;
   editable?: boolean;
   startEditable?: boolean;
   durationEditable?: boolean;
-  extendedProps?: { address?: string; status?: string };
+  extendedProps?: {
+    address?: string;
+    title?: string;
+    customer?: string;
+    status?: string;
+    visitStatus?: string;
+    workOrderId?: string;
+    technicians?: string[];
+  };
 };
 
 /** Dato som lokal kalenderdag. FullCalendar bruker lokal tid, ikke UTC. */
@@ -48,6 +66,27 @@ function overlapsVisibleRange(
   if (!event.end) return eventStart >= start && eventStart < end;
   const eventEnd = event.end.slice(0, 10);
   return eventStart < end && eventEnd > start;
+}
+
+/**
+ * Heldagsvisiter flyttes som rene datoer i FullCalendar. Databasen lagrer
+ * Oslo-midnatt, så datoene må regnes om her – ikke med nettleserens tidssone,
+ * som kan være en annen enn Europe/Oslo.
+ */
+function allDayInstants(
+  startDate: string,
+  endDateExclusive: string | null,
+): { startsAt: Date; endsAt: Date } | null {
+  const start = parseDateOnly(startDate);
+  if (!start) return null;
+  const end = endDateExclusive
+    ? parseDateOnly(endDateExclusive)
+    : addDaysUtc(start, 1);
+  if (!end || end.getTime() <= start.getTime()) return null;
+  return {
+    startsAt: osloDayStart(toDateOnly(start)),
+    endsAt: osloDayStart(toDateOnly(end)),
+  };
 }
 
 export default function FullCalendarView({
@@ -127,40 +166,99 @@ export default function FullCalendarView({
   useEffect(() => {
     if (!calendarEl.current) return;
 
-    // Lagrer ny start- og sluttdato etter drag eller resize. FullCalendar
-    // bruker eksklusiv sluttdato, mens databasen lagrer siste inkluderte dag.
-    async function saveDates(info: EventDropArg | EventResizeDoneArg) {
+    // Lagrer nytt tidsrom etter drag eller resize. FullCalendar bruker
+    // eksklusiv sluttdato for heldagshendelser, mens databasen lagrer et
+    // halvåpent tidsintervall. Tidsstyrte visiter sendes som ISO-tidspunkt;
+    // heldagsvisiter mappes til Oslo-midnatt.
+    async function saveVisitDates(info: EventDropArg | EventResizeDoneArg) {
       // Ekstra vakt: hendelsen skal aldri kunne flyttes uten lagringsrett.
       if (!canEdit || !info.event.startEditable || !info.event.start) {
         info.revert();
         return;
       }
 
-      const newDate = info.event.startStr.slice(0, 10);
-      const lastDay = info.event.endStr ? inclusiveLastDay(info.event.endStr) : "";
-      const newEnd = lastDay && lastDay > newDate ? lastDay : null;
+      const allDay = info.oldEvent?.allDay ?? info.event.allDay;
+      let startsAt: Date | null = null;
+      let endsAt: Date | null = null;
+
+      if (allDay) {
+        const instants = allDayInstants(
+          info.event.startStr.slice(0, 10),
+          info.event.endStr ? info.event.endStr.slice(0, 10) : null,
+        );
+        if (instants) {
+          startsAt = instants.startsAt;
+          endsAt = instants.endsAt;
+        }
+      } else if (info.event.end) {
+        startsAt = info.event.start;
+        endsAt = info.event.end;
+      }
+
+      if (!startsAt || !endsAt || endsAt.getTime() <= startsAt.getTime()) {
+        info.revert();
+        toast(tRef.current('calendar.client.visitErrorInvalid'), 'error');
+        return;
+      }
 
       document.body.style.cursor = 'wait';
       try {
-        const response = await fetch(`/api/oppdrag/${info.event.id}/date`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newDate, newEnd }),
-        });
+        const response = await fetch(
+          `/api/visits/${encodeURIComponent(info.event.id)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              startsAt: startsAt.toISOString(),
+              endsAt: endsAt.toISOString(),
+            }),
+          },
+        );
         if (!response.ok) {
           info.revert();
-          toast(tRef.current("calendar.client.saveError"), "error");
+          const payload = (await response.json().catch(() => null)) as {
+            code?: string;
+          } | null;
+          toast(
+            visitSaveErrorMessage(response.status, payload?.code),
+            'error',
+          );
         }
       } catch {
         info.revert();
-        toast(tRef.current("calendar.client.saveError"), "error");
+        toast(tRef.current('calendar.client.visitErrorUnknown'), 'error');
       } finally {
         document.body.style.cursor = 'default';
       }
     }
 
+    function visitSaveErrorMessage(status: number, code?: string): string {
+      const translate = tRef.current;
+      if (status === 401) return translate('calendar.client.visitErrorSession');
+      if (status === 403) return translate('calendar.client.visitErrorForbidden');
+      if (status === 404) return translate('calendar.client.visitErrorNotFound');
+      if (status === 429) return translate('calendar.client.visitErrorRateLimited');
+      if (status === 400) return translate('calendar.client.visitErrorInvalid');
+
+      switch (code) {
+        case 'visits.errors.overlap':
+          return translate('calendar.client.visitErrorOverlap');
+        case 'visits.errors.legalHold':
+          return translate('visits.errors.legalHold');
+        case 'visits.errors.workOrderLocked':
+          return translate('visits.errors.workOrderLocked');
+        case 'visits.errors.visitLocked':
+          return translate('visits.errors.visitLocked');
+        case 'visits.errors.invalidTimeRange':
+        case 'visits.errors.durationTooLong':
+          return translate('calendar.client.visitErrorInvalid');
+        default:
+          return translate('calendar.client.visitErrorConflict');
+      }
+    }
+
     const calendar = new Calendar(calendarEl.current, {
-      plugins: [dayGridPlugin, interactionPlugin],
+      plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
       initialView: view,
       initialDate: initialDateRef.current,
       headerToolbar: {
@@ -190,6 +288,38 @@ export default function FullCalendarView({
             weekday: "short",
             day: "numeric",
             month: "numeric",
+          },
+        },
+        // Timegrid-visningene viser visittens faktiske klokkeslett og har en
+        // egen heldagsbane. FullCalendar bruker kalenderens locale for både
+        // tidsaksen og heldagslabelen. Ukenummer og ISO-uker er de samme som i
+        // de øvrige kalendervisningene.
+        timeGridWeek: {
+          buttonText: tRef.current("calendar.common.timeWeek"),
+          weekNumbers: true,
+          weekNumberCalculation: 'ISO',
+          allDaySlot: true,
+          nowIndicator: true,
+          slotMinTime: '00:00:00',
+          slotMaxTime: '24:00:00',
+          dayHeaderFormat: {
+            weekday: "short",
+            day: "numeric",
+            month: "numeric",
+          },
+        },
+        timeGridDay: {
+          buttonText: tRef.current("calendar.common.timeDay"),
+          weekNumbers: true,
+          weekNumberCalculation: 'ISO',
+          allDaySlot: true,
+          nowIndicator: true,
+          slotMinTime: '00:00:00',
+          slotMaxTime: '24:00:00',
+          dayHeaderFormat: {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
           },
         },
       },
@@ -231,6 +361,8 @@ export default function FullCalendarView({
           dayGridMonth: tRef.current("calendar.client.month"),
           dayGridWeek: tRef.current("calendar.client.week"),
           biweekly: tRef.current("calendar.client.biweekly"),
+          timeGridWeek: tRef.current("calendar.client.timeWeek"),
+          timeGridDay: tRef.current("calendar.client.timeDay"),
         };
         const grid = calendarEl.current?.querySelector<HTMLElement>(
           '[role="grid"], .fc-scrollgrid',
@@ -244,20 +376,31 @@ export default function FullCalendarView({
           }),
         );
       },
-      // Vis tittel og adresse på hver hendelse. Bygges som DOM-noder (ikke
-      // HTML-strenger) slik at brukerstyrte titler og adresser aldri tolkes
-      // som markup. Status vises som prikk og tekst i tillegg til fargen,
-      // slik at kalenderen ikke er avhengig av farge alene.
+      // Vis tid, tittel og adresse på hver hendelse. Bygges som DOM-noder
+      // (ikke HTML-strenger) slik at brukerstyrte titler og adresser aldri
+      // tolkes som markup. Status vises som prikk og tekst i tillegg til
+      // fargen, slik at kalenderen ikke er avhengig av farge alene.
       eventContent: function(arg) {
         const extendedProps = arg.event.extendedProps as {
           address?: string;
           status?: string;
+          visitStatus?: string;
         };
         const address = extendedProps.address;
         const eventStatus = extendedProps.status;
+        const visitStatus = extendedProps.visitStatus;
 
         const content = document.createElement('div');
         content.className = 'fc-event-content';
+
+        // FullCalendar gir lokaliserte klokkeslett for tidsstyrte hendelser.
+        // Heldagshendelser har ingen tid og skal ikke få en tom linje.
+        if (arg.timeText) {
+          const timeLine = document.createElement('div');
+          timeLine.className = 'fc-event-time-line';
+          timeLine.textContent = arg.timeText;
+          content.appendChild(timeLine);
+        }
 
         if (eventStatus) {
           const statusLine = document.createElement('div');
@@ -276,9 +419,15 @@ export default function FullCalendarView({
             WORK_ORDER_STATUS_LABEL_KEYS[
               eventStatus as keyof typeof WORK_ORDER_STATUS_LABEL_KEYS
             ];
-          statusText.textContent = labelKey
+          const workOrderText = labelKey
             ? tRef.current(labelKey)
             : eventStatus;
+
+          const visitLabelKey =
+            VISIT_STATUS_LABEL_KEYS[visitStatus as VisitStatus];
+          statusText.textContent = visitLabelKey
+            ? `${workOrderText} · ${tRef.current(visitLabelKey)}`
+            : workOrderText;
           statusLine.appendChild(statusText);
 
           content.appendChild(statusLine);
@@ -302,6 +451,8 @@ export default function FullCalendarView({
         today: tRef.current("calendar.client.today"),
         week: tRef.current("calendar.client.week"),
         month: tRef.current("calendar.client.month"),
+        timeWeek: tRef.current("calendar.client.timeWeek"),
+        day: tRef.current("calendar.client.timeDay"),
       },
       buttonHints: {
         prev: tRef.current("calendar.a11y.previous"),
@@ -309,10 +460,15 @@ export default function FullCalendarView({
         today: tRef.current("calendar.a11y.today"),
       },
       // R2-08: dra, slipp og resize styres av samme rettighet som
-      // dato-API-et krever. Lukkede oppdrag sperres per hendelse.
+      // visitt-API-et krever. Lukkede oppdrag/visiter sperres per hendelse.
       ...calendarEditingOptions(canEdit),
       eventClassNames: (arg) =>
         arg.event.startEditable ? [] : ["fc-event-locked"],
+      // En heldagsvisitt skal ikke kunne dras inn i tidsrutenettet (eller
+      // omvendt): tidsrommet har en annen betydning, og API-et flytter bare
+      // tidspunktet, ikke allDay-flagget.
+      eventAllow: (dropInfo, draggedEvent) =>
+        !draggedEvent || draggedEvent.allDay === dropInfo.allDay,
       eventDidMount: function(info) {
         // Kortet er papir/ink, men beholder statusfargen som en tynn
         // venstrekant. Fargen settes per hendelse, ikke som bakgrunn.
@@ -322,10 +478,13 @@ export default function FullCalendarView({
         );
       },
       eventClick: function(info) {
-        router.push(`/oppdrag/${info.event.id}`);
+        const extendedProps = info.event.extendedProps as {
+          workOrderId?: string;
+        };
+        router.push(`/oppdrag/${extendedProps.workOrderId ?? info.event.id}`);
       },
-      eventDrop: canEdit ? saveDates : undefined,
-      eventResize: canEdit ? saveDates : undefined,
+      eventDrop: canEdit ? saveVisitDates : undefined,
+      eventResize: canEdit ? saveVisitDates : undefined,
     });
 
     calendarRef.current = calendar;
@@ -399,8 +558,8 @@ export default function FullCalendarView({
                 <Link
                   href={
                     canOpenEditor
-                      ? `/oppdrag/${event.id}/rediger`
-                      : `/oppdrag/${event.id}`
+                      ? `/oppdrag/${event.extendedProps?.workOrderId ?? event.id}/rediger`
+                      : `/oppdrag/${event.extendedProps?.workOrderId ?? event.id}`
                   }
                   className="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2 py-1.5 font-medium text-[var(--ink,#101310)] transition hover:bg-[var(--surface,#fffdf8)]"
                 >
@@ -409,7 +568,10 @@ export default function FullCalendarView({
                     {canOpenEditor
                       ? t("calendar.a11y.openInEditor")
                       : t("calendar.a11y.openWorkOrder")}{" "}
-                    · {formatDateLocalized(event.start, locale)}
+                    ·{" "}
+                    {event.allDay
+                      ? formatDateLocalized(event.start, locale)
+                      : formatDateTimeLocalized(event.start, locale)}
                   </span>
                 </Link>
               </li>
@@ -606,6 +768,41 @@ export default function FullCalendarView({
           .kalender-container .fc-scrollgrid-section-header > td {
             background: var(--ink, #101310);
           }
+          /* Timegrid: tydelige timer, markert nå-linje og egen heldagsbane. */
+          .kalender-container .fc-timegrid-slot {
+            height: 1.8rem;
+          }
+          .kalender-container .fc-timegrid-slot-label-frame,
+          .kalender-container .fc-timegrid-axis-frame {
+            color: var(--muted, #62685f);
+            font-size: 0.68rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+          }
+          .kalender-container .fc-timegrid-slot-lane {
+            background: var(--surface, #fffdf8);
+          }
+          .kalender-container .fc-timegrid-now-indicator-line {
+            border-color: var(--risk, #f04427);
+            border-width: 2px;
+          }
+          .kalender-container .fc-timegrid-now-indicator-arrow {
+            border-color: var(--risk, #f04427);
+            border-width: 6px;
+          }
+          .kalender-container .fc-timegrid-divider {
+            padding: 0;
+            border-color: var(--line, #dedcd1);
+          }
+          .kalender-container .fc-timegrid-allday .fc-daygrid-day-frame {
+            min-height: 2.25rem;
+          }
+          .kalender-container .fc-timegrid-event {
+            white-space: normal;
+          }
+          .kalender-container .fc-timegrid-event .fc-event-main {
+            padding: 2px 4px;
+          }
           .kalender-container .fc-highlight {
             background: color-mix(
               in srgb,
@@ -652,6 +849,13 @@ export default function FullCalendarView({
             flex-direction: column;
             gap: 1px;
             white-space: normal;
+          }
+          .kalender-container .fc-event-time-line {
+            color: var(--ink, #101310);
+            font-size: 0.68em;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: 0.02em;
           }
           .kalender-container .fc-event-status-line {
             display: flex;

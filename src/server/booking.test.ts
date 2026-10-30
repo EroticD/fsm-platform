@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
 import {
   addDaysUtc,
+  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -27,10 +28,16 @@ const mocks = vi.hoisted(() => ({
   getDefaultDepartmentId: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
   notifyUser: vi.fn(),
+  createDefaultVisit: vi.fn(),
+  recomputeWorkOrderSchedule: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
+vi.mock("./visits", () => ({
+  createDefaultVisit: mocks.createDefaultVisit,
+  recomputeWorkOrderSchedule: mocks.recomputeWorkOrderSchedule,
+}));
 vi.mock("@/lib/rate-limit-db", () => ({
   allowRequestDb: mocks.allowRequestDb,
 }));
@@ -101,6 +108,8 @@ beforeEach(() => {
     allowed: true,
     retryAfterSeconds: 0,
   });
+  mocks.createDefaultVisit.mockResolvedValue(undefined);
+  mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
 });
 
 describe("createBooking", () => {
@@ -287,6 +296,19 @@ describe("createBooking", () => {
         entityType: "WorkOrder",
         entityId: "wo-1",
       }),
+    );
+
+    // Bestillingens ønskede tidsvindu blir oppdragets første visitt.
+    const dayStart = osloDayStart(requestedDate);
+    expect(mocks.createDefaultVisit).toHaveBeenCalledWith(mocks.prisma, {
+      workOrderId: "wo-1",
+      startsAt: new Date(dayStart.getTime() + 8 * 60 * 60_000),
+      endsAt: new Date(dayStart.getTime() + 12 * 60 * 60_000),
+      allDay: false,
+    });
+    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(
+      mocks.prisma,
+      "wo-1",
     );
     expect(mocks.notifyWorkOrderEvent).toHaveBeenCalledWith(
       "wo-1",
