@@ -3150,8 +3150,7 @@
         "documents": "Dokumenty",
         "checklists": "Listy kontrolne",
         "statistics": "Statystyki",
-        "map": "Mapa",
-        "hms": "BHP"
+        "map": "Mapa"
       },
       "kpi": {
         "awaiting": "Oczekujące na rozpoczęcie: {count}",

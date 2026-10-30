@@ -3150,8 +3150,7 @@
         "documents": "Dokumente",
         "checklists": "Checklisten",
         "statistics": "Statistik",
-        "map": "Karte",
-        "hms": "HSE"
+        "map": "Karte"
       },
       "kpi": {
         "awaiting": "{count} warten auf Start",
