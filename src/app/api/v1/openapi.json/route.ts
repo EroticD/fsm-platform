@@ -26,7 +26,7 @@ const openApiDocument = {
     description:
       "Alle dataendepunkter under /api/v1 krever en API-nøkkel sendt som " +
       "`Authorization: Bearer fsm_...`. Responser bruker konvolutten " +
-      "`{ data, meta? }`; feil bruker `{ error: { code, message, details? } }`. " +
+      "`{ data, meta? }`; feil bruker `{ error: { code, message, messageKey, details? } }`. " +
       "Visiter har stabile feilkoder i `details.code` på formen " +
       "`visits.errors.*`. API-et har ingen nettlesersesjon og godtar aldri " +
       "informasjonskapsler.",
@@ -947,7 +947,7 @@ const openApiDocument = {
     schemas: {
       Error: {
         type: "object",
-        required: ["code", "message"],
+        required: ["code", "message", "messageKey"],
         properties: {
           code: {
             type: "string",
@@ -962,6 +962,11 @@ const openApiDocument = {
             ],
           },
           message: { type: "string" },
+          messageKey: {
+            type: "string",
+            description:
+              "Stabil i18n-nøkkel klienten kan oversette, f.eks. `errors.api.forbidden`.",
+          },
           details: {
             description: "Maskinlesbar tilleggsinformasjon når den finnes.",
             oneOf: [
