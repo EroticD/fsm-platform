@@ -577,6 +577,22 @@ function buildRoutes(fixtures) {
       expectTexts: ["Ukevisning"],
     },
     {
+      slug: "kalender-timeuke",
+      route: "/kalender?vis=timegrid",
+      role: "admin",
+      title: "Kalender – uke med klokkeslett",
+      heading: "Kalender",
+      activeNav: "Uke (time)",
+    },
+    {
+      slug: "kalender-dag",
+      route: "/kalender?vis=dag",
+      role: "admin",
+      title: "Kalender – dag",
+      heading: "Kalender",
+      activeNav: "Dag",
+    },
+    {
       slug: "kalender-2uker",
       route: "/kalender?vis=2uker",
       role: "admin",
