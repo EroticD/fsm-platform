@@ -70,7 +70,9 @@
       "page": "Page {page} of {pages}",
       "sortLabel": "Sort",
       "sortUrgency": "Most urgent first",
-      "sortNewest": "Newest first"
+      "sortNewest": "Newest first",
+      "chooseTechnician": "Choose technician",
+      "assign": "Assign"
     },
     "formSections": {
       "customerPlace": "Customer and location",
@@ -778,7 +780,8 @@
       "visitAssigned": "The technicians on the visit have been updated.",
       "visitUpdated": "The visit has been updated.",
       "visitDeleted": "The visit has been deleted.",
-      "visitStatusUpdated": "The visit status has been updated."
+      "visitStatusUpdated": "The visit status has been updated.",
+      "assigned": "Technician assigned."
     },
     "reportsPage": {
       "title": "Service reports",

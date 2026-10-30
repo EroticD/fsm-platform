@@ -799,7 +799,9 @@
         "page": "Seite {page} von {pages}",
         "sortLabel": "Sortierung",
         "sortUrgency": "Dringendste zuerst",
-        "sortNewest": "Neueste zuerst"
+        "sortNewest": "Neueste zuerst",
+        "chooseTechnician": "Techniker auswählen",
+        "assign": "Zuweisen"
       },
       "formSections": {
         "customerPlace": "Kunde und Standort",
@@ -1522,7 +1524,8 @@
         "visitAssigned": "Die Techniker des Besuchs wurden aktualisiert.",
         "visitUpdated": "Der Besuch wurde aktualisiert.",
         "visitDeleted": "Der Besuch wurde gelöscht.",
-        "visitStatusUpdated": "Der Besuchsstatus wurde aktualisiert."
+        "visitStatusUpdated": "Der Besuchsstatus wurde aktualisiert.",
+        "assigned": "Techniker zugewiesen."
       },
       "reportsPage": {
         "title": "Serviceberichte",

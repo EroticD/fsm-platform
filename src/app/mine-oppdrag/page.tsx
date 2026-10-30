@@ -157,7 +157,7 @@ function workOrderTimeLabel(
   const timedVisit = visits.find((visit) => !visit.allDay);
   if (timedVisit) {
     return (
-      formatDateLocalized(timedVisit.startsAt, locale, { timeStyle: "short" }) ||
+      formatDateLocalized(timedVisit.startsAt, locale, { timeStyle: "short", hourCycle: "h23" }) ||
       labels.timeNotSet
     );
   }
@@ -624,7 +624,7 @@ export default async function TechnicianDashboard({
     : "";
   const heroTime = hero ? workOrderTimeLabel(hero, locale, timeLabels) : "";
   const heroDraftTime = heroDraft
-    ? formatDateLocalized(heroDraft.updatedAt, locale, { timeStyle: "short" })
+    ? formatDateLocalized(heroDraft.updatedAt, locale, { timeStyle: "short", hourCycle: "h23" })
     : "";
   const heroOrderNumber = hero?.orderNumber?.trim() || "";
   const routeKm = routeDistanceKm(sortByVisitStart(todayRouteRows));
@@ -654,6 +654,7 @@ export default async function TechnicianDashboard({
     const draftTime = draft
       ? formatDateLocalized(draft.updatedAt, locale, {
           timeStyle: "short",
+          hourCycle: "h23",
         })
       : "";
     const dateLabel =
