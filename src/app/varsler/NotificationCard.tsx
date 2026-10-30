@@ -6,6 +6,7 @@ import {
   notificationTypePresentation,
   type NotificationTone,
 } from "@/lib/notification-display";
+import Icon, { type IconName } from "@/components/icons";
 import { markReadFormAction } from "./actions";
 
 export type NotificationCardItem = {
@@ -25,6 +26,17 @@ const TONE_CLASSES: Record<NotificationTone, string> = {
   green: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   purple: "bg-purple-50 text-purple-800 ring-purple-200",
   gray: "bg-gray-100 text-gray-700 ring-gray-200",
+};
+
+const NOTIFICATION_ICONS: Record<string, IconName> = {
+  ASSIGNMENT: "wrench",
+  DATE_CHANGED: "calendar",
+  CANCELLED: "alert",
+  REPORT_READY: "file",
+  BOOKING: "calendar",
+  CONTRACT_DUE: "wrench",
+  OVERDUE: "clock",
+  CONTACT_UPDATE: "user",
 };
 
 /**
@@ -61,7 +73,10 @@ export default async function NotificationCard({
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ring-inset ${toneClass}`}
         >
-          <span aria-hidden="true">{presentation?.icon ?? "🔔"}</span>
+          <Icon
+            name={NOTIFICATION_ICONS[notification.type] ?? "bell"}
+            className="h-3.5 w-3.5 shrink-0"
+          />
           {typeLabel}
         </span>
         {unread && (
@@ -102,7 +117,7 @@ export default async function NotificationCard({
 
       <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-blue-700 group-hover:underline">
         {t("p3.notifications.open")}
-        <span aria-hidden="true">→</span>
+        <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
       </span>
     </>
   );

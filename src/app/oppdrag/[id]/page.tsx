@@ -14,6 +14,7 @@ import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import ReportSubmissionCleanup from "@/components/ReportSubmissionCleanup";
 import SubmitButton from "@/components/SubmitButton";
+import Icon from "@/components/icons";
 import { needsComment, parseImageUrls, readLineComment } from "@/lib/report-answers";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -165,8 +166,9 @@ async function ReportContent({ report, template }: { report: any; template: any 
     }
     if (field.type === "SIGNATURE") {
       return (
-        <span className="text-blue-800 font-black bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block">
-          ✍️ {answer ? t("orders.detail.report.signedBy", { name: String(answer) }) : t("orders.detail.report.notSigned")}
+        <span className="inline-flex items-center gap-1 text-blue-800 font-black bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+          <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
+          {answer ? t("orders.detail.report.signedBy", { name: String(answer) }) : t("orders.detail.report.notSigned")}
         </span>
       );
     }
@@ -221,7 +223,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
         )}
         {comment && (
           <div className="flex gap-1.5 text-[13px] text-amber-900 bg-amber-50 border-l-4 border-amber-300 pl-2 py-1 mt-1 rounded-r">
-            <span aria-hidden>💬</span>
+            <Icon name="note" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div className="flex-1">
               <MarkdownView value={comment} size="xs" />
             </div>
@@ -267,13 +269,15 @@ async function ReportContent({ report, template }: { report: any; template: any 
           </>
         )}
         {report?.legalHold && (
-          <span className="rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900">
-            🔒 {t("orders.detail.legalHoldBadge")}
+          <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900">
+            <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
+            {t("orders.detail.legalHoldBadge")}
           </span>
         )}
         {acknowledgement.acknowledged && (
-          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
-            ✓ {t("orders.detail.report.customerAcknowledged", { date: formatDateLocalized(acknowledgement.at, locale) })}
+          <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
+            <Icon name="check" className="h-3.5 w-3.5 shrink-0" />
+            {t("orders.detail.report.customerAcknowledged", { date: formatDateLocalized(acknowledgement.at, locale) })}
           </span>
         )}
       </div>

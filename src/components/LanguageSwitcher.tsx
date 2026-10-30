@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/i18n-hooks";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 
 /**
  * Bytter språk umiddelbart. Den skal ikke se ut som en nedtrekksmeny, siden
@@ -21,11 +22,8 @@ export default function LanguageSwitcher() {
       aria-label={t("components.language.change")}
       title={t("components.language.change")}
     >
-      <span aria-hidden>{locale === "nb" ? "🇳🇴" : "🇬🇧"}</span>
       <span>{localeNames[locale]}</span>
-      <span aria-hidden className="text-xs text-gray-400">
-        ⇄
-      </span>
+      <Icon name="sync" className="h-3.5 w-3.5 text-gray-400" />
     </button>
   );
 }

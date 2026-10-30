@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 import { addAttachment, removeAttachment } from "@/lib/attachment-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/ToastProvider";
@@ -178,7 +179,7 @@ export default function WorkOrderAttachments({
                   rel="noreferrer"
                   className="h-24 flex flex-col items-center justify-center gap-1 bg-white hover:bg-blue-50 transition"
                 >
-                  <span className="text-3xl">📄</span>
+                  <Icon name="file" className="h-8 w-8 text-blue-700" />
                   <span className="text-xs font-black text-blue-700 uppercase">PDF</span>
                 </a>
               )}
@@ -198,9 +199,11 @@ export default function WorkOrderAttachments({
                     type="button"
                     onClick={() => handleRemove(attachment)}
                     disabled={busy}
-                    className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-2 py-0.5 rounded border border-red-200 transition whitespace-nowrap"
+                    aria-label={`${t("orders.attachments.deleteTitle")}: ${attachment.fileName}`}
+                    title={t("orders.attachments.deleteTitle")}
+                    className="inline-flex min-h-6 min-w-6 items-center justify-center text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-2 py-0.5 rounded border border-red-200 transition whitespace-nowrap"
                   >
-                    ✕
+                    <Icon name="close" className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
@@ -240,7 +243,7 @@ export default function WorkOrderAttachments({
         </p>
       )}
 
-      {error && <p id={uploadErrorId} role="alert" className="text-xs font-bold text-red-600 mt-2">❌ {error}</p>}
+      {error && <p id={uploadErrorId} role="alert" className="mt-2 flex items-center gap-1.5 text-xs font-bold text-red-600"><Icon name="alert" className="h-3.5 w-3.5 shrink-0" /> {error}</p>}
 
       <ConfirmDialog
         open={pendingDelete !== null}

@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 import {
   NOTIFICATION_SOUND_CHANGED_EVENT,
   NOTIFICATION_SOUND_STORAGE_KEY,
@@ -65,7 +66,10 @@ export default function NotificationSoundToggle({
           : "border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200"
       } ${className}`}
     >
-      <span aria-hidden="true">{enabled ? "🔔" : "🔕"}</span>
+      <Icon
+        name="bell"
+        className={`h-4 w-4 shrink-0 ${enabled ? "" : "opacity-50"}`}
+      />
       {!compact && (
         <span>{enabled ? t("components.sound.on") : t("components.sound.off")}</span>
       )}

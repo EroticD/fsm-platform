@@ -9,6 +9,7 @@ import { getDocumentLibrary } from "@/server/documents";
 import DocumentBrowser from "@/components/documents/DocumentBrowser";
 import { safeDocumentReturnTo } from "@/components/documents/document-links";
 import PageHeader from "@/components/PageHeader";
+import Icon from "@/components/icons";
 import {
   bulkCreateDocuments,
   bulkDeleteDocuments,
@@ -92,15 +93,17 @@ export default async function DocumentsPage({
           title={t("documents.page.title")}
           subtitle={t("documents.page.description")}
           actions={
-            <Link href="/" className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-              ← {t("documents.page.dashboard")}
+            <Link href="/" className="inline-flex items-center gap-1.5 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("documents.page.dashboard")}
             </Link>
           }
         />
 
         {error === "ugyldig-data" && (
-          <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
-            ⛔ {t("documents.page.errorInvalidData")}
+          <div className="flex items-center gap-2 bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+            <Icon name="alert" className="h-4 w-4 shrink-0" />
+            {t("documents.page.errorInvalidData")}
           </div>
         )}
 

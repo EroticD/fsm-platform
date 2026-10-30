@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 import { clearOfflineCaches } from "@/lib/offline/cache";
 
 /**
@@ -45,7 +46,15 @@ export default function LogoutButton({
       aria-busy={busy}
       className={className}
     >
-      {children ?? `🚪 ${t("components.header.logOut")}`}
+      {children ?? (
+        <>
+          <Icon
+            name="logout"
+            className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]"
+          />
+          {t("components.header.logOut")}
+        </>
+      )}
     </button>
   );
 }

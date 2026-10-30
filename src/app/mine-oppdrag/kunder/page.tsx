@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
+import Icon from "@/components/icons";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { searchNormalizedIds } from "@/lib/search-sql";
@@ -123,7 +124,7 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
                       c.contacts.map((contact: any) => (
                         <div key={contact.id} className="text-xs py-1">
                           <span className="font-bold text-gray-800">{contact.name}</span> ({contact.role || t("orders.fieldCustomers.contactFallback")})
-                          {contact.phone && <a href={`tel:${contact.phone}`} className="inline-flex min-h-11 items-center text-blue-700 mt-0.5">📞 {contact.phone}</a>}
+                          {contact.phone && <a href={`tel:${contact.phone}`} className="inline-flex min-h-11 items-center gap-1.5 text-blue-700 mt-0.5"><Icon name="phone" className="h-4 w-4" /> {contact.phone}</a>}
                         </div>
                       ))
                     )}

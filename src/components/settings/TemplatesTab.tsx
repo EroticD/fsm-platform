@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { SettingsOverviewData } from "@/server/settings";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import Icon from "@/components/icons";
 import TemplateCreateForm from "@/components/settings/TemplateCreateForm";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
 
@@ -71,9 +72,10 @@ export default async function TemplatesTab({
           </h2>
           <Link
             href="/innstillinger?tab=maler&category=HMS"
-            className="text-sm font-bold text-blue-700 hover:text-blue-900"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-700 hover:text-blue-900"
           >
-            🦺 {t("settings.templates.hmsTemplatesLink")}
+            <Icon name="shield" className="h-4 w-4 shrink-0" />
+            {t("settings.templates.hmsTemplatesLink")}
           </Link>
         </div>
 
@@ -133,8 +135,9 @@ export default async function TemplatesTab({
                   )}
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {template.category === "HMS" ? (
-                      <span className="text-xs font-bold text-purple-900 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
-                        🦺 HMS{hmsLabel ? ` · ${hmsLabel}` : ""}
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-900 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                        <Icon name="shield" className="h-3 w-3 shrink-0" />
+                        HMS{hmsLabel ? ` · ${hmsLabel}` : ""}
                       </span>
                     ) : (
                       <span className="text-xs font-bold text-sky-900 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
@@ -145,17 +148,22 @@ export default async function TemplatesTab({
                       {t("settings.templateBuilder.reportName")}: {template.reportName || template.title}
                     </span>
                     <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                      className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${
                         template.requiresUnits
                           ? "text-emerald-800 bg-emerald-50 border-emerald-200"
                           : "text-amber-800 bg-amber-50 border-amber-200"
                       }`}
                     >
-                      {template.requiresUnits ? "✓" : "✕"} {t("settings.templateBuilder.requiresUnits")}
+                      <Icon
+                        name={template.requiresUnits ? "check" : "close"}
+                        className="h-3 w-3 shrink-0"
+                      />
+                      {t("settings.templateBuilder.requiresUnits")}
                     </span>
                     {usage > 0 && (
-                      <span className="text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                        ⚠ {t("settings.templates.inUse", { count: usage })}
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                        <Icon name="alert" className="h-3 w-3 shrink-0" />
+                        {t("settings.templates.inUse", { count: usage })}
                       </span>
                     )}
                   </div>

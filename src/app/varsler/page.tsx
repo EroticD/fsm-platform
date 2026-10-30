@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -96,7 +97,9 @@ export default async function NotificationsPage({
 
       {data.items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-          <p className="text-3xl" aria-hidden="true">🔔</p>
+          <p className="flex justify-center text-gray-400" aria-hidden="true">
+            <Icon name="bell" className="h-8 w-8" />
+          </p>
           <p className="mt-2 font-bold text-gray-900">{t("p3.notifications.emptyTitle")}</p>
           <p className="text-sm text-gray-600">{t("p3.notifications.emptyDescription")}</p>
         </div>

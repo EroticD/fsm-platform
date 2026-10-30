@@ -10,7 +10,6 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { formatDateTimeLocalized } from "@/lib/dates";
 import { relativeTimeLabel } from "@/lib/notification-time";
-import { notificationTypePresentation } from "@/lib/notification-display";
 import {
   NOTIFICATION_REALTIME_EVENT,
   ensureAudioContext,
@@ -21,6 +20,7 @@ import {
 } from "@/lib/notification-sound";
 import { isNotificationSoundEnabled } from "@/lib/notification-sound-preference";
 import { markAllReadAction, markReadAction } from "@/app/varsler/actions";
+import Icon, { type IconName } from "@/components/icons";
 
 type RecentNotification = {
   id: string;
@@ -31,6 +31,17 @@ type RecentNotification = {
   hasTarget: boolean;
   readAt: string | null;
   createdAt: string;
+};
+
+const NOTIFICATION_ICONS: Record<string, IconName> = {
+  ASSIGNMENT: "wrench",
+  DATE_CHANGED: "calendar",
+  CANCELLED: "close",
+  REPORT_READY: "file",
+  BOOKING: "calendar",
+  CONTRACT_DUE: "wrench",
+  OVERDUE: "clock",
+  CONTACT_UPDATE: "user",
 };
 
 /**
@@ -255,7 +266,7 @@ export default function NotificationBell({ role }: { role?: string }) {
         aria-haspopup="dialog"
         className="relative flex h-11 w-11 items-center justify-center rounded-xl text-xl text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
       >
-        <span aria-hidden="true">🔔</span>
+        <Icon name="bell" className="h-5 w-5" />
         {count > 0 && (
           <span
             aria-hidden="true"
@@ -298,7 +309,7 @@ export default function NotificationBell({ role }: { role?: string }) {
                 aria-label={t("p3.notifications.popover.close")}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
               >
-                <span aria-hidden="true">✕</span>
+                <Icon name="close" className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -319,9 +330,6 @@ export default function NotificationBell({ role }: { role?: string }) {
             ) : (
               <ul className="divide-y divide-gray-100">
                 {items.map((notification) => {
-                  const presentation = notificationTypePresentation(
-                    notification.type,
-                  );
                   const time = new Date(notification.createdAt);
                   const absolute = formatDateTimeLocalized(time, locale);
                   const relative = relativeTimeLabel(time, locale);
@@ -346,9 +354,10 @@ export default function NotificationBell({ role }: { role?: string }) {
                           />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-2">
-                              <span aria-hidden="true">
-                                {presentation?.icon ?? "🔔"}
-                              </span>
+                              <Icon
+                                name={NOTIFICATION_ICONS[notification.type] ?? "bell"}
+                                className="h-4 w-4 shrink-0 text-gray-600"
+                              />
                               <span className="truncate text-sm font-bold text-gray-900">
                                 {notification.title}
                               </span>
@@ -368,7 +377,7 @@ export default function NotificationBell({ role }: { role?: string }) {
                           </span>
                           {notification.hasTarget && (
                             <span aria-hidden="true" className="mt-1 text-blue-700">
-                              →
+                              <Icon name="arrowRight" className="h-4 w-4" />
                             </span>
                           )}
                         </span>

@@ -15,6 +15,7 @@ import { getDefaultDepartmentId } from "@/lib/departments";
 import { staffForDepartment } from "@/lib/access";
 import { pageWindow, parsePage } from "@/lib/pagination";
 import Pagination, { paginationLabels } from "@/components/Pagination";
+import Icon from "@/components/icons";
 import ReportHistory from "@/components/portal/ReportHistory";
 import AvailabilityBoard from "@/components/portal/AvailabilityBoard";
 import ContactUpdateForm from "@/components/portal/ContactUpdateForm";
@@ -348,15 +349,17 @@ export default async function KundeportalPage({
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <Link
                 href="/"
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
               >
-                &larr; {t("portal.home")}
+                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+                {t("portal.home")}
               </Link>
               <Link
                 href="/innstillinger?tab=sikkerhet"
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[#5a5348] px-4 text-sm font-bold text-[var(--paper,#f2efe6)] transition hover:border-[#cfc8b9] hover:bg-[#2a261f]"
               >
-                🔐 {t("nav.accountSecurity")}
+                <Icon name="shield" className="h-4 w-4 shrink-0" />
+                {t("nav.accountSecurity")}
               </Link>
               <Link
                 href="/kundeportal"
@@ -413,7 +416,8 @@ export default async function KundeportalPage({
                 </p>
               )}
               <span className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-bold text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
-                {t("portal.summary.seeUpcoming")} <span aria-hidden="true">→</span>
+                {t("portal.summary.seeUpcoming")}
+                <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
               </span>
             </Link>
 
@@ -437,7 +441,8 @@ export default async function KundeportalPage({
                   : t("portal.summary.pendingNone")}
               </p>
               <span className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-bold text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
-                {t("portal.summary.seeBookings")} <span aria-hidden="true">→</span>
+                {t("portal.summary.seeBookings")}
+                <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
               </span>
             </Link>
 
@@ -461,7 +466,8 @@ export default async function KundeportalPage({
                   : t("portal.summary.reportsNone")}
               </p>
               <span className="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-bold text-[var(--ink,#101310)] group-hover:underline group-hover:decoration-[var(--signal,#d8ff3e)] group-hover:decoration-2 group-hover:underline-offset-4">
-                {t("portal.summary.seeReports")} <span aria-hidden="true">→</span>
+                {t("portal.summary.seeReports")}
+                <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
               </span>
             </Link>
 
@@ -473,7 +479,7 @@ export default async function KundeportalPage({
                 {t("portal.summary.cta")}
               </span>
               <span aria-hidden="true" className="text-xl">
-                →
+                <Icon name="arrowRight" className="h-5 w-5" />
               </span>
             </Link>
           </div>
@@ -652,9 +658,10 @@ export default async function KundeportalPage({
                 </div>
                 <a
                   href="/api/kundeportal/export"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--ink,#101310)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[var(--ink,#101310)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                 >
-                  ⬇️ {t("portal.upcoming.export")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5 rotate-90" />
+                  {t("portal.upcoming.export")}
                 </a>
               </div>
 
@@ -673,8 +680,8 @@ export default async function KundeportalPage({
                           <p className="text-sm font-bold text-[var(--ink,#101310)]">
                             {wo.title}
                           </p>
-                          <p className="text-xs text-[var(--muted,#62685f)]">
-                            📅{" "}
+                          <p className="flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                            <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
                             {formatDateLocalized(
                               wo.scheduledFor,
                               locale,
@@ -685,10 +692,11 @@ export default async function KundeportalPage({
                         </div>
                         <StatusBadge status={wo.status} />
                       </div>
-                      <p className="text-xs text-[var(--muted,#62685f)]">
-                        🏢 {customer.name}
+                      <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-[var(--muted,#62685f)]">
+                        <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                        {customer.name}
                         {wo.technicians.length > 0 && (
-                          <span className="ml-1 font-bold text-[var(--ink,#101310)]">
+                          <span className="font-bold text-[var(--ink,#101310)]">
                             • {wo.technicians.map((tech) => tech.name).join(", ")}
                           </span>
                         )}
@@ -806,8 +814,8 @@ export default async function KundeportalPage({
                     </p>
                   )}
                   {customer.department.phone && (
-                    <p className="mt-1 text-sm">
-                      📞{" "}
+                    <p className="mt-1 flex items-center gap-1.5 text-sm">
+                      <Icon name="phone" className="h-4 w-4 shrink-0" />
                       <a
                         href={`tel:${customer.department.phone}`}
                         className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
@@ -817,11 +825,11 @@ export default async function KundeportalPage({
                     </p>
                   )}
                   {customer.department.email && (
-                    <p className="text-sm">
-                      ✉️{" "}
+                    <p className="flex items-center gap-1.5 text-sm">
+                      <Icon name="mail" className="h-4 w-4 shrink-0" />
                       <a
                         href={`mailto:${customer.department.email}`}
-                        className="break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                        className="min-w-0 break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                       >
                         {customer.department.email}
                       </a>
@@ -835,8 +843,8 @@ export default async function KundeportalPage({
                     {customer.postalCode || ""} {customer.city || ""}
                   </p>
                   {customer.phone && (
-                    <p className="mt-1 text-sm">
-                      📞{" "}
+                    <p className="mt-1 flex items-center gap-1.5 text-sm">
+                      <Icon name="phone" className="h-4 w-4 shrink-0" />
                       <a
                         href={`tel:${customer.phone}`}
                         className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
@@ -846,11 +854,11 @@ export default async function KundeportalPage({
                     </p>
                   )}
                   {customer.email && (
-                    <p className="text-sm">
-                      ✉️{" "}
+                    <p className="flex items-center gap-1.5 text-sm">
+                      <Icon name="mail" className="h-4 w-4 shrink-0" />
                       <a
                         href={`mailto:${customer.email}`}
-                        className="break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                        className="min-w-0 break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                       >
                         {customer.email}
                       </a>
@@ -871,8 +879,8 @@ export default async function KundeportalPage({
                     {customer.responsibleTechnician.name}
                   </p>
                   {customer.responsibleTechnician.phone && (
-                    <p className="mt-1 text-sm">
-                      📞{" "}
+                    <p className="mt-1 flex items-center gap-1.5 text-sm">
+                      <Icon name="phone" className="h-4 w-4 shrink-0" />
                       <a
                         href={`tel:${customer.responsibleTechnician.phone}`}
                         className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
@@ -882,11 +890,11 @@ export default async function KundeportalPage({
                     </p>
                   )}
                   {customer.responsibleTechnician.email && (
-                    <p className="text-sm">
-                      ✉️{" "}
+                    <p className="flex items-center gap-1.5 text-sm">
+                      <Icon name="mail" className="h-4 w-4 shrink-0" />
                       <a
                         href={`mailto:${customer.responsibleTechnician.email}`}
-                        className="break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                        className="min-w-0 break-words font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                       >
                         {customer.responsibleTechnician.email}
                       </a>

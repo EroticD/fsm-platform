@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icon from "@/components/icons";
 
 export type CustomerTabEntry = {
   key: string;
@@ -104,7 +105,7 @@ export default function CustomerTabs({
         title={t("customers.detail.tabs.scrollLeft")}
         className={`${arrowClass} ${canScrollLeft ? "" : "invisible"}`}
       >
-        ‹
+        <Icon name="chevronRight" className="h-5 w-5 rotate-180" />
       </button>
 
       <nav
@@ -153,7 +154,7 @@ export default function CustomerTabs({
         title={t("customers.detail.tabs.scrollRight")}
         className={`${arrowClass} ${canScrollRight ? "" : "invisible"}`}
       >
-        ›
+        <Icon name="chevronRight" className="h-5 w-5" />
       </button>
     </div>
   );

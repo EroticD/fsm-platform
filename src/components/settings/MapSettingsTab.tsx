@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import Icon from "@/components/icons";
 import type { MapLayer, MapProvider, MapSettingsView } from "@/server/map-settings";
 
 /**
@@ -32,7 +33,10 @@ export default async function MapSettingsTab({
   return (
     <section className="space-y-5">
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-xl font-black text-gray-900">🗺️ {t("settings.map.title")}</h2>
+        <h2 className="flex items-center gap-2 text-xl font-black text-gray-900">
+          <Icon name="map" className="h-5 w-5 shrink-0" />
+          {t("settings.map.title")}
+        </h2>
         <p className="mt-1 text-sm text-gray-600">{t("settings.map.description")}</p>
 
         {saved && (

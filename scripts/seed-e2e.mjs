@@ -444,6 +444,8 @@ async function main() {
         status: input.status,
         departmentId: department.id,
         customerId: input.customer?.id ?? null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
         productId: input.product?.id ?? null,
         contactId: input.contact?.id ?? null,
         creatorName: admin.name,
@@ -466,6 +468,8 @@ async function main() {
     template: serviceTemplate,
     tag: serviceTag,
     contact: ola,
+    latitude: 60.3913,
+    longitude: 5.3221,
   });
   await createWorkOrder({
     title: "Årlig service – portautomatikk",
@@ -486,6 +490,8 @@ async function main() {
     technician,
     tag: akuttTag,
     contact: kari,
+    latitude: 59.9139,
+    longitude: 10.7522,
   });
   await createWorkOrder({
     title: "HMS-kontroll – trykkbeholder",
@@ -497,6 +503,8 @@ async function main() {
     technician,
     template: hmsTemplate,
     tag: hmsTag,
+    latitude: 59.9139,
+    longitude: 10.7522,
   });
   await createWorkOrder({
     title: "Kvartalsservice – pumpe",

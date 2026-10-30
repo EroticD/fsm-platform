@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Icon from "./icons";
 import LogoutButton from "./LogoutButton";
 import {
   activeNavHref,
@@ -65,7 +66,7 @@ export default function OfficeRail({
       ? t("components.header.adminWorkspace")
       : t("components.header.officeWorkspace");
   const displayName = userName?.trim() || userEmail?.trim() || "";
-  const initials = getInitials(displayName) || t("components.header.user");
+  const initials = getInitials(displayName);
 
   function focusSearch() {
     // GlobalSearch lytter allerede på ⌘K/Ctrl+K. Den samme snarveien brukes
@@ -121,9 +122,7 @@ export default function OfficeRail({
             }
             className="signal-button w-full"
           >
-            <span aria-hidden className="text-base leading-none">
-              +
-            </span>
+            <Icon name="plus" className="h-4 w-4" />
             {t(`nav.${quickCreate.labelKey}`)}
           </Link>
         </div>
@@ -172,7 +171,7 @@ export default function OfficeRail({
             aria-hidden
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-signal text-xs font-bold text-ink"
           >
-            {initials}
+            {initials || <Icon name="user" className="h-4 w-4" />}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xs font-bold text-paper">
@@ -185,7 +184,7 @@ export default function OfficeRail({
             )}
           </span>
           <LogoutButton className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg text-white/60 transition hover:bg-red-500/15 hover:text-red-200 disabled:opacity-50">
-            <span aria-hidden>⏻</span>
+            <Icon name="logout" className="h-5 w-5" />
             <span className="sr-only">
               {t("components.header.logOut")}
             </span>
@@ -223,9 +222,9 @@ function RailGroup({
               >
                 <span
                   aria-hidden
-                  className="w-5 shrink-0 text-center text-base leading-none"
+                  className="flex w-5 shrink-0 items-center justify-center"
                 >
-                  {item.icon}
+                  <Icon name={item.icon} className="h-[18px] w-[18px]" />
                 </span>
                 <span className="truncate">{t(`nav.${item.labelKey}`)}</span>
               </Link>

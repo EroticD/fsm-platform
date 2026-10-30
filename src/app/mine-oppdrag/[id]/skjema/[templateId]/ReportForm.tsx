@@ -8,6 +8,7 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import ErrorBanner from "@/components/ErrorBanner";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import Icon from "@/components/icons";
 import { parseImageUrls, readLineComment, REPORT_STATUS_UNASSESSED } from "@/lib/report-answers";
 import { reportFormSections } from "./report-form-sections";
 import {
@@ -223,6 +224,60 @@ export default function ReportForm({
   });
 
   const { units } = state;
+  const imageFields = fields.filter((field) => field.type === "IMAGE");
+
+  // Bildeantallet oppdateres av bildefeltene etter hvert som opplastinger
+  // fullføres. Nøkkelen er enhet + felt, slik at to enheter med samme mal
+  // ikke overskriver hverandres telling.
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>(() => {
+    const counts: Record<string, number> = {};
+    for (const unit of state.units) {
+      for (const field of imageFields) {
+        counts[`${unit.key}:${field.id}`] = parseImageUrls(
+          unit.answers[field.id],
+        ).length;
+      }
+    }
+    return counts;
+  });
+  const registerPhotoCount = useCallback((key: string, count: number) => {
+    setPhotoCounts((current) =>
+      current[key] === count ? current : { ...current, [key]: count },
+    );
+  }, []);
+  const photoCount = units.reduce(
+    (total, unit) =>
+      total +
+      imageFields.reduce(
+        (unitTotal, field) =>
+          unitTotal +
+          (photoCounts[`${unit.key}:${field.id}`] ??
+            parseImageUrls(unit.answers[field.id]).length),
+        0,
+      ),
+    0,
+  );
+
+  // Signaturene er ukontrollerte bildefelt. Padene melder fra om de har en
+  // signatur, slik at stegstripen og forhåndskontrollen viser faktisk status.
+  const initialSeedSignatures = seed ?? initialSeed;
+  const [signed, setSigned] = useState({
+    technician: Boolean(initialSeedSignatures?.technicianSignatureUrl),
+    customer: Boolean(initialSeedSignatures?.customerSignatureUrl),
+  });
+  const handleTechnicianSigned = useCallback((value: boolean) => {
+    setSigned((current) =>
+      current.technician === value
+        ? current
+        : { ...current, technician: value },
+    );
+  }, []);
+  const handleCustomerSigned = useCallback((value: boolean) => {
+    setSigned((current) =>
+      current.customer === value ? current : { ...current, customer: value },
+    );
+  }, []);
+  const signedCount = Number(signed.technician) + Number(signed.customer);
 
   // --- Autolagring av kladd -------------------------------------------------
   // Skjemaet er i stor grad ukontrollert (defaultValue), så vi leser feltene
@@ -338,6 +393,9 @@ export default function ReportForm({
       }
     } catch {
       setDraftStatus("offline");
+      // Den lokale kladden er skrevet selv om serveren ikke nås. Vis tiden
+      // den ble lagret på, slik at montøren ser at endringen ikke er tapt.
+      setDraftSavedAt(new Date());
       try {
         await queueDraftForRetry(readFormPayload(form));
       } catch {
@@ -573,21 +631,22 @@ export default function ReportForm({
     if (missingUnits || missingAssessment) return;
 
     const payload = formRef.current ? readFormPayload(formRef.current) : {};
-    const imageFields = new Set(
-      fields.filter((field) => field.type === "IMAGE").map((field) => field.id),
-    );
+    const imageFieldIds = new Set(imageFields.map((field) => field.id));
     let photos = 0;
     for (const [key, value] of Object.entries(payload)) {
       // Bare bildefelt teller som foto. Signaturene ligger i egne felt.
       if (!key.startsWith("answer__")) continue;
       const fieldId = key.slice(key.lastIndexOf("__") + 2);
-      if (imageFields.has(fieldId)) photos += parseImageUrls(value).length;
+      if (imageFieldIds.has(fieldId)) photos += parseImageUrls(value).length;
     }
 
     setReviewSummary({
       units: units.length,
       deviations: units.filter((unit) => unit.status === "AVVIK").length,
       photos,
+      // En opplåst rapport beholder en eksisterende signatur når feltet står
+      // tomt ved innsending. Review må derfor regne den lagrede signaturen som
+      // signert, mens en nytegnet signatur kommer fra skjemaet.
       technicianSigned:
         Boolean(payload.technicianSignature) ||
         Boolean(seed?.technicianSignatureUrl),
@@ -635,14 +694,19 @@ export default function ReportForm({
       for (const field of fields) {
         if (!isFieldVisible(field, unit.answers)) continue;
         progress.total += 1;
-        if (hasAnswer(unit.answers[field.id])) progress.answered += 1;
+        const answered =
+          field.type === "IMAGE"
+            ? (photoCounts[`${unit.key}:${field.id}`] ??
+                parseImageUrls(unit.answers[field.id]).length) > 0
+            : hasAnswer(unit.answers[field.id]);
+        if (answered) progress.answered += 1;
       }
       return progress;
     },
     { answered: 0, total: 0 },
   );
   const deviationCount = units.filter((unit) => unit.status === "AVVIK").length;
-  const firstImageFieldId = fields.find((field) => field.type === "IMAGE")?.id;
+  const firstImageFieldId = imageFields[0]?.id;
   const photosHref = firstImageFieldId ? "#bilder" : "#sjekkpunkter";
   const draftProgressLabel =
     draftStatus === "saving"
@@ -654,6 +718,97 @@ export default function ReportForm({
           : draftStatus === "saved"
             ? t("orders.reportForm.stepDraftSaved")
             : t("orders.reportForm.stepDraftIdle");
+  const draftTimeLabel =
+    (draftStatus === "saved" || draftStatus === "offline") && draftSavedAt
+      ? draftSavedAt.toLocaleTimeString(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
+  const draftIcon =
+    draftStatus === "error"
+      ? "alert"
+      : draftStatus === "saving" || draftStatus === "offline"
+        ? "sync"
+        : draftStatus === "saved"
+          ? "check"
+          : "clock";
+
+  // Aktivt steg følger faktisk rulleposisjon. Bildesteget finnes bare når
+  // malen har et bildefelt; ellers hopper det til sjekkpunktene.
+  const [activeStep, setActiveStep] = useState<
+    "sjekkpunkter" | "bilder" | "signer"
+  >("sjekkpunkter");
+  const hasPhotosSection = imageFields.length > 0;
+  useEffect(() => {
+    const ids = hasPhotosSection
+      ? (["sjekkpunkter", "bilder", "signer"] as const)
+      : (["sjekkpunkter", "signer"] as const);
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      // Den faste stegstripen dekker toppen av visningen. Et punkt regnes som
+      // aktivt når overskriften har passert denne linjen. Terskelen ligger litt
+      // under scroll-margin (160 px), slik at avrunding ikke holder steget igjen.
+      const threshold = 200;
+      let current: (typeof ids)[number] = "sjekkpunkter";
+      for (const id of ids) {
+        const section = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= threshold) {
+          current = id;
+        }
+      }
+      setActiveStep(current);
+    };
+
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [hasPhotosSection]);
+
+  const stepItems = [
+    {
+      id: "sjekkpunkter" as const,
+      href: "#sjekkpunkter",
+      number: 1,
+      label: t("orders.reportForm.stepCheckpoints"),
+      icon: "check" as const,
+      count: `${checkpointProgress.answered}/${checkpointProgress.total}`,
+      countLabel: t("orders.reportForm.stepProgress", {
+        answered: checkpointProgress.answered,
+        total: checkpointProgress.total,
+      }),
+    },
+    {
+      id: "bilder" as const,
+      href: photosHref,
+      number: 2,
+      label: t("orders.reportForm.stepPhotos"),
+      icon: "camera" as const,
+      count: `${photoCount}`,
+      countLabel: t("orders.imageUpload.uploaded", { count: photoCount }),
+    },
+    {
+      id: "signer" as const,
+      href: "#signer",
+      number: 3,
+      label: t("orders.reportForm.stepSignatures"),
+      icon: "pen" as const,
+      count: `${signedCount}/2`,
+      countLabel: t("orders.reportForm.stepSignatures"),
+    },
+  ];
 
   const submitErrorMessages: Record<string, string> = {
     "ugyldig-data": t("orders.reportForm.errorInvalidData"),
@@ -713,151 +868,120 @@ export default function ReportForm({
 
       <ErrorBanner message={submitErrorMessage} />
 
-      {/* Status for autolagret kladd */}
-      <section className="field-card p-4 shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-bold">
-          <span
-            className={`inline-flex items-center gap-2 ${
-              draftStatus === "error"
-                ? "text-risk"
-                : draftStatus === "saving"
-                  ? "text-signal"
-                  : draftStatus === "offline"
-                    ? "text-signal"
-                    : "text-paper/70"
-            }`}
-          >
-            <span
-              aria-hidden
-              className={`h-2 w-2 rounded-full ${
-                draftStatus === "error"
-                  ? "bg-risk"
-                  : draftStatus === "saving"
-                    ? "bg-signal"
-                    : draftStatus === "offline"
-                      ? "bg-signal"
-                      : "bg-success"
-              }`}
-            />
-            {draftStatus === "saving" && t("orders.reportForm.draftSaving")}
-            {draftStatus === "saved" &&
-              (draftSavedAt
-                ? t("orders.reportForm.draftSavedAt", {
-                    time: draftSavedAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
-                  })
-                : t("orders.reportForm.draftSaved"))}
-            {draftStatus === "error" && t("orders.reportForm.draftError")}
-            {draftStatus === "offline" && t("orders.reportForm.draftOffline")}
-            {draftStatus === "idle" && t("orders.reportForm.draftIdle")}
-          </span>
-          <button
-            type="button"
-            onClick={() => void saveDraftNow()}
-            className="min-h-11 rounded-xl border border-[#2a3328] bg-white/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
-          >
-            {t("orders.reportForm.saveDraftNow")}
-          </button>
-        </div>
-      </section>
-
-      {/* Tydelig 3-stegsstripe: sjekkpunkter, bilder og signering. */}
+      {/* Fast 3-stegsstripe med levende telling, kladdestatus og tid. */}
       <nav
         aria-label={t("orders.reportForm.stepsLabel")}
-        className="field-card p-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] sm:p-4"
+        className="field-card sticky top-0 z-30 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)] sm:top-2 sm:p-4"
       >
-        <div className="grid grid-cols-3 gap-2">
-          <a
-            href="#sjekkpunkter"
-            className="rounded-xl border border-[#2a3328] bg-field p-3 transition hover:border-signal/60 hover:bg-white/[0.08]"
-          >
-            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-paper/55">
-              {t("orders.reportForm.stepNumber", { number: 1 })}
-            </span>
-            <span className="mt-1 flex items-center gap-1.5 text-sm font-black text-paper">
-              <span className="text-signal" aria-hidden>✓</span>
-              <span className="truncate">{t("orders.reportForm.stepCheckpoints")}</span>
-            </span>
-          </a>
-          <a
-            href={photosHref}
-            className="rounded-xl border border-[#2a3328] bg-field p-3 transition hover:border-signal/60 hover:bg-white/[0.08]"
-          >
-            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-paper/55">
-              {t("orders.reportForm.stepNumber", { number: 2 })}
-            </span>
-            <span className="mt-1 flex items-center gap-1.5 text-sm font-black text-paper">
-              <span aria-hidden>📷</span>
-              <span className="truncate">{t("orders.reportForm.stepPhotos")}</span>
-            </span>
-          </a>
-          <a
-            href="#signer"
-            className="rounded-xl border border-[#2a3328] bg-field p-3 transition hover:border-signal/60 hover:bg-white/[0.08]"
-          >
-            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-paper/55">
-              {t("orders.reportForm.stepNumber", { number: 3 })}
-            </span>
-            <span className="mt-1 flex items-center gap-1.5 text-sm font-black text-paper">
-              <span aria-hidden>✍️</span>
-              <span className="truncate">{t("orders.reportForm.stepSignatures")}</span>
-            </span>
-          </a>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {stepItems.map((step) => {
+            const active = activeStep === step.id;
+            return (
+              <a
+                key={step.id}
+                href={step.href}
+                aria-current={active ? "step" : undefined}
+                className={`min-h-14 rounded-xl border p-2.5 transition sm:p-3 ${
+                  active
+                    ? "border-signal bg-signal text-ink shadow-sm"
+                    : "border-[#2a3328] bg-field text-paper hover:border-signal/60 hover:bg-white/[0.08]"
+                }`}
+              >
+                <span
+                  className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+                    active ? "text-ink/60" : "text-paper/55"
+                  }`}
+                >
+                  <Icon name={step.icon} className="h-3.5 w-3.5 shrink-0" />
+                  {t("orders.reportForm.stepNumber", {
+                    number: step.number,
+                  })}
+                </span>
+                <span className="mt-1 block text-[11px] font-black leading-tight sm:text-sm">
+                  {step.label}
+                </span>
+                <span
+                  title={step.countLabel}
+                  aria-label={step.countLabel}
+                  className={`mt-1 block text-[11px] font-black ${
+                    active ? "text-ink/75" : "text-signal"
+                  }`}
+                >
+                  {step.count}
+                </span>
+              </a>
+            );
+          })}
         </div>
-        <div
-          className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-paper/70"
-          aria-live="polite"
-        >
-          <span>
-            {t("orders.reportForm.stepProgress", {
-              answered: checkpointProgress.answered,
-              total: checkpointProgress.total,
-            })}
-          </span>
-          {deviationCount > 0 && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="text-risk">
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#2a3328] pt-2">
+          <div className="min-w-0 flex-1">
+            <p
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-paper/70"
+              aria-live="polite"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Icon
+                  name={draftIcon}
+                  className={`h-3.5 w-3.5 ${
+                    draftStatus === "error" ? "text-risk" : "text-signal"
+                  }`}
+                />
+                {draftProgressLabel}
+                {draftTimeLabel ? (
+                  <span className="font-black text-paper/90">
+                    · {draftTimeLabel}
+                  </span>
+                ) : null}
+              </span>
+              <span aria-hidden className="text-paper/30">
+                ·
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 ${
+                  deviationCount > 0 ? "text-risk" : "text-paper/55"
+                }`}
+              >
+                <Icon name="alert" className="h-3.5 w-3.5" />
                 {t("orders.reportForm.stepDeviations", {
                   count: deviationCount,
                 })}
               </span>
-            </>
-          )}
-          <span aria-hidden>·</span>
-          <span
-            className={
-              draftStatus === "error"
-                ? "text-risk"
-                : draftStatus === "offline"
-                  ? "text-signal"
-                  : "text-paper/70"
-            }
-          >
-            {draftProgressLabel}
-          </span>
-        </div>
-        {checkpointProgress.total > 0 && (
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={checkpointProgress.total}
-            aria-valuenow={checkpointProgress.answered}
-            aria-label={t("orders.reportForm.stepProgress", {
-              answered: checkpointProgress.answered,
-              total: checkpointProgress.total,
-            })}
-            className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"
-          >
-            <div
-              className="h-full rounded-full bg-signal transition-[width]"
-              style={{
-                width: `${Math.round(
-                  (checkpointProgress.answered / checkpointProgress.total) * 100,
-                )}%`,
-              }}
-            />
+            </p>
+            {checkpointProgress.total > 0 && (
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={checkpointProgress.total}
+                aria-valuenow={checkpointProgress.answered}
+                aria-label={t("orders.reportForm.stepProgress", {
+                  answered: checkpointProgress.answered,
+                  total: checkpointProgress.total,
+                })}
+                className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"
+              >
+                <div
+                  className="h-full rounded-full bg-signal transition-[width]"
+                  style={{
+                    width: `${Math.round(
+                      (checkpointProgress.answered /
+                        checkpointProgress.total) *
+                        100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => void saveDraftNow()}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 py-1.5 text-xs font-bold text-paper transition hover:border-signal/60 hover:bg-white/10"
+          >
+            <Icon name="sync" className="h-3.5 w-3.5" />
+            {t("orders.reportForm.saveDraftNow")}
+          </button>
+        </div>
       </nav>
 
       {(initialDraft || localDraftRestored) && (
@@ -887,7 +1011,7 @@ export default function ReportForm({
       {/* ENHETER – eller sjekkpunkter for en rapport uten enheter */}
       <div
         id="sjekkpunkter"
-        className="scroll-mt-24 space-y-4 py-2"
+        className="scroll-mt-48 space-y-4 py-2"
       >
         {requiresUnits ? (
           <div className="flex flex-wrap justify-between items-start gap-3">
@@ -1017,6 +1141,9 @@ export default function ReportForm({
                           answers: { ...unit.answers, [field.id]: value },
                         })
                       }
+                      onImageCountChange={(count) =>
+                        registerPhotoCount(`${unit.key}:${field.id}`, count)
+                      }
                       workOrderId={workOrderId}
                       anchorId={
                         field.type === "IMAGE" && field.id === firstImageFieldId
@@ -1034,12 +1161,15 @@ export default function ReportForm({
               if (pending.length === 0) return null;
               return (
                 <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-xl px-4 py-3 text-sm font-bold space-y-2">
-                  <p>
-                    ⚠️ {pending.length === 1
-                      ? t("orders.reportForm.followUpOne")
-                      : t("orders.reportForm.followUpMany", { count: pending.length })}
-                    {unit.status === "GODKJENT" &&
-                      t("orders.reportForm.followUpConfirm")}
+                  <p className="flex items-start gap-2">
+                    <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {pending.length === 1
+                        ? t("orders.reportForm.followUpOne")
+                        : t("orders.reportForm.followUpMany", { count: pending.length })}
+                      {unit.status === "GODKJENT" &&
+                        t("orders.reportForm.followUpConfirm")}
+                    </span>
                   </p>
                   {unit.status === "GODKJENT" && (
                     <button
@@ -1074,9 +1204,16 @@ export default function ReportForm({
             {requiresUnits && (
               <details className="group rounded-xl border border-line bg-white/40">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-gray-800 sm:hidden [&::-webkit-details-marker]:hidden">
-                  <span>🔧 {t("orders.reportForm.unitDetails")}</span>
-                  <span aria-hidden className="text-xs text-gray-500 group-open:hidden">＋</span>
-                  <span aria-hidden className="hidden text-xs text-gray-500 group-open:inline">−</span>
+                  <span className="flex items-center gap-2">
+                    <Icon name="wrench" className="h-4 w-4" />
+                    {t("orders.reportForm.unitDetails")}
+                  </span>
+                  <span aria-hidden className="text-gray-500 group-open:hidden">
+                    <Icon name="plus" className="h-4 w-4" />
+                  </span>
+                  <span aria-hidden className="hidden text-gray-500 group-open:inline">
+                    <Icon name="close" className="h-4 w-4" />
+                  </span>
                 </summary>
                 <div className="hidden space-y-3 border-t border-line p-3 group-open:block sm:block sm:border-0 sm:p-0">
                   {customerUnits.length > 0 && (
@@ -1175,7 +1312,7 @@ export default function ReportForm({
       {/* SIGNATURER */}
       <div
         id="signer"
-        className="field-sheet scroll-mt-24 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 space-y-6"
+        className="field-sheet scroll-mt-48 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 space-y-6"
       >
         <div>
           <h2 className="text-lg font-black text-ink">{t("orders.reportForm.signatures")}</h2>
@@ -1192,6 +1329,7 @@ export default function ReportForm({
             helperText={t("orders.reportForm.technicianHelper")}
             existingUrl={seed?.technicianSignatureUrl}
             initialDataUrl={seed?.technicianSignatureUrl ?? undefined}
+            onSignedChange={handleTechnicianSigned}
           />
           <SignaturePad
             name="customerSignature"
@@ -1203,6 +1341,7 @@ export default function ReportForm({
             helperText={t("orders.reportForm.customerHelper")}
             existingUrl={seed?.customerSignatureUrl}
             initialDataUrl={seed?.customerSignatureUrl ?? undefined}
+            onSignedChange={handleCustomerSigned}
           />
         </div>
       </div>

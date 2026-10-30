@@ -1,12 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Icon, { type IconName } from "@/components/icons";
 
 /**
  * Statuspillene holder seg til de semantiske fargene: grønn for fullført,
  * signal-lime for pågående, gul/oransje for de to ventetilstandene og
  * risiko-oransje for kansellert. PENDING og WAITING har fortsatt hver sin
- * tekst, slik at de ikke blandes selv om begge venter.
+ * tekst, slik at de ikke blandes selv om begge venter. Ikonet gjør i tillegg
+ * statusen lesbar uten å måtte tolke fargen.
  */
 const STATUS_STYLES: Record<string, string> = {
   COMPLETED:
@@ -23,6 +25,16 @@ const STATUS_STYLES: Record<string, string> = {
     "border-[#c9c0ac] bg-[#efe9db] text-[#3d372b] [--status-dot:#6b6353]",
   WAITING:
     "border-[#e6b896] bg-[#fbe7d8] text-[#8a3a0e] [--status-dot:#c05621]",
+};
+
+const STATUS_ICONS: Record<string, IconName> = {
+  COMPLETED: "check",
+  IN_PROGRESS: "flag",
+  CANCELLED: "alert",
+  OPEN: "clock",
+  PENDING: "clock",
+  PLANNED: "clock",
+  WAITING: "clock",
 };
 
 export default function StatusBadge({ status }: { status: string }) {
@@ -46,9 +58,10 @@ export default function StatusBadge({ status }: { status: string }) {
       className={`inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold leading-4 tracking-wide ${style}`}
       aria-label={ariaLabel}
     >
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--status-dot)]"
+      <Icon
+        name={STATUS_ICONS[status] ?? "flag"}
+        className="h-3.5 w-3.5 shrink-0"
+        strokeWidth={2}
       />
       {statusLabels[status] ?? status}
     </span>

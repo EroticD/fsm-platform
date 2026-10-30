@@ -84,7 +84,7 @@ test("office: dashbord, oppdrag, kunder, dokumenter og rapporter", async ({
     page.getByRole("heading", { name: "Servicerapporter" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /📄 Åpne/ }).first(),
+    page.getByRole("link", { name: "Åpne", exact: true }).first(),
   ).toBeVisible();
 });
 

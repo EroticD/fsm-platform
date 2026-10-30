@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { formatDateLocalized } from "@/lib/dates";
 import { getCurrentUser } from "@/lib/session";
 import ErrorBanner from "@/components/ErrorBanner";
+import Icon from "@/components/icons";
 import { restoreWorkOrder } from "./actions";
 
 const DELETED_ERROR_MESSAGE_KEYS: Record<string, string> = {
@@ -52,8 +53,9 @@ export default async function DeletedWorkOrdersPage({
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-4xl mx-auto space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-300 pb-4">
-          <h1 className="text-2xl md:text-3xl font-black text-gray-900">
-            🗑️ {t("orders.detail.deletedOrders")}
+          <h1 className="flex items-center gap-2 text-2xl md:text-3xl font-black text-gray-900">
+            <Icon name="trash" className="h-6 w-6 shrink-0" />
+            {t("orders.detail.deletedOrders")}
           </h1>
           <Link
             href="/oppdrag"
@@ -69,9 +71,10 @@ export default async function DeletedWorkOrdersPage({
           <div
             role="status"
             aria-live="polite"
-            className="rounded-2xl border-2 border-green-200 bg-green-50 px-5 py-4 text-sm font-bold text-green-900"
+            className="flex items-center gap-2 rounded-2xl border-2 border-green-200 bg-green-50 px-5 py-4 text-sm font-bold text-green-900"
           >
-            ✅ {t("orders.detail.restored")}
+            <Icon name="check" className="h-4 w-4 shrink-0" />
+            {t("orders.detail.restored")}
           </div>
         )}
 
@@ -96,8 +99,9 @@ export default async function DeletedWorkOrdersPage({
               >
                 <div className="min-w-0">
                   <p className="font-black text-gray-900 truncate">{order.title}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    🏢 {order.customer?.name || t("orders.list.noCustomer")}
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                    <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                    {order.customer?.name || t("orders.list.noCustomer")}
                     {order.deletedAt
                       ? ` • ${t("orders.detail.deletedAt", {
                           date: formatDateLocalized(order.deletedAt, locale),

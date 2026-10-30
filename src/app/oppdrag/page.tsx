@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import CustomerToast from "@/components/customer/CustomerToast";
 import Pagination, { paginationLabels } from "@/components/Pagination";
+import Icon, { type IconName } from "@/components/icons";
 import OrderViewTabs from "./ViewTabs";
 import { formatAddress } from "@/lib/address";
 import {
@@ -110,56 +111,61 @@ function getDateContext() {
  * slik at man ser nøyaktig de oppdragene tallet gjelder.
  */
 const VIEWS = [
-  { key: "alle", labelKey: "orders.list.views.alle.label", icon: "📂", descriptionKey: "orders.list.views.alle.description" },
+  { key: "alle", labelKey: "orders.list.views.alle.label", icon: "clipboard", descriptionKey: "orders.list.views.alle.description" },
   {
     key: "apne",
     labelKey: "orders.list.views.apne.label",
-    icon: "🆕",
+    icon: "plus",
     descriptionKey: "orders.list.views.apne.description",
   },
   {
     key: "venter",
     labelKey: "orders.list.views.venter.label",
-    icon: "⏳",
+    icon: "clock",
     descriptionKey: "orders.list.views.venter.description",
   },
   {
     key: "pagaaende",
     labelKey: "orders.list.views.pagaaende.label",
-    icon: "🛠️",
+    icon: "wrench",
     descriptionKey: "orders.list.views.pagaaende.description",
   },
   {
     key: "idag",
     labelKey: "orders.list.views.idag.label",
-    icon: "📅",
+    icon: "calendar",
     descriptionKey: "orders.list.views.idag.description",
   },
   {
     key: "forfalte",
     labelKey: "orders.list.views.forfalte.label",
-    icon: "⚠️",
+    icon: "alert",
     descriptionKey: "orders.list.views.forfalte.description",
   },
   {
     key: "ikke-tildelt",
     labelKey: "orders.list.views.ikke-tildelt.label",
-    icon: "🙋",
+    icon: "users",
     descriptionKey: "orders.list.views.ikke-tildelt.description",
   },
   {
     key: "fullforte",
     labelKey: "orders.list.views.fullforte.label",
-    icon: "✅",
+    icon: "check",
     descriptionKey: "orders.list.views.fullforte.description",
   },
   {
     key: "kansellerte",
     labelKey: "orders.list.views.kansellerte.label",
-    icon: "🚫",
+    icon: "close",
     descriptionKey: "orders.list.views.kansellerte.description",
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  key: string;
+  labelKey: string;
+  icon: IconName;
+  descriptionKey: string;
+}>;
 
 type ViewKey = (typeof VIEWS)[number]["key"];
 
@@ -555,7 +561,7 @@ export default async function WorkOrdersPage({
         {orders.length === 0 ? (
           <div className={`${CARD} p-6`}>
             <EmptyState
-              icon="✓"
+              icon={<Icon name="check" className="h-8 w-8" />}
               title={t("orders.list.emptyTitle")}
               description={
                 search
@@ -694,7 +700,8 @@ export default async function WorkOrdersPage({
                               prefetch={false}
                               className="inline-flex items-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2 py-1 text-xs font-bold transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
                             >
-                              {t("orders.list.openOrder")} →
+                              {t("orders.list.openOrder")}
+                              <Icon name="arrowRight" className="h-3.5 w-3.5" />
                             </Link>
                           </td>
                         </tr>
@@ -774,7 +781,8 @@ export default async function WorkOrdersPage({
                         </div>
                       ) : null}
                       <span className="mt-1 block text-right text-xs font-bold text-[var(--ink,#131711)]">
-                        {t("orders.list.openOrder")} →
+                        {t("orders.list.openOrder")}
+                        <Icon name="arrowRight" className="ml-1 inline-block h-3.5 w-3.5 align-[-0.125em]" />
                       </span>
                     </Link>
                   );

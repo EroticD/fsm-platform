@@ -109,8 +109,21 @@ function row(overrides: Record<string, unknown> = {}) {
 }
 
 function queue(
-  rows: { overdue?: unknown[]; today?: unknown[]; later?: unknown[]; available?: unknown[]; history?: unknown[] },
-  counts: { overdue?: number; today?: number; later?: number; available?: number; history?: number },
+  rows: {
+    overdue?: unknown[];
+    today?: unknown[];
+    later?: unknown[];
+    available?: unknown[];
+    history?: unknown[];
+    route?: unknown[];
+  },
+  counts: {
+    overdue?: number;
+    today?: number;
+    later?: number;
+    available?: number;
+    history?: number;
+  },
 ) {
   for (const value of [
     rows.overdue ?? [],
@@ -118,6 +131,7 @@ function queue(
     rows.later ?? [],
     rows.available ?? [],
     rows.history ?? [],
+    rows.route ?? [],
   ]) {
     mocks.findMany.mockResolvedValueOnce(value);
   }
@@ -169,7 +183,7 @@ describe("/mine-oppdrag – feltets I dag", () => {
 
     await renderHtml();
 
-    for (const [args] of mocks.findMany.mock.calls) {
+    for (const [args] of mocks.findMany.mock.calls.slice(0, 5)) {
       expect(args.select.contact.select).toMatchObject({
         name: true,
         phone: true,
@@ -195,7 +209,7 @@ describe("/mine-oppdrag – feltets I dag", () => {
     await renderHtml();
 
     const wheres = mocks.findMany.mock.calls.map(([args]) => args.where);
-    expect(wheres).toHaveLength(5);
+    expect(wheres).toHaveLength(6);
     // Forfalt: startdato før i dag og sluttdato før i dag (eller ingen).
     expect(wheres[0].AND[1]).toEqual({
       scheduledFor: { lt: expect.any(Date) },
@@ -244,11 +258,71 @@ describe("/mine-oppdrag – feltets I dag", () => {
     expect(html).toContain("09:00");
     expect(html).toContain("Storgata 1");
     expect(html).toContain("1/2");
+    expect(html).toContain("orders.fieldList.jobPosition");
+    expect(html).toContain("orders.list.orderNumber");
     expect(html).toContain("/mine-oppdrag/wo-1/skjema/tpl-1");
     expect(html).toContain("orders.fieldList.draftBadge");
+    expect(html).toContain('href="#forfalt"');
+    expect(html).toContain('href="#ledige"');
+    expect(html).toContain('href="#senere"');
+    expect(html).toContain("orders.fieldList.seeDay");
+    expect(html).toContain("orders.fieldList.laterPreviewHint");
+    expect(html).toContain("orders.fieldList.laterTodayFull");
     // Helten erstatter dagens første kort, så jobben skal ikke listes to ganger.
     expect(html.split("Service på port").length - 1).toBe(1);
     expect(html).toContain("Andre jobb");
+  });
+
+  it("viser vaktstatus og regner ruteavstand fra geokodede jobber", async () => {
+    queue(
+      {
+        today: [row({ reportDrafts: [] }), row({ id: "wo-2" })],
+        route: [
+          { latitude: 62.4722, longitude: 6.1495 },
+          { latitude: 62.4722, longitude: 6.16 },
+        ],
+      },
+      { today: 2, overdue: 1, available: 3 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).toContain("orders.fieldList.onDuty");
+    expect(html).toContain("orders.fieldList.liveOnline");
+    expect(html).toContain("orders.fieldList.todayCount");
+    expect(html).toContain("orders.fieldList.overdueCount");
+    expect(html).toContain("orders.fieldList.routeDistance");
+    expect(html).toContain("0,5");
+    expect(html).not.toContain("orders.fieldList.routePending");
+  });
+
+  it("viser «rute beregnes» når dagens jobber mangler koordinater", async () => {
+    queue(
+      {
+        today: [row({ reportDrafts: [] }), row({ id: "wo-2" })],
+      },
+      { today: 2 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).toContain("orders.fieldList.routePending");
+    expect(html).not.toContain("orders.fieldList.routeDistance");
+  });
+
+  it("viser ingen rute når færre enn to jobber har koordinater", async () => {
+    queue(
+      {
+        today: [row({ reportDrafts: [] })],
+        route: [{ latitude: 62.4722, longitude: 6.1495 }],
+      },
+      { today: 1 },
+    );
+
+    const html = await renderHtml();
+
+    expect(html).not.toContain("orders.fieldList.routePending");
+    expect(html).not.toContain("orders.fieldList.routeDistance");
   });
 
   it("legger resten av dagen og kommende jobber i papirarket «Senere i dag»", async () => {

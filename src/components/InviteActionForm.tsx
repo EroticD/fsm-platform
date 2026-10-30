@@ -33,7 +33,7 @@ export default function InviteActionForm({
   action: InviteAction;
   labels: InviteActionLabels;
   children?: ReactNode;
-  submitLabel?: string;
+  submitLabel?: ReactNode;
   wrapperClassName?: string;
   formClassName?: string;
   buttonClassName?: string;

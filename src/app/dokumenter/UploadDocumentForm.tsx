@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import TagSelector from "@/components/TagSelector";
+import Icon from "@/components/icons";
 import DocumentContextFields from "./DocumentContextFields";
 import type { DocumentFormContext } from "./action-types";
 
@@ -86,7 +87,7 @@ export default function UploadDocumentForm({
           className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
         />
         {uploading && <p className="text-xs text-blue-600 mt-1">{t("documents.upload.uploading")}</p>}
-        {fileUrl && <p className="text-xs text-green-600 mt-1">✓ {t("documents.upload.uploaded", { name: fileName })}</p>}
+        {fileUrl && <p className="mt-1 flex items-center gap-1.5 text-xs text-green-600"><Icon name="check" className="h-3.5 w-3.5 shrink-0" /> {t("documents.upload.uploaded", { name: fileName })}</p>}
         {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
       </div>
       <div>

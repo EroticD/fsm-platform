@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 
 /**
  * Bildefelt for rapport-skjemaet.
@@ -100,6 +101,7 @@ export default function ImageUploadField({
   required,
   initialUrls = [],
   workOrderId,
+  onCountChange,
 }: {
   name: string;
   label: string;
@@ -108,6 +110,8 @@ export default function ImageUploadField({
   initialUrls?: string[];
   /** Knytter bildene til oppdraget, slik at /uploads kan kreve riktig tilgang. */
   workOrderId?: string;
+  /** Antall ferdig opplastede bilder, slik at stegstripen kan telle dem. */
+  onCountChange?: (count: number) => void;
 }) {
   const t = useTranslations("common");
   const fieldId = useId();
@@ -125,6 +129,11 @@ export default function ImageUploadField({
     })),
   );
   const [online, setOnline] = useState(true);
+  const itemsRef = useRef(items);
+  const wasOfflineRef = useRef(false);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   // Opplastingene kjøres sekvensielt. Mobilbilder er store, og flere samtidige
   // opplastinger gjør at trege mobilnett bruker unødvendig lang tid.
@@ -132,7 +141,11 @@ export default function ImageUploadField({
   const lastIncomingKey = useRef(initialUrls.filter(Boolean).join("\u0000"));
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
+    const update = () => {
+      const next = navigator.onLine;
+      setOnline(next);
+      if (!next) wasOfflineRef.current = true;
+    };
     update();
     window.addEventListener("online", update);
     window.addEventListener("offline", update);
@@ -181,6 +194,21 @@ export default function ImageUploadField({
 
   const uploadItem = async (item: UploadItem) => {
     if (!item.file) return;
+
+    // Offline skal ikke gi en rød feil: filen ligger klart i køen og lastes
+    // opp automatisk når nettleseren melder at nettet er tilbake.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, status: "pending", error: undefined }
+            : entry,
+        ),
+      );
+      wasOfflineRef.current = true;
+      return;
+    }
+
     setItems((current) =>
       current.map((entry) =>
         entry.id === item.id
@@ -199,16 +227,18 @@ export default function ImageUploadField({
             : entry,
         ),
       );
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : t("orders.imageUpload.uploadFailedOne", { name: item.name });
       setItems((current) =>
         current.map((entry) =>
           entry.id === item.id
             ? {
                 ...entry,
                 status: "error",
-                error: t("orders.imageUpload.uploadFailedOne", {
-                  name: item.name,
-                }),
+                error: message,
               }
             : entry,
         ),
@@ -250,9 +280,30 @@ export default function ImageUploadField({
   };
 
   const retryAll = () => {
-    const failed = items.filter((item) => item.status === "error" && item.file);
+    const failed = items.filter(
+      (item) =>
+        (item.status === "error" || item.status === "pending") && item.file,
+    );
     for (const item of failed) retry(item);
   };
+
+  // Når nettet kommer tilbake, prøver vi køen automatisk. Montøren slipper å
+  // trykke «prøv igjen» for hver fil som ventet på dekning.
+  const retryRef = useRef(retry);
+  useEffect(() => {
+    // Hold siste retry-funksjon tilgjengelig for online-effekten uten å
+    // registrere nettleserlytteren på nytt for hver rendering.
+    retryRef.current = retry;
+  });
+  useEffect(() => {
+    if (!online || !wasOfflineRef.current) return;
+    wasOfflineRef.current = false;
+    const queue = itemsRef.current.filter(
+      (item) =>
+        (item.status === "error" || item.status === "pending") && item.file,
+    );
+    for (const item of queue) retryRef.current(item);
+  }, [online]);
 
   const removeItem = (id: string) => {
     setItems((current) => current.filter((item) => item.id !== id));
@@ -261,6 +312,9 @@ export default function ImageUploadField({
   const doneUrls = items.flatMap((item) =>
     item.status === "done" && item.url ? [item.url] : [],
   );
+  useEffect(() => {
+    onCountChange?.(doneUrls.length);
+  }, [doneUrls.length, onCountChange]);
   const failedCount = items.filter((item) => item.status === "error").length;
   const busy = items.some(
     (item) => item.status === "pending" || item.status === "uploading",
@@ -272,11 +326,11 @@ export default function ImageUploadField({
       case "uploading":
         return t("orders.imageUpload.uploadingFile");
       case "error":
-        // Selve feilårsaken samles i én oppsummering under listen. Raden viser
-        // bare at filen feilet, så listen ikke blir full av gjentatt tekst.
+        // Selve feilårsaken vises under filnavnet, slik at montøren ser hva
+        // som faktisk feilet og kan prøve den enkelte filen på nytt.
         return t("orders.imageUpload.failedShort");
       default:
-        return "✅";
+        return "";
     }
   };
   const statusClass = (item: UploadItem) =>
@@ -290,8 +344,9 @@ export default function ImageUploadField({
 
   return (
     <div className="field-card space-y-3 p-4">
-      <p className="block text-sm font-black text-paper">
-        📷 {label}{" "}
+      <p className="flex items-center gap-2 text-sm font-black text-paper">
+        <Icon name="camera" className="h-4 w-4 shrink-0 text-signal" />
+        {label}{" "}
         {required && doneUrls.length === 0 && (
           <span className="text-risk">*</span>
         )}
@@ -300,8 +355,9 @@ export default function ImageUploadField({
       <div className="flex flex-wrap gap-2">
         <label
           htmlFor={cameraId}
-          className="signal-button cursor-pointer text-sm shadow-sm"
+          className="signal-button cursor-pointer gap-2 text-sm shadow-sm"
         >
+          <Icon name="camera" className="h-4 w-4" />
           {t("orders.imageUpload.takePhoto")}
         </label>
         <input
@@ -316,8 +372,9 @@ export default function ImageUploadField({
 
         <label
           htmlFor={galleryId}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 px-4 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-4 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
         >
+          <Icon name="image" className="h-4 w-4" />
           {t("orders.imageUpload.choosePhoto")}
         </label>
         <input
@@ -325,7 +382,10 @@ export default function ImageUploadField({
           type="file"
           accept="image/*"
           multiple
-          required={required && doneUrls.length === 0}
+          // Kamera og galleri er to veier til samme bildefelt. HTML `required`
+          // på bare galleri ville blokkert innsending når montøren tok bildet
+          // med kameraet. Serveren håndhever det påkrevde feltet i stedet.
+          aria-required={required && doneUrls.length === 0}
           aria-describedby={`${hintId}${failedCount > 0 ? ` ${errorId}` : ""}`}
           aria-invalid={failedCount > 0 ? true : undefined}
           onChange={handleInputChange}
@@ -343,9 +403,10 @@ export default function ImageUploadField({
       {!online && (
         <p
           role="status"
-          className="rounded-lg border border-signal/40 bg-signal/10 px-3 py-2 text-xs font-bold text-signal"
+          className="flex items-start gap-2 rounded-lg border border-signal/40 bg-signal/10 px-3 py-2 text-xs font-bold text-signal"
         >
-          ⚠️ {t("orders.imageUpload.offline")}
+          <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {t("orders.imageUpload.offline")}
         </p>
       )}
 
@@ -380,9 +441,14 @@ export default function ImageUploadField({
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/50 text-lg"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/50"
                     >
-                      {item.status === "error" ? "⚠️" : "📷"}
+                      <Icon
+                        name={item.status === "error" ? "alert" : "camera"}
+                        className={`h-5 w-5 ${
+                          item.status === "error" ? "text-risk" : "text-muted"
+                        }`}
+                      />
                     </span>
                   )}
 
@@ -390,9 +456,33 @@ export default function ImageUploadField({
                     <p className="break-words text-xs font-bold text-ink">
                       {item.name}
                     </p>
-                    <p className={`text-xs font-bold ${statusClass(item)}`}>
+                    <p
+                      className={`flex items-center gap-1.5 text-xs font-bold ${statusClass(item)}`}
+                    >
+                      {item.status === "done" && (
+                        <Icon name="check" className="h-3.5 w-3.5" />
+                      )}
+                      {item.status === "uploading" && (
+                        <Icon name="sync" className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      {item.status === "pending" && (
+                        <Icon name="clock" className="h-3.5 w-3.5" />
+                      )}
+                      {item.status === "error" && (
+                        <Icon name="alert" className="h-3.5 w-3.5" />
+                      )}
                       {statusText(item)}
+                      {item.status === "done" && (
+                        <span className="sr-only">
+                          {t("orders.imageUpload.uploaded", { count: 1 })}
+                        </span>
+                      )}
                     </p>
+                    {item.status === "error" && item.error && (
+                      <p className="mt-0.5 break-words text-[11px] font-bold text-risk">
+                        {item.error}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -402,11 +492,24 @@ export default function ImageUploadField({
                       href={item.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-xs font-bold text-success underline"
+                      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold text-success underline"
                     >
+                      <Icon name="image" className="h-3.5 w-3.5" />
                       {t("orders.imageUpload.viewImage")}
                     </a>
                   )}
+
+                  {(item.status === "error" || item.status === "pending") &&
+                    item.file && (
+                      <button
+                        type="button"
+                        onClick={() => retry(item)}
+                        className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-signal/40 bg-signal/10 px-3 text-xs font-bold text-signal transition hover:bg-signal/15"
+                      >
+                        <Icon name="sync" className="h-3.5 w-3.5" />
+                        {t("orders.imageUpload.retry")}
+                      </button>
+                    )}
 
                   <button
                     type="button"
@@ -416,7 +519,7 @@ export default function ImageUploadField({
                     })}
                     className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-risk/30 bg-risk/10 px-2 text-sm font-bold text-risk transition hover:bg-risk/15"
                   >
-                    ✕
+                    <Icon name="close" className="h-4 w-4" />
                   </button>
                 </div>
               </li>
@@ -424,7 +527,11 @@ export default function ImageUploadField({
           </ul>
 
           {busy && (
-            <p className="text-xs font-bold text-signal" aria-live="polite">
+            <p
+              className="flex items-center gap-1.5 text-xs font-bold text-signal"
+              aria-live="polite"
+            >
+              <Icon name="sync" className="h-3.5 w-3.5 animate-spin" />
               {t("orders.imageUpload.uploadingShort")}
             </p>
           )}
@@ -435,8 +542,8 @@ export default function ImageUploadField({
               role="alert"
               className="flex flex-col gap-2 rounded-xl border border-risk/50 bg-risk/10 p-3 text-xs font-bold text-risk sm:flex-row sm:items-center sm:justify-between"
             >
-              <p className="min-w-0 break-words">
-                ❌{" "}
+              <p className="flex min-w-0 items-start gap-1.5 break-words">
+                <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {t("orders.imageUpload.uploadFailedMany", {
                   count: failedCount,
                   names: items
@@ -448,9 +555,10 @@ export default function ImageUploadField({
               <button
                 type="button"
                 onClick={retryAll}
-                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-risk/30/50 bg-paper px-3 text-xs font-bold text-risk transition hover:bg-risk/15"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-risk/50 bg-paper px-3 text-xs font-bold text-risk transition hover:bg-risk/15"
               >
-                ↻ {t("orders.imageUpload.retryAll")}
+                <Icon name="sync" className="h-3.5 w-3.5" />
+                {t("orders.imageUpload.retryAll")}
               </button>
             </div>
           )}

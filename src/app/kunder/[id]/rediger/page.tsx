@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ErrorBanner from "@/components/ErrorBanner";
+import Icon from "@/components/icons";
 import SubmitButton from "@/components/SubmitButton";
 import BrandColorField from "@/components/customer/BrandColorField";
 import { getCustomerEditOptions } from "@/server/customers";
@@ -57,12 +58,16 @@ export default async function EditCustomerPage({
         {/* HEADER */}
         <div className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900">✏️ {t("customers.edit.title")}</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+              <Icon name="edit" className="h-5 w-5 shrink-0" />
+              {t("customers.edit.title")}
+            </h1>
             <p className="text-gray-500 mt-1 text-sm">{t("customers.edit.description", { name: customer.name })}</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-            <Link href={`/kunder/${customerId}`} className="inline-flex max-sm:min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
-              &larr; {t("customers.edit.backToDetails")}
+            <Link href={`/kunder/${customerId}`} className="inline-flex max-sm:min-h-11 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("customers.edit.backToDetails")}
             </Link>
             <Link href="/kunder" className="inline-flex max-sm:min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-200">
               {t("customers.edit.archive")}

@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Icon from "./icons";
 import {
   isAuthPath,
   isMobileTabActive,
@@ -92,9 +93,7 @@ export default function MobileTabBar({
               : undefined
           }
         >
-          <span aria-hidden className="text-xl leading-none">
-            ☰
-          </span>
+          <Icon name="menu" className="h-5 w-5" />
           <span className="truncate">{t("components.header.more")}</span>
         </button>
       </div>
@@ -133,9 +132,7 @@ function TabLink({
           : undefined
       }
     >
-      <span aria-hidden className="text-xl leading-none">
-        {item.icon}
-      </span>
+      <Icon name={item.icon} className="h-5 w-5" />
       <span className="truncate">{t(`nav.${item.labelKey}`)}</span>
     </Link>
   );

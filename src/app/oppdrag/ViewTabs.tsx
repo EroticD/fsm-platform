@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import Icon, { type IconName } from "@/components/icons";
 
 export type OrderViewTab = {
   key: string;
   label: string;
-  icon: string;
+  icon: IconName;
   count: number;
   href: string;
 };
@@ -69,6 +70,7 @@ export default function OrderViewTabs({
                     : "border-transparent text-[var(--ink,#131711)] hover:border-[var(--line,#d8d3c5)] hover:bg-white/70"
                 }`}
               >
+                <Icon name={tab.icon} className="h-3.5 w-3.5 shrink-0" />
                 <span>{tab.label}</span>
                 <span
                   className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums ${

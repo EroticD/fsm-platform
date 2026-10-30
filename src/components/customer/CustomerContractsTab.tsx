@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { getLocale, getTranslations } from "next-intl/server";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import { CONTRACT_INTERVAL_MONTHS } from "@/lib/contracts";
@@ -38,7 +39,12 @@ export default async function CustomerContractsTab({
 
   return (
     <CustomerTabPanel
-      title={`📄 ${t("customers.contracts.title")}`}
+      title={
+        <>
+          <Icon name="file" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          {t("customers.contracts.title")}
+        </>
+      }
       description={t("customers.contracts.description")}
     >
       {office && (isAdmin || ownDepartmentId) && (
@@ -213,8 +219,9 @@ export default async function CustomerContractsTab({
                         {contract.template?.title || t("customers.contracts.none")}
                       </span>
                     </p>
-                    <p className="text-xs text-gray-600">
-                      🏷️ {t("customers.contracts.departmentValue")}{" "}
+                    <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-gray-600">
+                      <Icon name="flag" className="h-3.5 w-3.5 shrink-0" />
+                      {t("customers.contracts.departmentValue")}{" "}
                       <span className="font-bold">{contract.department.name}</span>
                     </p>
                   </div>

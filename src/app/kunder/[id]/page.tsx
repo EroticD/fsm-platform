@@ -31,6 +31,7 @@ import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import PageHeader from "@/components/PageHeader";
+import Icon from "@/components/icons";
 import {
   addContactAction,
   createContractAction,
@@ -127,7 +128,7 @@ export default async function CustomerDetailPage({
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
         <EmptyState
-          icon="🏢"
+          icon={<Icon name="building" className="h-8 w-8" />}
           title={t("customers.detail.notFound")}
           action={
             <Link href="/kunder" className="text-blue-600 font-bold hover:underline">
@@ -252,12 +253,14 @@ export default async function CustomerDetailPage({
             <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
               {canCreateWorkOrders && (
               <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="flex-1 sm:flex-none justify-center bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                ➕ {t("customers.detail.newWorkOrder")}
+                <Icon name="plus" className="h-4 w-4 shrink-0" />
+                {t("customers.detail.newWorkOrder")}
               </Link>
             )}
             {office && (
               <Link href={`/kunder/${customerId}/rediger`} className="flex-1 sm:flex-none justify-center bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                ✏️ {t("customers.detail.edit")}
+                <Icon name="edit" className="h-4 w-4 shrink-0" />
+                {t("customers.detail.edit")}
               </Link>
             )}
             {isAdmin && (
@@ -272,14 +275,16 @@ export default async function CustomerDetailPage({
               >
                 <button
                   type="submit"
-                  className="w-full bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition whitespace-nowrap"
+                  className="inline-flex w-full items-center justify-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition whitespace-nowrap"
                 >
-                  🗑️ {t("customers.detail.delete")}
+                  <Icon name="trash" className="h-4 w-4 shrink-0" />
+                  {t("customers.detail.delete")}
                 </button>
               </ConfirmSubmitForm>
             )}
               <Link href="/kunder" className="flex-1 sm:flex-none justify-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
-                &larr; {t("customers.detail.backToCustomers")}
+                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+                {t("customers.detail.backToCustomers")}
               </Link>
             </div>
           }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import AuditLogTable from "@/components/AuditLogTable";
+import Icon from "@/components/icons";
 import type { AuditLog } from "@prisma/client";
 
 type AuditLogTabProps = {
@@ -32,7 +33,10 @@ export default async function AuditLogTab({
 
   return (
     <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">📋 {t("settings.auditLog.title")}</h2>
+      <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900 mb-6">
+        <Icon name="note" className="h-5 w-5 shrink-0" />
+        {t("settings.auditLog.title")}
+      </h2>
       <p className="text-gray-500 text-sm mb-6">{t("settings.auditLog.desc")}</p>
 
       {/* FILTER OG SØK */}

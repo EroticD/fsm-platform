@@ -1,4 +1,5 @@
 import ContactCard from "@/components/ContactCard";
+import Icon from "@/components/icons";
 import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
@@ -26,7 +27,12 @@ export default async function CustomerContactsTab({
 
   return (
     <CustomerTabPanel
-      title={`👤 ${t("customers.contacts.title")}`}
+      title={
+        <>
+          <Icon name="user" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          {t("customers.contacts.title")}
+        </>
+      }
       description={t("customers.contacts.description")}
     >
       {/* Skjema for ny kontaktperson – kun kontor/admin */}

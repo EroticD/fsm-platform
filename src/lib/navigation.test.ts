@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeNavHref,
+  CUSTOMER_NAV,
   hasAnyPermission,
   homePathForRole,
   isAuthPath,
@@ -10,6 +11,7 @@ import {
   navItemsFor,
   primaryNavFor,
   settingsNavItem,
+  STAFF_NAV,
 } from "./navigation";
 import { defaultPermissionsForRole } from "./permissions";
 
@@ -193,6 +195,37 @@ describe("toppnavigasjon", () => {
     );
     expect(hasAnyPermission(permissions, "users.view")).toBe(false);
     expect(hasAnyPermission(permissions, undefined)).toBe(true);
+  });
+
+  it("bruker monokrome ikonnavn i stedet for emoji", () => {
+    for (const item of [...STAFF_NAV, ...CUSTOMER_NAV]) {
+      expect(item.icon, item.href).toMatch(/^[a-z][a-zA-Z]+$/);
+      expect(item.icon, item.href).not.toMatch(/\p{Extended_Pictographic}/u);
+    }
+  });
+
+  it("har et stabilt ikon per arbeidsflate", () => {
+    const icons = Object.fromEntries(
+      [...STAFF_NAV, ...CUSTOMER_NAV].map((item) => [item.href, item.icon]),
+    );
+    expect(icons).toMatchObject({
+      "/": "home",
+      "/mine-oppdrag": "route",
+      "/oppdrag": "clipboard",
+      "/kalender": "calendar",
+      "/kunder": "building",
+      "/sok": "search",
+      "/rapporter": "chart",
+      "/hms": "shield",
+      "/dokumenter": "file",
+      "/kart": "map",
+      "/oppdrag/ny": "plus",
+      "/varsler": "bell",
+      "/mine-oppdrag/kunder": "wrench",
+      "/innstillinger": "settings",
+      "/kundeportal": "user",
+      "/innstillinger?tab=sikkerhet": "shield",
+    });
   });
 });
 

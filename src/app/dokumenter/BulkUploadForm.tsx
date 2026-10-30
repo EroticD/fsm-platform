@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 import { appendDocumentContext } from "./DocumentContextFields";
 import type {
   DocumentBulkActionResult,
@@ -531,7 +532,10 @@ export default function BulkUploadForm({
           </p>
           <div className="max-h-48 overflow-y-auto text-xs text-gray-600 space-y-0.5">
             {folders.map((folder) => (
-              <div key={folder}>📁 {folder}/</div>
+              <div key={folder} className="flex items-center gap-1.5">
+                <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                {folder}/
+              </div>
             ))}
             {rows.map((row) => (
               <div
@@ -544,13 +548,18 @@ export default function BulkUploadForm({
                       : "text-gray-600"
                 }`}
               >
-                {row.status === "created"
-                  ? "✅"
-                  : row.status === "skipped"
-                    ? "⚠️"
-                    : row.status === "failed"
-                      ? "⛔"
-                      : "📄"}{" "}
+                <Icon
+                  name={
+                    row.status === "created"
+                      ? "check"
+                      : row.status === "skipped"
+                        ? "alert"
+                        : row.status === "failed"
+                          ? "alert"
+                          : "file"
+                  }
+                  className="inline-block h-3.5 w-3.5 align-[-0.125em]"
+                />{" "}
                 {row.relativePath}
                 {row.status === "failed" && row.reason
                   ? ` – ${t(REASON_KEYS[row.reason] ?? "documents.bulk.reasonError")}`

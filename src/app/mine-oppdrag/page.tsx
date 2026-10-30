@@ -26,6 +26,10 @@ import LogoutButton from "@/components/LogoutButton";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import SubmitButton from "@/components/SubmitButton";
 import CustomerToast from "@/components/customer/CustomerToast";
+import Icon from "@/components/icons";
+import FieldLiveStatus from "@/components/field/FieldLiveStatus";
+import FieldProgressRing from "@/components/field/FieldProgressRing";
+import FieldStatLink from "@/components/field/FieldStatLink";
 
 /** Feltportalen viser de nærmeste oppdragene, ikke hele historikken. */
 const LIST_PAGE_SIZE = 25;
@@ -122,6 +126,52 @@ function jobTimeLabel(value: Date | null, locale: string): string {
   );
 }
 
+type RoutePoint = { latitude: number; longitude: number };
+
+function haversineKm(a: RoutePoint, b: RoutePoint): number {
+  const earthRadiusKm = 6371;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const deltaLat = toRadians(b.latitude - a.latitude);
+  const deltaLng = toRadians(b.longitude - a.longitude);
+  const h =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(toRadians(a.latitude)) *
+      Math.cos(toRadians(b.latitude)) *
+      Math.sin(deltaLng / 2) ** 2;
+  return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * Kjørerute mellom dagens geokodede oppdrag, i planlagt rekkefølge. Mangler
+ * ett eller flere oppdrag koordinater, finnes ingen pålitelig rute – da
+ * returneres null i stedet for en oppdiktet avstand.
+ */
+function routeDistanceKm(
+  points: Array<{ latitude: number | null; longitude: number | null }>,
+): number | null {
+  const coords = points.filter(
+    (point): point is RoutePoint =>
+      typeof point.latitude === "number" &&
+      typeof point.longitude === "number" &&
+      Number.isFinite(point.latitude) &&
+      Number.isFinite(point.longitude),
+  );
+  if (coords.length < 2) return null;
+
+  let total = 0;
+  for (let index = 1; index < coords.length; index += 1) {
+    total += haversineKm(coords[index - 1], coords[index]);
+  }
+  return total;
+}
+
+function formatRouteDistance(km: number, locale: string): string {
+  return new Intl.NumberFormat(locale === "nb" ? "nb-NO" : "en-GB", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0,
+  }).format(km);
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const [t, user] = await Promise.all([
     getTranslations("common"),
@@ -160,7 +210,11 @@ function PrioritySection({
   children: ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="space-y-3">
+    <section
+      id={id}
+      aria-labelledby={`${id}-title`}
+      className="scroll-mt-6 space-y-3"
+    >
       <div className="flex items-center justify-between gap-2 px-1">
         <h2
           id={`${id}-title`}
@@ -202,7 +256,7 @@ function PaperSheet({
     <section
       id={id}
       aria-labelledby={id ? `${id}-title` : undefined}
-      className="field-sheet p-4 shadow-[0_22px_50px_rgba(0,0,0,0.22)] sm:p-5"
+      className="field-sheet scroll-mt-6 p-4 shadow-[0_22px_50px_rgba(0,0,0,0.22)] sm:p-5"
     >
       <div className="flex items-center justify-between gap-2">
         <h2
@@ -248,7 +302,6 @@ export default async function TechnicianDashboard({
   const assignedLimit = listLimit(resolvedParams.a);
   const unassignedLimit = listLimit(resolvedParams.u);
   const historyLimit = listLimit(resolvedParams.h);
-  const isFieldHome = user.role === "TECHNICIAN";
   const { startOfToday, endOfToday } = dayContext();
 
   const searchOr: Prisma.WorkOrderWhereInput = searchQuery
@@ -335,6 +388,7 @@ export default async function TechnicianDashboard({
     unassignedTotal,
     completedRows,
     completedTotal,
+    todayRouteRows,
   ] = await Promise.all([
     prisma.workOrder.findMany({
       where: overdueWhere,
@@ -371,6 +425,13 @@ export default async function TechnicianDashboard({
       take: historyLimit + 1,
     }),
     prisma.workOrder.count({ where: historyWhere }),
+    // Ruten skal dekke alle dagens jobber, ikke bare de 25 første kortene.
+    prisma.workOrder.findMany({
+      where: todayWhere,
+      select: { latitude: true, longitude: true },
+      orderBy: [{ scheduledFor: "asc" }, { id: "asc" }],
+      take: LIST_MAX_LIMIT,
+    }),
   ]);
 
   const overdueVisible = overdueRows.slice(0, assignedLimit);
@@ -451,8 +512,12 @@ export default async function TechnicianDashboard({
   const todayAfterHero = todayVisible.slice(heroIsToday ? 1 : 0);
   const laterAfterHero =
     hero && !heroIsToday ? laterVisible.slice(1) : laterVisible;
+  const todayRemainingCount = Math.max(
+    0,
+    todayTotal - (heroIsToday ? 1 : 0),
+  );
   const laterSheetCount =
-    Math.max(0, todayTotal - (heroIsToday ? 1 : 0)) +
+    todayRemainingCount +
     Math.max(0, laterTotal - (hero && !heroIsToday ? 1 : 0));
   const heroAddress = hero ? effectiveAddress(hero) : null;
   const heroPhone =
@@ -475,6 +540,20 @@ export default async function TechnicianDashboard({
   const heroDraftTime = heroDraft
     ? formatDateLocalized(heroDraft.updatedAt, locale, { timeStyle: "short" })
     : "";
+  const heroOrderNumber = hero?.orderNumber?.trim() || "";
+  const routeKm = routeDistanceKm(todayRouteRows);
+  const routeDistanceLabel =
+    routeKm === null ? "" : formatRouteDistance(routeKm, locale);
+  const laterTodayPreview = todayAfterHero.slice(0, 3);
+  const refreshParams = new URLSearchParams();
+  if (searchQuery) refreshParams.set("q", searchQuery);
+  for (const key of ["a", "u", "h"] as const) {
+    const value = resolvedParams[key];
+    if (value) refreshParams.set(key, value);
+  }
+  const refreshHref = refreshParams.size
+    ? `/mine-oppdrag?${refreshParams.toString()}`
+    : "/mine-oppdrag";
 
   const renderCard = (
     wo: ListWorkOrder,
@@ -539,25 +618,51 @@ export default async function TechnicianDashboard({
             </span>
           </div>
 
-          <p className={`text-xs font-medium ${mutedClass}`}>
-            🏢 {wo.customer?.name || t("orders.reportsPage.noCustomer")}
+          <p
+            className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium ${mutedClass}`}
+          >
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Icon name="building" className="h-3.5 w-3.5 shrink-0 opacity-70" />
+              <span className="min-w-0 truncate">
+                {wo.customer?.name || t("orders.reportsPage.noCustomer")}
+              </span>
+            </span>
             {wo.orderNumber && (
-              <span className={`ml-2 rounded px-1.5 py-0.5 font-bold ${metaChip}`}>
+              <span className={`rounded px-1.5 py-0.5 font-bold ${metaChip}`}>
                 {t("orders.list.orderNumber")} {wo.orderNumber}
               </span>
             )}
           </p>
 
           {contact && (
-            <p className={`text-xs font-medium ${mutedClass}`}>
-              👤 {contact.name}
-              {contact.phone ? ` · 📞 ${contact.phone}` : ""}
+            <p
+              className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium ${mutedClass}`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="user" className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                {contact.name}
+              </span>
+              {contact.phone && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon
+                    name="phone"
+                    className="h-3.5 w-3.5 shrink-0 opacity-70"
+                  />
+                  {contact.phone}
+                </span>
+              )}
             </p>
           )}
 
           {address.query && (
-            <p className={`text-xs font-medium ${mutedClass}`}>
-              📍 {address.query}
+            <p
+              className={`flex items-start gap-1.5 text-xs font-medium ${mutedClass}`}
+            >
+              <Icon
+                name="pin"
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70"
+              />
+              <span className="min-w-0">{address.query}</span>
             </p>
           )}
 
@@ -566,14 +671,15 @@ export default async function TechnicianDashboard({
               {wo.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="rounded-full px-2 py-0.5 text-xs font-bold shadow-sm"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold shadow-sm"
                   suppressHydrationWarning
                   style={{
                     backgroundColor: tag.color || "#3b82f6",
                     color: readableTextColor(tag.color || "#3b82f6"),
                   }}
                 >
-                  🏷️ {tag.name}
+                  <Icon name="flag" className="h-3 w-3" />
+                  {tag.name}
                 </span>
               ))}
             </div>
@@ -582,8 +688,9 @@ export default async function TechnicianDashboard({
           {draft && (
             <Link
               href={`/mine-oppdrag/${wo.id}/skjema/${draft.templateId}`}
-              className="signal-button pointer-events-auto relative z-20 w-fit text-xs shadow-sm"
+              className="signal-button pointer-events-auto relative z-20 w-fit gap-1.5 text-xs shadow-sm"
             >
+              <Icon name="pen" className="h-3.5 w-3.5" />
               {t("orders.fieldList.draftBadge", { time: draftTime })}
               <span aria-hidden>·</span>
               {t("orders.fieldList.draftContinue")}
@@ -595,9 +702,10 @@ export default async function TechnicianDashboard({
               <a
                 href={`tel:${phone}`}
                 aria-label={t("orders.fieldList.callPhone", { phone })}
-                className={`pointer-events-auto relative z-20 inline-flex min-h-11 items-center gap-1 rounded-xl border-2 px-3 text-xs font-bold transition ${phoneClass}`}
+                className={`pointer-events-auto relative z-20 inline-flex min-h-11 items-center gap-1.5 rounded-xl border-2 px-3 text-xs font-bold transition ${phoneClass}`}
               >
-                📞 {t("orders.fieldList.call")}
+                <Icon name="phone" className="h-3.5 w-3.5" />
+                {t("orders.fieldList.call")}
               </a>
             )}
             {address.query && (
@@ -629,11 +737,17 @@ export default async function TechnicianDashboard({
           <div
             className={`mt-1 flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs font-medium ${footerClass} ${mutedClass}`}
           >
-            <span className={`rounded-lg px-2 py-1 font-bold ${metaChip}`}>
-              📅 {dateLabel}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold ${metaChip}`}
+            >
+              <Icon name="calendar" className="h-3.5 w-3.5 opacity-70" />
+              {dateLabel}
             </span>
-            <span className={`font-black ${openClass}`}>
+            <span
+              className={`inline-flex items-center gap-1 font-black ${openClass}`}
+            >
               {t("orders.fieldList.openWorkOrder")}
+              <Icon name="chevronRight" className="h-3.5 w-3.5" />
             </span>
           </div>
         </div>
@@ -681,34 +795,79 @@ export default async function TechnicianDashboard({
         )}
 
         {/* STATUSLINJE */}
-        <header className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black uppercase tracking-[0.22em] text-paper/60">
-              <span className="inline-flex h-2 w-2 rounded-full bg-signal shadow-[0_0_0_4px_rgba(217,255,67,0.12)]" />
-              {isFieldHome
-                ? t("orders.fieldList.fieldMode")
-                : t("nav.myWorkOrders")}
-              <span aria-hidden className="text-paper/30">·</span>
-              <span className="normal-case tracking-normal text-paper/80">
-                {todayLabel}
-              </span>
-            </p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-paper sm:text-3xl">
-              {t("orders.fieldList.greeting", {
-                name: user.name || t("orders.detail.roleTechnician"),
-              })}
-            </h1>
-            <p className="mt-1 text-xs font-bold text-paper/70">
-              {user.department
-                ? t("orders.fieldList.department", {
-                    name: user.department.name,
-                  })
-                : t("orders.fieldList.noDepartment")}
-            </p>
+        <header className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-signal px-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-ink">
+              <Icon name="shield" className="h-3.5 w-3.5" />
+              {t("orders.fieldList.onDuty")}
+            </span>
+            <FieldLiveStatus
+              locale={locale}
+              onlineLabel={t("orders.fieldList.liveOnline")}
+              offlineLabel={t("orders.fieldList.liveOffline")}
+            />
+            <span className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-bold text-paper/60">
+              <Icon name="calendar" className="h-3.5 w-3.5" />
+              {todayLabel}
+            </span>
           </div>
-          <LogoutButton className="min-h-11 shrink-0 rounded-xl border border-[#2a3328] bg-field-card px-3 py-2 text-xs font-bold text-paper/85 shadow-sm transition hover:bg-white/10 disabled:opacity-60">
-            {t("orders.fieldList.logOut")}
-          </LogoutButton>
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-black tracking-tight text-paper sm:text-3xl">
+                {t("orders.fieldList.greeting", {
+                  name: user.name || t("orders.detail.roleTechnician"),
+                })}
+              </h1>
+              <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-paper/70">
+                <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0">
+                  {user.department
+                    ? t("orders.fieldList.department", {
+                        name: user.department.name,
+                      })
+                    : t("orders.fieldList.noDepartment")}
+                </span>
+              </p>
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-paper/70">
+                <span>{t("orders.fieldList.todayCount", { count: todayTotal })}</span>
+                <span aria-hidden className="text-paper/30">·</span>
+                <span>{t("orders.fieldList.overdueCount", { count: overdueTotal })}</span>
+                {routeKm !== null ? (
+                  <>
+                    <span aria-hidden className="text-paper/30">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="route" className="h-3.5 w-3.5" />
+                      {t("orders.fieldList.routeDistance", {
+                        distance: routeDistanceLabel,
+                      })}
+                    </span>
+                  </>
+                ) : todayTotal >= 2 ? (
+                  <>
+                    <span aria-hidden className="text-paper/30">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="route" className="h-3.5 w-3.5" />
+                      {t("orders.fieldList.routePending")}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={refreshHref}
+                aria-label={t("orders.fieldList.refresh")}
+                title={t("orders.fieldList.refresh")}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#2a3328] bg-field-card text-paper/80 shadow-sm transition hover:bg-white/10"
+              >
+                <Icon name="sync" className="h-4 w-4" />
+              </Link>
+              <LogoutButton className="min-h-11 shrink-0 rounded-xl border border-[#2a3328] bg-field-card px-3 py-2 text-xs font-bold text-paper/85 shadow-sm transition hover:bg-white/10 disabled:opacity-60">
+                {t("orders.fieldList.logOut")}
+              </LogoutButton>
+            </div>
+          </div>
         </header>
 
         {claimError && (
@@ -737,44 +896,62 @@ export default async function TechnicianDashboard({
                     {heroDateLabel}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="flex shrink-0 flex-col items-end gap-2">
                   <span className="rounded-xl border border-signal/25 bg-field px-3 py-1.5 text-lg font-black leading-none text-signal">
                     {heroTime}
                   </span>
-                  <span
-                    aria-label={t("orders.fieldList.jobPosition", {
-                      current: 1,
-                      total: Math.max(assignedTotal, 1),
-                    })}
-                    className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[11px] font-black text-paper/80"
-                  >
-                    1/{Math.max(assignedTotal, 1)}
-                  </span>
+                  {heroIsToday && todayTotal > 0 && (
+                    <FieldProgressRing
+                      current={1}
+                      total={todayTotal}
+                      label={t("orders.fieldList.jobPosition", {
+                        current: 1,
+                        total: todayTotal,
+                      })}
+                    />
+                  )}
                 </div>
               </div>
 
               <h2 className="mt-4 text-2xl font-black leading-tight tracking-tight text-paper sm:text-3xl">
                 {hero.title}
               </h2>
-              <p className="mt-2 text-sm font-bold text-paper/90">
-                🏢 {hero.customer?.name || t("orders.reportsPage.noCustomer")}
+              <p className="mt-2 flex items-start gap-2 text-sm font-bold text-paper/90">
+                <Icon
+                  name="building"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-signal/80"
+                />
+                <span className="min-w-0">
+                  {hero.customer?.name || t("orders.reportsPage.noCustomer")}
+                </span>
               </p>
+              {heroOrderNumber && (
+                <p className="mt-1 flex items-center gap-2 text-xs font-bold text-paper/65">
+                  <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {t("orders.list.orderNumber")} {heroOrderNumber}
+                  </span>
+                </p>
+              )}
               {heroAddress?.query && (
-                <p className="mt-1 text-sm font-medium text-paper/70">
-                  📍 {heroAddress.query}
+                <p className="mt-1 flex items-start gap-2 text-sm font-medium text-paper/70">
+                  <Icon name="pin" className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="min-w-0">{heroAddress.query}</span>
                 </p>
               )}
               {hero.contact && (
-                <p className="mt-1 text-xs font-medium text-paper/55">
-                  👤 {hero.contact.name}
+                <p className="mt-1 flex items-center gap-2 text-xs font-medium text-paper/55">
+                  <Icon name="user" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0">{hero.contact.name}</span>
                 </p>
               )}
 
               {heroDraft && (
                 <Link
                   href={`/mine-oppdrag/${hero.id}/skjema/${heroDraft.templateId}`}
-                  className="signal-button mt-3 w-fit text-xs shadow-sm"
+                  className="signal-button mt-3 w-fit gap-1.5 text-xs shadow-sm"
                 >
+                  <Icon name="pen" className="h-3.5 w-3.5" />
                   {t("orders.fieldList.draftBadge", { time: heroDraftTime })}
                   <span aria-hidden>·</span>
                   {t("orders.fieldList.draftContinue")}
@@ -793,7 +970,11 @@ export default async function TechnicianDashboard({
                         ? t("orders.fieldList.continueForm")
                         : t("orders.fieldList.startForm")}
                   </span>
-                  <span aria-hidden className="text-2xl">→</span>
+                  <Icon
+                    name="arrowRight"
+                    className="h-6 w-6"
+                    strokeWidth={2.2}
+                  />
                 </Link>
 
                 <div className="flex gap-2">
@@ -805,7 +986,8 @@ export default async function TechnicianDashboard({
                       })}
                       className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper transition hover:border-signal/60 hover:bg-white/10"
                     >
-                      📞 {t("orders.fieldList.call")}
+                      <Icon name="phone" className="h-4 w-4" />
+                      {t("orders.fieldList.call")}
                     </a>
                   )}
                   {heroAddress?.query && (
@@ -813,12 +995,35 @@ export default async function TechnicianDashboard({
                       address={heroAddress.address}
                       postalCode={heroAddress.postalCode}
                       city={heroAddress.city}
-                      label={`🗺️ ${t("orders.fieldList.showMap")}`}
+                      label={t("orders.fieldList.showMap")}
                       newTabLabel={t("orders.fieldList.newTab")}
-                      className="inline-flex min-h-14 flex-1 items-center justify-center rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper no-underline transition hover:border-signal/60 hover:bg-white/10"
+                      className="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#2a3328] bg-white/5 px-4 text-sm font-black text-paper no-underline transition hover:border-signal/60 hover:bg-white/10"
                     />
                   )}
                 </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <FieldStatLink
+                  href="#forfalt"
+                  icon="alert"
+                  value={overdueTotal}
+                  label={t("orders.fieldList.priorityOverdueShort")}
+                  tone={overdueTotal > 0 ? "risk" : "default"}
+                />
+                <FieldStatLink
+                  href="#ledige"
+                  icon="users"
+                  value={unassignedTotal}
+                  label={t("orders.fieldList.priorityAvailableShort")}
+                  tone="signal"
+                />
+                <FieldStatLink
+                  href="#senere"
+                  icon="calendar"
+                  value={todayTotal}
+                  label={t("orders.fieldList.todayPageTitle")}
+                />
               </div>
             </div>
           </section>
@@ -835,6 +1040,73 @@ export default async function TechnicianDashboard({
             </p>
           </section>
         )}
+
+        {/* SENERE I DAG – kompakt forhåndsvisning. Full liste ligger i
+            «Dagens kjøreliste» lenger ned, og helten er alltid utelatt. */}
+        <PaperSheet
+          id="senere-kort"
+          title={t("orders.fieldList.laterToday")}
+          count={todayRemainingCount}
+          hint={t("orders.fieldList.laterPreviewHint")}
+        >
+          {todayRemainingCount === 0 ? (
+            <p className="rounded-xl border border-dashed border-line px-4 py-3 text-sm font-medium text-muted">
+              {t("orders.fieldList.laterTodayEmpty")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {laterTodayPreview.map((wo) => {
+                const time = jobTimeLabel(wo.scheduledFor, locale);
+                return (
+                  <Link
+                    key={wo.id}
+                    href={`/mine-oppdrag/${wo.id}`}
+                    className="flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/55 px-3 py-2 no-underline transition hover:bg-white"
+                  >
+                    <span className="w-11 shrink-0 text-sm font-black tabular-nums text-ink">
+                      {time}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold text-ink">
+                        {wo.title}
+                      </span>
+                      {wo.customer?.name && (
+                        <span className="block truncate text-[11px] font-medium text-muted">
+                          {wo.customer.name}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0">
+                      <StatusBadge status={wo.status} />
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            {todayRemainingCount > 0 ? (
+              <span className="text-xs font-medium text-muted">
+                {t("orders.fieldList.showingCount", {
+                  shown: Math.min(
+                    laterTodayPreview.length,
+                    todayRemainingCount,
+                  ),
+                  total: todayRemainingCount,
+                })}
+              </span>
+            ) : (
+              <span aria-hidden />
+            )}
+            <a
+              href="#senere"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-white/60 px-3 text-sm font-bold text-ink no-underline transition hover:bg-white"
+            >
+              {t("orders.fieldList.seeDay")}
+              <Icon name="arrowRight" className="h-4 w-4" />
+            </a>
+          </div>
+        </PaperSheet>
 
         {/* SØKEFELT */}
         <div className="field-card p-2">
@@ -853,8 +1125,9 @@ export default async function TechnicianDashboard({
             />
             <button
               type="submit"
-              className="min-h-11 whitespace-nowrap rounded-xl bg-white/10 px-5 text-sm font-bold text-paper transition hover:bg-white/15"
+              className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl bg-white/10 px-5 text-sm font-bold text-paper transition hover:bg-white/15"
             >
+              <Icon name="search" className="h-4 w-4" />
               {t("orders.fieldList.search")}
             </button>
             {searchQuery && (
@@ -929,7 +1202,7 @@ export default async function TechnicianDashboard({
         {/* SENERE I DAG – papirark med resten av dagen og kommende jobber. */}
         <PaperSheet
           id="senere"
-          title={t("orders.fieldList.laterToday")}
+          title={t("orders.fieldList.laterTodayFull")}
           count={laterSheetCount}
           hint={t("orders.fieldList.laterTodayHint")}
         >

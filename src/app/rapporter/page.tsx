@@ -17,6 +17,7 @@ import {
 import { pageWindow, parsePage } from "@/lib/pagination";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
+import Icon, { type IconName } from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import {
   HMS_TYPE_MESSAGE_KEYS,
@@ -40,13 +41,13 @@ const PAGE_SIZE = REPORTS_PAGE_SIZE;
 const FILTER_OPTION_LIMIT = 300;
 
 const RANGES = [
-  { key: "denne-maneden", labelKey: "orders.reportsPage.thisMonth", icon: "📆" },
-  { key: "forrige-maned", labelKey: "orders.reportsPage.lastMonth", icon: "🗓️" },
-  { key: "alle", labelKey: "orders.reportsPage.all", icon: "📂" },
+  { key: "denne-maneden", labelKey: "orders.reportsPage.thisMonth", icon: "calendar" },
+  { key: "forrige-maned", labelKey: "orders.reportsPage.lastMonth", icon: "calendar" },
+  { key: "alle", labelKey: "orders.reportsPage.all", icon: "folder" },
 ] as const satisfies ReadonlyArray<{
   key: ReportRangeKey;
   labelKey: string;
-  icon: string;
+  icon: IconName;
 }>;
 
 const SORTS = [
@@ -265,20 +266,22 @@ export default async function ReportsPage({
         <PageHeader
           title={t("orders.reportsPage.title")}
           subtitle={`${t("orders.reportsPage.subtitle")} • ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(filters.range)})`}
-          icon="📋"
+          icon={<Icon name="clipboard" className="h-5 w-5" />}
           actions={
             <>
               <Link
                 href="/"
-                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
               >
-                ← {t("orders.reportsPage.dashboard")}
+                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+                {t("orders.reportsPage.dashboard")}
               </Link>
               <Link
                 href="/oppdrag"
-                className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
               >
-                📂 {t("orders.reportsPage.orders")}
+                <Icon name="folder" className="h-4 w-4 shrink-0" />
+                {t("orders.reportsPage.orders")}
               </Link>
             </>
           }
@@ -300,7 +303,7 @@ export default async function ReportsPage({
                       : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
                   }`}
                 >
-                  <span className="leading-none">{range.icon}</span>
+                  <Icon name={range.icon} className="h-4 w-4 shrink-0" />
                   <span>{t(range.labelKey)}</span>
                   <span
                     className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
@@ -330,13 +333,14 @@ export default async function ReportsPage({
             </Link>
             <Link
               href={listHref({ category: "HMS" })}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
                 filters.category === "HMS"
                   ? "bg-blue-700 border-blue-700 text-white"
                   : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
               }`}
             >
-              🛡️ {t("orders.templateGroups.hms")}
+              <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
+              {t("orders.templateGroups.hms")}
             </Link>
           </div>
 
@@ -499,7 +503,10 @@ export default async function ReportsPage({
                   defaultChecked={filters.deviationOnly}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
                 />
-                <span>❌ {t("orders.reportsPage.deviationOnly")}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon name="alert" className="h-3.5 w-3.5 shrink-0" />
+                  {t("orders.reportsPage.deviationOnly")}
+                </span>
               </label>
             </div>
 
@@ -525,7 +532,7 @@ export default async function ReportsPage({
         {/* LISTE */}
         {reports.length === 0 ? (
           <EmptyState
-            icon="📋"
+            icon={<Icon name="clipboard" className="h-8 w-8" />}
             title={
               hasActiveFilters
                 ? t("orders.reportsPage.emptyFilteredTitle")
@@ -622,23 +629,27 @@ export default async function ReportsPage({
                     <div className="min-w-0">
                       <p className="font-black text-gray-900 truncate">
                         {hms && (
-                          <span className="inline-block align-middle mr-2 bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
-                            🛡️ {t("orders.templateGroups.hmsBadge")}
+                          <span className="mr-2 inline-flex items-center gap-1 bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                            <Icon name="shield" className="h-3 w-3 shrink-0" />
+                            {t("orders.templateGroups.hmsBadge")}
                           </span>
                         )}
                         {reportDisplayName(report, t("orders.reportsPage.defaultTitle"))}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        📅 {formatDateLocalized(
+                      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500">
+                        <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
+                        {formatDateLocalized(
                           report.completedAt,
                           locale,
                           undefined,
                           t("orders.reportsPage.noDate"),
                         )}
-                        {" • 🏢 "}
+                        <span aria-hidden>•</span>
+                        <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
                         {workOrder?.customer?.name ||
                           t("orders.reportsPage.internalOrder")}
-                        {" • 📂 "}
+                        <span aria-hidden>•</span>
+                        <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
                         {workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
                         {workOrder?.orderNumber
                           ? ` • #${workOrder.orderNumber}`
@@ -656,15 +667,20 @@ export default async function ReportsPage({
                     <div className="flex flex-wrap items-center gap-2">
                       {summary.usesUnits && unitCount > 0 ? (
                         <span
-                          className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                          className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full border ${
                             deviations > 0
                               ? "bg-red-50 text-red-800 border-red-200"
                               : "bg-green-50 text-green-800 border-green-200"
                           }`}
                         >
-                          {deviations > 0
-                            ? t("orders.reportsPage.deviations", { count: deviations })
-                            : `✅ ${t("orders.reportsPage.units", { count: unitCount })}`}
+                          {deviations > 0 ? (
+                            t("orders.reportsPage.deviations", { count: deviations })
+                          ) : (
+                            <>
+                              <Icon name="check" className="h-3 w-3 shrink-0" />
+                              {t("orders.reportsPage.units", { count: unitCount })}
+                            </>
+                          )}
                         </span>
                       ) : !summary.usesUnits ? (
                         <span className="text-xs font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
@@ -705,32 +721,36 @@ export default async function ReportsPage({
 
                   {shownUnitNames.length > 0 && (
                     <p
-                      className="mt-1 min-w-0 truncate text-xs text-gray-500"
+                      className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-gray-500"
                       title={unitNames.join(", ")}
                     >
-                      🔧{" "}
-                      {t("customers.reportList.unitNames", {
-                        count: unitCount,
-                        names: shownUnitNames.join(", "),
-                      })}
-                      {extraUnits > 0
-                        ? ` ${t("customers.reportList.moreUnits", {
-                            count: extraUnits,
-                          })}`
-                        : ""}
+                      <Icon name="wrench" className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {t("customers.reportList.unitNames", {
+                          count: unitCount,
+                          names: shownUnitNames.join(", "),
+                        })}
+                        {extraUnits > 0
+                          ? ` ${t("customers.reportList.moreUnits", {
+                              count: extraUnits,
+                            })}`
+                          : ""}
+                      </span>
                     </p>
                   )}
 
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 text-xs">
-                    <span className="font-bold text-gray-600">
-                      ✍️ {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
+                    <span className="inline-flex items-center gap-1.5 font-bold text-gray-600">
+                      <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
+                      {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
                     </span>
                     <div className="flex items-center gap-2">
                       <Link
                         href={reportHref(report.workOrderId, report.id)}
-                        className="rounded-xl bg-blue-700 px-3 py-1.5 font-bold text-white transition hover:bg-blue-800"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-blue-700 px-3 py-1.5 font-bold text-white transition hover:bg-blue-800"
                       >
-                        📄 {t("customers.reportList.open")}
+                        <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+                        {t("customers.reportList.open")}
                       </Link>
                       {hasMoreActions && (
                         <details className="relative">
@@ -739,15 +759,15 @@ export default async function ReportsPage({
                             title={t("customers.reportList.moreActions")}
                             className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-gray-200 bg-white font-black text-gray-600 transition hover:bg-gray-100 [&::-webkit-details-marker]:hidden"
                           >
-                            ⋯
+                            <Icon name="more" className="h-4 w-4" />
                           </summary>
                           <div className="absolute right-0 z-30 mt-1 w-56 space-y-1 rounded-xl border-2 border-gray-200 bg-white p-2 shadow-xl">
                             {report.revision > 0 && (
                               <Link
                                 href={revisionsHref(report.workOrderId, report.id)}
-                                className="block rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
                               >
-                                🕘{" "}
+                                <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
                                 {t("customers.reportList.revision", {
                                   count: report.revision,
                                 })}
@@ -756,17 +776,19 @@ export default async function ReportsPage({
                             {canOpenForm && (
                               <Link
                                 href={`/mine-oppdrag/${report.workOrderId}/skjema/${report.templateId}?returnTo=${encodeURIComponent(formReturnTo)}`}
-                                className="block rounded-lg px-3 py-2 font-bold text-amber-800 transition hover:bg-amber-50"
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-bold text-amber-800 transition hover:bg-amber-50"
                               >
-                                ✍️ {t("orders.reportsPage.openForm")}
+                                <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
+                                {t("orders.reportsPage.openForm")}
                               </Link>
                             )}
                             {canOpenWorkOrder && (
                               <Link
                                 href={`/oppdrag/${report.workOrderId}`}
-                                className="block rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
                               >
-                                📂 {t("orders.reportsPage.openWorkOrder")}
+                                <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                                {t("orders.reportsPage.openWorkOrder")}
                               </Link>
                             )}
                           </div>

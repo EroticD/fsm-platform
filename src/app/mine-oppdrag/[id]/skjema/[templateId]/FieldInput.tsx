@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import ImageUploadField from "@/components/ImageUploadField";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import Icon from "@/components/icons";
 import {
   commentTriggerOptions,
   fieldOptions,
@@ -70,8 +71,9 @@ function StatusInput({
 
   return (
     <fieldset className="bg-white/50 p-4 rounded-xl border-2 border-line space-y-3">
-      <legend className="block text-sm font-black text-ink">
-        🧭 {field.label} {field.required && <span className="text-red-500">*</span>}
+      <legend className="flex items-center gap-2 text-sm font-black text-ink">
+        <Icon name="flag" className="h-4 w-4 shrink-0" />
+        {field.label} {field.required && <span className="text-red-500">*</span>}
       </legend>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -141,6 +143,7 @@ export default function FieldInput({
   defaultComment,
   onNeedsComment,
   onValueChange,
+  onImageCountChange,
   workOrderId,
   anchorId,
 }: {
@@ -154,6 +157,8 @@ export default function FieldInput({
   onNeedsComment?: (needs: boolean) => void;
   /** Varsler skjemaet om svaret, slik at betingede felt kan vises/skjules. */
   onValueChange?: (value: string) => void;
+  /** Antall ferdig opplastede bilder, til den levende stegstripen. */
+  onImageCountChange?: (count: number) => void;
   /** Knytter opplastede bilder til oppdraget, slik at tilgangen kan styres. */
   workOrderId?: string;
   /** Valgfri anker-id, slik at stegstripen kan hoppe direkte til bildene. */
@@ -222,8 +227,9 @@ export default function FieldInput({
     case "NUMBER":
       return (
         <div>
-          <label htmlFor={`${fieldId}-number`} className="block text-sm font-black text-ink mb-2">
-            🔢 {field.label} {field.required && <span className="text-red-500">*</span>}
+          <label htmlFor={`${fieldId}-number`} className="mb-2 flex items-center gap-2 text-sm font-black text-ink">
+            <Icon name="list" className="h-4 w-4 shrink-0" />
+            {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             id={`${fieldId}-number`}
@@ -242,8 +248,9 @@ export default function FieldInput({
     case "DATE":
       return (
         <div>
-          <label htmlFor={`${fieldId}-date`} className="block text-sm font-black text-ink mb-2">
-            📅 {field.label} {field.required && <span className="text-red-500">*</span>}
+          <label htmlFor={`${fieldId}-date`} className="mb-2 flex items-center gap-2 text-sm font-black text-ink">
+            <Icon name="clock" className="h-4 w-4 shrink-0" />
+            {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             id={`${fieldId}-date`}
@@ -260,8 +267,9 @@ export default function FieldInput({
     case "SELECT":
       return (
         <div>
-          <label htmlFor={`${fieldId}-select`} className="block text-sm font-black text-ink mb-2">
-            📂 {field.label} {field.required && <span className="text-red-500">*</span>}
+          <label htmlFor={`${fieldId}-select`} className="mb-2 flex items-center gap-2 text-sm font-black text-ink">
+            <Icon name="list" className="h-4 w-4 shrink-0" />
+            {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
             id={`${fieldId}-select`}
@@ -285,13 +293,14 @@ export default function FieldInput({
 
     case "IMAGE":
       return (
-        <div id={anchorId} className={anchorId ? "scroll-mt-24" : undefined}>
+        <div id={anchorId} className={anchorId ? "scroll-mt-48" : undefined}>
           <ImageUploadField
             name={name}
             label={field.label}
             required={field.required}
             initialUrls={parseImageUrls(defaultValue)}
             workOrderId={workOrderId}
+            onCountChange={onImageCountChange}
           />
         </div>
       );
@@ -299,8 +308,9 @@ export default function FieldInput({
     case "SIGNATURE":
       return (
         <div>
-          <label htmlFor={`${fieldId}-signature`} className="block text-sm font-black text-ink mb-2">
-            ✍️ {field.label} {field.required && <span className="text-red-500">*</span>}
+          <label htmlFor={`${fieldId}-signature`} className="mb-2 flex items-center gap-2 text-sm font-black text-ink">
+            <Icon name="pen" className="h-4 w-4 shrink-0" />
+            {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
             id={`${fieldId}-signature`}

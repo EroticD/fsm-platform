@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatDateLocalized } from "@/lib/dates";
 import { markdownToPlainText } from "@/lib/markdown";
@@ -31,15 +32,19 @@ export default async function CustomerOrdersTab({
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
       <div className="flex justify-between items-center mb-4 border-b pb-2">
         <div>
-          <h2 className="text-lg font-black text-gray-900">📂 {t("customers.orders.title")}</h2>
+          <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+            <Icon name="folder" className="h-5 w-5 shrink-0" />
+            {t("customers.orders.title")}
+          </h2>
           <p className="text-xs text-gray-500 mt-0.5">{t("customers.orders.description")}</p>
         </div>
         {canCreateWorkOrders && (
           <Link
             href={`/oppdrag/ny?customerId=${customerId}`}
-            className="bg-blue-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-black hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 bg-blue-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-black hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
           >
-            ➕ {t("customers.orders.newOrder")}
+            <Icon name="plus" className="h-4 w-4 shrink-0" />
+            {t("customers.orders.newOrder")}
           </Link>
         )}
       </div>
@@ -69,9 +74,13 @@ export default async function CustomerOrdersTab({
                         t("customers.overview.noDate"),
                       ),
                     })}
-                    {wo._count.reports > 0
-                      ? ` • 📋 ${t("customers.orders.reportsDone", { count: wo._count.reports })}`
-                      : ""}
+                    {wo._count.reports > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden>•</span>
+                        <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
+                        {t("customers.orders.reportsDone", { count: wo._count.reports })}
+                      </span>
+                    ) : null}
                   </p>
                 </div>
                 <StatusBadge status={wo.status} />
@@ -90,8 +99,9 @@ export default async function CustomerOrdersTab({
                     ? wo.technicians.map((technician) => technician.name).join(", ")
                     : t("customers.orders.unassigned")}
                 </span>
-                <span className="font-black text-blue-600 hover:underline">
-                  {t("customers.orders.viewDetails")} &rarr;
+                <span className="inline-flex items-center gap-1 font-black text-blue-600 hover:underline">
+                  {t("customers.orders.viewDetails")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
                 </span>
               </div>
             </Link>
@@ -104,9 +114,10 @@ export default async function CustomerOrdersTab({
           {orderPage > 1 && (
             <Link
               href={`?tab=oppdrag&side=${orderPage - 1}`}
-              className="text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
             >
-              &larr; {t("customers.orders.previous")}
+              <Icon name="arrowRight" className="h-3.5 w-3.5 rotate-180" />
+              {t("customers.orders.previous")}
             </Link>
           )}
           <span className="text-gray-500">
@@ -119,9 +130,10 @@ export default async function CustomerOrdersTab({
           {orderPage < orderTotalPages && (
             <Link
               href={`?tab=oppdrag&side=${orderPage + 1}`}
-              className="text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
             >
-              {t("customers.orders.next")} &rarr;
+              {t("customers.orders.next")}
+              <Icon name="arrowRight" className="h-3.5 w-3.5" />
             </Link>
           )}
         </div>

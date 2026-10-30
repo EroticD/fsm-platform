@@ -18,6 +18,7 @@ import {
 } from "@/lib/search-recent";
 import { highlightSearchText } from "@/lib/search-highlight";
 import { formatSearchSubtitle } from "@/components/search/search-subtitle";
+import Icon, { type IconName } from "@/components/icons";
 
 type SearchItem = {
   id: string;
@@ -64,6 +65,24 @@ type SearchStatus = "idle" | "loading" | "success" | "error";
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 180;
 const MAX_ITEMS_PER_GROUP = 5;
+
+const SEARCH_GROUP_ICONS: Record<string, IconName> = {
+  customer: "building",
+  workOrder: "clipboard",
+  tag: "flag",
+  unit: "wrench",
+  contact: "user",
+  report: "file",
+  comment: "note",
+  user: "users",
+  template: "list",
+  folder: "folder",
+  document: "file",
+};
+
+function searchGroupIcon(kind: string): IconName {
+  return SEARCH_GROUP_ICONS[kind] ?? "search";
+}
 
 /** Uthever søkeordene i en tittel/undertittel uten å sette inn HTML. */
 function HighlightedText({ text, query }: { text: string; query: string }) {
@@ -152,7 +171,10 @@ function SearchPageShortcut() {
       onClick={focusPageSearch}
       className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100 sm:hidden"
     >
-      <span>🔍 {t("components.search.searchFieldShortcut")}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <Icon name="search" className="h-4 w-4 shrink-0" />
+        {t("components.search.searchFieldShortcut")}
+      </span>
       <kbd
         aria-hidden
         className="rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-bold text-gray-500"
@@ -488,9 +510,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   return (
     <div ref={rootRef} className="relative min-w-0">
       <div className="flex min-w-0 items-center gap-2 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3 shadow-sm transition-colors focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/25 focus-within:ring-offset-1">
-        <span aria-hidden className="text-lg leading-none">
-          🔍
-        </span>
+        <Icon name="search" className="h-4 w-4 shrink-0 text-gray-500" />
         <input
           ref={inputRef}
           type="text"
@@ -534,7 +554,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
             aria-label={t("components.search.clear")}
             className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-lg leading-none text-gray-600 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
           >
-            <span aria-hidden>×</span>
+            <Icon name="close" className="h-4 w-4" />
           </button>
         )}
         {query.length === 0 && (
@@ -628,9 +648,12 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                         role="presentation"
                         className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
                       >
-                        <span className="min-w-0 truncate">
-                          <span aria-hidden>{group.icon}</span>{" "}
-                          {groupLabel(group)}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Icon
+                            name={searchGroupIcon(group.kind)}
+                            className="h-3.5 w-3.5 shrink-0"
+                          />
+                          <span className="truncate">{groupLabel(group)}</span>
                         </span>
                         {group.total > 0 && (
                           <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal">
@@ -692,7 +715,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                                 rel="noopener"
                                 className="flex min-w-11 shrink-0 items-center justify-center border-l border-gray-100 px-3 text-base text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
                               >
-                                <span aria-hidden>📄</span>
+                                <Icon name="file" className="h-4 w-4" />
                                 <span className="sr-only">
                                   {t(
                                     item.directLabelKey ??
@@ -735,9 +758,10 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                         isActive ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <span aria-hidden className="shrink-0 text-xs text-gray-500">
-                        🕘
-                      </span>
+                      <Icon
+                        name="clock"
+                        className="h-3.5 w-3.5 shrink-0 text-gray-500"
+                      />
                       <span className="min-w-0 truncate text-sm font-medium text-gray-800">
                         {value}
                       </span>

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import SignatureCanvas from "react-signature-canvas";
+import Icon from "@/components/icons";
 
 /**
  * Signaturfelt som tegnes med finger eller mus.
@@ -26,6 +27,7 @@ export default function SignaturePad({
   helperText,
   existingUrl,
   initialDataUrl,
+  onSignedChange,
 }: {
   name: string;
   label: string;
@@ -40,6 +42,8 @@ export default function SignaturePad({
    * en gjenopprettet kladd). Legges i skjemaet slik at den ikke går tapt.
    */
   initialDataUrl?: string;
+  /** Varsler skjemaet om feltet har en gyldig signatur akkurat nå. */
+  onSignedChange?: (signed: boolean) => void;
 }) {
   const t = useTranslations("common");
   const padRef = useRef<SignatureCanvas>(null);
@@ -58,6 +62,14 @@ export default function SignaturePad({
   const [showExisting, setShowExisting] = useState(
     Boolean(initialDataUrl || existingUrl),
   );
+
+  // Rapporterer faktisk signaturstatus til skjemaet. En beholdt «tidligere»
+  // signatur teller som signert helt til montøren fjerner den.
+  useEffect(() => {
+    onSignedChange?.(
+      Boolean(dataUrl) || (Boolean(existingUrl) && showExisting),
+    );
+  }, [dataUrl, existingUrl, onSignedChange, showExisting]);
 
   const handleEnd = () => {
     const pad = padRef.current;
@@ -229,13 +241,14 @@ export default function SignaturePad({
             <button
               type="button"
               onClick={clear}
-              className={`inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-bold transition ${
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition ${
                 expanded
                   ? "bg-white/10 text-paper hover:bg-white/20"
                   : "bg-white/50 text-ink hover:bg-white/70"
               }`}
             >
-              🧹 {t("components.signature.clear")}
+              <Icon name="trash" className="h-4 w-4" />
+              {t("components.signature.clear")}
             </button>
           )}
           <button
@@ -243,14 +256,15 @@ export default function SignaturePad({
             onClick={() => setExpanded((current) => !current)}
             aria-expanded={expanded}
             ref={triggerRef}
-            className={`inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-bold transition ${
+            className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition ${
               expanded
                 ? "signal-button"
                 : "border border-line bg-white text-ink hover:bg-white"
             }`}
           >
+            <Icon name={expanded ? "close" : "pen"} className="h-4 w-4" />
             {expanded
-              ? `✕ ${t("components.signature.closeFullscreen")}`
+              ? t("components.signature.closeFullscreen")
               : t("components.signature.fullscreen")}
           </button>
         </div>
@@ -331,11 +345,12 @@ export default function SignaturePad({
         }`}
       >
         <summary
-          className={`cursor-pointer text-xs font-bold ${
+          className={`flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-bold [&::-webkit-details-marker]:hidden ${
             expanded ? "text-paper" : "text-ink"
           }`}
         >
-          ⌨️ {t("p3.signature.keyboardFallback")}
+          <Icon name="edit" className="h-4 w-4" />
+          {t("p3.signature.keyboardFallback")}
         </summary>
         <p
           className={`mt-2 text-xs ${

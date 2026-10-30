@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { getTranslations } from "next-intl/server";
 import TemplateBuilder from "./TemplateBuilder";
 import { saveTemplate } from "./actions";
@@ -33,11 +34,15 @@ export default async function EditTemplatePage({
         {/* HEADER */}
         <div className="flex justify-between items-center border-b pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">📝 {t("settings.templateEditor.title")}</h1>
+            <h1 className="flex items-center gap-2 text-3xl font-bold text-gray-900">
+              <Icon name="pen" className="h-6 w-6 shrink-0" />
+              {t("settings.templateEditor.title")}
+            </h1>
             <p className="text-gray-500 mt-1 text-sm">{t("settings.templateEditor.subtitle")}</p>
           </div>
-          <Link href="/innstillinger?tab=maler" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            &larr; {t("settings.templateEditor.cancel")}
+          <Link href="/innstillinger?tab=maler" className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("settings.templateEditor.cancel")}
           </Link>
         </div>
 

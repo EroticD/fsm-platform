@@ -26,6 +26,7 @@ import CustomerToast from "@/components/customer/CustomerToast";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import PageHeader from "@/components/PageHeader";
+import Icon from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import SectionCard from "@/components/SectionCard";
 import SubmitButton from "@/components/SubmitButton";
@@ -181,8 +182,15 @@ export default async function KunderPage({
   };
 
   const sortIndicator = (key: SortKey) => {
-    if (sortKey !== key) return "↕";
-    return sortDir === "asc" ? "↑" : "↓";
+    if (sortKey !== key) {
+      return <Icon name="chevronDown" className="h-3.5 w-3.5 opacity-40" />;
+    }
+    return (
+      <Icon
+        name="chevronDown"
+        className={`h-3.5 w-3.5 ${sortDir === "asc" ? "rotate-180" : ""}`}
+      />
+    );
   };
 
   const ariaSort = (key: SortKey): "ascending" | "descending" | "none" => {
@@ -210,7 +218,8 @@ export default async function KunderPage({
                 </Link>
               )}
               <Link href="/" className="text-blue-600 hover:underline font-medium">
-                &larr; {t("customers.list.backToDashboard")}
+                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+                {t("customers.list.backToDashboard")}
               </Link>
             </>
           }
@@ -224,8 +233,9 @@ export default async function KunderPage({
         />
 
         {varsel === "enheter" && (
-          <div className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900">
-            🔧 {t("customers.list.unitsNotice")}
+          <div className="mb-4 flex items-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900">
+            <Icon name="wrench" className="h-4 w-4 shrink-0" />
+            {t("customers.list.unitsNotice")}
           </div>
         )}
 
@@ -239,8 +249,9 @@ export default async function KunderPage({
             standard slik at kundelisten er det første brukeren ser. */}
         {office && !showDeleted && (
           <details className="mb-8 rounded-2xl border-2 border-gray-200 bg-white shadow-sm">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-50/60 sm:px-6">
-              ➕ {t("customers.list.newCustomer")}
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-50/60 sm:px-6">
+              <Icon name="plus" className="h-4 w-4 shrink-0" />
+              {t("customers.list.newCustomer")}
             </summary>
             <div className="border-t-2 border-gray-100 p-4 sm:p-6">
               <form action={addCustomer} className="flex flex-col sm:flex-row gap-4">
@@ -347,7 +358,7 @@ export default async function KunderPage({
                 <tr>
                   <td colSpan={7} className="p-4">
                     <EmptyState
-                      icon="🏢"
+                      icon={<Icon name="building" className="h-8 w-8" />}
                       title={
                         search
                           ? t("customers.list.noMatches", { query: search })
@@ -463,7 +474,7 @@ export default async function KunderPage({
           {customers.length === 0 ? (
             <div className="p-4 sm:hidden">
               <EmptyState
-                icon="🏢"
+                icon={<Icon name="building" className="h-8 w-8" />}
                 title={
                   search
                     ? t("customers.list.noMatches", { query: search })

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import CustomerSelect from "./CustomerSelect";
 import ErrorBanner from "@/components/ErrorBanner";
+import Icon from "@/components/icons";
 import FormValuePersistence from "@/components/FormValuePersistence";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SubmitButton from "@/components/SubmitButton";
@@ -240,8 +241,9 @@ export default async function AdminCreateWorkOrderPage({
 
               {hmsTemplates.length > 0 && (
                 <div className="min-w-0 space-y-1 border-t border-indigo-200 pt-2">
-                  <p className="text-xs font-black text-indigo-900 uppercase tracking-wider px-1">
-                    🛡️ {t("orders.templateGroups.hms")}
+                  <p className="flex items-center gap-1.5 text-xs font-black text-indigo-900 uppercase tracking-wider px-1">
+                    <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
+                    {t("orders.templateGroups.hms")}
                   </p>
                   {hmsTemplates.map((template) => (
                     <label key={template.id} className="flex min-w-0 flex-wrap items-center gap-2 cursor-pointer hover:bg-indigo-100 p-2 rounded-lg transition">

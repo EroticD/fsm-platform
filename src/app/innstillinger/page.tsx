@@ -15,6 +15,7 @@ import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import PageHeader from "@/components/PageHeader";
+import Icon from "@/components/icons";
 import SectionCard from "@/components/SectionCard";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
@@ -161,10 +162,11 @@ export default async function SettingsPage({
               ? t("settings.subtitle")
               : t("settings.subtitleReadOnly")
           }
-          icon="⚙️"
+          icon={<Icon name="settings" className="h-5 w-5" />}
           actions={
-            <Link href="/" className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-              &larr; {t("settings.backToDashboard")}
+            <Link href="/" className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("settings.backToDashboard")}
             </Link>
           }
         />
@@ -271,7 +273,12 @@ export default async function SettingsPage({
         {currentTab === "roller" && isAdmin && (
           <div>
             <SectionCard
-              title={`🔐 ${t("settings.roles.title")}`}
+              title={
+                <>
+                  <Icon name="shield" className="inline-block h-4 w-4 align-[-0.125em]" />{" "}
+                  {t("settings.roles.title")}
+                </>
+              }
               description={t("settings.roles.description")}
               className="mb-6"
             />
@@ -286,7 +293,12 @@ export default async function SettingsPage({
         {currentTab === "avdelinger" && isAdmin && (
           <div>
             <SectionCard
-              title={`🏷️ ${t("settings.departments.title")}`}
+              title={
+                <>
+                  <Icon name="building" className="inline-block h-4 w-4 align-[-0.125em]" />{" "}
+                  {t("settings.departments.title")}
+                </>
+              }
               description={t("settings.departments.description")}
               className="mb-6"
             />

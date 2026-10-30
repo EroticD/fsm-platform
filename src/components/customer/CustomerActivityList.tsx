@@ -3,14 +3,15 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { formatDateTimeLocalized } from "@/lib/dates";
 import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import type { CustomerDetailData } from "@/server/customers";
+import Icon, { type IconName } from "@/components/icons";
 
 type ActivityItem = CustomerDetailData["activityFeed"][number];
 
-const KIND_ICON: Record<ActivityItem["kind"], string> = {
-  customer: "🏢",
-  workOrder: "📂",
-  report: "📋",
-  contact: "👤",
+const KIND_ICON: Record<ActivityItem["kind"], IconName> = {
+  customer: "building",
+  workOrder: "folder",
+  report: "clipboard",
+  contact: "user",
 };
 
 const KIND_LABEL_KEY: Record<ActivityItem["kind"], string> = {
@@ -47,7 +48,7 @@ export default async function CustomerActivityList({
         const body = (
           <>
             <span className="mt-0.5 text-base leading-none" aria-hidden="true">
-              {KIND_ICON[item.kind]}
+              <Icon name={KIND_ICON[item.kind]} className="h-4 w-4" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -94,9 +95,10 @@ export default async function CustomerReportsTab({
           )}
           <Link
             href={listHref}
-            className="inline-flex min-h-11 items-center rounded-full border border-[var(--ink,#101310)] px-3 font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--ink,#101310)] px-3 font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
           >
-            {t("customers.reports.allReports")} →
+            {t("customers.reports.allReports")}
+            <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
           </Link>
         </div>
       </div>
@@ -154,8 +156,8 @@ export default async function CustomerReportsTab({
                         t("orders.reportsPage.defaultTitle"),
                       )}
                     </h3>
-                    <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
-                      📅{" "}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs leading-5 text-[var(--muted,#62685f)]">
+                      <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
                       {formatDateLocalized(
                         report.completedAt,
                         locale,
@@ -167,7 +169,8 @@ export default async function CustomerReportsTab({
                             number: report.reportNumber,
                           })}`
                         : ""}
-                      {" • 📂 "}
+                      <span aria-hidden>•</span>
+                      <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
                       {report.workOrder.title}
                       {report.workOrder.orderNumber
                         ? ` • #${report.workOrder.orderNumber}`
@@ -217,8 +220,8 @@ export default async function CustomerReportsTab({
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--muted,#62685f)]">
                   {summary.usesUnits ? (
                     <>
-                      <span className="font-bold">
-                        🔧{" "}
+                      <span className="inline-flex items-center gap-1 font-bold">
+                        <Icon name="wrench" className="h-3.5 w-3.5 shrink-0" />
                         {t("customers.reports.unitCount", {
                           count: summary.unitCount,
                         })}
@@ -254,8 +257,8 @@ export default async function CustomerReportsTab({
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line,#dedcd1)] pt-3">
-                  <span className="text-xs font-bold text-[var(--muted,#62685f)]">
-                    ✍️{" "}
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                    <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
                     {report.technicianName ||
                       report.lockedByName ||
                       t("orders.reportsPage.unsigned")}
@@ -291,9 +294,10 @@ export default async function CustomerReportsTab({
               })}{" "}
               <Link
                 href={listHref}
-                className="inline-flex min-h-11 items-center font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                className="inline-flex min-h-11 items-center gap-1 font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
               >
-                {t("customers.reports.allReports")} →
+                {t("customers.reports.allReports")}
+                <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
               </Link>
             </p>
           )}

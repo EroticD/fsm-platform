@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
 import { canAccessReportWorkOrder } from "@/lib/report-scope";
 import { formatDateLocalized } from "@/lib/dates";
+import Icon from "@/components/icons";
 import {
   reportAcknowledgement,
   reportUnitSummary,
@@ -291,8 +292,8 @@ export default async function ReportViewerPage({
                 </span>
               )}
               {summary && (
-                <span className="rounded-full border border-gray-600 bg-gray-800 px-2 py-0.5 font-bold text-gray-200">
-                  🔧{" "}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-600 bg-gray-800 px-2 py-0.5 font-bold text-gray-200">
+                  <Icon name="wrench" className="h-3.5 w-3.5 shrink-0" />
                   {summary.usesUnits
                     ? t("orders.revisions.unitSummary", {
                         count: summary.unitCount,

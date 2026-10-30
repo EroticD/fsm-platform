@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 import { readPendingTwoFactor } from "@/lib/session-token";
 import { verifyRecoveryCodeAction, verifyTwoFactorAction } from "../actions";
 import SubmitButton from "../SubmitButton";
+import Icon from "@/components/icons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -66,7 +67,7 @@ export default async function TwoFactorPage({
             suppressHydrationWarning
             style={{ backgroundColor: "var(--primary-color)" }}
           >
-            🔐
+            <Icon name="shield" className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{t("auth.twoFactor.title")}</h1>
           <p className="text-sm text-gray-500 mt-1 text-center">

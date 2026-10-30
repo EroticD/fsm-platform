@@ -16,6 +16,7 @@ import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 import NotificationSoundToggle from "./NotificationSoundToggle";
 import LogoutButton from "./LogoutButton";
+import Icon from "./icons";
 import { readableTextColor } from "@/lib/colors";
 import {
   activeNavHref,
@@ -334,7 +335,10 @@ export default function BrandedHeader({
               aria-expanded={isMenuOpen}
               aria-controls={MENU_ID}
             >
-              {isMenuOpen ? "✕" : "☰"}
+              <Icon
+                name={isMenuOpen ? "close" : "menu"}
+                className="h-6 w-6"
+              />
             </button>
           )}
         </div>
@@ -375,18 +379,16 @@ export default function BrandedHeader({
                     : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
                 }`}
               >
-                <span aria-hidden>🔍</span>
+                <Icon name="search" className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">
                   {t("components.header.search")}
                 </span>
-                <span
-                  aria-hidden
-                  className={`text-xs ${
+                <Icon
+                  name="chevronDown"
+                  className={`h-4 w-4 shrink-0 transition-transform ${
                     isField ? "text-white/40" : "text-gray-400"
-                  }`}
-                >
-                  {mobileSearchOpen ? "▲" : "▼"}
-                </span>
+                  } ${mobileSearchOpen ? "rotate-180" : ""}`}
+                />
               </button>
               {mobileSearchOpen && (
                 <div id="mobile-global-search" className="mt-2">
@@ -408,13 +410,16 @@ export default function BrandedHeader({
                 aria-controls="mobile-global-search"
                 className="flex min-h-11 w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
               >
-                <span aria-hidden>🔍</span>
+                <Icon name="search" className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">
                   {t("components.header.search")}
                 </span>
-                <span aria-hidden className="text-xs text-gray-400">
-                  {mobileSearchOpen ? "▲" : "▼"}
-                </span>
+                <Icon
+                  name="chevronDown"
+                  className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                    mobileSearchOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
               {mobileSearchOpen && (
                 <div id="mobile-global-search" className="mt-2">
@@ -456,7 +461,7 @@ export default function BrandedHeader({
                 className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2.5 text-2xl leading-none text-gray-600 hover:bg-gray-100"
                 aria-label={t("components.header.closeMenu")}
               >
-                ✕
+                <Icon name="close" className="h-5 w-5" />
               </button>
             </div>
 
@@ -644,7 +649,7 @@ function BreadcrumbItems({
         return (
           <li key={href} className="flex min-w-0 items-center gap-1.5">
             <span aria-hidden className={separatorClass}>
-              /
+              <Icon name="chevronRight" className="h-3 w-3" />
             </span>
             {isLast ? (
               <span
@@ -724,6 +729,7 @@ function RailUserControl({
   email?: string | null;
 }) {
   const t = useTranslations("common");
+  const hasIdentity = Boolean(name?.trim() || email?.trim());
   const displayName = name?.trim() || email?.trim() || t("components.header.user");
   const initials =
     displayName
@@ -740,7 +746,7 @@ function RailUserControl({
       className="hidden min-h-11 min-w-11 items-center gap-2 rounded-xl px-1.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-black/5 lg:flex"
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[10px] font-bold text-[var(--paper)]">
-        {initials}
+        {hasIdentity ? initials : <Icon name="user" className="h-4 w-4" />}
       </span>
       <span className="sr-only xl:hidden">{displayName}</span>
       <span className="hidden max-w-[8rem] truncate xl:block">
@@ -791,7 +797,12 @@ function NavLink({
           : undefined
       }
     >
-      {item.icon && `${item.icon} `}
+      {item.icon && (
+        <Icon
+          name={item.icon}
+          className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]"
+        />
+      )}
       {t(`nav.${item.labelKey}`)}
     </Link>
   );

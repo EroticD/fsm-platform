@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import Icon from "@/components/icons";
 
 /**
  * Segmentert bytte mellom oppdragshistorikken og kundens rapporter.
@@ -34,7 +35,8 @@ export default async function CustomerOrdersReportsSwitch({
             : "text-gray-600 hover:bg-gray-100"
         }`}
       >
-        📂 {t("customers.detail.tabs.orders")}
+        <Icon name="folder" className="h-4 w-4 shrink-0" />
+        {t("customers.detail.tabs.orders")}
       </Link>
       <Link
         href={reportsHref}
@@ -46,7 +48,8 @@ export default async function CustomerOrdersReportsSwitch({
             : "text-gray-600 hover:bg-gray-100"
         }`}
       >
-        📋 {t("customers.reports.title")}
+        <Icon name="clipboard" className="h-4 w-4 shrink-0" />
+        {t("customers.reports.title")}
         {reportCount > 0 && (
           <span
             className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${

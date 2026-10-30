@@ -8,6 +8,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import AuditLogTable from "@/components/AuditLogTable";
+import Icon, { type IconName } from "@/components/icons";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownView from "@/components/MarkdownView";
 import WorkOrderAttachments from "@/components/WorkOrderAttachments";
@@ -49,6 +50,141 @@ const LIME_BUTTON =
   "signal-button text-sm shadow-sm";
 const DARK_BUTTON =
   "inline-flex min-h-11 items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 px-3 py-2 text-sm font-bold text-paper transition hover:border-signal/60 hover:bg-white/10";
+/** Hurtighandlingene skal alltid være minst 44 px høye på touch. */
+const QUICK_ACTION =
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10";
+
+/**
+ * Kompakt faktarad i heroen. Verdien er alltid hentet fra oppdraget – aldri
+ * et estimat eller en standardverdi som ser ut som ekte data.
+ */
+function HeroFact({
+  icon,
+  label,
+  value,
+  className = "",
+}: {
+  icon: IconName;
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex min-w-0 items-start gap-2 rounded-xl border border-[#2a3328] bg-field/65 px-2.5 py-2 ${className}`}
+    >
+      <Icon name={icon} className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-paper/50">
+          {label}
+        </p>
+        <p className="mt-0.5 break-words text-[11px] font-bold leading-snug text-paper/90">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Ekte framdriftsring for sjekklistene. Ringen viser besvarte sjekkpunkter,
+ * mens avvik og kladdestatus står ved siden av. Den er en progressbar for
+ * skjermlesere, ikke bare en dekorativ grafikk.
+ */
+function ChecklistProgressRing({
+  answered,
+  total,
+  deviations,
+  percent,
+  label,
+  valueText,
+  deviationLabel,
+  draftLabel,
+  hasDraft,
+}: {
+  answered: number;
+  total: number;
+  deviations: number;
+  percent: number;
+  label: string;
+  valueText: string;
+  deviationLabel: string;
+  draftLabel: string;
+  hasDraft: boolean;
+}) {
+  const size = 84;
+  const stroke = 7;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={answered}
+      aria-valuetext={valueText}
+      aria-label={label}
+      className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-white/45 p-3 sm:gap-4 sm:p-4"
+    >
+      <div className="relative shrink-0" aria-hidden>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="var(--line)"
+            strokeWidth={stroke}
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={deviations > 0 ? "var(--risk)" : "var(--success)"}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - percent / 100)}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        </svg>
+        <span className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-lg font-black leading-none text-ink">
+            {percent}%
+          </span>
+          <span className="mt-0.5 text-[10px] font-bold text-muted">
+            {answered}/{total}
+          </span>
+        </span>
+      </div>
+
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm font-black leading-snug text-ink">{label}</p>
+        <p
+          className={`flex items-center gap-1.5 text-xs font-bold ${
+            deviations > 0 ? "text-risk" : "text-muted"
+          }`}
+        >
+          <Icon
+            name={deviations > 0 ? "alert" : "check"}
+            className="h-3.5 w-3.5"
+          />
+          {deviationLabel}
+        </p>
+        <p
+          className={`flex items-center gap-1.5 text-xs font-bold ${
+            hasDraft ? "text-success" : "text-muted"
+          }`}
+        >
+          <Icon name="clock" className="h-3.5 w-3.5" />
+          {draftLabel}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 type ProgressUnit = {
   status?: string | null;
@@ -255,10 +391,16 @@ export default async function TechnicianWorkOrderPage({
     const report = reportsByTemplate.get(template.id);
     return !report || !report.isLocked;
   });
-  const hasAnyReport = orderedTemplates.some((template) =>
+  const allChecklistsLocked =
+    orderedTemplates.length > 0 &&
+    orderedTemplates.every(
+      (template) => reportsByTemplate.get(template.id)?.isLocked === true,
+    );
+  const doneChecklists = orderedTemplates.filter((template) =>
     reportsByTemplate.has(template.id),
-  );
-  // Kladden avgjør om CTA-en skal si «Fortsett» eller «Start».
+  ).length;
+  // Kladden avgjør om CTA-en skal si «Fortsett» eller «Start» for akkurat den
+  // sjekklisten CTA-en peker på – ikke om en helt annen sjekkliste er fylt ut.
   const draftsByTemplate = new Map(
     (workOrder.reportDrafts ?? []).map((draft) => [draft.templateId, draft]),
   );
@@ -266,19 +408,29 @@ export default async function TechnicianWorkOrderPage({
     draftsByTemplate.has(template.id),
   );
   const canOpenChecklist = canWriteReports && canUpdate;
+  const nextReport = nextTemplate
+    ? reportsByTemplate.get(nextTemplate.id)
+    : undefined;
+  const nextDraft = nextTemplate
+    ? draftsByTemplate.get(nextTemplate.id)
+    : undefined;
   const stickyAction =
     canOpenChecklist && nextTemplate
       ? {
           href: `/mine-oppdrag/${workOrderId}/skjema/${nextTemplate.id}`,
           label:
-            hasAnyReport || hasChecklistDraft
+            nextReport || nextDraft
               ? t("orders.fieldDetail.stickyContinueForm")
               : t("orders.fieldDetail.stickyStartForm"),
+          complete: false,
         }
       : !isClosed && canUpdate
         ? {
             href: "#status",
-            label: t("orders.fieldDetail.stickyComplete"),
+            label: allChecklistsLocked
+              ? t("orders.workOrderForm.title")
+              : t("orders.fieldDetail.stickyComplete"),
+            complete: true,
           }
         : null;
 
@@ -340,6 +492,26 @@ export default async function TechnicianWorkOrderPage({
   const documentsHref = hasPermission(user, "documents.view")
     ? `/dokumenter?q=${encodeURIComponent(workOrder.title)}`
     : null;
+
+  // Heroen viser bare verdier som faktisk finnes på oppdraget. Manglende
+  // opplysninger får en nøytral «ikke oppgitt»-tekst i stedet for oppdiktede
+  // standardverdier.
+  const missingValue = t("orders.fieldDetail.addressUnknown");
+  const heroAddress = mapQuery || missingValue;
+  const heroCustomer =
+    workOrder.customer?.name || t("orders.fieldDetail.internalOrder");
+  const heroContact =
+    workOrder.contact?.name ||
+    workOrder.customer?.contacts?.[0]?.name ||
+    t("orders.fieldDetail.noContact");
+  const heroTechnicians =
+    workOrder.technicians.length > 0
+      ? workOrder.technicians.map((tech) => tech.name).join(", ")
+      : t("orders.fieldDetail.noPersonnel");
+  const checklistCountLabel = t("orders.detail.checklistsCount", {
+    done: doneChecklists,
+    total: orderedTemplates.length,
+  });
 
   /**
    * Fjerner personell og redirecter med en kvittering, slik at siden kan vise
@@ -420,39 +592,69 @@ export default async function TechnicianWorkOrderPage({
             <h1 className="mt-4 text-2xl font-black leading-tight tracking-tight text-paper sm:text-3xl">
               {workOrder.title}
             </h1>
-            <p className="mt-2 text-sm font-bold text-paper/90">
-              🏢 {workOrder.customer?.name || t("orders.fieldDetail.internalOrder")}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-              <span className="rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
-                {t("orders.fieldDetail.department", {
-                  name: workOrder.department.name,
-                })}
-              </span>
-              <span className="rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
-                📅{" "}
-                {formatDateRangeLocalized(
-                  workOrder.scheduledFor,
-                  workOrder.scheduledTo,
-                  locale,
-                ) || t("orders.fieldDetail.noDate")}
-              </span>
-              {workOrder.orderNumber && (
-                <span className="rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
-                  {t("orders.list.orderNumber")} {workOrder.orderNumber}
-                </span>
-              )}
+            <div className="mt-2 space-y-1 text-sm font-bold text-paper/90">
+              <p className="flex items-start gap-2">
+                <Icon name="building" className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+                <span className="min-w-0 break-words">{heroCustomer}</span>
+              </p>
+              <p className="flex items-start gap-2 text-paper/75">
+                <Icon name="pin" className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+                <span className="min-w-0 break-words">{heroAddress}</span>
+              </p>
             </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1 text-paper/80">
+                <Icon name="building" className="h-3.5 w-3.5 text-signal" />
+                {workOrder.department.name}
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <HeroFact
+                icon="file"
+                label={t("orders.list.orderNumber")}
+                value={workOrder.orderNumber || missingValue}
+              />
+              <HeroFact
+                icon="clock"
+                label={t("orders.fieldDetail.scheduledDate")}
+                value={
+                  formatDateRangeLocalized(
+                    workOrder.scheduledFor,
+                    workOrder.scheduledTo,
+                    locale,
+                  ) || t("orders.fieldDetail.noDate")
+                }
+              />
+              <HeroFact
+                icon="users"
+                label={t("orders.detail.techniciansTitle")}
+                value={heroTechnicians}
+              />
+              <HeroFact
+                icon="user"
+                label={t("orders.detail.contact")}
+                value={heroContact}
+              />
+              <HeroFact
+                icon="list"
+                label={t("orders.detail.checklistsTitle")}
+                value={checklistCountLabel}
+                className="col-span-2 sm:col-span-1"
+              />
+            </div>
+
             {workOrder.tags && workOrder.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {workOrder.tags.map((tag: any) => (
                   <span
                     key={tag.id}
-                    className="text-white px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm"
+                    className="inline-flex items-center gap-1 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-sm"
                     suppressHydrationWarning
                     style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
                   >
-                    🏷️ {tag.name}
+                    <Icon name="flag" className="h-3 w-3" />
+                    {tag.name}
                   </span>
                 ))}
               </div>
@@ -502,9 +704,11 @@ export default async function TechnicianWorkOrderPage({
               {contactPhone && (
                 <a
                   href={`tel:${contactPhone}`}
-                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                  aria-label={t("orders.fieldDetail.callContact")}
+                  className={QUICK_ACTION}
                 >
-                  📞 {t("orders.fieldDetail.callContact")}
+                  <Icon name="phone" className="h-4 w-4 text-signal" />
+                  {t("orders.fieldDetail.callContact")}
                 </a>
               )}
               {mapsHref && (
@@ -512,34 +716,29 @@ export default async function TechnicianWorkOrderPage({
                   href={mapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
+                  className={QUICK_ACTION}
                 >
-                  🗺️ {t("orders.fieldDetail.map")}
+                  <Icon name="navigation" className="h-4 w-4 text-signal" />
+                  {t("orders.fieldDetail.map")}
                   <span className="sr-only"> ({t("orders.fieldDetail.newTab")})</span>
                 </a>
               )}
               {customerHref && (
-                <Link
-                  href={customerHref}
-                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
-                >
-                  🏢 {t("orders.fieldDetail.customer")}
+                <Link href={customerHref} className={QUICK_ACTION}>
+                  <Icon name="building" className="h-4 w-4 text-signal" />
+                  {t("orders.fieldDetail.customer")}
                 </Link>
               )}
               {unitHref && (
-                <Link
-                  href={unitHref}
-                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
-                >
-                  🔧 {t("orders.fieldDetail.unit")}
+                <Link href={unitHref} className={QUICK_ACTION}>
+                  <Icon name="wrench" className="h-4 w-4 text-signal" />
+                  {t("orders.fieldDetail.unit")}
                 </Link>
               )}
               {documentsHref && (
-                <Link
-                  href={documentsHref}
-                  className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[#2a3328] bg-white/5 px-3 text-sm font-bold text-paper shadow-sm transition hover:border-signal/60 hover:bg-white/10"
-                >
-                  📄 {t("orders.fieldDetail.documents")}
+                <Link href={documentsHref} className={QUICK_ACTION}>
+                  <Icon name="folder" className="h-4 w-4 text-signal" />
+                  {t("orders.fieldDetail.documents")}
                 </Link>
               )}
             </div>
@@ -642,8 +841,9 @@ export default async function TechnicianWorkOrderPage({
 
             <div>
               <p className="text-xs font-black text-paper/60 uppercase tracking-wider mb-2">{t("orders.fieldDetail.scheduledDate")}</p>
-              <p className="font-bold text-paper bg-field p-2.5 border-2 border-[#2a3328] rounded-xl inline-block w-full">
-                📅 {formatDateRangeLocalized(workOrder.scheduledFor, workOrder.scheduledTo, locale) || t("orders.fieldDetail.noDate")}
+              <p className="flex items-center gap-2 font-bold text-paper bg-field p-2.5 border-2 border-[#2a3328] rounded-xl w-full">
+                <Icon name="clock" className="h-4 w-4 shrink-0 text-signal" />
+                {formatDateRangeLocalized(workOrder.scheduledFor, workOrder.scheduledTo, locale) || t("orders.fieldDetail.noDate")}
               </p>
             </div>
 
@@ -658,58 +858,44 @@ export default async function TechnicianWorkOrderPage({
               <div className="hidden sm:block">
                 <Link href={stickyAction.href} className={LIME_BUTTON}>
                   {stickyAction.label}
+                  <Icon
+                    name={stickyAction.complete ? "check" : "arrowRight"}
+                    className="h-4 w-4"
+                  />
                 </Link>
               </div>
             )}
           </div>
 
           {totalCheckpoints > 0 && (
-            <div className="mb-4 space-y-2">
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-muted">
-                <span>
-                  {t("orders.fieldDetail.checklistProgress", {
-                    answered: answeredCheckpoints,
-                    total: totalCheckpoints,
-                  })}
-                </span>
-                {deviationCheckpoints > 0 && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span className="text-risk">
-                      {t("orders.fieldDetail.checklistDeviations", {
-                        count: deviationCheckpoints,
-                      })}
-                    </span>
-                  </>
-                )}
-                <span aria-hidden>·</span>
-                <span
-                  className={
-                    hasChecklistDraft ? "text-success" : "text-muted"
-                  }
-                >
-                  {hasChecklistDraft
-                    ? t("orders.fieldDetail.checklistDraftSaved")
-                    : t("orders.fieldDetail.checklistDraftMissing")}
-                </span>
-              </p>
-              <div
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={totalCheckpoints}
-                aria-valuenow={answeredCheckpoints}
-                aria-label={t("orders.fieldDetail.checklistProgress", {
+            <ChecklistProgressRing
+              answered={answeredCheckpoints}
+              total={totalCheckpoints}
+              deviations={deviationCheckpoints}
+              percent={checklistPercent}
+              label={t("orders.fieldDetail.checklistProgress", {
+                answered: answeredCheckpoints,
+                total: totalCheckpoints,
+              })}
+              valueText={[
+                t("orders.fieldDetail.checklistProgress", {
                   answered: answeredCheckpoints,
                   total: totalCheckpoints,
-                })}
-                className="h-1.5 overflow-hidden rounded-full bg-line"
-              >
-                <div
-                  className="h-full rounded-full bg-success transition-[width]"
-                  style={{ width: `${checklistPercent}%` }}
-                />
-              </div>
-            </div>
+                }),
+                t("orders.fieldDetail.checklistDeviations", {
+                  count: deviationCheckpoints,
+                }),
+              ].join(", ")}
+              deviationLabel={t("orders.fieldDetail.checklistDeviations", {
+                count: deviationCheckpoints,
+              })}
+              draftLabel={
+                hasChecklistDraft
+                  ? t("orders.fieldDetail.checklistDraftSaved")
+                  : t("orders.fieldDetail.checklistDraftMissing")
+              }
+              hasDraft={hasChecklistDraft}
+            />
           )}
 
           {workOrder.templates.length === 0 ? (
@@ -726,8 +912,9 @@ export default async function TechnicianWorkOrderPage({
                   <Fragment key={template.id}>
                   {startsHmsSection && (
                     <div className="flex items-center gap-2 pt-2">
-                      <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">
-                        🛡️ {t("orders.templateGroups.hms")}
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black text-indigo-900 uppercase tracking-wider">
+                        <Icon name="flag" className="h-3.5 w-3.5" />
+                        {t("orders.templateGroups.hms")}
                       </span>
                       <span className="h-px flex-1 bg-indigo-200" />
                     </div>
@@ -736,8 +923,9 @@ export default async function TechnicianWorkOrderPage({
                     <span className={`font-bold text-sm ${report ? 'text-ink' : 'text-ink'} flex items-center gap-2 flex-wrap`}>
                       {template.title}
                       {isHmsTemplate(template) && (
-                        <span className="bg-white/10 text-paper border border-white/20 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
-                          🛡️ {template.hmsType
+                        <span className="inline-flex items-center gap-1 bg-white/10 text-paper border border-white/20 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                          <Icon name="flag" className="h-3 w-3" />
+                          {template.hmsType
                             ? t(HMS_TYPE_MESSAGE_KEYS[template.hmsType])
                             : t("orders.templateGroups.hmsBadge")}
                         </span>
@@ -803,8 +991,9 @@ export default async function TechnicianWorkOrderPage({
 
           {canUpdate && availableTemplates.length > 0 && (
             <details className="border-t border-line pt-4">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-                ＋ {t("orders.fieldDetail.extraChecklist")}
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-black uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+                <Icon name="plus" className="h-4 w-4" />
+                {t("orders.fieldDetail.extraChecklist")}
               </summary>
               <form action={addTemplate} className="mt-2 flex gap-2 flex-wrap">
                 <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -824,7 +1013,7 @@ export default async function TechnicianWorkOrderPage({
                     </optgroup>
                   )}
                   {availableHmsTemplates.length > 0 && (
-                    <optgroup label={`🛡️ ${t("orders.templateGroups.hms")}`}>
+                    <optgroup label={t("orders.templateGroups.hms")}>
                       {availableHmsTemplates.map((template) => (
                         <option key={template.id} value={template.id}>{template.title}</option>
                       ))}
@@ -950,8 +1139,9 @@ export default async function TechnicianWorkOrderPage({
 
           {canUpdate && availableUsers.length > 0 && (
             <details className="border-t border-line pt-4">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center text-xs font-black uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-                ＋ {t("orders.fieldDetail.addPersonnel")}
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-black uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+                <Icon name="plus" className="h-4 w-4" />
+                {t("orders.fieldDetail.addPersonnel")}
               </summary>
               <form action={addTechnician} className="mt-2 flex gap-2 flex-wrap">
                 <input type="hidden" name="workOrderId" value={workOrderId} />
@@ -1004,8 +1194,8 @@ export default async function TechnicianWorkOrderPage({
                 <p className="text-xs font-black text-muted uppercase tracking-wider mb-1">{t("orders.fieldDetail.contactTitle")}</p>
                 <p className="font-black text-ink text-base">{workOrder.contact.name}</p>
                 <div className="mt-2 space-y-1 text-sm">
-                  {workOrder.contact.phone && <p>📞 <a href={`tel:${workOrder.contact.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.contact.phone}</a></p>}
-                  {workOrder.contact.email && <p>✉️ <a href={`mailto:${workOrder.contact.email}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.contact.email}</a></p>}
+                  {workOrder.contact.phone && <p className="flex items-center gap-2"><Icon name="phone" className="h-4 w-4 shrink-0 text-success" /><a href={`tel:${workOrder.contact.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.contact.phone}</a></p>}
+                  {workOrder.contact.email && <p className="flex items-center gap-2"><Icon name="mail" className="h-4 w-4 shrink-0 text-success" /><a href={`mailto:${workOrder.contact.email}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{workOrder.contact.email}</a></p>}
                 </div>
               </div>
             ) : workOrder.customer?.contacts && workOrder.customer?.contacts.length > 0 ? (
@@ -1016,8 +1206,8 @@ export default async function TechnicianWorkOrderPage({
                     <div key={c.id} className="pt-3 first:pt-0">
                       <p className="font-black text-ink">{c.name} {c.role ? <span className="text-muted font-normal">({c.role})</span> : ""}</p>
                       <div className="mt-1 space-y-0.5 text-sm">
-                        {c.phone && <p>📞 <a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{c.phone}</a></p>}
-                        {c.email && <p>✉️ <a href={`mailto:${c.email}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{c.email}</a></p>}
+                        {c.phone && <p className="flex items-center gap-2"><Icon name="phone" className="h-4 w-4 shrink-0 text-success" /><a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{c.phone}</a></p>}
+                        {c.email && <p className="flex items-center gap-2"><Icon name="mail" className="h-4 w-4 shrink-0 text-success" /><a href={`mailto:${c.email}`} className="inline-flex min-h-11 items-center text-success font-bold hover:underline">{c.email}</a></p>}
                       </div>
                     </div>
                   ))}
@@ -1043,11 +1233,16 @@ export default async function TechnicianWorkOrderPage({
           canDelete={isAdmin}
         />
 
-        {/* Audit log */}
-        <div className={PAPER_CARD}>
-          <h2 className="font-black text-ink mb-3 border-b border-line pb-2">{t("orders.fieldDetail.auditLog")}</h2>
-          <AuditLogTable logs={auditLogs} />
-        </div>
+        {/* Audit log – sjelden oppslag, derfor sammenklappet. */}
+        <details className={PAPER_CARD}>
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-black text-ink [&::-webkit-details-marker]:hidden">
+            <Icon name="list" className="h-4 w-4" />
+            {t("orders.fieldDetail.auditLog")}
+          </summary>
+          <div className="mt-3 border-t border-line pt-3">
+            <AuditLogTable logs={auditLogs} />
+          </div>
+        </details>
       </div>
 
       {/* Angre-toast etter fjerning av personell. */}
@@ -1076,7 +1271,7 @@ export default async function TechnicianWorkOrderPage({
             aria-label={t("orders.fieldDetail.dismiss")}
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-paper hover:bg-white/10"
           >
-            ✕
+            <Icon name="close" className="h-4 w-4" />
           </Link>
         </div>
       )}
@@ -1086,9 +1281,13 @@ export default async function TechnicianWorkOrderPage({
         <div className="field-sticky-cta fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-[#2a3328] bg-field/95 p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.28)] backdrop-blur sm:hidden">
           <Link
             href={stickyAction.href}
-            className="field-cta w-full"
+            className="field-cta w-full justify-between px-5"
           >
-            {stickyAction.label}
+            <span>{stickyAction.label}</span>
+            <Icon
+              name={stickyAction.complete ? "check" : "arrowRight"}
+              className="h-5 w-5"
+            />
           </Link>
         </div>
       )}

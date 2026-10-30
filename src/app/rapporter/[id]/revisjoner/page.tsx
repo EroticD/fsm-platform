@@ -15,6 +15,7 @@ import {
   type ReportRevisionSnapshot,
 } from "@/server/report-revisions";
 import MarkdownView from "@/components/MarkdownView";
+import Icon from "@/components/icons";
 
 function safeImageSrc(url: string | null | undefined): string | null {
   const value = (url ?? "").trim();
@@ -182,8 +183,8 @@ async function RevisionSnapshot({
               : t("orders.revisions.noUnits")}
           </p>
           {revision.customerAcknowledgedAt && (
-            <p className="mt-1 text-xs text-green-800">
-              ✓{" "}
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-green-800">
+              <Icon name="check" className="h-3.5 w-3.5 shrink-0" />
               {t("p3.portalReports.acknowledged", {
                 date: formatDateLocalized(revision.customerAcknowledgedAt, locale),
               })}
@@ -396,8 +397,9 @@ export default async function ReportRevisionsPage({
       <div className="mx-auto max-w-5xl space-y-5">
         <div className="flex flex-col justify-between gap-4 border-b border-gray-300 pb-4 md:flex-row md:items-center">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 md:text-3xl">
-              🕘 {t("orders.revisions.title")}
+            <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900 md:text-3xl">
+              <Icon name="clock" className="h-6 w-6 shrink-0" />
+              {t("orders.revisions.title")}
             </h1>
             <p className="mt-1 text-sm font-medium text-gray-500">
               {workOrder.title}
@@ -420,9 +422,10 @@ export default async function ReportRevisionsPage({
             </Link>
             <Link
               href={backHref}
-              className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
+              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
             >
-              ← {t("orders.revisions.back")}
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("orders.revisions.back")}
             </Link>
           </div>
         </div>

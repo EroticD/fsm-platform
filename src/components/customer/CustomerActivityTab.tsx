@@ -1,6 +1,7 @@
 import AuditLogTable from "@/components/AuditLogTable";
 import CommentSection from "@/components/CommentSection";
 import { getTranslations } from "next-intl/server";
+import Icon from "@/components/icons";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerActivityList from "./CustomerActivityList";
 
@@ -31,8 +32,9 @@ export default async function CustomerActivityTab({
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-        <h2 className="font-black text-gray-900 mb-3 border-b pb-2">
-          📋 {t("customers.activity.feedTitle")}
+        <h2 className="mb-3 flex items-center gap-2 border-b pb-2 font-black text-gray-900">
+          <Icon name="clipboard" className="h-4 w-4 shrink-0" />
+          {t("customers.activity.feedTitle")}
         </h2>
         <CustomerActivityList
           items={activity}
@@ -54,8 +56,9 @@ export default async function CustomerActivityTab({
       />
 
       <details className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-        <summary className="cursor-pointer font-black text-gray-900">
-          🧾 {t("customers.activity.auditOnlyTitle")}
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-black text-gray-900">
+          <Icon name="note" className="h-4 w-4 shrink-0" />
+          {t("customers.activity.auditOnlyTitle")}
         </summary>
         <p className="mt-2 mb-3 text-xs text-gray-500">
           {t("customers.activity.auditOnlyHint")}

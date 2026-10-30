@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { type Prisma, WorkStatus } from "@prisma/client";
 import { Skeleton } from "@/components/Skeleton";
+import Icon, { type IconName } from "@/components/icons";
 import {
   addDaysUtc,
   formatDateLocalized,
@@ -217,7 +218,7 @@ function QueueEmpty({ title }: { title: string }) {
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--signal,#c8f135)] text-sm font-black text-[var(--ink,#131711)]"
         aria-hidden
       >
-        ✓
+        <Icon name="check" className="h-4 w-4" />
       </span>
       <p className="font-bold text-[var(--ink,#131711)]">{title}</p>
     </div>
@@ -226,7 +227,7 @@ function QueueEmpty({ title }: { title: string }) {
 
 type QuickAction = {
   href: string;
-  icon: string;
+  icon: IconName;
   label: string;
   emphasis?: boolean;
 };
@@ -478,7 +479,8 @@ async function DashboardOverview({
               href="/oppdrag"
               className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4 hover:decoration-[var(--ink,#131711)]"
             >
-              {t("dashboard.allOrders")} →
+              {t("dashboard.allOrders")}
+              <Icon name="arrowRight" className="h-3.5 w-3.5" />
             </Link>
           </div>
 
@@ -610,7 +612,8 @@ async function DashboardOverview({
                               href={`/oppdrag/${order.id}`}
                               className="inline-flex items-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2 py-1 text-xs font-bold transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
                             >
-                              {t("dashboard.queue.open")} →
+                              {t("dashboard.queue.open")}
+                              <Icon name="arrowRight" className="h-3.5 w-3.5" />
                             </Link>
                           </td>
                         </tr>
@@ -685,7 +688,8 @@ async function DashboardOverview({
                   className="text-xs font-bold text-[var(--ink,#131711)] underline decoration-[var(--line,#d8d3c5)] decoration-2 underline-offset-4 hover:decoration-[var(--signal,#c8f135)]"
                 >
                   {groupMeta[group.key].action}
-                  {group.hasMore ? ` (${group.total})` : ""} →
+                  {group.hasMore ? ` (${group.total})` : ""}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
                 </Link>
               ))}
             </div>
@@ -739,14 +743,16 @@ async function DashboardOverview({
                       href={`/oppdrag/${nextOverdue.id}#tildel`}
                       className={SIGNAL_BUTTON}
                     >
-                      {t("dashboard.nextAction.assign")} →
+                      {t("dashboard.nextAction.assign")}
+                      <Icon name="arrowRight" className="h-3.5 w-3.5" />
                     </Link>
                   ) : (
                     <Link
                       href={`/oppdrag/${nextOverdue.id}`}
                       className={SIGNAL_BUTTON}
                     >
-                      {t("dashboard.nextAction.open")} →
+                      {t("dashboard.nextAction.open")}
+                      <Icon name="arrowRight" className="h-3.5 w-3.5" />
                     </Link>
                   )}
                   <Link
@@ -764,7 +770,7 @@ async function DashboardOverview({
                     className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--signal,#c8f135)] text-xs"
                     aria-hidden
                   >
-                    ✓
+                    <Icon name="check" className="h-3.5 w-3.5" />
                   </span>
                   {t("dashboard.nextAction.emptyTitle")}
                 </p>
@@ -797,7 +803,8 @@ async function DashboardOverview({
                 href="/oppdrag?vis=idag"
                 className="text-xs font-bold underline decoration-[var(--line,#d8d3c5)] decoration-2 underline-offset-4 hover:decoration-[var(--signal,#c8f135)]"
               >
-                {t("dashboard.team.viewToday")} →
+                {t("dashboard.team.viewToday")}
+                <Icon name="arrowRight" className="h-3.5 w-3.5" />
               </Link>
             </div>
             {teamSorted.length === 0 ? (
@@ -1041,7 +1048,7 @@ function CollapsibleSection({
           aria-hidden="true"
           className="text-xs text-[#5e6356] transition group-open:rotate-180"
         >
-          ⌄
+          <Icon name="chevronDown" className="h-4 w-4" />
         </span>
       </summary>
       <div className="border-t border-[var(--line,#d8d3c5)] px-4 py-3">
@@ -1067,6 +1074,7 @@ function QuickActionButton({
           : "border-[var(--line,#d8d3c5)] bg-white text-[var(--ink,#131711)] hover:border-[var(--ink,#131711)]"
       } ${compact ? "min-h-9" : "min-h-10"}`}
     >
+      <Icon name={action.icon} className="h-4 w-4 shrink-0" />
       <span className="truncate">{action.label}</span>
     </Link>
   );
@@ -1096,7 +1104,7 @@ function QuickActionsContent({
               aria-hidden="true"
               className="text-[#5e6356] transition group-open:rotate-180"
             >
-              ⌄
+              <Icon name="chevronDown" className="h-4 w-4" />
             </span>
           </summary>
           <div className="grid grid-cols-2 gap-2 border-t border-[var(--line,#d8d3c5)] p-2 sm:grid-cols-3">
@@ -1195,33 +1203,33 @@ export default async function AdminDashboard() {
     canCreate
       ? {
           href: office ? "/oppdrag/ny" : "/mine-oppdrag/ny",
-          icon: "➕",
+          icon: "plus",
           label: t("dashboard.quickActions.newWorkOrder"),
           emphasis: true,
         }
       : null,
     {
       href: "/kalender",
-      icon: "📅",
+      icon: "calendar",
       label: t("dashboard.quickActions.calendar"),
     },
     office && canAssign
       ? {
           href: "/kalender/dispatch",
-          icon: "🎛️",
+          icon: "grid",
           label: t("dashboard.quickActions.dispatch"),
         }
       : null,
     !office
       ? {
           href: "/mine-oppdrag",
-          icon: "📋",
+          icon: "clipboard",
           label: t("dashboard.quickActions.myWorkOrders"),
         }
       : null,
     {
       href: "/sok",
-      icon: "🔍",
+      icon: "search",
       label: t("dashboard.quickActions.search"),
     },
   ]
@@ -1229,33 +1237,33 @@ export default async function AdminDashboard() {
     .slice(0, 4);
 
   const secondaryActions: QuickAction[] = [
-    { href: "/oppdrag", icon: "📂", label: t("dashboard.quickActions.allWorkOrders") },
-    { href: "/kart", icon: "🗺️", label: t("dashboard.quickActions.map") },
+    { href: "/oppdrag", icon: "clipboard", label: t("dashboard.quickActions.allWorkOrders") },
+    { href: "/kart", icon: "map", label: t("dashboard.quickActions.map") },
     hasPermission(user, "customers.view")
       ? {
           href: "/kunder",
-          icon: "🏢",
+          icon: "building",
           label: t("dashboard.quickActions.customers"),
         }
       : null,
     hasPermission(user, "documents.view")
       ? {
           href: "/dokumenter",
-          icon: "📚",
+          icon: "folder",
           label: t("dashboard.quickActions.documents"),
         }
       : null,
     hasPermission(user, "templates.manage")
       ? {
           href: "/innstillinger?tab=maler",
-          icon: "📋",
+          icon: "list",
           label: t("dashboard.quickActions.checklists"),
         }
       : null,
     hasPermission(user, "reports.view")
       ? {
           href: "/innstillinger?tab=statistikk",
-          icon: "📊",
+          icon: "chart",
           label: t("dashboard.quickActions.statistics"),
         }
       : null,
@@ -1318,7 +1326,8 @@ export default async function AdminDashboard() {
             </div>
             {canOpenNew ? (
               <Link href={office ? "/oppdrag/ny" : "/mine-oppdrag/ny"} className={SIGNAL_BUTTON}>
-                {t("dashboard.quickActions.newWorkOrder")} →
+                {t("dashboard.quickActions.newWorkOrder")}
+                <Icon name="arrowRight" className="h-4 w-4" />
               </Link>
             ) : null}
           </div>
@@ -1346,7 +1355,8 @@ export default async function AdminDashboard() {
                       href="/oppdrag"
                       className="text-xs font-bold underline decoration-[var(--signal,#c8f135)] decoration-2 underline-offset-4"
                     >
-                      {t("dashboard.allOrders")} →
+                      {t("dashboard.allOrders")}
+                      <Icon name="arrowRight" className="h-3.5 w-3.5" />
                     </Link>
                   </div>
                   <QuickActionsContent

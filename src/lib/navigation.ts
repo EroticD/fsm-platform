@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/icons";
 import { defaultPermissionsForRole, type Permission } from "@/lib/permissions";
 
 /**
@@ -21,7 +22,7 @@ export type NavAudience = "field" | "office";
 export type NavItem = {
   href: string;
   labelKey: string;
-  icon: string;
+  icon: IconName;
   /** Én eller flere rettigheter. Minst én må være oppfylt. */
   requires?: Permission | Permission[];
   section?: NavSection;
@@ -49,7 +50,7 @@ export const STAFF_NAV: NavItem[] = [
   {
     href: "/",
     labelKey: "dashboard",
-    icon: "🏠",
+    icon: "home",
     requires: "workorders.view",
     section: "primary",
     audience: "office",
@@ -57,7 +58,7 @@ export const STAFF_NAV: NavItem[] = [
   {
     href: "/mine-oppdrag",
     labelKey: "today",
-    icon: "☀️",
+    icon: "route",
     requires: "workorders.view",
     section: "primary",
     audience: "field",
@@ -65,75 +66,75 @@ export const STAFF_NAV: NavItem[] = [
   {
     href: "/oppdrag",
     labelKey: "workOrders",
-    icon: "📂",
+    icon: "clipboard",
     requires: "workorders.view",
     section: "primary",
   },
   {
     href: "/kalender",
     labelKey: "calendar",
-    icon: "📅",
+    icon: "calendar",
     requires: "workorders.view",
     section: "primary",
   },
   {
     href: "/kunder",
     labelKey: "customers",
-    icon: "🏢",
+    icon: "building",
     requires: "customers.view",
     section: "primary",
   },
   {
     href: "/sok",
     labelKey: "search",
-    icon: "🔍",
+    icon: "search",
     section: "menu",
   },
   {
     href: "/rapporter",
     labelKey: "reports",
-    icon: "📊",
+    icon: "chart",
     requires: "reports.view",
     section: "primary",
   },
   {
     href: "/hms",
     labelKey: "hms",
-    icon: "🦺",
+    icon: "shield",
     requires: ["templates.view", "reports.view"],
     section: "menu",
   },
   {
     href: "/dokumenter",
     labelKey: "documents",
-    icon: "📚",
+    icon: "file",
     requires: "documents.view",
     section: "menu",
   },
   {
     href: "/kart",
     labelKey: "map",
-    icon: "🗺️",
+    icon: "map",
     requires: "workorders.view",
     section: "menu",
   },
   {
     href: "/oppdrag/ny",
     labelKey: "newWorkOrder",
-    icon: "➕",
+    icon: "plus",
     requires: "workorders.create",
     section: "menu",
   },
   {
     href: "/varsler",
     labelKey: "notifications",
-    icon: "🔔",
+    icon: "bell",
     section: "menu",
   },
   {
     href: "/mine-oppdrag/kunder",
     labelKey: "customersEquipment",
-    icon: "🧰",
+    icon: "wrench",
     requires: "customers.view",
     section: "menu",
     audience: "field",
@@ -141,7 +142,7 @@ export const STAFF_NAV: NavItem[] = [
   {
     href: "/innstillinger",
     labelKey: "settings",
-    icon: "⚙️",
+    icon: "settings",
     requires: [
       "settings.manage",
       "users.view",
@@ -159,13 +160,13 @@ export const CUSTOMER_NAV: NavItem[] = [
   {
     href: "/kundeportal",
     labelKey: "customerPortal",
-    icon: "👤",
+    icon: "user",
     section: "primary",
   },
   {
     href: "/innstillinger?tab=sikkerhet",
     labelKey: "accountSecurity",
-    icon: "🔐",
+    icon: "shield",
     section: "settings",
   },
 ];

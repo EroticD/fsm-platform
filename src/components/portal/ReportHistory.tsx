@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getPortalReportHistory } from "@/server/portal";
 import { reportDisplayName } from "@/lib/report-display";
 import { brandCard, brandInset } from "@/components/ui/brandStyles";
+import Icon from "@/components/icons";
 import AcknowledgeReportForm from "./AcknowledgeReportForm";
 
 type ReportView = {
@@ -216,9 +217,10 @@ export default async function ReportHistory({
           {data.page > 1 && (
             <Link
               href={pageLink(data.page - 1)}
-              className="inline-flex min-h-11 items-center text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+              className="inline-flex min-h-11 items-center gap-1.5 text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
             >
-              &larr; {t("p3.portalReports.previous")}
+              <Icon name="arrowRight" className="h-3.5 w-3.5 rotate-180" />
+              {t("p3.portalReports.previous")}
             </Link>
           )}
           <span className="text-[var(--muted,#62685f)]">
@@ -230,9 +232,10 @@ export default async function ReportHistory({
           {data.page < data.totalPages && (
             <Link
               href={pageLink(data.page + 1)}
-              className="inline-flex min-h-11 items-center text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+              className="inline-flex min-h-11 items-center gap-1.5 text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
             >
-              {t("p3.portalReports.next")} &rarr;
+              {t("p3.portalReports.next")}
+              <Icon name="arrowRight" className="h-3.5 w-3.5" />
             </Link>
           )}
         </div>

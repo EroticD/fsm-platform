@@ -1,4 +1,5 @@
 import InviteActionForm from "@/components/InviteActionForm";
+import Icon from "@/components/icons";
 import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
 import type { InviteActionState } from "@/lib/invite-action-state";
@@ -44,7 +45,12 @@ export default async function CustomerPortalTab({
 
   return (
     <CustomerTabPanel
-      title={`🔐 ${t("customers.portal.title")}`}
+      title={
+        <>
+          <Icon name="shield" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          {t("customers.portal.title")}
+        </>
+      }
       description={t("customers.portal.description")}
     >
       {portalError && (
@@ -153,8 +159,13 @@ export default async function CustomerPortalTab({
                   <InviteActionForm
                     action={resendPortalInvite}
                     wrapperClassName="contents"
-                    submitLabel={`🔗 ${t("customers.portal.newLink")}`}
-                    buttonClassName="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
+                    submitLabel={
+                      <>
+                        <Icon name="route" className="h-3.5 w-3.5 shrink-0" />
+                        {t("customers.portal.newLink")}
+                      </>
+                    }
+                    buttonClassName="inline-flex items-center gap-1.5 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
                     bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
                     labels={inviteLabels}
                   >

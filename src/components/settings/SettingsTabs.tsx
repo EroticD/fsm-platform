@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 
 type SettingsTabsProps = {
   currentTab: string;
@@ -17,7 +18,7 @@ type SettingsTabsProps = {
 };
 
 const linkClass = (active: boolean) =>
-  `flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors sm:px-5 sm:py-3 sm:text-sm ${
+  `flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors sm:px-5 sm:py-3 sm:text-sm ${
     active
       ? "border-blue-600 text-blue-600"
       : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
@@ -86,7 +87,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "branding")}
             aria-current={currentTab === "branding" ? "page" : undefined}
           >
-            🎨 {t("settings.tabs.branding")}
+            <Icon name="image" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.branding")}
           </Link>
         )}
         {canMap && (
@@ -96,7 +98,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "kart")}
             aria-current={currentTab === "kart" ? "page" : undefined}
           >
-            🗺️ {t("settings.tabs.map")}
+            <Icon name="map" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.map")}
           </Link>
         )}
         {canUsers && (
@@ -106,7 +109,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "ansatte")}
             aria-current={currentTab === "ansatte" ? "page" : undefined}
           >
-            👥 {t("settings.tabs.employees")}
+            <Icon name="users" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.employees")}
           </Link>
         )}
         {canTemplates && (
@@ -116,7 +120,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "maler")}
             aria-current={currentTab === "maler" ? "page" : undefined}
           >
-            📋 {t("settings.tabs.templates")}
+            <Icon name="list" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.templates")}
           </Link>
         )}
         {(canTemplates || canDocuments) && (
@@ -126,7 +131,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "tags")}
             aria-current={currentTab === "tags" ? "page" : undefined}
           >
-            🏷️ {t("settings.tabs.tags")}
+            <Icon name="flag" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.tags")}
           </Link>
         )}
         {canAudit && (
@@ -136,12 +142,14 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "auditlog")}
             aria-current={currentTab === "auditlog" ? "page" : undefined}
           >
-            📋 {t("settings.tabs.auditLog")}
+            <Icon name="note" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.auditLog")}
           </Link>
         )}
         {canAudit && (
           <Link href="/sok/analyse" className={linkClass(false)}>
-            📈 {t("searchAdmin.linkLabel")}
+            <Icon name="chart" className="h-4 w-4 shrink-0" />
+            {t("searchAdmin.linkLabel")}
           </Link>
         )}
         {canStats && (
@@ -151,7 +159,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "statistikk")}
             aria-current={currentTab === "statistikk" ? "page" : undefined}
           >
-            📊 {t("settings.tabs.statistics")}
+            <Icon name="chart" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.statistics")}
           </Link>
         )}
         {isAdmin && (
@@ -161,7 +170,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "roller")}
             aria-current={currentTab === "roller" ? "page" : undefined}
           >
-            🔐 {t("settings.tabs.roles")}
+            <Icon name="shield" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.roles")}
           </Link>
         )}
         {isAdmin && (
@@ -171,7 +181,8 @@ export default function SettingsTabs({
             className={linkClass(currentTab === "avdelinger")}
             aria-current={currentTab === "avdelinger" ? "page" : undefined}
           >
-            🏷️ {t("settings.tabs.departments")}
+            <Icon name="building" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.departments")}
           </Link>
         )}
         <Link
@@ -180,7 +191,8 @@ export default function SettingsTabs({
           className={linkClass(currentTab === "sikkerhet")}
           aria-current={currentTab === "sikkerhet" ? "page" : undefined}
         >
-          🔐 {t("settings.tabs.security")}
+          <Icon name="shield" className="h-4 w-4 shrink-0" />
+          {t("settings.tabs.security")}
         </Link>
       </nav>
       {isScrollable && (

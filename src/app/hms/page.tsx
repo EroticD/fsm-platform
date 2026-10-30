@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
@@ -97,8 +98,9 @@ export default async function HmsPage({
             <p className="text-xs font-black uppercase tracking-wider text-blue-700">
               {t("hms.badge")}
             </p>
-            <h1 className="text-2xl font-black text-gray-900 md:text-3xl">
-              🦺 {t("hms.title")}
+            <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900 md:text-3xl">
+              <Icon name="shield" className="h-7 w-7 shrink-0" />
+              {t("hms.title")}
             </h1>
             <p className="mt-1 max-w-2xl text-sm font-medium text-gray-600">
               {t("hms.subtitle")}
@@ -106,9 +108,10 @@ export default async function HmsPage({
           </div>
           <Link
             href="/"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-100"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-100"
           >
-            ← {t("hms.backToDashboard")}
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("hms.backToDashboard")}
           </Link>
         </div>
 
@@ -121,7 +124,8 @@ export default async function HmsPage({
             href="#hms-skjemaer"
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800 transition hover:border-blue-300 hover:bg-blue-50"
           >
-            📚 {t("hms.libraryTitle")}
+            <Icon name="folder" className="h-4 w-4 shrink-0" />
+            {t("hms.libraryTitle")}
           </a>
           {groupsWithTemplates.map((group) => (
             <a
@@ -140,7 +144,8 @@ export default async function HmsPage({
               href="/innstillinger?tab=maler&category=HMS"
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800 transition hover:bg-blue-100"
             >
-              ⚙️ {t("hms.templatesAdmin")}
+              <Icon name="settings" className="h-4 w-4 shrink-0" />
+              {t("hms.templatesAdmin")}
             </Link>
           )}
         </nav>
@@ -149,17 +154,19 @@ export default async function HmsPage({
         {params.linked === "1" && (
           <div
             role="status"
-            className="rounded-2xl border-2 border-green-200 bg-green-50 p-3 text-sm font-bold text-green-900"
+            className="flex items-center gap-2 rounded-2xl border-2 border-green-200 bg-green-50 p-3 text-sm font-bold text-green-900"
           >
-            ✅ {t("hms.linked")}
+            <Icon name="check" className="h-4 w-4 shrink-0" />
+            {t("hms.linked")}
           </div>
         )}
         {errorKey && (
           <div
             role="alert"
-            className="rounded-2xl border-2 border-red-200 bg-red-50 p-3 text-sm font-bold text-red-900"
+            className="flex items-center gap-2 rounded-2xl border-2 border-red-200 bg-red-50 p-3 text-sm font-bold text-red-900"
           >
-            ⚠️ {t(errorKey)}
+            <Icon name="alert" className="h-4 w-4 shrink-0" />
+            {t(errorKey)}
           </div>
         )}
 
@@ -172,9 +179,10 @@ export default async function HmsPage({
           >
             <h2
               id="knytt-til-oppdrag-title"
-              className="text-base font-black text-gray-900"
+              className="flex items-center gap-2 text-base font-black text-gray-900"
             >
-              🔗 {t("hms.link.title")}
+              <Icon name="route" className="h-4 w-4 shrink-0" />
+              {t("hms.link.title")}
             </h2>
             <p className="mt-1 text-sm text-gray-600">
               {t("hms.link.description")}
@@ -252,8 +260,9 @@ export default async function HmsPage({
           <section id="hms-skjemaer" aria-labelledby="hms-skjemaer-title" className="scroll-mt-6 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 id="hms-skjemaer-title" className="text-xl font-black text-gray-900">
-                  📚 {t("hms.libraryTitle")}
+                <h2 id="hms-skjemaer-title" className="flex items-center gap-2 text-xl font-black text-gray-900">
+                  <Icon name="folder" className="h-5 w-5 shrink-0" />
+                  {t("hms.libraryTitle")}
                 </h2>
                 <p className="text-sm text-gray-600">
                   {t("hms.libraryDescription")}
@@ -325,8 +334,9 @@ export default async function HmsPage({
           >
             <div className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 pb-3">
               <div>
-                <h2 id="hms-dokumentasjon-title" className="text-xl font-black text-gray-900">
-                  📄 {t("hms.recent.title")}
+                <h2 id="hms-dokumentasjon-title" className="flex items-center gap-2 text-xl font-black text-gray-900">
+                  <Icon name="file" className="h-5 w-5 shrink-0" />
+                  {t("hms.recent.title")}
                 </h2>
                 <p className="text-sm text-gray-600">
                   {t("hms.recent.description")}
@@ -381,9 +391,17 @@ export default async function HmsPage({
                             {report.workOrder.title}
                           </Link>
                           <p className="mt-0.5 text-xs text-gray-600">
-                            {report.workOrder.customerId
-                              ? `🏢 ${report.workOrder.customerName || t("hms.customerWorkOrder")}`
-                              : `🏠 ${t("hms.internalWorkOrder")}`}
+                            {report.workOrder.customerId ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                                {report.workOrder.customerName || t("hms.customerWorkOrder")}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1">
+                                <Icon name="home" className="h-3.5 w-3.5 shrink-0" />
+                                {t("hms.internalWorkOrder")}
+                              </span>
+                            )}
                             {report.workOrder.orderNumber
                               ? ` • #${report.workOrder.orderNumber}`
                               : ""}
@@ -412,15 +430,17 @@ export default async function HmsPage({
                           <div className="flex flex-col gap-1 text-xs font-bold">
                             <Link
                               href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
-                              className="inline-flex min-h-6 items-center text-blue-800 hover:underline"
+                              className="inline-flex min-h-6 items-center gap-1.5 text-blue-800 hover:underline"
                             >
-                              📄 {t("hms.recent.viewPdf")}
+                              <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+                              {t("hms.recent.viewPdf")}
                             </Link>
                             <Link
                               href={workOrderHref(report.workOrder.id)}
-                              className="inline-flex min-h-6 items-center text-gray-700 hover:underline"
+                              className="inline-flex min-h-6 items-center gap-1.5 text-gray-700 hover:underline"
                             >
-                              📂 {t("hms.recent.openWorkOrder")}
+                              <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                              {t("hms.recent.openWorkOrder")}
                             </Link>
                           </div>
                         </td>
@@ -444,9 +464,17 @@ export default async function HmsPage({
                       <StatusBadge status={report.workOrder.status} />
                     </div>
                     <p className="break-words text-xs text-gray-600">
-                      {report.workOrder.customerId
-                        ? `🏢 ${report.workOrder.customerName || t("hms.customerWorkOrder")}`
-                        : `🏠 ${t("hms.internalWorkOrder")}`}
+                      {report.workOrder.customerId ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                          {report.workOrder.customerName || t("hms.customerWorkOrder")}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon name="home" className="h-3.5 w-3.5 shrink-0" />
+                          {t("hms.internalWorkOrder")}
+                        </span>
+                      )}
                       {report.workOrder.orderNumber
                         ? ` • #${report.workOrder.orderNumber}`
                         : ""}
@@ -479,15 +507,17 @@ export default async function HmsPage({
                     <div className="flex flex-wrap gap-3 text-xs font-bold">
                       <Link
                         href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
-                        className="inline-flex min-h-11 items-center text-blue-800 hover:underline"
+                        className="inline-flex min-h-11 items-center gap-1.5 text-blue-800 hover:underline"
                       >
-                        📄 {t("hms.recent.viewPdf")}
+                        <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+                        {t("hms.recent.viewPdf")}
                       </Link>
                       <Link
                         href={workOrderHref(report.workOrder.id)}
-                        className="inline-flex min-h-11 items-center text-gray-700 hover:underline"
+                        className="inline-flex min-h-11 items-center gap-1.5 text-gray-700 hover:underline"
                       >
-                        📂 {t("hms.recent.openWorkOrder")}
+                        <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                        {t("hms.recent.openWorkOrder")}
                       </Link>
                     </div>
                   </li>

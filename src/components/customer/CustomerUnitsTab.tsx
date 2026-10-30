@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { getLocale, getTranslations } from "next-intl/server";
 import { formatDateLocalized } from "@/lib/dates";
 import UnitHistory from "@/components/UnitHistory";
@@ -48,7 +49,12 @@ export default async function CustomerUnitsTab({
 
   return (
     <CustomerTabPanel
-      title={`🔧 ${t("customers.units.title")}`}
+      title={
+        <>
+          <Icon name="wrench" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          {t("customers.units.title")}
+        </>
+      }
       description={t("customers.units.description")}
     >
       {/* Filtrering skjer på serveren, slik at en kunde med mange enheter
@@ -134,12 +140,17 @@ export default async function CustomerUnitsTab({
                       {unit.location ? ` • ${unit.location}` : ""}
                     </span>
                     {canViewReports && (
-                      <span className="block text-xs mt-1">
+                      <span className="mt-1 block text-xs">
                         {unit._count.reportUnits === 0 ? (
-                          <span className="text-gray-400">🕓 {t("customers.units.neverChecked")}</span>
+                          <span className="inline-flex items-center gap-1 text-gray-400">
+                            <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+                            {t("customers.units.neverChecked")}
+                          </span>
                         ) : (
-                          <span className="text-blue-800 font-bold">
-                            🕓 {t("customers.units.serviceCount", { count: unit._count.reportUnits })} •{" "}
+                          <span className="inline-flex flex-wrap items-center gap-1 text-blue-800 font-bold">
+                            <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+                            {t("customers.units.serviceCount", { count: unit._count.reportUnits })}
+                            <span aria-hidden>•</span>
                             {t("customers.units.lastService", {
                               date: formatDateLocalized(
                                 lastServiceDate(unit.reportUnits),
@@ -150,8 +161,9 @@ export default async function CustomerUnitsTab({
                             })}
                           </span>
                         )}
-                        <span className="ml-2 text-blue-600 font-bold">
-                          ▾ {t("customers.units.showHistory")}
+                        <span className="ml-2 inline-flex items-center gap-1 text-blue-600 font-bold">
+                          <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0" />
+                          {t("customers.units.showHistory")}
                         </span>
                       </span>
                     )}
@@ -159,8 +171,9 @@ export default async function CustomerUnitsTab({
 
                   {canViewReports && (
                     <div className="mt-3 border-t border-gray-200 pt-3">
-                      <p className="text-xs font-black text-gray-600 uppercase tracking-wider mb-2">
-                        🕓 {t("customers.units.serviceHistory", { count: unit._count.reportUnits })}
+                      <p className="mb-2 flex items-center gap-1.5 text-xs font-black text-gray-600 uppercase tracking-wider">
+                        <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+                        {t("customers.units.serviceHistory", { count: unit._count.reportUnits })}
                       </p>
                       {unit._count.reportUnits > unit.reportUnits.length && (
                         <p className="text-xs text-gray-500 mb-2">
@@ -176,8 +189,9 @@ export default async function CustomerUnitsTab({
 
                   {canManageEquipment && (
                     <details className="mt-3 border-t border-gray-200 pt-3">
-                      <summary className="cursor-pointer text-xs font-black text-gray-600 uppercase tracking-wider">
-                        ✏️ {t("customers.units.editUnit")}
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-black uppercase tracking-wider text-gray-600">
+                        <Icon name="edit" className="h-3.5 w-3.5 shrink-0" />
+                        {t("customers.units.editUnit")}
                       </summary>
 
                       <form action={updateUnit} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
@@ -207,9 +221,10 @@ export default async function CustomerUnitsTab({
 
                 <Link
                   href={`/enheter/${unit.id}`}
-                  className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
                 >
-                  {t("customers.units.openUnit")} &rarr;
+                  {t("customers.units.openUnit")}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
                 </Link>
 
                 {isAdmin && (
@@ -224,7 +239,7 @@ export default async function CustomerUnitsTab({
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={unit.id} />
                     <button type="submit" aria-label={`${t("customers.units.delete")}: ${unit.model}`} title={t("customers.units.delete")} className="inline-flex min-h-11 min-w-11 items-center justify-center text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
-                      🗑️
+                      <Icon name="trash" className="h-4 w-4" />
                     </button>
                   </ConfirmSubmitForm>
                 )}

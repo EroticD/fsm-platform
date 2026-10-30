@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Icon, { type IconName } from "@/components/icons";
 import { getLocale, getTranslations } from "next-intl/server";
 import GoogleMapsLink from "@/components/GoogleMapsLink";
 import MarkdownView from "@/components/MarkdownView";
@@ -12,6 +13,15 @@ type OverdueOrder = {
   title: string;
   scheduledFor: Date | null;
   status: string;
+};
+
+type SecondaryNumber = {
+  key: string;
+  icon: IconName;
+  label: string;
+  value: number;
+  href: string;
+  show: boolean;
 };
 
 type OverviewProps = {
@@ -39,7 +49,7 @@ function SummaryStat({
   href,
   danger = false,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   value: React.ReactNode;
   sub?: string;
@@ -56,7 +66,7 @@ function SummaryStat({
       }`}
     >
       <span className="text-lg sm:text-xl" aria-hidden="true">
-        {icon}
+        <Icon name={icon} className="inline-block h-5 w-5 align-[-0.125em] sm:h-6 sm:w-6" />
       </span>
       <span className="min-w-0">
         <span
@@ -107,10 +117,10 @@ export default async function CustomerOverviewTab({
     .filter((order) => !attentionIds.has(order.id))
     .slice(0, 3);
 
-  const secondaryNumbers = [
+  const secondaryNumbers = ([
     {
       key: "totalOrders",
-      icon: "📂",
+      icon: "folder",
       label: t("customers.overview.totalOrders"),
       value: totalOrders,
       href: "?tab=oppdrag",
@@ -118,7 +128,7 @@ export default async function CustomerOverviewTab({
     },
     {
       key: "completedOrders",
-      icon: "✅",
+      icon: "check",
       label: t("customers.overview.completedOrders"),
       value: completedOrders,
       href: "?tab=oppdrag",
@@ -126,7 +136,7 @@ export default async function CustomerOverviewTab({
     },
     {
       key: "reports",
-      icon: "📋",
+      icon: "clipboard",
       label: t("customers.overview.reports"),
       value: reportCount,
       href: "?tab=oppdrag&vis=rapporter",
@@ -134,7 +144,7 @@ export default async function CustomerOverviewTab({
     },
     {
       key: "contracts",
-      icon: "📄",
+      icon: "file",
       label: t("customers.overview.contracts"),
       value: customer._count.contracts,
       href: "?tab=avtaler",
@@ -142,7 +152,7 @@ export default async function CustomerOverviewTab({
     },
     {
       key: "contacts",
-      icon: "👤",
+      icon: "user",
       label: t("customers.overview.contacts"),
       value: customer._count.contacts,
       href: "?tab=kontakter",
@@ -150,45 +160,45 @@ export default async function CustomerOverviewTab({
     },
     {
       key: "attachments",
-      icon: "📎",
+      icon: "image",
       label: t("customers.overview.attachments"),
       value: customer._count.attachments,
       href: "?tab=vedlegg",
       show: customer._count.attachments > 0,
     },
     ...(office
-      ? [
+      ? ([
           {
             key: "portalUsers",
-            icon: "🔐",
+            icon: "shield",
             label: t("customers.overview.portalUsers"),
             value: portalUserCount,
             href: "?tab=portal",
             show: portalUserCount > 0,
           },
-        ]
+        ] satisfies SecondaryNumber[])
       : []),
-  ].filter((entry) => entry.show);
+  ] satisfies SecondaryNumber[]).filter((entry) => entry.show);
 
   return (
     <div className="space-y-6">
       {/* Fire nøkkeltall – resten er flyttet ned som sekundære tall. */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <SummaryStat
-          icon="📂"
+          icon="folder"
           label={t("customers.overview.openOrders")}
           value={activeOrders}
           href="?tab=oppdrag"
         />
         <SummaryStat
-          icon="⏰"
+          icon="clock"
           label={t("customers.overview.overdue")}
           value={overdueCount}
           href="?tab=oppdrag"
           danger={overdueCount > 0}
         />
         <SummaryStat
-          icon="🗓️"
+          icon="calendar"
           label={t("customers.overview.nextVisit")}
           value={
             nextOrder
@@ -204,7 +214,7 @@ export default async function CustomerOverviewTab({
           href="?tab=oppdrag"
         />
         <SummaryStat
-          icon="🔧"
+          icon="wrench"
           label={t("customers.overview.unitsDocs")}
           value={`${customer._count.products} / ${customer._count.attachments}`}
           href="?tab=utstyr"
@@ -215,8 +225,9 @@ export default async function CustomerOverviewTab({
         {/* Bedrift, kontaktpersoner og portalstatus */}
         <section className="space-y-4 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
           <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="text-base font-black text-gray-900">
-              🏢 {t("customers.overview.companyInfo")}
+            <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
+              <Icon name="building" className="h-4 w-4 shrink-0" />
+              {t("customers.overview.companyInfo")}
             </h2>
             {office && (
               <Link
@@ -295,8 +306,9 @@ export default async function CustomerOverviewTab({
 
           <div className="border-t border-gray-200 pt-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-xs font-black uppercase tracking-wide text-gray-600">
-                👤 {t("customers.overview.contactsTitle")}
+              <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-600">
+                <Icon name="user" className="h-3.5 w-3.5 shrink-0" />
+                {t("customers.overview.contactsTitle")}
               </h3>
               <Link
                 href="?tab=kontakter"
@@ -355,8 +367,9 @@ export default async function CustomerOverviewTab({
           {office && (
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-xs font-black uppercase tracking-wide text-gray-600">
-                  🔐 {t("customers.overview.portalStatus")}
+                <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-600">
+                  <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
+                  {t("customers.overview.portalStatus")}
                 </h3>
                 <Link
                   href="?tab=portal"
@@ -388,8 +401,9 @@ export default async function CustomerOverviewTab({
           <section className="space-y-3 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-2 border-b pb-2">
               <div>
-                <h2 className="text-base font-black text-gray-900">
-                  ⏰ {t("customers.overview.overdueWork")}
+                <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
+                  <Icon name="clock" className="h-4 w-4 shrink-0" />
+                  {t("customers.overview.overdueWork")}
                 </h2>
                 <p className="mt-0.5 text-xs text-gray-500">
                   {overdueCount > 0
@@ -425,8 +439,8 @@ export default async function CustomerOverviewTab({
                       </span>
                       <StatusBadge status={order.status} />
                     </div>
-                    <p className="mt-1 text-xs font-bold text-red-800">
-                      ⏰{" "}
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-red-800">
+                      <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
                       {t("customers.overview.overdueDate", {
                         date: formatDateLocalized(
                           order.scheduledFor,
@@ -453,8 +467,8 @@ export default async function CustomerOverviewTab({
                       </span>
                       <StatusBadge status={nextOrder.status} />
                     </div>
-                    <p className="mt-1 text-xs font-bold text-blue-800">
-                      🗓️{" "}
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-blue-800">
+                      <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
                       {t("customers.overview.nextVisitDate", {
                         date: formatDateLocalized(
                           nextOrder.scheduledFor,
@@ -470,12 +484,12 @@ export default async function CustomerOverviewTab({
                 {overdueCount > overdueOrders.length && (
                   <Link
                     href="?tab=oppdrag"
-                    className="block text-center text-xs font-bold text-blue-700 hover:underline"
+                    className="flex items-center justify-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                   >
                     {t("customers.overview.seeAll", {
                       count: overdueCount,
-                    })}{" "}
-                    →
+                    })}
+                    <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
                   </Link>
                 )}
               </div>
@@ -485,8 +499,9 @@ export default async function CustomerOverviewTab({
           {otherRecentOrders.length > 0 && (
             <section className="space-y-3 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
               <div className="flex items-center justify-between border-b pb-2">
-                <h2 className="text-base font-black text-gray-900">
-                  📂 {t("customers.overview.recentOrders")}
+                <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
+                  <Icon name="folder" className="h-4 w-4 shrink-0" />
+                  {t("customers.overview.recentOrders")}
                 </h2>
                 <Link
                   href="?tab=oppdrag"
@@ -515,11 +530,15 @@ export default async function CustomerOverviewTab({
                         undefined,
                         t("customers.overview.noDate"),
                       )}
-                      {order._count.reports > 0
-                        ? ` • 📋 ${t("customers.overview.checklists", {
+                      {order._count.reports > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span aria-hidden>•</span>
+                          <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
+                          {t("customers.overview.checklists", {
                             count: order._count.reports,
-                          })}`
-                        : ""}
+                          })}
+                        </span>
+                      ) : null}
                     </p>
                   </Link>
                 ))}
@@ -532,8 +551,9 @@ export default async function CustomerOverviewTab({
       {/* Aktivitetsstrømmen ligger over de sekundære tallene. */}
       <section className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-3 flex items-center justify-between border-b pb-2">
-          <h2 className="text-base font-black text-gray-900">
-            📋 {t("customers.overview.recentActivity")}
+          <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
+            <Icon name="clipboard" className="h-4 w-4 shrink-0" />
+            {t("customers.overview.recentActivity")}
           </h2>
           <Link
             href="?tab=aktivitet"
@@ -561,7 +581,9 @@ export default async function CustomerOverviewTab({
                 href={entry.href}
                 className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
               >
-                <span aria-hidden="true">{entry.icon}</span>
+                <span aria-hidden="true">
+                  <Icon name={entry.icon} className="inline-block h-3.5 w-3.5 align-[-0.125em]" />
+                </span>
                 <span>{entry.label}</span>
                 <span className="font-black text-gray-900">{entry.value}</span>
               </Link>
