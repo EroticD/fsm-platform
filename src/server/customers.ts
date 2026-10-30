@@ -1,5 +1,8 @@
+// i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
+// oversettes ved visning i audit-actions.ts.
 import fs from "fs/promises";
 import path from "path";
+import crypto from "node:crypto";
 import { WorkStatus, type Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
@@ -1097,6 +1100,7 @@ export async function createUnit(
           model,
           serialNumber: serialNumber || null,
           location: location || null,
+          qrToken: crypto.randomUUID().replace(/-/g, ""),
         },
       });
       // Enheten er en del av kundekortet, så hendelsen følger kundens id.

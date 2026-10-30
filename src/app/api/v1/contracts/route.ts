@@ -39,15 +39,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function contractError(reason: string) {
   switch (reason) {
     case "forbidden":
-      return apiError(403, "forbidden", "Du har ikke tilgang til avtaler.");
+      return apiError("forbidden", 403, {
+        messageKey: "errors.api.forbidden",
+      });
     case "not_found":
-      return apiError(404, "not_found", "Fant ikke avtalen.");
+      return apiError("not_found", 404, {
+        messageKey: "errors.api.notFound",
+      });
     case "conflict":
-      return apiError(409, "conflict", "Avtalenummeret er allerede i bruk.");
+      return apiError("conflict", 409, {
+        messageKey: "errors.api.conflict",
+      });
     case "invalid":
-      return apiError(422, "validation_error", "Feltene er ikke gyldige.");
+      return apiError("validation_error", 422, {
+        messageKey: "errors.api.validation",
+      });
     default:
-      return apiError(500, "server_error", "Kunne ikke lagre avtalen.");
+      return apiError("server_error", 500, {
+        messageKey: "errors.api.serverError",
+      });
   }
 }
 
@@ -96,15 +106,18 @@ export async function GET(request: Request) {
     !hasPermission(auth.actor, "contracts.view") &&
     !hasPermission(auth.actor, "contracts.manage")
   ) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til avtaler.");
+    return apiError("forbidden", 403, {
+      messageKey: "errors.api.forbidden",
+    });
   }
 
   const url = new URL(request.url);
   const { page, limit } = parseApiPagination(url);
   const statusRaw = (url.searchParams.get("status") ?? "").trim();
   if (statusRaw && !isContractStatus(statusRaw)) {
-    return apiError(400, "validation_error", "Ugyldig statusfilter.", {
-      field: "status",
+    return apiError("validation_error", 400, {
+      messageKey: "errors.api.validation",
+      details: { field: "status" },
     });
   }
   const expiringRaw = (url.searchParams.get("expiringDays") ?? "").trim();
@@ -115,8 +128,9 @@ export async function GET(request: Request) {
       (expiringDays as number) <= 0 ||
       (expiringDays as number) > 3650)
   ) {
-    return apiError(400, "validation_error", "Ugyldig utløpsfilter.", {
-      field: "expiringDays",
+    return apiError("validation_error", 400, {
+      messageKey: "errors.api.validation",
+      details: { field: "expiringDays" },
     });
   }
 
@@ -141,25 +155,34 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "contracts.manage")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til å endre avtaler.");
+    return apiError("forbidden", 403, {
+      messageKey: "errors.api.forbidden",
+    });
   }
 
   const parsed = await readJsonWithLimit<unknown>(request, JSON_BODY_LIMIT);
   if (!parsed.ok) {
     return parsed.status === 413
-      ? apiError(413, "validation_error", "Forespørselen er for stor.")
-      : apiError(400, "validation_error", "Ugyldig JSON.");
+      ? apiError("validation_error", 413, {
+          messageKey: "errors.api.tooLarge",
+        })
+      : apiError("validation_error", 400, {
+          messageKey: "errors.api.invalidJson",
+        });
   }
   if (!isRecord(parsed.data)) {
-    return apiError(400, "validation_error", "Body må være et JSON-objekt.");
+    return apiError("validation_error", 400, {
+      messageKey: "errors.api.invalidData",
+    });
   }
 
   const unknownField = Object.keys(parsed.data).find(
     (key) => !CREATE_FIELDS.has(key),
   );
   if (unknownField) {
-    return apiError(400, "validation_error", "Ukjent felt.", {
-      field: unknownField,
+    return apiError("validation_error", 400, {
+      messageKey: "errors.api.validation",
+      details: { field: unknownField },
     });
   }
 
@@ -168,8 +191,9 @@ export async function POST(request: Request) {
       ? parsed.data.customerId.trim()
       : "";
   if (!customerId) {
-    return apiError(422, "validation_error", "customerId er påkrevd.", {
-      field: "customerId",
+    return apiError("validation_error", 422, {
+      messageKey: "errors.api.missingField",
+      details: { field: "customerId" },
     });
   }
 

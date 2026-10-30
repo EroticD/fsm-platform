@@ -20,7 +20,9 @@ export async function GET(
     !hasPermission(auth.actor, "contracts.view") &&
     !hasPermission(auth.actor, "contracts.manage")
   ) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til avtaler.");
+    return apiError("forbidden", 403, {
+      messageKey: "errors.api.forbidden",
+    });
   }
 
   const { id } = await params;
@@ -30,9 +32,14 @@ export async function GET(
   const result = await getContractPdf(auth.actor, id, locale);
   if (!result.ok) {
     return apiError(
-      result.status,
       result.status === 403 ? "forbidden" : "not_found",
-      result.message,
+      result.status,
+      {
+        messageKey:
+          result.status === 403
+            ? "errors.api.forbidden"
+            : "errors.api.notFound",
+      },
     );
   }
 

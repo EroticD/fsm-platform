@@ -3,7 +3,7 @@ import type { AccessUser } from "@/lib/access";
 import { canAccessWorkOrder } from "@/lib/access";
 import { hasPermission } from "@/lib/permissions";
 
-export type UploadOwnerType = "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING";
+export type UploadOwnerType = "WORK_ORDER" | "CUSTOMER" | "DOCUMENT" | "USER" | "BRANDING" | "EQUIPMENT";
 
 export type UploadRecord = {
   ownerType: string;
@@ -22,6 +22,7 @@ export type UploadRecord = {
  * - Kundeportalbrukere ser bare filer som tilhører deres egen kunde.
  * - Oppdragsfil er synlig for dem som kan se oppdraget (avdeling/kunde).
  * - Dokumentfiler krever documents.view.
+ * - Utstyrsfiler krever equipment.view, og kundeportalen ser bare egne filer.
  * - Private filer er bare synlige for den som lastet dem opp.
  */
 export function canReadUpload(
@@ -43,6 +44,11 @@ export function canReadUpload(
         return Boolean(upload.customerId && upload.customerId === user.customerId);
       }
       return hasPermission(user, "customers.view");
+    case "EQUIPMENT":
+      if (user.role === "CUSTOMER") {
+        return Boolean(upload.customerId && upload.customerId === user.customerId);
+      }
+      return hasPermission(user, "equipment.view");
     case "DOCUMENT":
       return hasPermission(user, "documents.view");
     case "USER":

@@ -696,12 +696,36 @@ function buildRoutes(fixtures) {
       heading: "Rediger kunde",
     },
     {
+      slug: "enheter",
+      route: "/enheter",
+      role: "admin",
+      title: "Utstyr og enheter",
+      heading: "Utstyr og enheter",
+      expectTexts: ["Utstyr og enheter"],
+    },
+    {
+      slug: "enheter-ny",
+      route: "/enheter/ny",
+      role: "admin",
+      title: "Ny enhet",
+      heading: "Ny enhet",
+      expectTexts: ["Registrer enhet"],
+    },
+    {
       slug: "enhet-detalj",
       route: `/enheter/${productId}`,
       role: "admin",
       title: `Enhet – ${productName}`,
       heading: productName,
       expectTexts: ["NV-4001"],
+    },
+    {
+      slug: "enhet-etikett",
+      route: `/enheter/${productId}/etikett`,
+      role: "admin",
+      title: "Utstyrsmerking",
+      heading: productName,
+      expectTexts: ["Utstyrsmerking"],
     },
     {
       slug: "dokumenter",
@@ -919,13 +943,6 @@ const SKIPPED_ROUTES = [
       "To-ukersvisningen er fanget der.",
   },
   {
-    route: "/enheter",
-    role: "admin",
-    reason:
-      "Legacy-rute som redirecter til /kunder?varsel=enheter. " +
-      "Kundekatalogen og enhetsdetaljen er fanget separat.",
-  },
-  {
     route: "/sikkerhet",
     role: "admin",
     reason:
@@ -961,13 +978,6 @@ const REDIRECT_CHECKS = [
     expectedPath: "/kalender",
     expectedSearch: { vis: "2uker" },
     description: "gammel to-ukerskalender",
-  },
-  {
-    from: "/enheter",
-    role: "admin",
-    expectedPath: "/kunder",
-    expectedSearch: { varsel: "enheter" },
-    description: "gammel enhetsliste",
   },
   {
     from: "/sikkerhet",

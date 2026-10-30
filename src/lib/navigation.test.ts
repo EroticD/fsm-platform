@@ -50,6 +50,7 @@ describe("toppnavigasjon", () => {
     );
     expect(hrefs(menuNavFor(items))).toEqual([
       "/avtaler",
+      "/enheter",
       "/sok",
       "/rapporter",
       "/hms",
@@ -66,6 +67,7 @@ describe("toppnavigasjon", () => {
     const items = navItemsFor("OFFICE");
     expect(hrefs(menuNavFor(items))).toEqual([
       "/avtaler",
+      "/enheter",
       "/sok",
       "/hms",
       "/dokumenter",
@@ -87,6 +89,7 @@ describe("toppnavigasjon", () => {
     ]);
     expect(hrefs(menuNavFor(items))).toEqual([
       "/avtaler",
+      "/enheter",
       "/sok",
       "/hms",
       "/dokumenter",
@@ -141,9 +144,9 @@ describe("toppnavigasjon", () => {
     expect(hrefs(items)).not.toContain("/oppdrag/ny");
   });
 
-  it("holder /enheter utenfor menyen", () => {
+  it("viser /enheter i menyen for alle roller med utstyrstilgang", () => {
     for (const role of ["ADMIN", "OFFICE", "TECHNICIAN"]) {
-      expect(hrefs(navItemsFor(role, []))).not.toContain("/enheter");
+      expect(hrefs(navItemsFor(role, []))).toContain("/enheter");
     }
   });
 
@@ -160,6 +163,7 @@ describe("toppnavigasjon", () => {
       "/kalender",
       "/kunder",
       "/avtaler",
+      "/enheter",
       "/rapporter",
       "/sok",
       "/hms",

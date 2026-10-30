@@ -33,6 +33,10 @@ import searchAdminNb from "../../messages/fragments/search-admin.nb.json";
 import searchAdminEn from "../../messages/fragments/search-admin.en.json";
 import visitsNb from "../../messages/fragments/visits.nb.json";
 import visitsEn from "../../messages/fragments/visits.en.json";
+import p4Nb from "../../messages/fragments/p4.nb.json";
+import p4En from "../../messages/fragments/p4.en.json";
+import p4Pl from "../../messages/fragments/p4.pl.json";
+import p4De from "../../messages/fragments/p4.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -76,6 +80,7 @@ const nbFragments = mergeAll([
   p3Nb,
   searchAdminNb,
   visitsNb,
+  p4Nb,
 ]);
 
 const enFragments = mergeAll([
@@ -94,6 +99,7 @@ const enFragments = mergeAll([
   p3En,
   searchAdminEn,
   visitsEn,
+  p4En,
 ]);
 
 /**
@@ -101,9 +107,12 @@ const enFragments = mergeAll([
  * `messages/fragments/` flettes inn her, slik at flere arbeidsstrømmer kan
  * oversette hver sin del uten å redigere samme JSON-fil.
  */
+const plFragments = mergeAll([p4Pl]);
+const deFragments = mergeAll([p4De]);
+
 export const messages = {
   nb: { common: merge(commonNb.common, nbFragments) },
   en: { common: merge(commonEn.common, enFragments) },
-  pl: { common: commonPl.common },
-  de: { common: commonDe.common },
+  pl: { common: merge(commonPl.common, plFragments) },
+  de: { common: merge(commonDe.common, deFragments) },
 };

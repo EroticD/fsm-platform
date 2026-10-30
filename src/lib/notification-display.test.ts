@@ -18,6 +18,7 @@ describe("notificationTypePresentation", () => {
       "CONTACT_UPDATE",
       "SLA_AT_RISK",
       "SLA_BREACHED",
+      "WARRANTY",
     ];
 
     for (const type of types) {

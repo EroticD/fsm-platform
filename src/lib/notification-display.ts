@@ -74,6 +74,11 @@ export const NOTIFICATION_TYPE_PRESENTATION: Record<
     labelKey: "p3.notifications.types.SLA_BREACHED",
     tone: "red",
   },
+  WARRANTY: {
+    icon: "🛡️",
+    labelKey: "p3.notifications.types.WARRANTY",
+    tone: "amber",
+  },
 };
 
 /**

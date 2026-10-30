@@ -78,10 +78,5 @@
   },
   "nav": {
     "hms": "HMS"
-  },
-  "dashboard": {
-    "quickActions": {
-      "hms": "HMS"
-    }
   }
 }

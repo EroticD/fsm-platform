@@ -1,3 +1,5 @@
+// i18n-ignore-file: norsk tekst er bare fallback. UI-en bruker labelKey,
+// descriptionKey og groupKey fra katalogene.
 /**
  * Rettigheter og roller.
  *

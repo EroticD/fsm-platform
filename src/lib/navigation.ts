@@ -92,6 +92,13 @@ export const STAFF_NAV: NavItem[] = [
     section: "menu",
   },
   {
+    href: "/enheter",
+    labelKey: "units",
+    icon: "wrench",
+    requires: "equipment.view",
+    section: "menu",
+  },
+  {
     href: "/sok",
     labelKey: "search",
     icon: "search",

@@ -1,3 +1,5 @@
+// i18n-ignore-file: revisjonsloggen lagrer stabile, ferdig formaterte norske
+// handlingsstrenger. De oversettes ved visning; tjenesten har ingen UI-tekst.
 /**
  * Databaseoppslag for åpningstider og helligdager.
  *

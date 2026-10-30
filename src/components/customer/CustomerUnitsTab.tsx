@@ -67,6 +67,14 @@ export default async function CustomerUnitsTab({
       }
       description={t("customers.units.description")}
     >
+      <Link
+        href={`/enheter?kunde=${customerId}`}
+        className={`${CUSTOMER_INK_BUTTON} self-start`}
+      >
+        <Icon name="wrench" className="h-4 w-4 shrink-0" />
+        {t("assets.list.openModule")}
+        <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
+      </Link>
       {/* Filtrering skjer på serveren, slik at en kunde med mange enheter
           fortsatt får en kort og rask side. */}
       <form method="GET" action="" className="flex flex-wrap items-center gap-2">

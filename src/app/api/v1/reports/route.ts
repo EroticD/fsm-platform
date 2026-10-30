@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   if (!hasPermission(auth.actor, "reports.view")) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til rapporter.");
+    return apiError("forbidden", 403, { messageKey: "errors.api.reports.forbidden" });
   }
 
   const url = new URL(request.url);
@@ -67,9 +67,9 @@ export async function GET(request: Request) {
   if (from !== null && from.trim()) {
     const parsed = parseDay(from, false);
     if (!parsed.valid) {
-      return apiError(400, "validation_error", "Ugyldig fra-dato.", {
+      return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.invalidFromDate", details: {
         field: fromKey,
-      });
+      } });
     }
     completedAt.gte = parsed.date;
   }
@@ -82,9 +82,9 @@ export async function GET(request: Request) {
   if (to !== null && to.trim()) {
     const parsed = parseDay(to, true);
     if (!parsed.valid) {
-      return apiError(400, "validation_error", "Ugyldig til-dato.", {
+      return apiError("validation_error", 400, { messageKey: "errors.api.workOrders.invalidToDate", details: {
         field: toKey,
-      });
+      } });
     }
     completedAt.lt = parsed.date;
   }
@@ -94,9 +94,9 @@ export async function GET(request: Request) {
     ? undefined
     : readBoolean(lockedRaw);
   if (locked === null) {
-    return apiError(400, "validation_error", "Ugyldig verdi for locked.", {
+    return apiError("validation_error", 400, { messageKey: "errors.api.reports.invalidLocked", details: {
       field: "locked",
-    });
+    } });
   }
 
   const acknowledgedRaw = params.get("acknowledged");
@@ -104,12 +104,7 @@ export async function GET(request: Request) {
     ? undefined
     : readBoolean(acknowledgedRaw);
   if (acknowledged === null) {
-    return apiError(
-      400,
-      "validation_error",
-      "Ugyldig verdi for acknowledged.",
-      { field: "acknowledged" },
-    );
+    return apiError("validation_error", 400, { messageKey: "errors.api.reports.invalidAcknowledged", details: { field: "acknowledged" } });
   }
 
   // Omfanget legges som én egen AND-gren. Da kan ikke et filter på

@@ -28,13 +28,14 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users         User[]
-  workOrders    WorkOrder[]
-  contracts     Contract[]
-  customers     Customer[]
-  slaPolicies   SlaPolicy[]
-  businessHours BusinessHours[]
-  holidays      Holiday[]
+  users            User[]
+  workOrders       WorkOrder[]
+  contracts        Contract[]
+  customers        Customer[]
+  slaPolicies      SlaPolicy[]
+  businessHours    BusinessHours[]
+  holidays         Holiday[]
+  maintenancePlans MaintenancePlan[]
 
   @@index([isActive])
 }
@@ -130,6 +131,9 @@ model User {
   availability     UserAvailability[]
   absences         Absence[]
 
+  // Målinger registrert av brukeren.
+  meterReadings MeterReading[]
+
   @@index([departmentId])
   @@index([role])
   @@index([resetToken])
@@ -202,13 +206,14 @@ model Customer {
   responsibleTechnicianId String?
   responsibleTechnician   User?   @relation("CustomerResponsibleTechnician", fields: [responsibleTechnicianId], references: [id], onDelete: SetNull)
 
-  products        Product[]
-  contracts       Contract[]
-  workOrder       WorkOrder[]
-  bookingRequests BookingRequest[]
-  contacts        Contact[]
-  comments        Comment[]
-  attachments     CustomerAttachment[]
+  products         Product[]
+  contracts        Contract[]
+  workOrder        WorkOrder[]
+  bookingRequests  BookingRequest[]
+  contacts         Contact[]
+  comments         Comment[]
+  attachments      CustomerAttachment[]
+  maintenancePlans MaintenancePlan[]
 
   users User[]
 
@@ -244,22 +249,80 @@ model Contact {
   @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_phone_trgm")
 }
 
+/// Utstyrets driftstilstand. Retired er en historisk enhet som ikke lenger
+/// skal få nye målinger eller vedlikeholdsplaner.
+enum EquipmentStatus {
+  ACTIVE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+/// Kategoritre for utstyr. Treet er enkelt å bygge ut (bygg → system → enhet),
+/// men sykluser avvises av tjenestelaget, ikke bare av databasen.
+model EquipmentCategory {
+  id       String  @id @default(cuid())
+  name     String
+  parentId String?
+
+  parent   EquipmentCategory?  @relation("EquipmentCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children EquipmentCategory[] @relation("EquipmentCategoryTree")
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([parentId])
+  @@index([name])
+}
+
 // En enhet er en maskin/utstyr som står hos kunden, f.eks. en port, en pumpe
-// eller et aggregat. Kunden kan ha mange enheter.
+// eller et aggregat. Kunden kan ha mange enheter. Enheten kan i tillegg inngå
+// i et hierarki (bygg → system → enhet) og ha målinger, garanti og QR-identitet.
 model Product {
   id           String  @id @default(cuid())
   model        String
   serialNumber String?
   location     String?
 
-  customerId  String
-  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   workOrder     WorkOrder[]
   reportUnits   ReportUnit[]
   contractLines ContractLine[]
 
+  // Kategoritre og fysisk/teknisk hierarki. To ulike trær med hvert sitt formål:
+  // kategorien sier hva utstyret er, hierarkiet hvor det hører til.
+  categoryId String?
+  category   EquipmentCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  parentId String?
+  parent   Product?  @relation("EquipmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Product[] @relation("EquipmentHierarchy")
+
+  status      EquipmentStatus @default(ACTIVE)
+  criticality Int             @default(2) // 1 = kritisk, 2 = normal, 3 = lav
+  meterUnit   String? // timer | km | sykluser
+
+  installDate        DateTime? @db.Date
+  warrantyUntil      DateTime? @db.Date
+  /// Satt når garantiutløp er varslet, slik at varselet bare sendes én gang.
+  warrantyNotifiedAt DateTime?
+
+  /// Tilfeldig token i QR-etiketten. Roteres når etiketten skal sperres.
+  qrToken String? @unique
+
+  meterReadings    MeterReading[]
+  maintenancePlans MaintenancePlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
   @@index([customerId])
   @@index([customerId, serialNumber])
+  @@index([categoryId])
+  @@index([parentId])
+  @@index([status])
+  @@index([warrantyUntil])
   @@index([model(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_model_trgm")
   @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_serialNumber_trgm")
   @@index([location(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_location_trgm")
@@ -280,30 +343,113 @@ enum RenewalMode {
   MANUAL
 }
 
+/// En måling fra utstyret. `source` er MANUAL | VISIT | IMPORT. Verdien er
+/// desimal fordi både timer, kilometer og sykluser kan ha desimaler.
+model MeterReading {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  value     Decimal  @db.Decimal(12, 2)
+  readAt    DateTime
+  source    String   @default("MANUAL")
+  visitId   String?
+  visit     Visit?   @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([productId, readAt])
+  @@index([visitId])
+  @@index([userId])
+}
+
+enum MaintenanceTrigger {
+  CALENDAR
+  METER
+}
+
+/// En vedlikeholdsplan genererer forebyggende oppdrag enten på kalender
+/// (`intervalMonths`) eller når en måler passerer en terskel (`meterInterval`).
+model MaintenancePlan {
+  id             String             @id @default(cuid())
+  title          String
+  trigger        MaintenanceTrigger
+  /// CALENDAR: antall måneder mellom hver forekomst.
+  intervalMonths Int?
+  /// METER: antall enheter mellom hvert genererte oppdrag.
+  meterInterval  Decimal?           @db.Decimal(12, 2)
+  /// Hvor mange dager før forfall oppdraget kan genereres.
+  leadDays       Int                @default(14)
+  nextDueDate    DateTime?          @db.Date
+  /// Siste målerverdi som er brukt som terskelgrunnlag. Null betyr at neste
+  /// måling setter utgangspunktet uten å lage et oppdrag.
+  lastMeterValue Decimal?           @db.Decimal(12, 2)
+  isActive       Boolean            @default(true)
+
+  productId    String?
+  product      Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  templateId   String?
+  template     Template?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  occurrences MaintenancePlanOccurrence[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([nextDueDate, isActive])
+  @@index([customerId])
+  @@index([productId])
+  @@index([departmentId])
+}
+
+/// Én forekomst av en plan. `@@unique([planId, dueDate])` er den siste skansen
+/// mot dobbeltgenerering; tjenestelaget tar i tillegg en advisory lock.
+model MaintenancePlanOccurrence {
+  id          String          @id @default(cuid())
+  planId      String
+  plan        MaintenancePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dueDate     DateTime        @db.Date
+  /// PENDING | GENERATED | SKIPPED
+  status      String          @default("PENDING")
+  workOrderId String?         @unique
+  workOrder   WorkOrder?      @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  /// Målerverdien som utløste en METER-forekomst.
+  meterValue  Decimal?        @db.Decimal(12, 2)
+  createdAt   DateTime        @default(now())
+
+  @@unique([planId, dueDate])
+  @@index([status, dueDate])
+}
+
 // En serviceavtale beskriver en gjentagende service for en kunde. Hver gang
 // neste service faller forfaller, opprettes et nytt oppdrag med kundedataene
 // ferdig utfylt. Sjekklisten er en mal som festes til oppdraget, men selve
 // rapporten er alltid ny og tom – den forrige rapporten legges ved som PDF.
 model Contract {
-  id              String         @id @default(cuid())
-  title           String
+  id                String         @id @default(cuid())
+  title             String
   /// Menneskelig, valgfri avtalenummer. Unik når den er satt.
-  contractNumber  String?        @unique
+  contractNumber    String?        @unique
   /// Intervall i måneder. Bare 3, 6, 12 og 24 er gyldige.
-  intervalMonths  Int
-  startDate       DateTime       @db.Date
+  intervalMonths    Int
+  startDate         DateTime       @db.Date
   /// Siste gyldige dag. Tom betyr tidsubegrenset.
-  endDate         DateTime?      @db.Date
+  endDate           DateTime?      @db.Date
   /// Neste dato det skal opprettes et oppdrag for.
-  nextServiceDate DateTime       @db.Date
-  status          ContractStatus @default(ACTIVE)
+  nextServiceDate   DateTime       @db.Date
+  status            ContractStatus @default(ACTIVE)
   /// Avledet av `status`; beholdes for eksisterende spørringer og backfill.
-  isActive        Boolean        @default(true)
-  renewalMode     RenewalMode    @default(MANUAL)
+  isActive          Boolean        @default(true)
+  renewalMode       RenewalMode    @default(MANUAL)
   /// Antall dager før utløp en manuell fornyelse bør varsles om.
-  noticeDays      Int            @default(30)
+  noticeDays        Int            @default(30)
   /// Referanseverdi for prisjustering. Ingen fakturering eller beregning.
-  indexationPercent Decimal?    @db.Decimal(5, 2)
+  indexationPercent Decimal?       @db.Decimal(5, 2)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
@@ -342,17 +488,17 @@ model Contract {
 
 /// Dekningen en avtale gir. `productId = null` betyr alt utstyr hos kunden.
 model ContractLine {
-  id            String  @id @default(cuid())
-  contractId    String
-  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  productId     String?
-  product       Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  scope         String   @default("")
-  visitsPerYear Int?
+  id                String   @id @default(cuid())
+  contractId        String
+  contract          Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  productId         String?
+  product           Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  scope             String   @default("")
+  visitsPerYear     Int?
   responseMinutes   Int?
   resolutionMinutes Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @default(now()) @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
 
   @@index([contractId])
   @@index([productId])
@@ -389,16 +535,16 @@ model PriceListItem {
 /// Svar- og løsningsfrist for oppdrag. En avdeling kan ha flere policyer;
 /// avtalen peker på den som gjelder.
 model SlaPolicy {
-  id                String   @id @default(cuid())
+  id                String      @id @default(cuid())
   name              String
   departmentId      String?
   department        Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   responseMinutes   Int
   resolutionMinutes Int
-  businessHoursOnly Boolean  @default(true)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @default(now()) @updatedAt
+  businessHoursOnly Boolean     @default(true)
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @default(now()) @updatedAt
 
   contracts Contract[]
   clocks    SlaClock[]
@@ -418,7 +564,7 @@ enum SlaState {
 /// Én klokke per oppdrag og policy. Tidspunktene er absolutte og regnet ut
 /// gjennom `src/server/business-hours.ts`, også over sommertid.
 model SlaClock {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workOrderId String
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   policyId    String
@@ -428,7 +574,7 @@ model SlaClock {
   resolveBy   DateTime
   respondedAt DateTime?
   resolvedAt  DateTime?
-  state       SlaState @default(ON_TRACK)
+  state       SlaState  @default(ON_TRACK)
   breachedAt  DateTime?
 
   @@unique([workOrderId, policyId])
@@ -439,7 +585,7 @@ model SlaClock {
 
 /// Åpningstider per ukedag, minutter fra midnatt i Europe/Oslo. 0 = mandag.
 model BusinessHours {
-  id           String @id @default(cuid())
+  id           String     @id @default(cuid())
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   weekday      Int
@@ -452,8 +598,8 @@ model BusinessHours {
 
 /// Helligdag som lukker SLA-klokken. Uten avdeling gjelder den alle.
 model Holiday {
-  id           String    @id @default(cuid())
-  date         DateTime  @db.Date
+  id           String      @id @default(cuid())
+  date         DateTime    @db.Date
   name         String
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
@@ -593,6 +739,9 @@ model WorkOrder {
   skillRequirements WorkOrderSkill[]
   slaClocks         SlaClock[]
 
+  /// Forekomst av en vedlikeholdsplan som genererte dette oppdraget.
+  maintenanceOccurrence MaintenancePlanOccurrence?
+
   @@unique([departmentId, orderNumberNormalized])
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.
   @@unique([contractId, scheduledFor])
@@ -627,6 +776,8 @@ model Visit {
   updatedAt   DateTime    @default(now()) @updatedAt
 
   technicians VisitTechnician[]
+
+  meterReadings MeterReading[]
 
   @@index([workOrderId, startsAt])
   @@index([startsAt, endsAt])
@@ -1007,22 +1158,23 @@ model ReportDraft {
 }
 
 model Template {
-  id            String           @id @default(cuid())
-  title         String
+  id               String            @id @default(cuid())
+  title            String
   /// Navnet som vises på produserte rapporter/PDF. Tomt = bruk title.
-  reportName    String?
+  reportName       String?
   /// Kort beskrivelse til malbiblioteket.
-  description   String?
+  description      String?
   /// SERVICE = vanlig sjekkliste, HMS = HMS-dokumentasjon.
-  category      TemplateCategory @default(SERVICE)
+  category         TemplateCategory  @default(SERVICE)
   /// Undertype når category = HMS.
-  hmsType       HmsFormType?
+  hmsType          HmsFormType?
   /// Om rapporten skal knyttes til enheter. Kan slås av per mal.
-  requiresUnits Boolean          @default(true)
-  fieldsJson    String
-  reports       Report[]
-  workOrder     WorkOrder[]      @relation("WorkOrderTemplates")
-  contracts     Contract[]
+  requiresUnits    Boolean           @default(true)
+  fieldsJson       String
+  reports          Report[]
+  workOrder        WorkOrder[]       @relation("WorkOrderTemplates")
+  contracts        Contract[]
+  maintenancePlans MaintenancePlan[]
 
   @@index([category, hmsType])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Template_title_trgm")

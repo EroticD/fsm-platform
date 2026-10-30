@@ -67,8 +67,6 @@
         "tags": "Tags / sjekkliste",
         "action": "Handling"
       },
-      "previous": "← Forrige",
-      "next": "Neste →",
       "page": "Side {page} av {pages}",
       "sortLabel": "Sortering",
       "sortUrgency": "Haster først",
@@ -105,7 +103,6 @@
       "orderNumber": "Ordrenummer",
       "orderNumberPlaceholder": "Kundens ordrenummer (valgfritt)",
       "submitting": "Oppretter …",
-      "locationTitle": "Arbeidssted",
       "addressLabel": "Adresse",
       "postalCodeLabel": "Postnummer",
       "cityLabel": "By",
@@ -114,7 +111,6 @@
     "customerSelect": {
       "label": "Velg kunde",
       "labelOptional": "Velg kunde (valgfritt)",
-      "placeholder": "-- Velg eller søk etter kunde --",
       "searchPlaceholder": "Søk etter kunde, by eller kundenr...",
       "noMatch": "Ingen kunder matchet søket.",
       "customerNumber": "Knr: {number}",
@@ -147,14 +143,12 @@
       "notFoundTitle": "Oppdraget finnes ikke",
       "goToDashboard": "Gå til dashbordet",
       "saveTags": "💾 Lagre tags",
-      "editTags": "Rediger tags",
       "noDate": "Ingen dato valgt",
       "noAddress": "Ingen adresse registrert",
       "assign": "Tildel",
       "moveDate": "Flytt dato",
       "completeWorkOrder": "Fullfør",
       "department": "Avdeling: {name}",
-      "noCustomer": "Uten kunde",
       "internalOrder": "Internt oppdrag",
       "orphanReport": "Rapport uten mal",
       "editWorkOrder": "Rediger oppdrag",
@@ -197,7 +191,6 @@
       "cancelReasonPlaceholder": "Beskriv hvorfor oppdraget kanselleres",
       "noStatusPermission": "Du har ikke rettighet til å endre status på dette oppdraget.",
       "locationTitle": "Lokasjon og kontakt",
-      "company": "Firma:",
       "address": "Adresse:",
       "contact": "Kontaktperson",
       "noContact": "Ingen kontaktperson valgt for oppdraget.",
@@ -256,7 +249,6 @@
       "deletedRetention": "Oppdrag uten rapporter kan bli fjernet automatisk etter bevaringsperioden (365 dager som standard). Oppdrag med rapporter beholdes til de slettes manuelt. Bevaringsplikt stopper all automatisk sletting.",
       "restored": "Oppdraget er gjenopprettet.",
       "cloneWorkOrder": "Klon oppdrag",
-      "completedLocked": "Oppdraget er fullført og låst. Du kan legge til kommentarer eller klone det til et nytt oppdrag.",
       "reopenReason": "Grunn til gjenåpning / statusendring",
       "reopenReasonPlaceholder": "Beskriv hvorfor oppdraget gjenåpnes eller statusen overstyres",
       "checklistLockedOnly": "Sjekklisten er låst, men det låser bare sjekklisten. Oppdraget kan fortsatt redigeres og få ny status.",
@@ -334,15 +326,12 @@
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
       "backToDashboard": "Tilbake til dashbord",
-      "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
       "title": "✏️ Rediger Oppdrag",
       "subtitle": "Oppdater detaljer, dato eller montør.",
       "cancel": "← Avbryt",
       "titleLabel": "Oppdragstittel / Navn",
       "department": "Avdeling",
       "departmentHint": "Flytter du oppdraget, må montører fra den nye avdelingen velges på nytt.",
-      "customer": "Kunde",
-      "contact": "Kontaktperson (valgfritt)",
       "noContact": "— Ingen kontaktperson —",
       "contactHint": "Velger du en ny kunde, må du også velge kontaktperson på nytt.",
       "scheduledDate": "Planlagt dato",
@@ -361,7 +350,6 @@
       "roleTechnician": "Montør",
       "orderNumber": "Ordrenummer",
       "saving": "Lagrer …",
-      "locationTitle": "Arbeidssted",
       "addressLabel": "Adresse",
       "postalCodeLabel": "Postnummer",
       "cityLabel": "By",
@@ -369,11 +357,9 @@
     },
     "fieldList": {
       "greeting": "Hei, {name}",
-      "subtitle": "Felt-portal for oppdrag og kalender.",
       "department": "{name}",
       "noDepartment": "Ingen avdeling",
       "logOut": "Logg ut",
-      "fieldMode": "Feltmodus",
       "onDuty": "På vakt",
       "liveOnline": "På nett",
       "liveOffline": "Frakoblet",
@@ -400,7 +386,6 @@
       "searchPlaceholder": "Søk i oppdrag, kunder eller stedsnavn...",
       "search": "Søk",
       "reset": "Nullstill",
-      "upcomingTitle": "📅 Dine kommende oppdrag ({count})",
       "todayPageTitle": "I dag",
       "noActive": "Ingen aktive oppdrag i din kalender akkurat nå.",
       "noDate": "Ingen dato satt",
@@ -408,12 +393,7 @@
       "allDay": "Hele dagen",
       "openWorkOrder": "Åpne oppdrag",
       "openWorkOrderAria": "Åpne oppdraget {title}",
-      "priorityOverdue": "⚠️ Forfalt",
-      "priorityToday": "☀️ I dag",
-      "priorityAvailable": "🙋 Ledige",
-      "priorityLater": "🗓️ Senere",
       "overdueEmpty": "Ingen forfalte oppdrag.",
-      "todayEmpty": "Ingen oppdrag i dag.",
       "availableEmpty": "Ingen ledige oppdrag akkurat nå.",
       "laterEmpty": "Ingen kommende oppdrag.",
       "availableDescription": "Oppdrag uten montør som du kan ta.",
@@ -421,8 +401,6 @@
       "takeWorkOrderCta": "Ta oppdraget",
       "draftBadge": "Kladd {time}",
       "draftContinue": "Fortsett",
-      "unassignedTitle": "⚠️ Ledige / Ikke tildelte oppdrag ({count})",
-      "requiresAssignment": "Krever tildeling / utførelse",
       "takeWorkOrder": "Ta oppdraget",
       "takingWorkOrder": "Tar oppdraget …",
       "claimed": "Oppdraget er tatt og ligger nå under dine oppdrag.",
@@ -434,7 +412,6 @@
       "showMap": "Kart",
       "newTab": "åpnes i ny fane",
       "historyTitle": "Fullførte oppdrag / Historikk ({count})",
-      "archived": "🏢 {customer} • Fullført / Arkivert",
       "loadMore": "Vis flere ({count})",
       "showingCount": "Viser {shown} av {total}"
     },
@@ -442,9 +419,7 @@
       "notFoundTitle": "Oppdraget finnes ikke",
       "notFoundText": "Det kan ha blitt slettet, eller så er lenken feil.",
       "backToOverview": "Gå tilbake til oversikten",
-      "noCustomer": "Uten kunde",
       "internalOrder": "Internt oppdrag",
-      "department": "🏷️ Avdeling: {name}",
       "back": "← Tilbake",
       "statusTitle": "Oppdragsstatus",
       "statusOpen": "Åpen / Ny",
@@ -559,10 +534,6 @@
       "subtitle": "Registrer en ny jobb direkte fra feltet.",
       "titleLabel": "Tittel / Oppdragstype",
       "titlePlaceholder": "F.eks. Akutt reparasjon / Ekstra service",
-      "customerLabel": "Velg Kunde (valgfritt)",
-      "noAddress": "Ingen adresse",
-      "switchCustomer": "Bytt kunde",
-      "customerSearchPlaceholder": "Skriv for å søke etter kunde eller by...",
       "executionDate": "Dato for utførelse",
       "endDate": "Til dato (valgfritt)",
       "endDateHint": "Tom = éndagsoppdrag.",
@@ -598,13 +569,11 @@
       "loadErrorTitle": "Kunne ikke laste skjema",
       "loadErrorText": "Oppdraget eller skjema-malen finnes ikke lenger.",
       "backToWorkOrder": "Tilbake til oppdrag",
-      "backToWorkOrderShort": "← Tilbake til oppdraget",
       "workOrderFor": "Oppdrag: {title} hos {customer}",
       "noCustomer": "Uten kunde",
       "lockedTitle": "🔒 Rapporten er låst",
       "lockedText": "Denne sjekklisten er allerede fylt ut og låst, og kan ikke endres herfra. Er det behov for rettinger må en administrator låse den opp først.",
-      "openPdf": "📄 Se rapporten (PDF)",
-      "revisions": "Revisjoner ({count})"
+      "openPdf": "📄 Se rapporten (PDF)"
     },
     "fieldInput": {
       "commentRequired": "💬 Kommentar til «{value}» – påkrevd",
@@ -616,23 +585,7 @@
       "textPlaceholder": "Skriv her..."
     },
     "workOrderForm": {
-      "title": "Fullfør oppdrag",
-      "template": "Sjekklistemal: {title}",
-      "templateQuestion": "Vil du fylle ut sjekklisten for denne jobben?",
-      "templateActive": "Sjekkliste aktiv",
-      "templateActivate": "Aktiver sjekkliste",
-      "checkpoints": "Sjekkpunkter",
-      "photoRequired": "📷 Bilde påkrevd",
-      "commentRequired": "💬 Kommentar påkrevd",
-      "okOption": "OK (Ja)",
-      "deviationOption": "Avvik (Nei)",
-      "commentPlaceholder": "Legg til kommentar eller avviksnotat her...",
-      "photoLabel": "Legg ved bilde for dette punktet:",
-      "summaryLabel": "Sluttkommentar / oppsummering",
-      "summaryPlaceholder": "Skriv en kort oppsummering av jobben...",
-      "customerSignature": "Kundesignatur (Navn)",
-      "customerSignaturePlaceholder": "Skriv kundens fulle navn...",
-      "submit": "Lagre og fullfør oppdrag"
+      "title": "Fullfør oppdrag"
     },
     "reportForm": {
       "saving": "Lagrer …",
@@ -640,11 +593,6 @@
       "saveReport": "✍️ Signer og send rapport",
       "submitOffline": "📴 Kan ikke sendes offline",
       "offlineNotice": "Offline – kladden lagres, men rapporten kan ikke sendes før du er på nett.",
-      "draftSaving": "💾 Lagrer kladd …",
-      "draftSaved": "✅ Kladd lagret",
-      "draftSavedAt": "✅ Kladd lagret {time}",
-      "draftError": "⚠️ Kunne ikke lagre kladd – sjekk nettet",
-      "draftIdle": "Kladd lagres automatisk på denne enheten mens du fyller ut",
       "saveDraftNow": "Lagre kladd nå",
       "stepsLabel": "Sjekkliste-steg",
       "stepNumber": "Steg {number}",
@@ -702,8 +650,6 @@
       "technicianHelper": "Den som utførte jobben.",
       "customerSignature": "✍️ Kunde",
       "customerHelper": "Kundens representant på stedet.",
-      "draftOffline": "Lagret på denne enheten – sendes når appen er åpen og nettet er tilbake",
-      "reportNoUnitsTitle": "Sjekkpunkter",
       "reportNoUnitsHint": "Denne rapporten er ikke knyttet til enheter. Sjekkpunktene fylles ut for oppdraget samlet.",
       "errorInvalidData": "⛔ Rapporten mangler eller har ugyldige opplysninger. Rett opp feltene under og prøv igjen.",
       "errorMissingUnit": "⛔ Rapporten mangler enhet. Legg til minst én enhet og prøv igjen.",
@@ -748,11 +694,8 @@
       "uploadError": "Opplasting feilet",
       "saveError": "Kunne ikke lagre vedlegget",
       "deleteError": "Kunne ikke slette vedlegget",
-      "locked": "Oppdraget er låst og kan ikke endres.",
-      "legalHold": "Oppdraget har bevaringsplikt og kan ikke endres.",
       "deleteTitle": "Slett vedlegg",
       "deleteConfirm": "Slette vedlegget «{name}»?",
-      "delete": "Slett",
       "uploadLabel": "Legg til filer"
     },
     "unitHistory": {
@@ -784,11 +727,9 @@
       "failedShort": "Opplasting feilet",
       "retry": "Prøv igjen",
       "retryAll": "Prøv alle på nytt",
-      "uploading": "Laster opp {done} av {total} …",
       "uploadingShort": "Laster opp …",
       "uploaded": "{count, plural, one {✅ # bilde lastet opp} other {✅ # bilder lastet opp}}",
       "viewImage": "Se bilde",
-      "remove": "✕ Fjern",
       "removeFile": "Fjern {name}",
       "attachmentAlt": "Vedlegg {number}"
     },
@@ -809,9 +750,7 @@
       "endBeforeStart": "Sluttdato kan ikke være før startdato.",
       "saveFailed": "⛔ Oppdraget kunne ikke lagres. Sjekk tittel, kunde og dato.",
       "workOrderLocked": "🔒 Oppdraget er fullført eller kansellert og låst. Du kan legge til kommentarer eller klone det.",
-      "reasonRequired": "Du må oppgi en grunn til gjenåpningen/statusendringen.",
       "legalHold": "⛔ Oppdraget kan ikke slettes fordi det eller en av rapportene har bevaringsplikt.",
-      "legalHoldFrozen": "⛔ Rapporten er fryst av bevaringsplikt. En administrator må frigjøre holdet med en grunn før den kan endres eller låses opp.",
       "duplicateOrderNumber": "⛔ Ordrenummeret er allerede i bruk i denne avdelingen. Bruk et annet nummer.",
       "customerChangeBlocked": "⛔ Kunden kan ikke endres fordi oppdraget har rapporter eller en bestilling.",
       "tooManyTags": "For mange tags.",
@@ -882,13 +821,8 @@
       "locked": "Låst",
       "openForEdit": "Åpen for retting",
       "unsigned": "Ikke signert",
-      "viewPdf": "Se rapport (PDF)",
       "openWorkOrder": "Åpne oppdraget",
-      "showing": "Viser de {shown} nyeste av {total} rapporter.",
       "noUnits": "Uten enheter",
-      "revisions": "Revisjoner ({count})",
-      "previousPage": "Forrige",
-      "nextPage": "Neste",
       "showingPage": "Side {page} av {totalPages} · {total} rapporter",
       "reportNumber": "Rapportnr. {number}",
       "tableReport": "Rapport",
@@ -934,8 +868,7 @@
       "reportName": "Rapport: {name}",
       "singleReportFallback": "Rapport",
       "download": "Last ned PDF",
-      "iframeTitle": "Servicerapport – {title}",
-      "noCustomer": "Internt oppdrag"
+      "iframeTitle": "Servicerapport – {title}"
     }
   },
   "auditActions": {
@@ -958,7 +891,10 @@
       "reportLegalHoldOn": "Slo på bevaringsplikt for rapporten «{name}»",
       "reportLegalHoldOff": "Slo av bevaringsplikt for rapporten «{name}»",
       "deleted": "Slettet oppdraget «{title}»{customer, select, none {} other { ({customer})}} (myk sletting – kan gjenopprettes)",
-      "restored": "Gjenopprettet oppdraget «{title}»"
+      "restored": "Gjenopprettet oppdraget «{title}»",
+      "completed": "Fullførte oppdrag",
+      "statusGeneric": "Endret status",
+      "updatedGeneric": "Oppdatert"
     },
     "report": {
       "acknowledgementWithdrawnResubmit": "Kundens kvittering ble trukket tilbake ved ny innsending",
@@ -973,13 +909,16 @@
       "units": "{count, plural, one {# enhet} other {# enheter}}",
       "noUnits": "uten enheter",
       "deviation": "avvik",
-      "approved": "godkjent"
+      "approved": "godkjent",
+      "acknowledged": "Kunden kvitterte for rapporten",
+      "signed": "Signerte rapport"
     },
     "customer": {
       "created": "Opprettet kunde: {name}",
       "updated": "Endret kundeinformasjon: {name}",
       "deleted": "Slettet kunden «{name}» (myk sletting – kan gjenopprettes)",
-      "restored": "Gjenopprettet kunden «{name}»"
+      "restored": "Gjenopprettet kunden «{name}»",
+      "updatedGeneric": "Endret kunde"
     },
     "contact": {
       "created": "La til kontaktperson: {name}",
@@ -995,11 +934,99 @@
       "created": "Opprettet serviceavtale: {title} ({interval})",
       "activated": "Aktiverte serviceavtale: {title}",
       "paused": "Pauset serviceavtale: {title}",
-      "deleted": "Slettet serviceavtale: {title}"
+      "deleted": "Slettet serviceavtale: {title}",
+      "recurringCreated": "Opprettet gjentagende oppdrag fra serviceavtalen «{title}»"
     },
     "attachment": {
       "added": "La ved fil: {name}",
       "deleted": "Slettet vedlegg: {name}"
+    },
+    "auth": {
+      "login": "Logget inn",
+      "loginRecovery": "Logget inn med gjenopprettingskode",
+      "passwordReset": "Tilbakestilte passord med e-postlenke"
+    },
+    "security": {
+      "twoFactorFailed": "2FA: feilet verifisering",
+      "twoFactorSetupExpired": "2FA: oppsett utløpt",
+      "twoFactorSetupStarted": "Startet oppsett av to-trinns verifisering",
+      "twoFactorSetupCancelled": "Avbrøt oppsett av to-trinns verifisering",
+      "twoFactorEnabled": "Slå på to-trinns verifisering",
+      "twoFactorDisabled": "Slå av to-trinns verifisering",
+      "twoFactorRecoveryRegenerated": "Genererte nye gjenopprettingskoder for to-trinns verifisering",
+      "twoFactorReset": "Tilbakestilte to-trinns verifisering for {name}"
+    },
+    "users": {
+      "created": "Opprettet bruker: {name} ({role})",
+      "portalCreated": "Opprettet kundeportalbruker: {name} ({email})",
+      "activated": "Aktiverte bruker: {name}",
+      "deactivated": "Deaktiverte bruker: {name}",
+      "portalActivated": "Aktiverte kundeportalbruker: {name}",
+      "portalDeactivated": "Deaktiverte kundeportalbruker: {name}",
+      "departmentChanged": "Endret avdeling for {name} til {department}",
+      "roleChanged": "Endret rolle for {name} til {role}",
+      "phoneChanged": "Endret telefonnummer for {name}",
+      "invitationCreated": "Genererte ny invitasjonslenke for: {name}",
+      "invitationResent": "Sendte ny invitasjonslenke til kundeportalbruker: {name}",
+      "deleted": "Slettet bruker: {name}",
+      "permissionsReset": "Tilbakestilte rettigheter til rollen for {name}"
+    },
+    "departments": {
+      "created": "Opprettet avdeling: {name}",
+      "updated": "Oppdaterte avdeling: {from} → {to}",
+      "activated": "Aktiverte avdeling: {name}",
+      "deactivated": "Deaktiverte avdeling: {name}",
+      "defaultChanged": "Satte {name} som standardavdeling"
+    },
+    "roles": {
+      "created": "Opprettet rolle: {label} ({count, plural, one {# rettighet} other {# rettigheter}})",
+      "updated": "Oppdaterte rolle: {from} → {to} ({count, plural, one {# rettighet} other {# rettigheter}})",
+      "deleted": "Slettet rolle: {label}"
+    },
+    "documents": {
+      "uploaded": "Lastet opp dokument: {title}",
+      "updated": "Oppdaterte dokument: {title}",
+      "restored": "Gjenopprettet dokumentet «{title}»",
+      "versionRestored": "Gjenopprettet tidligere versjon av dokument: {title}",
+      "reindexed": "Reindekserte dokumentet for fulltekst-søk",
+      "deleted": "Slettet dokumentet «{title}» (myk sletting – kan gjenopprettes)",
+      "folderCreated": "Opprettet mappe: {name}",
+      "folderMoved": "Flyttet mappen: {name}",
+      "folderRenamed": "Ga mappen nytt navn: {from} → {to}",
+      "folderDeleted": "Slettet mappe: {name}",
+      "tagsAdded": "La til tagger på dokumentet «{title}»: {tags}",
+      "movedToFolder": "Flyttet dokumentet «{title}» til mappen {folder}",
+      "movedToRoot": "Flyttet dokumentet «{title}» til rot",
+      "tagCreated": "Opprettet dokument-tag: {name}",
+      "tagUpdated": "Oppdaterte dokument-tag: {from} -> {to}",
+      "tagDeleted": "Slettet dokument-tag: {name}"
+    },
+    "settings": {
+      "brandingUpdated": "Oppdaterte merkevareinnstillinger: {company}",
+      "mapUpdated": "Oppdaterte kartinnstillinger"
+    },
+    "templates": {
+      "created": "Opprettet sjekkliste: {title}",
+      "deleted": "Slettet sjekkliste: {title}",
+      "deleteBlocked": "Blokkerte sletting av sjekklisten «{title}» fordi den er i bruk",
+      "tagCreated": "Opprettet tag: {name}",
+      "tagUpdated": "Oppdaterte tag: {from} -> {to}",
+      "tagDeleted": "Slettet tag: {name}"
+    },
+    "workforce": {
+      "skillCreated": "Opprettet kompetanse: {label}",
+      "skillUpdated": "Endret kompetanse: {label}",
+      "skillDeleted": "Slettet kompetanse: {label}",
+      "userSkillUpdated": "Oppdaterte kompetanse for {name}",
+      "absenceCreated": "Registrerte fravær for {name}",
+      "absenceUpdated": "Endret fravær for {name}",
+      "absenceDeleted": "Slettet fravær for {name}",
+      "availabilityUpdated": "Endret arbeidstid for {name}"
+    },
+    "portal": {
+      "bookingCreated": "Kunde booket nytt oppdrag: {title}",
+      "rescheduleRequested": "Kunden ba om ny tid",
+      "bookingCancelled": "Kunden kansellerte bestillingen"
     }
   }
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * Laster opp firmalogo til appens eget opplastingsvolum.
@@ -32,7 +33,13 @@ export default function BrandingLogoUpload({
       const response = await fetch("/api/upload", { method: "POST", body });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.fileUrl) {
-        throw new Error(data.error || t("components.brandingLogo.uploadFailed"));
+        throw new Error(
+          apiErrorMessage(
+            data,
+            t,
+            t("components.brandingLogo.uploadFailed"),
+          ),
+        );
       }
       setUrl(data.fileUrl);
     } catch (uploadError) {

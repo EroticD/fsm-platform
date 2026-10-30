@@ -1,3 +1,5 @@
+// i18n-ignore-file: iCal-feeden har ingen request-locale; kalenderens navn er
+// metadata for eksterne kalenderklienter.
 import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";

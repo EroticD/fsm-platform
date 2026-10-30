@@ -99,7 +99,7 @@ jobs:
         run: npm run lint
 
       - name: i18n-sjekk
-        run: npm run check:i18n
+        run: npm run check:i18n:strict
 
       - name: Bygg
         run: npm run build

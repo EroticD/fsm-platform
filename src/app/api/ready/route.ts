@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   ]);
 
   if (!authorized) {
-    const ip = clientIpFrom(request.headers) ?? "ukjent";
+    const ip = clientIpFrom(request.headers) ?? "unknown";
     const limit = allowRequestMemory(
       `ready:${ip}`,
       UNAUTHENTICATED_LIMIT,
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       await prisma.$queryRaw`SELECT 1`;
       database = "up";
     } catch (error) {
-      logger.error("Readiness: databasen svarer ikke", {
+      logger.error("Readiness: database is not responding", {
         requestId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     database = "up";
   } catch (error) {
     ready = false;
-    logger.error("Readiness: databasen svarer ikke", {
+    logger.error("Readiness: database is not responding", {
       requestId,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
     disk = "writable";
   } catch (error) {
     ready = false;
-    logger.error("Readiness: opplastingsvolumet er ikke skrivbart", {
+    logger.error("Readiness: upload volume is not writable", {
       requestId,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     queue = { pending, failed };
   } catch (error) {
     ready = false;
-    logger.error("Readiness: jobbkøen kan ikke leses", {
+    logger.error("Readiness: document job queue cannot be read", {
       requestId,
       error: error instanceof Error ? error.message : String(error),
     });

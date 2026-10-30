@@ -44,6 +44,8 @@ const NOTIFICATION_ICONS: Record<string, IconName> = {
   CONTACT_UPDATE: "user",
   SLA_AT_RISK: "clock",
   SLA_BREACHED: "alert",
+  WARRANTY: "shield",
+
 };
 
 /**

@@ -2,8 +2,9 @@
  * Next.js starter denne funksjonen én gang per serverinstans.
  *
  * Brukes til å starte de små bakgrunnsjobbene: generering av oppdrag fra
- * forfalte serviceavtaler og tekstuttrekk/OCR av PDF-dokumenter. De kjøres
- * bare i Node-runtime, og aldri under bygg.
+ * forfalte serviceavtaler og vedlikeholdsplaner, garantivarsler og
+ * tekstuttrekk/OCR av PDF-dokumenter. De kjøres bare i Node-runtime, og aldri
+ * under bygg.
  *
  * Begge kan slås av hver for seg med `RECURRING_SCHEDULER=false` og
  * `PDF_JOB_WORKER=false` – for eksempel når en ekstern arbeidsprosess gjør
@@ -25,10 +26,10 @@ export async function register() {
 
   if (process.env.RECURRING_SCHEDULER !== "false") {
     try {
-      const { startRecurringScheduler } = await import("@/lib/recurring-scheduler");
-      startRecurringScheduler();
+      const { startScheduler } = await import("@/lib/scheduler");
+      startScheduler();
     } catch (error) {
-      console.error("Kunne ikke starte serviceavtale-jobben:", error);
+      console.error("Kunne ikke starte bakgrunnsjobben:", error);
     }
   }
 

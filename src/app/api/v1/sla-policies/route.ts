@@ -19,7 +19,9 @@ export async function GET(request: Request) {
     !hasPermission(auth.actor, "contracts.manage") &&
     !hasPermission(auth.actor, "sla.manage")
   ) {
-    return apiError(403, "forbidden", "Du har ikke tilgang til SLA.");
+    return apiError("forbidden", 403, {
+      messageKey: "errors.api.forbidden",
+    });
   }
 
   const departmentFilter =

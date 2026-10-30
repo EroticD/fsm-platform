@@ -1,3 +1,5 @@
+// i18n-ignore-file: kundeportalens varsler og revisjonshandlinger lagres som
+// data. Varselmaler lokaliseres i Phase 5B (C-23).
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
