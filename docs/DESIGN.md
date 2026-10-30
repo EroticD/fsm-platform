@@ -290,7 +290,7 @@ Tavlekolonne, kartpin og popup er målbilde; øvrige rader finnes helt eller del
 ```bash
 npm run typecheck && npm run lint && npm run check:i18n
 npx playwright test e2e/a11y.spec.ts
-npm run screenshots && npm run screenshots:verify   # 1440×900, 390×844
+npm run screenshots:all && npm run screenshots:verify   # alle sider, 1440×900 + 390×844
 ```
 
 6. **Manuell sjekk:** 320/390/820/821/1440 uten overflow, én primærhandling,
