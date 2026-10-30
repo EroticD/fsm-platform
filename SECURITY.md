@@ -79,6 +79,24 @@ bare bevisst, og dokumenter hvorfor.
 - iCal-tokens lagres hashet, kan tilbakekalles og roteres, og avgrenses til
   brukerens egne/avdelingens oppdrag. Plaintext-tokens er fjernet; alle
   eksisterende abonnementer må regenereres.
+- Live sporing er av som standard per avdeling og må slås på bevisst av en
+  administrator. Sporingslenker er 32-byte tilfeldige tokens som bare lagres
+  som SHA-256-hash, utløper to timer etter visittens slutt og kan tilbakekalles.
+  Siden viser bare montørens fornavn, status, ETA og siste oppdatering – aldri
+  koordinater, kart eller posisjonshistorikk. Posisjonsping slettes etter 24
+  timer, og alle ping for en visitt slettes når visitten blir `DONE`/
+  `CANCELLED`. `Permissions-Policy` tillater geolocation bare for appens eget
+  opphav (`geolocation=(self)`).
+- **DPIA (personvernkonsekvensvurdering):** live sporing behandler montørens
+  posisjon som personopplysning. Behandlingen er begrenset til frivillig,
+  eksplisitt deling mens visitten er `EN_ROUTE`, med formålsbegrensning (ETA til
+  kunden), dataminimering (fornavn/status/tid, ikke rute), 24 timers retention
+  og opt-in per avdeling. Vurderingen må oppdateres før sporing tas i bruk i en
+  ny avdeling eller før posisjonshistorikk eventuelt innføres – sistnevnte er
+  utenfor denne fasen.
+- Kundeomtaler lagres internt med hashet token, krever fullført visitt og kan
+  sendes inn bare én gang. Omtaler publiseres ikke offentlig; dashbordet viser
+  bare aggregert gjennomsnitt og antall.
 - Signerte rapporter får uforanderlige revisjoner ved opplåsing og ny
   innsending. Gamle signaturfiler beholdes for revisjonshistorikken.
 - Oppdrag myk-slettes og skjules fra alle lister, søk, portal, kalender og PDF.

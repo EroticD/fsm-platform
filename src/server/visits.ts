@@ -19,6 +19,7 @@ import {
   canTransitionVisit,
   isTerminalVisitStatus,
 } from "@/lib/visit-status";
+import { revokeTrackingLinksForVisit } from "./tracking";
 import {
   can,
   fail,
@@ -815,8 +816,23 @@ export async function setVisitStatus(
 
     const visit = await tx.visit.update({
       where: { id },
-      data: { status },
+      data: {
+        status,
+        // Statustidspunktene settes i samme UPDATE som statusen. Det gjør
+        // rapportering og ETA entydig, uavhengig av senere notatendringer.
+        ...(status === "EN_ROUTE" ? { enRouteAt: new Date() } : {}),
+        ...(status === "ON_SITE" ? { onSiteAt: new Date() } : {}),
+        ...(status === "DONE" ? { doneAt: new Date() } : {}),
+      },
     });
+
+    // Når visitten er avsluttet, skal en offentlig sporingslenke slutte å
+    // svare umiddelbart. Posisjonspingene slettes samtidig – de har ingen
+    // verdi etter at kunden ikke lenger kan se sporingen.
+    if (status === "DONE" || status === "CANCELLED") {
+      await revokeTrackingLinksForVisit(tx, id);
+      await tx.visitLocationPing.deleteMany({ where: { visitId: id } });
+    }
 
     // SLA: første EN_ROUTE/ON_SITE er responsen, DONE er løsningen.
     if (status === "EN_ROUTE" || status === "ON_SITE") {

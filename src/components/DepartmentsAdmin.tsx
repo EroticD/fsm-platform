@@ -19,6 +19,7 @@ type DepartmentRow = {
   postalCode: string | null;
   isActive: boolean;
   isDefault: boolean;
+  trackingEnabled: boolean;
   users: number;
   workOrders: number;
   contracts: number;
@@ -97,6 +98,21 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
             <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs text-[var(--muted,#62685f)]">
               {t("settings.departments.info")}
             </div>
+            <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#101310)]">
+              <input
+                type="checkbox"
+                name="trackingEnabled"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+              />
+              <span>
+                <span className="block font-bold">
+                  {t("settings.departments.trackingEnabled")}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--muted,#62685f)]">
+                  {t("settings.departments.trackingHint")}
+                </span>
+              </span>
+            </label>
             <button type="submit" className={SIGNAL_BUTTON}>
               {t("settings.departments.create")}
             </button>
@@ -239,6 +255,24 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                 <div>
                   <label htmlFor={`department-${department.id}-city`} className={LABEL}>{t("settings.departments.city")}</label>
                   <input id={`department-${department.id}-city`} type="text" name="city" defaultValue={department.city ?? ""} className={FIELD} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-sm font-medium text-[var(--ink,#101310)]">
+                    <input
+                      type="checkbox"
+                      name="trackingEnabled"
+                      defaultChecked={department.trackingEnabled}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                    />
+                    <span>
+                      <span className="block font-bold">
+                        {t("settings.departments.trackingEnabled")}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--muted,#62685f)]">
+                        {t("settings.departments.trackingHint")}
+                      </span>
+                    </span>
+                  </label>
                 </div>
                 <div className="md:col-span-2">
                   <button type="submit" className={INK_SMALL}>

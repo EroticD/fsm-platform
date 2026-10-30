@@ -21,6 +21,7 @@ export async function createDepartment(formData: FormData) {
   const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
   const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
   const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
+  const trackingEnabled = formData.get("trackingEnabled") === "on";
   if (!name) return;
 
   try {
@@ -33,6 +34,7 @@ export async function createDepartment(formData: FormData) {
         address: address || null,
         city: city || null,
         postalCode: postalCode || null,
+        trackingEnabled,
       },
     });
     await prisma.auditLog.create({
@@ -60,6 +62,7 @@ export async function updateDepartment(formData: FormData) {
   const address = cleanText(formData.get("address"), { maxLength: LIMITS.line });
   const city = cleanText(formData.get("city"), { maxLength: LIMITS.short });
   const postalCode = cleanText(formData.get("postalCode"), { maxLength: 20 });
+  const trackingEnabled = formData.get("trackingEnabled") === "on";
   if (!id || !name) return;
 
   const existing = await prisma.department.findUnique({ where: { id } });
@@ -76,6 +79,7 @@ export async function updateDepartment(formData: FormData) {
         address: address || null,
         city: city || null,
         postalCode: postalCode || null,
+        trackingEnabled,
       },
     });
     await prisma.auditLog.create({

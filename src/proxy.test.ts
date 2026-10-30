@@ -47,6 +47,13 @@ describe("kundeportalens allowlist", () => {
     expect(isAllowedForCustomer("/rapporter", params())).toBe(false);
     expect(isAllowedForCustomer("/oppdrag", params())).toBe(false);
   });
+
+  it("slipper offentlige token-sider gjennom for innloggede kunder", () => {
+    expect(isAllowedForCustomer("/sporing/abc123", params())).toBe(true);
+    expect(isAllowedForCustomer("/anmeldelse/abc123", params())).toBe(true);
+    expect(isAllowedForCustomer("/sporing", params())).toBe(true);
+    expect(isAllowedForCustomer("/anmeldelse", params())).toBe(true);
+  });
 });
 
 describe("CSP-matcher", () => {

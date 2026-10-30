@@ -63,8 +63,11 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
+            // Geolocation er bare tillatt for appens eget opphav. Montøren
+            // deler posisjon eksplisitt fra feltsiden; tredjeparts innhold
+            // (kartfliser, logoer) får aldri tilgang. Se docs/DECISIONS.md.
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(), microphone=(), geolocation=(self)",
           },
           {
             key: "Strict-Transport-Security",

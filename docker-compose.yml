@@ -79,6 +79,7 @@ services:
       GEOCODE_ENABLED: ${GEOCODE_ENABLED:-true}
       GEOCODE_USER_AGENT: ${GEOCODE_USER_AGENT:-}
       GEOCODE_TIMEOUT_MS: ${GEOCODE_TIMEOUT_MS:-2500}
+      TRACKING_AVERAGE_SPEED_KMH: ${TRACKING_AVERAGE_SPEED_KMH:-50}
     logging: *default-logging
     ports:
       # I produksjon bør dette være "127.0.0.1:3000:3000" når appen står bak en
