@@ -110,12 +110,7 @@
     }
   },
   "dashboard": {
-    "kpi": {
-      "slaAtRisk": "SLA at risk",
-      "slaAtRiskSub": "Approaching the deadline",
-      "slaBreached": "SLA breached",
-      "slaBreachedSub": "The deadline has passed"
-    }
+    "kpi": {}
   },
   "settings": {
     "tabs": {

@@ -6,10 +6,7 @@
     }
   },
   "dashboard": {
-    "kpi": {
-      "reviewAverage": "Ocena klienta",
-      "reviewCount": "{count, plural, one {# opinia} few {# opinie} many {# opinii} other {# opinii}}"
-    }
+    "kpi": {}
   },
   "tracking": {
     "errors": {

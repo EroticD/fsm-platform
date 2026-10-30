@@ -6,10 +6,7 @@
     }
   },
   "dashboard": {
-    "kpi": {
-      "reviewAverage": "Kundeomtale",
-      "reviewCount": "{count, plural, one {# omtale} other {# omtaler}}"
-    }
+    "kpi": {}
   },
   "tracking": {
     "errors": {

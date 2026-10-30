@@ -230,7 +230,11 @@ export default function WorkOrderMap({
                 : layerLabels.satellite
         ] ?? baseLayers[layerKeys[0]];
       selectedLayer.addTo(map);
-      L.control.layers(baseLayers, undefined, { collapsed: true }).addTo(map);
+      // Lagvelgeren er et desktop-verktøy. På mobil skjules den, slik at den
+      // ikke dekker kartmarkørenes touchflater; zoom og pinch beholdes.
+      if (window.matchMedia("(min-width: 640px)").matches) {
+        L.control.layers(baseLayers, undefined, { collapsed: true }).addTo(map);
+      }
       // Zoom nede til høyre, slik at kontrollen ikke dekker markører eller
       // touchflater nær kartets øvre venstre hjørne.
       L.control.zoom({ position: "bottomright" }).addTo(map);

@@ -110,12 +110,7 @@
     }
   },
   "dashboard": {
-    "kpi": {
-      "slaAtRisk": "SLA gefährdet",
-      "slaAtRiskSub": "Frist nähert sich",
-      "slaBreached": "SLA verletzt",
-      "slaBreachedSub": "Die Frist ist überschritten"
-    }
+    "kpi": {}
   },
   "settings": {
     "tabs": {

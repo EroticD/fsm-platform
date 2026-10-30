@@ -2939,11 +2939,7 @@
         "customers": "Kunden",
         "customersSub": "Gesamt im Register",
         "equipment": "Geräte",
-        "equipmentSub": "In Kundenakten",
-        "slaAtRisk": "SLA gefährdet",
-        "slaAtRiskSub": "Frist nähert sich",
-        "slaBreached": "SLA verletzt",
-        "slaBreachedSub": "Die Frist ist überschritten"
+        "equipmentSub": "In Kundenakten"
       },
       "orderList": {
         "noCustomer": "Kein Kunde",

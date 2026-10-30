@@ -2939,11 +2939,7 @@
         "customers": "Klienci",
         "customersSub": "Łącznie w rejestrze",
         "equipment": "Urządzenia",
-        "equipmentSub": "W kartotekach klientów",
-        "slaAtRisk": "SLA zagrożone",
-        "slaAtRiskSub": "Zbliża się termin",
-        "slaBreached": "SLA naruszone",
-        "slaBreachedSub": "Termin minął"
+        "equipmentSub": "W kartotekach klientów"
       },
       "orderList": {
         "noCustomer": "Brak klienta",

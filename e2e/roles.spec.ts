@@ -147,15 +147,12 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
   await expect(
     page.getByRole("heading", { name: "Service – automatiske dører" }),
   ).toBeVisible();
-  // Heroen er en egen lenke til skjemaet; hent oppdrags-id-en og gå til
-  // detaljsiden for å verifisere statusvalgene.
-  const heroCta = page
-    .getByRole("link", { name: /Start skjema|Fortsett skjema/ })
-    .first();
-  const href = await heroCta.getAttribute("href");
-  const workOrderId = href?.match(/\/mine-oppdrag\/([^/]+)\//)?.[1];
-  expect(workOrderId).toBeTruthy();
-  await page.goto(`/mine-oppdrag/${workOrderId}`);
+  // Åpne oppdraget fra listen. Testen skal ikke avhenge av om jobben ligger
+  // i heroen akkurat i dag; detaljsiden har alltid sjekklisten og statusvalget.
+  await page
+    .getByRole("link", { name: /Service – automatiske dører/ })
+    .first()
+    .click();
   await expect(
     page.getByRole("heading", { name: "Service – automatiske dører" }),
   ).toBeVisible();
@@ -217,13 +214,15 @@ test("technician: brukeradministrasjon er sperret, men egne innstillinger er til
   ).toHaveCount(0);
 
   // Dispatch og kapasitet krever workorders.assign, som montøren ikke har.
-  await page.goto("/kalender/dispatch");
+  await page.goto("/kalender/dispatch", { waitUntil: "domcontentloaded" }).catch(() => undefined);
   await expect(page).not.toHaveURL(/\/kalender\/dispatch/);
-  await page.goto("/kalender/kapasitet");
+  await page.goto("/kalender/kapasitet", { waitUntil: "domcontentloaded" }).catch(() => undefined);
   await expect(page).not.toHaveURL(/\/kalender\/kapasitet/);
 
   // Teknikeren har templates.view/reports.view, så Innstillinger skal finnes –
-  // men bare med de fanene rollen faktisk har tilgang til.
+  // men bare med de fanene rollen faktisk har tilgang til. Gå til en stabil
+  // side før menyen åpnes, slik at en pågående redirect ikke kappes.
+  await page.goto("/", { waitUntil: "networkidle" });
   const dialog = await openAppMenu(page);
   await expect(
     dialog.getByRole("link", { name: /Innstillinger/ }),

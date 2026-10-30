@@ -294,7 +294,6 @@ export default function BrandedHeader({
             </div>
           )}
           <NotificationBell role={role} />
-          <LanguageSwitcher />
           {showNav && (
             <button
               ref={toggleRef}

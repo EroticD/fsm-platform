@@ -6,10 +6,7 @@
     }
   },
   "dashboard": {
-    "kpi": {
-      "reviewAverage": "Customer rating",
-      "reviewCount": "{count, plural, one {# review} other {# reviews}}"
-    }
+    "kpi": {}
   },
   "tracking": {
     "errors": {

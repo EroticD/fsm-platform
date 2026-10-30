@@ -110,12 +110,7 @@
     }
   },
   "dashboard": {
-    "kpi": {
-      "slaAtRisk": "SLA i fare",
-      "slaAtRiskSub": "Nærmer seg fristen",
-      "slaBreached": "SLA brutt",
-      "slaBreachedSub": "Fristen er passert"
-    }
+    "kpi": {}
   },
   "settings": {
     "tabs": {

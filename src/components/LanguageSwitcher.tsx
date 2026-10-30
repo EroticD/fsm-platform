@@ -15,14 +15,14 @@ export default function LanguageSwitcher() {
   const { locale, localeNames, changeLocale } = useI18n();
 
   return (
-    <label className="relative inline-flex min-h-11 items-center">
+    <label className="relative flex min-h-11 w-full items-center">
       <span className="sr-only">{t("components.language.change")}</span>
       <select
         value={locale}
         onChange={(event) => changeLocale(event.target.value as Locale)}
         aria-label={t("components.language.change")}
         title={t("components.language.change")}
-        className="min-h-11 appearance-none rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] py-2 pl-3 pr-9 text-sm font-semibold text-[var(--ink,#101310)] outline-none transition hover:bg-[var(--paper,#f2efe6)] focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+        className="min-h-11 w-full appearance-none rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] py-2 pl-3 pr-9 text-sm font-semibold text-[var(--ink,#101310)] outline-none transition hover:bg-[var(--paper,#f2efe6)] focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
       >
         {locales.map((candidate) => (
           <option key={candidate} value={candidate}>
