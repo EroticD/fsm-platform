@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import Icon from "@/components/icons";
+import PageHeader from "@/components/PageHeader";
 import SearchAnalyticsView from "@/components/sok/SearchAnalyticsView";
 import { parseSearchAnalyticsDays } from "@/lib/search-analytics-format";
 import { getCurrentUser } from "@/lib/session";
@@ -25,24 +27,22 @@ export default async function SearchAnalyticsPage({
   const t = await getTranslations("common");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header className="flex flex-col gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              📈 {t("searchAdmin.title")}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {t("searchAdmin.subtitle")}
-            </p>
-          </div>
-          <Link
-            href="/sok"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
-          >
-            &larr; {t("searchAdmin.backToSearch")}
-          </Link>
-        </header>
+    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
+      <div className="mx-auto max-w-5xl space-y-5">
+        <PageHeader
+          title={t("searchAdmin.title")}
+          subtitle={t("searchAdmin.subtitle")}
+          icon={<Icon name="chart" className="h-5 w-5" />}
+          actions={
+            <Link
+              href="/sok"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("searchAdmin.backToSearch")}
+            </Link>
+          }
+        />
 
         <SearchAnalyticsView data={analytics.data} selectedDays={days} />
       </div>

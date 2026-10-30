@@ -32,6 +32,14 @@ import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
+import type { IconName } from "@/components/icons";
+import {
+  CUSTOMER_CARD,
+  CUSTOMER_INK_BUTTON,
+  CUSTOMER_RISK_BUTTON,
+  CUSTOMER_SIGNAL_BUTTON,
+  LEGACY_SURFACE,
+} from "@/components/customer/customerStyles";
 import {
   addContactAction,
   createContractAction,
@@ -126,16 +134,22 @@ export default async function CustomerDetailPage({
   if (!result.ok) {
     if (result.reason === "forbidden") redirect("/");
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6">
-        <EmptyState
-          icon={<Icon name="building" className="h-8 w-8" />}
-          title={t("customers.detail.notFound")}
-          action={
-            <Link href="/kunder" className="text-blue-600 font-bold hover:underline">
-              {t("customers.detail.backToArchive")}
-            </Link>
-          }
-        />
+      <div className="office-app flex min-h-screen flex-col items-center justify-center p-4 sm:p-6">
+        <div className={`${CUSTOMER_CARD} w-full max-w-lg p-6 ${LEGACY_SURFACE}`}>
+          <EmptyState
+            icon={<Icon name="building" className="h-8 w-8" />}
+            title={t("customers.detail.notFound")}
+            action={
+              <Link href="/kunder" className={CUSTOMER_INK_BUTTON}>
+                <Icon
+                  name="arrowRight"
+                  className="h-4 w-4 rotate-180 shrink-0"
+                />
+                {t("customers.detail.backToArchive")}
+              </Link>
+            }
+          />
+        </div>
       </div>
     );
   }
@@ -198,12 +212,18 @@ export default async function CustomerDetailPage({
   const tabMeta: Array<{
     key: CustomerTab;
     label: string;
+    icon: IconName;
     count?: number;
   }> = [
-    { key: "oversikt", label: t("customers.detail.tabs.overview") },
+    {
+      key: "oversikt",
+      label: t("customers.detail.tabs.overview"),
+      icon: "chart",
+    },
     {
       key: "oppdrag",
       label: t("customers.detail.tabs.orders"),
+      icon: "folder",
       count: data.totalOrders,
     },
     ...(canViewEquipment
@@ -211,6 +231,7 @@ export default async function CustomerDetailPage({
           {
             key: "utstyr" as CustomerTab,
             label: t("customers.detail.tabs.units"),
+            icon: "wrench" as IconName,
             count: customer._count.products,
           },
         ]
@@ -218,9 +239,14 @@ export default async function CustomerDetailPage({
     {
       key: "avtaler",
       label: t("customers.detail.tabs.contracts"),
+      icon: "file",
       count: customer._count.contracts,
     },
-    { key: "mer", label: t("customers.detail.tabs.more") },
+    {
+      key: "mer",
+      label: t("customers.detail.tabs.more"),
+      icon: "dots",
+    },
   ];
 
   const tabHref = (key: CustomerTab) => {
@@ -242,47 +268,57 @@ export default async function CustomerDetailPage({
   const deleteContract = deleteContractAction.bind(null, customerId);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className={`office-app min-h-screen p-3 sm:p-6 lg:p-8 ${LEGACY_SURFACE}`}>
+      <div className="mx-auto max-w-6xl space-y-4">
         <PageHeader
           title={customer.name}
+          icon={<Icon name="building" className="h-5 w-5" />}
           subtitle={`${t("customers.detail.customerNumber", {
             number: customer.customerNumber || "–",
           })}${customer.orgNumber ? ` • ${t("customers.detail.orgNumber", { number: customer.orgNumber })}` : ""}`}
           actions={
-            <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               {canCreateWorkOrders && (
-              <Link href={`/oppdrag/ny?customerId=${customer.id}`} className="flex-1 sm:flex-none justify-center bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                <Icon name="plus" className="h-4 w-4 shrink-0" />
-                {t("customers.detail.newWorkOrder")}
-              </Link>
-            )}
-            {office && (
-              <Link href={`/kunder/${customerId}/rediger`} className="flex-1 sm:flex-none justify-center bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition shadow-sm flex items-center gap-2 whitespace-nowrap">
-                <Icon name="edit" className="h-4 w-4 shrink-0" />
-                {t("customers.detail.edit")}
-              </Link>
-            )}
-            {isAdmin && (
-              <ConfirmSubmitForm
-                action={deleteCustomerAction.bind(null, customerId)}
-                confirmMessage={t("customers.detail.deleteConfirm", {
-                  name: customer.name,
-                })}
-                confirmLabel={t("delete")}
-                danger
-                className="flex-1 sm:flex-none"
-              >
-                <button
-                  type="submit"
-                  className="inline-flex w-full items-center justify-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 transition whitespace-nowrap"
+                <Link
+                  href={`/oppdrag/ny?customerId=${customer.id}`}
+                  className={`${CUSTOMER_SIGNAL_BUTTON} flex-1 sm:flex-none`}
                 >
-                  <Icon name="trash" className="h-4 w-4 shrink-0" />
-                  {t("customers.detail.delete")}
-                </button>
-              </ConfirmSubmitForm>
-            )}
-              <Link href="/kunder" className="flex-1 sm:flex-none justify-center bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
+                  <Icon name="plus" className="h-4 w-4 shrink-0" />
+                  {t("customers.detail.newWorkOrder")}
+                </Link>
+              )}
+              {office && (
+                <Link
+                  href={`/kunder/${customerId}/rediger`}
+                  className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+                >
+                  <Icon name="edit" className="h-4 w-4 shrink-0" />
+                  {t("customers.detail.edit")}
+                </Link>
+              )}
+              {isAdmin && (
+                <ConfirmSubmitForm
+                  action={deleteCustomerAction.bind(null, customerId)}
+                  confirmMessage={t("customers.detail.deleteConfirm", {
+                    name: customer.name,
+                  })}
+                  confirmLabel={t("delete")}
+                  danger
+                  className="flex-1 sm:flex-none"
+                >
+                  <button
+                    type="submit"
+                    className={`${CUSTOMER_RISK_BUTTON} w-full`}
+                  >
+                    <Icon name="trash" className="h-4 w-4 shrink-0" />
+                    {t("customers.detail.delete")}
+                  </button>
+                </ConfirmSubmitForm>
+              )}
+              <Link
+                href="/kunder"
+                className={`${CUSTOMER_INK_BUTTON} flex-1 sm:flex-none`}
+              >
                 <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
                 {t("customers.detail.backToCustomers")}
               </Link>
@@ -293,7 +329,7 @@ export default async function CustomerDetailPage({
         {statusKey && <CustomerToast message={t(statusKey)} tone="success" />}
 
         <ErrorBanner
-          message={errorKey ? `⛔ ${t(errorKey)}` : undefined}
+          message={errorKey ? t(errorKey) : undefined}
         />
 
         {/* FANER (TABS) */}
@@ -411,7 +447,10 @@ export default async function CustomerDetailPage({
                 />
               </div>
             )}
-            <div id="vedlegg" className="scroll-mt-24">
+            <div
+              id="vedlegg"
+              className={`scroll-mt-24 ${LEGACY_SURFACE}`}
+            >
               <CustomerAttachments
                 customerId={customerId}
                 attachments={customer.attachments.map((attachment) => ({

@@ -7,6 +7,12 @@ import { formatDateLocalized } from "@/lib/dates";
 import type { CustomerDetailData } from "@/server/customers";
 import StatusBadge from "@/components/StatusBadge";
 import CustomerActivityList from "./CustomerActivityList";
+import {
+  CUSTOMER_CARD,
+  CUSTOMER_EYEBROW,
+  CUSTOMER_INSET,
+  CUSTOMER_MUTED,
+} from "./customerStyles";
 
 type OverdueOrder = {
   id: string;
@@ -59,33 +65,81 @@ function SummaryStat({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2.5 rounded-2xl border-2 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:gap-3 ${
+      className={`flex min-h-16 items-center gap-2.5 rounded-2xl border p-2.5 transition hover:-translate-y-px hover:border-[var(--ink,#101310)] sm:gap-3 sm:p-3 ${
         danger
-          ? "border-red-200 bg-red-50 hover:border-red-300"
-          : "border-gray-200 bg-white hover:border-blue-300"
+          ? "border-[#e7b5ae] bg-[#fdf4f2] hover:bg-[#fbe9e7]"
+          : `${CUSTOMER_CARD}`
       }`}
     >
-      <span className="text-lg sm:text-xl" aria-hidden="true">
-        <Icon name={icon} className="inline-block h-5 w-5 align-[-0.125em] sm:h-6 sm:w-6" />
+      <span
+        aria-hidden="true"
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${
+          danger
+            ? "border-[#e7b5ae] bg-[var(--surface,#fffdf8)] text-[var(--risk-text,#b42318)]"
+            : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
+        }`}
+      >
+        <Icon name={icon} className="h-4 w-4" strokeWidth={2} />
       </span>
       <span className="min-w-0">
         <span
-          className={`block truncate text-base font-black leading-tight sm:text-lg ${
-            danger ? "text-red-900" : "text-gray-900"
+          className={`block truncate text-lg font-black leading-tight tabular-nums ${
+            danger
+              ? "text-[var(--risk-text,#b42318)]"
+              : "text-[var(--ink,#101310)]"
           }`}
         >
           {value}
         </span>
-        <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wide text-gray-500 sm:text-xs">
+        <span
+          className={`mt-0.5 block truncate text-xs font-bold uppercase tracking-[0.06em] ${
+            danger
+              ? "text-[var(--risk-text,#b42318)]"
+              : "text-[var(--muted,#62685f)]"
+          }`}
+        >
           {label}
         </span>
         {sub ? (
-          <span className="mt-0.5 block truncate text-[10px] text-gray-500">
+          <span
+            className={`mt-0.5 block truncate text-xs ${CUSTOMER_MUTED}`}
+          >
             {sub}
           </span>
         ) : null}
       </span>
     </Link>
+  );
+}
+
+function PanelHeader({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: IconName;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+      <div className="min-w-0">
+        <h2 className="flex items-center gap-2 text-base font-extrabold tracking-tight text-[var(--ink,#101310)]">
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+          />
+          <Icon name={icon} className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span className="min-w-0">{title}</span>
+        </h2>
+        {description ? (
+          <p className={`mt-0.5 text-xs ${CUSTOMER_MUTED}`}>{description}</p>
+        ) : null}
+      </div>
+      {action}
+    </div>
   );
 }
 
@@ -181,8 +235,8 @@ export default async function CustomerOverviewTab({
   ] satisfies SecondaryNumber[]).filter((entry) => entry.show);
 
   return (
-    <div className="space-y-6">
-      {/* Fire nøkkeltall – resten er flyttet ned som sekundære tall. */}
+    <div className="space-y-4">
+      {/* Kompakt nøkkeltallstripe – resten er sekundære tall nederst. */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <SummaryStat
           icon="folder"
@@ -223,102 +277,128 @@ export default async function CustomerOverviewTab({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* Bedrift, kontaktpersoner og portalstatus */}
-        <section className="space-y-4 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
-          <div className="flex items-center justify-between border-b pb-2">
-            <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
-              <Icon name="building" className="h-4 w-4 shrink-0" />
-              {t("customers.overview.companyInfo")}
-            </h2>
-            {office && (
-              <Link
-                href={`/kunder/${customerId}/rediger`}
-                className="text-xs font-bold text-blue-600 hover:underline"
-              >
-                {t("customers.overview.change")}
-              </Link>
-            )}
-          </div>
+        <section
+          className={`${CUSTOMER_CARD} space-y-4 p-4 lg:col-span-2 sm:p-5`}
+        >
+          <PanelHeader
+            icon="building"
+            title={t("customers.overview.companyInfo")}
+            action={
+              office ? (
+                <Link
+                  href={`/kunder/${customerId}/rediger`}
+                  className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]"
+                >
+                  <Icon name="edit" className="h-3.5 w-3.5" />
+                  {t("customers.overview.change")}
+                </Link>
+              ) : undefined
+            }
+          />
 
-          <div className="space-y-3 text-sm text-gray-800">
-            <p>
-              <strong>{t("customers.overview.address")}</strong>
-              <br />
-              <GoogleMapsLink
-                address={customer.address}
-                postalCode={customer.postalCode}
-                city={customer.city}
-                label={customer.address || t("customers.overview.notProvided")}
-              />
-              <br />
-              {customer.postalCode || ""} {customer.city || ""}
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <p>
-                <strong>{t("customers.overview.phone")}</strong>
-                <br />
+          <dl className="grid grid-cols-1 gap-x-3 gap-y-2.5 text-xs sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <dt className={CUSTOMER_EYEBROW}>
+                {t("customers.overview.address")}
+              </dt>
+              <dd className="mt-0.5 text-[var(--ink,#101310)]">
+                <GoogleMapsLink
+                  address={customer.address}
+                  postalCode={customer.postalCode}
+                  city={customer.city}
+                  label={customer.address || t("customers.overview.notProvided")}
+                  className="text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                />
+                <span className={`block ${CUSTOMER_MUTED}`}>
+                  {customer.postalCode || ""} {customer.city || ""}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className={CUSTOMER_EYEBROW}>
+                {t("customers.overview.phone")}
+              </dt>
+              <dd className="mt-0.5">
                 {customer.phone ? (
                   <a
                     href={`tel:${customer.phone}`}
-                    className="font-bold text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1 font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                   >
+                    <Icon name="phone" className="h-3.5 w-3.5 shrink-0" />
                     {customer.phone}
                   </a>
                 ) : (
-                  t("customers.overview.notProvided")
+                  <span className={CUSTOMER_MUTED}>
+                    {t("customers.overview.notProvided")}
+                  </span>
                 )}
-              </p>
-              <p>
-                <strong>{t("customers.overview.email")}</strong>
-                <br />
+              </dd>
+            </div>
+            <div>
+              <dt className={CUSTOMER_EYEBROW}>
+                {t("customers.overview.email")}
+              </dt>
+              <dd className="mt-0.5">
                 {customer.email ? (
                   <a
                     href={`mailto:${customer.email}`}
-                    className="break-all font-bold text-blue-600 hover:underline"
+                    className="inline-flex min-w-0 items-center gap-1 break-all font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                   >
+                    <Icon name="mail" className="h-3.5 w-3.5 shrink-0" />
                     {customer.email}
                   </a>
                 ) : (
-                  t("customers.overview.notProvided")
+                  <span className={CUSTOMER_MUTED}>
+                    {t("customers.overview.notProvided")}
+                  </span>
                 )}
-              </p>
+              </dd>
             </div>
-            <p>
-              <strong>{t("customers.overview.department")}</strong>
-              <br />
-              {customer.department?.name ||
-                t("customers.overview.noDepartment")}
-            </p>
-            <p>
-              <strong>{t("customers.overview.responsibleTechnician")}</strong>
-              <br />
-              {customer.responsibleTechnician?.name ||
-                t("customers.overview.noResponsible")}
-            </p>
+            <div>
+              <dt className={CUSTOMER_EYEBROW}>
+                {t("customers.overview.department")}
+              </dt>
+              <dd className="mt-0.5 text-[var(--ink,#101310)]">
+                {customer.department?.name ||
+                  t("customers.overview.noDepartment")}
+              </dd>
+            </div>
+            <div>
+              <dt className={CUSTOMER_EYEBROW}>
+                {t("customers.overview.responsibleTechnician")}
+              </dt>
+              <dd className="mt-0.5 text-[var(--ink,#101310)]">
+                {customer.responsibleTechnician?.name ||
+                  t("customers.overview.noResponsible")}
+              </dd>
+            </div>
             {customer.notes && (
-              <div>
-                <strong>{t("customers.overview.notes")}</strong>
-                <div className="mt-0.5 text-gray-600">
+              <div className="sm:col-span-2">
+                <dt className={CUSTOMER_EYEBROW}>
+                  {t("customers.overview.notes")}
+                </dt>
+                <dd className={`mt-0.5 text-xs ${CUSTOMER_MUTED}`}>
                   <MarkdownView value={customer.notes} />
-                </div>
+                </dd>
               </div>
             )}
-          </div>
+          </dl>
 
-          <div className="border-t border-gray-200 pt-3">
+          <div className="border-t border-[var(--line,#dedcd1)] pt-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-600">
+              <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                 <Icon name="user" className="h-3.5 w-3.5 shrink-0" />
                 {t("customers.overview.contactsTitle")}
               </h3>
               <Link
                 href="?tab=kontakter"
-                className="text-[11px] font-bold text-blue-600 hover:underline"
+                className="inline-flex min-h-11 items-center text-xs font-bold text-[var(--ink,#101310)]"
               >
                 {t("customers.overview.manageContacts")}
               </Link>
             </div>
             {customer.contacts.length === 0 ? (
-              <p className="mt-2 text-xs italic text-gray-500">
+              <p className={`mt-2 text-xs italic ${CUSTOMER_MUTED}`}>
                 {t("customers.overview.noContacts")}
               </p>
             ) : (
@@ -326,33 +406,39 @@ export default async function CustomerOverviewTab({
                 {customer.contacts.slice(0, 3).map((contact) => (
                   <li
                     key={contact.id}
-                    className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5"
+                    className={`${CUSTOMER_INSET} px-2.5 py-1.5`}
                   >
-                    <p className="text-xs font-bold text-gray-900">
+                    <p className="text-xs font-bold text-[var(--ink,#101310)]">
                       {contact.name}
                       {contact.role ? (
-                        <span className="font-normal text-gray-500">
+                        <span className={`font-normal ${CUSTOMER_MUTED}`}>
                           {" "}
                           · {contact.role}
                         </span>
                       ) : null}
                     </p>
                     {(contact.phone || contact.email) && (
-                      <p className="mt-0.5 truncate text-[11px] text-gray-500">
+                      <p
+                        className={`mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 truncate text-xs ${CUSTOMER_MUTED}`}
+                      >
                         {contact.phone && (
                           <a
                             href={`tel:${contact.phone}`}
-                            className="font-bold text-blue-600 hover:underline"
+                            className="inline-flex items-center gap-1 font-bold text-[var(--ink,#101310)]"
                           >
+                            <Icon
+                              name="phone"
+                              className="h-3 w-3 shrink-0"
+                            />
                             {contact.phone}
                           </a>
                         )}
-                        {contact.phone && contact.email ? " · " : ""}
                         {contact.email && (
                           <a
                             href={`mailto:${contact.email}`}
-                            className="font-bold text-blue-600 hover:underline"
+                            className="inline-flex min-w-0 items-center gap-1 truncate font-bold text-[var(--ink,#101310)]"
                           >
+                            <Icon name="mail" className="h-3 w-3 shrink-0" />
                             {contact.email}
                           </a>
                         )}
@@ -365,20 +451,20 @@ export default async function CustomerOverviewTab({
           </div>
 
           {office && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <div className={`${CUSTOMER_INSET} p-3`}>
               <div className="flex items-center justify-between gap-2">
-                <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-600">
+                <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                   <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
                   {t("customers.overview.portalStatus")}
                 </h3>
                 <Link
                   href="?tab=portal"
-                  className="text-[11px] font-bold text-blue-600 hover:underline"
+                  className="inline-flex min-h-11 items-center text-xs font-bold text-[var(--ink,#101310)]"
                 >
                   {t("customers.overview.managePortal")}
                 </Link>
               </div>
-              <p className="mt-1 text-sm font-bold text-gray-900">
+              <p className="mt-1 text-xs font-bold text-[var(--ink,#101310)]">
                 {portalUserCount === 0
                   ? t("customers.overview.portalNone")
                   : t("customers.overview.portalActive", {
@@ -386,7 +472,7 @@ export default async function CustomerOverviewTab({
                     })}
               </p>
               {inactivePortalUsers > 0 && (
-                <p className="text-xs text-gray-500">
+                <p className={`text-xs ${CUSTOMER_MUTED}`}>
                   {t("customers.overview.portalInactive", {
                     count: inactivePortalUsers,
                   })}
@@ -398,31 +484,30 @@ export default async function CustomerOverviewTab({
 
         {/* Forfalt og kommende arbeid */}
         <div className="space-y-4 lg:col-span-3">
-          <section className="space-y-3 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b pb-2">
-              <div>
-                <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
-                  <Icon name="clock" className="h-4 w-4 shrink-0" />
-                  {t("customers.overview.overdueWork")}
-                </h2>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {overdueCount > 0
-                    ? t("customers.overview.overdueCount", {
-                        count: overdueCount,
-                      })
-                    : t("customers.overview.noOverdue")}
-                </p>
-              </div>
-              <Link
-                href="?tab=oppdrag"
-                className="text-xs font-bold text-blue-600 hover:underline"
-              >
-                {t("customers.overview.seeAll", { count: totalOrders })}
-              </Link>
-            </div>
+          <section className={`${CUSTOMER_CARD} space-y-3 p-4 sm:p-5`}>
+            <PanelHeader
+              icon="clock"
+              title={t("customers.overview.overdueWork")}
+              description={
+                overdueCount > 0
+                  ? t("customers.overview.overdueCount", {
+                      count: overdueCount,
+                    })
+                  : t("customers.overview.noOverdue")
+              }
+              action={
+                <Link
+                  href="?tab=oppdrag"
+                  className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]"
+                >
+                  {t("customers.overview.seeAll", { count: totalOrders })}
+                  <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                </Link>
+              }
+            />
 
             {overdueCount === 0 && !nextOrder ? (
-              <p className="py-2 text-xs italic text-gray-500">
+              <p className={`py-2 text-xs italic ${CUSTOMER_MUTED}`}>
                 {t("customers.overview.noOverdueOrUpcoming")}
               </p>
             ) : (
@@ -431,15 +516,15 @@ export default async function CustomerOverviewTab({
                   <Link
                     key={order.id}
                     href={`/oppdrag/${order.id}`}
-                    className="block rounded-xl border border-red-200 bg-red-50 p-3 transition hover:border-red-300 hover:bg-red-100/70"
+                    className="block rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] p-2.5 transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7]"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-bold text-red-950">
+                      <span className="truncate text-sm font-bold text-[var(--risk-text,#b42318)]">
                         {order.title}
                       </span>
                       <StatusBadge status={order.status} />
                     </div>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-red-800">
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-[var(--risk-text,#b42318)]">
                       <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
                       {t("customers.overview.overdueDate", {
                         date: formatDateLocalized(
@@ -456,18 +541,18 @@ export default async function CustomerOverviewTab({
                 {nextOrder && (
                   <Link
                     href={`/oppdrag/${nextOrder.id}`}
-                    className="block rounded-xl border border-blue-200 bg-blue-50 p-3 transition hover:border-blue-300 hover:bg-blue-100/70"
+                    className="block rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--surface,#fffdf8)] p-2.5 transition hover:border-[var(--ink,#101310)] hover:border-l-[var(--signal,#d8ff3e)]"
                   >
-                    <p className="text-[10px] font-black uppercase tracking-wide text-blue-700">
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                       {t("customers.overview.nextVisit")}
                     </p>
                     <div className="mt-0.5 flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-bold text-blue-950">
+                      <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
                         {nextOrder.title}
                       </span>
                       <StatusBadge status={nextOrder.status} />
                     </div>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-blue-800">
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-[var(--ink,#101310)]">
                       <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
                       {t("customers.overview.nextVisitDate", {
                         date: formatDateLocalized(
@@ -484,7 +569,7 @@ export default async function CustomerOverviewTab({
                 {overdueCount > overdueOrders.length && (
                   <Link
                     href="?tab=oppdrag"
-                    className="flex items-center justify-center gap-1 text-xs font-bold text-blue-700 hover:underline"
+                    className="flex min-h-11 items-center justify-center gap-1 text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                   >
                     {t("customers.overview.seeAll", {
                       count: overdueCount,
@@ -497,33 +582,36 @@ export default async function CustomerOverviewTab({
           </section>
 
           {otherRecentOrders.length > 0 && (
-            <section className="space-y-3 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-              <div className="flex items-center justify-between border-b pb-2">
-                <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
-                  <Icon name="folder" className="h-4 w-4 shrink-0" />
-                  {t("customers.overview.recentOrders")}
-                </h2>
-                <Link
-                  href="?tab=oppdrag"
-                  className="text-xs font-bold text-blue-600 hover:underline"
-                >
-                  {t("customers.overview.seeAll", { count: totalOrders })}
-                </Link>
-              </div>
+            <section className={`${CUSTOMER_CARD} space-y-3 p-4 sm:p-5`}>
+              <PanelHeader
+                icon="folder"
+                title={t("customers.overview.recentOrders")}
+                action={
+                  <Link
+                    href="?tab=oppdrag"
+                    className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]"
+                  >
+                    {t("customers.overview.seeAll", { count: totalOrders })}
+                    <Icon name="arrowRight" className="h-3.5 w-3.5" />
+                  </Link>
+                }
+              />
               <div className="space-y-2">
                 {otherRecentOrders.map((order) => (
                   <Link
                     key={order.id}
                     href={`/oppdrag/${order.id}`}
-                    className="block rounded-xl border border-gray-200 bg-gray-50 p-3 transition hover:border-blue-300 hover:bg-blue-50/60"
+                    className={`${CUSTOMER_INSET} block p-2.5 transition hover:border-[var(--ink,#101310)]`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-bold text-gray-900">
+                      <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
                         {order.title}
                       </span>
                       <StatusBadge status={order.status} />
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p
+                      className={`mt-1 flex flex-wrap items-center gap-x-2 text-xs ${CUSTOMER_MUTED}`}
+                    >
                       {formatDateLocalized(
                         order.scheduledFor,
                         locale,
@@ -532,8 +620,10 @@ export default async function CustomerOverviewTab({
                       )}
                       {order._count.reports > 0 ? (
                         <span className="inline-flex items-center gap-1">
-                          <span aria-hidden>•</span>
-                          <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
+                          <Icon
+                            name="clipboard"
+                            className="h-3.5 w-3.5 shrink-0"
+                          />
                           {t("customers.overview.checklists", {
                             count: order._count.reports,
                           })}
@@ -549,19 +639,20 @@ export default async function CustomerOverviewTab({
       </div>
 
       {/* Aktivitetsstrømmen ligger over de sekundære tallene. */}
-      <section className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="mb-3 flex items-center justify-between border-b pb-2">
-          <h2 className="flex items-center gap-2 text-base font-black text-gray-900">
-            <Icon name="clipboard" className="h-4 w-4 shrink-0" />
-            {t("customers.overview.recentActivity")}
-          </h2>
-          <Link
-            href="?tab=aktivitet"
-            className="text-xs font-bold text-blue-600 hover:underline"
-          >
-            {t("customers.overview.seeAllActivity")}
-          </Link>
-        </div>
+      <section className={`${CUSTOMER_CARD} space-y-3 p-4 sm:p-5`}>
+        <PanelHeader
+          icon="clipboard"
+          title={t("customers.overview.recentActivity")}
+          action={
+            <Link
+              href="?tab=aktivitet"
+              className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)]"
+            >
+              {t("customers.overview.seeAllActivity")}
+              <Icon name="arrowRight" className="h-3.5 w-3.5" />
+            </Link>
+          }
+        />
         <CustomerActivityList
           items={recentActivity}
           emptyLabel={t("customers.overview.noActivity")}
@@ -571,7 +662,7 @@ export default async function CustomerOverviewTab({
 
       {secondaryNumbers.length > 0 && (
         <section aria-label={t("customers.overview.moreNumbers")}>
-          <h2 className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
+          <h2 className={`mb-2 ${CUSTOMER_EYEBROW}`}>
             {t("customers.overview.moreNumbers")}
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -579,13 +670,15 @@ export default async function CustomerOverviewTab({
               <Link
                 key={entry.key}
                 href={entry.href}
-                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
               >
-                <span aria-hidden="true">
-                  <Icon name={entry.icon} className="inline-block h-3.5 w-3.5 align-[-0.125em]" />
-                </span>
+                <Icon
+                  name={entry.icon}
+                  className="h-3.5 w-3.5 shrink-0"
+                  strokeWidth={2}
+                />
                 <span>{entry.label}</span>
-                <span className="font-black text-gray-900">{entry.value}</span>
+                <span className="font-black tabular-nums">{entry.value}</span>
               </Link>
             ))}
           </div>

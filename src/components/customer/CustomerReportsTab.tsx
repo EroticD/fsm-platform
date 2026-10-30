@@ -11,6 +11,11 @@ import {
   reportDisplayName,
   reportUnitSummary,
 } from "@/lib/report-display";
+import {
+  CUSTOMER_CARD,
+  CUSTOMER_INK_BUTTON,
+  CUSTOMER_MUTED,
+} from "./customerStyles";
 
 const REPORT_LIMIT = 30;
 
@@ -70,7 +75,9 @@ export default async function CustomerReportsTab({
   const listHref = `/rapporter?vis=alle&kunde=${encodeURIComponent(customerId)}`;
 
   return (
-    <div className="space-y-4 rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4 shadow-[0_1px_2px_rgba(20,17,11,0.05)] [--focus-ring:var(--ink,#101310)] sm:p-6">
+    <section
+      className={`${CUSTOMER_CARD} space-y-4 p-4 [--focus-ring:var(--ink,#101310)] sm:p-5`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
@@ -78,25 +85,23 @@ export default async function CustomerReportsTab({
               aria-hidden="true"
               className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
             />
+            <Icon name="clipboard" className="h-4 w-4 shrink-0" />
             <span className="min-w-0">{t("customers.reports.title")}</span>
           </h2>
-          <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
+          <p className={`mt-1 text-xs leading-5 ${CUSTOMER_MUTED}`}>
             {t("customers.reports.description")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {totalReports > 0 && (
-            <span className="font-bold text-[var(--muted,#62685f)]">
+            <span className={`font-bold tabular-nums ${CUSTOMER_MUTED}`}>
               {t("customers.reports.showing", {
                 shown: reports.length,
                 total: totalReports,
               })}
             </span>
           )}
-          <Link
-            href={listHref}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--ink,#101310)] px-3 font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
-          >
+          <Link href={listHref} className={CUSTOMER_INK_BUTTON}>
             {t("customers.reports.allReports")}
             <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
           </Link>
@@ -104,11 +109,11 @@ export default async function CustomerReportsTab({
       </div>
 
       {reports.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-center">
+        <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-center">
           <p className="font-bold text-[var(--ink,#101310)]">
             {t("customers.reports.empty")}
           </p>
-          <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
+          <p className={`mt-1 text-xs ${CUSTOMER_MUTED}`}>
             {t("customers.reports.emptyHint")}
           </p>
         </div>
@@ -287,7 +292,7 @@ export default async function CustomerReportsTab({
           })}
 
           {totalReports > reports.length && (
-            <p className="pt-1 text-center text-xs text-[var(--muted,#62685f)]">
+            <p className={`pt-1 text-center text-xs ${CUSTOMER_MUTED}`}>
               {t("customers.reports.showing", {
                 shown: reports.length,
                 total: totalReports,
@@ -303,6 +308,6 @@ export default async function CustomerReportsTab({
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

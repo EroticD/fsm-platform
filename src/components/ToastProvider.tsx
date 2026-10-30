@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 
 type ToastTone = "success" | "error" | "info";
 type Toast = { id: number; message: string; tone: ToastTone };
@@ -73,12 +74,12 @@ function ToastItem({
 
   return (
     <div
-      className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-bold shadow-lg ${
+      className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-bold shadow-[0_10px_28px_-18px_rgba(16,19,16,0.4)] ${
         item.tone === "success"
-          ? "border-green-200 bg-green-50 text-green-900"
+          ? "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]"
           : item.tone === "error"
-            ? "border-red-200 bg-red-50 text-red-900"
-            : "border-gray-200 bg-white text-gray-900"
+            ? "border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
+            : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)]"
       }`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -91,14 +92,27 @@ function ToastItem({
         }
       }}
     >
+      <span aria-hidden="true" className="mt-0.5 shrink-0">
+        <Icon
+          name={
+            item.tone === "success"
+              ? "check"
+              : item.tone === "error"
+                ? "alert"
+                : "note"
+          }
+          className="h-4 w-4"
+          strokeWidth={2}
+        />
+      </span>
       <p className="flex-1">{item.message}</p>
       <button
         type="button"
         onClick={() => onDismiss(item.id)}
         aria-label={t("components.toast.dismiss")}
-        className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+        className="-mr-2 -mt-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full opacity-70 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
       >
-        <span aria-hidden="true">✕</span>
+        <Icon name="close" className="h-4 w-4" />
       </button>
     </div>
   );

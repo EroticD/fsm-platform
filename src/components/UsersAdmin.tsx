@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import InviteActionForm from "@/components/InviteActionForm";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 import {
   createUser,
   deleteUser,
@@ -132,54 +133,66 @@ export default async function UsersAdmin({
             : null;
 
   const summaryClass =
-    "flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden";
+    "flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)] sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden";
   const summaryChevronClass =
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-transform group-open:rotate-180";
-  const fieldClass =
-    "w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs font-bold text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600";
-  const formLabelClass = "mb-1 block text-xs font-bold text-gray-600";
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted,#62685f)] transition-transform group-open:rotate-180";
+  const fieldClass = controlClassName("min-h-10 text-xs font-bold");
+  const formLabelClass =
+    "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
   const actionButtonClass =
-    "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1";
+    "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-1";
   const statusBadgeClass =
-    "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-bold uppercase";
+    "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-bold uppercase";
+  const infoBoxClass =
+    "rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs text-[var(--muted,#62685f)]";
+  const inputClass = controlClassName("min-h-11 text-sm font-medium");
+  const inkButton =
+    "inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-1";
+  const dangerButton =
+    "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--risk,#f04427)] focus-visible:ring-offset-1";
 
   return (
     <div className="space-y-6">
       {errorMessage && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+          <Icon name="alert" className="h-4 w-4 shrink-0" />
           {errorMessage}
         </div>
       )}
 
       {isAdmin && (
-        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="office-card relative flex flex-col justify-between gap-3 overflow-hidden p-4 pl-5 sm:flex-row sm:items-center">
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 left-0 w-1 bg-[var(--signal,#d8ff3e)]"
+          />
           <div>
-            <p className="text-sm font-bold text-purple-900">
+            <p className="text-sm font-bold text-[var(--ink,#101310)]">
               {t("users.roles.title")}
             </p>
-            <p className="text-xs text-purple-700">
+            <p className="text-xs text-[var(--muted,#62685f)]">
               {t("users.roles.description")}
             </p>
           </div>
           <Link
             href="/innstillinger?tab=roller"
-            className="text-xs font-bold bg-purple-700 text-white px-3 py-2 rounded-lg hover:bg-purple-800 transition whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-700 focus-visible:ring-offset-2"
+            className="inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[#cbef35] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-2"
           >
             {t("users.roles.manage")} →
           </Link>
         </div>
       )}
 
-      <details className="group rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <details className="group office-card">
         <summary className={summaryClass}>
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
           >
             <Icon name="plus" className="h-5 w-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-bold text-gray-800">
+            <span className="block font-bold text-[var(--ink,#101310)]">
               {t("users.add.title")}
             </span>
           </span>
@@ -188,12 +201,12 @@ export default async function UsersAdmin({
           </span>
         </summary>
 
-        <div className="border-t border-gray-100 p-4 sm:p-6">
+        <div className="border-t border-[var(--line,#dedcd1)] p-4 sm:p-6">
           <InviteActionForm
             action={createUser}
             formClassName="space-y-4"
             submitLabel={t("users.add.submit")}
-            buttonClassName="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            buttonClassName="signal-button mt-2 w-full text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-2"
             labels={{
               ready: t("users.invite.ready", { name: "{name}" }),
               sent: t("users.invite.sent"),
@@ -205,46 +218,46 @@ export default async function UsersAdmin({
             <input type="hidden" name="returnTo" value={returnTo} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="new-user-name" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.fullName")}</label>
+                <label htmlFor="new-user-name" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">{t("users.add.fullName")}</label>
                 <input
                   id="new-user-name"
                   type="text"
                   name="name"
                   required
                   placeholder={t("users.add.namePlaceholder")}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label htmlFor="new-user-email" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.email")}</label>
+                <label htmlFor="new-user-email" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">{t("users.add.email")}</label>
                 <input
                   id="new-user-email"
                   type="email"
                   name="email"
                   required
                   placeholder={t("users.add.emailPlaceholder")}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label htmlFor="new-user-phone" className="block text-sm font-bold text-gray-700 mb-1">{t("users.add.phone")} <span className="font-normal text-gray-600">{t("users.add.optional")}</span></label>
+                <label htmlFor="new-user-phone" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">{t("users.add.phone")} <span className="font-normal normal-case tracking-normal text-[var(--muted,#62685f)]">{t("users.add.optional")}</span></label>
                 <input
                   id="new-user-phone"
                   type="tel"
                   name="phone"
                   placeholder={t("users.add.phonePlaceholder")}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label htmlFor="new-user-role" className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="new-user-role" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                   {t("users.add.role")}
                 </label>
                 <select
                   id="new-user-role"
                   name="role"
                   defaultValue={defaultRole?.key ?? ""}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={inputClass}
                 >
                   {roles.map((role) => (
                     <option key={role.key} value={role.key}>
@@ -254,20 +267,20 @@ export default async function UsersAdmin({
                   ))}
                 </select>
                 {roles.length === 0 && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="mt-1 text-xs text-[var(--risk-text,#b42318)]">
                     {t("users.add.noRoles")}
                   </p>
                 )}
               </div>
               <div>
-                <label htmlFor="new-user-department" className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="new-user-department" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                   {t("users.add.department")}
                 </label>
                 <select
                   id="new-user-department"
                   name="departmentId"
                   defaultValue={defaultDepartment?.id ?? ""}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm font-medium bg-white text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={inputClass}
                 >
                   <option value="">{t("users.add.noDepartment")}</option>
                   {departments.map((department) => (
@@ -277,21 +290,21 @@ export default async function UsersAdmin({
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
                   {t("users.add.departmentHelp")}
                 </p>
               </div>
               {canManageCustomers && (
                 <div>
-                  <label htmlFor="new-user-contact" className="block text-sm font-bold text-gray-700 mb-1">
+                  <label htmlFor="new-user-contact" className="mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("users.add.contact")}{" "}
-                    <span className="font-normal text-gray-600">{t("users.add.contactRequired")}</span>
+                    <span className="font-normal normal-case tracking-normal text-[var(--muted,#62685f)]">{t("users.add.contactRequired")}</span>
                   </label>
                   <select
                     id="new-user-contact"
                     name="contactId"
                     defaultValue=""
-                    className="w-full border border-gray-300 p-2.5 rounded-xl text-xs font-medium bg-white text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    className={controlClassName("min-h-11 text-xs font-medium")}
                   >
                     <option value="">{t("users.add.noContact")}</option>
                     {customers
@@ -307,29 +320,32 @@ export default async function UsersAdmin({
                         </optgroup>
                       ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
                     {t("users.add.contactHelp")}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
+            <div className={infoBoxClass}>
               {t("users.add.info")}
             </div>
           </InviteActionForm>
         </div>
       </details>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 sm:p-5 border-b bg-gray-50/50 flex justify-between items-center gap-3">
-          <h2 className="font-bold text-lg text-gray-800">{t("users.list.title")}</h2>
-          <span className="text-xs font-bold text-gray-800 bg-gray-200 px-2.5 py-1 rounded-full whitespace-nowrap">
+      <div className="office-card overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4 sm:p-5">
+          <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
+            <Icon name="users" className="h-4 w-4 shrink-0" />
+            {t("users.list.title")}
+          </h2>
+          <span className="whitespace-nowrap rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 py-1 text-xs font-bold text-[var(--ink,#101310)]">
             {t("users.list.count", { count: totalUsers })}
           </span>
         </div>
 
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-[var(--line,#dedcd1)]">
           {users.map((u) => {
             const isMe = u.email === currentUserEmail;
             const hasPendingInvite =
@@ -347,18 +363,18 @@ export default async function UsersAdmin({
                 <summary className={summaryClass}>
                   <span
                     aria-hidden="true"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-600 sm:h-9 sm:w-9 sm:text-sm"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-xs font-bold text-[var(--ink,#101310)] sm:h-9 sm:w-9 sm:text-sm"
                   >
                     {u.name?.charAt(0).toUpperCase() || "?"}
                   </span>
 
                   <span className="min-w-0 flex-1">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="min-w-0 truncate text-sm font-bold text-gray-900">
+                      <span className="min-w-0 truncate text-sm font-bold text-[var(--ink,#101310)]">
                         {u.name || t("users.list.noName")}
                       </span>
                       {isMe && (
-                        <span className="inline-flex shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-bold uppercase text-blue-800">
+                        <span className="inline-flex shrink-0 rounded border border-[#c7d98e] bg-[#f3fbd1] px-1.5 py-0.5 text-xs font-bold uppercase text-[#283509]">
                           <span className="sm:hidden">
                             {t("users.list.thisIsYouShort")}
                           </span>
@@ -367,12 +383,12 @@ export default async function UsersAdmin({
                           </span>
                         </span>
                       )}
-                      <span className="hidden min-w-0 truncate text-xs text-gray-500 sm:inline">
+                      <span className="hidden min-w-0 truncate text-xs text-[var(--muted,#62685f)] sm:inline">
                         {u.email}
                       </span>
                     </span>
-                    <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
-                      <span className="min-w-0 truncate font-semibold text-gray-700">
+                    <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                      <span className="min-w-0 truncate font-semibold text-[var(--ink,#101310)]">
                         {roleLabel}
                       </span>
                       <span aria-hidden="true">•</span>
@@ -381,15 +397,15 @@ export default async function UsersAdmin({
                   </span>
 
                   {hasPendingInvite && (
-                    <span className={`${statusBadgeClass} hidden bg-blue-100 text-blue-800 sm:inline-flex`}>
+                    <span className={`${statusBadgeClass} hidden border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)] sm:inline-flex`}>
                       {t("users.list.invited")}
                     </span>
                   )}
                   <span
                     className={`${statusBadgeClass} ${
                       u.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "border-[#c7d98e] bg-[#f3fbd1] text-[#283509]"
+                        : "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
                     }`}
                   >
                     {u.isActive ? t("users.list.active") : t("users.list.inactive")}
@@ -400,14 +416,14 @@ export default async function UsersAdmin({
                   </span>
                 </summary>
 
-                <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-4 sm:px-5">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-600">
+                <div className="border-t border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-4 py-4 sm:px-5">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[var(--muted,#62685f)]">
                     <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
                       <Icon name="mail" className="h-3.5 w-3.5 shrink-0" />
                       <span className="min-w-0 truncate">{u.email}</span>
                     </span>
                     {isMe && (
-                      <span className={`${statusBadgeClass} bg-blue-100 text-blue-800 sm:hidden`}>
+                      <span className={`${statusBadgeClass} border-[#c7d98e] bg-[#f3fbd1] text-[#283509] sm:hidden`}>
                         {t("users.list.thisIsYou")}
                       </span>
                     )}
@@ -427,12 +443,12 @@ export default async function UsersAdmin({
                       </span>
                     )}
                     {!u.password && (
-                      <span className={`${statusBadgeClass} bg-gray-100 text-gray-600`}>
+                      <span className={`${statusBadgeClass} border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--muted,#62685f)]`}>
                         {t("users.list.missingPassword")}
                       </span>
                     )}
                     {hasPendingInvite && (
-                      <span className={`${statusBadgeClass} bg-blue-100 text-blue-800`}>
+                      <span className={`${statusBadgeClass} border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]`}>
                         {t("users.list.invited")}
                       </span>
                     )}
@@ -466,7 +482,7 @@ export default async function UsersAdmin({
                           {!isMe && (
                             <button
                               type="submit"
-                              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-gray-800 px-3 text-xs font-bold text-white transition hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-1"
+                              className={inkButton}
                             >
                               {t("users.list.saveRole")}
                             </button>
@@ -495,7 +511,7 @@ export default async function UsersAdmin({
                             </label>
                             <button
                               type="submit"
-                              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-gray-800 px-3 text-xs font-bold text-white transition hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-1"
+                              className={inkButton}
                             >
                               {t("users.list.saveDepartment")}
                             </button>
@@ -518,7 +534,7 @@ export default async function UsersAdmin({
                             </label>
                             <button
                               type="submit"
-                              className="inline-flex min-h-9 items-center justify-center rounded-lg bg-gray-800 px-3 text-xs font-bold text-white transition hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-1"
+                              className={inkButton}
                             >
                               {t("users.list.savePhone")}
                             </button>
@@ -526,7 +542,7 @@ export default async function UsersAdmin({
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4">
+                      <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line,#dedcd1)] pt-4">
                         {!isMe && (
                           <InviteActionForm
                             action={generateInvite}
@@ -537,8 +553,8 @@ export default async function UsersAdmin({
                                 {t("users.list.inviteLink")}
                               </span>
                             }
-                            buttonClassName={`${actionButtonClass} border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-700 hover:text-white`}
-                            bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
+                            buttonClassName={`${actionButtonClass} border-[var(--ink,#101310)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]`}
+                            bannerClassName="w-full rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--paper,#f2efe6)] p-3 text-xs text-[var(--ink,#101310)]"
                             labels={{
                               ready: t("users.invite.ready", { name: "{name}" }),
                               sent: t("users.invite.sent"),
@@ -565,8 +581,8 @@ export default async function UsersAdmin({
                               type="submit"
                               className={`${actionButtonClass} ${
                                 u.isActive
-                                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                  : "border-green-600 bg-green-600 text-white hover:bg-green-700"
+                                  ? "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] hover:bg-[#f6e8c5]"
+                                  : "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] hover:bg-[#cbef35]"
                               }`}
                             >
                               {u.isActive
@@ -589,7 +605,7 @@ export default async function UsersAdmin({
                             <input type="hidden" name="id" value={u.id} />
                             <button
                               type="submit"
-                              className={`${actionButtonClass} border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100`}
+                              className={`${actionButtonClass} border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] hover:bg-[#f6e8c5]`}
                               title={t("users.list.resetTwoFactorHint")}
                             >
                               {t("users.list.resetTwoFactor")}
@@ -611,7 +627,7 @@ export default async function UsersAdmin({
                             <button
                               type="submit"
                               aria-label={`${t("users.list.deleteUser")}: ${u.name || u.email || u.id}`}
-                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-1"
+                              className={dangerButton}
                               title={t("users.list.deleteUser")}
                             >
                               <Icon name="trash" className="h-4 w-4" />
@@ -621,10 +637,10 @@ export default async function UsersAdmin({
                       </div>
 
                       {isAdmin && (
-                        <form action={changePermissions} className="border-t border-gray-200 pt-4 space-y-3">
+                        <form action={changePermissions} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
                           <input type="hidden" name="id" value={u.id} />
                           {u.role === "ADMIN" || u.role === "CUSTOMER" ? (
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                            <div className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] p-3 text-xs text-[#6b4a05]">
                               {u.role === "ADMIN"
                                 ? t("users.list.adminHint")
                                 : t("users.list.customerHint")}
@@ -633,15 +649,15 @@ export default async function UsersAdmin({
                             <>
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                  <p className="text-xs font-bold text-gray-800">
+                                  <p className="text-xs font-bold text-[var(--ink,#101310)]">
                                     {t("users.list.permissionsTitle")}
                                   </p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-xs text-[var(--muted,#62685f)]">
                                     {t("users.list.permissionsDesc")}
                                   </p>
                                 </div>
                                 {u.permissionsCustomized && (
-                                  <span className="text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full uppercase">
+                                  <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold uppercase text-[var(--ink,#101310)]">
                                     {t("users.list.customized")}
                                   </span>
                                 )}
@@ -650,16 +666,16 @@ export default async function UsersAdmin({
                                 {permissionGroups.map((group) => (
                                   <fieldset
                                     key={group.group}
-                                    className="border border-gray-200 rounded-xl p-3"
+                                    className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3"
                                   >
-                                    <legend className="px-1 text-xs font-bold text-gray-500 uppercase">
+                                    <legend className="px-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                                       {group.group}
                                     </legend>
                                     <div className="space-y-2">
                                       {group.permissions.map((permission) => (
                                         <label
                                           key={permission.key}
-                                          className="flex items-start gap-2 text-xs text-gray-700"
+                                          className="flex items-start gap-2 text-xs text-[var(--ink,#101310)]"
                                           title={permission.description}
                                         >
                                           <input
@@ -675,7 +691,7 @@ export default async function UsersAdmin({
                                             <span className="font-semibold">
                                               {permission.label}
                                             </span>
-                                            <span className="block text-xs text-gray-500">
+                                            <span className="block text-xs text-[var(--muted,#62685f)]">
                                               {permission.description}
                                             </span>
                                           </span>
@@ -687,7 +703,7 @@ export default async function UsersAdmin({
                               </div>
                               <button
                                 type="submit"
-                                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-purple-700 px-3 text-xs font-bold text-white transition hover:bg-purple-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-700 focus-visible:ring-offset-1"
+                                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-3 text-xs font-bold text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:shadow-[1px_1px_0_var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-1"
                               >
                                 {t("users.list.savePermissions")}
                               </button>
@@ -702,7 +718,7 @@ export default async function UsersAdmin({
                             <input type="hidden" name="id" value={u.id} />
                             <button
                               type="submit"
-                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 px-3 text-xs font-bold text-gray-700 transition hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-1"
+                              className={inkButton}
                             >
                               {t("users.list.useRolePermissions")}
                             </button>
@@ -710,7 +726,7 @@ export default async function UsersAdmin({
                         )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-gray-500">
+                    <p className="mt-3 text-xs text-[var(--muted,#62685f)]">
                       {t("users.list.readOnly")}
                     </p>
                   )}
@@ -721,7 +737,7 @@ export default async function UsersAdmin({
         </div>
 
         {totalPages > 1 && (
-          <div className="border-t border-gray-100 p-4">
+          <div className="border-t border-[var(--line,#dedcd1)] p-4">
             <Pagination
               page={safePage}
               totalPages={totalPages}

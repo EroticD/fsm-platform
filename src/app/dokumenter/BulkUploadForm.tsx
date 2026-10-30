@@ -58,6 +58,15 @@ const ACTION_ERROR_KEYS: Record<string, string> = {
   error: "documents.errors.generic",
 };
 
+const FIELD =
+  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+const LABEL =
+  "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
+const QUIET_BUTTON =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]";
+const SIGNAL_BUTTON =
+  "signal-button min-h-10 rounded-[10px] text-xs font-bold shadow-[2px_2px_0_var(--ink,#101310)] transition hover:shadow-[1px_1px_0_var(--ink,#101310)] disabled:cursor-not-allowed disabled:opacity-50";
+
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\/+/, "");
 }
@@ -502,7 +511,7 @@ export default function BulkUploadForm({
       <div>
         <label
           htmlFor="bulk-folder-input"
-          className="block text-sm font-bold text-gray-700 mb-1"
+          className={LABEL}
         >
           {t("documents.bulk.chooseFolder")}
         </label>
@@ -515,22 +524,23 @@ export default function BulkUploadForm({
           multiple
           disabled={busy}
           onChange={handleFolderSelect}
-          className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+          className={FIELD}
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
           {t("documents.bulk.chooseFolderHint")}
         </p>
       </div>
 
       {rows.length > 0 && (
-        <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm">
-          <p className="font-bold text-gray-700 mb-2">
+        <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-sm">
+          <p className="mb-2 flex items-center gap-1.5 font-bold text-[var(--ink,#101310)]">
+            <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
             {t("documents.bulk.summary", {
               files: rows.filter((row) => row.isPdf).length,
               folders: folders.length,
             })}
           </p>
-          <div className="max-h-48 overflow-y-auto text-xs text-gray-600 space-y-0.5">
+          <div className="max-h-48 space-y-0.5 overflow-y-auto text-xs text-[var(--muted,#62685f)]">
             {folders.map((folder) => (
               <div key={folder} className="flex items-center gap-1.5">
                 <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
@@ -542,10 +552,10 @@ export default function BulkUploadForm({
                 key={row.key}
                 className={`pl-4 ${
                   row.status === "failed"
-                    ? "text-red-700"
+                    ? "text-[var(--risk-text,#b42318)]"
                     : row.status === "skipped"
-                      ? "text-amber-700"
-                      : "text-gray-600"
+                      ? "text-[#7a4f0c]"
+                      : "text-[var(--muted,#62685f)]"
                 }`}
               >
                 <Icon
@@ -574,7 +584,7 @@ export default function BulkUploadForm({
             ))}
           </div>
           {hasResult && (
-            <p className="mt-2 text-xs font-bold text-gray-700">
+            <p className="mt-2 text-xs font-bold text-[var(--ink,#101310)]">
               {t("documents.bulk.resultCounts", counts)}
             </p>
           )}
@@ -582,17 +592,17 @@ export default function BulkUploadForm({
       )}
 
       {progress && !error && (
-        <p role="status" className="text-xs text-blue-600">
+        <p role="status" className="text-xs font-bold text-[var(--muted,#62685f)]">
           {progress}
         </p>
       )}
       {notice && !error && (
-        <p role="status" className="text-xs text-emerald-700">
+        <p role="status" className="text-xs font-bold text-[var(--ink,#101310)]">
           {notice}
         </p>
       )}
       {error && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="text-xs font-bold text-[var(--risk-text,#b42318)]">
           {error}
         </p>
       )}
@@ -602,8 +612,9 @@ export default function BulkUploadForm({
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex-1 min-w-[10rem] bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50"
+          className={`${SIGNAL_BUTTON} min-w-[10rem] flex-1`}
         >
+          <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
           {busy
             ? t("documents.bulk.uploading")
             : t("documents.bulk.uploadButton", {
@@ -620,7 +631,7 @@ export default function BulkUploadForm({
           <button
             type="button"
             onClick={handleAbort}
-            className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
+            className={QUIET_BUTTON}
           >
             {t("documents.bulk.abort")}
           </button>
@@ -630,8 +641,9 @@ export default function BulkUploadForm({
           <button
             type="button"
             onClick={handleRetry}
-            className="bg-amber-100 text-amber-900 border border-amber-300 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-200 transition"
+            className={QUIET_BUTTON}
           >
+            <Icon name="sync" className="h-3.5 w-3.5 shrink-0" />
             {t("documents.bulk.retryFailed", { count: failedRows.length })}
           </button>
         )}
@@ -640,7 +652,7 @@ export default function BulkUploadForm({
           <button
             type="button"
             onClick={handleClear}
-            className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition"
+            className={QUIET_BUTTON}
           >
             {t("documents.bulk.clear")}
           </button>

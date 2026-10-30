@@ -4,6 +4,11 @@ import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerActivityList from "./CustomerActivityList";
+import {
+  CUSTOMER_CARD,
+  CUSTOMER_MUTED,
+  LEGACY_SURFACE,
+} from "./customerStyles";
 
 type ActivityTabProps = {
   customerId: string;
@@ -30,40 +35,75 @@ export default async function CustomerActivityTab({
   const t = await getTranslations("common");
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-        <h2 className="mb-3 flex items-center gap-2 border-b pb-2 font-black text-gray-900">
-          <Icon name="clipboard" className="h-4 w-4 shrink-0" />
-          {t("customers.activity.feedTitle")}
-        </h2>
+    <div className="space-y-4">
+      <section className={`${CUSTOMER_CARD} space-y-3 p-4 sm:p-5`}>
+        <div className="border-b border-[var(--line,#dedcd1)] pb-2">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+            />
+            <Icon name="clipboard" className="h-4 w-4 shrink-0" />
+            {t("customers.activity.feedTitle")}
+          </h2>
+        </div>
         <CustomerActivityList
           items={activity}
           emptyLabel={t("customers.activity.noActivity")}
         />
-      </div>
+      </section>
 
-      <CommentSection
-        entityType="customer"
-        entityId={customerId}
-        existingComments={comments.map((c) => ({
-          id: c.id,
-          content: c.content,
-          authorName: c.authorName,
-          createdAt: c.createdAt.toISOString(),
-        }))}
-        currentUserName={currentUserName}
-        canWrite={canManageCustomers}
-      />
+      <section className={`${CUSTOMER_CARD} space-y-3 p-4 sm:p-5`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+            />
+            <Icon name="note" className="h-4 w-4 shrink-0" />
+            {t("components.comment.titleCustomer")}
+          </h2>
+          <span
+            className={`text-xs font-bold uppercase tracking-[0.08em] ${CUSTOMER_MUTED}`}
+          >
+            {t("components.comment.count", { count: comments.length })}
+          </span>
+        </div>
+        <div
+          className={`${LEGACY_SURFACE} [&>div]:border-0 [&>div]:bg-transparent [&>div]:p-0 [&>div]:shadow-none [&>div>div:first-child]:hidden [&_button[type=submit]]:bg-[var(--ink,#101310)] [&_button[type=submit]]:text-[var(--paper,#f2efe6)]`}
+        >
+          <CommentSection
+            entityType="customer"
+            entityId={customerId}
+            existingComments={comments.map((c) => ({
+              id: c.id,
+              content: c.content,
+              authorName: c.authorName,
+              createdAt: c.createdAt.toISOString(),
+            }))}
+            currentUserName={currentUserName}
+            canWrite={canManageCustomers}
+          />
+        </div>
+      </section>
 
-      <details className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-black text-gray-900">
+      <details className={`${CUSTOMER_CARD} p-4 sm:p-5`}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+          />
           <Icon name="note" className="h-4 w-4 shrink-0" />
           {t("customers.activity.auditOnlyTitle")}
         </summary>
-        <p className="mt-2 mb-3 text-xs text-gray-500">
+        <p className={`mb-3 mt-1 text-xs leading-5 ${CUSTOMER_MUTED}`}>
           {t("customers.activity.auditOnlyHint")}
         </p>
-        <AuditLogTable logs={auditLogs} />
+        <div
+          className={`${LEGACY_SURFACE} [&_.text-3xl]:hidden`}
+        >
+          <AuditLogTable logs={auditLogs} />
+        </div>
       </details>
     </div>
   );

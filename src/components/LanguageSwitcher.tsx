@@ -18,12 +18,12 @@ export default function LanguageSwitcher() {
     <button
       type="button"
       onClick={() => changeLocale(nextLocale)}
-      className="flex min-h-11 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900"
+      className="flex min-h-11 items-center gap-1.5 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 text-sm font-semibold text-[var(--ink,#101310)] transition-colors hover:bg-[var(--paper,#f2efe6)]"
       aria-label={t("components.language.change")}
       title={t("components.language.change")}
     >
       <span>{localeNames[locale]}</span>
-      <Icon name="sync" className="h-3.5 w-3.5 text-gray-400" />
+      <Icon name="sync" className="h-3.5 w-3.5 text-[var(--muted,#62685f)]" />
     </button>
   );
 }

@@ -264,13 +264,13 @@ export default function NotificationBell({ role }: { role?: string }) {
         aria-expanded={open}
         aria-controls="notification-popover"
         aria-haspopup="dialog"
-        className="relative flex h-11 w-11 items-center justify-center rounded-xl text-xl text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+        className="relative flex h-11 w-11 items-center justify-center rounded-[10px] text-xl text-[var(--muted,#62685f)] transition hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
       >
         <Icon name="bell" className="h-5 w-5" />
         {count > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -right-0.5 -top-0.5 min-w-5 rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-5 text-white"
+            className="absolute -right-0.5 -top-0.5 min-w-5 rounded-full border border-[var(--surface,#fffdf8)] bg-[var(--ink,#101310)] px-1 text-center text-xs font-bold leading-5 text-[var(--paper,#f2efe6)]"
           >
             {count > 99 ? "99+" : count}
           </span>
@@ -284,10 +284,10 @@ export default function NotificationBell({ role }: { role?: string }) {
           role="dialog"
           aria-label={t("p3.notifications.popover.title")}
           tabIndex={-1}
-          className="fixed inset-x-4 top-[calc(env(safe-area-inset-top,0px)+4rem)] z-50 w-auto overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl focus:outline-none sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))]"
+          className="fixed inset-x-4 top-[calc(env(safe-area-inset-top,0px)+4rem)] z-50 w-auto overflow-hidden rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] shadow-[0_12px_32px_-16px_rgba(16,19,16,0.35)] focus:outline-none sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))]"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-            <h2 className="text-sm font-bold text-gray-900">
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-4 py-3">
+            <h2 className="text-sm font-extrabold text-[var(--ink,#101310)]">
               {t("p3.notifications.popover.title")}
             </h2>
             <div className="flex items-center gap-2">
@@ -296,7 +296,7 @@ export default function NotificationBell({ role }: { role?: string }) {
                   type="button"
                   onClick={() => void markAllRead()}
                   disabled={markingAll}
-                  className="rounded-lg px-1 py-1 text-xs font-bold text-blue-700 hover:underline disabled:cursor-wait disabled:opacity-60"
+                  className="rounded-lg px-1 py-1 text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline disabled:cursor-wait disabled:opacity-60"
                 >
                   {markingAll
                     ? t("p3.notifications.popover.markingAll")
@@ -307,7 +307,7 @@ export default function NotificationBell({ role }: { role?: string }) {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label={t("p3.notifications.popover.close")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted,#62685f)] hover:bg-[var(--surface,#fffdf8)] hover:text-[var(--ink,#101310)]"
               >
                 <Icon name="close" className="h-4 w-4" />
               </button>
@@ -316,19 +316,19 @@ export default function NotificationBell({ role }: { role?: string }) {
 
           <div className="max-h-[70vh] overflow-y-auto">
             {loading ? (
-              <p role="status" className="px-4 py-6 text-center text-sm text-gray-600">
+              <p role="status" className="px-4 py-6 text-center text-sm text-[var(--muted,#62685f)]">
                 {t("p3.notifications.popover.loading")}
               </p>
             ) : loadError ? (
-              <p role="alert" className="px-4 py-6 text-center text-sm font-bold text-red-800">
+              <p role="alert" className="px-4 py-6 text-center text-sm font-bold text-[var(--risk-text,#b42318)]">
                 {t("p3.notifications.popover.error")}
               </p>
             ) : items.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-gray-600">
+              <p className="px-4 py-6 text-center text-sm text-[var(--muted,#62685f)]">
                 {t("p3.notifications.popover.empty")}
               </p>
             ) : (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-[var(--line,#dedcd1)]">
                 {items.map((notification) => {
                   const time = new Date(notification.createdAt);
                   const absolute = formatDateTimeLocalized(time, locale);
@@ -341,42 +341,42 @@ export default function NotificationBell({ role }: { role?: string }) {
                         onAuxClick={(event) => {
                           if (event.button === 1) markOneRead(notification);
                         }}
-                        className={`block px-4 py-3 transition-colors hover:bg-blue-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
-                          notification.readAt ? "" : "bg-blue-50/30"
+                        className={`block px-4 py-3 transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)] ${
+                          notification.readAt ? "" : "bg-[var(--paper,#f2efe6)]"
                         }`}
                       >
                         <span className="flex items-start gap-2">
                           <span
                             aria-hidden="true"
                             className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                              notification.readAt ? "bg-transparent" : "bg-blue-600"
+                              notification.readAt ? "bg-transparent" : "bg-[var(--ink,#101310)]"
                             }`}
                           />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-2">
                               <Icon
                                 name={NOTIFICATION_ICONS[notification.type] ?? "bell"}
-                                className="h-4 w-4 shrink-0 text-gray-600"
+                                className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)]"
                               />
-                              <span className="truncate text-sm font-bold text-gray-900">
+                              <span className="truncate text-sm font-bold text-[var(--ink,#101310)]">
                                 {notification.title}
                               </span>
                             </span>
                             {notification.body && (
-                              <span className="mt-0.5 block line-clamp-2 text-xs text-gray-600">
+                              <span className="mt-0.5 block line-clamp-2 text-xs text-[var(--muted,#62685f)]">
                                 {notification.body}
                               </span>
                             )}
                             <time
                               dateTime={time.toISOString()}
                               title={absolute}
-                              className="mt-1 block text-xs font-medium text-gray-600"
+                              className="mt-1 block text-xs font-medium text-[var(--muted,#62685f)]"
                             >
                               {relative ?? absolute}
                             </time>
                           </span>
                           {notification.hasTarget && (
-                            <span aria-hidden="true" className="mt-1 text-blue-700">
+                            <span aria-hidden="true" className="mt-1 text-[var(--ink,#101310)]">
                               <Icon name="arrowRight" className="h-4 w-4" />
                             </span>
                           )}
@@ -389,11 +389,11 @@ export default function NotificationBell({ role }: { role?: string }) {
             )}
           </div>
 
-          <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 text-center">
+          <div className="border-t border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-4 py-2 text-center">
             <Link
               href="/varsler"
               onClick={() => setOpen(false)}
-              className="inline-flex min-h-9 items-center text-sm font-bold text-blue-700 hover:underline"
+              className="inline-flex min-h-9 items-center text-sm font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline"
             >
               {t("p3.notifications.popover.seeAll")}
             </Link>

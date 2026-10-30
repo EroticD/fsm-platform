@@ -3,7 +3,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-lg bg-gray-200 ${className}`}
+      className={`animate-pulse rounded-lg bg-[var(--line,#dedcd1)] ${className}`}
     />
   );
 }
@@ -11,7 +11,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
 /** Et kort med noen linjer, for lister og detaljsider. */
 export function SkeletonCard({ lines = 3 }: { lines?: number }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-5">
       <Skeleton className="h-4 w-1/3" />
       <div className="mt-4 space-y-2">
         {Array.from({ length: lines }).map((_, index) => (

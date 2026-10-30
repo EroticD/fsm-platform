@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
-import Icon from "@/components/icons";
+import Icon, { type IconName } from "@/components/icons";
 
 export type CustomerTabEntry = {
   key: string;
   label: string;
+  icon?: IconName;
   count?: number;
   href: string;
 };
@@ -129,10 +130,17 @@ export default function CustomerTabs({
                   : "border-transparent text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
               }`}
             >
+              {entry.icon ? (
+                <Icon
+                  name={entry.icon}
+                  className="h-4 w-4 shrink-0"
+                  strokeWidth={2}
+                />
+              ) : null}
               <span>{entry.label}</span>
               {entry.count !== undefined && (
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                  className={`rounded-full px-1.5 py-0.5 text-xs font-black ${
                     active
                       ? "bg-[#101310]/10 text-[var(--ink,#101310)]"
                       : "border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"

@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 import {
   createDepartment,
   setDefaultDepartment,
@@ -22,81 +24,89 @@ type DepartmentRow = {
   contracts: number;
 };
 
+const FIELD = controlClassName("min-h-11 text-sm font-medium");
+const LABEL =
+  "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
+const SIGNAL_BUTTON =
+  "signal-button w-full text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const INK_SMALL =
+  "inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]";
+const CHIP =
+  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold uppercase";
+
 export default async function DepartmentsAdmin({ departments }: { departments: DepartmentRow[] }) {
   const t = await getTranslations("common");
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
       <div className="lg:col-span-1">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-8">
-          <h2 className="font-bold text-lg text-gray-800 border-b pb-2 mb-4">
-            ➕ {t("settings.departments.new")}
+        <div className="office-card sticky top-8 p-5 sm:p-6">
+          <h2 className="mb-4 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-2 text-base font-extrabold text-[var(--ink,#101310)]">
+            <Icon name="plus" className="h-4 w-4 shrink-0" />
+            {t("settings.departments.new")}
           </h2>
           <form action={createDepartment} className="space-y-4">
             <div>
-              <label htmlFor="new-department-name" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.name")}</label>
+              <label htmlFor="new-department-name" className={LABEL}>{t("settings.departments.name")}</label>
               <input
                 id="new-department-name"
                 type="text"
                 name="name"
                 required
                 placeholder={t("settings.departments.namePlaceholder")}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
+                className={FIELD}
               />
             </div>
             <div>
-              <label htmlFor="new-department-description" className="block text-sm font-bold text-gray-700 mb-1">
+              <label htmlFor="new-department-description" className={LABEL}>
                 {t("settings.departments.descriptionLabel")}{" "}
-                <span className="font-normal text-gray-400">{t("settings.departments.optional")}</span>
+                <span className="font-normal normal-case tracking-normal text-[var(--muted,#62685f)]">{t("settings.departments.optional")}</span>
               </label>
               <input
                 id="new-department-description"
                 type="text"
                 name="description"
                 placeholder={t("settings.departments.descriptionPlaceholder")}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium"
+                className={FIELD}
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label htmlFor="new-department-phone" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.phone")}</label>
-                <input id="new-department-phone" type="tel" name="phone" placeholder={t("settings.departments.phonePlaceholder")} className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+                <label htmlFor="new-department-phone" className={LABEL}>{t("settings.departments.phone")}</label>
+                <input id="new-department-phone" type="tel" name="phone" placeholder={t("settings.departments.phonePlaceholder")} className={FIELD} />
               </div>
               <div>
-                <label htmlFor="new-department-email" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.email")}</label>
-                <input id="new-department-email" type="email" name="email" placeholder={t("settings.departments.emailPlaceholder")} className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+                <label htmlFor="new-department-email" className={LABEL}>{t("settings.departments.email")}</label>
+                <input id="new-department-email" type="email" name="email" placeholder={t("settings.departments.emailPlaceholder")} className={FIELD} />
               </div>
             </div>
             <div>
-              <label htmlFor="new-department-address" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.address")}</label>
-              <input id="new-department-address" type="text" name="address" placeholder={t("settings.departments.addressPlaceholder")} className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+              <label htmlFor="new-department-address" className={LABEL}>{t("settings.departments.address")}</label>
+              <input id="new-department-address" type="text" name="address" placeholder={t("settings.departments.addressPlaceholder")} className={FIELD} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label htmlFor="new-department-postal-code" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.postalCode")}</label>
-                <input id="new-department-postal-code" type="text" name="postalCode" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+                <label htmlFor="new-department-postal-code" className={LABEL}>{t("settings.departments.postalCode")}</label>
+                <input id="new-department-postal-code" type="text" name="postalCode" className={FIELD} />
               </div>
               <div>
-                <label htmlFor="new-department-city" className="block text-sm font-bold text-gray-700 mb-1">{t("settings.departments.city")}</label>
-                <input id="new-department-city" type="text" name="city" className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium" />
+                <label htmlFor="new-department-city" className={LABEL}>{t("settings.departments.city")}</label>
+                <input id="new-department-city" type="text" name="city" className={FIELD} />
               </div>
             </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
+            <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs text-[var(--muted,#62685f)]">
               {t("settings.departments.info")}
             </div>
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition"
-            >
+            <button type="submit" className={SIGNAL_BUTTON}>
               {t("settings.departments.create")}
             </button>
           </form>
         </div>
       </div>
 
-      <div className="lg:col-span-2 space-y-4">
+      <div className="space-y-3 lg:col-span-2">
         {departments.length === 0 && (
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 text-sm text-gray-500">
+          <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-sm text-[var(--muted,#62685f)]">
             {t("settings.departments.empty")}
           </div>
         )}
@@ -104,24 +114,29 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
         {departments.map((department) => (
           <div
             key={department.id}
-            className={`bg-white p-5 rounded-2xl shadow-sm border ${
-              department.isDefault ? "border-blue-300" : "border-gray-100"
-            }`}
+            className="office-card relative overflow-hidden p-4 pl-5 sm:p-5"
           >
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-gray-900 flex flex-wrap items-center gap-2">
-                  🏷️ {department.name}
+            {department.isDefault && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-0 left-0 w-1 bg-[var(--signal,#d8ff3e)]"
+              />
+            )}
+            <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+              <div className="min-w-0">
+                <h3 className="flex flex-wrap items-center gap-2 font-bold text-[var(--ink,#101310)]">
+                  <Icon name="building" className="h-4 w-4 shrink-0" />
+                  <span className="break-words">{department.name}</span>
                   {department.isDefault && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
+                    <span className={`${CHIP} border-[#c7d98e] bg-[#f3fbd1] text-[#283509]`}>
                       {t("settings.departments.default")}
                     </span>
                   )}
                   <span
-                    className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
+                    className={`${CHIP} ${
                       department.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "border-[#c7d98e] bg-[#f3fbd1] text-[#283509]"
+                        : "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05]"
                     }`}
                   >
                     {department.isActive
@@ -130,10 +145,11 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                   </span>
                 </h3>
                 {department.description && (
-                  <p className="text-sm text-gray-500 mt-1">{department.description}</p>
+                  <p className="mt-1 text-sm text-[var(--muted,#62685f)]">{department.description}</p>
                 )}
-                <p className="text-xs text-gray-500 mt-2">
-                  👥 {t("settings.departments.stats", {
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
+                  <Icon name="users" className="h-3.5 w-3.5 shrink-0" />
+                  {t("settings.departments.stats", {
                     users: department.users,
                     workOrders: department.workOrders,
                     contracts: department.contracts,
@@ -145,10 +161,7 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                 {!department.isDefault && department.isActive && (
                   <form action={setDefaultDepartment}>
                     <input type="hidden" name="id" value={department.id} />
-                    <button
-                      type="submit"
-                      className="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
-                    >
+                    <button type="submit" className={INK_SMALL}>
                       {t("settings.departments.setDefault")}
                     </button>
                   </form>
@@ -163,10 +176,10 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                     />
                     <button
                       type="submit"
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                      className={`inline-flex min-h-9 items-center justify-center rounded-lg border px-3 text-xs font-bold transition ${
                         department.isActive
-                          ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                          : "bg-green-600 text-white border-green-600 hover:bg-green-700"
+                          ? "border-[#e2cf9b] bg-[#fbf1d2] text-[#6b4a05] hover:bg-[#f6e8c5]"
+                          : "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] hover:bg-[#cbef35]"
                       }`}
                     >
                       {department.isActive
@@ -178,25 +191,25 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
               </div>
             </div>
 
-            <details className="mt-4 group">
-              <summary className="text-xs font-bold text-blue-700 cursor-pointer select-none">
+            <details className="group mt-4 border-t border-[var(--line,#dedcd1)] pt-3">
+              <summary className={`${INK_SMALL} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
                 {t("settings.departments.edit")}
               </summary>
-              <form action={updateDepartment} className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <form action={updateDepartment} className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <input type="hidden" name="id" value={department.id} />
                 <div>
-                  <label htmlFor={`department-${department.id}-name`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.name")}</label>
+                  <label htmlFor={`department-${department.id}-name`} className={LABEL}>{t("settings.departments.name")}</label>
                   <input
                     id={`department-${department.id}-name`}
                     type="text"
                     name="name"
                     required
                     defaultValue={department.name}
-                    className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium"
+                    className={FIELD}
                   />
                 </div>
                 <div>
-                  <label htmlFor={`department-${department.id}-description`} className="block text-xs font-bold text-gray-700 mb-1">
+                  <label htmlFor={`department-${department.id}-description`} className={LABEL}>
                     {t("settings.departments.descriptionLabel")}
                   </label>
                   <input
@@ -204,34 +217,31 @@ export default async function DepartmentsAdmin({ departments }: { departments: D
                     type="text"
                     name="description"
                     defaultValue={department.description ?? ""}
-                    className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium"
+                    className={FIELD}
                   />
                 </div>
                 <div>
-                  <label htmlFor={`department-${department.id}-phone`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.phone")}</label>
-                  <input id={`department-${department.id}-phone`} type="tel" name="phone" defaultValue={department.phone ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                  <label htmlFor={`department-${department.id}-phone`} className={LABEL}>{t("settings.departments.phone")}</label>
+                  <input id={`department-${department.id}-phone`} type="tel" name="phone" defaultValue={department.phone ?? ""} className={FIELD} />
                 </div>
                 <div>
-                  <label htmlFor={`department-${department.id}-email`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.email")}</label>
-                  <input id={`department-${department.id}-email`} type="email" name="email" defaultValue={department.email ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                  <label htmlFor={`department-${department.id}-email`} className={LABEL}>{t("settings.departments.email")}</label>
+                  <input id={`department-${department.id}-email`} type="email" name="email" defaultValue={department.email ?? ""} className={FIELD} />
                 </div>
                 <div>
-                  <label htmlFor={`department-${department.id}-address`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.address")}</label>
-                  <input id={`department-${department.id}-address`} type="text" name="address" defaultValue={department.address ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                  <label htmlFor={`department-${department.id}-address`} className={LABEL}>{t("settings.departments.address")}</label>
+                  <input id={`department-${department.id}-address`} type="text" name="address" defaultValue={department.address ?? ""} className={FIELD} />
                 </div>
                 <div>
-                  <label htmlFor={`department-${department.id}-postal-code`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.postalCode")}</label>
-                  <input id={`department-${department.id}-postal-code`} type="text" name="postalCode" defaultValue={department.postalCode ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                  <label htmlFor={`department-${department.id}-postal-code`} className={LABEL}>{t("settings.departments.postalCode")}</label>
+                  <input id={`department-${department.id}-postal-code`} type="text" name="postalCode" defaultValue={department.postalCode ?? ""} className={FIELD} />
                 </div>
                 <div>
-                  <label htmlFor={`department-${department.id}-city`} className="block text-xs font-bold text-gray-700 mb-1">{t("settings.departments.city")}</label>
-                  <input id={`department-${department.id}-city`} type="text" name="city" defaultValue={department.city ?? ""} className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium" />
+                  <label htmlFor={`department-${department.id}-city`} className={LABEL}>{t("settings.departments.city")}</label>
+                  <input id={`department-${department.id}-city`} type="text" name="city" defaultValue={department.city ?? ""} className={FIELD} />
                 </div>
                 <div className="md:col-span-2">
-                  <button
-                    type="submit"
-                    className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-700 transition"
-                  >
+                  <button type="submit" className={INK_SMALL}>
                     {t("settings.departments.saveChanges")}
                   </button>
                 </div>

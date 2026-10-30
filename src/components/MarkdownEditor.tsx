@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import MarkdownView from "@/components/MarkdownView";
+import Icon, { type IconName } from "@/components/icons";
 
 /**
  * Tekstfelt med Markdown og en enkel formateringslinje.
@@ -17,7 +18,9 @@ import MarkdownView from "@/components/MarkdownView";
 
 type ToolbarButton = {
   /** Kort tekst på knappen. */
-  label: string;
+  label?: string;
+  /** Monokromt ikon i stedet for tekst, der et ikon er tydeligere. */
+  icon?: IconName;
   /** Forklaring som vises når musen hviler over knappen. */
   title: string;
   run: (editor: EditorApi) => void;
@@ -88,16 +91,28 @@ export default function MarkdownEditor({
       run: (e) => e.wrap("==", "==", t("components.markdown.highlightPlaceholder")),
     },
     { label: "H2", title: t("components.markdown.heading"), run: (e) => e.lines("## ") },
-    { label: "•", title: t("components.markdown.bulletList"), run: (e) => e.lines("- ") },
+    {
+      icon: "list",
+      title: t("components.markdown.bulletList"),
+      run: (e) => e.lines("- "),
+    },
     {
       label: "1.",
       title: t("components.markdown.numberedList"),
       run: (e) => e.lines("", { ordered: true }),
     },
-    { label: "☐", title: t("components.markdown.taskList"), run: (e) => e.lines("- [ ] ") },
-    { label: "❝", title: t("components.markdown.quote"), run: (e) => e.lines("> ") },
     {
-      label: "💡",
+      icon: "check",
+      title: t("components.markdown.taskList"),
+      run: (e) => e.lines("- [ ] "),
+    },
+    {
+      icon: "note",
+      title: t("components.markdown.quote"),
+      run: (e) => e.lines("> "),
+    },
+    {
+      icon: "flag",
       title: t("components.markdown.callout"),
       run: (e) => e.lines("> [!tips] "),
     },
@@ -116,7 +131,7 @@ export default function MarkdownEditor({
       },
     },
     {
-      label: "🔗",
+      icon: "arrowRight",
       title: t("components.markdown.link"),
       run: (e) => {
         const { value: current, start, end } = e.read();
@@ -127,7 +142,7 @@ export default function MarkdownEditor({
       },
     },
     {
-      label: "▦",
+      icon: "grid",
       title: t("components.markdown.table"),
       run: (e) => e.insert(t("components.markdown.tableTemplate")),
     },
@@ -256,11 +271,11 @@ export default function MarkdownEditor({
 
   return (
     <div className={className}>
-      <div className="rounded-xl border border-gray-300 bg-white focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-300">
+      <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] focus-within:border-[var(--ink,#101310)] focus-within:ring-2 focus-within:ring-[var(--signal,#d8ff3e)] [--focus-ring:var(--ink,#101310)]">
         <div
           role="toolbar"
           aria-label={t("components.markdown.toolbar")}
-          className="flex flex-wrap items-center gap-0.5 border-b border-gray-200 px-1.5 py-1"
+          className="flex flex-wrap items-center gap-0.5 rounded-t-xl border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-1"
         >
           {buttons.map((button) => (
             <button
@@ -272,9 +287,13 @@ export default function MarkdownEditor({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runButton(button)}
               disabled={disabled}
-              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded px-1.5 py-1 font-mono text-xs text-gray-700 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40"
+              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg px-1.5 py-1 font-mono text-xs font-bold text-[var(--muted,#62685f)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)] disabled:opacity-40"
             >
-              <span aria-hidden>{button.label}</span>
+              {button.icon ? (
+                <Icon name={button.icon} className="h-4 w-4" />
+              ) : (
+                <span aria-hidden>{button.label}</span>
+              )}
             </button>
           ))}
           <button
@@ -282,11 +301,13 @@ export default function MarkdownEditor({
             onClick={() => setPreview((current) => !current)}
             aria-pressed={preview}
             aria-controls={preview ? previewId : undefined}
-            className={`ml-auto inline-flex min-h-9 items-center rounded px-2 py-1 text-xs font-semibold ${
-              preview ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+            className={`ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold transition ${
+              preview
+                ? "bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+                : "text-[var(--muted,#62685f)] hover:bg-[var(--surface,#fffdf8)] hover:text-[var(--ink,#101310)]"
             }`}
           >
-            <span aria-hidden>👁</span>{" "}
+            <Icon name="file" className="h-3.5 w-3.5" />
             {t("components.markdown.preview")}
           </button>
         </div>
@@ -303,34 +324,34 @@ export default function MarkdownEditor({
           placeholder={placeholder}
           onChange={(event) => update(event.target.value)}
           onKeyDown={onKeyDown}
-          className="w-full resize-y rounded-b-xl px-3 py-2 font-mono text-sm text-gray-900 disabled:bg-gray-100 disabled:text-gray-500"
+          className="w-full resize-y rounded-b-xl bg-[var(--surface,#fffdf8)] px-3 py-2 font-mono text-sm text-[var(--ink,#101310)] outline-none disabled:bg-[var(--paper,#f2efe6)] disabled:text-[var(--muted,#62685f)]"
         />
       </div>
 
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted,#62685f)]">
         <span>
           {t("components.markdown.supports")}{" "}
-          <code className="rounded bg-gray-100 px-1 text-gray-900">**fet**</code>,{" "}
-          <code className="rounded bg-gray-100 px-1 text-gray-900">==utheving==</code>,{" "}
-          <code className="rounded bg-gray-100 px-1 text-gray-900">- liste</code>,{" "}
-          <code className="rounded bg-gray-100 px-1 text-gray-900">&gt; [!tips]</code>
+          <code className="rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1 text-[var(--ink,#101310)]">**fet**</code>,{" "}
+          <code className="rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1 text-[var(--ink,#101310)]">==utheving==</code>,{" "}
+          <code className="rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1 text-[var(--ink,#101310)]">- liste</code>,{" "}
+          <code className="rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1 text-[var(--ink,#101310)]">&gt; [!tips]</code>
         </span>
         <a
           href="https://obsidian.md/help/syntax"
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-auto underline hover:text-gray-700"
+          className="ml-auto underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:text-[var(--ink,#101310)]"
         >
           {t("components.markdown.allSyntax")}
         </a>
       </div>
 
       {preview && (
-        <div id={previewId} className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3">
+        <div id={previewId} className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
           {value.trim() ? (
             <MarkdownView value={value} />
           ) : (
-            <p className="text-sm text-gray-600">{t("components.markdown.nothingToPreview")}</p>
+            <p className="text-sm text-[var(--muted,#62685f)]">{t("components.markdown.nothingToPreview")}</p>
           )}
         </div>
       )}

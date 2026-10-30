@@ -6,6 +6,15 @@ import { CONTRACT_INTERVAL_MONTHS } from "@/lib/contracts";
 import { formatDateLocalized, toDateOnly } from "@/lib/dates";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
+import {
+  CUSTOMER_CONTROL,
+  CUSTOMER_INK_BUTTON,
+  CUSTOMER_INSET,
+  CUSTOMER_LABEL,
+  CUSTOMER_MUTED,
+  CUSTOMER_RISK_BUTTON,
+  CUSTOMER_SIGNAL_BUTTON,
+} from "./customerStyles";
 
 type ContractsTabProps = {
   customer: CustomerDetailData["customer"];
@@ -41,7 +50,7 @@ export default async function CustomerContractsTab({
     <CustomerTabPanel
       title={
         <>
-          <Icon name="file" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          <Icon name="file" className="h-4 w-4 shrink-0" />
           {t("customers.contracts.title")}
         </>
       }
@@ -50,11 +59,11 @@ export default async function CustomerContractsTab({
       {office && (isAdmin || ownDepartmentId) && (
         <form
           action={createContract}
-          className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200"
+          className={`${CUSTOMER_INSET} space-y-3 p-3 sm:p-4`}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label htmlFor="contract-title" className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="contract-title" className={CUSTOMER_LABEL}>
                 {t("customers.contracts.titleLabel")} *
               </label>
               <input
@@ -63,11 +72,11 @@ export default async function CustomerContractsTab({
                 name="title"
                 required
                 placeholder={t("customers.contracts.titlePlaceholder")}
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="contract-department" className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="contract-department" className={CUSTOMER_LABEL}>
                 {t("customers.contracts.department")} *
               </label>
               {isAdmin ? (
@@ -76,7 +85,7 @@ export default async function CustomerContractsTab({
                   name="departmentId"
                   required
                   defaultValue={defaultDepartmentId ?? ""}
-                  className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                  className={CUSTOMER_CONTROL}
                 >
                   {departments.map((department) => (
                     <option key={department.id} value={department.id}>
@@ -88,13 +97,16 @@ export default async function CustomerContractsTab({
                   ))}
                 </select>
               ) : (
-                <div className="w-full border border-gray-200 bg-white p-2 rounded-xl text-sm text-gray-800 font-bold">
+                <div className="w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-2 text-sm font-bold text-[var(--ink,#101310)]">
                   {userDepartmentName || t("customers.contracts.noDepartment")}
                 </div>
               )}
             </div>
             <div>
-              <label htmlFor="contract-start-date" className="block text-xs font-bold text-gray-700 mb-1">
+              <label
+                htmlFor="contract-start-date"
+                className={CUSTOMER_LABEL}
+              >
                 {t("customers.contracts.startDate")} *
               </label>
               <input
@@ -103,11 +115,11 @@ export default async function CustomerContractsTab({
                 name="startDate"
                 required
                 defaultValue={toDateOnly(new Date())}
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               />
             </div>
             <div>
-              <label htmlFor="contract-interval" className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="contract-interval" className={CUSTOMER_LABEL}>
                 {t("customers.contracts.interval")} *
               </label>
               <select
@@ -115,7 +127,7 @@ export default async function CustomerContractsTab({
                 name="intervalMonths"
                 required
                 defaultValue="12"
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               >
                 {CONTRACT_INTERVAL_MONTHS.map((months) => (
                   <option key={months} value={months}>
@@ -125,14 +137,14 @@ export default async function CustomerContractsTab({
               </select>
             </div>
             <div>
-              <label htmlFor="contract-contact" className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="contract-contact" className={CUSTOMER_LABEL}>
                 {t("customers.contracts.contact")}
               </label>
               <select
                 id="contract-contact"
                 name="contactId"
                 defaultValue=""
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               >
                 <option value="">{t("customers.contracts.firstContact")}</option>
                 {customer.contacts.map((contact) => (
@@ -144,14 +156,14 @@ export default async function CustomerContractsTab({
               </select>
             </div>
             <div>
-              <label htmlFor="contract-template" className="block text-xs font-bold text-gray-700 mb-1">
+              <label htmlFor="contract-template" className={CUSTOMER_LABEL}>
                 {t("customers.contracts.template")}
               </label>
               <select
                 id="contract-template"
                 name="templateId"
                 defaultValue=""
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               >
                 <option value="">{t("customers.contracts.noTemplate")}</option>
                 {templates.map((template) => (
@@ -162,74 +174,94 @@ export default async function CustomerContractsTab({
               </select>
             </div>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className={`text-xs leading-5 ${CUSTOMER_MUTED}`}>
             {t("customers.contracts.hint")}
           </p>
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
-          >
+          <button type="submit" className={`${CUSTOMER_SIGNAL_BUTTON} w-full`}>
             {t("customers.contracts.create")}
           </button>
         </form>
       )}
 
       {office && !isAdmin && !ownDepartmentId && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 font-bold">
+        <p className="rounded-xl border border-[#e4c98f] bg-[#fdf5e4] p-3 text-xs font-bold text-[#6b4808]">
           {t("customers.contracts.missingDepartment")}
         </p>
       )}
 
       {customer._count.contracts === 0 ? (
-        <p className="text-xs text-gray-500 italic">
+        <p className={`text-xs italic ${CUSTOMER_MUTED}`}>
           {t("customers.contracts.empty")}
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {customer.contracts.map((contract) => {
             const latestOrder = contract.workOrders[0];
             return (
-              <div
+              <article
                 key={contract.id}
-                className="bg-gray-50 rounded-xl border border-gray-200 p-3 sm:p-4 space-y-2"
+                className={`${CUSTOMER_INSET} space-y-2 p-3 sm:p-4`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                  <div>
-                    <p className="font-black text-gray-900 text-sm">
+                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[var(--ink,#101310)]">
                       {contract.title}
                     </p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      {t("customers.contracts.startDateValue", {
-                        date: formatDateLocalized(contract.startDate, locale, undefined, "–"),
-                      })}{" "}
-                      •{" "}
-                      {t("customers.contracts.intervalValue", {
-                        interval: t("customers.contracts.intervalMonths", {
-                          months: contract.intervalMonths,
-                        }),
-                      })}{" "}
-                      •{" "}
-                      {t("customers.contracts.nextService", {
-                        date: formatDateLocalized(contract.nextServiceDate, locale, undefined, "–"),
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {t("customers.contracts.checklist")}{" "}
-                      <span className="font-bold text-blue-800">
-                        {contract.template?.title || t("customers.contracts.none")}
+                    <p
+                      className={`mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs ${CUSTOMER_MUTED}`}
+                    >
+                      <span>
+                        {t("customers.contracts.startDateValue", {
+                          date: formatDateLocalized(
+                            contract.startDate,
+                            locale,
+                            undefined,
+                            "–",
+                          ),
+                        })}
+                      </span>
+                      <span aria-hidden>•</span>
+                      <span>
+                        {t("customers.contracts.intervalValue", {
+                          interval: t("customers.contracts.intervalMonths", {
+                            months: contract.intervalMonths,
+                          }),
+                        })}
+                      </span>
+                      <span aria-hidden>•</span>
+                      <span>
+                        {t("customers.contracts.nextService", {
+                          date: formatDateLocalized(
+                            contract.nextServiceDate,
+                            locale,
+                            undefined,
+                            "–",
+                          ),
+                        })}
                       </span>
                     </p>
-                    <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-gray-600">
+                    <p className={`text-xs ${CUSTOMER_MUTED}`}>
+                      {t("customers.contracts.checklist")}{" "}
+                      <span className="font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4">
+                        {contract.template?.title ||
+                          t("customers.contracts.none")}
+                      </span>
+                    </p>
+                    <p
+                      className={`flex flex-wrap items-center gap-x-1.5 text-xs ${CUSTOMER_MUTED}`}
+                    >
                       <Icon name="flag" className="h-3.5 w-3.5 shrink-0" />
                       {t("customers.contracts.departmentValue")}{" "}
-                      <span className="font-bold">{contract.department.name}</span>
+                      <span className="font-bold text-[var(--ink,#101310)]">
+                        {contract.department.name}
+                      </span>
                     </p>
                   </div>
                   <span
-                    className={`self-start text-xs font-bold px-2 py-1 rounded-full border uppercase ${
+                    className={`self-start rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
                       contract.isActive
-                        ? "bg-green-100 text-green-800 border-green-200"
-                        : "bg-amber-100 text-amber-800 border-amber-200"
+                        ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                        : "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]"
                     }`}
                   >
                     {contract.isActive
@@ -241,7 +273,7 @@ export default async function CustomerContractsTab({
                 {latestOrder && (
                   <Link
                     href={`/oppdrag/${latestOrder.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
+                    className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                   >
                     {t("customers.contracts.latestOrder", {
                       title: latestOrder.title,
@@ -252,52 +284,60 @@ export default async function CustomerContractsTab({
                         t("customers.overview.noDate"),
                       ),
                     })}
+                    <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
                   </Link>
                 )}
 
-                {office && (isAdmin || contract.departmentId === ownDepartmentId) && (
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-                    <form action={toggleContract}>
-                      <input type="hidden" name="id" value={contract.id} />
-                      <input
-                        type="hidden"
-                        name="active"
-                        value={contract.isActive ? "false" : "true"}
-                      />
-                      <button
-                        type="submit"
-                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
-                          contract.isActive
-                            ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                            : "bg-green-600 text-white border-green-600 hover:bg-green-700"
-                        }`}
-                      >
-                        {contract.isActive
-                          ? t("customers.contracts.pause")
-                          : t("customers.contracts.activate")}
-                      </button>
-                    </form>
-                    {isAdmin && (
-                      <ConfirmSubmitForm
-                        action={deleteContract}
-                        confirmMessage={t("customers.contracts.deleteConfirm", {
-                          title: contract.title,
-                        })}
-                        confirmLabel={t("delete")}
-                        danger
-                      >
+                {office &&
+                  (isAdmin || contract.departmentId === ownDepartmentId) && (
+                    <div className="flex flex-wrap gap-2 border-t border-[var(--line,#dedcd1)] pt-2">
+                      <form action={toggleContract}>
                         <input type="hidden" name="id" value={contract.id} />
+                        <input
+                          type="hidden"
+                          name="active"
+                          value={contract.isActive ? "false" : "true"}
+                        />
                         <button
                           type="submit"
-                          className="text-xs font-bold px-3 py-1.5 rounded-lg border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition"
+                          className={
+                            contract.isActive
+                              ? CUSTOMER_INK_BUTTON
+                              : CUSTOMER_SIGNAL_BUTTON
+                          }
                         >
-                          {t("customers.contracts.delete")}
+                          {contract.isActive
+                            ? t("customers.contracts.pause")
+                            : t("customers.contracts.activate")}
                         </button>
-                      </ConfirmSubmitForm>
-                    )}
-                  </div>
-                )}
-              </div>
+                      </form>
+                      {isAdmin && (
+                        <ConfirmSubmitForm
+                          action={deleteContract}
+                          confirmMessage={t(
+                            "customers.contracts.deleteConfirm",
+                            { title: contract.title },
+                          )}
+                          confirmLabel={t("delete")}
+                          danger
+                          className="inline-flex"
+                        >
+                          <input type="hidden" name="id" value={contract.id} />
+                          <button
+                            type="submit"
+                            className={CUSTOMER_RISK_BUTTON}
+                          >
+                            <Icon
+                              name="trash"
+                              className="h-4 w-4 shrink-0"
+                            />
+                            {t("customers.contracts.delete")}
+                          </button>
+                        </ConfirmSubmitForm>
+                      )}
+                    </div>
+                  )}
+              </article>
             );
           })}
         </div>

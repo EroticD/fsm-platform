@@ -8,6 +8,7 @@ import {
   removeCustomerAttachment,
 } from "@/lib/attachment-actions";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import Icon from "@/components/icons";
 import { useToast } from "@/components/ToastProvider";
 
 export type CustomerAttachment = {
@@ -133,41 +134,44 @@ export default function CustomerAttachments({
   };
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-      <div className="flex items-baseline justify-between gap-2 mb-3 border-b pb-2">
-        <h2 className="font-black text-gray-900"><span aria-hidden>📎</span> {t("customers.attachments.title")}</h2>
+    <div className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4 [--focus-ring:var(--ink,#101310)] sm:p-6">
+      <div className="mb-3 flex items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+        <h2 className="flex items-center gap-2 font-black text-[var(--ink,#101310)]">
+          <Icon name="folder" className="h-5 w-5 shrink-0" strokeWidth={2} />
+          {t("customers.attachments.title")}
+        </h2>
         {attachments.length > 0 && (
-          <span className="text-xs font-bold text-gray-500">
+          <span className="text-xs font-bold text-[var(--muted,#62685f)]">
             {t("customers.attachments.fileCount", { count: attachments.length })}
           </span>
         )}
       </div>
 
-      <p className="text-xs text-gray-500 mb-3">
+      <p className="mb-3 text-xs text-[var(--muted,#62685f)]">
         {t("customers.attachments.description")}
       </p>
 
       {attachments.length === 0 ? (
-        <p className="text-xs text-gray-500 italic mb-3">{t("customers.attachments.empty")}</p>
+        <p className="mb-3 text-xs italic text-[var(--muted,#62685f)]">{t("customers.attachments.empty")}</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {attachments.map((attachment) => (
             <div
               key={attachment.id}
-              className="border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50 flex flex-col"
+              className="flex flex-col overflow-hidden rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]"
             >
               {isImage(attachment.dataUrl) ? (
                 <a
                   href={attachment.dataUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block bg-white"
+                  className="block bg-[var(--surface,#fffdf8)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={attachment.dataUrl}
                     alt={attachment.fileName}
-                    className="w-full h-24 object-cover"
+                    className="h-24 w-full object-cover"
                   />
                 </a>
               ) : (
@@ -175,20 +179,20 @@ export default function CustomerAttachments({
                   href={attachment.dataUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="h-24 flex flex-col items-center justify-center gap-1 bg-white hover:bg-blue-50 transition"
+                  className="flex h-24 flex-col items-center justify-center gap-1 bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                 >
-                  <span className="text-3xl" aria-hidden>📄</span>
-                  <span className="text-xs font-black text-blue-700 uppercase">PDF</span>
+                  <Icon name="file" className="h-7 w-7" />
+                  <span className="text-xs font-black uppercase tracking-[0.08em]">PDF</span>
                 </a>
               )}
 
-              <div className="px-2 py-1.5 flex items-center justify-between gap-1">
+              <div className="flex items-center justify-between gap-1 px-2 py-1.5">
                 <a
                   href={attachment.dataUrl}
                   target="_blank"
                   rel="noreferrer"
                   title={attachment.fileName}
-                  className="text-xs font-bold text-gray-700 hover:underline truncate"
+                  className="inline-flex min-h-11 min-w-0 items-center truncate text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                 >
                   {attachment.fileName}
                 </a>
@@ -200,9 +204,9 @@ export default function CustomerAttachments({
                     aria-label={t("components.customerAttachments.deleteAria", {
                       name: attachment.fileName,
                     })}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-2 py-0.5 rounded border border-red-200 transition whitespace-nowrap"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7] disabled:opacity-50"
                   >
-                    <span aria-hidden>✕</span>
+                    <Icon name="trash" className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -215,21 +219,21 @@ export default function CustomerAttachments({
         <div className="space-y-2">
           <input
             type="file"
-        capture="environment"
+            capture="environment"
             accept="image/*,application/pdf,.pdf"
             multiple
             onChange={handleChange}
             disabled={busy}
-            className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white focus:border-blue-700 disabled:opacity-60"
+            className="w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-2.5 text-sm text-[var(--ink,#101310)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--ink,#101310)] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[var(--paper,#f2efe6)] focus:border-[var(--ink,#101310)] disabled:opacity-60"
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--muted,#62685f)]">
             {t("customers.attachments.uploadLimit")}
           </p>
         </div>
       )}
 
       {busy && (
-        <p className="text-xs font-bold text-blue-700 animate-pulse mt-2">
+        <p className="mt-2 text-xs font-bold text-[var(--ink,#101310)] animate-pulse">
           {t("customers.attachments.uploading", {
             progress: progress
               ? t("customers.attachments.uploadingProgress", {
@@ -241,7 +245,12 @@ export default function CustomerAttachments({
         </p>
       )}
 
-      {error && <p className="text-xs font-bold text-red-600 mt-2"><span aria-hidden>❌</span> {error}</p>}
+      {error && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-[var(--risk-text,#b42318)]">
+          <Icon name="alert" className="h-4 w-4 shrink-0" strokeWidth={2} />
+          {error}
+        </p>
+      )}
 
       <ConfirmDialog
         open={pendingDelete !== null}

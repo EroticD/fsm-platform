@@ -196,7 +196,7 @@ export default function WorkOrderMap({
         if (point.technicians) {
           const technicians = document.createElement("div");
           technicians.className = "work-order-map-popup-meta";
-          technicians.textContent = `👷 ${point.technicians}`;
+          technicians.textContent = point.technicians;
           popup.appendChild(technicians);
         }
 
@@ -334,7 +334,7 @@ export default function WorkOrderMap({
   }, [points, openLabel, layerLabels, settings]);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 [--focus-ring:var(--ink,#101310)]">
       <p id={`${listId}-hint`} className="sr-only">
         {listHint}
       </p>
@@ -345,10 +345,10 @@ export default function WorkOrderMap({
         aria-describedby={`${listId}-hint`}
         aria-controls={listId}
         tabIndex={0}
-        className="z-0 h-[420px] w-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-gray-100 sm:h-[520px]"
+        className="z-0 h-[420px] w-full overflow-hidden rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] sm:h-[520px]"
       />
       {points.length === 0 && (
-        <p className="rounded-xl border border-dashed border-gray-300 bg-white p-3 text-sm text-gray-600">
+        <p className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 text-sm text-[var(--muted,#62685f)]">
           {noPointsLabel}
         </p>
       )}
@@ -361,7 +361,7 @@ export default function WorkOrderMap({
           display: flex;
           height: 26px;
           width: 26px;
-          border: 3px solid #fff;
+          border: 3px solid var(--paper, #f2efe6);
           border-radius: 9999px;
           box-shadow: 0 1px 5px rgb(0 0 0 / 0.35);
         }
@@ -375,25 +375,29 @@ export default function WorkOrderMap({
           width: 38px;
           align-items: center;
           justify-content: center;
-          border: 3px solid #fff;
+          border: 3px solid var(--paper, #f2efe6);
           border-radius: 9999px;
-          background: #1d4ed8;
-          color: #fff;
+          background: var(--ink, #101310);
+          color: var(--paper, #f2efe6);
           font-size: 13px;
           font-weight: 800;
           box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
         }
+        .work-order-map-popup {
+          color: var(--ink, #101310);
+        }
         .work-order-map-popup-meta {
           margin-top: 2px;
           font-size: 12px;
-          color: #4b5563;
+          color: var(--muted, #62685f);
         }
         .work-order-map-popup-link {
           display: inline-block;
           margin-top: 6px;
+          border-bottom: 2px solid var(--signal, #d8ff3e);
           font-size: 12px;
           font-weight: 700;
-          color: #1d4ed8;
+          color: var(--ink, #101310);
         }
       `}</style>
     </div>

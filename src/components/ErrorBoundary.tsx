@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import Icon from "@/components/icons";
 
 export default function ErrorBoundary({ children }: { children: React.ReactNode }) {
   const t = useTranslations("common");
@@ -9,14 +10,17 @@ export default function ErrorBoundary({ children }: { children: React.ReactNode 
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center max-w-md w-full">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("components.error.title")}</h2>
-          <p className="text-gray-600 mb-4">{error.message || t("components.error.fallback")}</p>
+      <div className="office-app flex min-h-screen items-center justify-center p-8">
+        <div className="office-card w-full max-w-md p-8 text-center [--focus-ring:var(--ink,#101310)]">
+          <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]">
+            <Icon name="alert" className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <h2 className="mb-2 text-2xl font-black text-[var(--ink,#101310)]">{t("components.error.title")}</h2>
+          <p className="mb-4 text-sm text-[var(--muted,#62685f)]">{error.message || t("components.error.fallback")}</p>
           <button
             type="button"
             onClick={() => setError(null)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition"
+            className="ink-button px-5 text-sm"
           >
             {t("components.error.retry")}
           </button>

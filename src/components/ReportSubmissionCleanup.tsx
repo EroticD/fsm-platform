@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 import { clearOfflinePage } from "@/lib/offline/cache";
 import {
   clearDraftLocally,
@@ -91,32 +92,41 @@ export default function ReportSubmissionCleanup({
     <div
       role="status"
       aria-live="polite"
-      className="rounded-2xl border-2 border-green-300 bg-green-50 px-5 py-4 text-green-900"
+      className="rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-5 py-4 text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] [--focus-ring:var(--ink,#101310)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="font-black">{t("orders.reportForm.submittedTitle")}</p>
-          <p className="text-sm font-medium">
+          <p className="flex items-center gap-2 font-black">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]">
+              <Icon name="check" className="h-5 w-5" strokeWidth={2.4} />
+            </span>
+            {t("orders.reportForm.submittedTitle")}
+          </p>
+          <p className="text-sm font-medium text-[#2a2f28]">
             {t("orders.reportForm.submittedText")}
           </p>
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap gap-2 pt-2">
             {isFieldPortal && (
               <Link
                 href="/mine-oppdrag"
-                className="rounded-xl bg-green-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-green-800"
+                className="signal-button border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-sm text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--ink,#101310)]"
               >
                 {t("orders.reportForm.submittedNextAssignment")}
               </Link>
             )}
             <Link
               href={`/rapporter/${workOrderId}`}
-              className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-800"
+              className={
+                isFieldPortal
+                  ? "ink-button text-sm"
+                  : "signal-button border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-sm text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--ink,#101310)]"
+              }
             >
               {t("orders.reportForm.submittedOpenPdf")}
             </Link>
             <Link
               href={workOrderHref}
-              className="rounded-xl border-2 border-green-300 bg-white px-4 py-2 text-sm font-bold text-green-900 transition hover:bg-green-100"
+              className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--line,#dedcd1)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
             >
               {t("orders.reportForm.submittedOpenWorkOrder")}
             </Link>
@@ -125,7 +135,7 @@ export default function ReportSubmissionCleanup({
         <button
           type="button"
           onClick={dismiss}
-          className="whitespace-nowrap rounded-lg bg-green-100 px-3 py-1.5 text-xs font-bold text-green-900 transition hover:bg-green-200"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[var(--line,#dedcd1)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
         >
           {t("orders.reportForm.submittedDismiss")}
         </button>

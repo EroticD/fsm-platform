@@ -49,16 +49,23 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-
+    <div className="field-app min-h-screen p-4 pb-32 sm:p-6 sm:pb-12">
+      <div className="mx-auto max-w-3xl space-y-5">
         {/* TOPPTEKST OG TILBAKE */}
-        <div className="flex justify-between items-center border-b pb-4">
+        <div className="flex flex-col justify-between gap-3 border-b border-[#2a3328] pb-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t("orders.fieldCustomers.title")}</h1>
-            <p className="text-sm text-gray-600">{t("orders.fieldCustomers.subtitle")}</p>
+            <h1 className="flex items-center gap-2 text-2xl font-black text-[var(--paper,#f2efe6)]">
+              <Icon name="users" className="h-6 w-6 shrink-0" strokeWidth={2} />
+              {t("orders.fieldCustomers.title")}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--paper,#f2efe6)]/70">
+              {t("orders.fieldCustomers.subtitle")}
+            </p>
           </div>
-          <Link href="/mine-oppdrag" className="inline-flex min-h-11 items-center bg-white text-gray-700 px-4 py-2 rounded-xl text-sm font-medium border shadow-sm hover:bg-gray-50">
+          <Link
+            href="/mine-oppdrag"
+            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl border border-[#2a3328] bg-[var(--field-card,#151a14)] px-4 py-2 text-sm font-bold text-[var(--paper,#f2efe6)]/85 transition hover:bg-[var(--paper,#f2efe6)]/10"
+          >
             {t("orders.fieldCustomers.backToMyWorkOrders")}
           </Link>
         </div>
@@ -71,87 +78,124 @@ export default async function TechnicianCustomerLookupPage({ searchParams }: { s
             aria-label={t("orders.fieldCustomers.search")}
             defaultValue={searchQuery}
             placeholder={t("orders.fieldCustomers.searchPlaceholder")}
-            className="w-full border border-gray-300 bg-white px-4 py-3 rounded-xl text-sm text-gray-900 font-medium shadow-sm outline-none focus:border-blue-500"
+            className="min-h-11 w-full rounded-xl border border-[#2a3328] bg-[var(--field-card,#151a14)] px-4 py-3 text-sm font-medium text-[var(--paper,#f2efe6)] outline-none transition focus:border-[var(--signal,#d8ff3e)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)] [--focus-ring:var(--signal,#d8ff3e)]"
           />
-          <button type="submit" className="min-h-11 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition">
+          <button type="submit" className="signal-button shrink-0 px-5 text-sm">
             {t("orders.fieldCustomers.search")}
           </button>
           {searchQuery && (
-            <Link href="/mine-oppdrag/kunder" aria-label={t("orders.fieldCustomers.clear")} className="min-h-11 min-w-11 bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-bold text-sm hover:bg-gray-300 transition flex items-center justify-center">
-              {t("orders.fieldCustomers.clear")}
+            <Link
+              href="/mine-oppdrag/kunder"
+              aria-label={t("orders.fieldCustomers.clear")}
+              title={t("orders.fieldCustomers.clear")}
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[#2a3328] bg-[var(--field-card,#151a14)] text-[var(--paper,#f2efe6)] transition hover:bg-[var(--paper,#f2efe6)]/10"
+            >
+              <Icon name="close" className="h-4 w-4" />
             </Link>
           )}
         </form>
 
         {/* RESULTATER */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {customers.length === 0 ? (
-            <div className="bg-white p-8 rounded-2xl text-center border shadow-sm">
-              <p className="text-gray-600 text-sm">{t("orders.fieldCustomers.noCustomers")}</p>
+            <div className="field-sheet p-8 text-center">
+              <Icon name="search" className="mx-auto h-6 w-6 text-[var(--muted,#62685f)]" />
+              <p className="mt-2 text-sm text-[var(--muted,#62685f)]">
+                {t("orders.fieldCustomers.noCustomers")}
+              </p>
             </div>
           ) : (
             customers.map((c: any) => (
-              <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-
-                <div className="flex justify-between items-start border-b pb-3">
-                  <div>
-                    <h2 className="font-bold text-lg text-gray-900">{c.name}</h2>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                        <GoogleMapsLink
-                          address={c.address}
-                          postalCode={c.postalCode}
-                          city={c.city}
-                          label={c.address || t("orders.fieldCustomers.noAddress")}
-                        />
-                        {c.customerNumber ? ` • ${t("orders.fieldCustomers.customerNumber", { number: c.customerNumber })}` : ""}
-                      </p>
+              <div key={c.id} className="field-sheet space-y-3 p-4">
+                <div className="flex flex-col justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-3 sm:flex-row sm:items-start">
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold text-[var(--ink,#101310)]">{c.name}</h2>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--muted,#62685f)]">
+                      <GoogleMapsLink
+                        address={c.address}
+                        postalCode={c.postalCode}
+                        city={c.city}
+                        label={c.address || t("orders.fieldCustomers.noAddress")}
+                        className="font-bold text-[var(--ink,#101310)]! underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                      />
+                      {c.customerNumber ? ` • ${t("orders.fieldCustomers.customerNumber", { number: c.customerNumber })}` : ""}
+                    </p>
                   </div>
                   {c.phone && (
-                    <a href={`tel:${c.phone}`} className="inline-flex min-h-11 items-center bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition">
+                    <a
+                      href={`tel:${c.phone}`}
+                      className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-3 py-1.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+                    >
+                      <Icon name="phone" className="h-4 w-4 shrink-0" />
                       {t("orders.fieldCustomers.call", { phone: c.phone })}
                     </a>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-
+                <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                   {/* Kontaktpersoner */}
-                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                    <p className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-2">{t("orders.fieldCustomers.contacts")}</p>
+                  <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--muted,#62685f)]">
+                      {t("orders.fieldCustomers.contacts")}
+                    </p>
                     {c.contacts.length === 0 ? (
-                      <p className="text-xs text-gray-600 italic">{t("orders.fieldCustomers.noContacts")}</p>
+                      <p className="text-xs italic text-[var(--muted,#62685f)]">
+                        {t("orders.fieldCustomers.noContacts")}
+                      </p>
                     ) : (
                       c.contacts.map((contact: any) => (
-                        <div key={contact.id} className="text-xs py-1">
-                          <span className="font-bold text-gray-800">{contact.name}</span> ({contact.role || t("orders.fieldCustomers.contactFallback")})
-                          {contact.phone && <a href={`tel:${contact.phone}`} className="inline-flex min-h-11 items-center gap-1.5 text-blue-700 mt-0.5"><Icon name="phone" className="h-4 w-4" /> {contact.phone}</a>}
+                        <div
+                          key={contact.id}
+                          className="flex flex-wrap items-center justify-between gap-1 border-b border-[var(--line,#dedcd1)] py-1 text-xs last:border-b-0"
+                        >
+                          <span>
+                            <span className="font-bold text-[var(--ink,#101310)]">{contact.name}</span>{" "}
+                            <span className="text-[var(--muted,#62685f)]">
+                              ({contact.role || t("orders.fieldCustomers.contactFallback")})
+                            </span>
+                          </span>
+                          {contact.phone && (
+                            <a
+                              href={`tel:${contact.phone}`}
+                              className="inline-flex min-h-11 items-center gap-1.5 font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
+                            >
+                              <Icon name="phone" className="h-3.5 w-3.5 shrink-0" />
+                              {contact.phone}
+                            </a>
+                          )}
                         </div>
                       ))
                     )}
                   </div>
 
                   {/* Utstyr / Maskiner */}
-                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                    <p className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-2">{t("orders.fieldCustomers.equipment")}</p>
+                  <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--muted,#62685f)]">
+                      {t("orders.fieldCustomers.equipment")}
+                    </p>
                     {c.products.length === 0 ? (
-                      <p className="text-xs text-gray-600 italic">{t("orders.fieldCustomers.noEquipment")}</p>
+                      <p className="text-xs italic text-[var(--muted,#62685f)]">
+                        {t("orders.fieldCustomers.noEquipment")}
+                      </p>
                     ) : (
                       c.products.map((prod: any) => (
-                        <div key={prod.id} className="text-xs py-1">
-                          <span className="font-bold text-gray-800">{prod.model}</span>
-                          <span className="text-gray-600 font-mono ml-1">(SN: {prod.serialNumber || "-"})</span>
+                        <div
+                          key={prod.id}
+                          className="flex flex-wrap items-baseline gap-1 border-b border-[var(--line,#dedcd1)] py-1 text-xs last:border-b-0"
+                        >
+                          <span className="font-bold text-[var(--ink,#101310)]">{prod.model}</span>
+                          <span className="font-mono text-[var(--muted,#62685f)]">
+                            (SN: {prod.serialNumber || "-"})
+                          </span>
                         </div>
                       ))
                     )}
                   </div>
-
                 </div>
-
               </div>
             ))
           )}
         </div>
-
       </div>
     </div>
   );

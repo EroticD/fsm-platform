@@ -23,17 +23,33 @@ import {
 } from "./feedback";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import CustomerToast from "@/components/customer/CustomerToast";
+import {
+  CUSTOMER_CARD,
+  CUSTOMER_CONTROL,
+  CUSTOMER_EYEBROW,
+  CUSTOMER_INK_BUTTON,
+  CUSTOMER_INSET,
+  CUSTOMER_LABEL,
+  CUSTOMER_MUTED,
+  CUSTOMER_RISK_BUTTON,
+  CUSTOMER_SIGNAL_BUTTON,
+  LEGACY_SURFACE,
+} from "@/components/customer/customerStyles";
 import EmptyState from "@/components/EmptyState";
 import ErrorBanner from "@/components/ErrorBanner";
-import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
-import SectionCard from "@/components/SectionCard";
 import SubmitButton from "@/components/SubmitButton";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 type SortKey = "name" | "city" | "orgNumber";
+
+const SORT_OPTIONS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
+  { key: "name", labelKey: "customers.list.companyName" },
+  { key: "city", labelKey: "customers.list.city" },
+  { key: "orgNumber", labelKey: "customers.list.orgNumber" },
+];
 
 function isSortKey(value: string | undefined): value is SortKey {
   return value === "name" || value === "city" || value === "orgNumber";
@@ -199,280 +215,443 @@ export default async function KunderPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
-
-        <PageHeader
-          title={t("customers.list.title")}
-          className="mb-8"
-          actions={
-            <>
-              {user.role === "ADMIN" && (
-                <Link
-                  href={showDeleted ? "/kunder" : "/kunder?slettet=1"}
-                  className="text-sm font-bold text-gray-700 bg-white border-2 border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
-                >
-                  {showDeleted
-                    ? t("customers.list.showActive")
-                    : t("customers.list.showDeleted")}
-                </Link>
-              )}
-              <Link href="/" className="text-blue-600 hover:underline font-medium">
-                <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-                {t("customers.list.backToDashboard")}
+    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl space-y-4">
+        <header className="flex flex-col gap-3 border-b border-[var(--line,#dedcd1)] pb-3 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className={CUSTOMER_EYEBROW}>{t("metadata.routes.kunder")}</p>
+            <h1 className="mt-0.5 flex flex-wrap items-baseline gap-2 text-3xl font-black tracking-tight text-[var(--ink,#101310)] md:text-4xl">
+              <span className="truncate">{t("customers.list.title")}</span>
+              <span className={`text-sm font-bold tabular-nums ${CUSTOMER_MUTED}`}>
+                {t("customers.list.total", { total })}
+              </span>
+            </h1>
+          </div>
+          <div className="flex w-full flex-wrap gap-2 md:w-auto">
+            {user.role === "ADMIN" && (
+              <Link
+                href={showDeleted ? "/kunder" : "/kunder?slettet=1"}
+                prefetch={false}
+                className={CUSTOMER_INK_BUTTON}
+              >
+                <Icon
+                  name={showDeleted ? "chevronRight" : "trash"}
+                  className={`h-4 w-4 shrink-0 ${showDeleted ? "rotate-180" : ""}`}
+                />
+                {showDeleted
+                  ? t("customers.list.showActive")
+                  : t("customers.list.showDeleted")}
               </Link>
-            </>
-          }
-        />
+            )}
+            <Link href="/" className={CUSTOMER_INK_BUTTON}>
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("customers.list.backToDashboard")}
+            </Link>
+          </div>
+        </header>
 
         {statusKey && <CustomerToast message={t(statusKey)} tone="success" />}
 
         <ErrorBanner
-          message={errorKey ? `⛔ ${t(errorKey)}` : undefined}
-          className="mb-4"
+          message={errorKey ? t(errorKey) : undefined}
         />
 
         {varsel === "enheter" && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900">
-            <Icon name="wrench" className="h-4 w-4 shrink-0" />
+          <div
+            className={`${CUSTOMER_INSET} flex items-start gap-2 p-3 text-xs font-bold text-[var(--ink,#101310)]`}
+          >
+            <Icon name="wrench" className="mt-0.5 h-4 w-4 shrink-0" />
             {t("customers.list.unitsNotice")}
           </div>
         )}
 
         {showDeleted && (
-          <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 p-4 rounded-xl mb-4 text-sm font-bold">
+          <div className="rounded-xl border border-[#e4c98f] bg-[#fdf5e4] p-3 text-xs font-bold text-[#6b4808]">
             {t("customers.list.deletedTitle")}
           </div>
         )}
 
-        {/* Skjema for å legge til ny kunde – kun kontor/admin, sammenlagt som
-            standard slik at kundelisten er det første brukeren ser. */}
-        {office && !showDeleted && (
-          <details className="mb-8 rounded-2xl border-2 border-gray-200 bg-white shadow-sm">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-50/60 sm:px-6">
-              <Icon name="plus" className="h-4 w-4 shrink-0" />
-              {t("customers.list.newCustomer")}
-            </summary>
-            <div className="border-t-2 border-gray-100 p-4 sm:p-6">
-              <form action={addCustomer} className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <label htmlFor="customer-name" className="block text-xs font-bold text-gray-700 mb-1">
-                    {t("customers.list.companyName")}
-                  </label>
+        {/* Søk, sortering og «Ny kunde» samlet i én kompakt verktøylinje. */}
+        <section className={`${CUSTOMER_CARD} overflow-hidden`}>
+          <div className="space-y-3 p-3 sm:p-4">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+              <form
+                method="GET"
+                action="/kunder"
+                className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+              >
+                {showDeleted && <input type="hidden" name="slettet" value="1" />}
+                {sortKey !== "name" && (
+                  <input type="hidden" name="sort" value={sortKey} />
+                )}
+                {sortDir !== "asc" && (
+                  <input type="hidden" name="dir" value={sortDir} />
+                )}
+                <div className="relative min-w-[14rem] flex-1">
+                  <Icon
+                    name="search"
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted,#62685f)]"
+                  />
                   <input
-                    id="customer-name"
-                    type="text"
-                    name="name"
-                    placeholder={t("customers.list.namePlaceholder")}
-                    required
-                    aria-required="true"
-                    className="w-full border p-2 rounded text-gray-800"
+                    type="search"
+                    name="q"
+                    defaultValue={search}
+                    aria-label={t("customers.list.searchPlaceholder")}
+                    placeholder={t("customers.list.searchPlaceholder")}
+                    className={`${CUSTOMER_CONTROL} pl-9 text-sm`}
                   />
                 </div>
-                <div className="flex-1">
-                  <label htmlFor="customer-org-number" className="block text-xs font-bold text-gray-700 mb-1">
-                    {t("customers.list.orgNumber")}
-                  </label>
-                  <input
-                    id="customer-org-number"
-                    type="text"
-                    name="orgNumber"
-                    placeholder={t("customers.list.orgNumberPlaceholder")}
-                    className="w-full border p-2 rounded text-gray-800"
-                  />
-                </div>
-                <SubmitButton
-                  pendingLabel={t("customers.list.saving")}
-                  className="self-end bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition font-medium whitespace-nowrap"
-                >
-                  {t("customers.list.save")}
-                </SubmitButton>
+                <button type="submit" className={CUSTOMER_INK_BUTTON}>
+                  {t("customers.list.search")}
+                </button>
+                {search && (
+                  <Link
+                    href="/kunder"
+                    prefetch={false}
+                    className={CUSTOMER_INK_BUTTON}
+                  >
+                    {t("customers.list.reset")}
+                  </Link>
+                )}
               </form>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={CUSTOMER_EYEBROW}>
+                  {t("orders.list.sortLabel")}
+                </span>
+                {SORT_OPTIONS.map((option) => {
+                  const active = sortKey === option.key;
+                  return (
+                    <Link
+                      key={option.key}
+                      href={sortHref(option.key)}
+                      prefetch={false}
+                      aria-current={active ? "true" : undefined}
+                      className={`inline-flex min-h-9 items-center gap-1 rounded-full border px-3 text-xs font-bold transition ${
+                        active
+                          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                          : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+                      }`}
+                    >
+                      {t(option.labelKey)}
+                      <span aria-hidden="true" className="inline-flex">
+                        {sortIndicator(option.key)}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </details>
-        )}
 
-        {/* Søk */}
-        <SectionCard className="mb-4">
-          <form method="GET" action="/kunder" className="flex flex-wrap gap-2">
-            <input
-              type="search"
-              name="q"
-              defaultValue={search}
-              aria-label={t("customers.list.searchPlaceholder")}
-              placeholder={t("customers.list.searchPlaceholder")}
-              className="flex-1 min-w-[12rem] border p-2.5 rounded-xl text-sm text-gray-900"
-            />
-            {showDeleted && <input type="hidden" name="slettet" value="1" />}
-            {sortKey !== "name" && <input type="hidden" name="sort" value={sortKey} />}
-            {sortDir !== "asc" && <input type="hidden" name="dir" value={sortDir} />}
-            <button type="submit" className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition">
-              {t("customers.list.search")}
-            </button>
-            {search && (
-              <Link href="/kunder" prefetch={false} className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-300 transition">
-                {t("customers.list.reset")}
-              </Link>
+            {/* Ny kunde er fortsatt sammenlagt som standard. */}
+            {office && !showDeleted && (
+              <details className="border-t border-[var(--line,#dedcd1)] pt-3">
+                <summary
+                  className={`${CUSTOMER_SIGNAL_BUTTON} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
+                >
+                  <Icon name="plus" className="h-4 w-4 shrink-0" />
+                  {t("customers.list.newCustomer")}
+                </summary>
+                <form
+                  action={addCustomer}
+                  className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+                >
+                  <div>
+                    <label htmlFor="customer-name" className={CUSTOMER_LABEL}>
+                      {t("customers.list.companyName")}
+                    </label>
+                    <input
+                      id="customer-name"
+                      type="text"
+                      name="name"
+                      placeholder={t("customers.list.namePlaceholder")}
+                      required
+                      aria-required="true"
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customer-org-number"
+                      className={CUSTOMER_LABEL}
+                    >
+                      {t("customers.list.orgNumber")}
+                    </label>
+                    <input
+                      id="customer-org-number"
+                      type="text"
+                      name="orgNumber"
+                      placeholder={t("customers.list.orgNumberPlaceholder")}
+                      className={CUSTOMER_CONTROL}
+                    />
+                  </div>
+                  <SubmitButton
+                    pendingLabel={t("customers.list.saving")}
+                    className={`${CUSTOMER_SIGNAL_BUTTON} self-end`}
+                  >
+                    {t("customers.list.save")}
+                  </SubmitButton>
+                </form>
+              </details>
             )}
-          </form>
-        </SectionCard>
+          </div>
+        </section>
 
-        {/* Tabell med eksisterende kunder. På mobil kan tabellen scrolles
-            vannrett i stedet for å presse hele siden bredere enn skjermen.
-            Hele raden er klikkbar via en dekkende lenke; handlingene løftes
-            over lenken slik at de fortsatt kan brukes. */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        {/* Desktop: tett tabell på papirflate. Hele raden er klikkbar via en
+            dekkende lenke; handlingene løftes over lenken. */}
+        <section className={`${CUSTOMER_CARD} hidden overflow-hidden md:block`}>
           <div
-            className="hidden overflow-x-auto sm:block"
+            className="overflow-x-auto"
             role="region"
             aria-label={t("customers.list.title")}
             tabIndex={0}
           >
-          <table className="w-full min-w-[56rem] text-left border-collapse">
-            <caption className="sr-only">{t("customers.list.title")}</caption>
-            <thead className="bg-gray-100">
-              <tr>
-                <th scope="col" aria-sort={ariaSort("name")} className="p-4 font-semibold text-gray-600 border-b">
-                  <Link href={sortHref("name")} prefetch={false} aria-label={t("customers.list.sortBy", { column: t("customers.list.companyName") })} className="inline-flex items-center gap-1 hover:text-gray-900">
-                    {t("customers.list.companyName")} <span aria-hidden="true">{sortIndicator("name")}</span>
-                  </Link>
-                </th>
-                <th scope="col" aria-sort={ariaSort("city")} className="p-4 font-semibold text-gray-600 border-b">
-                  <Link href={sortHref("city")} prefetch={false} aria-label={t("customers.list.sortBy", { column: t("customers.list.city") })} className="inline-flex items-center gap-1 hover:text-gray-900">
-                    {t("customers.list.city")} <span aria-hidden="true">{sortIndicator("city")}</span>
-                  </Link>
-                </th>
-                <th scope="col" className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.contact")}</th>
-                <th scope="col" aria-sort={ariaSort("orgNumber")} className="p-4 font-semibold text-gray-600 border-b">
-                  <Link href={sortHref("orgNumber")} prefetch={false} aria-label={t("customers.list.sortBy", { column: t("customers.list.orgNumber") })} className="inline-flex items-center gap-1 hover:text-gray-900">
-                    {t("customers.list.orgNumber")} <span aria-hidden="true">{sortIndicator("orgNumber")}</span>
-                  </Link>
-                </th>
-                <th scope="col" className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.openOrders")}</th>
-                <th scope="col" className="p-4 font-semibold text-gray-600 border-b">{t("customers.list.lastService")}</th>
-                <th scope="col" className="p-4 font-semibold text-gray-600 border-b w-32">{t("customers.list.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-4">
-                    <EmptyState
-                      icon={<Icon name="building" className="h-8 w-8" />}
-                      title={
-                        search
-                          ? t("customers.list.noMatches", { query: search })
-                          : t("customers.list.empty")
+            <table className="office-table min-w-[60rem]">
+              <caption className="sr-only">{t("customers.list.title")}</caption>
+              <thead>
+                <tr
+                  style={{
+                    backgroundColor: "var(--ink, #101310)",
+                    color: "var(--paper, #f2efe6)",
+                  }}
+                >
+                  {(
+                    [
+                      { key: "name", label: t("customers.list.companyName") },
+                      { key: "city", label: t("customers.list.city") },
+                      { key: null, label: t("customers.list.contact") },
+                      {
+                        key: "orgNumber",
+                        label: t("customers.list.orgNumber"),
+                      },
+                      { key: null, label: t("customers.list.openOrders") },
+                      { key: null, label: t("customers.list.lastService") },
+                      { key: null, label: t("customers.list.actions") },
+                    ] as const
+                  ).map((column, index) => (
+                    <th
+                      key={`${column.label}-${index}`}
+                      scope="col"
+                      aria-sort={
+                        column.key ? ariaSort(column.key) : undefined
                       }
-                      action={
-                        search ? (
-                          <Link
-                            href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
-                            prefetch={false}
-                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
-                          >
-                            {t("customers.list.reset")}
-                          </Link>
-                        ) : undefined
-                      }
-                    />
-                  </td>
-                </tr>
-              ) : (
-                customers.map((customer) => {
-                  const contact = customer.contacts[0] ?? null;
-                  const lastService = customer.workOrder[0];
-                  const lastServiceDate =
-                    lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
-
-                  return (
-                    <tr key={customer.id} className="group relative hover:bg-gray-50 transition border-b last:border-0">
-                      <td className="p-4 font-medium text-gray-800">
+                      style={{
+                        color: "var(--paper, #f2efe6)",
+                        borderBottomColor: "var(--signal, #d8ff3e)",
+                        borderBottomWidth: "2px",
+                        fontSize: "0.75rem",
+                        textAlign: index === 6 ? "right" : "left",
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      {column.key ? (
                         <Link
-                          href={`/kunder/${customer.id}`}
+                          href={sortHref(column.key)}
                           prefetch={false}
-                          aria-label={t("customers.list.openCustomer", {
-                            name: customer.name,
+                          aria-label={t("customers.list.sortBy", {
+                            column: column.label,
                           })}
-                          className="absolute inset-0 z-0"
-                        />
-                        <span className="relative z-10">{customer.name}</span>
-                      </td>
-                      <td className="p-4 text-gray-600">{customer.city || "–"}</td>
-                      <td className="p-4 text-gray-600">
-                        {contact ? (
-                          <>
-                            <span className="block font-medium text-gray-800">{contact.name}</span>
-                            <span className="block text-xs">
-                              {contact.phone || customer.phone || "–"}
-                            </span>
-                          </>
-                        ) : (
-                          <span>{customer.phone || t("customers.list.noContact")}</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-gray-600">{customer.orgNumber || "–"}</td>
-                      <td className="p-4 text-gray-700 font-bold">
-                        {customer._count.workOrder}
-                      </td>
-                      <td className="p-4 text-gray-600">
-                        {formatDateLocalized(
-                          lastServiceDate,
-                          locale,
-                          undefined,
-                          t("customers.list.neverServiced"),
-                        )}
-                      </td>
-                      <td className="relative z-10 p-4 space-y-1">
-                        {showDeleted ? (
-                          <form action={restoreCustomerAction}>
-                            <input type="hidden" name="id" value={customer.id} />
-                            <button
-                              type="submit"
-                              className="text-emerald-700 hover:underline text-sm font-bold"
+                          className="inline-flex items-center gap-1 font-bold text-[var(--paper,#f2efe6)] transition hover:text-[var(--signal,#d8ff3e)]"
+                        >
+                          {column.label}
+                          <span aria-hidden="true">
+                            {sortIndicator(column.key)}
+                          </span>
+                        </Link>
+                      ) : (
+                        column.label
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {customers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className={`p-4 ${LEGACY_SURFACE}`}>
+                      <EmptyState
+                        icon={<Icon name="building" className="h-8 w-8" />}
+                        title={
+                          search
+                            ? t("customers.list.noMatches", { query: search })
+                            : t("customers.list.empty")
+                        }
+                        action={
+                          search ? (
+                            <Link
+                              href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
+                              prefetch={false}
+                              className={CUSTOMER_SIGNAL_BUTTON}
                             >
-                              {t("customers.list.restore")}
-                            </button>
-                          </form>
-                        ) : (
-                          <>
-                            <Link href={`/kunder/${customer.id}`} prefetch={false} className="text-blue-600 hover:underline text-sm font-medium block">{t("customers.list.viewDetails")}</Link>
-                            {office && (
-                              <Link href={`/kunder/${customer.id}/rediger`} prefetch={false} className="text-gray-600 hover:underline text-sm font-medium">{t("customers.list.edit")}</Link>
-                            )}
-                            {user.role === "ADMIN" && (
-                              <ConfirmSubmitForm
-                                action={deleteCustomerAction}
-                                confirmMessage={t("customers.list.deleteConfirm", {
-                                  name: customer.name,
-                                })}
-                                confirmLabel={t("delete")}
-                                danger
+                              {t("customers.list.reset")}
+                            </Link>
+                          ) : undefined
+                        }
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  customers.map((customer) => {
+                    const contact = customer.contacts[0] ?? null;
+                    const lastService = customer.workOrder[0];
+                    const lastServiceDate =
+                      lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
+                    const openOrders = customer._count.workOrder;
+
+                    return (
+                      <tr
+                        key={customer.id}
+                        className="group relative border-b border-[var(--line,#dedcd1)] transition last:border-0 hover:bg-[var(--paper,#f2efe6)]/60"
+                      >
+                        <td className="max-w-[22rem] px-3 py-2 align-top">
+                          <Link
+                            href={`/kunder/${customer.id}`}
+                            prefetch={false}
+                            aria-label={t("customers.list.openCustomer", {
+                              name: customer.name,
+                            })}
+                            className="absolute inset-0 z-0"
+                          />
+                          <span className="relative z-10 block truncate font-bold text-[var(--ink,#101310)]">
+                            {customer.name}
+                          </span>
+                          <span
+                            className={`relative z-10 mt-0.5 block text-xs ${CUSTOMER_MUTED}`}
+                          >
+                            {customer.orgNumber || "–"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs text-[var(--muted,#62685f)]">
+                          {customer.city || "–"}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          {contact ? (
+                            <>
+                              <span className="block text-xs font-bold text-[var(--ink,#101310)]">
+                                {contact.name}
+                              </span>
+                              <span
+                                className={`block text-xs ${CUSTOMER_MUTED}`}
                               >
-                                <input type="hidden" name="id" value={customer.id} />
+                                {contact.phone || customer.phone || "–"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-[var(--muted,#62685f)]">
+                              {customer.phone || t("customers.list.noContact")}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs text-[var(--muted,#62685f)]">
+                          {customer.orgNumber || "–"}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <span
+                            className={`inline-flex min-h-6 min-w-8 items-center justify-center gap-1 rounded-full border px-2 text-xs font-bold ${
+                              openOrders > 0
+                                ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                                : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
+                            }`}
+                          >
+                            <Icon name="folder" className="h-3.5 w-3.5" />
+                            {openOrders}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 align-top text-xs text-[var(--muted,#62685f)]">
+                          {formatDateLocalized(
+                            lastServiceDate,
+                            locale,
+                            undefined,
+                            t("customers.list.neverServiced"),
+                          )}
+                        </td>
+                        <td className="relative z-10 px-3 py-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {showDeleted ? (
+                              <form action={restoreCustomerAction}>
+                                <input
+                                  type="hidden"
+                                  name="id"
+                                  value={customer.id}
+                                />
                                 <button
                                   type="submit"
-                                  className="text-red-600 hover:underline text-sm font-medium"
+                                  className={CUSTOMER_INK_BUTTON}
                                 >
-                                  {t("customers.list.delete")}
+                                  <Icon
+                                    name="check"
+                                    className="h-4 w-4 shrink-0"
+                                  />
+                                  {t("customers.list.restore")}
                                 </button>
-                              </ConfirmSubmitForm>
+                              </form>
+                            ) : (
+                              <>
+                                <Link
+                                  href={`/kunder/${customer.id}`}
+                                  prefetch={false}
+                                  className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-md border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-2 text-xs font-bold text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-none"
+                                >
+                                  {t("customers.list.viewDetails")}
+                                  <Icon
+                                    name="arrowRight"
+                                    className="h-3.5 w-3.5 shrink-0"
+                                  />
+                                </Link>
+                                {office && (
+                                  <Link
+                                    href={`/kunder/${customer.id}/rediger`}
+                                    prefetch={false}
+                                    aria-label={t("customers.list.edit")}
+                                    title={t("customers.list.edit")}
+                                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+                                  >
+                                    <Icon name="edit" className="h-4 w-4" />
+                                  </Link>
+                                )}
+                                {user.role === "ADMIN" && (
+                                  <ConfirmSubmitForm
+                                    action={deleteCustomerAction}
+                                    confirmMessage={t(
+                                      "customers.list.deleteConfirm",
+                                      { name: customer.name },
+                                    )}
+                                    confirmLabel={t("delete")}
+                                    danger
+                                    className="inline-flex"
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="id"
+                                      value={customer.id}
+                                    />
+                                    <button
+                                      type="submit"
+                                      aria-label={t("customers.list.delete")}
+                                      title={t("customers.list.delete")}
+                                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7]"
+                                    >
+                                      <Icon name="trash" className="h-4 w-4" />
+                                    </button>
+                                  </ConfirmSubmitForm>
+                                )}
+                              </>
                             )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
+        </section>
 
-          {/* Under sm blir tabellen en kortliste, slik at kundenavn, kontakt
-              og handlinger ikke krever vannrett scrolling på mobil. */}
+        {/* Mobil: stablete papirkort med synlige handlinger. */}
+        <div className="space-y-3 md:hidden">
           {customers.length === 0 ? (
-            <div className="p-4 sm:hidden">
+            <div className={`${CUSTOMER_CARD} p-4 ${LEGACY_SURFACE}`}>
               <EmptyState
                 icon={<Icon name="building" className="h-8 w-8" />}
                 title={
@@ -485,7 +664,7 @@ export default async function KunderPage({
                     <Link
                       href={showDeleted ? "/kunder?slettet=1" : "/kunder"}
                       prefetch={false}
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                      className={CUSTOMER_SIGNAL_BUTTON}
                     >
                       {t("customers.list.reset")}
                     </Link>
@@ -494,139 +673,167 @@ export default async function KunderPage({
               />
             </div>
           ) : (
-            <ul className="divide-y divide-gray-100 sm:hidden">
-              {customers.map((customer) => {
-                const contact = customer.contacts[0] ?? null;
-                const lastService = customer.workOrder[0];
-                const lastServiceDate =
-                  lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
+            customers.map((customer) => {
+              const contact = customer.contacts[0] ?? null;
+              const lastService = customer.workOrder[0];
+              const lastServiceDate =
+                lastService?.scheduledFor ?? lastService?.updatedAt ?? null;
+              const openOrders = customer._count.workOrder;
 
-                return (
-                  <li key={customer.id} className="space-y-3 p-4">
+              return (
+                <article
+                  key={customer.id}
+                  className={`${CUSTOMER_CARD} space-y-3 p-3`}
+                >
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <Link
                         href={`/kunder/${customer.id}`}
                         prefetch={false}
-                        className="break-words text-base font-bold text-blue-800 hover:underline"
+                        className="break-words text-base font-bold text-[var(--ink,#101310)] hover:underline"
                       >
                         {customer.name}
                       </Link>
-                      <p className="mt-0.5 break-words text-xs text-gray-600">
+                      <p
+                        className={`mt-0.5 break-words text-xs ${CUSTOMER_MUTED}`}
+                      >
                         {customer.orgNumber || "–"}
                       </p>
                     </div>
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
+                        openOrders > 0
+                          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                          : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
+                      }`}
+                    >
+                      <Icon name="folder" className="h-3.5 w-3.5" />
+                      {openOrders} {t("customers.list.openOrders")}
+                    </span>
+                  </div>
 
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                      <div className="min-w-0">
-                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
-                          {t("customers.list.city")}
-                        </dt>
-                        <dd className="break-words text-gray-700">
-                          {customer.city || "–"}
-                        </dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
-                          {t("customers.list.contact")}
-                        </dt>
-                        <dd className="break-words text-gray-700">
-                          {contact ? (
-                            <>
-                              <span className="block font-medium text-gray-800">
-                                {contact.name}
-                              </span>
-                              <span className="block text-xs">
-                                {contact.phone || customer.phone || "–"}
-                              </span>
-                            </>
-                          ) : (
-                            customer.phone || t("customers.list.noContact")
-                          )}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
-                          {t("customers.list.openOrders")}
-                        </dt>
-                        <dd className="font-bold text-gray-700">
-                          {customer._count.workOrder}
-                        </dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="text-2xs font-bold uppercase tracking-wide text-gray-500">
-                          {t("customers.list.lastService")}
-                        </dt>
-                        <dd className="break-words text-gray-700">
-                          {formatDateLocalized(
-                            lastServiceDate,
-                            locale,
-                            undefined,
-                            t("customers.list.neverServiced"),
-                          )}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-                      {showDeleted ? (
-                        <form action={restoreCustomerAction}>
-                          <input type="hidden" name="id" value={customer.id} />
-                          <button
-                            type="submit"
-                            className="inline-flex min-h-11 items-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
-                          >
-                            {t("customers.list.restore")}
-                          </button>
-                        </form>
-                      ) : (
-                        <>
-                          <Link
-                            href={`/kunder/${customer.id}`}
-                            prefetch={false}
-                            className="inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 text-sm font-bold text-white hover:bg-blue-800"
-                          >
-                            {t("customers.list.viewDetails")}
-                          </Link>
-                          {office && (
-                            <Link
-                              href={`/kunder/${customer.id}/rediger`}
-                              prefetch={false}
-                              className="inline-flex min-h-11 items-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
-                            >
-                              {t("customers.list.edit")}
-                            </Link>
-                          )}
-                          {user.role === "ADMIN" && (
-                            <ConfirmSubmitForm
-                              action={deleteCustomerAction}
-                              confirmMessage={t("customers.list.deleteConfirm", {
-                                name: customer.name,
-                              })}
-                              confirmLabel={t("delete")}
-                              danger
-                            >
-                              <input type="hidden" name="id" value={customer.id} />
-                              <button
-                                type="submit"
-                                className="inline-flex min-h-11 items-center rounded-xl border border-red-200 bg-red-50 px-3 text-sm font-bold text-red-700 hover:bg-red-100"
-                              >
-                                {t("customers.list.delete")}
-                              </button>
-                            </ConfirmSubmitForm>
-                          )}
-                        </>
-                      )}
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                    <div className="min-w-0">
+                      <dt className={CUSTOMER_EYEBROW}>
+                        {t("customers.list.city")}
+                      </dt>
+                      <dd className="break-words text-[var(--ink,#101310)]">
+                        {customer.city || "–"}
+                      </dd>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
+                    <div className="min-w-0">
+                      <dt className={CUSTOMER_EYEBROW}>
+                        {t("customers.list.contact")}
+                      </dt>
+                      <dd className="break-words text-[var(--ink,#101310)]">
+                        {contact ? (
+                          <>
+                            <span className="block font-bold">
+                              {contact.name}
+                            </span>
+                            <span className={`block ${CUSTOMER_MUTED}`}>
+                              {contact.phone || customer.phone || "–"}
+                            </span>
+                          </>
+                        ) : (
+                          customer.phone || t("customers.list.noContact")
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className={CUSTOMER_EYEBROW}>
+                        {t("customers.list.openOrders")}
+                      </dt>
+                      <dd className="font-bold tabular-nums text-[var(--ink,#101310)]">
+                        {openOrders}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className={CUSTOMER_EYEBROW}>
+                        {t("customers.list.lastService")}
+                      </dt>
+                      <dd className="break-words text-[var(--ink,#101310)]">
+                        {formatDateLocalized(
+                          lastServiceDate,
+                          locale,
+                          undefined,
+                          t("customers.list.neverServiced"),
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="flex flex-wrap items-center gap-2 border-t border-[var(--line,#dedcd1)] pt-3">
+                    {showDeleted ? (
+                      <form action={restoreCustomerAction}>
+                        <input type="hidden" name="id" value={customer.id} />
+                        <button type="submit" className={CUSTOMER_INK_BUTTON}>
+                          <Icon name="check" className="h-4 w-4 shrink-0" />
+                          {t("customers.list.restore")}
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/kunder/${customer.id}`}
+                          prefetch={false}
+                          className={CUSTOMER_SIGNAL_BUTTON}
+                        >
+                          {t("customers.list.viewDetails")}
+                          <Icon
+                            name="arrowRight"
+                            className="h-3.5 w-3.5 shrink-0"
+                          />
+                        </Link>
+                        {office && (
+                          <Link
+                            href={`/kunder/${customer.id}/rediger`}
+                            prefetch={false}
+                            className={CUSTOMER_INK_BUTTON}
+                          >
+                            <Icon name="edit" className="h-4 w-4 shrink-0" />
+                            {t("customers.list.edit")}
+                          </Link>
+                        )}
+                        {user.role === "ADMIN" && (
+                          <ConfirmSubmitForm
+                            action={deleteCustomerAction}
+                            confirmMessage={t(
+                              "customers.list.deleteConfirm",
+                              { name: customer.name },
+                            )}
+                            confirmLabel={t("delete")}
+                            danger
+                            className="inline-flex"
+                          >
+                            <input
+                              type="hidden"
+                              name="id"
+                              value={customer.id}
+                            />
+                            <button
+                              type="submit"
+                              className={CUSTOMER_RISK_BUTTON}
+                            >
+                              <Icon
+                                name="trash"
+                                className="h-4 w-4 shrink-0"
+                              />
+                              {t("customers.list.delete")}
+                            </button>
+                          </ConfirmSubmitForm>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </article>
+              );
+            })
           )}
         </div>
 
-        {/* Sidebladdring */}
         {totalPages > 1 && (
-          <div className="pt-4">
+          <div className={`pt-1 ${LEGACY_SURFACE}`}>
             <Pagination
               page={page}
               totalPages={totalPages}
@@ -636,9 +843,6 @@ export default async function KunderPage({
             />
           </div>
         )}
-
-        <p className="text-center text-xs text-gray-500 mt-4">{t("customers.list.total", { total })}</p>
-
       </div>
     </div>
   );

@@ -93,7 +93,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
         segment.match ? (
           <mark
             key={index}
-            className="rounded-sm bg-yellow-200 px-0.5 text-inherit"
+            className="rounded-sm bg-[var(--signal,#d8ff3e)] px-0.5 text-[var(--ink,#101310)]"
           >
             {segment.text}
           </mark>
@@ -169,7 +169,7 @@ function SearchPageShortcut() {
       ref={buttonRef}
       type="button"
       onClick={focusPageSearch}
-      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100 sm:hidden"
+      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] sm:hidden"
     >
       <span className="flex min-w-0 items-center gap-2">
         <Icon name="search" className="h-4 w-4 shrink-0" />
@@ -177,7 +177,7 @@ function SearchPageShortcut() {
       </span>
       <kbd
         aria-hidden
-        className="rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-bold text-gray-500"
+        className="rounded-md border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]"
       >
         Ctrl+K
       </kbd>
@@ -508,9 +508,9 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
   })();
 
   return (
-    <div ref={rootRef} className="relative min-w-0">
-      <div className="flex min-w-0 items-center gap-2 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3 shadow-sm transition-colors focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/25 focus-within:ring-offset-1">
-        <Icon name="search" className="h-4 w-4 shrink-0 text-gray-500" />
+    <div ref={rootRef} className="relative min-w-0 [--focus-ring:var(--ink,#101310)]">
+      <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 transition-colors focus-within:border-[var(--ink,#101310)] focus-within:ring-2 focus-within:ring-[var(--signal,#d8ff3e)]">
+        <Icon name="search" className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)]" />
         <input
           ref={inputRef}
           type="text"
@@ -537,12 +537,12 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
           aria-autocomplete="list"
           aria-activedescendant={showPanel ? activeOptionId : undefined}
           aria-label={t("components.search.ariaLabel")}
-          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 placeholder:text-gray-500"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-[var(--ink,#101310)] placeholder:text-[#6b6559]"
         />
         {status === "loading" && hasQuery && (
           <span
             aria-hidden
-            className="shrink-0 text-xs text-gray-600 animate-pulse"
+            className="shrink-0 text-xs text-[var(--muted,#62685f)] animate-pulse"
           >
             {t("components.search.searchingShort")}
           </span>
@@ -552,7 +552,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
             type="button"
             onClick={reset}
             aria-label={t("components.search.clear")}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-lg leading-none text-gray-600 transition-colors hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-lg leading-none text-[var(--muted,#62685f)] transition-colors hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
           >
             <Icon name="close" className="h-4 w-4" />
           </button>
@@ -560,7 +560,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
         {query.length === 0 && (
           <kbd
             aria-hidden
-            className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-bold text-gray-600 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap rounded-md border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-xs font-bold text-[var(--muted,#62685f)] sm:inline-flex"
           >
             {isMac ? (
               <>
@@ -578,7 +578,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
       </span>
 
       {showPanel && (
-        <div className="absolute left-0 right-0 z-50 mt-2 max-w-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-white shadow-xl">
+        <div className="absolute left-0 right-0 z-50 mt-2 max-w-full overflow-hidden rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] shadow-[0_12px_32px_-16px_rgba(16,19,16,0.35)]">
           <div
             id={listboxId}
             role="listbox"
@@ -588,17 +588,17 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
           >
             {tooShort && (
               <div className="px-4 py-6">
-                <p className="text-sm font-bold text-gray-800">
+                <p className="text-sm font-bold text-[var(--ink,#101310)]">
                   {t("components.search.minLengthHint")}
                 </p>
               </div>
             )}
 
             {hasQuery && status === "loading" && (
-              <div className="flex items-center gap-3 px-4 py-6 text-sm text-gray-600">
+              <div className="flex items-center gap-3 px-4 py-6 text-sm text-[var(--muted,#62685f)]">
                 <span
                   aria-hidden
-                  className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"
+                  className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[var(--line,#dedcd1)] border-t-[var(--ink,#101310)]"
                 />
                 {t("components.search.searching")}
               </div>
@@ -606,16 +606,16 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
 
             {hasQuery && status === "error" && (
               <div role="alert" className="px-4 py-5">
-                <p className="text-sm font-bold text-red-700">
+                <p className="text-sm font-bold text-[var(--risk-text,#b42318)]">
                   {t("components.search.errorTitle")}
                 </p>
-                <p className="mt-1 text-xs text-gray-600">
+                <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
                   {t("components.search.errorHint")}
                 </p>
                 <button
                   type="button"
                   onClick={retry}
-                  className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-1"
+                  className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 py-1.5 text-xs font-bold text-[var(--ink,#101310)] transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
                 >
                   {t("components.search.retrySearch")}
                 </button>
@@ -624,10 +624,10 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
 
             {hasQuery && status === "success" && flat.length === 0 && (
               <div className="px-4 py-6">
-                <p className="text-sm font-bold text-gray-800">
+                <p className="text-sm font-bold text-[var(--ink,#101310)]">
                   {t("components.search.noResults", { query: trimmed })}
                 </p>
-                <p className="mt-1 text-xs text-gray-600">
+                <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
                   {t("components.search.noResultsHint")}
                 </p>
               </div>
@@ -646,7 +646,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                       <div
                         id={headingId}
                         role="presentation"
-                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
+                        className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]"
                       >
                         <span className="flex min-w-0 items-center gap-1.5">
                           <Icon
@@ -687,18 +687,18 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                                 rememberQuery(trimmed);
                                 navigate(item.href);
                               }}
-                              className={`flex min-w-0 flex-1 flex-col px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
-                                isActive ? "bg-blue-50" : "hover:bg-gray-50"
+                              className={`flex min-w-0 flex-1 flex-col px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)] ${
+                                isActive ? "bg-[var(--paper,#f2efe6)]" : "hover:bg-[var(--paper,#f2efe6)]"
                               }`}
                             >
-                              <span className="block w-full truncate text-sm font-bold text-gray-900">
+                              <span className="block w-full truncate text-sm font-bold text-[var(--ink,#101310)]">
                                 <HighlightedText
                                   text={item.title}
                                   query={trimmed}
                                 />
                               </span>
                               {subtitleFor(item) && (
-                                <span className="block w-full truncate text-xs text-gray-500">
+                                <span className="block w-full truncate text-xs text-[var(--muted,#62685f)]">
                                   <HighlightedText
                                     text={subtitleFor(item)!}
                                     query={trimmed}
@@ -713,7 +713,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                                 href={item.directHref}
                                 target="_blank"
                                 rel="noopener"
-                                className="flex min-w-11 shrink-0 items-center justify-center border-l border-gray-100 px-3 text-base text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                                className="flex min-w-11 shrink-0 items-center justify-center border-l border-[var(--line,#dedcd1)] px-3 text-base text-[var(--muted,#62685f)] transition-colors hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)]"
                               >
                                 <Icon name="file" className="h-4 w-4" />
                                 <span className="sr-only">
@@ -738,7 +738,7 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                 <div
                   id={recentHeadingId}
                   role="presentation"
-                  className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-600"
+                  className="px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]"
                 >
                   {t("components.search.recentTitle")}
                 </div>
@@ -754,15 +754,15 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
                       aria-selected={isActive}
                       onMouseEnter={() => setActive(index)}
                       onClick={() => runRecentSearch(value)}
-                      className={`flex w-full min-w-0 items-center gap-2 px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 ${
-                        isActive ? "bg-blue-50" : "hover:bg-gray-50"
+                      className={`flex w-full min-w-0 items-center gap-2 px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)] ${
+                        isActive ? "bg-[var(--paper,#f2efe6)]" : "hover:bg-[var(--paper,#f2efe6)]"
                       }`}
                     >
                       <Icon
                         name="clock"
-                        className="h-3.5 w-3.5 shrink-0 text-gray-500"
+                        className="h-3.5 w-3.5 shrink-0 text-[var(--muted,#62685f)]"
                       />
-                      <span className="min-w-0 truncate text-sm font-medium text-gray-800">
+                      <span className="min-w-0 truncate text-sm font-medium text-[var(--ink,#101310)]">
                         {value}
                       </span>
                     </button>
@@ -773,11 +773,11 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
           </div>
 
           {hasQuery && status === "success" && total > 0 && (
-            <div className="border-t border-gray-100">
+            <div className="border-t border-[var(--line,#dedcd1)]">
               <button
                 type="button"
                 onClick={navigateToAllResults}
-                className="w-full px-4 py-3 text-left text-xs font-bold text-blue-600 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                className="w-full px-4 py-3 text-left text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 transition-colors hover:bg-[var(--paper,#f2efe6)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)]"
               >
                 {t("components.search.seeAll", { count: total })}
               </button>
@@ -785,11 +785,11 @@ function GlobalSearchInner({ placeholder }: { placeholder?: string }) {
           )}
 
           {!hasQuery && !tooShort && recent.length > 0 && (
-            <div className="border-t border-gray-100">
+            <div className="border-t border-[var(--line,#dedcd1)]">
               <button
                 type="button"
                 onClick={clearRecent}
-                className="w-full px-4 py-3 text-left text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                className="w-full px-4 py-3 text-left text-xs font-bold text-[var(--muted,#62685f)] transition-colors hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)]"
               >
                 {t("components.search.clearRecent")}
               </button>

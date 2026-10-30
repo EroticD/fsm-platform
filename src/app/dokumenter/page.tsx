@@ -87,13 +87,17 @@ export default async function DocumentsPage({
   if (!result.ok) redirect("/");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl space-y-4">
         <PageHeader
           title={t("documents.page.title")}
           subtitle={t("documents.page.description")}
+          icon={<Icon name="folder" className="h-5 w-5" />}
           actions={
-            <Link href="/" className="inline-flex items-center gap-1.5 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap">
+            <Link
+              href="/"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+            >
               <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
               {t("documents.page.dashboard")}
             </Link>
@@ -101,7 +105,7 @@ export default async function DocumentsPage({
         />
 
         {error === "ugyldig-data" && (
-          <div className="flex items-center gap-2 bg-red-50 border-2 border-red-200 text-red-800 rounded-2xl px-5 py-4 text-sm font-bold">
+          <div className="flex items-center gap-2 rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
             <Icon name="alert" className="h-4 w-4 shrink-0" />
             {t("documents.page.errorInvalidData")}
           </div>

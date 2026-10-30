@@ -11,6 +11,7 @@ import { performSearch, type SearchItem, type SearchResults } from "@/lib/search
 import { hasActiveFilters, type SearchFilters } from "@/lib/search-filters";
 import { formatDateLocalized } from "@/lib/dates";
 import { listSavedSearches, type SavedSearch } from "@/server/saved-searches";
+import Icon from "@/components/icons";
 import PageHeader from "@/components/PageHeader";
 import SectionCard from "@/components/SectionCard";
 import HighlightedText from "@/components/search/HighlightedText";
@@ -19,7 +20,7 @@ import { formatSearchSubtitle } from "@/components/search/search-subtitle";
 import SearchFiltersForm from "./SearchFiltersForm";
 import SavedSearchesPanel from "./SavedSearchesPanel";
 import FilterHiddenInputs from "./FilterHiddenInputs";
-import { GROUP_KEYS } from "./labels";
+import { GROUP_ICONS, GROUP_KEYS } from "./labels";
 import {
   bestHits,
   buildSearchHref,
@@ -31,6 +32,11 @@ import {
 
 type SearchPageSearchParams = Record<string, string | string[] | undefined>;
 
+const CARD = "office-card";
+const INK_BUTTON =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
 const SAVED_MESSAGES: Record<
   string,
   { key: string; tone: "ok" | "error" }
@@ -56,13 +62,13 @@ function ResultLink({
     <div className="flex min-w-0 items-stretch gap-2">
       <Link
         href={item.href}
-        className="block min-w-0 flex-1 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+        className="block min-w-0 flex-1 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
       >
-        <p className="break-words text-sm font-bold text-gray-900">
+        <p className="break-words text-sm font-bold text-[var(--ink,#101310)]">
           <HighlightedText text={item.title} query={query} />
         </p>
         {subtitle && (
-          <p className="mt-1 break-words text-xs text-gray-500">
+          <p className="mt-1 break-words text-xs text-[var(--muted,#62685f)]">
             <HighlightedText text={subtitle} query={query} />
           </p>
         )}
@@ -72,7 +78,7 @@ function ResultLink({
           href={item.directHref}
           target="_blank"
           rel="noopener"
-          className="flex shrink-0 items-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-600 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+          className="flex shrink-0 items-center rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
         >
           {directLabel}
         </a>
@@ -359,9 +365,9 @@ export default async function SearchResultsPage({
     return (
       <nav
         aria-label={t("components.search.paginationLabel")}
-        className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+        className={`${CARD} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}
       >
-        <p className="text-sm text-gray-600">
+        <p className="text-xs text-[var(--muted,#62685f)]">
           {singleType
             ? t("components.search.pageInfoSingle", {
                 page,
@@ -382,24 +388,24 @@ export default async function SearchResultsPage({
           {pagination.hasPrevious ? (
             <Link
               href={buildSearchHref({ q: query, page: page - 1, filters })}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+              className={INK_BUTTON}
             >
               ← {t("components.search.previous")}
             </Link>
           ) : (
-            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600">
+            <span className="inline-flex min-h-11 items-center rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 text-xs font-bold text-[var(--muted,#62685f)]">
               ← {t("components.search.previous")}
             </span>
           )}
           {pagination.hasNext ? (
             <Link
               href={buildSearchHref({ q: query, page: page + 1, filters })}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+              className={INK_BUTTON}
             >
               {t("components.search.next")} →
             </Link>
           ) : (
-            <span className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600">
+            <span className="inline-flex min-h-11 items-center rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 text-xs font-bold text-[var(--muted,#62685f)]">
               {t("components.search.next")} →
             </span>
           )}
@@ -409,15 +415,15 @@ export default async function SearchResultsPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-5">
         <PageHeader
           title={t("components.search.title")}
-          icon="🔍"
+          icon={<Icon name="search" className="h-5 w-5" />}
           actions={
             <Link
               href="/"
-              className="whitespace-nowrap rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50"
+              className={INK_BUTTON}
             >
               ← {t("components.search.home")}
             </Link>
@@ -440,11 +446,11 @@ export default async function SearchResultsPage({
             defaultValue={query}
             maxLength={100}
             placeholder={t("components.search.placeholder")}
-            className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+            className="min-h-12 min-w-0 flex-1 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 py-3 text-base text-[var(--ink,#101310)] shadow-[inset_0_1px_0_rgba(20,17,11,0.03)] outline-none placeholder:text-[#6b6559] focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 sm:px-6"
+            className={`${SIGNAL_BUTTON} shrink-0 sm:px-6`}
           >
             {t("components.search.title")}
           </button>
@@ -473,10 +479,10 @@ export default async function SearchResultsPage({
         {notice && (
           <div
             role="status"
-            className={`rounded-xl border p-3 text-sm font-bold ${
+            className={`flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 bg-[var(--surface,#fffdf8)] p-3 text-sm font-bold text-[var(--ink,#101310)] ${
               notice.tone === "ok"
-                ? "border-green-200 bg-green-50 text-green-800"
-                : "border-red-200 bg-red-50 text-red-800"
+                ? "border-l-[var(--signal,#d8ff3e)]"
+                : "border-l-[var(--risk,#f04427)] text-[var(--risk-text,#b42318)]"
             }`}
           >
             {tl(notice.key)}
@@ -503,9 +509,10 @@ export default async function SearchResultsPage({
             {hasPermission(user, "audit.view") && (
               <Link
                 href="/sok/analyse"
-                className="block rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-blue-700 shadow-sm hover:border-blue-300 hover:bg-blue-50"
+                className={`${CARD} flex items-center gap-2 p-4 text-sm font-bold text-[var(--ink,#101310)] transition hover:border-[#bdb3a0]`}
               >
-                📊 {t("components.search.analyse")}
+                <Icon name="chart" className="h-4 w-4 shrink-0" />
+                {t("components.search.analyse")}
               </Link>
             )}
           </aside>
@@ -517,14 +524,14 @@ export default async function SearchResultsPage({
                 description={t("components.search.emptyBody")}
                 className="p-6 sm:p-8"
               >
-                <p className="mt-4 rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
+                <p className="mt-4 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-sm text-[var(--muted,#62685f)]">
                   {query.length > 0
                     ? t("components.search.queryTooShort")
                     : t("components.search.prompt")}
                 </p>
 
                 <div className="mt-6">
-                  <h2 className="text-sm font-bold text-gray-700">
+                  <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("components.search.suggestionsTitle")}
                   </h2>
                   <ul className="mt-2 flex flex-wrap gap-2">
@@ -532,7 +539,7 @@ export default async function SearchResultsPage({
                       <li key={suggestion.key}>
                         <Link
                           href={buildSearchHref({ q: suggestion.q })}
-                          className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                          className="inline-flex min-h-11 items-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-1.5 text-sm font-medium text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
                         >
                           {tl(suggestion.key)}
                         </Link>
@@ -541,16 +548,16 @@ export default async function SearchResultsPage({
                   </ul>
                 </div>
 
-                <div className="mt-6 border-t border-gray-100 pt-4">
+                <div className="mt-6 border-t border-[var(--line,#dedcd1)] pt-4">
                   <RecentSearches query="" />
                 </div>
               </SectionCard>
             ) : rateLimited ? (
-              <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-center">
-                <p className="font-bold text-yellow-900">
+              <div className="rounded-card border border-[#e2cf9b] bg-[#fbf1d2] p-6 text-center">
+                <p className="font-bold text-[#6b4a05]">
                   {t("components.search.tooMany")}
                 </p>
-                <p className="mt-1 text-sm text-yellow-800">
+                <p className="mt-1 text-sm text-[#6b4a05]">
                   {t("components.search.retry", {
                     seconds: searchLimit.retryAfterSeconds,
                   })}
@@ -559,47 +566,46 @@ export default async function SearchResultsPage({
             ) : backendError ? (
               <div
                 role="alert"
-                className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center"
+                className="rounded-card border border-[var(--risk,#f04427)] bg-[#fae8e0] p-6 text-center"
               >
-                <p className="font-bold text-red-900">
+                <p className="font-bold text-[var(--risk-text,#b42318)]">
                   {t("components.search.errorTitle")}
                 </p>
-                <p className="mt-1 text-sm text-red-800">
+                <p className="mt-1 text-sm text-[var(--risk-text,#b42318)]">
                   {t("components.search.errorBody")}
                 </p>
                 <Link
                   href={buildSearchHref({ q: query, page, filters })}
-                  className="mt-4 inline-flex rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
+                  className={`${INK_BUTTON} mt-4`}
                 >
                   {t("components.search.retryAction")}
                 </Link>
               </div>
             ) : (
               <>
-                <SectionCard
-                  title={
-                    <>
+                <div className={`${CARD} flex flex-wrap items-baseline justify-between gap-2 p-4`}>
+                  <h2 className="flex flex-wrap items-baseline gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
+                    <span>
                       {t("components.search.resultsFor", { query })}{" "}
-                      <span className="text-base font-bold text-gray-600 sm:text-lg">
-                        ({t("components.search.hits", { count: results.total })}
-                        {results.capped ? "+" : ""})
-                      </span>
-                    </>
-                  }
-                  description={
-                    canUseFilters
-                      ? t("components.search.filtersActive")
-                      : undefined
-                  }
-                  className="p-4 sm:p-5"
-                />
+                    </span>
+                    <span className="text-xs font-bold text-[var(--muted,#62685f)]">
+                      ({t("components.search.hits", { count: results.total })}
+                      {results.capped ? "+" : ""})
+                    </span>
+                  </h2>
+                  {canUseFilters && (
+                    <p className="text-xs text-[var(--muted,#62685f)]">
+                      {t("components.search.filtersActive")}
+                    </p>
+                  )}
+                </div>
 
                 {canUseFilters && (
                   <section
                     aria-label={t("components.search.filtersActive")}
-                    className="flex flex-wrap items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50/60 p-3 sm:p-4"
+                    className={`${CARD} flex flex-wrap items-center gap-2 p-3 sm:p-4`}
                   >
-                    <span className="text-xs font-bold uppercase tracking-wide text-blue-900">
+                    <span className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                       {t("components.search.filters.title")}
                     </span>
                     {activeFilterChips.map((chip) => (
@@ -609,17 +615,15 @@ export default async function SearchResultsPage({
                         aria-label={t("components.search.removeFilter", {
                           label: chip.label,
                         })}
-                        className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-bold text-blue-800 transition hover:border-blue-400 hover:bg-blue-100"
+                        className="inline-flex min-h-9 items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-1 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
                       >
                         {chip.label}
-                        <span aria-hidden className="text-blue-500">
-                          ×
-                        </span>
+                        <Icon name="close" className="h-3 w-3 shrink-0" />
                       </Link>
                     ))}
                     <Link
                       href={buildSearchHref({ q: query })}
-                      className="ml-auto text-xs font-bold text-blue-800 hover:underline"
+                      className="ml-auto text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline"
                     >
                       {t("components.search.filters.clear")}
                     </Link>
@@ -631,7 +635,7 @@ export default async function SearchResultsPage({
                     aria-label={t("components.search.filters.types")}
                     className="flex flex-wrap items-center gap-2"
                   >
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                    <span className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                       {t("components.search.filters.types")}
                     </span>
                     {results.groups.map((group) => {
@@ -641,15 +645,18 @@ export default async function SearchResultsPage({
                           key={group.kind}
                           href={typeFilterHref(group.kind)}
                           aria-current={active ? "true" : undefined}
-                          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold transition ${
+                          className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition ${
                             active
-                              ? "border-blue-700 bg-blue-700 text-white"
-                              : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                              ? "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+                              : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
                           }`}
                         >
-                          <span aria-hidden>{group.icon}</span>
+                          <Icon
+                            name={GROUP_ICONS[group.kind] ?? "search"}
+                            className="h-3.5 w-3.5 shrink-0"
+                          />
                           {groupLabel(group.kind)}
-                          <span className={active ? "text-blue-100" : "text-gray-500"}>
+                          <span className={active ? "text-[#c9cdc3]" : "text-[var(--muted,#62685f)]"}>
                             ({group.total}
                             {group.capped ? "+" : ""})
                           </span>
@@ -662,11 +669,11 @@ export default async function SearchResultsPage({
                 {paginationBar()}
 
                 {results.total === 0 ? (
-                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-center">
-                    <p className="font-bold text-yellow-900">
+                  <div className="rounded-card border border-[#e2cf9b] bg-[#fbf1d2] p-6 text-center">
+                    <p className="font-bold text-[#6b4a05]">
                       {t("components.search.noHits")}
                     </p>
-                    <p className="mt-1 text-sm text-yellow-800">
+                    <p className="mt-1 text-sm text-[#6b4a05]">
                       {t("components.search.noHitsHint")}
                     </p>
                   </div>
@@ -675,24 +682,33 @@ export default async function SearchResultsPage({
                     {topHits.length > 0 && (
                       <section
                         aria-labelledby="best-hits-title"
-                        className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm sm:p-5"
+                        className={`${CARD} relative overflow-hidden p-4 sm:p-5`}
                       >
+                        <span
+                          aria-hidden="true"
+                          className="absolute inset-x-0 top-0 h-1 bg-[var(--signal,#d8ff3e)]"
+                        />
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <h2
                             id="best-hits-title"
-                            className="text-lg font-black text-gray-900"
+                            className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]"
                           >
-                            ⭐ {t("components.search.bestHits")}
+                            <Icon name="flag" className="h-4 w-4 shrink-0" />
+                            {t("components.search.bestHits")}
                           </h2>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-[var(--muted,#62685f)]">
                             {t("components.search.bestHitsHint")}
                           </p>
                         </div>
                         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {topHits.map((hit) => (
                             <div key={`${hit.kind}-${hit.id}`} className="min-w-0">
-                              <p className="mb-1 truncate text-xs font-bold uppercase tracking-wide text-gray-600">
-                                {hit.icon} {groupLabel(hit.kind)}
+                              <p className="mb-1 flex items-center gap-1.5 truncate text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
+                                <Icon
+                                  name={GROUP_ICONS[hit.kind] ?? "search"}
+                                  className="h-3.5 w-3.5 shrink-0"
+                                />
+                                {groupLabel(hit.kind)}
                               </p>
                               <ResultLink
                                 item={hit}
@@ -714,21 +730,25 @@ export default async function SearchResultsPage({
                         <section
                           key={group.kind}
                           aria-labelledby={headingId}
-                          className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 shadow-sm sm:p-5"
+                          className={`${CARD} p-4 sm:p-5`}
                         >
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-gray-200 pb-2">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-[var(--line,#dedcd1)] pb-2">
                             <h2
                               id={headingId}
-                              className="text-lg font-black text-gray-900"
+                              className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]"
                             >
-                              {group.icon} {groupLabel(group.kind)}{" "}
-                              <span className="text-sm font-bold text-gray-600">
+                              <Icon
+                                name={GROUP_ICONS[group.kind] ?? "search"}
+                                className="h-4 w-4 shrink-0"
+                              />
+                              {groupLabel(group.kind)}{" "}
+                              <span className="text-xs font-bold text-[var(--muted,#62685f)]">
                                 ({group.total}
                                 {group.capped ? "+" : ""})
                               </span>
                             </h2>
                             {range && (
-                              <p className="text-xs font-medium text-gray-500">
+                              <p className="text-xs font-medium text-[var(--muted,#62685f)]">
                                 {t("components.search.groupInfo", {
                                   from: range.from,
                                   to: range.to,
@@ -739,8 +759,8 @@ export default async function SearchResultsPage({
                           </div>
 
                           {hidden > 0 && (
-                            <p className="mt-2 text-xs font-bold text-blue-700">
-                              ⭐{" "}
+                            <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                              <Icon name="flag" className="h-3.5 w-3.5 shrink-0" />
                               {t("components.search.bestHitsOverlap", {
                                 count: hidden,
                               })}
@@ -749,7 +769,7 @@ export default async function SearchResultsPage({
 
                           {items.length === 0 ? (
                             hidden === 0 ? (
-                              <p className="mt-3 text-sm text-gray-500">
+                              <p className="mt-3 text-sm text-[var(--muted,#62685f)]">
                                 {t("components.search.groupEmptyPage")}
                               </p>
                             ) : null

@@ -4,6 +4,14 @@ import { getTranslations } from "next-intl/server";
 import type { CustomerDetailData } from "@/server/customers";
 import type { InviteActionState } from "@/lib/invite-action-state";
 import CustomerTabPanel from "./CustomerTabPanel";
+import {
+  CUSTOMER_CONTROL,
+  CUSTOMER_INSET,
+  CUSTOMER_INK_BUTTON,
+  CUSTOMER_LABEL,
+  CUSTOMER_MUTED,
+  CUSTOMER_SIGNAL_BUTTON,
+} from "./customerStyles";
 
 type PortalTabProps = {
   customerId: string;
@@ -47,63 +55,71 @@ export default async function CustomerPortalTab({
     <CustomerTabPanel
       title={
         <>
-          <Icon name="shield" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          <Icon name="shield" className="h-4 w-4 shrink-0" />
           {t("customers.portal.title")}
         </>
       }
       description={t("customers.portal.description")}
     >
       {portalError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-bold">
+        <div className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]">
           {portalError}
         </div>
       )}
 
       {contacts.length === 0 ? (
-        <p className="text-xs text-gray-500 italic bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3">
+        <p
+          className={`rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs italic ${CUSTOMER_MUTED}`}
+        >
           {t("customers.portal.addContactFirst")}
         </p>
       ) : (
         <InviteActionForm
           action={createPortalUser}
-          formClassName="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200"
+          formClassName={`${CUSTOMER_INSET} space-y-3 p-3 sm:p-4`}
           submitLabel={t("customers.portal.createAndInvite")}
-          buttonClassName="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm"
+          buttonClassName={`${CUSTOMER_SIGNAL_BUTTON} w-full`}
           labels={inviteLabels}
         >
           <input type="hidden" name="customerId" value={customerId} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="portal-user-name" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.name")} *</label>
+              <label htmlFor="portal-user-name" className={CUSTOMER_LABEL}>
+                {t("customers.portal.name")} *
+              </label>
               <input
                 id="portal-user-name"
                 type="text"
                 name="name"
                 required
                 placeholder={t("customers.portal.namePlaceholder")}
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               />
             </div>
             <div>
-              <label htmlFor="portal-user-email" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.email")} *</label>
+              <label htmlFor="portal-user-email" className={CUSTOMER_LABEL}>
+                {t("customers.portal.email")} *
+              </label>
               <input
                 id="portal-user-email"
                 type="email"
                 name="email"
                 required
                 placeholder={t("customers.portal.emailPlaceholder")}
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={CUSTOMER_CONTROL}
               />
             </div>
           </div>
           <div>
-            <label htmlFor="portal-user-contact" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.portal.contact")} *</label>
+            <label htmlFor="portal-user-contact" className={CUSTOMER_LABEL}>
+              {t("customers.portal.contact")} *
+            </label>
             <select
               id="portal-user-contact"
               name="contactId"
               required
               defaultValue=""
-              className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+              className={CUSTOMER_CONTROL}
             >
               <option value="">{t("customers.portal.chooseContact")}</option>
               {contacts.map((contact) => (
@@ -118,25 +134,31 @@ export default async function CustomerPortalTab({
       )}
 
       {portalUsers.length > 0 && (
-        <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-[var(--line,#dedcd1)]">
           {portalUsers.map((u) => {
             const hasPendingInvite =
-              !!u.resetToken && !!u.resetTokenExpiry && u.resetTokenExpiry > new Date();
+              !!u.resetToken &&
+              !!u.resetTokenExpiry &&
+              u.resetTokenExpiry > new Date();
             return (
               <div
                 key={u.id}
-                className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50"
+                className="flex flex-col justify-between gap-3 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 last:border-0 sm:flex-row sm:items-center"
               >
-                <div>
-                  <p className="text-sm font-bold text-gray-900">{u.name || t("customers.portal.noName")}</p>
-                  <p className="text-xs text-gray-500">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                    {u.name || t("customers.portal.noName")}
+                  </p>
+                  <p className={`truncate text-xs ${CUSTOMER_MUTED}`}>
                     {u.email}
                     {u.contact ? ` • ${u.contact.name}` : ""}
                   </p>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="mt-1 flex flex-wrap gap-1">
                     <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${
-                        u.isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                      className={`rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
+                        u.isActive
+                          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                          : "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]"
                       }`}
                     >
                       {u.isActive
@@ -144,12 +166,12 @@ export default async function CustomerPortalTab({
                         : t("customers.portal.inactive")}
                     </span>
                     {!u.password && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase bg-gray-200 text-gray-600">
+                      <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
                         {t("customers.portal.missingPassword")}
                       </span>
                     )}
                     {hasPendingInvite && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase bg-blue-100 text-blue-800">
+                      <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--ink,#101310)]">
                         {t("customers.portal.invited")}
                       </span>
                     )}
@@ -165,8 +187,8 @@ export default async function CustomerPortalTab({
                         {t("customers.portal.newLink")}
                       </>
                     }
-                    buttonClassName="inline-flex items-center gap-1.5 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
-                    bannerClassName="w-full rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-900"
+                    buttonClassName={CUSTOMER_INK_BUTTON}
+                    bannerClassName="w-full rounded-xl border border-[#b9cdb4] bg-[#eaf3e4] p-3 text-xs text-[#24502f]"
                     labels={inviteLabels}
                   >
                     <input type="hidden" name="customerId" value={customerId} />
@@ -175,14 +197,18 @@ export default async function CustomerPortalTab({
                   <form action={setPortalUserActive}>
                     <input type="hidden" name="customerId" value={customerId} />
                     <input type="hidden" name="id" value={u.id} />
-                    <input type="hidden" name="active" value={u.isActive ? "false" : "true"} />
+                    <input
+                      type="hidden"
+                      name="active"
+                      value={u.isActive ? "false" : "true"}
+                    />
                     <button
                       type="submit"
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                      className={
                         u.isActive
-                          ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                          : "bg-green-600 text-white border-green-600 hover:bg-green-700"
-                      }`}
+                          ? CUSTOMER_INK_BUTTON
+                          : CUSTOMER_SIGNAL_BUTTON
+                      }
                     >
                       {u.isActive
                         ? t("customers.portal.deactivate")

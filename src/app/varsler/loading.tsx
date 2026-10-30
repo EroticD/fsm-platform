@@ -10,14 +10,14 @@ export default async function Loading() {
       role="status"
       aria-live="polite"
     >
-      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="office-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-40" />
           <Skeleton className="h-4 w-56 max-w-full" />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Skeleton className="h-10 w-24" />
-          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-28" />
+          <Skeleton className="h-10 w-28" />
         </div>
       </div>
 
@@ -25,7 +25,7 @@ export default async function Loading() {
         {Array.from({ length: 5 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+            className="office-card p-4"
           >
             <div className="flex items-start justify-between gap-4">
               <Skeleton className="h-4 w-2/3" />

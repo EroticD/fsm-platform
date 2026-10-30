@@ -1,3 +1,5 @@
+import { CUSTOMER_CARD, CUSTOMER_MUTED } from "./customerStyles";
+
 /** Felles fane-innpakning med tittel og beskrivelse. */
 export default function CustomerTabPanel({
   title,
@@ -9,12 +11,24 @@ export default function CustomerTabPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200 space-y-4">
-      <div>
-        <h2 className="font-black text-gray-900 border-b pb-2 text-base">{title}</h2>
-        {description ? <p className="text-xs text-gray-500 mt-2">{description}</p> : null}
+    <section
+      className={`${CUSTOMER_CARD} space-y-4 p-4 [--focus-ring:var(--ink,#101310)] sm:p-5`}
+    >
+      <div className="border-b border-[var(--line,#dedcd1)] pb-3">
+        <h2 className="flex min-w-0 items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+          />
+          <span className="min-w-0">{title}</span>
+        </h2>
+        {description ? (
+          <p className={`mt-1 max-w-3xl text-xs leading-5 ${CUSTOMER_MUTED}`}>
+            {description}
+          </p>
+        ) : null}
       </div>
       {children}
-    </div>
+    </section>
   );
 }

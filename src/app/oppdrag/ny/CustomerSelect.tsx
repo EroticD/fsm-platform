@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 export type CustomerOption = {
   id: string;
@@ -253,7 +254,7 @@ export default function CustomerSelect({
       {!hideLabel && (
         <label
           htmlFor={`${listboxId}-search`}
-          className="block text-sm font-bold text-gray-700 mb-1"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
         >
           {optional
             ? t("orders.customerSelect.labelOptional")
@@ -264,15 +265,21 @@ export default function CustomerSelect({
       <input type="hidden" name="customerId" value={selected?.id ?? ""} />
 
       {selected && (
-        <div className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
-          <span className="text-sm font-bold text-blue-950">
-            {selected.name}
-            {selected.city ? ` (${selected.city})` : ""}
-            {selected.customerNumber
-              ? ` · ${t("orders.customerSelect.customerNumber", {
-                  number: selected.customerNumber,
-                })}`
-              : ""}
+        <div className="mb-2 flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2">
+          <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-[var(--ink,#101310)]">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+            />
+            <span className="break-words">
+              {selected.name}
+              {selected.city ? ` (${selected.city})` : ""}
+              {selected.customerNumber
+                ? ` · ${t("orders.customerSelect.customerNumber", {
+                    number: selected.customerNumber,
+                  })}`
+                : ""}
+            </span>
           </span>
           <button
             type="button"
@@ -291,7 +298,7 @@ export default function CustomerSelect({
                 }
               }
             }}
-            className="min-h-9 shrink-0 rounded-lg border border-blue-300 bg-white px-3 text-xs font-bold text-blue-800 hover:bg-blue-100"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
           >
             {t("orders.customerSelect.change")}
           </button>
@@ -326,18 +333,18 @@ export default function CustomerSelect({
         }}
         onFocus={() => setIsOpen(true)}
         onKeyDown={onKeyDown}
-        className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+        className={controlClassName("min-h-11")}
       />
 
       {isOpen && (
-        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-gray-300 bg-white p-2 shadow-lg">
+        <div className="absolute z-20 mt-2 w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-2 shadow-[0_18px_40px_-18px_rgba(16,19,16,0.35)]">
           {loading && (
-            <p className="px-2 py-1 text-xs text-gray-500" role="status">
+            <p className="px-2 py-1 text-xs text-[var(--muted,#62685f)]" role="status">
               {t("orders.customerSelect.searching")}
             </p>
           )}
           {loadError && (
-            <p className="px-2 py-1 text-xs font-bold text-red-700" role="alert">
+            <p className="px-2 py-1 text-xs font-bold text-[var(--risk-text,#b42318)]" role="alert">
               {t("orders.customerSelect.searchFailed")}
             </p>
           )}
@@ -348,7 +355,7 @@ export default function CustomerSelect({
             className="max-h-56 space-y-1 overflow-y-auto"
           >
             {visibleOptions.length === 0 && !loading && !loadError ? (
-              <li className="px-2 py-3 text-center text-xs text-gray-500">
+              <li className="px-2 py-3 text-center text-xs text-[var(--muted,#62685f)]">
                 {t("orders.customerSelect.noMatch")}
               </li>
             ) : (
@@ -364,14 +371,14 @@ export default function CustomerSelect({
                     choose(customer);
                   }}
                   onMouseEnter={() => setActiveIndex(index)}
-                  className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm ${
+                  className={`flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-sm ${
                     index === activeIndex
-                      ? "bg-blue-100 text-blue-950"
-                      : "text-gray-800 hover:bg-blue-50"
+                      ? "bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                      : "text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
                   }`}
                 >
                   <span className="font-bold">{customer.name}</span>
-                  <span className="shrink-0 text-xs text-gray-600">
+                  <span className="shrink-0 text-xs text-[var(--muted,#62685f)]">
                     {customer.city || ""}
                     {customer.customerNumber
                       ? ` (${t("orders.customerSelect.customerNumber", {
@@ -387,7 +394,7 @@ export default function CustomerSelect({
       )}
 
       {customers.length === 0 && !selected && (
-        <p className="mt-1 text-xs text-red-600">
+        <p className="mt-1 text-xs font-bold text-[var(--risk-text,#b42318)]">
           {t("orders.customerSelect.noCustomers")}
         </p>
       )}
@@ -396,16 +403,16 @@ export default function CustomerSelect({
         <div className="mt-3">
           <label
             htmlFor={`${listboxId}-contact`}
-            className="block text-sm font-bold text-gray-700 mb-1"
+            className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
           >
             {t("orders.customerSelect.contactLabel")}
           </label>
           {contactsLoading ? (
-            <p className="text-xs text-gray-500" role="status">
+            <p className="text-xs text-[var(--muted,#62685f)]" role="status">
               {t("orders.customerSelect.loadingContacts")}
             </p>
           ) : contactOptions.length === 0 ? (
-            <p className="text-xs italic text-gray-500">
+            <p className="text-xs italic text-[var(--muted,#62685f)]">
               {t("orders.customerSelect.noContacts")}
             </p>
           ) : (
@@ -417,7 +424,7 @@ export default function CustomerSelect({
                   ? (selectedContactId ?? "")
                   : ""
               }
-              className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900 shadow-sm focus:border-blue-600"
+              className={controlClassName("min-h-11")}
             >
               <option value="">{t("orders.customerSelect.noContactOption")}</option>
               {contactOptions.map((contact) => (

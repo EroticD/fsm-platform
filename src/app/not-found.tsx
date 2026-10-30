@@ -28,41 +28,40 @@ export default async function NotFound() {
   }
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+    <div className="office-app flex min-h-[60vh] items-center justify-center p-4 sm:p-8">
+      <div className="office-card w-full max-w-md p-8 text-center [--focus-ring:var(--ink,#101310)]">
         <div
-          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-bold text-white shadow-sm"
-          style={{ backgroundColor: "var(--primary-color)" }}
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ink,#101310)] text-2xl font-black text-[var(--paper,#f2efe6)] shadow-[3px_3px_0_var(--signal,#d8ff3e)]"
           aria-hidden="true"
         >
           {initial}
         </div>
-        <p className="text-sm font-black uppercase tracking-wider text-gray-500">
+        <p className="text-sm font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]">
           404
         </p>
-        <h1 className="mt-1 text-2xl font-black text-gray-900">
+        <h1 className="mt-1 text-2xl font-black text-[var(--ink,#101310)]">
           {t("notFound.title")}
         </h1>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-[var(--muted,#62685f)]">
           {t("notFound.description", { companyName })}
         </p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
             href="/"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--primary-color)] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="signal-button border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-sm text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--ink,#101310)]"
           >
             {t("notFound.dashboard")}
           </Link>
           <Link
             href="/sok"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--line,#dedcd1)] bg-transparent px-5 py-2.5 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
           >
             {t("notFound.search")}
           </Link>
           {canViewWorkOrders && (
             <Link
               href="/oppdrag"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--line,#dedcd1)] bg-transparent px-5 py-2.5 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
             >
               {t("notFound.workOrders")}
             </Link>

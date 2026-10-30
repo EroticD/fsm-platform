@@ -20,7 +20,7 @@ export default function HighlightedText({
         segment.match ? (
           <mark
             key={index}
-            className="rounded bg-yellow-200 px-0.5 text-gray-900"
+            className="rounded-sm bg-[var(--signal,#d8ff3e)] px-0.5 text-[var(--ink,#101310)]"
           >
             {segment.text}
           </mark>

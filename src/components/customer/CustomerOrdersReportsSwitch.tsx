@@ -20,20 +20,23 @@ export default async function CustomerOrdersReportsSwitch({
 }) {
   const t = await getTranslations("common");
 
+  const optionClass = (selected: boolean) =>
+    `flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3 text-xs font-bold transition sm:flex-none ${
+      selected
+        ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-[1px_1px_0_var(--ink,#101310)]"
+        : "border-transparent text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
+    }`;
+
   return (
     <nav
       aria-label={t("customers.reports.switchLabel")}
-      className="inline-flex w-full gap-1 rounded-2xl border-2 border-gray-200 bg-white p-1 shadow-sm sm:w-auto"
+      className="inline-flex w-full gap-1 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1 shadow-[0_1px_2px_rgba(20,17,11,0.05)] [--focus-ring:var(--ink,#101310)] sm:w-auto"
     >
       <Link
         href={ordersHref}
         scroll={false}
         aria-current={active === "orders" ? "page" : undefined}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold transition sm:flex-none ${
-          active === "orders"
-            ? "bg-blue-600 text-white shadow-sm"
-            : "text-gray-600 hover:bg-gray-100"
-        }`}
+        className={optionClass(active === "orders")}
       >
         <Icon name="folder" className="h-4 w-4 shrink-0" />
         {t("customers.detail.tabs.orders")}
@@ -42,20 +45,16 @@ export default async function CustomerOrdersReportsSwitch({
         href={reportsHref}
         scroll={false}
         aria-current={active === "reports" ? "page" : undefined}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold transition sm:flex-none ${
-          active === "reports"
-            ? "bg-blue-600 text-white shadow-sm"
-            : "text-gray-600 hover:bg-gray-100"
-        }`}
+        className={optionClass(active === "reports")}
       >
         <Icon name="clipboard" className="h-4 w-4 shrink-0" />
         {t("customers.reports.title")}
         {reportCount > 0 && (
           <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+            className={`rounded-full px-1.5 py-0.5 text-xs font-black tabular-nums ${
               active === "reports"
-                ? "bg-white/20 text-white"
-                : "bg-gray-100 text-gray-600"
+                ? "bg-[#101310]/10 text-[var(--ink,#101310)]"
+                : "border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
             }`}
           >
             {reportCount}

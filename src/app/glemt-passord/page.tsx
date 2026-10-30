@@ -1,14 +1,83 @@
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import Link from "next/link";
+import Icon, { type IconName } from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { createSmtpTransport } from "@/lib/email";
 import { hashToken } from "@/lib/invite";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { clientIpFrom } from "@/lib/client-ip";
 import { cleanEmail } from "@/lib/sanitize";
+
+function AuthShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="office-app flex min-h-screen items-center justify-center p-4 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:p-6">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[20px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_2px_0_rgba(20,17,11,0.08),0_18px_40px_rgba(20,17,11,0.08)] sm:p-8">
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
+        />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function AuthHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon: IconName;
+  title: string;
+  description?: ReactNode;
+}) {
+  return (
+    <div className="mb-6 flex flex-col items-center text-center">
+      <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)] shadow-[2px_2px_0_var(--signal,#d8ff3e)]">
+        <Icon name={icon} className="h-5 w-5" />
+        <span
+          aria-hidden="true"
+          className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
+        />
+      </div>
+      <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
+        {title}
+      </h1>
+      {description && (
+        <p className="mt-1 text-sm leading-6 text-[var(--muted,#62685f)]">
+          {description}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AuthAlert({
+  children,
+  tone = "risk",
+}: {
+  children: ReactNode;
+  tone?: "risk" | "warning";
+}) {
+  const toneClass =
+    tone === "warning"
+      ? "border-[#dfc98b] bg-[#fdf5e4] text-[#6b4808]"
+      : "border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]";
+  return (
+    <div
+      role="alert"
+      className={`mb-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm font-bold ${toneClass}`}
+    >
+      <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
 
 export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -94,41 +163,64 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full border">
-        
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">{t("auth.forgot.title")}</h1>
-        
-        {isRateLimited && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl mt-4 text-sm">
-            {t("auth.forgot.rateLimited")}
-          </div>
-        )}
+    <AuthShell>
+      <AuthHeader
+        icon="mail"
+        title={t("auth.forgot.title")}
+        description={isSuccess ? undefined : t("auth.forgot.desc")}
+      />
 
-        {isSuccess ? (
-          <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl mt-4">
-            <p className="font-bold mb-1">{t("auth.forgot.sentTitle")}</p>
-            <p className="text-sm">{t("auth.forgot.sentDesc")}</p>
-            <Link href="/api/auth/signin" className="block text-center mt-4 bg-gray-800 text-white py-2 rounded-lg font-bold">{t("auth.forgot.backToLogin")}</Link>
+      {isRateLimited && (
+        <AuthAlert tone="warning">{t("auth.forgot.rateLimited")}</AuthAlert>
+      )}
+
+      {isSuccess ? (
+        <>
+          <div className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] p-4 text-sm text-[#283509]">
+            <p className="flex items-center gap-1.5 font-black">
+              <Icon name="check" className="h-4 w-4 shrink-0" />
+              {t("auth.forgot.sentTitle")}
+            </p>
+            <p className="mt-1 leading-5">{t("auth.forgot.sentDesc")}</p>
           </div>
-        ) : (
-          <>
-            <p className="text-gray-500 text-sm mb-6">{t("auth.forgot.desc")}</p>
-            <form action={requestReset} className="space-y-4">
-              <div>
-                <label htmlFor="forgot-email" className="block text-sm font-semibold text-gray-700 mb-1">{t("auth.forgot.email")}</label>
-                <input id="forgot-email" type="email" name="email" required placeholder={t("auth.forgot.emailPlaceholder")} className="w-full border p-3 rounded-xl text-gray-800" />
-              </div>
-              <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">
-                {t("auth.forgot.submit")}
-              </button>
-            </form>
-            <div className="mt-6 text-center">
-              <Link href="/api/auth/signin" className="text-sm text-blue-600 hover:underline font-medium">&larr; {t("auth.forgot.backToLogin")}</Link>
+          <Link href="/api/auth/signin" className="signal-button mt-4 w-full">
+            {t("auth.forgot.backToLogin")}
+          </Link>
+        </>
+      ) : (
+        <>
+          <form action={requestReset} className="space-y-4">
+            <div>
+              <label
+                htmlFor="forgot-email"
+                className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
+              >
+                {t("auth.forgot.email")}
+              </label>
+              <input
+                id="forgot-email"
+                type="email"
+                name="email"
+                required
+                placeholder={t("auth.forgot.emailPlaceholder")}
+                className={controlClassName("min-h-11")}
+              />
             </div>
-          </>
-        )}
-      </div>
-    </div>
+            <button type="submit" className="signal-button w-full">
+              {t("auth.forgot.submit")}
+            </button>
+          </form>
+          <div className="mt-6 text-center">
+            <Link
+              href="/api/auth/signin"
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:decoration-[var(--ink,#101310)]"
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("auth.forgot.backToLogin")}
+            </Link>
+          </div>
+        </>
+      )}
+    </AuthShell>
   );
 }

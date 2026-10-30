@@ -7,9 +7,23 @@ import { hasPermission } from "@/lib/permissions";
 import { HMS_FORM_GROUPS } from "@/lib/hms";
 import { formatDateLocalized } from "@/lib/dates";
 import StatusBadge from "@/components/StatusBadge";
+import PageHeader from "@/components/PageHeader";
 import HmsTemplateCard from "@/components/hms/HmsTemplateCard";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { getHmsOverview } from "@/server/hms";
 import { linkHmsTemplate } from "./actions";
+
+const CARD = "office-card";
+const INK_BUTTON =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const EYEBROW =
+  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
+const MUTED = "text-[var(--muted,#62685f)]";
+const CHIP =
+  "inline-flex items-center gap-1.5 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-0.5 text-xs font-bold text-[var(--ink,#101310)]";
+const FIELD = controlClassName("min-h-11 text-sm font-bold");
 
 const STATUS_LABEL_KEYS: Record<string, string> = {
   OPEN: "statusOpen",
@@ -90,39 +104,33 @@ export default async function HmsPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        {/* HEADER */}
-        <div className="flex flex-col gap-4 border-b border-gray-300 pb-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-blue-700">
-              {t("hms.badge")}
-            </p>
-            <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900 md:text-3xl">
-              <Icon name="shield" className="h-7 w-7 shrink-0" />
-              {t("hms.title")}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm font-medium text-gray-600">
-              {t("hms.subtitle")}
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-100"
-          >
-            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-            {t("hms.backToDashboard")}
-          </Link>
-        </div>
+    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
+      <div className="mx-auto max-w-5xl space-y-5">
+        <PageHeader
+          title={t("hms.title")}
+          subtitle={
+            <>
+              <span className={EYEBROW}>{t("hms.badge")}</span>
+              <span className="mt-1 block">{t("hms.subtitle")}</span>
+            </>
+          }
+          icon={<Icon name="shield" className="h-5 w-5" />}
+          actions={
+            <Link href="/" className={INK_BUTTON}>
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("hms.backToDashboard")}
+            </Link>
+          }
+        />
 
         {/* KATEGORIER */}
         <nav
           aria-label={t("hms.navigationLabel")}
-          className="flex flex-wrap gap-2 rounded-2xl border-2 border-gray-200 bg-white p-3 shadow-sm"
+          className={`${CARD} flex flex-wrap gap-2 p-3`}
         >
           <a
             href="#hms-skjemaer"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800 transition hover:border-blue-300 hover:bg-blue-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
           >
             <Icon name="folder" className="h-4 w-4 shrink-0" />
             {t("hms.libraryTitle")}
@@ -131,10 +139,10 @@ export default async function HmsPage({
             <a
               key={group.type}
               href={`#hms-type-${group.type.toLowerCase()}`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800 transition hover:border-blue-300 hover:bg-blue-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
             >
               {t(group.labelKey)}
-              <span className="rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-xs text-gray-600">
+              <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]">
                 {countByType.get(group.type) ?? 0}
               </span>
             </a>
@@ -142,7 +150,7 @@ export default async function HmsPage({
           {permissions.canManageTemplates && (
             <Link
               href="/innstillinger?tab=maler&category=HMS"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800 transition hover:bg-blue-100"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[#cbef35]"
             >
               <Icon name="settings" className="h-4 w-4 shrink-0" />
               {t("hms.templatesAdmin")}
@@ -154,7 +162,7 @@ export default async function HmsPage({
         {params.linked === "1" && (
           <div
             role="status"
-            className="flex items-center gap-2 rounded-2xl border-2 border-green-200 bg-green-50 p-3 text-sm font-bold text-green-900"
+            className="flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--surface,#fffdf8)] p-3 text-sm font-bold text-[var(--ink,#101310)]"
           >
             <Icon name="check" className="h-4 w-4 shrink-0" />
             {t("hms.linked")}
@@ -163,7 +171,7 @@ export default async function HmsPage({
         {errorKey && (
           <div
             role="alert"
-            className="flex items-center gap-2 rounded-2xl border-2 border-red-200 bg-red-50 p-3 text-sm font-bold text-red-900"
+            className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
           >
             <Icon name="alert" className="h-4 w-4 shrink-0" />
             {t(errorKey)}
@@ -175,21 +183,19 @@ export default async function HmsPage({
           <section
             id="knytt-til-oppdrag"
             aria-labelledby="knytt-til-oppdrag-title"
-            className="scroll-mt-6 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+            className={`${CARD} scroll-mt-6 p-4 sm:p-5`}
           >
             <h2
               id="knytt-til-oppdrag-title"
-              className="flex items-center gap-2 text-base font-black text-gray-900"
+              className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]"
             >
               <Icon name="route" className="h-4 w-4 shrink-0" />
               {t("hms.link.title")}
             </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              {t("hms.link.description")}
-            </p>
+            <p className={`mt-1 text-sm ${MUTED}`}>{t("hms.link.description")}</p>
 
             {workOrders.length === 0 ? (
-              <p className="mt-3 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-3 text-sm font-medium text-gray-600">
+              <p className="mt-3 rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-sm font-medium text-[var(--muted,#62685f)]">
                 {t("hms.link.noWorkOrders")}
               </p>
             ) : (
@@ -197,13 +203,13 @@ export default async function HmsPage({
                 action={linkHmsTemplate}
                 className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"
               >
-                <label className="flex flex-col gap-1 text-sm font-bold text-gray-800">
+                <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                   {t("hms.link.templateLabel")}
                   <select
                     name="templateId"
                     required
                     defaultValue={params.template || ""}
-                    className="min-h-11 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900 focus:border-blue-600"
+                    className={FIELD}
                   >
                     <option value="" disabled>
                       {t("hms.link.selectTemplate")}
@@ -220,13 +226,13 @@ export default async function HmsPage({
                   </select>
                 </label>
 
-                <label className="flex flex-col gap-1 text-sm font-bold text-gray-800">
+                <label className="flex flex-col gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                   {t("hms.link.workOrderLabel")}
                   <select
                     name="workOrderId"
                     required
                     defaultValue=""
-                    className="min-h-11 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-bold text-gray-900 focus:border-blue-600"
+                    className={FIELD}
                   >
                     <option value="" disabled>
                       {t("hms.link.selectWorkOrder")}
@@ -245,7 +251,7 @@ export default async function HmsPage({
                 <div className="sm:col-span-2">
                   <button
                     type="submit"
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 sm:w-auto"
+                    className={`${SIGNAL_BUTTON} w-full sm:w-auto`}
                   >
                     {t("hms.link.submit")}
                   </button>
@@ -258,31 +264,31 @@ export default async function HmsPage({
         {/* HMS-SKJEMAER */}
         {canViewLibrary && (
           <section id="hms-skjemaer" aria-labelledby="hms-skjemaer-title" className="scroll-mt-6 space-y-4">
-            <div className="flex flex-wrap items-end justify-between gap-2">
+            <div className={`${CARD} flex flex-wrap items-end justify-between gap-3 p-4 sm:p-5`}>
               <div>
-                <h2 id="hms-skjemaer-title" className="flex items-center gap-2 text-xl font-black text-gray-900">
+                <h2 id="hms-skjemaer-title" className="flex items-center gap-2 text-lg font-extrabold text-[var(--ink,#101310)]">
                   <Icon name="folder" className="h-5 w-5 shrink-0" />
                   {t("hms.libraryTitle")}
                 </h2>
-                <p className="text-sm text-gray-600">
+                <p className={`text-sm ${MUTED}`}>
                   {t("hms.libraryDescription")}
                 </p>
               </div>
-              <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-bold text-gray-700">
+              <span className={CHIP}>
                 {t("hms.templateCount", { count: templates.length })}
               </span>
             </div>
 
             {templates.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-gray-300 bg-white p-6 text-center">
-                <p className="font-black text-gray-900">{t("hms.empty.title")}</p>
-                <p className="mt-1 text-sm text-gray-600">
+              <div className="rounded-card border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 text-center">
+                <p className="font-extrabold text-[var(--ink,#101310)]">{t("hms.empty.title")}</p>
+                <p className={`mt-1 text-sm ${MUTED}`}>
                   {t("hms.empty.description")}
                 </p>
                 {permissions.canManageTemplates && (
                   <Link
                     href="/innstillinger?tab=maler&category=HMS"
-                    className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                    className={`${SIGNAL_BUTTON} mt-4`}
                   >
                     {t("hms.empty.adminLink")}
                   </Link>
@@ -297,16 +303,21 @@ export default async function HmsPage({
                     aria-labelledby={`hms-type-${group.type.toLowerCase()}-title`}
                     className="scroll-mt-6 space-y-3"
                   >
-                    <div>
-                      <h3
-                        id={`hms-type-${group.type.toLowerCase()}-title`}
-                        className="text-lg font-black text-gray-900"
-                      >
-                        {t(group.labelKey)}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {t(group.descriptionKey)}
-                      </p>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+                      <div>
+                        <h3
+                          id={`hms-type-${group.type.toLowerCase()}-title`}
+                          className="text-base font-extrabold text-[var(--ink,#101310)]"
+                        >
+                          {t(group.labelKey)}
+                        </h3>
+                        <p className={`text-sm ${MUTED}`}>
+                          {t(group.descriptionKey)}
+                        </p>
+                      </div>
+                      <span className={CHIP}>
+                        {countByType.get(group.type) ?? 0}
+                      </span>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {group.templates.map((template) => (
@@ -330,67 +341,57 @@ export default async function HmsPage({
         {canViewReports && (
           <section
             aria-labelledby="hms-dokumentasjon-title"
-            className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+            className={`${CARD} p-4 sm:p-5`}
           >
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-3">
               <div>
-                <h2 id="hms-dokumentasjon-title" className="flex items-center gap-2 text-xl font-black text-gray-900">
+                <h2 id="hms-dokumentasjon-title" className="flex items-center gap-2 text-lg font-extrabold text-[var(--ink,#101310)]">
                   <Icon name="file" className="h-5 w-5 shrink-0" />
                   {t("hms.recent.title")}
                 </h2>
-                <p className="text-sm text-gray-600">
+                <p className={`text-sm ${MUTED}`}>
                   {t("hms.recent.description")}
                 </p>
               </div>
-              <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-700">
+              <span className={CHIP}>
                 {t("hms.recent.count", { count: recentReports.length })}
               </span>
             </div>
 
             {recentReports.length === 0 ? (
-              <div className="mt-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-6 text-center">
-                <p className="font-black text-gray-900">
+              <div className="mt-4 rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-center">
+                <p className="font-extrabold text-[var(--ink,#101310)]">
                   {t("hms.recent.emptyTitle")}
                 </p>
-                <p className="mt-1 text-sm text-gray-600">
+                <p className={`mt-1 text-sm ${MUTED}`}>
                   {t("hms.recent.emptyDescription")}
                 </p>
               </div>
             ) : (
               <>
               <div className="mt-4 hidden overflow-x-auto sm:block" role="region" aria-label={t("hms.recent.title")} tabIndex={0}>
-                <table className="w-full text-left text-sm">
+                <table className="office-table">
                   <caption className="sr-only">{t("hms.recent.title")}</caption>
                   <thead>
-                    <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("hms.recent.workOrder")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("hms.recent.report")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("hms.recent.completed")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("hms.recent.status")}
-                      </th>
-                      <th scope="col" className="px-2 py-2 font-bold">
-                        {t("hms.recent.actions")}
-                      </th>
+                    <tr>
+                      <th scope="col">{t("hms.recent.workOrder")}</th>
+                      <th scope="col">{t("hms.recent.report")}</th>
+                      <th scope="col">{t("hms.recent.completed")}</th>
+                      <th scope="col">{t("hms.recent.status")}</th>
+                      <th scope="col">{t("hms.recent.actions")}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody>
                     {recentReports.map((report) => (
                       <tr key={report.id} className="align-top">
-                        <td className="px-2 py-3">
+                        <td>
                           <Link
                             href={workOrderHref(report.workOrder.id)}
-                            className="font-bold text-blue-800 hover:underline"
+                            className="font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline"
                           >
                             {report.workOrder.title}
                           </Link>
-                          <p className="mt-0.5 text-xs text-gray-600">
+                          <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
                             {report.workOrder.customerId ? (
                               <span className="inline-flex items-center gap-1">
                                 <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
@@ -407,15 +408,15 @@ export default async function HmsPage({
                               : ""}
                           </p>
                         </td>
-                        <td className="px-2 py-3">
-                          <p className="font-medium text-gray-900">
+                        <td>
+                          <p className="font-semibold text-[var(--ink,#101310)]">
                             {report.reportName || t("hms.recent.unknownReport")}
                           </p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-[var(--muted,#62685f)]">
                             {typeLabel(report.hmsType)}
                           </p>
                         </td>
-                        <td className="whitespace-nowrap px-2 py-3 text-gray-700">
+                        <td className="whitespace-nowrap text-xs text-[var(--muted,#62685f)]">
                           {formatDateLocalized(
                             report.completedAt,
                             locale,
@@ -423,21 +424,21 @@ export default async function HmsPage({
                             t("hms.recent.noDate"),
                           )}
                         </td>
-                        <td className="px-2 py-3">
+                        <td>
                           <StatusBadge status={report.workOrder.status} />
                         </td>
-                        <td className="px-2 py-3">
+                        <td>
                           <div className="flex flex-col gap-1 text-xs font-bold">
                             <Link
                               href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
-                              className="inline-flex min-h-6 items-center gap-1.5 text-blue-800 hover:underline"
+                              className="inline-flex min-h-6 items-center gap-1.5 text-[var(--ink,#101310)] underline-offset-2 hover:underline"
                             >
                               <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
                               {t("hms.recent.viewPdf")}
                             </Link>
                             <Link
                               href={workOrderHref(report.workOrder.id)}
-                              className="inline-flex min-h-6 items-center gap-1.5 text-gray-700 hover:underline"
+                              className="inline-flex min-h-6 items-center gap-1.5 text-[var(--muted,#62685f)] underline-offset-2 hover:text-[var(--ink,#101310)] hover:underline"
                             >
                               <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
                               {t("hms.recent.openWorkOrder")}
@@ -451,19 +452,19 @@ export default async function HmsPage({
               </div>
 
               {/* På mobil blir den brede tabellen korte, stablede rader. */}
-              <ul className="mt-4 divide-y divide-gray-100 sm:hidden">
+              <ul className="mt-4 divide-y divide-[var(--line,#dedcd1)] sm:hidden">
                 {recentReports.map((report) => (
                   <li key={report.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <Link
                         href={workOrderHref(report.workOrder.id)}
-                        className="min-w-0 break-words font-bold text-blue-800 hover:underline"
+                        className="min-w-0 break-words font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline"
                       >
                         {report.workOrder.title}
                       </Link>
                       <StatusBadge status={report.workOrder.status} />
                     </div>
-                    <p className="break-words text-xs text-gray-600">
+                    <p className="break-words text-xs text-[var(--muted,#62685f)]">
                       {report.workOrder.customerId ? (
                         <span className="inline-flex items-center gap-1">
                           <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
@@ -481,20 +482,20 @@ export default async function HmsPage({
                     </p>
                     <dl className="space-y-1 text-xs">
                       <div className="flex flex-wrap gap-x-2">
-                        <dt className="font-bold text-gray-700">
+                        <dt className="font-bold text-[var(--muted,#62685f)]">
                           {t("hms.recent.report")}:
                         </dt>
-                        <dd className="min-w-0 break-words text-gray-900">
+                        <dd className="min-w-0 break-words text-[var(--ink,#101310)]">
                           {report.reportName || t("hms.recent.unknownReport")}
                           {" • "}
                           {typeLabel(report.hmsType)}
                         </dd>
                       </div>
                       <div className="flex flex-wrap gap-x-2">
-                        <dt className="font-bold text-gray-700">
+                        <dt className="font-bold text-[var(--muted,#62685f)]">
                           {t("hms.recent.completed")}:
                         </dt>
-                        <dd className="text-gray-700">
+                        <dd className="text-[var(--muted,#62685f)]">
                           {formatDateLocalized(
                             report.completedAt,
                             locale,
@@ -507,14 +508,14 @@ export default async function HmsPage({
                     <div className="flex flex-wrap gap-3 text-xs font-bold">
                       <Link
                         href={`/rapporter/${report.workOrder.id}?rapport=${report.id}`}
-                        className="inline-flex min-h-11 items-center gap-1.5 text-blue-800 hover:underline"
+                        className="inline-flex min-h-11 items-center gap-1.5 text-[var(--ink,#101310)] underline-offset-2 hover:underline"
                       >
                         <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
                         {t("hms.recent.viewPdf")}
                       </Link>
                       <Link
                         href={workOrderHref(report.workOrder.id)}
-                        className="inline-flex min-h-11 items-center gap-1.5 text-gray-700 hover:underline"
+                        className="inline-flex min-h-11 items-center gap-1.5 text-[var(--muted,#62685f)] underline-offset-2 hover:text-[var(--ink,#101310)] hover:underline"
                       >
                         <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
                         {t("hms.recent.openWorkOrder")}

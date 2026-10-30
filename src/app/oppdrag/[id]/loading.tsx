@@ -7,12 +7,12 @@ export default async function Loading() {
 
   return (
     <div
-      className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8"
+      className="office-app min-h-screen p-3 sm:p-6 lg:p-8"
       role="status"
       aria-live="polite"
     >
-      <div className="mx-auto max-w-5xl space-y-6" aria-hidden="true">
-        <header className="space-y-3 border-b border-gray-300 pb-4">
+      <div className="mx-auto max-w-6xl space-y-4" aria-hidden="true">
+        <header className="border-b border-[var(--line,#dedcd1)] pb-4">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -47,19 +47,19 @@ export default async function Loading() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Høyrekolonnen i desktop-visningen; først i DOM slik som siden. */}
-          <div className="space-y-6 lg:col-start-3 lg:row-start-1">
-            <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="space-y-4 lg:col-start-3 lg:row-start-1">
+            <div className="office-card p-4 sm:p-6">
               <Skeleton className="h-5 w-40" />
               <div className="mt-4 space-y-3">
                 <Skeleton className="h-11 w-full" />
                 <Skeleton className="h-11 w-full" />
-                <Skeleton className="h-10 w-36" />
+                <Skeleton className="h-11 w-36" />
               </div>
             </div>
 
-            <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="office-card p-4 sm:p-6">
               <Skeleton className="h-5 w-32" />
               <div className="mt-4 space-y-3">
                 {Array.from({ length: 4 }).map((_, index) => (
@@ -73,8 +73,8 @@ export default async function Loading() {
           </div>
 
           {/* Hovedkolonnen: beskrivelse, sjekklister og rapporter. */}
-          <div className="space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
-            <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="space-y-4 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+            <div className="office-card p-4 sm:p-6">
               <Skeleton className="h-6 w-48" />
               <div className="mt-4 space-y-2">
                 <Skeleton className="h-4 w-full" />
@@ -84,13 +84,13 @@ export default async function Loading() {
               </div>
             </div>
 
-            <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="office-card p-4 sm:p-6">
               <Skeleton className="h-6 w-44" />
               <div className="mt-4 space-y-3">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div
                     key={index}
-                    className="rounded-xl border-2 border-gray-100 bg-gray-50 p-4"
+                    className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4"
                   >
                     <Skeleton className="h-4 w-2/3" />
                     <Skeleton className="mt-2 h-3 w-1/3" />
@@ -99,7 +99,7 @@ export default async function Loading() {
               </div>
             </div>
 
-            <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="office-card p-4 sm:p-6">
               <Skeleton className="h-6 w-36" />
               <div className="mt-4 space-y-2">
                 <Skeleton className="h-4 w-full" />

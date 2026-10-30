@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import Icon from "@/components/icons";
 import { getTranslations } from "next-intl/server";
+import PageHeader from "@/components/PageHeader";
 import TemplateBuilder from "./TemplateBuilder";
 import { saveTemplate } from "./actions";
 import { getCurrentUser } from "@/lib/session";
@@ -28,23 +29,22 @@ export default async function EditTemplatePage({
   if (!template) redirect("/innstillinger?tab=maler");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* HEADER */}
-        <div className="flex justify-between items-center border-b pb-6">
-          <div>
-            <h1 className="flex items-center gap-2 text-3xl font-bold text-gray-900">
-              <Icon name="pen" className="h-6 w-6 shrink-0" />
-              {t("settings.templateEditor.title")}
-            </h1>
-            <p className="text-gray-500 mt-1 text-sm">{t("settings.templateEditor.subtitle")}</p>
-          </div>
-          <Link href="/innstillinger?tab=maler" className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
-            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-            {t("settings.templateEditor.cancel")}
-          </Link>
-        </div>
+    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
+      <div className="mx-auto max-w-3xl space-y-5">
+        <PageHeader
+          title={t("settings.templateEditor.title")}
+          subtitle={t("settings.templateEditor.subtitle")}
+          icon={<Icon name="pen" className="h-5 w-5" />}
+          actions={
+            <Link
+              href="/innstillinger?tab=maler"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+            >
+              <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+              {t("settings.templateEditor.cancel")}
+            </Link>
+          }
+        />
 
         {/* DEN VISUELLE BYGGEREN */}
         <TemplateBuilder 

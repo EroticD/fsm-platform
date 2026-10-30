@@ -6,23 +6,23 @@ export default async function Loading() {
 
   return (
     <div
-      className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8"
+      className="office-app min-h-screen p-3 sm:p-6 lg:p-8"
       role="status"
       aria-live="polite"
     >
-      <div className="mx-auto max-w-5xl space-y-5">
-        <div className="flex flex-col justify-between gap-4 border-b border-gray-300 pb-4 md:flex-row md:items-center">
+      <div className="mx-auto max-w-6xl space-y-4">
+        <div className="flex flex-col justify-between gap-4 border-b border-[var(--line,#dedcd1)] pb-4 md:flex-row md:items-end">
           <div className="space-y-2">
             <Skeleton className="h-8 w-56 max-w-full" />
             <Skeleton className="h-4 w-72 max-w-full" />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-10 w-28" />
-            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-11 w-28" />
+            <Skeleton className="h-11 w-32" />
           </div>
         </div>
 
-        <div className="space-y-3 rounded-2xl border-2 border-gray-200 bg-white p-4 sm:p-5">
+        <div className="office-card space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: 5 }).map((_, index) => (
               <Skeleton key={index} className="h-9 w-24" />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 
 export type RouteErrorLabels = {
   title: string;
@@ -100,28 +101,32 @@ export default function RouteError({
 
   return (
     <div
-      className={`flex min-h-[60vh] items-center justify-center p-4 sm:p-8 ${className}`}
+      className={`flex min-h-[60vh] items-center justify-center p-4 [--focus-ring:var(--ink,#101310)] sm:p-8 ${className}`}
     >
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm sm:p-8">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 text-center sm:p-8">
         <div
-          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-900 text-2xl text-white"
+          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
           aria-hidden="true"
         >
-          ⚠️
+          <Icon name="alert" className="h-6 w-6" strokeWidth={2} />
         </div>
-        <h1 className="text-2xl font-black text-gray-900">{labels.title}</h1>
-        <p className="mt-2 text-sm text-gray-600">{labels.description}</p>
+        <h1 className="text-2xl font-black text-[var(--ink,#101310)]">
+          {labels.title}
+        </h1>
+        <p className="mt-2 text-sm text-[var(--muted,#62685f)]">
+          {labels.description}
+        </p>
 
-        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-3 text-left">
-          <p className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+        <div className="mt-5 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-left">
+          <p className="text-[11px] font-black uppercase tracking-wider text-[var(--muted,#62685f)]">
             {labels.reference}
           </p>
           {digest ? (
-            <code className="mt-1 block break-all font-mono text-xs text-gray-800">
+            <code className="mt-1 block break-all font-mono text-xs text-[var(--ink,#101310)]">
               {digest}
             </code>
           ) : (
-            <p className="mt-1 text-xs text-gray-600">
+            <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
               {labels.referenceMissing}
             </p>
           )}
@@ -129,7 +134,7 @@ export default function RouteError({
             type="button"
             onClick={handleCopy}
             disabled={!digest}
-            className="mt-2 min-h-9 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 inline-flex min-h-11 items-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-1.5 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {copyState === "copied" ? labels.copied : labels.copyId}
           </button>
@@ -144,13 +149,13 @@ export default function RouteError({
           <button
             type="button"
             onClick={onRetry}
-            className="min-h-11 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+            className="ink-button px-5 text-sm"
           >
             {labels.retry}
           </button>
           <Link
             href={backHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--line,#dedcd1)] bg-transparent px-5 py-2.5 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
           >
             {labels.back}
           </Link>
@@ -159,7 +164,7 @@ export default function RouteError({
         {supportHref && (
           <a
             href={supportHref}
-            className="mt-4 inline-flex min-h-11 items-center justify-center text-sm font-bold text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="mt-4 inline-flex min-h-11 items-center justify-center text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:decoration-[var(--ink,#101310)]"
           >
             {labels.support}
           </a>

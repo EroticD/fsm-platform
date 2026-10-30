@@ -1,54 +1,56 @@
 import { getTranslations } from "next-intl/server";
 import { Skeleton } from "@/components/Skeleton";
+import { LEGACY_SURFACE } from "@/components/customer/customerStyles";
 
 export default async function Loading() {
   const t = await getTranslations("common");
 
   return (
     <div
-      className="min-h-screen bg-gray-50 p-4 sm:p-8"
+      className="office-app min-h-screen p-3 sm:p-6 lg:p-8"
       role="status"
       aria-live="polite"
     >
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8 flex flex-col gap-3 border-b border-gray-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`mx-auto max-w-6xl space-y-4 ${LEGACY_SURFACE}`}>
+        <div className="flex flex-col gap-3 border-b border-[var(--line,#dedcd1)] pb-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <Skeleton className="h-8 w-44" />
-            <Skeleton className="h-4 w-64 max-w-full" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-9 w-52 max-w-full" />
           </div>
           <div className="flex gap-2">
-            <Skeleton className="h-10 w-28" />
-            <Skeleton className="h-10 w-24" />
+            <Skeleton className="h-11 w-32" />
+            <Skeleton className="h-11 w-36" />
           </div>
         </div>
 
-        <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <Skeleton className="h-11 flex-1" />
-            <Skeleton className="h-11 flex-1" />
-            <Skeleton className="h-11 w-28" />
-          </div>
-        </div>
-
-        <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap gap-2">
+        <div className="office-card space-y-3 p-3 sm:p-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <Skeleton className="h-11 flex-1" />
             <Skeleton className="h-11 w-24" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-20" />
+          </div>
+          <div className="border-t border-[var(--line,#dedcd1)] pt-3">
+            <Skeleton className="h-11 w-36" />
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex gap-4 border-b border-gray-200 bg-gray-100 p-4">
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-4 w-1/4" />
-            <Skeleton className="h-4 w-20" />
+        <div className="office-card overflow-hidden">
+          <div className="flex gap-4 bg-[var(--ink,#101310)] p-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-3 flex-1 rounded bg-[var(--paper,#f2efe6)] opacity-40"
+              />
+            ))}
           </div>
-          <div className="divide-y divide-gray-100">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="flex gap-4 p-4">
+          <div className="divide-y divide-[var(--line,#dedcd1)]">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-4 p-3">
                 <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-1/5" />
                 <Skeleton className="h-4 w-20" />
+                <Skeleton className="ml-auto h-11 w-24" />
               </div>
             ))}
           </div>

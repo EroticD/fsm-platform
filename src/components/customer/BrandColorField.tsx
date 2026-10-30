@@ -22,13 +22,13 @@ export default function BrandColorField({
   const pickerValue = HEX_COLOR.test(value) ? value : FALLBACK_COLOR;
 
   return (
-    <div className="flex gap-3 items-center">
+    <div className="flex items-center gap-2">
       <input
         type="color"
         value={pickerValue}
         onChange={(event) => setValue(event.target.value)}
         aria-label={label}
-        className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
+        className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1"
       />
       <input
         id={id}
@@ -39,7 +39,7 @@ export default function BrandColorField({
         maxLength={20}
         spellCheck={false}
         aria-label={label}
-        className="flex-1 border border-gray-300 p-3 rounded-xl text-sm text-gray-900 font-medium bg-gray-50"
+        className="min-w-0 flex-1 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 font-mono text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
       />
     </div>
   );

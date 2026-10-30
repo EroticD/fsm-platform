@@ -11,6 +11,7 @@ import type {
 } from "@/server/documents";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
+import Icon from "@/components/icons";
 import Pagination, {
   clampPage,
   paginationLabels,
@@ -77,6 +78,23 @@ const ACTION_ERROR_KEYS: Record<string, string> = {
   not_owned: "documents.errors.notOwned",
   error: "documents.errors.generic",
 };
+
+// Command Center-verdier. Fallbackene matcher office-card/signal-button/
+// ink-button-tokenene, slik at biblioteket står riktig også før de er lastet.
+const CARD = "office-card";
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const INK_BUTTON =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)] disabled:cursor-not-allowed disabled:opacity-50";
+const QUIET_BUTTON =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] disabled:cursor-not-allowed disabled:opacity-50";
+const FIELD =
+  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+const EYEBROW =
+  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
+const MUTED = "text-[var(--muted,#62685f)]";
+const SELECTED_ROW =
+  "bg-[#f8fce4] shadow-[inset_3px_0_0_var(--signal,#d8ff3e)]";
 
 function errorKey(reason: string): string {
   return ACTION_ERROR_KEYS[reason] ?? "documents.errors.generic";
@@ -194,15 +212,15 @@ function FolderMenu({
         }}
         aria-label={t("documents.folders.menu", { name: folder.name })}
         title={t("documents.folders.menu", { name: folder.name })}
-        className="h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 font-black hover:bg-gray-100 transition"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
       >
-        ⋯
+        <Icon name="more" className="h-4 w-4" />
       </button>
 
       {mode !== "closed" && (
-        <div className="absolute right-0 z-40 mt-1 w-72 rounded-xl border-2 border-gray-200 bg-white p-3 shadow-xl">
+        <div className={`${CARD} absolute right-0 z-40 mt-1 w-72 p-2 shadow-xl`}>
           {mode === "menu" && (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {office && (
                 <button
                   type="button"
@@ -210,9 +228,10 @@ function FolderMenu({
                     setError(null);
                     setMode("rename");
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                 >
-                  ✏️ {t("documents.folders.rename")}
+                  <Icon name="edit" className="h-4 w-4 shrink-0" />
+                  {t("documents.folders.rename")}
                 </button>
               )}
               {office && (
@@ -222,9 +241,10 @@ function FolderMenu({
                     setError(null);
                     setMode("move");
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                 >
-                  📂 {t("documents.folders.move")}
+                  <Icon name="folder" className="h-4 w-4 shrink-0" />
+                  {t("documents.folders.move")}
                 </button>
               )}
               {isAdmin && (
@@ -234,15 +254,16 @@ function FolderMenu({
                     setError(null);
                     setMode("delete");
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-red-700 hover:bg-red-50"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fbe9e7]"
                 >
-                  🗑️ {t("documents.folders.delete")}
+                  <Icon name="trash" className="h-4 w-4 shrink-0" />
+                  {t("documents.folders.delete")}
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setMode("closed")}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-100"
+                className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-[var(--muted,#62685f)] transition hover:bg-[var(--paper,#f2efe6)]"
               >
                 {t("documents.folders.cancel")}
               </button>
@@ -250,8 +271,8 @@ function FolderMenu({
           )}
 
           {mode === "rename" && (
-            <form onSubmit={handleRename} className="space-y-2">
-              <label className="block text-xs font-bold text-gray-700">
+            <form onSubmit={handleRename} className="space-y-2 p-1">
+              <label className="block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                 {t("documents.folders.renameTitle")}
                 <input
                   type="text"
@@ -260,7 +281,7 @@ function FolderMenu({
                   maxLength={200}
                   defaultValue={folder.name}
                   ref={renameInputRef}
-                  className="mt-1 w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 bg-white"
+                  className={`${FIELD} mt-1`}
                 />
               </label>
               <MenuButtons
@@ -273,13 +294,13 @@ function FolderMenu({
           )}
 
           {mode === "move" && (
-            <form onSubmit={handleMove} className="space-y-2">
-              <label className="block text-xs font-bold text-gray-700">
+            <form onSubmit={handleMove} className="space-y-2 p-1">
+              <label className="block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                 {t("documents.folders.moveTitle")}
                 <select
                   name="parentId"
                   defaultValue={folder.parentId ?? ""}
-                  className="mt-1 w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 bg-white"
+                  className={`${FIELD} mt-1`}
                 >
                   <option value="">{t("documents.folders.root")}</option>
                   {allFolders
@@ -301,13 +322,15 @@ function FolderMenu({
           )}
 
           {mode === "delete" && (
-            <p className="text-xs text-gray-600">
+            <p className={`px-1 py-2 text-xs ${MUTED}`}>
               {t("documents.folders.deleteHint")}
             </p>
           )}
 
           {error && mode !== "delete" && (
-            <p className="mt-2 text-xs text-red-700">{error}</p>
+            <p className="px-1 pb-1 pt-2 text-xs font-bold text-[var(--risk-text,#b42318)]">
+              {error}
+            </p>
           )}
         </div>
       )}
@@ -345,7 +368,7 @@ function MenuButtons({
       <button
         type="submit"
         disabled={busy}
-        className="flex-1 px-3 py-2 rounded-lg text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50"
+        className={`${INK_BUTTON} flex-1`}
       >
         {saveLabel}
       </button>
@@ -353,7 +376,7 @@ function MenuButtons({
         type="button"
         onClick={onCancel}
         disabled={busy}
-        className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+        className={`${QUIET_BUTTON} flex-1`}
       >
         {cancelLabel}
       </button>
@@ -721,22 +744,22 @@ export default function DocumentBrowser({
   return (
     <>
       {showDeleted && (
-        <div className="bg-amber-50 border-2 border-amber-200 text-amber-900 p-4 rounded-2xl text-sm font-bold">
+        <div className="rounded-xl border border-[#e7b5ae] bg-[#fbe9e7] p-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
           {t("documents.browser.deletedTitle")}
         </div>
       )}
 
       {/* SØK + TAG-FILTER – alltid synlig på desktop, sammenklappet på mobil */}
-      <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className={`${CARD} p-3 sm:p-4`}>
         <button
           type="button"
           onClick={() => setFiltersOpen((open) => !open)}
           aria-expanded={filtersOpen}
           aria-controls="document-search-panel"
-          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-800 transition hover:bg-gray-100 lg:hidden"
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] lg:hidden"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <span aria-hidden>⚙️</span>
+            <Icon name="filter" className="h-4 w-4 shrink-0" />
             <span className="truncate">
               {activeFilterCount > 0
                 ? t("documents.browser.filterToggleActive", {
@@ -745,9 +768,12 @@ export default function DocumentBrowser({
                 : t("documents.browser.filterToggle")}
             </span>
           </span>
-          <span aria-hidden className="shrink-0 text-xs text-gray-400">
-            {filtersOpen ? "▲" : "▼"}
-          </span>
+          <Icon
+            name="chevronDown"
+            className={`h-4 w-4 shrink-0 transition ${
+              filtersOpen ? "rotate-180" : ""
+            }`}
+          />
         </button>
 
         <div
@@ -769,19 +795,16 @@ export default function DocumentBrowser({
                 defaultValue={searchQuery}
                 aria-label={t("documents.browser.searchPlaceholder")}
                 placeholder={t("documents.browser.searchPlaceholder")}
-                className="min-w-0 flex-1 basis-56 rounded-xl border-2 border-gray-200 bg-gray-50 p-2.5 text-sm font-medium text-gray-900 focus:border-blue-700"
+                className={`${FIELD} min-w-0 flex-1 basis-56`}
               />
               <button
                 type="submit"
-                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-gray-800"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--ink,#101310)] px-4 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85"
               >
                 {t("documents.browser.search")}
               </button>
               {(searchQuery || tagFilter) && (
-                <Link
-                  href={resetLink()}
-                  className="rounded-xl bg-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
-                >
+                <Link href={resetLink()} className={INK_BUTTON}>
                   {t("documents.browser.reset")}
                 </Link>
               )}
@@ -791,15 +814,15 @@ export default function DocumentBrowser({
               <legend className="sr-only">
                 {t("documents.browser.scopeLabel")}
               </legend>
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+              <span className={EYEBROW}>
                 {t("documents.browser.scopeLabel")}
               </span>
-              <div className="inline-flex rounded-xl border-2 border-gray-200 bg-gray-50 p-0.5">
+              <div className="inline-flex rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-0.5">
                 <label
-                  className={`cursor-pointer rounded-[10px] px-3 py-1.5 text-xs font-bold transition ${
+                  className={`cursor-pointer rounded-[6px] px-3 py-1.5 text-xs font-bold transition ${
                     scope === "folder"
-                      ? "bg-blue-700 text-white shadow-sm"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-sm"
+                      : "text-[var(--ink,#101310)] hover:bg-white"
                   }`}
                 >
                   <input
@@ -816,10 +839,10 @@ export default function DocumentBrowser({
                   {t("documents.browser.scopeFolder")}
                 </label>
                 <label
-                  className={`cursor-pointer rounded-[10px] px-3 py-1.5 text-xs font-bold transition ${
+                  className={`cursor-pointer rounded-[6px] px-3 py-1.5 text-xs font-bold transition ${
                     scope === "library"
-                      ? "bg-blue-700 text-white shadow-sm"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)] shadow-sm"
+                      : "text-[var(--ink,#101310)] hover:bg-white"
                   }`}
                 >
                   <input
@@ -840,47 +863,56 @@ export default function DocumentBrowser({
           </form>
 
           {globalSearch && (
-            <p className="rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-900">
-              🔎 {t("documents.browser.globalSearchNotice")}
+            <p className="flex items-start gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]">
+              <Icon name="search" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {t("documents.browser.globalSearchNotice")}
             </p>
           )}
           {filtering && onlyFolder && (
-            <p className="rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-900">
-              🔎 {t("documents.browser.folderScopeNotice")}
+            <p className="flex items-start gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]">
+              <Icon name="search" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {t("documents.browser.folderScopeNotice")}
             </p>
           )}
 
           {/* Tag-filter chips */}
           {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-2">
-              <span className="self-center text-xs font-bold uppercase tracking-wider text-gray-500">
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--line,#dedcd1)] pt-3">
+              <span className={`self-center ${EYEBROW}`}>
                 {t("documents.browser.tagFilter")}
               </span>
-              {allTags.map((tag) => (
-                <Link
-                  key={tag.id}
-                  href={toggleTagLink(tag.name)}
-                  className={`rounded-full border-2 px-3 py-1 text-xs font-bold transition ${
-                    tagFilter === tag.name
-                      ? "border-transparent text-white"
-                      : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-                  }`}
-                  style={
-                    tagFilter === tag.name
-                      ? { backgroundColor: tag.color }
-                      : {}
-                  }
-                >
-                  🏷️ {tag.name}
-                </Link>
-              ))}
+              {allTags.map((tag) => {
+                const active = tagFilter === tag.name;
+                return (
+                  <Link
+                    key={tag.id}
+                    href={toggleTagLink(tag.name)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold transition ${
+                      active
+                        ? "border-transparent"
+                        : "border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]"
+                    }`}
+                    style={
+                      active
+                        ? {
+                            backgroundColor: tag.color,
+                            color: readableTextColor(tag.color),
+                          }
+                        : {}
+                    }
+                  >
+                    <Icon name="flag" className="h-3 w-3 shrink-0" />
+                    {tag.name}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
       {/* STICKY VERKTØYLINJE – alltid over dokumentlisten */}
-      <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 md:-mx-8 border-y border-gray-200 bg-gray-50/95 px-4 py-3 backdrop-blur sm:px-6 md:px-8">
+      <div className="sticky top-0 z-30 -mx-4 border-y border-[var(--line,#dedcd1)] bg-[var(--canvas,#f4f5f2)]/95 px-4 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <div className="flex flex-wrap items-center gap-2">
           {office && !showDeleted && (
             <div className="relative">
@@ -888,20 +920,24 @@ export default function DocumentBrowser({
                 type="button"
                 onClick={() => setNewMenuOpen((open) => !open)}
                 aria-expanded={newMenuOpen}
-                className="bg-[var(--primary-color)] text-white px-4 py-2.5 rounded-xl text-sm font-black hover:opacity-90 transition shadow-sm"
+                className={`${SIGNAL_BUTTON} whitespace-nowrap`}
               >
-                ＋ {t("documents.toolbar.new")}
+                <Icon name="plus" className="h-4 w-4" />
+                {t("documents.toolbar.new")}
               </button>
               {newMenuOpen && (
-                <div className="absolute left-0 z-40 mt-1 w-64 rounded-xl border-2 border-gray-200 bg-white p-2 shadow-xl">
+                <div className={`${CARD} absolute left-0 z-40 mt-1 w-64 p-2 shadow-xl`}>
                   <ToolbarMenuButton onClick={() => openPanel("upload")}>
-                    ⬆️ {t("documents.toolbar.upload")}
+                    <Icon name="file" className="h-4 w-4 shrink-0" />
+                    {t("documents.toolbar.upload")}
                   </ToolbarMenuButton>
                   <ToolbarMenuButton onClick={() => openPanel("folder")}>
-                    📁 {t("documents.toolbar.newFolder")}
+                    <Icon name="folder" className="h-4 w-4 shrink-0" />
+                    {t("documents.toolbar.newFolder")}
                   </ToolbarMenuButton>
                   <ToolbarMenuButton onClick={() => openPanel("bulk")}>
-                    📥 {t("documents.toolbar.import")}
+                    <Icon name="clipboard" className="h-4 w-4 shrink-0" />
+                    {t("documents.toolbar.import")}
                   </ToolbarMenuButton>
                 </div>
               )}
@@ -909,9 +945,12 @@ export default function DocumentBrowser({
           )}
 
           {currentFolder && (office || isAdmin) && (
-            <div className="flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-3 py-1.5">
-              <span className="text-xs font-bold text-gray-600 truncate max-w-[12rem]">
-                📁 {currentFolder.name}
+            <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 py-1.5">
+              <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold text-[var(--ink,#101310)]">
+                <Icon name="folder" className="h-4 w-4 shrink-0" />
+                <span className="max-w-[12rem] truncate">
+                  {currentFolder.name}
+                </span>
               </span>
               <FolderMenu
                 folder={currentFolder}
@@ -929,10 +968,13 @@ export default function DocumentBrowser({
           )}
 
           {isAdmin && (
-            <Link
-              href={deletedLink()}
-              className="ml-auto text-xs font-bold text-gray-700 bg-white border-2 border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-100 transition"
-            >
+            <Link href={deletedLink()} className={`${INK_BUTTON} ml-auto`}>
+              <Icon
+                name={showDeleted ? "arrowRight" : "trash"}
+                className={`h-3.5 w-3.5 shrink-0 ${
+                  showDeleted ? "rotate-180" : ""
+                }`}
+              />
               {showDeleted
                 ? t("documents.browser.showActive")
                 : t("documents.browser.showDeleted")}
@@ -941,9 +983,13 @@ export default function DocumentBrowser({
         </div>
 
         {panel && (
-          <div className="mt-3 rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="font-black text-gray-900">
+          <div className={`${CARD} mt-2 p-3 shadow-xl sm:p-4`}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-sm font-extrabold text-[var(--ink,#101310)]">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+                />
                 {panel === "folder"
                   ? t("documents.toolbar.newFolder")
                   : panel === "upload"
@@ -956,9 +1002,10 @@ export default function DocumentBrowser({
                   setPanel(null);
                   setPanelError(null);
                 }}
-                className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-[var(--muted,#62685f)] transition hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
               >
-                ✕ {t("documents.browser.close")}
+                <Icon name="close" className="h-3.5 w-3.5" />
+                {t("documents.browser.close")}
               </button>
             </div>
 
@@ -971,13 +1018,11 @@ export default function DocumentBrowser({
                   maxLength={200}
                   aria-label={t("documents.folders.namePlaceholder")}
                   placeholder={t("documents.browser.folderNamePlaceholder")}
-                  className="flex-1 min-w-[12rem] border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 font-medium focus:border-blue-500"
+                  className={`${FIELD} min-w-[12rem] flex-1`}
                 />
-                <button
-                  type="submit"
-                  className="bg-[var(--primary-color)] text-white px-5 py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm"
-                >
-                  + {t("documents.browser.createFolder")}
+                <button type="submit" className={INK_BUTTON}>
+                  <Icon name="plus" className="h-3.5 w-3.5" />
+                  {t("documents.browser.createFolder")}
                 </button>
               </form>
             )}
@@ -993,7 +1038,7 @@ export default function DocumentBrowser({
 
             {panel === "bulk" && (
               <>
-                <p className="text-sm text-gray-500 mb-3">
+                <p className={`mb-3 text-sm ${MUTED}`}>
                   {t("documents.browser.uploadStructureHint")}
                 </p>
                 <BulkUploadForm
@@ -1001,16 +1046,14 @@ export default function DocumentBrowser({
                   bulkCreateDocuments={bulkCreateDocumentsAction}
                   discardUploads={discardUploadsAction}
                 />
-                <div className="border-t-2 border-gray-200 pt-3 mt-4">
+                <div className="mt-4 border-t border-[var(--line,#dedcd1)] pt-3">
                   <form action={reindexDocumentsAction}>
                     <DocumentContextFields context={formContext} />
-                    <button
-                      type="submit"
-                      className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-300 transition shadow-sm"
-                    >
+                    <button type="submit" className={`${QUIET_BUTTON} w-full`}>
+                      <Icon name="sync" className="h-3.5 w-3.5" />
                       {t("documents.browser.reindex")}
                     </button>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className={`mt-2 text-xs ${MUTED}`}>
                       {t("documents.browser.reindexHint")}
                     </p>
                   </form>
@@ -1019,7 +1062,10 @@ export default function DocumentBrowser({
             )}
 
             {panelError && (
-              <p role="alert" className="mt-2 text-xs font-bold text-red-700">
+              <p
+                role="alert"
+                className="mt-2 text-xs font-bold text-[var(--risk-text,#b42318)]"
+              >
                 {panelError}
               </p>
             )}
@@ -1028,17 +1074,31 @@ export default function DocumentBrowser({
       </div>
 
       {/* BREADCRUMB */}
-      <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-600">
-        <Link href={folderLink(null)} className="transition hover:text-blue-700">
-          📚 {t("documents.browser.allDocuments")}
+      <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold">
+        <Link
+          href={folderLink(null)}
+          className="inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:text-[var(--muted,#62685f)]"
+        >
+          <Icon name="home" className="h-3.5 w-3.5 shrink-0" />
+          {t("documents.browser.allDocuments")}
         </Link>
         {breadcrumb.map((folder, index) => (
-          <span key={folder.id} className="flex items-center gap-2">
-            <span className="text-gray-400">/</span>
+          <span key={folder.id} className="flex items-center gap-1.5">
+            <Icon
+              name="chevronRight"
+              className="h-3.5 w-3.5 text-[var(--muted,#62685f)]"
+            />
             {index === breadcrumb.length - 1 ? (
-              <span className="text-gray-900">{folder.name}</span>
+              <span className="inline-flex items-center gap-1.5 text-[var(--ink,#101310)]">
+                <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                {folder.name}
+              </span>
             ) : (
-              <Link href={folderLink(folder.id)} className="transition hover:text-blue-700">
+              <Link
+                href={folderLink(folder.id)}
+                className="inline-flex items-center gap-1.5 text-[var(--muted,#62685f)] transition hover:text-[var(--ink,#101310)]"
+              >
+                <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
                 {folder.name}
               </Link>
             )}
@@ -1047,23 +1107,24 @@ export default function DocumentBrowser({
       </div>
 
       {!folderId && (
-        <div className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className={`${CARD} border-l-4 border-l-[var(--signal,#d8ff3e)] p-3 sm:p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <h2 className="text-base font-black text-gray-900">
-              📚 {t("documents.browser.allDocuments")}
+            <h2 className="flex items-center gap-2 text-sm font-extrabold text-[var(--ink,#101310)]">
+              <Icon name="folder" className="h-4 w-4 shrink-0" />
+              {t("documents.browser.allDocuments")}
             </h2>
-            <p className="text-sm font-bold text-gray-700">
+            <p className="text-xs font-bold text-[var(--ink,#101310)]">
               {t("documents.browser.allDocumentsCount", {
                 count: libraryTotal,
               })}
             </p>
           </div>
-          <p className="mt-1 text-xs font-bold text-blue-800">
+          <p className="mt-1.5 inline-flex rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
             {t("documents.browser.rootFilesCount", {
               count: rootDocumentCount,
             })}
           </p>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className={`mt-2 text-sm ${MUTED}`}>
             {t("documents.browser.libraryHint")}
           </p>
         </div>
@@ -1073,36 +1134,60 @@ export default function DocumentBrowser({
       {detailDocument && (
         <div
           ref={detailRef}
-          className="scroll-mt-24 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-blue-200 space-y-4"
+          className={`${CARD} relative scroll-mt-24 space-y-4 overflow-hidden p-4 sm:p-5`}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
-            <div className="min-w-0">
-              <h2 className="font-black text-gray-900 truncate">🗂️ {detailDocument.title}</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {detailDocument.fileName} • {(detailDocument.fileSize / 1024).toFixed(0)} KB
-                {detailDocument.versions.length > 0
-                  ? ` • ${t("documents.browser.versionsCount", {
-                      count: detailDocument.versions.length,
-                    })}`
-                  : ` • ${t("documents.browser.noPreviousVersions")}`}
-              </p>
-              <p className="mt-1 text-xs font-bold text-blue-700">
-                {t("documents.browser.folderPath", {
-                  path:
-                    detailDocument.folderPath ??
-                    t("documents.browser.root"),
-                })}
-              </p>
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1 bg-[var(--signal,#d8ff3e)]"
+          />
+          <div className="flex flex-col gap-3 border-b border-[var(--line,#dedcd1)] pb-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]">
+                <Icon name="file" className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+                  {detailDocument.title}
+                </h2>
+                <p className={`mt-0.5 truncate font-mono text-xs ${MUTED}`}>
+                  {detailDocument.fileName} ·{" "}
+                  {(detailDocument.fileSize / 1024).toFixed(0)} KB
+                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
+                    <Icon name="folder" className="h-3 w-3 shrink-0" />
+                    {t("documents.browser.folderPath", {
+                      path:
+                        detailDocument.folderPath ??
+                        t("documents.browser.root"),
+                    })}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line,#dedcd1)] bg-white px-2 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                    <Icon name="clock" className="h-3 w-3 shrink-0" />
+                    {detailDocument.versions.length > 0
+                      ? t("documents.browser.versionsCount", {
+                          count: detailDocument.versions.length,
+                        })
+                      : t("documents.browser.noPreviousVersions")}
+                  </span>
+                </div>
+              </div>
             </div>
             <Link
               href={returnTo ?? pageLink(page)}
-              className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
+              className={`${QUIET_BUTTON} shrink-0 whitespace-nowrap`}
             >
+              <Icon
+                name={returnTo ? "arrowRight" : "close"}
+                className={`h-3.5 w-3.5 shrink-0 ${
+                  returnTo ? "rotate-180" : ""
+                }`}
+              />
               {returnTo
                 ? returnTo.startsWith("/sok")
                   ? t("documents.browser.backToSearch")
                   : t("documents.browser.backToContext")
-                : `✕ ${t("documents.browser.close")}`}
+                : t("documents.browser.close")}
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1110,9 +1195,10 @@ export default function DocumentBrowser({
               href={detailDocument.filePath}
               target="_blank"
               rel="noreferrer"
-              className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-4 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85"
             >
-              📖 {t("documents.browser.openPdf")}
+              <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+              {t("documents.browser.openPdf")}
             </a>
             {office && !showDeleted && (
               <EditDocumentForm
@@ -1127,36 +1213,47 @@ export default function DocumentBrowser({
           </div>
 
           {detailDocument.versions.length > 0 && (
-            <details className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-              <summary className="cursor-pointer text-xs font-black text-gray-700">
-                🗂️{" "}
-                {t("documents.versions.drawer", {
-                  count: detailDocument.versions.length,
-                })}
+            <details className="group rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+                  {t("documents.versions.drawer", {
+                    count: detailDocument.versions.length,
+                  })}
+                </span>
+                <Icon
+                  name="chevronDown"
+                  className="h-3.5 w-3.5 shrink-0 transition group-open:rotate-180"
+                />
               </summary>
-              <div className="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
+              <div className="max-h-64 space-y-1.5 overflow-y-auto border-t border-[var(--line,#dedcd1)] p-2">
                 {detailDocument.versions.map((version) => (
                   <div
                     key={version.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 py-2 text-xs"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-bold text-gray-800">
+                      <p className="flex items-center gap-1.5 truncate font-bold text-[var(--ink,#101310)]">
+                        <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
                         {version.fileName}
                       </p>
-                      <p className="text-gray-500">
-                        {new Date(version.createdAt).toLocaleString(locale)} •{" "}
+                      <p className={`mt-0.5 font-mono ${MUTED}`}>
+                        {new Date(version.createdAt).toLocaleString(locale)} ·{" "}
                         {(version.fileSize / 1024).toFixed(0)} KB
-                        {version.createdBy ? ` • ${version.createdBy}` : ""}
+                        {version.createdBy ? ` · ${version.createdBy}` : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <a
                         href={version.filePath}
                         download={version.fileName}
-                        className="font-bold text-blue-700 hover:underline whitespace-nowrap"
+                        className="inline-flex items-center gap-1 font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:no-underline"
                       >
-                        ⬇️ {t("documents.versions.download")}
+                        <Icon
+                          name="arrowRight"
+                          className="h-3.5 w-3.5 shrink-0 rotate-90"
+                        />
+                        {t("documents.versions.download")}
                       </a>
                       {office && !showDeleted && (
                         <form action={restoreVersionAction}>
@@ -1168,7 +1265,7 @@ export default function DocumentBrowser({
                           />
                           <button
                             type="submit"
-                            className="font-bold text-amber-700 hover:underline whitespace-nowrap"
+                            className="font-bold text-[var(--muted,#62685f)] underline decoration-[var(--line,#dedcd1)] decoration-2 underline-offset-4 transition hover:text-[var(--ink,#101310)]"
                           >
                             {t("documents.versions.restore")}
                           </button>
@@ -1183,38 +1280,45 @@ export default function DocumentBrowser({
         </div>
       )}
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         {/* UNDERMAPPER */}
         {subFolders.length > 0 && !libraryScope && (
           <div className={folderId ? undefined : "order-2 lg:order-1"}>
-            <h2 className="mb-3 text-sm font-black uppercase tracking-wider text-gray-500">
+            <h2 className={`mb-2 flex items-center gap-1.5 ${EYEBROW}`}>
+              <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
               {folderId
                 ? t("documents.browser.subfolders")
                 : t("documents.browser.rootFolders")}
             </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
               {subFolders.map((folder) => (
                 <div
                   key={folder.id}
-                  className="relative rounded-2xl border-2 border-gray-200 bg-white shadow-sm transition hover:border-blue-400 hover:shadow-md"
+                  className={`${CARD} group relative min-w-0 transition hover:border-[var(--ink,#101310)]`}
                 >
                   <Link
                     href={folderLink(folder.id)}
                     prefetch={false}
-                    className="block p-4 text-center"
+                    className="flex min-h-full flex-col gap-2 p-3 pr-9"
                   >
-                    <div className="mb-1 text-3xl">📁</div>
-                    <p className="truncate text-sm font-bold text-gray-900">{folder.name}</p>
-                    <p
-                      className="mt-0.5 text-xs font-semibold text-gray-500"
-                      title={t("documents.browser.folderCountHint")}
-                    >
-                      {t("documents.browser.folderCount", {
-                        count: folderDocumentCounts[folder.id] ?? 0,
-                      })}
-                    </p>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)] transition group-hover:bg-[var(--signal,#d8ff3e)]">
+                      <Icon name="folder" className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-[var(--ink,#101310)]">
+                        {folder.name}
+                      </span>
+                      <span
+                        className={`mt-0.5 block text-xs font-semibold ${MUTED}`}
+                        title={t("documents.browser.folderCountHint")}
+                      >
+                        {t("documents.browser.folderCount", {
+                          count: folderDocumentCounts[folder.id] ?? 0,
+                        })}
+                      </span>
+                    </span>
                   </Link>
-                  <div className="absolute right-1.5 top-1.5">
+                  <div className="absolute right-1 top-1">
                     <FolderMenu
                       folder={folder}
                       allFolders={folderOptions}
@@ -1233,8 +1337,9 @@ export default function DocumentBrowser({
 
         {/* DOKUMENTER */}
         <div className={folderId ? undefined : "order-1 lg:order-2"}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-black uppercase tracking-wider text-gray-500">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className={`flex items-center gap-1.5 ${EYEBROW}`}>
+              <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
               {(!folderId && !onlyFolder) || libraryScope
                 ? t("documents.browser.allDocumentsHeading", {
                     count: totalDocuments,
@@ -1246,37 +1351,56 @@ export default function DocumentBrowser({
                   : t("documents.browser.documents", { count: totalDocuments })}
             </h2>
             {canSelect && documents.length > 0 && (
-              <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-600">
+              <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--ink,#101310)]">
                 <input
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={toggleAll}
                   disabled={bulkBusy}
-                  className="h-4 w-4"
+                  className="h-4 w-4 accent-[var(--ink,#101310)]"
                 />
                 {t("documents.bulkActions.selectAll")}
               </label>
             )}
           </div>
 
-        {documents.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">{emptyTitle}</p>
-            <p className="mt-1 text-xs text-gray-500">{emptyHint}</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className={`bg-white p-3 sm:p-4 rounded-2xl border-2 transition space-y-3 ${
-                  selected.has(doc.id)
-                    ? "border-blue-500 shadow-md"
-                    : "border-gray-200 hover:border-blue-400 hover:shadow-md"
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
+          {documents.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center">
+              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]">
+                <Icon name="file" className="h-4 w-4" />
+              </span>
+              <p className="mt-2 text-sm font-bold text-[var(--ink,#101310)]">
+                {emptyTitle}
+              </p>
+              <p className={`mt-1 text-xs ${MUTED}`}>{emptyHint}</p>
+            </div>
+          ) : (
+            <div className={`${CARD} overflow-hidden`}>
+              <div className="hidden items-center gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/60 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)] md:flex">
+                {canSelect && <span className="w-4 shrink-0" />}
+                <span className="min-w-0 flex-1">
+                  {t("documents.browser.tableDocument")}
+                </span>
+                {showFolderPath && (
+                  <span className="w-36 shrink-0">
+                    {t("documents.browser.tableFolder")}
+                  </span>
+                )}
+                <span className="w-52 shrink-0">
+                  {t("documents.browser.tableFile")}
+                </span>
+                <span className="ml-auto shrink-0 text-right">
+                  {t("documents.browser.tableActions")}
+                </span>
+              </div>
+              <div className="divide-y divide-[var(--line,#dedcd1)]">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className={`flex flex-col gap-2 px-3 py-2.5 transition hover:bg-[var(--paper,#f2efe6)]/50 md:flex-row md:items-start ${
+                      selected.has(doc.id) ? SELECTED_ROW : ""
+                    }`}
+                  >
                     {canSelect && (
                       <input
                         type="checkbox"
@@ -1286,293 +1410,341 @@ export default function DocumentBrowser({
                         aria-label={t("documents.bulkActions.selectDocument", {
                           title: doc.title,
                         })}
-                        className="mt-1 h-4 w-4 flex-shrink-0"
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--ink,#101310)]"
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xl">📄</span>
-                        <p className="font-black text-gray-900 truncate">{doc.title}</p>
-                      </div>
+                      <p className="truncate text-sm font-bold text-[var(--ink,#101310)]">
+                        {doc.title}
+                      </p>
                       {doc.description && (
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{doc.description}</p>
-                      )}
-                      {showFolderPath && (
-                        <p className="mt-1 text-xs font-bold text-blue-700">
-                          📁 {doc.folderPath ?? t("documents.browser.root")}
+                        <p className={`mt-0.5 line-clamp-2 text-xs ${MUTED}`}>
+                          {doc.description}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        {doc.fileName} • {(doc.fileSize / 1024).toFixed(0)} KB
-                        {doc.uploadedBy
-                          ? ` • ${t("documents.browser.uploadedBy", { name: doc.uploadedBy })}`
-                          : ""}
-                      </p>
                       {doc.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        <div className="mt-1 flex flex-wrap gap-1">
                           {doc.tags.map((tag) => (
                             <span
                               key={tag.id}
-                              className="px-2 py-0.5 rounded-full text-xs font-bold shadow-sm"
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
                               suppressHydrationWarning
-                              style={{ backgroundColor: tag.color || "#3b82f6", color: readableTextColor(tag.color || "#3b82f6") }}
+                              style={{
+                                backgroundColor: tag.color || "#3b82f6",
+                                color: readableTextColor(
+                                  tag.color || "#3b82f6",
+                                ),
+                              }}
                             >
-                              🏷️ {tag.name}
+                              <Icon name="flag" className="h-2.5 w-2.5 shrink-0" />
+                              {tag.name}
                             </span>
                           ))}
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                    {showDeleted ? (
-                      <form action={restoreDocumentAction}>
-                        <DocumentContextFields context={formContext} />
-                        <input type="hidden" name="id" value={doc.id} />
-                        <button
-                          type="submit"
-                          className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 transition whitespace-nowrap"
-                        >
-                          ♻️ {t("documents.browser.restore")}
-                        </button>
-                      </form>
-                    ) : (
-                      <>
-                        <a
-                          href={doc.filePath}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
-                        >
-                          📖 {t("documents.browser.openPdf")}
-                        </a>
-                        {office && (
-                          <Link
-                            href={docLink(doc.id)}
-                            prefetch={false}
-                            className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition whitespace-nowrap"
-                          >
-                            🗂️ {t("documents.browser.versions")}
-                          </Link>
-                        )}
-                        {office && (
-                          <EditDocumentForm
-                            doc={doc}
-                            allFolders={folderOptions}
-                            allTags={allTags}
-                            updateDocument={updateDocumentAction}
-                            restoreVersion={restoreVersionAction}
-                            context={formContext}
-                          />
-                        )}
-                        {isAdmin && (
-                          <ConfirmSubmitForm
-                            action={deleteDocumentAction}
-                            confirmMessage={t("documents.browser.deleteConfirm", {
-                              title: doc.title,
-                            })}
-                            confirmLabel={t("delete")}
-                            danger
-                          >
-                            <DocumentContextFields context={formContext} />
-                            <input type="hidden" name="id" value={doc.id} />
-                            <button
-                              type="submit"
-                              className="text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 transition whitespace-nowrap"
-                            >
-                              🗑️ {t("documents.browser.delete")}
-                            </button>
-                          </ConfirmSubmitForm>
-                        )}
-                      </>
+                    {showFolderPath && (
+                      <div className="min-w-0 md:w-36 md:shrink-0">
+                        <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
+                          <Icon name="folder" className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            {doc.folderPath ?? t("documents.browser.root")}
+                          </span>
+                        </span>
+                      </div>
                     )}
+                    <div className="min-w-0 md:w-52 md:shrink-0">
+                      <p
+                        className="truncate font-mono text-xs text-[var(--ink,#101310)]"
+                        title={doc.fileName}
+                      >
+                        {doc.fileName}
+                      </p>
+                      <p className={`truncate text-xs ${MUTED}`}>
+                        {(doc.fileSize / 1024).toFixed(0)} KB
+                        {doc.uploadedBy
+                          ? ` · ${t("documents.browser.uploadedBy", {
+                              name: doc.uploadedBy,
+                            })}`
+                          : ""}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 md:ml-auto md:shrink-0 md:justify-end">
+                      {showDeleted ? (
+                        <form action={restoreDocumentAction}>
+                          <DocumentContextFields context={formContext} />
+                          <input type="hidden" name="id" value={doc.id} />
+                          <button
+                            type="submit"
+                            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2.5 py-1 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+                          >
+                            <Icon name="sync" className="h-3.5 w-3.5 shrink-0" />
+                            {t("documents.browser.restore")}
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <a
+                            href={doc.filePath}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2.5 py-1 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+                          >
+                            <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+                            {t("documents.browser.openPdf")}
+                          </a>
+                          {office && (
+                            <Link
+                              href={docLink(doc.id)}
+                              prefetch={false}
+                              className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-1 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]"
+                            >
+                              <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
+                              {t("documents.browser.versions")}
+                            </Link>
+                          )}
+                          {office && (
+                            <EditDocumentForm
+                              doc={doc}
+                              allFolders={folderOptions}
+                              allTags={allTags}
+                              updateDocument={updateDocumentAction}
+                              restoreVersion={restoreVersionAction}
+                              context={formContext}
+                            />
+                          )}
+                          {isAdmin && (
+                            <ConfirmSubmitForm
+                              action={deleteDocumentAction}
+                              confirmMessage={t("documents.browser.deleteConfirm", {
+                                title: doc.title,
+                              })}
+                              confirmLabel={t("delete")}
+                              danger
+                            >
+                              <DocumentContextFields context={formContext} />
+                              <input type="hidden" name="id" value={doc.id} />
+                              <button
+                                type="submit"
+                                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:border-[#e7b5ae] hover:bg-[#fbe9e7]"
+                              >
+                                <Icon name="trash" className="h-3.5 w-3.5 shrink-0" />
+                                {t("documents.browser.delete")}
+                              </button>
+                            </ConfirmSubmitForm>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
 
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          hrefFor={pageLink}
-          labels={paginationLabels(t)}
-          summary={`${t("documents.browser.pageOf", {
-            page: currentPage,
-            totalPages,
-          })} • ${t("documents.browser.documentCount", {
-            count: totalDocuments,
-          })}`}
-          className="mt-3"
-        />
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            hrefFor={pageLink}
+            labels={paginationLabels(t)}
+            summary={`${t("documents.browser.pageOf", {
+              page: currentPage,
+              totalPages,
+            })} • ${t("documents.browser.documentCount", {
+              count: totalDocuments,
+            })}`}
+            className="mt-3"
+          />
         </div>
       </div>
 
       {/* STICKY HANDLINGSSTOLPE FOR MERKEDE DOKUMENTER */}
       {(selected.size > 0 || bulkResult) && (
-        <div className="sticky bottom-0 z-30 -mx-4 border-t-2 border-blue-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
-          {selected.size > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-black text-gray-900">
-                {t("documents.bulkActions.selected", { count: selected.size })}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelected(new Set());
-                  setBulkMoveTarget("");
-                }}
-                className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl"
-              >
-                {t("documents.bulkActions.clear")}
-              </button>
-
-              {office && (
-                <div className="flex items-center gap-1">
-                  <select
-                    value={bulkMoveTarget}
-                    onChange={(event) => setBulkMoveTarget(event.target.value)}
-                    aria-label={t("documents.bulkActions.moveTo")}
-                    className="border border-gray-300 p-2 rounded-xl text-xs text-gray-900 bg-white"
-                  >
-                    <option value="" disabled>
-                      {t("documents.bulkActions.moveDestination")}
-                    </option>
-                    <option value="__root__">
-                      {t("documents.folders.root")}
-                    </option>
-                    {folderOptions.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmBulkMove(true)}
-                    disabled={bulkBusy || !bulkMoveTarget}
-                    className="text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded-xl disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {t("documents.bulkActions.move")}
-                  </button>
-                </div>
-              )}
-
-              {office && allTags.length > 0 && (
-                <form onSubmit={submitBulkTag} className="flex items-center gap-1">
-                  <select
-                    name="tags"
-                    defaultValue=""
-                    required
-                    aria-label={t("documents.bulkActions.tagPlaceholder")}
-                    className="border border-gray-300 p-2 rounded-xl text-xs text-gray-900 bg-white"
-                  >
-                    <option value="" disabled>
-                      {t("documents.bulkActions.tagPlaceholder")}
-                    </option>
-                    {allTags.map((tag) => (
-                      <option key={tag.id} value={tag.name}>
-                        {tag.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={bulkBusy}
-                    className="text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-xl disabled:opacity-50"
-                  >
-                    {t("documents.bulkActions.addTag")}
-                  </button>
-                </form>
-              )}
-
-              {isAdmin && (
+        <div className="sticky bottom-0 z-30 -mx-4 px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+          <div className={`${CARD} border-t-4 border-t-[var(--signal,#d8ff3e)] px-3 py-2.5 shadow-[0_-8px_28px_-20px_rgba(16,19,16,0.5)] sm:px-4`}>
+            {selected.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 text-sm font-extrabold text-[var(--ink,#101310)]">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--ink,#101310)] px-1.5 text-xs font-black tabular-nums text-[var(--paper,#f2efe6)]">
+                    {selected.size}
+                  </span>
+                  {t("documents.bulkActions.selected", {
+                    count: selected.size,
+                  })}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setConfirmBulkDelete(true)}
-                  disabled={bulkBusy}
-                  className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-2 rounded-xl disabled:opacity-50"
+                  onClick={() => {
+                    setSelected(new Set());
+                    setBulkMoveTarget("");
+                  }}
+                  className="inline-flex min-h-9 items-center rounded-md px-2 text-xs font-bold text-[var(--muted,#62685f)] underline decoration-[var(--line,#dedcd1)] decoration-2 underline-offset-4 transition hover:text-[var(--ink,#101310)]"
                 >
-                  {t("documents.bulkActions.delete")}
+                  {t("documents.bulkActions.clear")}
                 </button>
-              )}
 
-              {bulkBusy && (
-                <span className="text-xs font-bold text-blue-700">
-                  {t("documents.bulkActions.busy")}
-                </span>
-              )}
-            </div>
-          )}
-
-          {bulkResult && (
-            <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  {"error" in bulkResult ? (
-                    <p role="alert" className="font-bold text-red-700">
-                      {bulkResult.error}
-                    </p>
-                  ) : (
-                    <>
-                      <p className="font-bold text-gray-800">
-                        {t("documents.bulkActions.result", {
-                          succeeded: bulkResult.succeeded,
-                          failed: bulkResult.failed,
-                        })}
-                      </p>
-                      {bulkResult.results.length > 0 && (
-                        <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto">
-                          {bulkResult.results.map((item) => (
-                            <li
-                              key={item.id}
-                              className={
-                                item.status === "failed"
-                                  ? "text-red-700"
-                                  : "text-emerald-800"
-                              }
-                            >
-                              {item.status === "failed" ? "⛔" : "✅"}{" "}
-                              {item.title || item.id}:{" "}
-                              {item.status === "failed"
-                                ? t(errorKey(item.reason ?? "error"))
-                                : t("documents.bulkActions.itemOk")}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  {undoMove && !("error" in bulkResult) && (
+                {office && (
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={bulkMoveTarget}
+                      onChange={(event) => setBulkMoveTarget(event.target.value)}
+                      aria-label={t("documents.bulkActions.moveTo")}
+                      className="min-h-9 rounded-md border border-[var(--line,#dedcd1)] bg-white px-2 text-xs font-medium text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+                    >
+                      <option value="" disabled>
+                        {t("documents.bulkActions.moveDestination")}
+                      </option>
+                      <option value="__root__">
+                        {t("documents.folders.root")}
+                      </option>
+                      {folderOptions.map((folder) => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
-                      onClick={undoLastMove}
-                      disabled={bulkBusy}
-                      title={t("documents.bulkActions.moveUndoTarget", {
-                        destination: undoMove.destination,
-                      })}
-                      className="rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                      onClick={() => setConfirmBulkMove(true)}
+                      disabled={bulkBusy || !bulkMoveTarget}
+                      className={`${SIGNAL_BUTTON} min-h-9 px-3 py-1.5`}
                     >
-                      ↩️ {t("documents.bulkActions.moveUndo")}
+                      {t("documents.bulkActions.move")}
                     </button>
-                  )}
+                  </div>
+                )}
+
+                {office && allTags.length > 0 && (
+                  <form onSubmit={submitBulkTag} className="flex items-center gap-1">
+                    <select
+                      name="tags"
+                      defaultValue=""
+                      required
+                      aria-label={t("documents.bulkActions.tagPlaceholder")}
+                      className="min-h-9 rounded-md border border-[var(--line,#dedcd1)] bg-white px-2 text-xs font-medium text-[var(--ink,#101310)] outline-none focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]"
+                    >
+                      <option value="" disabled>
+                        {t("documents.bulkActions.tagPlaceholder")}
+                      </option>
+                      {allTags.map((tag) => (
+                        <option key={tag.id} value={tag.name}>
+                          {tag.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      disabled={bulkBusy}
+                      className={`${INK_BUTTON} min-h-9 px-3 py-1.5`}
+                    >
+                      {t("documents.bulkActions.addTag")}
+                    </button>
+                  </form>
+                )}
+
+                {isAdmin && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setBulkResult(null);
-                      setUndoMove(null);
-                    }}
-                    className="text-xs font-bold text-gray-500 hover:text-gray-800"
+                    onClick={() => setConfirmBulkDelete(true)}
+                    disabled={bulkBusy}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[#e7b5ae] bg-transparent px-3 py-1.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fbe9e7] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {t("documents.bulkActions.dismiss")}
+                    <Icon name="trash" className="h-3.5 w-3.5 shrink-0" />
+                    {t("documents.bulkActions.delete")}
                   </button>
+                )}
+
+                {bulkBusy && (
+                  <span className={`text-xs font-bold ${MUTED}`}>
+                    {t("documents.bulkActions.busy")}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {bulkResult && (
+              <div className={`${selected.size > 0 ? "mt-2 border-t border-[var(--line,#dedcd1)] pt-2" : ""} text-xs`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {"error" in bulkResult ? (
+                      <p
+                        role="alert"
+                        className="flex items-start gap-1.5 font-bold text-[var(--risk-text,#b42318)]"
+                      >
+                        <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        {bulkResult.error}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="font-bold text-[var(--ink,#101310)]">
+                          {t("documents.bulkActions.result", {
+                            succeeded: bulkResult.succeeded,
+                            failed: bulkResult.failed,
+                          })}
+                        </p>
+                        {bulkResult.results.length > 0 && (
+                          <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto">
+                            {bulkResult.results.map((item) => (
+                              <li
+                                key={item.id}
+                                className={`flex items-start gap-1.5 ${
+                                  item.status === "failed"
+                                    ? "text-[var(--risk-text,#b42318)]"
+                                    : "text-[var(--ink,#101310)]"
+                                }`}
+                              >
+                                <Icon
+                                  name={
+                                    item.status === "failed" ? "alert" : "check"
+                                  }
+                                  className="mt-0.5 h-3 w-3 shrink-0"
+                                />
+                                <span>
+                                  {item.title || item.id}:{" "}
+                                  {item.status === "failed"
+                                    ? t(errorKey(item.reason ?? "error"))
+                                    : t("documents.bulkActions.itemOk")}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {undoMove && !("error" in bulkResult) && (
+                      <button
+                        type="button"
+                        onClick={undoLastMove}
+                        disabled={bulkBusy}
+                        title={t("documents.bulkActions.moveUndoTarget", {
+                          destination: undoMove.destination,
+                        })}
+                        className="inline-flex min-h-8 items-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2 py-1 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:opacity-50"
+                      >
+                        <Icon
+                          name="arrowRight"
+                          className="h-3 w-3 shrink-0 rotate-180"
+                        />
+                        {t("documents.bulkActions.moveUndo")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkResult(null);
+                        setUndoMove(null);
+                      }}
+                      className="inline-flex min-h-8 items-center rounded-md px-1 text-xs font-bold text-[var(--muted,#62685f)] transition hover:text-[var(--ink,#101310)]"
+                    >
+                      {t("documents.bulkActions.dismiss")}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -1622,7 +1794,7 @@ function ToolbarMenuButton({
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-gray-700 hover:bg-gray-100"
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
     >
       {children}
     </button>

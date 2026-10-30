@@ -7,6 +7,7 @@ import {
 import { PERMISSIONS, roleLabel } from "@/lib/permissions";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 type RoleRow = {
   key: string;
@@ -62,34 +63,41 @@ export default async function RolesAdmin({
       : null;
 
   const summaryClass =
-    "flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden";
+    "flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)] sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden";
   const summaryChevronClass =
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-transform group-open:rotate-180";
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted,#62685f)] transition-transform group-open:rotate-180";
   const permissionChipClass =
-    "rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-700";
+    "rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 font-medium text-[var(--ink,#101310)]";
+  const fieldClass = controlClassName("min-h-10 text-sm font-medium");
+  const LABEL =
+    "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
+  const infoBoxClass =
+    "rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 text-xs text-[var(--muted,#62685f)]";
+  const SIGNAL_BUTTON =
+    "signal-button w-full text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-2";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1">
-        <details className="group sticky top-8 rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <details className="group office-card sticky top-8">
           <summary className={summaryClass}>
             <span
               aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
             >
               <Icon name="plus" className="h-5 w-5" />
             </span>
-            <span className="min-w-0 flex-1 font-bold text-gray-800">
+            <span className="min-w-0 flex-1 font-bold text-[var(--ink,#101310)]">
               {t("settings.roles.newRole")}
             </span>
             <span aria-hidden="true" className={summaryChevronClass}>
               <Icon name="chevronDown" className="h-4 w-4" />
             </span>
           </summary>
-          <div className="border-t border-gray-100 p-4 sm:p-6">
+          <div className="border-t border-[var(--line,#dedcd1)] p-4 sm:p-6">
             <form action={createRole} className="space-y-4">
               <div>
-                <label htmlFor="role-new-label" className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="role-new-label" className={LABEL}>
                   {t("settings.roles.name")}
                 </label>
                 <input
@@ -98,38 +106,38 @@ export default async function RolesAdmin({
                   name="label"
                   required
                   placeholder={t("settings.roles.namePlaceholder")}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <label htmlFor="role-new-description" className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="role-new-description" className={LABEL}>
                   {t("settings.roles.descriptionLabel")}{" "}
-                  <span className="font-normal text-gray-600">{t("settings.roles.optional")}</span>
+                  <span className="font-normal normal-case tracking-normal text-[var(--muted,#62685f)]">{t("settings.roles.optional")}</span>
                 </label>
                 <input
                   id="role-new-description"
                   type="text"
                   name="description"
                   placeholder={t("settings.roles.descriptionPlaceholder")}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className={fieldClass}
                 />
               </div>
   
               <div className="space-y-3">
-                <p className="text-xs font-bold text-gray-800">{t("settings.roles.permissions")}</p>
+                <p className="text-xs font-bold text-[var(--ink,#101310)]">{t("settings.roles.permissions")}</p>
                 {permissionGroups.map((group) => (
                   <fieldset
                     key={group.group}
-                    className="border border-gray-200 rounded-xl p-3"
+                    className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3"
                   >
-                    <legend className="px-1 text-xs font-bold text-gray-600 uppercase">
+                    <legend className="px-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                       {t(group.groupKey)}
                     </legend>
                     <div className="space-y-2">
                       {group.permissions.map((permission) => (
                         <label
                           key={permission.key}
-                          className="flex items-start gap-2 text-xs text-gray-700"
+                          className="flex items-start gap-2 text-xs text-[var(--ink,#101310)]"
                           title={t(permission.descriptionKey)}
                         >
                           <input
@@ -140,11 +148,11 @@ export default async function RolesAdmin({
                           />
                           <span>
                             <span className="font-semibold">{t(permission.labelKey)}</span>
-                            <span className="block text-xs text-gray-600">
+                            <span className="block text-xs text-[var(--muted,#62685f)]">
                               {t(permission.descriptionKey)}
                             </span>
                             {permission.key === "reports.viewAllDepartments" && (
-                              <span className="mt-0.5 block rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                              <span className="mt-0.5 block rounded bg-[#fbf1d2] px-1.5 py-0.5 text-xs font-semibold text-[#6b4a05]">
                                 {t("settings.roles.requiresPermission", {
                                   permission: reportsViewLabel,
                                 })}
@@ -158,13 +166,13 @@ export default async function RolesAdmin({
                 ))}
               </div>
   
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-800">
+              <div className={infoBoxClass}>
                 {t("settings.roles.keyInfo")}
               </div>
   
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                className={SIGNAL_BUTTON}
               >
                 {t("settings.roles.create")}
               </button>
@@ -175,12 +183,14 @@ export default async function RolesAdmin({
 
       <div className="lg:col-span-2 space-y-4">
         {error && ROLE_ERROR_CODES.has(error) && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+            <Icon name="alert" className="h-4 w-4 shrink-0" />
             {t(`settings.roles.errors.${error}`)}
           </div>
         )}
         {messageText && (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-sm font-semibold">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--paper,#f2efe6)] px-4 py-3 text-sm font-bold text-[var(--ink,#101310)]">
+            <Icon name="check" className="h-4 w-4 shrink-0" />
             {messageText}
           </div>
         )}
@@ -190,28 +200,28 @@ export default async function RolesAdmin({
           return (
             <details
               key={role.key}
-              className="group rounded-2xl border border-gray-100 bg-white shadow-sm"
+              className="group office-card"
               data-role-row
             >
               <summary className={summaryClass}>
                 <span
                   aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
                 >
                   <Icon name="shield" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="min-w-0 truncate font-bold text-gray-900">
+                    <span className="min-w-0 truncate font-bold text-[var(--ink,#101310)]">
                       {role.isSystem ? roleLabel(role.key, t) : role.label}
                     </span>
                     {role.isSystem && (
-                      <span className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-xs font-bold uppercase text-gray-600">
+                      <span className="shrink-0 rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold uppercase text-[var(--ink,#101310)]">
                         {t("settings.roles.system")}
                       </span>
                     )}
                   </span>
-                  <span className="mt-0.5 block truncate text-xs text-gray-500">
+                  <span className="mt-0.5 block truncate text-xs text-[var(--muted,#62685f)]">
                     {t("settings.roles.stats", {
                       users: role.users,
                       permissions: role.permissions.length,
@@ -223,17 +233,17 @@ export default async function RolesAdmin({
                 </span>
               </summary>
 
-              <div className="border-t border-gray-100 p-4 sm:p-5">
+              <div className="border-t border-[var(--line,#dedcd1)] p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-xs font-mono text-gray-500">{role.key}</p>
+                    <p className="font-mono text-xs text-[var(--muted,#62685f)]">{role.key}</p>
                     {role.description && (
-                      <p className="mt-1 text-sm text-gray-500">
+                      <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
                         {role.description}
                       </p>
                     )}
-                    <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-gray-600">
-                      <span className="font-semibold text-gray-500">
+                    <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-[var(--muted,#62685f)]">
+                      <span className="font-semibold text-[var(--muted,#62685f)]">
                         {t("settings.roles.selectedPermissions")}:
                       </span>
                       {role.permissions.length === 0 ? (
@@ -246,7 +256,7 @@ export default async function RolesAdmin({
                             </span>
                           ))}
                           {role.permissions.length > 6 && (
-                            <span className="rounded bg-gray-100 px-1.5 py-0.5 font-bold text-gray-700">
+                            <span className="rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 font-bold text-[var(--ink,#101310)]">
                               +{role.permissions.length - 6}
                             </span>
                           )}
@@ -268,7 +278,7 @@ export default async function RolesAdmin({
                       <button
                         type="submit"
                         disabled={role.users > 0}
-                        className="text-xs font-bold bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-1"
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#e7b7a4] bg-[#fae8e0] px-3 py-1.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--risk,#f04427)] focus-visible:ring-offset-1"
                         title={
                           role.users > 0
                             ? t("settings.roles.deleteBlocked")
@@ -281,14 +291,14 @@ export default async function RolesAdmin({
                   )}
                 </div>
 
-                <form action={updateRole} className="mt-4 space-y-4 border-t border-gray-100 pt-4">
+                <form action={updateRole} className="mt-4 space-y-4 border-t border-[var(--line,#dedcd1)] pt-4">
                   <input type="hidden" name="key" value={role.key} />
-                  <p className="text-xs font-bold text-gray-700">
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                     {t("settings.roles.edit")}
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label htmlFor={`role-${role.key}-label`} className="block text-xs font-bold text-gray-700 mb-1">
+                      <label htmlFor={`role-${role.key}-label`} className={LABEL}>
                         {t("settings.roles.displayName")}
                       </label>
                       <input
@@ -297,11 +307,11 @@ export default async function RolesAdmin({
                         name="label"
                         required
                         defaultValue={role.label}
-                        className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className={fieldClass}
                       />
                     </div>
                     <div>
-                      <label htmlFor={`role-${role.key}-description`} className="block text-xs font-bold text-gray-700 mb-1">
+                      <label htmlFor={`role-${role.key}-description`} className={LABEL}>
                         {t("settings.roles.descriptionLabel")}
                       </label>
                       <input
@@ -309,13 +319,13 @@ export default async function RolesAdmin({
                         type="text"
                         name="description"
                         defaultValue={role.description ?? ""}
-                        className="w-full border border-gray-300 p-2 rounded-lg text-sm text-gray-900 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        className={fieldClass}
                       />
                     </div>
                   </div>
 
                   {locked ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                    <div className="rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] p-3 text-xs text-[#6b4a05]">
                       {role.key === "ADMIN"
                         ? t("settings.roles.adminLocked")
                         : t("settings.roles.customerLocked")}
@@ -325,16 +335,16 @@ export default async function RolesAdmin({
                       {permissionGroups.map((group) => (
                         <fieldset
                           key={group.group}
-                          className="border border-gray-200 rounded-xl p-3"
+                          className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3"
                         >
-                          <legend className="px-1 text-xs font-bold text-gray-600 uppercase">
+                          <legend className="px-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]">
                             {t(group.groupKey)}
                           </legend>
                           <div className="space-y-2">
                             {group.permissions.map((permission) => (
                               <label
                                 key={permission.key}
-                                className="flex items-start gap-2 text-xs text-gray-700"
+                                className="flex items-start gap-2 text-xs text-[var(--ink,#101310)]"
                                 title={t(permission.descriptionKey)}
                               >
                                 <input
@@ -350,11 +360,11 @@ export default async function RolesAdmin({
                                   <span className="font-semibold">
                                     {t(permission.labelKey)}
                                   </span>
-                                  <span className="block text-xs text-gray-600">
+                                  <span className="block text-xs text-[var(--muted,#62685f)]">
                                     {t(permission.descriptionKey)}
                                   </span>
                                   {permission.key === "reports.viewAllDepartments" && (
-                                    <span className="mt-0.5 block rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                                    <span className="mt-0.5 block rounded bg-[#fbf1d2] px-1.5 py-0.5 text-xs font-semibold text-[#6b4a05]">
                                       {t("settings.roles.requiresPermission", {
                                         permission: reportsViewLabel,
                                       })}
@@ -371,7 +381,7 @@ export default async function RolesAdmin({
 
                   <button
                     type="submit"
-                    className="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-1"
+                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:shadow-[1px_1px_0_var(--ink,#101310)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-1"
                   >
                     {t("settings.roles.save")}
                   </button>

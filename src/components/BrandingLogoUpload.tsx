@@ -55,12 +55,12 @@ export default function BrandingLogoUpload({
           <img
             src={url}
             alt={t("components.brandingLogo.alt")}
-            className="h-12 w-auto rounded-lg border border-gray-200 bg-white p-1"
+            className="h-12 w-auto rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-1"
           />
         ) : (
-          <span className="text-sm text-gray-500">{t("components.brandingLogo.none")}</span>
+          <span className="text-sm text-[var(--muted,#62685f)]">{t("components.brandingLogo.none")}</span>
         )}
-        <label className="cursor-pointer rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">
+        <label className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]">
           {busy
             ? t("components.brandingLogo.uploading")
             : url
@@ -82,16 +82,16 @@ export default function BrandingLogoUpload({
           <button
             type="button"
             onClick={() => setUrl("")}
-            className="text-sm text-gray-500 hover:text-red-600"
+            className="min-h-11 text-sm text-[var(--muted,#62685f)] underline-offset-2 transition hover:text-[var(--risk-text,#b42318)] hover:underline"
           >
             {t("components.brandingLogo.remove")}
           </button>
         )}
       </div>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[var(--muted,#62685f)]">
         {t("components.brandingLogo.help")}
       </p>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm font-bold text-[var(--risk-text,#b42318)]">{error}</p>}
     </div>
   );
 }

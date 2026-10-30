@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
 import NotificationSoundToggle from "@/components/NotificationSoundToggle";
 import {
   saveNotificationPreferencesAction,
@@ -11,6 +12,8 @@ import {
 type Preference = { type: string; inApp: boolean; email: boolean };
 
 const INITIAL_STATE: NotificationPreferencesState = { status: "idle" };
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)] disabled:cursor-wait";
 
 /**
  * Skjemaet eier innsendingsstatusen, slik at brukeren får en tydelig kvittering
@@ -39,58 +42,60 @@ export default function NotificationPreferencesForm({
       {state.status === "success" && (
         <p
           role="status"
-          className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm font-bold text-green-900"
+          className="flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-sm font-bold text-[var(--ink,#101310)]"
         >
+          <Icon name="check" className="h-4 w-4 shrink-0" />
           {t("p3.notificationSettings.saved")}
         </p>
       )}
       {state.status === "error" && (
         <p
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
+          <Icon name="alert" className="h-4 w-4 shrink-0" />
           {t("p3.notificationSettings.saveError")}
         </p>
       )}
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="office-card flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-bold text-gray-900">
+          <p className="text-sm font-bold text-[var(--ink,#101310)]">
             {t("p3.notificationSettings.soundTitle")}
           </p>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-[var(--muted,#62685f)]">
             {t("p3.notificationSettings.soundDescription")}
           </p>
         </div>
         <NotificationSoundToggle />
       </div>
       <div
-        className="overflow-x-auto rounded-2xl border border-gray-200 bg-white"
+        className="office-card overflow-x-auto"
         role="region"
         aria-label={t("components.notificationPreferences.caption")}
         tabIndex={0}
       >
-        <table className="w-full text-left text-sm">
+        <table className="office-table">
           <caption className="sr-only">
             {t("components.notificationPreferences.caption")}
           </caption>
-          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+          <thead>
             <tr>
-              <th scope="col" className="px-4 py-3 font-bold">{t("p3.notificationSettings.event")}</th>
-              <th scope="col" className="px-4 py-3 font-bold">{t("p3.notificationSettings.inApp")}</th>
-              <th scope="col" className="px-4 py-3 font-bold">{t("p3.notificationSettings.email")}</th>
+              <th scope="col">{t("p3.notificationSettings.event")}</th>
+              <th scope="col">{t("p3.notificationSettings.inApp")}</th>
+              <th scope="col">{t("p3.notificationSettings.email")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {types.map((type) => {
               const preference = preferenceByType.get(type);
               const label = labels[type] ?? type;
               return (
                 <tr key={type}>
-                  <th scope="row" className="px-4 py-3 text-left font-medium text-gray-900">
+                  <th scope="row" className="text-left font-semibold text-[var(--ink,#101310)]">
                     {label}
                   </th>
-                  <td className="px-4 py-3">
+                  <td>
                     <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
                       <span className="sr-only">
                         {t("p3.notificationSettings.inAppAria", { label })}
@@ -99,11 +104,11 @@ export default function NotificationPreferencesForm({
                         type="checkbox"
                         name={`inApp_${type}`}
                         defaultChecked={preference?.inApp ?? true}
-                        className="h-5 w-5"
+                        className="h-5 w-5 accent-[var(--ink,#101310)]"
                       />
                     </label>
                   </td>
-                  <td className="px-4 py-3">
+                  <td>
                     <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
                       <span className="sr-only">
                         {t("p3.notificationSettings.emailAria", { label })}
@@ -112,7 +117,7 @@ export default function NotificationPreferencesForm({
                         type="checkbox"
                         name={`email_${type}`}
                         defaultChecked={preference?.email ?? true}
-                        className="h-5 w-5"
+                        className="h-5 w-5 accent-[var(--ink,#101310)]"
                       />
                     </label>
                   </td>
@@ -122,11 +127,7 @@ export default function NotificationPreferencesForm({
           </tbody>
         </table>
       </div>
-      <button
-        type="submit"
-        disabled={pending}
-        className="min-h-11 rounded-xl bg-[var(--primary-color)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className={SIGNAL_BUTTON}>
         {pending
           ? t("p3.notificationSettings.saving")
           : t("p3.notificationSettings.save")}

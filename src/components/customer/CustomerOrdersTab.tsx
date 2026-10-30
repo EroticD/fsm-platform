@@ -5,6 +5,12 @@ import { formatDateLocalized } from "@/lib/dates";
 import { markdownToPlainText } from "@/lib/markdown";
 import type { CustomerDetailData } from "@/server/customers";
 import StatusBadge from "@/components/StatusBadge";
+import {
+  CUSTOMER_CARD,
+  CUSTOMER_INSET,
+  CUSTOMER_MUTED,
+  CUSTOMER_SIGNAL_BUTTON,
+} from "./customerStyles";
 
 type OrdersTabProps = {
   customerId: string;
@@ -29,19 +35,25 @@ export default async function CustomerOrdersTab({
   const locale = await getLocale();
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-      <div className="flex justify-between items-center mb-4 border-b pb-2">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+    <section className={`${CUSTOMER_CARD} space-y-4 p-4 sm:p-5`}>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+            />
             <Icon name="folder" className="h-5 w-5 shrink-0" />
             {t("customers.orders.title")}
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">{t("customers.orders.description")}</p>
+          <p className={`mt-0.5 text-xs ${CUSTOMER_MUTED}`}>
+            {t("customers.orders.description")}
+          </p>
         </div>
         {canCreateWorkOrders && (
           <Link
             href={`/oppdrag/ny?customerId=${customerId}`}
-            className="inline-flex items-center gap-1.5 bg-blue-700 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-black hover:bg-blue-800 transition shadow-sm whitespace-nowrap"
+            className={CUSTOMER_SIGNAL_BUTTON}
           >
             <Icon name="plus" className="h-4 w-4 shrink-0" />
             {t("customers.orders.newOrder")}
@@ -50,22 +62,30 @@ export default async function CustomerOrdersTab({
       </div>
 
       {totalOrders === 0 ? (
-        <div className="bg-gray-50 border-2 border-dashed border-gray-200 p-6 rounded-2xl text-center">
-          <p className="text-gray-600 font-bold mb-1">{t("customers.orders.emptyTitle")}</p>
-          <p className="text-xs text-gray-500">{t("customers.orders.emptyDescription")}</p>
+        <div className="rounded-xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-6 text-center">
+          <p className="mb-1 text-sm font-bold text-[var(--ink,#101310)]">
+            {t("customers.orders.emptyTitle")}
+          </p>
+          <p className={`text-xs ${CUSTOMER_MUTED}`}>
+            {t("customers.orders.emptyDescription")}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2">
           {visibleWorkOrders.map((wo) => (
             <Link
               key={wo.id}
               href={`/oppdrag/${wo.id}`}
-              className="block bg-gray-50 hover:bg-blue-50/50 border-2 border-gray-200 hover:border-blue-300 p-3 sm:p-4 rounded-2xl transition shadow-sm"
+              className={`${CUSTOMER_INSET} block p-3 transition hover:border-[var(--ink,#101310)] hover:bg-[var(--surface,#fffdf8)]`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                <div>
-                  <h3 className="font-black text-gray-900 text-base">{wo.title}</h3>
-                  <p className="text-xs text-gray-500 font-medium mt-0.5">
+              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[var(--ink,#101310)]">
+                    {wo.title}
+                  </h3>
+                  <p
+                    className={`mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs ${CUSTOMER_MUTED}`}
+                  >
                     {t("customers.orders.scheduled", {
                       date: formatDateLocalized(
                         wo.scheduledFor,
@@ -76,9 +96,13 @@ export default async function CustomerOrdersTab({
                     })}
                     {wo._count.reports > 0 ? (
                       <span className="inline-flex items-center gap-1">
-                        <span aria-hidden>•</span>
-                        <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
-                        {t("customers.orders.reportsDone", { count: wo._count.reports })}
+                        <Icon
+                          name="clipboard"
+                          className="h-3.5 w-3.5 shrink-0"
+                        />
+                        {t("customers.orders.reportsDone", {
+                          count: wo._count.reports,
+                        })}
                       </span>
                     ) : null}
                   </p>
@@ -87,19 +111,25 @@ export default async function CustomerOrdersTab({
               </div>
 
               {wo.description && (
-                <p className="text-sm text-gray-700 bg-white p-3 rounded-xl border border-gray-200 line-clamp-2 font-medium">
+                <p className="mt-2 line-clamp-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-2 text-xs text-[var(--ink,#101310)]">
                   {markdownToPlainText(wo.description)}
                 </p>
               )}
 
-              <div className="mt-2 flex justify-between items-center text-xs pt-2 border-t border-gray-200 text-gray-600">
-                <span>
-                  <strong>{t("customers.orders.technicians")}</strong>{" "}
+              <div
+                className={`mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line,#dedcd1)] pt-2 text-xs ${CUSTOMER_MUTED}`}
+              >
+                <span className="min-w-0">
+                  <strong className="font-bold text-[var(--ink,#101310)]">
+                    {t("customers.orders.technicians")}
+                  </strong>{" "}
                   {wo.technicians.length > 0
-                    ? wo.technicians.map((technician) => technician.name).join(", ")
+                    ? wo.technicians
+                        .map((technician) => technician.name)
+                        .join(", ")
                     : t("customers.orders.unassigned")}
                 </span>
-                <span className="inline-flex items-center gap-1 font-black text-blue-600 hover:underline">
+                <span className="inline-flex items-center gap-1 font-bold text-[var(--ink,#101310)]">
                   {t("customers.orders.viewDetails")}
                   <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
                 </span>
@@ -110,17 +140,17 @@ export default async function CustomerOrdersTab({
       )}
 
       {orderTotalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-gray-100 text-xs font-bold">
+        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-[var(--line,#dedcd1)] pt-3 text-xs font-bold">
           {orderPage > 1 && (
             <Link
               href={`?tab=oppdrag&side=${orderPage - 1}`}
-              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+              className="inline-flex min-h-11 items-center gap-1 text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
             >
               <Icon name="arrowRight" className="h-3.5 w-3.5 rotate-180" />
               {t("customers.orders.previous")}
             </Link>
           )}
-          <span className="text-gray-500">
+          <span className={`tabular-nums ${CUSTOMER_MUTED}`}>
             {t("customers.orders.showing", {
               from: (orderPage - 1) * pageSize + 1,
               to: Math.min(orderPage * pageSize, totalOrders),
@@ -130,7 +160,7 @@ export default async function CustomerOrdersTab({
           {orderPage < orderTotalPages && (
             <Link
               href={`?tab=oppdrag&side=${orderPage + 1}`}
-              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+              className="inline-flex min-h-11 items-center gap-1 text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
             >
               {t("customers.orders.next")}
               <Icon name="arrowRight" className="h-3.5 w-3.5" />
@@ -138,6 +168,6 @@ export default async function CustomerOrdersTab({
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

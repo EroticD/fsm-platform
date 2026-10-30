@@ -49,13 +49,13 @@ export default function InviteActionForm({
         <div
           className={
             bannerClassName ??
-            "mb-3 rounded-xl border border-green-200 bg-green-50 p-4 text-xs text-green-900"
+            "mb-3 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--paper,#f2efe6)] p-4 text-xs text-[var(--ink,#101310)]"
           }
         >
           <p className="font-bold">
             {labels.ready.replace("{name}", state.name || "")}
           </p>
-          <p className="mt-1 text-green-800">
+          <p className="mt-1 text-[var(--muted,#62685f)]">
             {state.mailSent ? labels.sent : labels.manual}
           </p>
           {!state.mailSent && (
@@ -64,7 +64,7 @@ export default function InviteActionForm({
                 readOnly
                 value={state.inviteUrl}
                 aria-label={labels.copy}
-                className="flex-1 rounded-lg border border-green-300 bg-white px-3 py-2 font-mono text-xs text-gray-700"
+                className="min-h-11 flex-1 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 font-mono text-xs text-[var(--ink,#101310)]"
               />
               <CopyButton value={state.inviteUrl} label={labels.copy} />
             </div>
@@ -73,7 +73,7 @@ export default function InviteActionForm({
       )}
 
       {state.status === "error" && (
-        <div className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+        <div className="mb-3 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] p-3 text-xs font-semibold text-[var(--risk-text,#b42318)]">
           {labels.error}
         </div>
       )}

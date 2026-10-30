@@ -150,23 +150,23 @@ async function ReportContent({ report, template }: { report: any; template: any 
   const renderAnswer = (field: ReportField, answer: unknown) => {
     if (field.type === "CHECKBOX") {
       return (
-        <span className={answer ? "text-green-700 font-black" : "text-gray-500 font-bold"}>
+        <span className={answer ? "font-black text-[#283509]" : "font-bold text-[var(--muted,#62685f)]"}>
           {answer ? t("orders.detail.report.yesDone") : t("orders.detail.report.noUnchecked")}
         </span>
       );
     }
     if (field.type === "STATUS") {
       return answer ? (
-        <span className={needsComment(field, answer) ? "text-red-800 font-black" : "text-green-800 font-black"}>
+        <span className={needsComment(field, answer) ? "font-black text-[var(--risk-text,#b42318)]" : "font-black text-[#283509]"}>
           {String(answer)}
         </span>
       ) : (
-        <span className="text-gray-600">{t("orders.detail.report.notAssessed")}</span>
+        <span className="text-[var(--muted,#62685f)]">{t("orders.detail.report.notAssessed")}</span>
       );
     }
     if (field.type === "SIGNATURE") {
       return (
-        <span className="inline-flex items-center gap-1 text-blue-800 font-black bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 font-bold text-[var(--ink,#101310)]">
           <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
           {answer ? t("orders.detail.report.signedBy", { name: String(answer) }) : t("orders.detail.report.notSigned")}
         </span>
@@ -174,7 +174,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
     }
     if (field.type === "IMAGE") {
       const urls = parseImageUrls(answer);
-      if (urls.length === 0) return <span className="text-gray-600">{t("orders.detail.report.notAttached")}</span>;
+      if (urls.length === 0) return <span className="text-[var(--muted,#62685f)]">{t("orders.detail.report.notAttached")}</span>;
       return (
         <span className="flex flex-wrap gap-2">
           {urls.map((url, index) => (
@@ -183,7 +183,7 @@ async function ReportContent({ report, template }: { report: any; template: any 
               <img
                 src={url}
                 alt={t("orders.detail.report.attachmentAlt", { number: index + 1 })}
-                className="h-20 w-20 rounded-lg border border-[var(--line,#d8d3c5)] bg-white object-cover transition hover:border-[var(--ink,#131711)]"
+                className="h-20 w-20 rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--surface,#fffdf8)] object-cover transition hover:border-[var(--ink,#131711)]"
               />
             </a>
           ))}
@@ -191,8 +191,8 @@ async function ReportContent({ report, template }: { report: any; template: any 
       );
     }
     return (
-      <span className="text-gray-900 font-medium italic">
-        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-gray-600">{t("orders.detail.report.notAnswered")}</span>}
+      <span className="font-medium italic text-[var(--ink,#101310)]">
+        {answer !== undefined && answer !== "" ? `"${String(answer)}"` : <span className="text-[var(--muted,#62685f)]">{t("orders.detail.report.notAnswered")}</span>}
       </span>
     );
   };
@@ -208,21 +208,21 @@ async function ReportContent({ report, template }: { report: any; template: any 
 
     return (
       <div key={key} className="text-sm">
-        <div className={alert ? "text-red-800 font-bold" : undefined}>
-          <span className="font-bold text-gray-900">{field.label}: </span>
+        <div className={alert ? "font-bold text-[var(--risk-text,#b42318)]" : undefined}>
+          <span className="font-bold text-[var(--ink,#101310)]">{field.label}: </span>
           {!longText && renderAnswer(field, answer)}
         </div>
         {longText && (
-          <div className="mt-1 pl-2 border-l-2 border-gray-200 text-gray-800">
+          <div className="mt-1 border-l-2 border-[var(--line,#dedcd1)] pl-2 text-[#2a2f28]">
             {typeof answer === "string" && answer.trim() ? (
               <MarkdownView value={answer} />
             ) : (
-              <span className="text-gray-600 font-medium">{t("orders.detail.report.notAnswered")}</span>
+              <span className="font-medium text-[var(--muted,#62685f)]">{t("orders.detail.report.notAnswered")}</span>
             )}
           </div>
         )}
         {comment && (
-          <div className="flex gap-1.5 text-[13px] text-amber-900 bg-amber-50 border-l-4 border-amber-300 pl-2 py-1 mt-1 rounded-r">
+          <div className="mt-1 flex gap-1.5 rounded-r border-l-4 border-[#dfc98b] bg-[#fdf5e4] py-1 pl-2 text-[13px] text-[#6b4808]">
             <Icon name="note" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div className="flex-1">
               <MarkdownView value={comment} size="xs" />
@@ -236,13 +236,13 @@ async function ReportContent({ report, template }: { report: any; template: any 
   const signatureBlock = (label: string, url?: string | null, name?: string | null) => {
     if (!url && !name) return null;
     return (
-      <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-3">
-        <p className="mb-1 text-xs font-black uppercase tracking-[0.12em] text-[#5e6356]">{label}</p>
+      <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
+        <p className="mb-1 text-xs font-black uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">{label}</p>
         {url && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={label} className="h-20 bg-white border border-gray-200 rounded" />
+          <img src={url} alt={label} className="h-20 rounded border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)]" />
         )}
-        <p className="text-sm font-bold text-gray-900 mt-1">{name || t("orders.detail.report.noName")}</p>
+        <p className="mt-1 text-sm font-bold text-[var(--ink,#101310)]">{name || t("orders.detail.report.noName")}</p>
       </div>
     );
   };
@@ -251,10 +251,10 @@ async function ReportContent({ report, template }: { report: any; template: any 
   const customerSignature = signatureBlock(t("orders.detail.report.customerSignature"), report?.customerSignatureUrl, report?.customerName);
 
   return (
-    <div className="space-y-4 rounded-lg border border-[var(--line,#d8d3c5)] bg-white p-3 text-sm sm:p-4">
+    <div className="space-y-4 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3 text-sm sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
         {report?.reportNumber && (
-          <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-2.5 py-1 text-xs font-bold tracking-wide text-[#5e6356]">
+          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-1 text-xs font-bold tracking-wide text-[var(--muted,#62685f)]">
             {t("orders.detail.report.reportNumber", {
               number: report.reportNumber,
             })}
@@ -262,20 +262,20 @@ async function ReportContent({ report, template }: { report: any; template: any 
         )}
         {summary.usesUnits && (
           <>
-            <span className="text-gray-500 font-black uppercase text-xs tracking-wider">{t("orders.detail.report.mainResult")}</span>
-            <span className={`font-bold px-3 py-1 rounded-full text-xs ${reportStatus === "GODKJENT" ? "bg-green-100 text-green-800 border border-green-200" : "bg-red-100 text-red-800 border border-red-200"}`}>
+            <span className="text-xs font-black uppercase tracking-wider text-[var(--muted,#62685f)]">{t("orders.detail.report.mainResult")}</span>
+            <span className={`rounded-full border px-3 py-1 text-xs font-bold ${reportStatus === "GODKJENT" ? "border-[#b9c99a] bg-[#eef7d6] text-[#283509]" : "border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"}`}>
               {reportStatus === "GODKJENT" ? t("orders.detail.report.approved") : t("orders.detail.report.deviation")}
             </span>
           </>
         )}
         {report?.legalHold && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-900">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-1 text-xs font-black uppercase tracking-wide text-[var(--risk-text,#b42318)]">
             <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
             {t("orders.detail.legalHoldBadge")}
           </span>
         )}
         {acknowledgement.acknowledged && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#b9c99a] bg-[#eef7d6] px-3 py-1 text-xs font-bold text-[#283509]">
             <Icon name="check" className="h-3.5 w-3.5 shrink-0" />
             {t("orders.detail.report.customerAcknowledged", { date: formatDateLocalized(acknowledgement.at, locale) })}
           </span>
@@ -283,21 +283,21 @@ async function ReportContent({ report, template }: { report: any; template: any 
       </div>
 
       {acknowledgement.acknowledged && acknowledgement.comment && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
-          <p className="text-xs font-black uppercase tracking-wider text-green-700">
+        <div className="rounded-xl border border-[#b9c99a] bg-[#eef7d6] px-3 py-2 text-sm text-[#283509]">
+          <p className="text-xs font-black uppercase tracking-wider text-[#3f4a1a]">
             {t("orders.detail.report.customerAcknowledgementComment")}
           </p>
           <p className="mt-1 whitespace-pre-wrap">{acknowledgement.comment}</p>
           {acknowledgement.by && (
-            <p className="mt-1 text-xs text-green-700">{acknowledgement.by}</p>
+            <p className="mt-1 text-xs text-[#3f4a1a]">{acknowledgement.by}</p>
           )}
         </div>
       )}
 
       {/* ENHETER */}
       {summary.usesUnits && units.length > 0 && (
-        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-3">
-          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">
+        <div className="mt-3 space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
+          <p className="text-xs font-black uppercase tracking-wider text-[var(--muted,#62685f)]">
             {t("orders.detail.report.unitsChecked", { count: units.length })}
           </p>
 
@@ -308,11 +308,11 @@ async function ReportContent({ report, template }: { report: any; template: any 
             } catch {}
 
             return (
-              <div key={unit.id} className="overflow-hidden rounded-lg border border-[var(--line,#d8d3c5)]">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-3 py-2">
+              <div key={unit.id} className="overflow-hidden rounded-xl border border-[var(--line,#dedcd1)]">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2">
                   <div>
-                    <p className="font-black text-gray-900 text-sm">{index + 1}. {unit.label}</p>
-                    <p className="text-xs text-[#5e6356]">
+                    <p className="text-sm font-black text-[var(--ink,#101310)]">{index + 1}. {unit.label}</p>
+                    <p className="text-xs text-[var(--muted,#62685f)]">
                       {unit.serialNumber ? t("orders.detail.report.serialNumber", { number: unit.serialNumber }) : t("orders.detail.report.noSerialNumber")}
                       {unit.location ? ` • ${unit.location}` : ""}
                     </p>
@@ -323,13 +323,13 @@ async function ReportContent({ report, template }: { report: any; template: any 
                 </div>
 
                 {fields.length > 0 && (
-                  <div className="p-3 space-y-2 bg-white">
+                  <div className="space-y-2 bg-[var(--surface,#fffdf8)] p-3">
                     {fields.map((field) => fieldRow(field, answers, field.id))}
                   </div>
                 )}
 
                 {unit.comment && (
-                  <div className="border-t border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-sm italic text-[var(--ink,#131711)]">
+                  <div className="border-t border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-sm italic text-[var(--ink,#131711)]">
                     <MarkdownView value={unit.comment} />
                   </div>
                 )}
@@ -341,13 +341,13 @@ async function ReportContent({ report, template }: { report: any; template: any 
 
       {/* SJEKKPUNKTER (rapporter uten enheter, eller eldre rapporter) */}
       {!summary.usesUnits && fields.length > 0 && (
-        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
-          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">{t("orders.detail.report.answersTitle")}</p>
-          <div className="space-y-2 rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-3">
+        <div className="mt-3 space-y-2 border-t border-[var(--line,#dedcd1)] pt-3">
+          <p className="text-xs font-black uppercase tracking-wider text-[var(--muted,#62685f)]">{t("orders.detail.report.answersTitle")}</p>
+          <div className="space-y-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
             {fields.map((field) => fieldRow(field, anonymousAnswers, field.id))}
           </div>
           {anonymousUnit?.comment && (
-            <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-sm italic">
+            <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-sm italic">
               <MarkdownView value={anonymousUnit.comment} />
             </div>
           )}
@@ -355,9 +355,9 @@ async function ReportContent({ report, template }: { report: any; template: any 
       )}
 
       {summary.usesUnits && units.length === 0 && fields.length > 0 && (
-        <div className="border-t-2 border-gray-200 pt-3 mt-3 space-y-2">
-          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">{t("orders.detail.report.answersTitle")}</p>
-          <div className="space-y-2 rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-3">
+        <div className="mt-3 space-y-2 border-t border-[var(--line,#dedcd1)] pt-3">
+          <p className="text-xs font-black uppercase tracking-wider text-[var(--muted,#62685f)]">{t("orders.detail.report.answersTitle")}</p>
+          <div className="space-y-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
             {fields.map((field) => fieldRow(field, parsedAnswers, field.id))}
           </div>
         </div>
@@ -365,16 +365,16 @@ async function ReportContent({ report, template }: { report: any; template: any 
 
       {/* SIGNATURER */}
       {(technicianSignature || customerSignature) && (
-        <div className="border-t-2 border-gray-200 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 border-t border-[var(--line,#dedcd1)] pt-3 sm:grid-cols-2">
           {technicianSignature}
           {customerSignature}
         </div>
       )}
 
       {report?.comments && (
-        <div className="border-t-2 border-gray-200 pt-3">
-          <span className="text-gray-500 font-black uppercase text-xs tracking-wider block mb-1">{t("orders.detail.report.generalNotes")}</span>
-          <div className="rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-3 italic text-[var(--ink,#131711)]">
+        <div className="border-t border-[var(--line,#dedcd1)] pt-3">
+          <span className="mb-1 block text-xs font-black uppercase tracking-wider text-[var(--muted,#62685f)]">{t("orders.detail.report.generalNotes")}</span>
+          <div className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 italic text-[var(--ink,#131711)]">
             <MarkdownView value={report.comments} />
           </div>
         </div>
@@ -1231,11 +1231,11 @@ export default async function AdminWorkOrderPage({
                             <div className="flex items-center gap-2 flex-wrap">
                               {report ? (
                                 <>
-                                  <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full border border-green-200">{t("orders.detail.filled")}</span>
+                                  <span className="rounded-full border border-[#b9c99a] bg-[#eef7d6] px-3 py-1 text-xs font-bold text-[#283509]">{t("orders.detail.filled")}</span>
                                   {report.isLocked ? (
-                                    <span className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">{t("orders.detail.locked")}</span>
+                                    <span className="rounded-full border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-3 py-1 text-xs font-bold text-[var(--paper,#f2efe6)]">{t("orders.detail.locked")}</span>
                                   ) : (
-                                    <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">{t("orders.detail.unlocked")}</span>
+                                    <span className="rounded-full border border-[#dfc98b] bg-[#fdf5e4] px-3 py-1 text-xs font-bold text-[#6b4808]">{t("orders.detail.unlocked")}</span>
                                   )}
                                   {canViewReports && (
                                     <>
@@ -1326,7 +1326,7 @@ export default async function AdminWorkOrderPage({
                                 </>
                               ) : (
                                 <>
-                                  <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">{t("orders.detail.waitingFill")}</span>
+                                  <span className="rounded-full border border-[#dfc98b] bg-[#fdf5e4] px-3 py-1 text-xs font-bold text-[#6b4808]">{t("orders.detail.waitingFill")}</span>
                                   {canWriteReports && canModify && (
                                     <Link
                                       href={fillHref}

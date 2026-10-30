@@ -6,6 +6,16 @@ import UnitHistory from "@/components/UnitHistory";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import type { CustomerDetailData } from "@/server/customers";
 import CustomerTabPanel from "./CustomerTabPanel";
+import {
+  CUSTOMER_CONTROL,
+  CUSTOMER_INK_BUTTON,
+  CUSTOMER_INSET,
+  CUSTOMER_LABEL,
+  CUSTOMER_MUTED,
+  CUSTOMER_RISK_BUTTON,
+  CUSTOMER_SIGNAL_BUTTON,
+  LEGACY_SURFACE,
+} from "./customerStyles";
 
 type Product = CustomerDetailData["products"][number];
 type ReportUnit = Product["reportUnits"][number];
@@ -51,7 +61,7 @@ export default async function CustomerUnitsTab({
     <CustomerTabPanel
       title={
         <>
-          <Icon name="wrench" className="mr-1.5 inline-block h-4 w-4 align-[-0.125em]" />
+          <Icon name="wrench" className="h-4 w-4 shrink-0" />
           {t("customers.units.title")}
         </>
       }
@@ -59,31 +69,31 @@ export default async function CustomerUnitsTab({
     >
       {/* Filtrering skjer på serveren, slik at en kunde med mange enheter
           fortsatt får en kort og rask side. */}
-      <form method="GET" action="" className="flex flex-wrap gap-2">
+      <form method="GET" action="" className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="tab" value="utstyr" />
-        <input
-          type="search"
-          name="enhet"
-          defaultValue={unitQuery}
-          aria-label={t("customers.units.searchLabel")}
-          placeholder={t("customers.units.searchPlaceholder")}
-          className="min-w-[12rem] flex-1 rounded-xl border border-gray-300 p-2.5 text-sm text-gray-900"
-        />
-        <button
-          type="submit"
-          className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-gray-800"
-        >
+        <div className="relative min-w-[12rem] flex-1">
+          <Icon
+            name="search"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted,#62685f)]"
+          />
+          <input
+            type="search"
+            name="enhet"
+            defaultValue={unitQuery}
+            aria-label={t("customers.units.searchLabel")}
+            placeholder={t("customers.units.searchPlaceholder")}
+            className={`${CUSTOMER_CONTROL} pl-9 text-sm`}
+          />
+        </div>
+        <button type="submit" className={CUSTOMER_INK_BUTTON}>
           {t("customers.units.search")}
         </button>
         {unitQuery && (
-          <Link
-            href="?tab=utstyr"
-            className="rounded-xl bg-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-300"
-          >
+          <Link href="?tab=utstyr" className={CUSTOMER_INK_BUTTON}>
             {t("customers.units.resetSearch")}
           </Link>
         )}
-        <span className="self-center text-xs font-bold text-gray-500">
+        <span className={`text-xs font-bold ${CUSTOMER_MUTED}`}>
           {t("customers.units.showing", {
             shown: products.length,
             total: unitTotal,
@@ -93,30 +103,58 @@ export default async function CustomerUnitsTab({
 
       {/* Skjema for ny enhet – krever equipment.manage */}
       {canManageEquipment && (
-        <form action={createUnit} className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <form
+          action={createUnit}
+          className={`${CUSTOMER_INSET} space-y-3 p-3 sm:p-4`}
+        >
           <input type="hidden" name="customerId" value={customerId} />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label htmlFor="new-unit-model" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.units.model")} *</label>
-              <input id="new-unit-model" type="text" name="model" required placeholder={t("customers.units.modelPlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+              <label htmlFor="new-unit-model" className={CUSTOMER_LABEL}>
+                {t("customers.units.model")} *
+              </label>
+              <input
+                id="new-unit-model"
+                type="text"
+                name="model"
+                required
+                placeholder={t("customers.units.modelPlaceholder")}
+                className={CUSTOMER_CONTROL}
+              />
             </div>
             <div>
-              <label htmlFor="new-unit-serial" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.units.serialNumber")}</label>
-              <input id="new-unit-serial" type="text" name="serialNumber" placeholder={t("customers.units.serialPlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+              <label htmlFor="new-unit-serial" className={CUSTOMER_LABEL}>
+                {t("customers.units.serialNumber")}
+              </label>
+              <input
+                id="new-unit-serial"
+                type="text"
+                name="serialNumber"
+                placeholder={t("customers.units.serialPlaceholder")}
+                className={CUSTOMER_CONTROL}
+              />
             </div>
             <div>
-              <label htmlFor="new-unit-location" className="block text-xs font-bold text-gray-700 mb-1">{t("customers.units.location")}</label>
-              <input id="new-unit-location" type="text" name="location" placeholder={t("customers.units.locationPlaceholder")} className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white" />
+              <label htmlFor="new-unit-location" className={CUSTOMER_LABEL}>
+                {t("customers.units.location")}
+              </label>
+              <input
+                id="new-unit-location"
+                type="text"
+                name="location"
+                placeholder={t("customers.units.locationPlaceholder")}
+                className={CUSTOMER_CONTROL}
+              />
             </div>
           </div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-sm whitespace-nowrap">
+          <button type="submit" className={`${CUSTOMER_SIGNAL_BUTTON} w-full`}>
             {t("customers.units.add")}
           </button>
         </form>
       )}
 
       {products.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">
+        <p className={`text-xs italic ${CUSTOMER_MUTED}`}>
           {unitQuery
             ? t("customers.units.noMatches", { query: unitQuery })
             : t("customers.units.empty")}
@@ -124,32 +162,40 @@ export default async function CustomerUnitsTab({
       ) : (
         <div className="space-y-2">
           {products.map((unit) => (
-            <div
+            <article
               key={unit.id}
               id={`unit-${unit.id}`}
-              className="bg-gray-50 rounded-xl border border-gray-200 p-3 scroll-mt-24"
+              className={`${CUSTOMER_INSET} scroll-mt-24 p-3`}
             >
               <div className="flex items-start justify-between gap-3">
-                <details className="flex-1 min-w-0">
-                  <summary className="cursor-pointer list-none">
-                    <span className="font-bold text-gray-900 text-sm">{unit.model}</span>
-                    <span className="block text-xs text-gray-500 mt-0.5">
+                <details className="min-w-0 flex-1">
+                  <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <span className="text-sm font-bold text-[var(--ink,#101310)]">
+                      {unit.model}
+                    </span>
+                    <span className={`mt-0.5 block text-xs ${CUSTOMER_MUTED}`}>
                       {unit.serialNumber
-                        ? t("customers.units.serial", { serial: unit.serialNumber })
+                        ? t("customers.units.serial", {
+                            serial: unit.serialNumber,
+                          })
                         : t("customers.units.withoutSerial")}
                       {unit.location ? ` • ${unit.location}` : ""}
                     </span>
                     {canViewReports && (
-                      <span className="mt-1 block text-xs">
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                         {unit._count.reportUnits === 0 ? (
-                          <span className="inline-flex items-center gap-1 text-gray-400">
+                          <span
+                            className={`inline-flex items-center gap-1 ${CUSTOMER_MUTED}`}
+                          >
                             <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
                             {t("customers.units.neverChecked")}
                           </span>
                         ) : (
-                          <span className="inline-flex flex-wrap items-center gap-1 text-blue-800 font-bold">
+                          <span className="inline-flex flex-wrap items-center gap-1 font-bold text-[var(--ink,#101310)]">
                             <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
-                            {t("customers.units.serviceCount", { count: unit._count.reportUnits })}
+                            {t("customers.units.serviceCount", {
+                              count: unit._count.reportUnits,
+                            })}
                             <span aria-hidden>•</span>
                             {t("customers.units.lastService", {
                               date: formatDateLocalized(
@@ -161,8 +207,13 @@ export default async function CustomerUnitsTab({
                             })}
                           </span>
                         )}
-                        <span className="ml-2 inline-flex items-center gap-1 text-blue-600 font-bold">
-                          <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0" />
+                        <span
+                          className={`inline-flex items-center gap-1 font-bold ${CUSTOMER_MUTED}`}
+                        >
+                          <Icon
+                            name="chevronDown"
+                            className="h-3.5 w-3.5 shrink-0"
+                          />
                           {t("customers.units.showHistory")}
                         </span>
                       </span>
@@ -170,47 +221,99 @@ export default async function CustomerUnitsTab({
                   </summary>
 
                   {canViewReports && (
-                    <div className="mt-3 border-t border-gray-200 pt-3">
-                      <p className="mb-2 flex items-center gap-1.5 text-xs font-black text-gray-600 uppercase tracking-wider">
+                    <div className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                      <p
+                        className={`mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] ${CUSTOMER_MUTED}`}
+                      >
                         <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
-                        {t("customers.units.serviceHistory", { count: unit._count.reportUnits })}
+                        {t("customers.units.serviceHistory", {
+                          count: unit._count.reportUnits,
+                        })}
                       </p>
                       {unit._count.reportUnits > unit.reportUnits.length && (
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className={`mb-2 text-xs ${CUSTOMER_MUTED}`}>
                           {t("customers.units.showingRecent", {
                             shown: unit.reportUnits.length,
                             total: unit._count.reportUnits,
                           })}
                         </p>
                       )}
-                      <UnitHistory entries={unit.reportUnits} />
+                      <div className={LEGACY_SURFACE}>
+                        <UnitHistory entries={unit.reportUnits} />
+                      </div>
                     </div>
                   )}
 
                   {canManageEquipment && (
-                    <details className="mt-3 border-t border-gray-200 pt-3">
-                      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-black uppercase tracking-wider text-gray-600">
+                    <details className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                      <summary
+                        className={`flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] [&::-webkit-details-marker]:hidden ${CUSTOMER_MUTED}`}
+                      >
                         <Icon name="edit" className="h-3.5 w-3.5 shrink-0" />
                         {t("customers.units.editUnit")}
                       </summary>
 
-                      <form action={updateUnit} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-                        <input type="hidden" name="customerId" value={customerId} />
+                      <form
+                        action={updateUnit}
+                        className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3"
+                      >
+                        <input
+                          type="hidden"
+                          name="customerId"
+                          value={customerId}
+                        />
                         <input type="hidden" name="id" value={unit.id} />
                         <div>
-                          <label htmlFor={`unit-${unit.id}-model`} className="block text-xs font-bold text-gray-600 mb-1">{t("customers.units.model")} *</label>
-                          <input id={`unit-${unit.id}-model`} type="text" name="model" required defaultValue={unit.model} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
+                          <label
+                            htmlFor={`unit-${unit.id}-model`}
+                            className={CUSTOMER_LABEL}
+                          >
+                            {t("customers.units.model")} *
+                          </label>
+                          <input
+                            id={`unit-${unit.id}-model`}
+                            type="text"
+                            name="model"
+                            required
+                            defaultValue={unit.model}
+                            className={`${CUSTOMER_CONTROL} text-sm`}
+                          />
                         </div>
                         <div>
-                          <label htmlFor={`unit-${unit.id}-serial`} className="block text-xs font-bold text-gray-600 mb-1">{t("customers.units.serialNumber")}</label>
-                          <input id={`unit-${unit.id}-serial`} type="text" name="serialNumber" defaultValue={unit.serialNumber || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
+                          <label
+                            htmlFor={`unit-${unit.id}-serial`}
+                            className={CUSTOMER_LABEL}
+                          >
+                            {t("customers.units.serialNumber")}
+                          </label>
+                          <input
+                            id={`unit-${unit.id}-serial`}
+                            type="text"
+                            name="serialNumber"
+                            defaultValue={unit.serialNumber || ""}
+                            className={`${CUSTOMER_CONTROL} text-sm`}
+                          />
                         </div>
                         <div>
-                          <label htmlFor={`unit-${unit.id}-location`} className="block text-xs font-bold text-gray-600 mb-1">{t("customers.units.location")}</label>
-                          <input id={`unit-${unit.id}-location`} type="text" name="location" defaultValue={unit.location || ""} className="w-full border border-gray-300 p-2 rounded-lg text-xs text-gray-900 bg-white" />
+                          <label
+                            htmlFor={`unit-${unit.id}-location`}
+                            className={CUSTOMER_LABEL}
+                          >
+                            {t("customers.units.location")}
+                          </label>
+                          <input
+                            id={`unit-${unit.id}-location`}
+                            type="text"
+                            name="location"
+                            defaultValue={unit.location || ""}
+                            className={`${CUSTOMER_CONTROL} text-sm`}
+                          />
                         </div>
-                        <div className="sm:col-span-3 flex justify-end">
-                          <button type="submit" className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 transition">
+                        <div className="flex justify-end sm:col-span-3">
+                          <button
+                            type="submit"
+                            className={CUSTOMER_SIGNAL_BUTTON}
+                          >
                             {t("customers.units.save")}
                           </button>
                         </div>
@@ -219,32 +322,44 @@ export default async function CustomerUnitsTab({
                   )}
                 </details>
 
-                <Link
-                  href={`/enheter/${unit.id}`}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
-                >
-                  {t("customers.units.openUnit")}
-                  <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
-                </Link>
-
-                {isAdmin && (
-                  <ConfirmSubmitForm
-                    action={deleteUnit}
-                    confirmMessage={t("customers.units.deleteConfirm", {
-                      model: unit.model,
-                    })}
-                    confirmLabel={t("delete")}
-                    danger
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Link
+                    href={`/enheter/${unit.id}`}
+                    className={CUSTOMER_INK_BUTTON}
                   >
-                    <input type="hidden" name="customerId" value={customerId} />
-                    <input type="hidden" name="id" value={unit.id} />
-                    <button type="submit" aria-label={`${t("customers.units.delete")}: ${unit.model}`} title={t("customers.units.delete")} className="inline-flex min-h-11 min-w-11 items-center justify-center text-red-600 hover:bg-red-50 p-2 rounded-lg transition">
-                      <Icon name="trash" className="h-4 w-4" />
-                    </button>
-                  </ConfirmSubmitForm>
-                )}
+                    {t("customers.units.openUnit")}
+                    <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
+                  </Link>
+
+                  {isAdmin && (
+                    <ConfirmSubmitForm
+                      action={deleteUnit}
+                      confirmMessage={t("customers.units.deleteConfirm", {
+                        model: unit.model,
+                      })}
+                      confirmLabel={t("delete")}
+                      danger
+                      className="inline-flex"
+                    >
+                      <input
+                        type="hidden"
+                        name="customerId"
+                        value={customerId}
+                      />
+                      <input type="hidden" name="id" value={unit.id} />
+                      <button
+                        type="submit"
+                        aria-label={`${t("customers.units.delete")}: ${unit.model}`}
+                        title={t("customers.units.delete")}
+                        className={`${CUSTOMER_RISK_BUTTON} min-w-11 px-2`}
+                      >
+                        <Icon name="trash" className="h-4 w-4" />
+                      </button>
+                    </ConfirmSubmitForm>
+                  )}
+                </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}

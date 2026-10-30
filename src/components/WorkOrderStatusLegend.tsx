@@ -22,25 +22,25 @@ export default function WorkOrderStatusLegend({
   return (
     <section
       aria-label={title}
-      className="rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
+      className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2"
     >
-      <h2 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-gray-600">
+      <h2 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
         {title}
       </h2>
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
         {items.map((item) => (
           <li
             key={item.status}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-800"
+            className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink,#101310)]"
           >
             <span
               aria-hidden="true"
-              className="h-3 w-3 shrink-0 rounded-full border border-white shadow-sm"
+              className="h-3 w-3 shrink-0 rounded-full border border-[var(--surface,#fffdf8)]"
               style={{ backgroundColor: workOrderStatusColor(item.status) }}
             />
             <span>{item.label}</span>
             {typeof item.count === "number" && (
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 font-bold text-gray-700">
+              <span className="rounded bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 font-bold text-[var(--ink,#101310)]">
                 {item.count}
               </span>
             )}

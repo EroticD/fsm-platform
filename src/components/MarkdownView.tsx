@@ -2,6 +2,7 @@
 
 import Markdown, { type Components } from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
+import Icon from "@/components/icons";
 import { markdownToPlainText, remarkPlugins, sanitizeSchema } from "@/lib/markdown";
 import { prepareObsidianSource } from "@/lib/markdown-obsidian";
 
@@ -15,19 +16,58 @@ import { prepareObsidianSource } from "@/lib/markdown-obsidian";
 
 /** Farger og ramme per callout-type, som i Obsidian. */
 const CALLOUT_STYLES: Record<string, { box: string; title: string }> = {
-  note: { box: "border-blue-400 bg-blue-50", title: "text-blue-900" },
-  info: { box: "border-blue-400 bg-blue-50", title: "text-blue-900" },
-  tip: { box: "border-teal-400 bg-teal-50", title: "text-teal-900" },
-  success: { box: "border-green-400 bg-green-50", title: "text-green-900" },
-  question: { box: "border-amber-400 bg-amber-50", title: "text-amber-900" },
-  warning: { box: "border-yellow-400 bg-yellow-50", title: "text-yellow-900" },
-  failure: { box: "border-red-400 bg-red-50", title: "text-red-900" },
-  danger: { box: "border-red-500 bg-red-50", title: "text-red-900" },
-  bug: { box: "border-red-400 bg-red-50", title: "text-red-900" },
-  example: { box: "border-purple-400 bg-purple-50", title: "text-purple-900" },
-  quote: { box: "border-gray-400 bg-gray-50", title: "text-gray-900" },
-  abstract: { box: "border-sky-400 bg-sky-50", title: "text-sky-900" },
-  todo: { box: "border-sky-400 bg-sky-50", title: "text-sky-900" },
+  note: {
+    box: "border-[var(--info,#1d4ed8)] bg-[var(--info-surface,#eff6ff)]",
+    title: "text-[var(--info,#1d4ed8)]",
+  },
+  info: {
+    box: "border-[var(--info,#1d4ed8)] bg-[var(--info-surface,#eff6ff)]",
+    title: "text-[var(--info,#1d4ed8)]",
+  },
+  tip: {
+    box: "border-[var(--success,#166534)] bg-[var(--success-surface,#f0fdf4)]",
+    title: "text-[var(--success,#166534)]",
+  },
+  success: {
+    box: "border-[var(--success,#166534)] bg-[var(--success-surface,#f0fdf4)]",
+    title: "text-[var(--success,#166534)]",
+  },
+  question: {
+    box: "border-[var(--warning,#b45309)] bg-[var(--warning-surface,#fffbeb)]",
+    title: "text-[var(--warning,#b45309)]",
+  },
+  warning: {
+    box: "border-[var(--warning,#b45309)] bg-[var(--warning-surface,#fffbeb)]",
+    title: "text-[var(--warning,#b45309)]",
+  },
+  failure: {
+    box: "border-[var(--danger,#b91c1c)] bg-[var(--danger-surface,#fef2f2)]",
+    title: "text-[var(--danger,#b91c1c)]",
+  },
+  danger: {
+    box: "border-[var(--danger,#b91c1c)] bg-[var(--danger-surface,#fef2f2)]",
+    title: "text-[var(--danger,#b91c1c)]",
+  },
+  bug: {
+    box: "border-[var(--danger,#b91c1c)] bg-[var(--danger-surface,#fef2f2)]",
+    title: "text-[var(--danger,#b91c1c)]",
+  },
+  example: {
+    box: "border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)]",
+    title: "text-[var(--ink,#101310)]",
+  },
+  quote: {
+    box: "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]",
+    title: "text-[var(--ink,#101310)]",
+  },
+  abstract: {
+    box: "border-[var(--info,#1d4ed8)] bg-[var(--info-surface,#eff6ff)]",
+    title: "text-[var(--info,#1d4ed8)]",
+  },
+  todo: {
+    box: "border-[var(--info,#1d4ed8)] bg-[var(--info-surface,#eff6ff)]",
+    title: "text-[var(--info,#1d4ed8)]",
+  },
 };
 
 /** Tekststørrelse på rotnoden; underoverskrifter og kode skalerer relativt. */
@@ -39,18 +79,18 @@ const SIZES: Record<"xs" | "sm" | "base" | "md", string> = {
 };
 
 const components: Components = {
-  h1: ({ children }) => <h1 className="mt-3 mb-1 text-lg font-bold text-gray-900">{children}</h1>,
-  h2: ({ children }) => <h2 className="mt-3 mb-1 text-base font-bold text-gray-900">{children}</h2>,
-  h3: ({ children }) => <h3 className="mt-2 mb-1 text-sm font-bold text-gray-900">{children}</h3>,
-  h4: ({ children }) => <h4 className="mt-2 mb-1 text-sm font-semibold text-gray-800">{children}</h4>,
-  h5: ({ children }) => <h5 className="mt-2 mb-1 text-xs font-semibold text-gray-800">{children}</h5>,
-  h6: ({ children }) => <h6 className="mt-2 mb-1 text-xs font-semibold text-gray-600">{children}</h6>,
+  h1: ({ children }) => <h1 className="mt-3 mb-1 text-lg font-bold text-[var(--ink,#101310)]">{children}</h1>,
+  h2: ({ children }) => <h2 className="mt-3 mb-1 text-base font-bold text-[var(--ink,#101310)]">{children}</h2>,
+  h3: ({ children }) => <h3 className="mt-2 mb-1 text-sm font-bold text-[var(--ink,#101310)]">{children}</h3>,
+  h4: ({ children }) => <h4 className="mt-2 mb-1 text-sm font-semibold text-[var(--ink,#101310)]">{children}</h4>,
+  h5: ({ children }) => <h5 className="mt-2 mb-1 text-xs font-semibold text-[var(--ink,#101310)]">{children}</h5>,
+  h6: ({ children }) => <h6 className="mt-2 mb-1 text-xs font-semibold text-[var(--muted,#62685f)]">{children}</h6>,
   p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
-  strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+  strong: ({ children }) => <strong className="font-semibold text-[var(--ink,#101310)]">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
-  del: ({ children }) => <del className="text-gray-600 line-through">{children}</del>,
+  del: ({ children }) => <del className="text-[var(--muted,#62685f)] line-through">{children}</del>,
   mark: ({ children }) => (
-    <mark className="rounded bg-yellow-200 px-0.5 text-gray-900">{children}</mark>
+    <mark className="rounded bg-[var(--signal,#d8ff3e)] px-0.5 text-[var(--ink,#101310)]">{children}</mark>
   ),
   a: ({ href, title, children }) => {
     const external = Boolean(href && /^https?:/i.test(href));
@@ -60,7 +100,7 @@ const components: Components = {
         title={title}
         target={external ? "_blank" : undefined}
         rel={external ? "noopener noreferrer" : undefined}
-        className="font-medium text-blue-700 underline decoration-blue-300 hover:decoration-blue-700"
+        className="font-medium text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-2 transition hover:decoration-[var(--ink,#101310)]"
       >
         {children}
       </a>
@@ -80,19 +120,26 @@ const components: Components = {
     </li>
   ),
   input: ({ checked }) => (
-    <span aria-hidden className="select-none text-gray-500">
-      {checked ? "☑" : "☐"}
+    <span
+      aria-hidden
+      className={`mt-0.5 inline-flex h-3.5 w-3.5 shrink-0 select-none items-center justify-center rounded-sm border ${
+        checked
+          ? "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+          : "border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-transparent"
+      }`}
+    >
+      <Icon name="check" className="h-3 w-3" strokeWidth={2.5} />
     </span>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="my-2 border-l-4 border-gray-300 pl-3 text-gray-700 italic">{children}</blockquote>
+    <blockquote className="my-2 border-l-2 border-[var(--line,#dedcd1)] pl-3 text-[var(--muted,#62685f)] italic">{children}</blockquote>
   ),
-  hr: () => <hr className="my-3 border-t border-gray-200" />,
+  hr: () => <hr className="my-3 border-t border-[var(--line,#dedcd1)]" />,
   code: ({ children }) => (
-    <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[0.85em] text-gray-900">{children}</code>
+    <code className="rounded border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-1 py-0.5 font-mono text-[0.85em] text-[var(--ink,#101310)]">{children}</code>
   ),
   pre: ({ children }) => (
-    <pre className="my-2 overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-gray-100 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit" tabIndex={0}>
+    <pre className="my-2 overflow-x-auto rounded-lg bg-[var(--ink,#101310)] p-3 text-xs leading-relaxed text-[var(--paper,#f2efe6)] [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit" tabIndex={0}>
       {children}
     </pre>
   ),
@@ -101,14 +148,14 @@ const components: Components = {
       <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+  thead: ({ children }) => <thead className="bg-[var(--paper,#f2efe6)]">{children}</thead>,
   th: ({ children }) => (
-    <th className="border border-gray-200 px-2 py-1 text-left font-semibold text-gray-700">{children}</th>
+    <th className="border border-[var(--line,#dedcd1)] px-2 py-1 text-left font-semibold text-[var(--ink,#101310)]">{children}</th>
   ),
-  td: ({ children }) => <td className="border border-gray-200 px-2 py-1 align-top">{children}</td>,
+  td: ({ children }) => <td className="border border-[var(--line,#dedcd1)] px-2 py-1 align-top">{children}</td>,
   sup: ({ children }) => <sup className="text-[0.7em]">{children}</sup>,
   section: ({ children }) => (
-    <section className="mt-3 border-t border-gray-200 pt-2 text-xs text-gray-600">{children}</section>
+    <section className="mt-3 border-t border-[var(--line,#dedcd1)] pt-2 text-xs text-[var(--muted,#62685f)]">{children}</section>
   ),
   div: ({ className, children }) => {
     // Eneste div-er her er callouts (se markdown-obsidian.ts). Klassen kan være
@@ -143,7 +190,7 @@ export default function MarkdownView({
   if (!value || markdownToPlainText(value).length === 0) return null;
 
   return (
-    <div className={`${SIZES[size]} text-inherit [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${className}`}>
+    <div className={`${SIZES[size]} text-inherit [--focus-ring:var(--ink,#101310)] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${className}`}>
       <Markdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}

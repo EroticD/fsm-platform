@@ -145,31 +145,34 @@ export default function WorkOrderAttachments({
   };
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border-2 border-gray-200">
-      <div className="flex items-baseline justify-between gap-2 mb-3 border-b pb-2">
-        <h2 className="font-black text-gray-900">{t("orders.attachments.title")}</h2>
+    <div className="office-card p-4 [--focus-ring:var(--ink,#101310)] sm:p-6">
+      <div className="mb-3 flex items-baseline justify-between gap-2 border-b border-[var(--line,#dedcd1)] pb-2">
+        <h2 className="flex items-center gap-2 font-black text-[var(--ink,#101310)]">
+          <Icon name="folder" className="h-5 w-5 shrink-0" strokeWidth={2} />
+          {t("orders.attachments.title")}
+        </h2>
         {attachments.length > 0 && (
-          <span className="text-xs font-bold text-gray-500">{t("orders.attachments.fileCount", { count: attachments.length })}</span>
+          <span className="text-xs font-bold text-[var(--muted,#62685f)]">{t("orders.attachments.fileCount", { count: attachments.length })}</span>
         )}
       </div>
 
-      <p className="text-xs text-gray-500 mb-3">
+      <p className="mb-3 text-xs text-[var(--muted,#62685f)]">
         {t("orders.attachments.description")}
       </p>
 
       {attachments.length === 0 ? (
-        <p className="text-xs text-gray-500 italic mb-3">{t("orders.attachments.empty")}</p>
+        <p className="mb-3 text-xs italic text-[var(--muted,#62685f)]">{t("orders.attachments.empty")}</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {attachments.map((attachment) => (
-            <div key={attachment.id} className="border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50 flex flex-col">
+            <div key={attachment.id} className="flex flex-col overflow-hidden rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]">
               {isImage(attachment.dataUrl) ? (
-                <a href={attachment.dataUrl} target="_blank" rel="noreferrer" className="block bg-white">
+                <a href={attachment.dataUrl} target="_blank" rel="noreferrer" className="block bg-[var(--surface,#fffdf8)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={attachment.dataUrl}
                     alt={attachment.fileName}
-                    className="w-full h-24 object-cover"
+                    className="h-24 w-full object-cover"
                   />
                 </a>
               ) : (
@@ -177,20 +180,20 @@ export default function WorkOrderAttachments({
                   href={attachment.dataUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="h-24 flex flex-col items-center justify-center gap-1 bg-white hover:bg-blue-50 transition"
+                  className="flex h-24 flex-col items-center justify-center gap-1 bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                 >
-                  <Icon name="file" className="h-8 w-8 text-blue-700" />
-                  <span className="text-xs font-black text-blue-700 uppercase">PDF</span>
+                  <Icon name="file" className="h-7 w-7" />
+                  <span className="text-xs font-black uppercase tracking-[0.08em]">PDF</span>
                 </a>
               )}
 
-              <div className="px-2 py-1.5 flex items-center justify-between gap-1">
+              <div className="flex items-center justify-between gap-1 px-2 py-1.5">
                 <a
                   href={attachment.dataUrl}
                   target="_blank"
                   rel="noreferrer"
                   title={attachment.fileName}
-                  className="text-xs font-bold text-gray-700 hover:underline truncate"
+                  className="inline-flex min-h-11 min-w-0 items-center truncate text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4"
                 >
                   {attachment.fileName}
                 </a>
@@ -201,9 +204,9 @@ export default function WorkOrderAttachments({
                     disabled={busy}
                     aria-label={`${t("orders.attachments.deleteTitle")}: ${attachment.fileName}`}
                     title={t("orders.attachments.deleteTitle")}
-                    className="inline-flex min-h-6 min-w-6 items-center justify-center text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-2 py-0.5 rounded border border-red-200 transition whitespace-nowrap"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)] transition hover:border-[var(--risk-text,#b42318)] hover:bg-[#fbe9e7] disabled:opacity-50"
                   >
-                    <Icon name="close" className="h-3.5 w-3.5" />
+                    <Icon name="trash" className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -214,7 +217,7 @@ export default function WorkOrderAttachments({
 
       {canUpload && (
         <div className="space-y-2">
-          <label htmlFor={uploadId} className="block text-xs font-bold text-gray-700">
+          <label htmlFor={uploadId} className="block text-xs font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)]">
             {t("orders.attachments.uploadLabel")}
           </label>
           <input
@@ -227,23 +230,23 @@ export default function WorkOrderAttachments({
             aria-invalid={error ? true : undefined}
             onChange={handleChange}
             disabled={busy}
-            className="w-full border-2 border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white focus:border-blue-700 disabled:opacity-60"
+            className="w-full rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-2.5 text-sm text-[var(--ink,#101310)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--ink,#101310)] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[var(--paper,#f2efe6)] focus:border-[var(--ink,#101310)] disabled:opacity-60"
           />
-          <p id={uploadHintId} className="text-xs text-gray-500">
+          <p id={uploadHintId} className="text-xs text-[var(--muted,#62685f)]">
             {t("orders.attachments.uploadHint")}
           </p>
         </div>
       )}
 
       {busy && (
-        <p className="text-xs font-bold text-blue-700 animate-pulse mt-2">
+        <p className="mt-2 animate-pulse text-xs font-bold text-[var(--ink,#101310)]">
           {progress
             ? t("orders.attachments.uploading", { done: progress.done + 1, total: progress.total })
             : t("orders.attachments.uploadingShort")}
         </p>
       )}
 
-      {error && <p id={uploadErrorId} role="alert" className="mt-2 flex items-center gap-1.5 text-xs font-bold text-red-600"><Icon name="alert" className="h-3.5 w-3.5 shrink-0" /> {error}</p>}
+      {error && <p id={uploadErrorId} role="alert" className="mt-2 flex items-center gap-1.5 text-xs font-bold text-[var(--risk-text,#b42318)]"><Icon name="alert" className="h-3.5 w-3.5 shrink-0" /> {error}</p>}
 
       <ConfirmDialog
         open={pendingDelete !== null}

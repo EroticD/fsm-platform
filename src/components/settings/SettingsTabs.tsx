@@ -18,10 +18,10 @@ type SettingsTabsProps = {
 };
 
 const linkClass = (active: boolean) =>
-  `flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors sm:px-5 sm:py-3 sm:text-sm ${
+  `flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-md border-b-[3px] px-3 py-2.5 text-xs font-bold transition-colors sm:px-4 sm:py-3 ${
     active
-      ? "border-blue-600 text-blue-600"
-      : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
+      ? "border-[var(--signal,#d8ff3e)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+      : "border-transparent text-[var(--muted,#62685f)] hover:border-[var(--line,#dedcd1)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
   }`;
 
 export default function SettingsTabs({
@@ -78,7 +78,7 @@ export default function SettingsTabs({
         ref={navRef}
         aria-label={t("settings.title")}
         data-settings-tabs
-        className="-mx-1 flex flex-wrap gap-x-1 border-b border-gray-200 px-1 pb-px max-md:flex-nowrap max-md:overflow-x-auto max-md:overscroll-x-contain max-md:[scrollbar-width:thin]"
+        className="office-card -mx-1 flex flex-wrap gap-x-1 px-2 pt-2 pb-px max-md:flex-nowrap max-md:overflow-x-auto max-md:overscroll-x-contain max-md:[scrollbar-width:thin]"
       >
         {canBranding && (
           <Link
@@ -196,7 +196,7 @@ export default function SettingsTabs({
         </Link>
       </nav>
       {isScrollable && (
-        <p className="mt-1.5 text-xs text-gray-600 md:hidden">
+        <p className="mt-1.5 text-xs text-[var(--muted,#62685f)] md:hidden">
           {t("settings.tabsHint")}
         </p>
       )}

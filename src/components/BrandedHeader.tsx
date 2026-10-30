@@ -17,7 +17,6 @@ import NotificationBell from "./NotificationBell";
 import NotificationSoundToggle from "./NotificationSoundToggle";
 import LogoutButton from "./LogoutButton";
 import Icon from "./icons";
-import { readableTextColor } from "@/lib/colors";
 import {
   activeNavHref,
   homePathForRole,
@@ -198,7 +197,6 @@ export default function BrandedHeader({
 
   const company = companyName || "FSM System";
   const pc = primaryColor || "#2563eb";
-  const activeTextColor = readableTextColor(pc);
 
   const searchTone = isField
     ? "border-[#2a3328] bg-[var(--field)]"
@@ -211,7 +209,7 @@ export default function BrandedHeader({
           er linjen mørk og kompakt, og kundeportalen beholder den lyse
           varianten. */}
       <header
-        className={`flex min-h-16 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8 ${
+        className={`flex min-h-16 items-center gap-2 border-b px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:gap-3 lg:px-8 ${isField ? "" : "[--focus-ring:var(--ink,#101310)]"} ${
           isField
             ? "border-[#2a3328] bg-[var(--field)] text-[var(--paper)]"
             : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]"
@@ -232,7 +230,7 @@ export default function BrandedHeader({
           ) : (
             <div
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg font-bold shadow-sm ${
-                isField ? "bg-[var(--signal)] text-[var(--ink)]" : "text-white"
+                isField ? "bg-[var(--signal)] text-[var(--ink)]" : "text-[var(--paper,#f2efe6)]"
               }`}
               suppressHydrationWarning
               style={isField ? undefined : { backgroundColor: pc }}
@@ -244,7 +242,7 @@ export default function BrandedHeader({
             {title && (
               <h1
                 className={`text-xl font-black ${
-                  isField ? "text-[var(--paper)]" : "text-gray-900"
+                  isField ? "text-[var(--paper)]" : "text-[var(--ink,#101310)]"
                 }`}
               >
                 {title}
@@ -253,7 +251,7 @@ export default function BrandedHeader({
             {!logoUrl && (
               <p
                 className={`truncate text-xs font-semibold uppercase tracking-wider ${
-                  isField ? "text-white/60" : "text-gray-700"
+                  isField ? "text-[var(--paper,#f2efe6)]/60" : "text-[var(--muted,#62685f)]"
                 }`}
               >
                 {company}
@@ -285,8 +283,6 @@ export default function BrandedHeader({
             <GlobalNavDesktop
               items={primaryItems}
               activeHref={activeHref}
-              primaryColor={pc}
-              activeTextColor={activeTextColor}
             />
           </div>
         )}
@@ -316,7 +312,7 @@ export default function BrandedHeader({
                 lastMenuOpenerRef.current = toggleRef.current;
                 setOpenMenuForPath(pathname);
               }}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2.5 text-2xl leading-none text-gray-700 transition hover:bg-gray-100"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2.5 text-2xl leading-none text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
               aria-label={
                 isMenuOpen
                   ? t("components.header.closeMenu")
@@ -363,7 +359,7 @@ export default function BrandedHeader({
                 onClick={() => setMobileSearchOpen((open) => !open)}
                 aria-expanded={mobileSearchOpen}
                 aria-controls="mobile-global-search"
-                className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[#2a3328] bg-[var(--field-card)] px-3 py-2 text-left text-sm font-bold text-[var(--paper)] transition hover:bg-white/5"
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[#2a3328] bg-[var(--field-card)] px-3 py-2 text-left text-sm font-bold text-[var(--paper)] transition hover:bg-[var(--paper,#f2efe6)]/10"
               >
                 <Icon name="search" className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">
@@ -371,7 +367,7 @@ export default function BrandedHeader({
                 </span>
                 <Icon
                   name="chevronDown"
-                  className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${
+                  className={`h-4 w-4 shrink-0 text-[var(--paper,#f2efe6)]/40 transition-transform ${
                     mobileSearchOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -390,7 +386,7 @@ export default function BrandedHeader({
               onClick={() => setMobileSearchOpen((open) => !open)}
               aria-expanded={mobileSearchOpen}
               aria-controls="mobile-global-search"
-              className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+              className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--surface,#fffdf8)]"
             >
               <Icon name="search" className="h-4 w-4 shrink-0" />
               <span className="flex-1 truncate">
@@ -398,7 +394,7 @@ export default function BrandedHeader({
               </span>
               <Icon
                 name="chevronDown"
-                className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                className={`h-4 w-4 shrink-0 text-[var(--muted,#62685f)] transition-transform ${
                   mobileSearchOpen ? "rotate-180" : ""
                 }`}
               />
@@ -411,16 +407,16 @@ export default function BrandedHeader({
           </div>
         ) : (
           <>
-            <div className="hidden bg-white px-4 pb-4 pt-3 sm:block sm:px-6 lg:px-8">
+            <div className="hidden bg-[var(--surface,#fffdf8)] px-4 pb-4 pt-3 sm:block sm:px-6 lg:px-8">
               <GlobalSearch />
             </div>
-            <div className="bg-white px-4 pb-3 pt-3 sm:hidden">
+            <div className="bg-[var(--surface,#fffdf8)] px-4 pb-3 pt-3 sm:hidden">
               <button
                 type="button"
                 onClick={() => setMobileSearchOpen((open) => !open)}
                 aria-expanded={mobileSearchOpen}
                 aria-controls="mobile-global-search"
-                className="flex min-h-11 w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-left text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--surface,#fffdf8)]"
               >
                 <Icon name="search" className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">
@@ -428,7 +424,7 @@ export default function BrandedHeader({
                 </span>
                 <Icon
                   name="chevronDown"
-                  className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                  className={`h-4 w-4 shrink-0 text-[var(--muted,#62685f)] transition-transform ${
                     mobileSearchOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -450,7 +446,7 @@ export default function BrandedHeader({
         <div className="fixed inset-0 z-50">
           <div
             aria-hidden
-            className="absolute inset-0 bg-gray-900/50 backdrop-blur-[1px]"
+            className="absolute inset-0 bg-[var(--ink,#101310)]/50 backdrop-blur-[1px]"
           />
           <div
             ref={menuRef}
@@ -458,12 +454,12 @@ export default function BrandedHeader({
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${MENU_ID}-title`}
-            className="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-hidden bg-white pt-[env(safe-area-inset-top)] shadow-2xl"
+            className="absolute inset-y-0 right-0 flex w-[min(22rem,88vw)] flex-col overflow-hidden bg-[var(--surface,#fffdf8)] pt-[env(safe-area-inset-top)] shadow-2xl"
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--line,#dedcd1)] p-4">
               <h2
                 id={`${MENU_ID}-title`}
-                className="text-sm font-bold text-gray-900"
+                className="text-sm font-bold text-[var(--ink,#101310)]"
               >
                 {t("components.header.menu")}
               </h2>
@@ -471,7 +467,7 @@ export default function BrandedHeader({
                 ref={closeButtonRef}
                 type="button"
                 onClick={closeMenu}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2.5 text-2xl leading-none text-gray-600 hover:bg-gray-100"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2.5 text-2xl leading-none text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]"
                 aria-label={t("components.header.closeMenu")}
               >
                 <Icon name="close" className="h-5 w-5" />
@@ -483,8 +479,6 @@ export default function BrandedHeader({
                 <GlobalNavMobile
                   items={primaryItems}
                   activeHref={activeHref}
-                  primaryColor={pc}
-                  activeTextColor={activeTextColor}
                   label={t("components.header.mainMenu")}
                   onNavigate={closeMenu}
                 />
@@ -498,8 +492,6 @@ export default function BrandedHeader({
                       <GlobalNavMobile
                         items={primaryItems}
                         activeHref={activeHref}
-                        primaryColor={pc}
-                        activeTextColor={activeTextColor}
                         label={t("components.header.work")}
                         onNavigate={closeMenu}
                       />
@@ -517,8 +509,6 @@ export default function BrandedHeader({
                       <GlobalNavMobile
                         items={menuItems}
                         activeHref={activeHref}
-                        primaryColor={pc}
-                        activeTextColor={activeTextColor}
                         label={t("components.header.more")}
                         onNavigate={closeMenu}
                       />
@@ -529,13 +519,13 @@ export default function BrandedHeader({
               {!isDesk && (
                 <LogoutButton
                   onNavigate={closeMenu}
-                  className="mt-4 w-full rounded-xl border border-transparent px-4 py-3 text-left font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-800 disabled:opacity-60"
+                  className="mt-4 w-full rounded-xl border border-transparent px-4 py-3 text-left font-bold text-[var(--ink,#101310)] transition hover:bg-[#fdf4f2] hover:text-[var(--risk-text,#b42318)] disabled:opacity-60"
                 />
               )}
             </div>
 
             {(!isCustomer || settingsItem) && (
-              <div className="shrink-0 border-t border-gray-200 bg-white px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="shrink-0 border-t border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <div className="flex flex-col gap-2">
                   {/* Språket skal være synlig også for kundeportalbrukere,
                       som ikke har den interne menyens øvrige kontroller. */}
@@ -547,8 +537,6 @@ export default function BrandedHeader({
                     <NavLink
                       item={settingsItem}
                       isActive={activeHref === settingsItem.href}
-                      primaryColor={pc}
-                      activeTextColor={activeTextColor}
                       onNavigate={closeMenu}
                       mobile
                     />
@@ -556,7 +544,7 @@ export default function BrandedHeader({
                   {isDesk && (
                     <LogoutButton
                       onNavigate={closeMenu}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-800 disabled:opacity-60"
+                      className="w-full rounded-xl border border-[var(--line,#dedcd1)] px-4 py-3 text-left font-bold text-[var(--ink,#101310)] transition hover:border-[#e7b5ae] hover:bg-[#fdf4f2] hover:text-[var(--risk-text,#b42318)] disabled:opacity-60"
                     />
                   )}
                 </div>
@@ -571,7 +559,7 @@ export default function BrandedHeader({
 
 function MenuHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-2 px-1 text-2xs font-bold uppercase tracking-wider text-gray-600">
+    <p className="mb-2 px-1 text-2xs font-bold uppercase tracking-wider text-[var(--muted,#62685f)]">
       {children}
     </p>
   );
@@ -627,13 +615,13 @@ function BreadcrumbItems({
   const isHomePath = pathname === homeHref;
   const segments = isHomePath ? [] : allSegments;
   const textClass =
-    tone === "field" ? "text-white/55" : "text-[var(--muted)]";
+    tone === "field" ? "text-[var(--paper,#f2efe6)]/55" : "text-[var(--muted)]";
   const linkClass =
     tone === "field"
       ? "hover:text-[var(--paper)] hover:underline"
       : "hover:text-[var(--ink)] hover:underline";
   const separatorClass =
-    tone === "field" ? "text-white/25" : "text-[var(--muted)]/45";
+    tone === "field" ? "text-[var(--paper,#f2efe6)]/25" : "text-[var(--muted)]/45";
   const currentClass =
     tone === "field"
       ? "font-semibold text-[var(--paper)]"
@@ -747,25 +735,21 @@ function navLinkClass(isActive: boolean, mobile: boolean) {
       ? "w-full px-4 py-3 rounded-xl text-sm font-bold transition-all text-left border border-transparent"
       : "px-2.5 xl:px-3 py-2 rounded-xl text-[13px] xl:text-sm font-medium transition-all whitespace-nowrap border border-transparent",
     isActive
-      ? "font-bold shadow-sm"
+      ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] font-bold text-[var(--ink,#101310)] shadow-[inset_0_-2px_0_var(--ink,#101310)]"
       : mobile
-        ? "text-gray-900 hover:bg-gray-100"
-        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+        ? "text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+        : "text-[var(--muted,#62685f)] hover:bg-[var(--paper,#f2efe6)] hover:text-[var(--ink,#101310)]",
   ].join(" ");
 }
 
 function NavLink({
   item,
   isActive,
-  primaryColor,
-  activeTextColor,
   onNavigate,
   mobile,
 }: {
   item: NavItem;
   isActive: boolean;
-  primaryColor: string;
-  activeTextColor: string;
   onNavigate?: () => void;
   mobile: boolean;
 }) {
@@ -776,11 +760,6 @@ function NavLink({
       onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={navLinkClass(isActive, mobile)}
-      style={
-        isActive
-          ? { backgroundColor: primaryColor, color: activeTextColor }
-          : undefined
-      }
     >
       {item.icon && (
         <Icon
@@ -798,13 +777,9 @@ function NavLink({
 function GlobalNavDesktop({
   items,
   activeHref,
-  primaryColor,
-  activeTextColor,
 }: {
   items: NavItem[];
   activeHref: string | null;
-  primaryColor: string;
-  activeTextColor: string;
 }) {
   const t = useTranslations("common");
   return (
@@ -817,8 +792,6 @@ function GlobalNavDesktop({
           key={item.href}
           item={item}
           isActive={activeHref === item.href}
-          primaryColor={primaryColor}
-          activeTextColor={activeTextColor}
           mobile={false}
         />
       ))}
@@ -829,15 +802,11 @@ function GlobalNavDesktop({
 function GlobalNavMobile({
   items,
   activeHref,
-  primaryColor,
-  activeTextColor,
   label,
   onNavigate,
 }: {
   items: NavItem[];
   activeHref: string | null;
-  primaryColor: string;
-  activeTextColor: string;
   label: string;
   onNavigate?: () => void;
 }) {
@@ -851,8 +820,6 @@ function GlobalNavMobile({
           key={item.href}
           item={item}
           isActive={activeHref === item.href}
-          primaryColor={primaryColor}
-          activeTextColor={activeTextColor}
           onNavigate={onNavigate}
           mobile
         />

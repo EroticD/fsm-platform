@@ -60,10 +60,10 @@ export default function NotificationSoundToggle({
           : t("components.sound.turnOn")
       }
       title={enabled ? t("components.sound.on") : t("components.sound.off")}
-      className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-bold transition ${
+      className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3 text-xs font-bold transition ${
         enabled
-          ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-          : "border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200"
+          ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+          : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)] hover:border-[var(--ink,#101310)]"
       } ${className}`}
     >
       <Icon

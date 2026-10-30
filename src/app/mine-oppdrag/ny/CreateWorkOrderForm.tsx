@@ -5,11 +5,29 @@ import { useTranslations } from "next-intl";
 import CustomerSelect from "@/app/oppdrag/ny/CustomerSelect";
 import ErrorBanner from "@/components/ErrorBanner";
 import FormValuePersistence from "@/components/FormValuePersistence";
+import Icon from "@/components/icons";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SubmitButton from "@/components/SubmitButton";
 import TagSelector from "@/components/TagSelector";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { splitTemplatesByCategory } from "@/lib/template-categories";
 import { todayInOslo } from "@/lib/dates";
+
+const LABEL =
+  "mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
+const HINT = "mt-1 text-xs leading-5 text-[var(--muted,#62685f)]";
+const SECTION_TITLE =
+  "flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-2 text-xs font-black uppercase tracking-[0.12em] text-[var(--ink,#101310)]";
+const SECTION =
+  "rounded-xl border border-[var(--line,#dedcd1)] bg-white/55 p-3 sm:p-4";
+
+/**
+ * Fjerner ledende symbol-ikoner fra oversettelser som ennå har emoji i
+ * katalogen. Feltflaten bruker monokrome <Icon>-ikoner i stedet.
+ */
+function withoutLeadingSymbol(value: string) {
+  return value.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+}
 
 export default function CreateWorkOrderForm({
   customers,
@@ -30,23 +48,37 @@ export default function CreateWorkOrderForm({
   const t = useTranslations("common");
   const { service: serviceTemplates, hms: hmsTemplates } =
     splitTemplatesByCategory(templates);
+  const errorMessage = error ? withoutLeadingSymbol(error) : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-12">
-      <div className="bg-gray-900 text-white p-6 shadow-md rounded-b-3xl">
-        <Link href="/mine-oppdrag" className="text-gray-300 hover:text-white text-sm mb-4 inline-block">{t("orders.fieldNew.backToMyWorkOrders")}</Link>
-        <h1 className="text-2xl font-bold">{t("orders.fieldNew.title")}</h1>
-        <p className="text-gray-400 text-sm mt-1">{t("orders.fieldNew.subtitle")}</p>
-      </div>
+    <div className="field-app min-h-screen p-4 pb-28 sm:p-6 sm:pb-12">
+      <div className="mx-auto max-w-2xl space-y-4">
+        <header className="field-hero p-5 sm:p-6">
+          <Link
+            href="/mine-oppdrag"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-paper/70 transition hover:text-paper"
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {withoutLeadingSymbol(t("orders.fieldNew.backToMyWorkOrders"))}
+          </Link>
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.18em] text-signal">
+            {t("workOrder")}
+          </p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-paper">
+            {withoutLeadingSymbol(t("orders.fieldNew.title"))}
+          </h1>
+          <p className="mt-1 text-sm font-medium text-paper/60">
+            {t("orders.fieldNew.subtitle")}
+          </p>
+        </header>
 
-      <div className="px-4 max-w-md mx-auto mt-6 space-y-4">
-        <ErrorBanner message={error} />
+        <ErrorBanner message={errorMessage} />
 
         <form
           id="field-create-work-order"
           action="/api/technician/workorders/create"
           method="POST"
-          className="bg-white p-6 rounded-2xl shadow-sm border space-y-4"
+          className="field-sheet space-y-4 p-4 sm:p-6"
         >
           <FormValuePersistence
             formId="field-create-work-order"
@@ -54,85 +86,204 @@ export default function CreateWorkOrderForm({
             restore={Boolean(error)}
           />
 
-          <div>
-            <label htmlFor="field-title" className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.titleLabel")}</label>
-            <input id="field-title" type="text" name="title" placeholder={t("orders.fieldNew.titlePlaceholder")} required className="w-full border p-3 rounded-xl text-sm text-gray-800" />
-          </div>
+          {/* INNHOLD */}
+          <section className={SECTION} aria-labelledby="field-new-content">
+            <h2 id="field-new-content" className={SECTION_TITLE}>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              {t("orders.formSections.content")}
+            </h2>
 
-          {/* Søk i hele kunderegisteret på serveren – ikke bare de 100 første. */}
-          <CustomerSelect
-            customers={customers}
-            optional={true}
-            persistenceKey="fsm:field-create-work-order"
-            restoreSelection={Boolean(error)}
-          />
+            <div className="mt-3 space-y-3">
+              <div>
+                <label htmlFor="field-title" className={LABEL}>
+                  {t("orders.fieldNew.titleLabel")}{" "}
+                  <span className="text-[var(--risk-text,#b42318)]">*</span>
+                </label>
+                <input
+                  id="field-title"
+                  type="text"
+                  name="title"
+                  placeholder={t("orders.fieldNew.titlePlaceholder")}
+                  required
+                  className={controlClassName("min-h-11")}
+                />
+              </div>
 
-          <fieldset className="rounded-xl border-2 border-gray-200 p-4" aria-describedby="field-new-location-hint">
-            <legend className="px-1 text-sm font-bold text-gray-700">{t("orders.new.locationTitle")}</legend>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="sm:col-span-3">
-                <label htmlFor="field-new-address" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.addressLabel")}</label>
-                <input id="field-new-address" name="address" maxLength={200} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+              <div>
+                <label htmlFor="field-description" className={LABEL}>
+                  {t("orders.fieldNew.description")}
+                </label>
+                <MarkdownEditor
+                  id="field-description"
+                  name="description"
+                  rows={3}
+                  placeholder={t("orders.fieldNew.descriptionPlaceholder")}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* KUNDE OG STED */}
+          <section className={SECTION} aria-labelledby="field-new-customer">
+            <h2 id="field-new-customer" className={SECTION_TITLE}>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              {t("orders.formSections.customerPlace")}
+            </h2>
+
+            <div className="mt-3 space-y-3">
+              {/* Søk i hele kunderegisteret på serveren – ikke bare de 100 første. */}
+              <CustomerSelect
+                customers={customers}
+                optional={true}
+                persistenceKey="fsm:field-create-work-order"
+                restoreSelection={Boolean(error)}
+              />
+
+              <div
+                className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
+                aria-describedby="field-new-location-hint"
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="sm:col-span-3">
+                    <label htmlFor="field-new-address" className={LABEL}>
+                      {t("orders.new.addressLabel")}
+                    </label>
+                    <input
+                      id="field-new-address"
+                      name="address"
+                      maxLength={200}
+                      className={controlClassName("min-h-11")}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="field-new-postal-code" className={LABEL}>
+                      {t("orders.new.postalCodeLabel")}
+                    </label>
+                    <input
+                      id="field-new-postal-code"
+                      name="postalCode"
+                      maxLength={20}
+                      className={controlClassName("min-h-11")}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="field-new-city" className={LABEL}>
+                      {t("orders.new.cityLabel")}
+                    </label>
+                    <input
+                      id="field-new-city"
+                      name="city"
+                      maxLength={100}
+                      className={controlClassName("min-h-11")}
+                    />
+                  </div>
+                </div>
+                <p id="field-new-location-hint" className={HINT}>
+                  {t("orders.new.locationHint")}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* TID */}
+          <section className={SECTION} aria-labelledby="field-new-time">
+            <h2 id="field-new-time" className={SECTION_TITLE}>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              {t("orders.formSections.time")}
+            </h2>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="field-scheduled-for" className={LABEL}>
+                  {t("orders.fieldNew.executionDate")}{" "}
+                  <span className="text-[var(--risk-text,#b42318)]">*</span>
+                </label>
+                <input
+                  id="field-scheduled-for"
+                  type="date"
+                  name="scheduledFor"
+                  defaultValue={todayInOslo()}
+                  required
+                  className={controlClassName("min-h-11")}
+                />
               </div>
               <div>
-                <label htmlFor="field-new-postal-code" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.postalCodeLabel")}</label>
-                <input id="field-new-postal-code" name="postalCode" maxLength={20} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+                <label htmlFor="field-scheduled-to" className={LABEL}>
+                  {t("orders.fieldNew.endDate")}
+                </label>
+                <input
+                  id="field-scheduled-to"
+                  type="date"
+                  name="scheduledTo"
+                  aria-describedby="field-scheduled-to-hint"
+                  className={controlClassName("min-h-11")}
+                />
+                <p id="field-scheduled-to-hint" className={HINT}>
+                  {t("orders.fieldNew.endDateHint")}
+                </p>
               </div>
-              <div className="sm:col-span-2">
-                <label htmlFor="field-new-city" className="mb-1 block text-xs font-bold text-gray-600">{t("orders.new.cityLabel")}</label>
-                <input id="field-new-city" name="city" maxLength={100} className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm font-medium text-gray-900" />
+            </div>
+          </section>
+
+          {/* RESSURSER */}
+          <section className={SECTION} aria-labelledby="field-new-resources">
+            <h2 id="field-new-resources" className={SECTION_TITLE}>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              {t("orders.formSections.resources")}
+            </h2>
+
+            <div className="mt-3 space-y-3">
+              <div>
+                <label htmlFor="field-template" className={LABEL}>
+                  {t("orders.fieldNew.templateLabel")}
+                </label>
+                <select
+                  id="field-template"
+                  name="templateId"
+                  className={controlClassName("min-h-11")}
+                >
+                  <option value="">{t("orders.fieldNew.noTemplate")}</option>
+                  {serviceTemplates.length > 0 && (
+                    <optgroup label={t("orders.templateGroups.service")}>
+                      {serviceTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>{template.title}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {hmsTemplates.length > 0 && (
+                    <optgroup label={t("orders.templateGroups.hms")}>
+                      {hmsTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>{template.title}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <p className="mb-1 text-sm font-bold text-[var(--ink,#101310)]">
+                  {t("orders.fieldNew.tags")}
+                </p>
+                <TagSelector allTags={tags} />
               </div>
             </div>
-            <p id="field-new-location-hint" className="mt-2 text-xs text-gray-500">{t("orders.new.locationHint")}</p>
-          </fieldset>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="field-scheduled-for" className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.executionDate")}</label>
-              <input id="field-scheduled-for" type="date" name="scheduledFor" defaultValue={todayInOslo()} required className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
-
-            </div>
-            <div>
-              <label htmlFor="field-scheduled-to" className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.endDate")}</label>
-              <input id="field-scheduled-to" type="date" name="scheduledTo" aria-describedby="field-scheduled-to-hint" className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50" />
-              <p id="field-scheduled-to-hint" className="text-[11px] text-gray-500 mt-1">{t("orders.fieldNew.endDateHint")}</p>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="field-template" className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.templateLabel")}</label>
-            <select id="field-template" name="templateId" className="w-full border p-3 rounded-xl text-sm text-gray-800 bg-gray-50">
-              <option value="">{t("orders.fieldNew.noTemplate")}</option>
-              {serviceTemplates.length > 0 && (
-                <optgroup label={t("orders.templateGroups.service")}>
-                  {serviceTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>{template.title}</option>
-                  ))}
-                </optgroup>
-              )}
-              {hmsTemplates.length > 0 && (
-                <optgroup label={`🛡️ ${t("orders.templateGroups.hms")}`}>
-                  {hmsTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>{template.title}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-
-          <fieldset>
-            <legend className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.tags")}</legend>
-            <TagSelector allTags={tags} />
-          </fieldset>
-
-          <div>
-            <label htmlFor="field-description" className="block text-sm font-semibold text-gray-700 mb-1">{t("orders.fieldNew.description")}</label>
-            <MarkdownEditor id="field-description" name="description" rows={3} placeholder={t("orders.fieldNew.descriptionPlaceholder")} />
-          </div>
+          </section>
 
           <SubmitButton
             pendingLabel={t("orders.fieldNew.submitting")}
-            className="w-full bg-[var(--primary-color)] text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-sm"
+            className="field-cta w-full"
           >
             {t("orders.fieldNew.submit")}
           </SubmitButton>

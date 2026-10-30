@@ -50,16 +50,16 @@ export default async function DeletedWorkOrdersPage({
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-300 pb-4">
-          <h1 className="flex items-center gap-2 text-2xl md:text-3xl font-black text-gray-900">
+    <div className="office-app min-h-screen p-4 [--focus-ring:var(--ink,#101310)] sm:p-6 md:p-8">
+      <div className="mx-auto max-w-4xl space-y-5">
+        <div className="flex flex-col justify-between gap-4 border-b border-[var(--line,#dedcd1)] pb-4 sm:flex-row sm:items-center">
+          <h1 className="flex items-center gap-2 text-2xl font-black text-[var(--ink,#101310)] md:text-3xl">
             <Icon name="trash" className="h-6 w-6 shrink-0" />
             {t("orders.detail.deletedOrders")}
           </h1>
           <Link
             href="/oppdrag"
-            className="bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
+            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-[10px] border border-[var(--line,#dedcd1)] bg-transparent px-4 py-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
           >
             {t("orders.list.backToDashboard")}
           </Link>
@@ -71,22 +71,22 @@ export default async function DeletedWorkOrdersPage({
           <div
             role="status"
             aria-live="polite"
-            className="flex items-center gap-2 rounded-2xl border-2 border-green-200 bg-green-50 px-5 py-4 text-sm font-bold text-green-900"
+            className="flex items-center gap-2 rounded-2xl border border-[#b9cdb4] bg-[#eaf3e4] px-5 py-4 text-sm font-bold text-[#24502f]"
           >
             <Icon name="check" className="h-4 w-4 shrink-0" />
             {t("orders.detail.restored")}
           </div>
         )}
 
-        <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-2xl border border-[var(--warning-border,#fde68a)] bg-[var(--warning-surface,#fffbeb)] p-4 text-sm text-[var(--warning,#b45309)]">
           <p className="font-black">{t("orders.detail.deletedInfoTitle")}</p>
           <p className="mt-1">{t("orders.detail.deletedInfo")}</p>
           <p className="mt-1 text-xs font-medium">{t("orders.detail.deletedRetention")}</p>
         </div>
 
         {orders.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-gray-300 text-center">
-            <p className="text-gray-600 font-bold">
+          <div className="rounded-2xl border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-8 text-center">
+            <p className="font-bold text-[var(--muted,#62685f)]">
               {t("orders.detail.noDeletedOrders")}
             </p>
           </div>
@@ -95,11 +95,11 @@ export default async function DeletedWorkOrdersPage({
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="bg-white p-4 rounded-2xl border-2 border-gray-200 flex flex-wrap items-center justify-between gap-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-4"
               >
                 <div className="min-w-0">
-                  <p className="font-black text-gray-900 truncate">{order.title}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                  <p className="truncate font-black text-[var(--ink,#101310)]">{order.title}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--muted,#62685f)]">
                     <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
                     {order.customer?.name || t("orders.list.noCustomer")}
                     {order.deletedAt
@@ -109,7 +109,7 @@ export default async function DeletedWorkOrdersPage({
                       : ""}
                   </p>
                   {order.deletedBy && (
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="mt-0.5 text-[11px] text-[var(--muted,#62685f)]">
                       {order.deletedBy}
                     </p>
                   )}
@@ -118,7 +118,7 @@ export default async function DeletedWorkOrdersPage({
                   <input type="hidden" name="workOrderId" value={order.id} />
                   <button
                     type="submit"
-                    className="bg-green-700 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-green-800 transition shadow-sm whitespace-nowrap"
+                    className="signal-button whitespace-nowrap text-sm"
                   >
                     {t("orders.detail.restore")}
                   </button>

@@ -19,6 +19,10 @@ export default function UploadDocumentForm({
   context: DocumentFormContext;
 }) {
   const t = useTranslations("common");
+  const fieldClass =
+    "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+  const labelClass =
+    "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -78,48 +82,68 @@ export default function UploadDocumentForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <DocumentContextFields context={context} />
       <div>
-        <label htmlFor="upload-pdf-input" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.pdfFile")}</label>
+        <label htmlFor="upload-pdf-input" className={labelClass}>
+          {t("documents.upload.pdfFile")}
+        </label>
         <input
           id="upload-pdf-input"
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}
-          className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+          className={fieldClass}
         />
-        {uploading && <p className="text-xs text-blue-600 mt-1">{t("documents.upload.uploading")}</p>}
-        {fileUrl && <p className="mt-1 flex items-center gap-1.5 text-xs text-green-600"><Icon name="check" className="h-3.5 w-3.5 shrink-0" /> {t("documents.upload.uploaded", { name: fileName })}</p>}
-        {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+        {uploading && (
+          <p className="mt-1 text-xs font-bold text-[var(--muted,#62685f)]">
+            {t("documents.upload.uploading")}
+          </p>
+        )}
+        {fileUrl && (
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-[var(--ink,#101310)]">
+            <Icon name="check" className="h-3.5 w-3.5 shrink-0" />
+            {t("documents.upload.uploaded", { name: fileName })}
+          </p>
+        )}
+        {error && (
+          <p className="mt-1 text-xs font-bold text-[var(--risk-text,#b42318)]">
+            {error}
+          </p>
+        )}
       </div>
       <div>
-        <label htmlFor="upload-document-title" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.title")}</label>
+        <label htmlFor="upload-document-title" className={labelClass}>
+          {t("documents.upload.title")}
+        </label>
         <input
           id="upload-document-title"
           type="text"
           name="title"
           required
           placeholder={t("documents.upload.titlePlaceholder")}
-          className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+          className={fieldClass}
         />
       </div>
       <div>
-        <label htmlFor="upload-document-description" className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.description")}</label>
+        <label htmlFor="upload-document-description" className={labelClass}>
+          {t("documents.upload.description")}
+        </label>
         <textarea
           id="upload-document-description"
           name="description"
           rows={2}
           placeholder={t("documents.upload.descriptionPlaceholder")}
-          className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+          className={`${fieldClass} py-2`}
         />
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">{t("documents.upload.tags")}</label>
+        <label className={labelClass}>{t("documents.upload.tags")}</label>
         <TagSelector allTags={allTags} />
       </div>
       <button
         type="submit"
         disabled={!fileUrl || uploading}
-        className="w-full bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm disabled:opacity-50"
+        className="signal-button min-h-10 w-full rounded-[10px] text-xs font-bold shadow-[2px_2px_0_var(--ink,#101310)] transition hover:shadow-[1px_1px_0_var(--ink,#101310)] disabled:cursor-not-allowed disabled:opacity-50"
       >
+        <Icon name="check" className="h-4 w-4" />
         {t("documents.upload.save")}
       </button>
     </form>

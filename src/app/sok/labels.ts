@@ -1,5 +1,21 @@
+import type { IconName } from "@/components/icons";
 import { HMS_FORM_TYPES } from "@/lib/hms";
 import { SEARCH_STATUS_VALUES } from "@/lib/search-filters";
+
+/** Monokrome ikoner for gruppene i søkeresultatet. */
+export const GROUP_ICONS: Record<string, IconName> = {
+  customer: "building",
+  workOrder: "clipboard",
+  tag: "flag",
+  unit: "wrench",
+  contact: "user",
+  report: "file",
+  comment: "note",
+  user: "users",
+  template: "list",
+  folder: "folder",
+  document: "file",
+};
 
 /** Oversettelsesnøkler for gruppene i søkeresultatet. */
 export const GROUP_KEYS: Record<string, string> = {

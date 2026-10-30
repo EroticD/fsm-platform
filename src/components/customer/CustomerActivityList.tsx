@@ -4,6 +4,7 @@ import { formatDateTimeLocalized } from "@/lib/dates";
 import { describeAuditAction, type AuditTranslator } from "@/lib/audit-actions";
 import type { CustomerDetailData } from "@/server/customers";
 import Icon, { type IconName } from "@/components/icons";
+import { CUSTOMER_INSET, CUSTOMER_MUTED } from "./customerStyles";
 
 type ActivityItem = CustomerDetailData["activityFeed"][number];
 
@@ -39,29 +40,36 @@ export default async function CustomerActivityList({
   const translate = t as unknown as AuditTranslator;
 
   if (items.length === 0) {
-    return <p className="text-xs text-gray-500 italic">{emptyLabel}</p>;
+    return <p className={`text-xs italic ${CUSTOMER_MUTED}`}>{emptyLabel}</p>;
   }
 
   return (
-    <ol className="space-y-2">
+    <ol className="space-y-1.5">
       {items.map((item) => {
         const body = (
           <>
-            <span className="mt-0.5 text-base leading-none" aria-hidden="true">
-              <Icon name={KIND_ICON[item.kind]} className="h-4 w-4" />
+            <span
+              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] text-[var(--ink,#101310)]"
+              aria-hidden="true"
+            >
+              <Icon
+                name={KIND_ICON[item.kind]}
+                className="h-3.5 w-3.5"
+                strokeWidth={2}
+              />
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-sm font-medium text-gray-800">
+                <span className="text-xs font-bold text-[var(--ink,#101310)]">
                   {describeAuditAction(item.action, translate) ?? item.action}
                 </span>
                 {showKind && (
-                  <span className="rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                  <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--muted,#62685f)]">
                     {t(KIND_LABEL_KEY[item.kind])}
                   </span>
                 )}
               </span>
-              <span className="mt-0.5 block text-xs text-gray-500">
+              <span className={`mt-0.5 block text-xs ${CUSTOMER_MUTED}`}>
                 {item.userName || t("customers.overview.unknownUser")} •{" "}
                 {formatDateTimeLocalized(item.createdAt, locale)}
               </span>
@@ -74,12 +82,12 @@ export default async function CustomerActivityList({
             {item.href ? (
               <Link
                 href={item.href}
-                className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-2.5 transition hover:border-blue-300 hover:bg-blue-50/60"
+                className={`${CUSTOMER_INSET} flex items-start gap-2.5 p-2 transition hover:border-[var(--ink,#101310)] hover:bg-[var(--surface,#fffdf8)]`}
               >
                 {body}
               </Link>
             ) : (
-              <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+              <div className={`${CUSTOMER_INSET} flex items-start gap-2.5 p-2`}>
                 {body}
               </div>
             )}

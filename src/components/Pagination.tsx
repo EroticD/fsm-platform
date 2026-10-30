@@ -42,13 +42,13 @@ export function paginationLabels(t: Translate): PaginationLabels {
 }
 
 const controlClass =
-  "inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-3 text-sm font-bold text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2";
+  "inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)] focus-visible:ring-offset-2";
 
 const disabledClass =
-  "inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-gray-100 bg-gray-50 px-3 text-sm font-bold text-gray-400";
+  "inline-flex min-h-11 items-center justify-center rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 text-xs font-bold text-[var(--muted,#62685f)] opacity-60";
 
 const currentClass =
-  "inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-blue-700 px-3 text-sm font-black text-white shadow-sm";
+  "inline-flex min-h-11 min-w-11 items-center justify-center rounded-[10px] border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-3 text-xs font-black text-[var(--paper,#f2efe6)]";
 
 /**
  * Felles sidebladdring for lister. Sidetall utenfor området klemmes til siste
@@ -121,12 +121,12 @@ export default function Pagination({
       {stalePage ? (
         <Link
           href={hrefFor(current)}
-          className="text-center text-sm font-bold text-blue-700 underline hover:text-blue-900 sm:text-left"
+          className="text-center text-xs font-bold text-[var(--ink,#101310)] underline underline-offset-2 hover:text-[var(--muted,#62685f)] sm:text-left"
         >
           {labels.stale}
         </Link>
       ) : summary ? (
-        <p className="text-center text-sm text-gray-600 sm:text-left">
+        <p className="text-center text-xs text-[var(--muted,#62685f)] sm:text-left">
           {summary}
         </p>
       ) : null}

@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useTranslations } from "next-intl";
+import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 import type { SearchFilters } from "@/lib/search-filters";
 import { SEARCH_GROUP_KINDS } from "@/lib/search-filters";
 import { buildSearchHref } from "./search-params";
@@ -24,6 +26,12 @@ type FilterFormProps = {
   idPrefix: string;
   onApply?: () => void;
 };
+
+const FIELD = controlClassName("min-h-11 text-sm font-medium");
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const LEGEND =
+  "text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
 
 function countActiveFilters(filters: SearchFilters): number {
   const singleValues = [
@@ -70,38 +78,38 @@ function FilterForm({
       method="get"
       aria-labelledby={titleId}
       onSubmit={() => onApply?.()}
-      className="space-y-5 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+      className="office-card space-y-5 p-4 sm:p-5"
     >
       <input type="hidden" name="q" value={query} />
 
       <div className="flex items-center justify-between gap-3">
-        <h2 id={titleId} className="text-base font-black text-gray-900">
+        <h2 id={titleId} className="text-base font-extrabold text-[var(--ink,#101310)]">
           {t("components.search.filters.title")}
         </h2>
         <a
           href={buildSearchHref({ q: query, filters: {} })}
-          className="text-xs font-bold text-blue-700 hover:underline"
+          className="text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline"
         >
           {t("components.search.filters.clear")}
         </a>
       </div>
 
       <fieldset>
-        <legend className="text-xs font-bold uppercase tracking-wide text-gray-500">
+        <legend className={LEGEND}>
           {t("components.search.filters.types")}
         </legend>
         <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
           {SEARCH_GROUP_KINDS.map((kind) => (
             <label
               key={kind}
-              className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-1 text-sm text-gray-700 hover:bg-gray-50"
+              className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-1 text-sm text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
             >
               <input
                 type="checkbox"
                 name="types"
                 value={kind}
                 defaultChecked={selectedTypes.has(kind)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                className="h-4 w-4 rounded accent-[var(--ink,#101310)]"
               />
               <span>{tl(GROUP_KEYS[kind] ?? kind)}</span>
             </label>
@@ -112,7 +120,7 @@ function FilterForm({
       <div>
         <label
           htmlFor={statusId}
-          className="text-xs font-bold uppercase tracking-wide text-gray-500"
+          className={LEGEND}
         >
           {t("components.search.filters.status")}
         </label>
@@ -120,7 +128,7 @@ function FilterForm({
           id={statusId}
           name="status"
           defaultValue={filters.status ?? ""}
-          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+          className={`${FIELD} mt-1`}
         >
           <option value="">{t("components.search.filters.allStatuses")}</option>
           {SEARCH_STATUS_OPTIONS.map((option) => (
@@ -135,7 +143,7 @@ function FilterForm({
         <div>
           <label
             htmlFor={customerId}
-            className="text-xs font-bold uppercase tracking-wide text-gray-500"
+            className={LEGEND}
           >
             {t("components.search.filters.customer")}
           </label>
@@ -143,7 +151,7 @@ function FilterForm({
             id={customerId}
             name="customer"
             defaultValue={filters.customer ?? ""}
-            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            className={`${FIELD} mt-1`}
           >
             <option value="">{t("components.search.filters.allCustomers")}</option>
             {customers.map((customer) => (
@@ -159,7 +167,7 @@ function FilterForm({
         <div>
           <label
             htmlFor={technicianId}
-            className="text-xs font-bold uppercase tracking-wide text-gray-500"
+            className={LEGEND}
           >
             {t("components.search.filters.technician")}
           </label>
@@ -167,7 +175,7 @@ function FilterForm({
             id={technicianId}
             name="technician"
             defaultValue={filters.technician ?? ""}
-            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            className={`${FIELD} mt-1`}
           >
             <option value="">{t("components.search.filters.allTechnicians")}</option>
             {technicians.map((technician) => (
@@ -183,7 +191,7 @@ function FilterForm({
         <div>
           <label
             htmlFor={dateFromId}
-            className="text-xs font-bold uppercase tracking-wide text-gray-500"
+            className={LEGEND}
           >
             {t("components.search.filters.dateFrom")}
           </label>
@@ -192,13 +200,13 @@ function FilterForm({
             type="date"
             name="dateFrom"
             defaultValue={filters.dateFrom ?? ""}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            className={`${FIELD} mt-1`}
           />
         </div>
         <div>
           <label
             htmlFor={dateToId}
-            className="text-xs font-bold uppercase tracking-wide text-gray-500"
+            className={LEGEND}
           >
             {t("components.search.filters.dateTo")}
           </label>
@@ -207,7 +215,7 @@ function FilterForm({
             type="date"
             name="dateTo"
             defaultValue={filters.dateTo ?? ""}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+            className={`${FIELD} mt-1`}
           />
         </div>
       </div>
@@ -215,7 +223,7 @@ function FilterForm({
       <div>
         <label
           htmlFor={tagId}
-          className="text-xs font-bold uppercase tracking-wide text-gray-500"
+          className={LEGEND}
         >
           {t("components.search.filters.tag")}
         </label>
@@ -226,14 +234,14 @@ function FilterForm({
           maxLength={64}
           defaultValue={filters.tag ?? ""}
           placeholder={t("components.search.filters.tagPlaceholder")}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+          className={`${FIELD} mt-1`}
         />
       </div>
 
       <div>
         <label
           htmlFor={hmsTypeId}
-          className="text-xs font-bold uppercase tracking-wide text-gray-500"
+          className={LEGEND}
         >
           {t("components.search.filters.hmsType")}
         </label>
@@ -241,7 +249,7 @@ function FilterForm({
           id={hmsTypeId}
           name="hmsType"
           defaultValue={filters.hmsType ?? ""}
-          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+          className={`${FIELD} mt-1`}
         >
           <option value="">{t("components.search.filters.allHmsTypes")}</option>
           {SEARCH_HMS_TYPE_OPTIONS.map((option) => (
@@ -254,7 +262,7 @@ function FilterForm({
 
       <button
         type="submit"
-        className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+        className={`${SIGNAL_BUTTON} w-full`}
       >
         {t("components.search.filters.apply")}
       </button>
@@ -376,17 +384,18 @@ function MobileFilters({
         aria-controls={panelId}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+        className="office-card flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[var(--ink,#101310)] transition hover:border-[#bdb3a0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span aria-hidden>⚙️</span>
+          <Icon name="filter" className="h-4 w-4 shrink-0" />
           <span className="truncate">
             {t("components.search.filters.mobileTrigger", { count: activeCount })}
           </span>
         </span>
-        <span aria-hidden className="shrink-0 text-xs text-gray-400">
-          ▼
-        </span>
+        <Icon
+          name="chevronDown"
+          className="h-4 w-4 shrink-0 text-[var(--muted,#62685f)]"
+        />
       </button>
 
       {open && (
@@ -394,7 +403,7 @@ function MobileFilters({
           <div
             aria-hidden
             onClick={close}
-            className="absolute inset-0 bg-gray-900/50 backdrop-blur-[1px]"
+            className="absolute inset-0 bg-[var(--ink,#101310)]/50 backdrop-blur-[1px]"
           />
           <div
             ref={panelRef}
@@ -404,17 +413,17 @@ function MobileFilters({
             aria-label={t("components.search.filters.panelLabel")}
             tabIndex={-1}
             onKeyDown={trapFocus}
-            className="absolute inset-x-0 top-0 flex max-h-[85vh] flex-col overflow-hidden rounded-b-2xl bg-gray-50 shadow-2xl"
+            className="absolute inset-x-0 top-0 flex max-h-[85vh] flex-col overflow-hidden rounded-b-card border-b border-[var(--line,#dedcd1)] bg-[var(--canvas,#f4f5f2)] shadow-2xl"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
-              <h2 className="text-base font-black text-gray-900">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 py-3">
+              <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
                 {t("components.search.filters.title")}
               </h2>
               <button
                 type="button"
                 data-autofocus
                 onClick={applyFilters}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                className={SIGNAL_BUTTON}
               >
                 {t("components.search.filters.showResults")}
               </button>
@@ -430,11 +439,11 @@ function MobileFilters({
               {children && <div className="mt-4 space-y-4">{children}</div>}
             </div>
 
-            <div className="border-t border-gray-200 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <div className="border-t border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
               <button
                 type="button"
                 onClick={applyFilters}
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                className={`${SIGNAL_BUTTON} w-full`}
               >
                 {t("components.search.filters.showResults")}
               </button>

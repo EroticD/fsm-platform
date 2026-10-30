@@ -15,7 +15,6 @@ import {
   reportUnitSummary,
 } from "@/lib/report-display";
 import { pageWindow, parsePage } from "@/lib/pagination";
-import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
 import Icon, { type IconName } from "@/components/icons";
 import Pagination, { paginationLabels } from "@/components/Pagination";
@@ -39,6 +38,29 @@ const PAGE_SIZE = REPORTS_PAGE_SIZE;
 
 /** Et begrenset antall filtervalg – lister skal aldri hente hele tabellen. */
 const FILTER_OPTION_LIMIT = 300;
+
+// Command Center-verdier. Fallbackene matcher office-card/signal-button/
+// ink-button-tokenene, slik at rapportlisten står riktig også før de er lastet.
+const CARD = "office-card";
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const INK_BUTTON =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+const QUIET_BUTTON =
+  "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)]";
+const FIELD =
+  "min-h-10 w-full rounded-lg border border-[var(--line,#dedcd1)] bg-white px-3 text-sm font-medium text-[var(--ink,#101310)] outline-none transition focus:border-[var(--ink,#101310)] focus:ring-2 focus:ring-[var(--signal,#d8ff3e)]";
+const LABEL =
+  "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
+const EYEBROW =
+  "text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]";
+const MUTED = "text-[var(--muted,#62685f)]";
+const FILTER_CHIP =
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold transition";
+const ACTIVE_CHIP =
+  "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]";
+const INACTIVE_CHIP =
+  "border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] hover:border-[var(--ink,#101310)]";
 
 const RANGES = [
   { key: "denne-maneden", labelKey: "orders.reportsPage.thisMonth", icon: "calendar" },
@@ -261,25 +283,19 @@ export default async function ReportsPage({
     `/rapporter/${workOrderId}/revisjoner?rapport=${encodeURIComponent(reportId)}&returnTo=${encodeURIComponent(currentPageHref)}`;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-5">
+    <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-6xl space-y-4">
         <PageHeader
           title={t("orders.reportsPage.title")}
-          subtitle={`${t("orders.reportsPage.subtitle")} • ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(filters.range)})`}
+          subtitle={`${t("orders.reportsPage.subtitle")} · ${t("orders.reportsPage.count", { count: total })} (${rangeLabel(filters.range)})`}
           icon={<Icon name="clipboard" className="h-5 w-5" />}
           actions={
             <>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-              >
+              <Link href="/" className={INK_BUTTON}>
                 <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
                 {t("orders.reportsPage.dashboard")}
               </Link>
-              <Link
-                href="/oppdrag"
-                className="inline-flex items-center gap-1.5 bg-white border-2 border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-sm whitespace-nowrap"
-              >
+              <Link href="/oppdrag" className={INK_BUTTON}>
                 <Icon name="folder" className="h-4 w-4 shrink-0" />
                 {t("orders.reportsPage.orders")}
               </Link>
@@ -287,9 +303,9 @@ export default async function ReportsPage({
           }
         />
 
-        {/* TIDSROM */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border-2 border-gray-200">
-          <div className="flex gap-2 flex-wrap">
+        {/* TIDSROM, TYPE OG KVITTERING */}
+        <section className={`${CARD} space-y-2.5 p-3 sm:p-4`}>
+          <div className="flex flex-wrap items-center gap-1.5">
             {RANGES.map((range) => {
               const active = range.key === filters.range;
               return (
@@ -297,17 +313,15 @@ export default async function ReportsPage({
                   key={range.key}
                   href={listHref({ range: range.key })}
                   aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition whitespace-nowrap ${
-                    active
-                      ? "bg-blue-700 border-blue-700 text-white shadow-sm"
-                      : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300"
-                  }`}
+                  className={`${FILTER_CHIP} ${active ? ACTIVE_CHIP : INACTIVE_CHIP}`}
                 >
-                  <Icon name={range.icon} className="h-4 w-4 shrink-0" />
+                  <Icon name={range.icon} className="h-3.5 w-3.5 shrink-0" />
                   <span>{t(range.labelKey)}</span>
                   <span
-                    className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                      active ? "bg-white text-blue-800 ring-1 ring-inset ring-blue-200" : "bg-white border border-gray-200 text-gray-600"
+                    className={`rounded-full px-1.5 text-[11px] font-black tabular-nums ${
+                      active
+                        ? "bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+                        : "border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]"
                     }`}
                   >
                     {rangeCounts[range.key]}
@@ -317,45 +331,30 @@ export default async function ReportsPage({
             })}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-gray-100">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wider">
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--line,#dedcd1)] pt-2.5">
+            <span className={`${EYEBROW} mr-1`}>
               {t("orders.reportsPage.filterLabel")}
             </span>
             <Link
               href={listHref({ category: undefined })}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                !filters.category
-                  ? "bg-blue-700 border-blue-700 text-white"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
-              }`}
+              className={`${FILTER_CHIP} ${!filters.category ? ACTIVE_CHIP : INACTIVE_CHIP}`}
             >
               {t("orders.reportsPage.filterAll")}
             </Link>
             <Link
               href={listHref({ category: "HMS" })}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                filters.category === "HMS"
-                  ? "bg-blue-700 border-blue-700 text-white"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
-              }`}
+              className={`${FILTER_CHIP} ${filters.category === "HMS" ? ACTIVE_CHIP : INACTIVE_CHIP}`}
             >
               <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
               {t("orders.templateGroups.hms")}
             </Link>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-gray-100">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wider">
+            <span className={`${EYEBROW} ml-0 mr-1 sm:ml-3`}>
               {t("customers.reportList.acknowledgement")}
             </span>
             <Link
               href={listHref({}, undefined, null)}
               aria-current={!acknowledgementFilter ? "page" : undefined}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                !acknowledgementFilter
-                  ? "bg-blue-700 border-blue-700 text-white"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
-              }`}
+              className={`${FILTER_CHIP} ${!acknowledgementFilter ? ACTIVE_CHIP : INACTIVE_CHIP}`}
             >
               {t("customers.reportList.ackAll")}
             </Link>
@@ -364,11 +363,7 @@ export default async function ReportsPage({
               aria-current={
                 acknowledgementFilter === "ja" ? "page" : undefined
               }
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                acknowledgementFilter === "ja"
-                  ? "bg-blue-700 border-blue-700 text-white"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
-              }`}
+              className={`${FILTER_CHIP} ${acknowledgementFilter === "ja" ? ACTIVE_CHIP : INACTIVE_CHIP}`}
             >
               {t("customers.reportList.acknowledged")}
             </Link>
@@ -377,11 +372,7 @@ export default async function ReportsPage({
               aria-current={
                 acknowledgementFilter === "nei" ? "page" : undefined
               }
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition ${
-                acknowledgementFilter === "nei"
-                  ? "bg-blue-700 border-blue-700 text-white"
-                  : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
-              }`}
+              className={`${FILTER_CHIP} ${acknowledgementFilter === "nei" ? ACTIVE_CHIP : INACTIVE_CHIP}`}
             >
               {t("customers.reportList.notAcknowledged")}
             </Link>
@@ -391,7 +382,7 @@ export default async function ReportsPage({
           <form
             action="/rapporter"
             method="get"
-            className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid grid-cols-1 gap-2.5 border-t border-[var(--line,#dedcd1)] pt-3 sm:grid-cols-2 lg:grid-cols-4"
           >
             {filters.range !== "denne-maneden" && (
               <input type="hidden" name="vis" value={filters.range} />
@@ -408,10 +399,7 @@ export default async function ReportsPage({
             )}
 
             <div className="sm:col-span-2 lg:col-span-4">
-              <label
-                htmlFor="report-filter-q"
-                className="text-xs font-bold uppercase tracking-wide text-gray-500"
-              >
+              <label htmlFor="report-filter-q" className={LABEL}>
                 {t("orders.reportsPage.freeText")}
               </label>
               <input
@@ -421,23 +409,20 @@ export default async function ReportsPage({
                 defaultValue={filters.q}
                 maxLength={100}
                 placeholder={t("orders.reportsPage.freeTextPlaceholder")}
-                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                className={FIELD}
               />
             </div>
 
             {showCustomers && (
               <div>
-                <label
-                  htmlFor="report-filter-customer"
-                  className="text-xs font-bold uppercase tracking-wide text-gray-500"
-                >
+                <label htmlFor="report-filter-customer" className={LABEL}>
                   {t("orders.reportsPage.customer")}
                 </label>
                 <select
                   id="report-filter-customer"
                   name="kunde"
                   defaultValue={filters.customer ?? ""}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                  className={FIELD}
                 >
                   <option value="">{t("orders.reportsPage.allCustomers")}</option>
                   {customers.map((customer) => (
@@ -451,17 +436,14 @@ export default async function ReportsPage({
 
             {showTechnicians && technicianOptions.length > 0 && (
               <div>
-                <label
-                  htmlFor="report-filter-technician"
-                  className="text-xs font-bold uppercase tracking-wide text-gray-500"
-                >
+                <label htmlFor="report-filter-technician" className={LABEL}>
                   {t("orders.reportsPage.technician")}
                 </label>
                 <select
                   id="report-filter-technician"
                   name="montor"
                   defaultValue={filters.technician ?? ""}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                  className={FIELD}
                 >
                   <option value="">{t("orders.reportsPage.allTechnicians")}</option>
                   {technicianOptions.map((technician) => (
@@ -474,17 +456,14 @@ export default async function ReportsPage({
             )}
 
             <div>
-              <label
-                htmlFor="report-filter-sort"
-                className="text-xs font-bold uppercase tracking-wide text-gray-500"
-              >
+              <label htmlFor="report-filter-sort" className={LABEL}>
                 {t("orders.reportsPage.sort")}
               </label>
               <select
                 id="report-filter-sort"
                 name="sorter"
                 defaultValue={filters.sort}
-                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
+                className={FIELD}
               >
                 {SORTS.map((sort) => (
                   <option key={sort.key} value={sort.key}>
@@ -494,14 +473,14 @@ export default async function ReportsPage({
               </select>
             </div>
 
-            <div className="flex flex-col justify-end">
-              <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-1 text-sm font-bold text-gray-700">
+            <div className="flex items-end">
+              <label className="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-3 text-sm font-bold text-[var(--ink,#101310)]">
                 <input
                   type="checkbox"
                   name="avvik"
                   value="1"
                   defaultChecked={filters.deviationOnly}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                  className="h-4 w-4 rounded border-[var(--line,#dedcd1)] accent-[var(--ink,#101310)]"
                 />
                 <span className="inline-flex items-center gap-1.5">
                   <Icon name="alert" className="h-3.5 w-3.5 shrink-0" />
@@ -511,132 +490,221 @@ export default async function ReportsPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
-              <button
-                type="submit"
-                className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-              >
+              <button type="submit" className={INK_BUTTON}>
+                <Icon name="filter" className="h-3.5 w-3.5 shrink-0" />
                 {t("orders.reportsPage.applyFilters")}
               </button>
               {hasActiveFilters && (
-                <Link
-                  href={resetHref}
-                  className="rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
-                >
+                <Link href={resetHref} className={QUIET_BUTTON}>
                   {t("orders.reportsPage.resetFilters")}
                 </Link>
               )}
             </div>
           </form>
-        </div>
+        </section>
 
         {/* LISTE */}
         {reports.length === 0 ? (
-          <EmptyState
-            icon={<Icon name="clipboard" className="h-8 w-8" />}
-            title={
-              hasActiveFilters
+          <div className={`${CARD} p-8 text-center`}>
+            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--ink,#101310)]">
+              <Icon name="clipboard" className="h-5 w-5" />
+            </span>
+            <h2 className="mt-3 text-base font-extrabold text-[var(--ink,#101310)]">
+              {hasActiveFilters
                 ? t("orders.reportsPage.emptyFilteredTitle")
                 : t("orders.reportsPage.emptyTitle", {
                     range: rangeLabel(filters.range),
-                  })
-            }
-            description={
-              hasActiveFilters
+                  })}
+            </h2>
+            <p className={`mx-auto mt-1 max-w-md text-sm ${MUTED}`}>
+              {hasActiveFilters
                 ? t("orders.reportsPage.emptyFilteredDescription")
-                : t("orders.reportsPage.emptyDescription")
-            }
-            action={
-              hasActiveFilters ? (
+                : t("orders.reportsPage.emptyDescription")}
+            </p>
+            {(hasActiveFilters || filters.range !== "alle") && (
+              <div className="mt-4 flex justify-center">
                 <Link
-                  href={resetHref}
-                  className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                  href={
+                    hasActiveFilters
+                      ? resetHref
+                      : listHref({ range: "alle" })
+                  }
+                  className={SIGNAL_BUTTON}
                 >
-                  {t("orders.reportsPage.resetFilters")}
+                  {hasActiveFilters
+                    ? t("orders.reportsPage.resetFilters")
+                    : t("orders.reportsPage.all")}
                 </Link>
-              ) : filters.range !== "alle" ? (
-                <Link
-                  href={listHref({ range: "alle" })}
-                  className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
-                >
-                  {t("orders.reportsPage.all")}
-                </Link>
-              ) : undefined
-            }
-          />
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="space-y-2">
-            {reports.map((report) => {
-              const summary = reportUnitSummary(report);
-              const unitCount = summary.unitCount;
-              const deviations = summary.deviationCount;
-              const acknowledgement = reportAcknowledgement(report);
-              const unitNames = summary.usesUnits
-                ? report.units
-                    .map((unit) => unit.label)
-                    .filter((label): label is string => Boolean(label))
-                : [];
-              const shownUnitNames = unitNames.slice(0, 2);
-              const extraUnits = unitNames.length - shownUnitNames.length;
-              const hms = isHmsReport(report);
-              const workOrder = report.workOrder;
-              const canOpenWorkOrder =
-                Boolean(workOrder) &&
-                canAccessWorkOrder(user, {
-                  departmentId: workOrder!.departmentId,
-                  customerId: workOrder!.customerId,
-                  departmentIsActive: workOrder!.department?.isActive,
-                }) &&
-                (user.role !== "TECHNICIAN" || workOrder!.status !== "CANCELLED");
-              // Skjemaet kan bare åpnes av brukere som faktisk har skrivetilgang
-              // til oppdraget. Rapporten må fortsatt være ulåst.
-              const canOpenForm =
-                canWriteReports &&
-                canOpenWorkOrder &&
-                !report.isLocked &&
-                Boolean(report.templateId);
-              const formReturnTo =
-                user.role === "ADMIN" || user.role === "OFFICE"
-                  ? `/oppdrag/${report.workOrderId}`
-                  : `/mine-oppdrag/${report.workOrderId}`;
-              const lockTitle = report.isLocked
-                ? report.lockedAt
-                  ? t("customers.reportList.lockTooltip", {
-                      date: formatDateLocalized(report.lockedAt, locale),
-                      name:
-                        report.lockedByName ||
-                        t("customers.reportList.unknownUser"),
-                    })
-                  : report.lockedByName
-                    ? t("customers.reportList.lockTooltipNoDate", {
-                        name: report.lockedByName,
+          <div className={`${CARD} overflow-hidden`}>
+            <div className="hidden items-center gap-2 border-b border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)]/60 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--muted,#62685f)] md:flex">
+              <span className="min-w-0 flex-1">
+                {t("orders.reportsPage.tableReport")}
+              </span>
+              <span className="w-56 shrink-0">
+                {t("orders.reportsPage.tableCustomer")}
+              </span>
+              <span className="w-28 shrink-0">
+                {t("orders.reportsPage.tableDate")}
+              </span>
+              <span className="w-64 shrink-0">
+                {t("orders.reportsPage.tableStatus")}
+              </span>
+              <span className="ml-auto shrink-0 text-right">
+                {t("orders.reportsPage.tableActions")}
+              </span>
+            </div>
+            <div className="divide-y divide-[var(--line,#dedcd1)]">
+              {reports.map((report) => {
+                const summary = reportUnitSummary(report);
+                const unitCount = summary.unitCount;
+                const deviations = summary.deviationCount;
+                const acknowledgement = reportAcknowledgement(report);
+                const unitNames = summary.usesUnits
+                  ? report.units
+                      .map((unit) => unit.label)
+                      .filter((label): label is string => Boolean(label))
+                  : [];
+                const shownUnitNames = unitNames.slice(0, 2);
+                const extraUnits = unitNames.length - shownUnitNames.length;
+                const hms = isHmsReport(report);
+                const workOrder = report.workOrder;
+                const canOpenWorkOrder =
+                  Boolean(workOrder) &&
+                  canAccessWorkOrder(user, {
+                    departmentId: workOrder!.departmentId,
+                    customerId: workOrder!.customerId,
+                    departmentIsActive: workOrder!.department?.isActive,
+                  }) &&
+                  (user.role !== "TECHNICIAN" ||
+                    workOrder!.status !== "CANCELLED");
+                // Skjemaet kan bare åpnes av brukere som faktisk har
+                // skrivetilgang til oppdraget. Rapporten må fortsatt være ulåst.
+                const canOpenForm =
+                  canWriteReports &&
+                  canOpenWorkOrder &&
+                  !report.isLocked &&
+                  Boolean(report.templateId);
+                const formReturnTo =
+                  user.role === "ADMIN" || user.role === "OFFICE"
+                    ? `/oppdrag/${report.workOrderId}`
+                    : `/mine-oppdrag/${report.workOrderId}`;
+                const lockTitle = report.isLocked
+                  ? report.lockedAt
+                    ? t("customers.reportList.lockTooltip", {
+                        date: formatDateLocalized(report.lockedAt, locale),
+                        name:
+                          report.lockedByName ||
+                          t("customers.reportList.unknownUser"),
                       })
-                    : undefined
-                : undefined;
-              const acknowledgementTitle = acknowledgement.by
-                ? t("customers.reportList.acknowledgedBy", {
-                    name: acknowledgement.by,
-                  })
-                : undefined;
-              const hasMoreActions =
-                canOpenForm || canOpenWorkOrder || report.revision > 0;
+                    : report.lockedByName
+                      ? t("customers.reportList.lockTooltipNoDate", {
+                          name: report.lockedByName,
+                        })
+                      : undefined
+                  : undefined;
+                const acknowledgementTitle = acknowledgement.by
+                  ? t("customers.reportList.acknowledgedBy", {
+                      name: acknowledgement.by,
+                    })
+                  : undefined;
+                const hasMoreActions =
+                  canOpenForm || canOpenWorkOrder || report.revision > 0;
 
-              return (
-                <div
-                  key={report.id}
-                  className="bg-white p-3 sm:p-4 rounded-2xl border-2 border-gray-200 hover:border-blue-400 transition"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-black text-gray-900 truncate">
+                return (
+                  <div
+                    key={report.id}
+                    className="flex flex-col gap-2 px-3 py-2.5 transition hover:bg-[var(--paper,#f2efe6)]/50 md:flex-row md:items-start"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         {hms && (
-                          <span className="mr-2 inline-flex items-center gap-1 bg-indigo-100 text-indigo-900 border border-indigo-200 text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                          <span className="inline-flex items-center gap-1 rounded border border-[var(--ink,#101310)] bg-[var(--paper,#f2efe6)] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--ink,#101310)]">
                             <Icon name="shield" className="h-3 w-3 shrink-0" />
                             {t("orders.templateGroups.hmsBadge")}
                           </span>
                         )}
-                        {reportDisplayName(report, t("orders.reportsPage.defaultTitle"))}
+                        <Link
+                          href={reportHref(report.workOrderId, report.id)}
+                          className="min-w-0 truncate text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:decoration-[var(--ink,#101310)]"
+                        >
+                          {reportDisplayName(
+                            report,
+                            t("orders.reportsPage.defaultTitle"),
+                          )}
+                        </Link>
+                      </div>
+                      <p className={`mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs ${MUTED}`}>
+                        {report.reportNumber && (
+                          <span className="font-bold tabular-nums">
+                            {t("orders.reportsPage.reportNumber", {
+                              number: report.reportNumber,
+                            })}
+                          </span>
+                        )}
+                        {report.reportNumber && hms && report.hmsType && (
+                          <span aria-hidden>·</span>
+                        )}
+                        {hms && report.hmsType && (
+                          <span>{t(HMS_TYPE_MESSAGE_KEYS[report.hmsType])}</span>
+                        )}
+                        {report.revision > 0 && (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span>
+                              {t("customers.reportList.revision", {
+                                count: report.revision,
+                              })}
+                            </span>
+                          </>
+                        )}
                       </p>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500">
+                      {shownUnitNames.length > 0 && (
+                        <p
+                          className={`mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs ${MUTED}`}
+                          title={unitNames.join(", ")}
+                        >
+                          <Icon name="wrench" className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">
+                            {t("customers.reportList.unitNames", {
+                              count: unitCount,
+                              names: shownUnitNames.join(", "),
+                            })}
+                            {extraUnits > 0
+                              ? ` ${t("customers.reportList.moreUnits", {
+                                  count: extraUnits,
+                                })}`
+                              : ""}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 md:w-56 md:shrink-0">
+                      <p className="flex min-w-0 items-center gap-1.5 text-xs font-bold text-[var(--ink,#101310)]">
+                        <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {workOrder?.customer?.name ||
+                            t("orders.reportsPage.internalOrder")}
+                        </span>
+                      </p>
+                      <p className={`mt-0.5 flex min-w-0 items-center gap-1.5 text-xs ${MUTED}`}>
+                        <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {workOrder?.title ||
+                            t("orders.reportsPage.unknownWorkOrder")}
+                          {workOrder?.orderNumber
+                            ? ` · #${workOrder.orderNumber}`
+                            : ""}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="md:w-28 md:shrink-0">
+                      <p className="flex items-center gap-1.5 whitespace-nowrap text-xs font-bold tabular-nums text-[var(--ink,#101310)]">
                         <Icon name="calendar" className="h-3.5 w-3.5 shrink-0" />
                         {formatDateLocalized(
                           report.completedAt,
@@ -644,67 +712,72 @@ export default async function ReportsPage({
                           undefined,
                           t("orders.reportsPage.noDate"),
                         )}
-                        <span aria-hidden>•</span>
-                        <Icon name="building" className="h-3.5 w-3.5 shrink-0" />
-                        {workOrder?.customer?.name ||
-                          t("orders.reportsPage.internalOrder")}
-                        <span aria-hidden>•</span>
-                        <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
-                        {workOrder?.title || t("orders.reportsPage.unknownWorkOrder")}
-                        {workOrder?.orderNumber
-                          ? ` • #${workOrder.orderNumber}`
-                          : ""}
-                        {hms && report.hmsType
-                          ? ` • ${t(HMS_TYPE_MESSAGE_KEYS[report.hmsType])}`
-                          : ""}
-                        {report.reportNumber
-                          ? ` • ${t("orders.reportsPage.reportNumber", {
-                              number: report.reportNumber,
-                            })}`
-                          : ""}
+                      </p>
+                      <p className={`mt-0.5 flex items-center gap-1.5 text-xs ${MUTED}`}>
+                        <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {report.technicianName ||
+                            report.lockedByName ||
+                            t("orders.reportsPage.unsigned")}
+                        </span>
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+
+                    <div className="flex flex-wrap items-center gap-1 md:w-64 md:shrink-0">
                       {summary.usesUnits && unitCount > 0 ? (
                         <span
-                          className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full border ${
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
                             deviations > 0
-                              ? "bg-red-50 text-red-800 border-red-200"
-                              : "bg-green-50 text-green-800 border-green-200"
+                              ? "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]"
+                              : "border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)]"
                           }`}
                         >
-                          {deviations > 0 ? (
-                            t("orders.reportsPage.deviations", { count: deviations })
-                          ) : (
-                            <>
-                              <Icon name="check" className="h-3 w-3 shrink-0" />
-                              {t("orders.reportsPage.units", { count: unitCount })}
-                            </>
-                          )}
+                          <Icon
+                            name={deviations > 0 ? "alert" : "check"}
+                            className="h-3 w-3 shrink-0"
+                          />
+                          {deviations > 0
+                            ? t("orders.reportsPage.deviations", {
+                                count: deviations,
+                              })
+                            : t("orders.reportsPage.units", {
+                                count: unitCount,
+                              })}
                         </span>
                       ) : !summary.usesUnits ? (
-                        <span className="text-xs font-bold px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200">
+                        <span className={`inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-xs font-bold ${MUTED}`}>
+                          <Icon name="wrench" className="h-3 w-3 shrink-0" />
                           {t("orders.reportsPage.noUnits")}
                         </span>
                       ) : null}
                       <span
-                        className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
                           report.isLocked
-                            ? "bg-gray-100 text-gray-700 border-gray-200"
-                            : "bg-amber-50 text-amber-800 border-amber-200"
+                            ? "border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)]"
+                            : "border-[#dfc98b] bg-[#fdf5e4] text-[#6b4808]"
                         }`}
                         title={lockTitle}
                       >
-                        {report.isLocked ? t("orders.reportsPage.locked") : t("orders.reportsPage.openForEdit")}
+                        <Icon
+                          name={report.isLocked ? "shield" : "pen"}
+                          className="h-3 w-3 shrink-0"
+                        />
+                        {report.isLocked
+                          ? t("orders.reportsPage.locked")
+                          : t("orders.reportsPage.openForEdit")}
                       </span>
                       <span
-                        className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold ${
                           acknowledgement.acknowledged
-                            ? "bg-green-50 text-green-800 border-green-200"
-                            : "bg-gray-50 text-gray-600 border-gray-200"
+                            ? "border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)] text-[var(--ink,#101310)]"
+                            : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
                         }`}
                         title={acknowledgementTitle}
                       >
+                        <Icon
+                          name={acknowledgement.acknowledged ? "check" : "clock"}
+                          className="h-3 w-3 shrink-0"
+                        />
                         {acknowledgement.acknowledged
                           ? t("customers.reportList.acknowledgedWithDate", {
                               date: formatDateLocalized(
@@ -717,37 +790,11 @@ export default async function ReportsPage({
                           : t("customers.reportList.notAcknowledged")}
                       </span>
                     </div>
-                  </div>
 
-                  {shownUnitNames.length > 0 && (
-                    <p
-                      className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-gray-500"
-                      title={unitNames.join(", ")}
-                    >
-                      <Icon name="wrench" className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">
-                        {t("customers.reportList.unitNames", {
-                          count: unitCount,
-                          names: shownUnitNames.join(", "),
-                        })}
-                        {extraUnits > 0
-                          ? ` ${t("customers.reportList.moreUnits", {
-                              count: extraUnits,
-                            })}`
-                          : ""}
-                      </span>
-                    </p>
-                  )}
-
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 text-xs">
-                    <span className="inline-flex items-center gap-1.5 font-bold text-gray-600">
-                      <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
-                      {report.technicianName || report.lockedByName || t("orders.reportsPage.unsigned")}
-                    </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 md:ml-auto md:shrink-0 md:justify-end">
                       <Link
                         href={reportHref(report.workOrderId, report.id)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-blue-700 px-3 py-1.5 font-bold text-white transition hover:bg-blue-800"
+                        className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-[var(--ink,#101310)] px-2.5 py-1 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
                       >
                         <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
                         {t("customers.reportList.open")}
@@ -757,15 +804,18 @@ export default async function ReportsPage({
                           <summary
                             aria-label={t("customers.reportList.moreActions")}
                             title={t("customers.reportList.moreActions")}
-                            className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-gray-200 bg-white font-black text-gray-600 transition hover:bg-gray-100 [&::-webkit-details-marker]:hidden"
+                            className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--line,#dedcd1)] bg-white text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)] [&::-webkit-details-marker]:hidden"
                           >
                             <Icon name="more" className="h-4 w-4" />
                           </summary>
-                          <div className="absolute right-0 z-30 mt-1 w-56 space-y-1 rounded-xl border-2 border-gray-200 bg-white p-2 shadow-xl">
+                          <div className={`${CARD} absolute right-0 z-30 mt-1 w-56 space-y-0.5 p-2 shadow-xl`}>
                             {report.revision > 0 && (
                               <Link
-                                href={revisionsHref(report.workOrderId, report.id)}
-                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
+                                href={revisionsHref(
+                                  report.workOrderId,
+                                  report.id,
+                                )}
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                               >
                                 <Icon name="clock" className="h-3.5 w-3.5 shrink-0" />
                                 {t("customers.reportList.revision", {
@@ -776,7 +826,7 @@ export default async function ReportsPage({
                             {canOpenForm && (
                               <Link
                                 href={`/mine-oppdrag/${report.workOrderId}/skjema/${report.templateId}?returnTo=${encodeURIComponent(formReturnTo)}`}
-                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-bold text-amber-800 transition hover:bg-amber-50"
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[#6b4808] transition hover:bg-[#fdf5e4]"
                               >
                                 <Icon name="pen" className="h-3.5 w-3.5 shrink-0" />
                                 {t("orders.reportsPage.openForm")}
@@ -785,7 +835,7 @@ export default async function ReportsPage({
                             {canOpenWorkOrder && (
                               <Link
                                 href={`/oppdrag/${report.workOrderId}`}
-                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-bold text-gray-700 transition hover:bg-gray-100"
+                                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
                               >
                                 <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
                                 {t("orders.reportsPage.openWorkOrder")}
@@ -796,9 +846,9 @@ export default async function ReportsPage({
                       )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 

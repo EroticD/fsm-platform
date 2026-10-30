@@ -7,6 +7,7 @@ import { readPendingTwoFactor } from "@/lib/session-token";
 import { verifyRecoveryCodeAction, verifyTwoFactorAction } from "../actions";
 import SubmitButton from "../SubmitButton";
 import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -59,32 +60,46 @@ export default async function TwoFactorPage({
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-sm border border-gray-100 p-8">
-        <div className="flex flex-col items-center mb-6">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-sm mb-3"
-            suppressHydrationWarning
-            style={{ backgroundColor: "var(--primary-color)" }}
-          >
-            <Icon name="shield" className="h-6 w-6" />
+    <div className="office-app flex min-h-screen items-center justify-center p-4 text-[var(--ink,#101310)] [--focus-ring:var(--ink,#101310)] sm:p-6">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[20px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_2px_0_rgba(20,17,11,0.08),0_18px_40px_rgba(20,17,11,0.08)] sm:p-8">
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-1.5 bg-[var(--signal,#d8ff3e)]"
+        />
+
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] text-[var(--paper,#f2efe6)] shadow-[2px_2px_0_var(--signal,#d8ff3e)]">
+            <Icon name="shield" className="h-5 w-5" />
+            <span
+              aria-hidden="true"
+              className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[var(--ink,#101310)] bg-[var(--signal,#d8ff3e)]"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("auth.twoFactor.title")}</h1>
-          <p className="text-sm text-gray-500 mt-1 text-center">
+          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ink,#101310)]">
+            {t("auth.twoFactor.title")}
+          </h1>
+          <p className="mt-1 text-sm leading-6 text-[var(--muted,#62685f)]">
             {t("auth.twoFactor.desc", { companyName })}
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-            {error}
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-2 rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-sm font-bold text-[var(--risk-text,#b42318)]"
+          >
+            <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         <form action={verifyTwoFactorAction} className="space-y-4">
           <input type="hidden" name="callbackUrl" value={callbackUrl} />
           <div>
-            <label htmlFor="code" className="block text-sm font-bold text-gray-700 mb-1">
+            <label
+              htmlFor="code"
+              className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
+            >
               {t("auth.twoFactor.codeLabel")}
             </label>
             <input
@@ -98,7 +113,9 @@ export default async function TwoFactorPage({
               pattern="[0-9]{6}"
               placeholder="000000"
               autoFocus
-              className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] text-gray-900 bg-white font-bold focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
+              className={controlClassName(
+                "min-h-11 text-center text-lg font-bold tracking-[0.4em]",
+              )}
             />
           </div>
           <SubmitButton
@@ -109,17 +126,21 @@ export default async function TwoFactorPage({
 
         <details
           open={recovery === "1" || errorParam === "InvalidRecoveryCode"}
-          className="mt-5 border-t pt-4"
+          className="group mt-5 border-t border-[var(--line,#dedcd1)] pt-4"
         >
-          <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-900 transition">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-bold text-[var(--ink,#101310)] transition hover:text-[var(--muted,#62685f)] [&::-webkit-details-marker]:hidden">
             {t("auth.twoFactor.recovery.link")}
+            <Icon
+              name="chevronDown"
+              className="h-4 w-4 shrink-0 transition group-open:rotate-180"
+            />
           </summary>
-          <form action={verifyRecoveryCodeAction} className="space-y-3 mt-4">
+          <form action={verifyRecoveryCodeAction} className="mt-3 space-y-3">
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
             <div>
               <label
                 htmlFor="recoveryCode"
-                className="block text-sm font-bold text-gray-700 mb-1"
+                className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
               >
                 {t("auth.twoFactor.recovery.label")}
               </label>
@@ -133,9 +154,11 @@ export default async function TwoFactorPage({
                 spellCheck={false}
                 maxLength={9}
                 placeholder="XXXX-XXXX"
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.2em] text-gray-900 bg-white font-bold uppercase focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent"
+                className={controlClassName(
+                  "min-h-11 text-center text-lg font-bold uppercase tracking-[0.2em]",
+                )}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-xs leading-5 text-[var(--muted,#62685f)]">
                 {t("auth.twoFactor.recovery.hint")}
               </p>
             </div>
@@ -146,8 +169,11 @@ export default async function TwoFactorPage({
           </form>
         </details>
 
-        <div className="text-center mt-6">
-          <Link href="/logg-inn" className="text-sm font-medium text-gray-500 hover:text-gray-800 transition">
+        <div className="mt-6 text-center">
+          <Link
+            href="/logg-inn"
+            className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 transition hover:decoration-[var(--ink,#101310)]"
+          >
             {t("auth.twoFactor.backToLogin")}
           </Link>
         </div>

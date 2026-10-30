@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import QRCode from "qrcode";
 import CopyButton from "@/components/CopyButton";
+import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 import { buildTotpUri, isTwoFactorSetupFresh } from "@/lib/two-factor";
 import { readRecoveryCodesForDisplay } from "@/lib/session-token";
 import {
@@ -11,6 +13,15 @@ import {
   regenerateRecoveryCodesAction,
   startSetupAction,
 } from "@/app/innstillinger/security-actions";
+
+const FIELD = controlClassName("min-h-11 text-sm font-medium");
+const SIGNAL_BUTTON =
+  "signal-button w-full text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const INK_BUTTON =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+
+const LABEL =
+  "mb-1 block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
 
 type SecurityUser = {
   id: string;
@@ -63,35 +74,39 @@ export default async function SecuritySettings({
   return (
     <div className="space-y-4">
       {ok === "enabled" && (
-        <div className="bg-green-50 border border-green-200 text-green-800 text-sm rounded-xl px-4 py-3 font-medium">
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--paper,#f2efe6)] px-4 py-3 text-sm font-bold text-[var(--ink,#101310)]">
+          <Icon name="check" className="h-4 w-4 shrink-0" />
           {t("settings.security.enabled")}
         </div>
       )}
       {ok === "disabled" && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3 font-medium">
+        <div className="flex items-center gap-2 rounded-xl border border-[#e2cf9b] bg-[#fbf1d2] px-4 py-3 text-sm font-bold text-[#6b4a05]">
+          <Icon name="alert" className="h-4 w-4 shrink-0" />
           {t("settings.security.disabled")}
         </div>
       )}
       {ok === "recovery" && (
-        <div className="bg-green-50 border border-green-200 text-green-800 text-sm rounded-xl px-4 py-3 font-medium">
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--paper,#f2efe6)] px-4 py-3 text-sm font-bold text-[var(--ink,#101310)]">
+          <Icon name="check" className="h-4 w-4 shrink-0" />
           {t("settings.security.recoveryCodes.regenerated")}
         </div>
       )}
 
       {recoveryCodes && recoveryFile && (
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 space-y-4">
+        <div className="space-y-4 rounded-card border border-[#e2cf9b] bg-[#fbf1d2] p-5">
           <div>
-            <h2 className="font-bold text-amber-950">
+            <h2 className="flex items-center gap-2 font-bold text-[#4a3304]">
+              <Icon name="shield" className="h-4 w-4 shrink-0" />
               {t("settings.security.recoveryCodes.title")}
             </h2>
-            <p className="text-sm text-amber-800 mt-1">
+            <p className="mt-1 text-sm text-[#6b4a05]">
               {t("settings.security.recoveryCodes.desc")}
             </p>
           </div>
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {recoveryCodes.map((code) => (
               <li key={code}>
-                <code className="block bg-white border border-amber-200 rounded-lg px-3 py-2 font-mono text-sm tracking-wider text-gray-900 text-center">
+                <code className="block rounded-lg border border-[#e2cf9b] bg-[var(--surface,#fffdf8)] px-3 py-2 text-center font-mono text-sm tracking-wider text-[var(--ink,#101310)]">
                   {code}
                 </code>
               </li>
@@ -105,18 +120,18 @@ export default async function SecuritySettings({
             <a
               href={recoveryFile}
               download="gjenopprettingskoder.txt"
-              className="text-xs font-bold border border-gray-300 bg-white text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition text-center"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-center text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
             >
               {t("settings.security.recoveryCodes.download")}
             </a>
           </div>
-          <p className="text-xs font-semibold text-amber-900">
+          <p className="text-xs font-semibold text-[#6b4a05]">
             {t("settings.security.recoveryCodes.warning")}
           </p>
           <form action={dismissRecoveryCodesAction}>
             <button
               type="submit"
-              className="text-xs font-bold bg-amber-900 text-white px-3 py-2 rounded-lg hover:bg-amber-950 transition"
+              className="inline-flex min-h-9 items-center rounded-lg border border-[var(--ink,#101310)] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85"
             >
               {t("settings.security.recoveryCodes.saved")}
             </button>
@@ -127,7 +142,7 @@ export default async function SecuritySettings({
         <div
           id="security-code-error"
           role="alert"
-          className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t("settings.security.errorCode")}
         </div>
@@ -136,7 +151,7 @@ export default async function SecuritySettings({
         <div
           id="security-password-error"
           role="alert"
-          className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t("settings.security.errorPassword")}
         </div>
@@ -145,23 +160,28 @@ export default async function SecuritySettings({
         <div
           id="security-setup-expired-error"
           role="alert"
-          className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3"
+          className="flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]"
         >
           {t("settings.security.errorSetupExpired")}
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+      <div className="office-card space-y-4 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--line,#dedcd1)] pb-3">
           <div>
-            <h2 className="font-bold text-gray-900">{t("settings.security.title")}</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="flex items-center gap-2 font-extrabold text-[var(--ink,#101310)]">
+              <Icon name="shield" className="h-4 w-4 shrink-0" />
+              {t("settings.security.title")}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
               {t("settings.security.desc")}
             </p>
           </div>
           <span
-            className={`text-xs font-bold px-2 py-1 rounded-full uppercase whitespace-nowrap ${
-              isEnabled ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+            className={`rounded-full border px-2 py-1 text-xs font-bold uppercase whitespace-nowrap ${
+              isEnabled
+                ? "border-[#c7d98e] bg-[#f3fbd1] text-[#283509]"
+                : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
             }`}
           >
             {isEnabled ? t("settings.security.on") : t("settings.security.off")}
@@ -170,17 +190,17 @@ export default async function SecuritySettings({
 
         {/* Oppsett */}
         {setupActive && qrDataUrl && (
-          <div className="border-t pt-4 space-y-4">
-            <p className="text-sm text-gray-700">{t("settings.security.step1")}</p>
+          <div className="space-y-4 border-t border-[var(--line,#dedcd1)] pt-4">
+            <p className="text-sm text-[var(--ink,#101310)]">{t("settings.security.step1")}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} alt={t("settings.security.qrAlt")} className="mx-auto rounded-xl border border-gray-200 bg-white p-2" />
-            <div className="text-xs text-gray-500">
+            <img src={qrDataUrl} alt={t("settings.security.qrAlt")} className="mx-auto rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-2" />
+            <div className="text-xs text-[var(--muted,#62685f)]">
               {t("settings.security.manual")}
-              <code className="block mt-1 bg-gray-100 rounded-lg p-2 font-mono text-gray-900 break-all">{manualKey}</code>
+              <code className="mt-1 block break-all rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2 font-mono text-[var(--ink,#101310)]">{manualKey}</code>
             </div>
-            <form action={confirmSetupAction} className="space-y-3 border-t pt-4">
+            <form action={confirmSetupAction} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
               <div>
-                <label htmlFor="security-setup-password" className="block text-sm font-bold text-gray-700 mb-1">
+                <label htmlFor="security-setup-password" className={LABEL}>
                   {t("settings.security.passwordLabel")}
                 </label>
                 <input
@@ -192,11 +212,11 @@ export default async function SecuritySettings({
                   placeholder={t("settings.security.passwordPlaceholder")}
                   aria-invalid={error === "passord" || undefined}
                   aria-describedby={error === "passord" ? "security-password-error" : undefined}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+                  className={FIELD}
                 />
               </div>
               <div>
-                <label htmlFor="security-setup-code" className="block text-sm font-bold text-gray-700">{t("settings.security.step2")}</label>
+                <label htmlFor="security-setup-code" className={LABEL}>{t("settings.security.step2")}</label>
                 <input
                   id="security-setup-code"
                   type="text"
@@ -208,10 +228,10 @@ export default async function SecuritySettings({
                   placeholder="000000"
                   aria-invalid={error === "kode" || undefined}
                   aria-describedby={error === "kode" ? "security-code-error" : undefined}
-                  className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
+                  className={controlClassName("min-h-11 text-center text-lg font-bold tracking-[0.4em]")}
                 />
               </div>
-              <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 transition">
+              <button type="submit" className={SIGNAL_BUTTON}>
                 {t("settings.security.confirm")}
               </button>
             </form>
@@ -228,9 +248,9 @@ export default async function SecuritySettings({
                 placeholder={t("settings.security.cancelPlaceholder")}
                 aria-invalid={error === "passord" || undefined}
                 aria-describedby={error === "passord" ? "security-password-error" : undefined}
-                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-900 bg-white"
+                className={FIELD}
               />
-              <button type="submit" className="w-full text-sm text-gray-500 hover:text-gray-800 transition">
+              <button type="submit" className="min-h-11 w-full text-sm text-[var(--muted,#62685f)] transition hover:text-[var(--ink,#101310)]">
                 {t("settings.security.cancel")}
               </button>
             </form>
@@ -239,11 +259,11 @@ export default async function SecuritySettings({
 
         {/* Ikke satt opp */}
         {!isEnabled && !setupActive && (
-          <form action={startSetupAction} className="border-t pt-4 space-y-3">
+          <form action={startSetupAction} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
             <div>
               <label
                 htmlFor="security-start-password"
-                className="block text-sm font-bold text-gray-700 mb-1"
+                className={LABEL}
               >
                 {t("settings.security.passwordConfirm")}
               </label>
@@ -256,10 +276,10 @@ export default async function SecuritySettings({
                 placeholder={t("settings.security.passwordPlaceholder")}
                 aria-invalid={error === "passord" || undefined}
                 aria-describedby={error === "passord" ? "security-password-error" : undefined}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+                className={FIELD}
               />
             </div>
-            <button type="submit" className="w-full bg-[var(--primary-color)] text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition shadow-sm">
+            <button type="submit" className={SIGNAL_BUTTON}>
               {t("settings.security.enable")}
             </button>
           </form>
@@ -267,8 +287,8 @@ export default async function SecuritySettings({
 
         {/* Slå av */}
         {isEnabled && (
-          <form action={disableTwoFactorAction} className="border-t pt-4 space-y-3">
-            <p className="text-sm text-gray-700">{t("settings.security.disableDesc")}</p>
+          <form action={disableTwoFactorAction} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
+            <p className="text-sm text-[var(--ink,#101310)]">{t("settings.security.disableDesc")}</p>
             <div>
               <label htmlFor="security-disable-password" className="sr-only">
                 {t("settings.security.passwordLabel")}
@@ -282,7 +302,7 @@ export default async function SecuritySettings({
                 placeholder={t("settings.security.passwordPlaceholder")}
                 aria-invalid={error === "passord" || undefined}
                 aria-describedby={error === "passord" ? "security-password-error" : undefined}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+                className={FIELD}
               />
             </div>
             <div>
@@ -300,22 +320,22 @@ export default async function SecuritySettings({
                 placeholder="000000"
                 aria-invalid={error === "kode" || undefined}
                 aria-describedby={error === "kode" ? "security-code-error" : undefined}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
+                className={controlClassName("min-h-11 text-center text-lg font-bold tracking-[0.4em]")}
               />
             </div>
-            <button type="submit" className="w-full bg-white border-2 border-red-200 text-red-700 py-2.5 rounded-xl font-bold hover:bg-red-50 transition">
+            <button type="submit" className="inline-flex min-h-11 w-full items-center justify-center rounded-[10px] border border-[#e7b7a4] bg-[#fae8e0] py-2.5 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#f6d9cf]">
               {t("settings.security.disable")}
             </button>
           </form>
         )}
 
         {isEnabled && (
-          <form action={regenerateRecoveryCodesAction} className="border-t pt-4 space-y-3">
+          <form action={regenerateRecoveryCodesAction} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
             <div>
-              <p className="text-sm font-bold text-gray-700">
+              <p className="text-sm font-bold text-[var(--ink,#101310)]">
                 {t("settings.security.recoveryCodes.regenerateTitle")}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
                 {t("settings.security.recoveryCodes.regenerateDesc")}
               </p>
             </div>
@@ -332,7 +352,7 @@ export default async function SecuritySettings({
                 placeholder={t("settings.security.passwordPlaceholder")}
                 aria-invalid={error === "passord" || undefined}
                 aria-describedby={error === "passord" ? "security-password-error" : undefined}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm text-gray-900 bg-white"
+                className={FIELD}
               />
             </div>
             <div>
@@ -350,12 +370,12 @@ export default async function SecuritySettings({
                 placeholder="000000"
                 aria-invalid={error === "kode" || undefined}
                 aria-describedby={error === "kode" ? "security-code-error" : undefined}
-                className="w-full border border-gray-300 p-2.5 rounded-xl text-center text-lg tracking-[0.4em] font-bold text-gray-900 bg-white"
+                className={controlClassName("min-h-11 text-center text-lg font-bold tracking-[0.4em]")}
               />
             </div>
             <button
               type="submit"
-              className="w-full bg-white border border-gray-300 text-gray-800 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition"
+              className={`${INK_BUTTON} w-full`}
             >
               {t("settings.security.recoveryCodes.regenerate")}
             </button>
@@ -363,7 +383,7 @@ export default async function SecuritySettings({
         )}
       </div>
 
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-[var(--muted,#62685f)]">
         {t("settings.security.loggedInAs", { name: user.name || user.email || "" })}
       </div>
     </div>

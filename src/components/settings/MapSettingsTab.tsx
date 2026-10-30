@@ -1,6 +1,13 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import { controlClassName } from "@/components/ui/controlStyles";
 import type { MapLayer, MapProvider, MapSettingsView } from "@/server/map-settings";
+
+const FIELD = controlClassName("min-h-11 text-sm font-medium");
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const LABEL =
+  "block text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]";
 
 /**
  * Globale kartinnstillinger. API-nøkkelen sendes aldri tilbake til nettleseren
@@ -31,132 +38,133 @@ export default async function MapSettingsTab({
   ];
 
   return (
-    <section className="space-y-5">
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="flex items-center gap-2 text-xl font-black text-gray-900">
-          <Icon name="map" className="h-5 w-5 shrink-0" />
+    <section className="office-card p-5 sm:p-6">
+      <div className="mb-4 flex items-center gap-2 border-b border-[var(--line,#dedcd1)] pb-3">
+        <Icon name="map" className="h-4 w-4 shrink-0 text-[var(--ink,#101310)]" />
+        <h2 className="text-base font-extrabold text-[var(--ink,#101310)]">
           {t("settings.map.title")}
         </h2>
-        <p className="mt-1 text-sm text-gray-600">{t("settings.map.description")}</p>
+      </div>
+      <p className="text-sm text-[var(--muted,#62685f)]">
+        {t("settings.map.description")}
+      </p>
 
-        {saved && (
-          <p role="status" className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-900">
-            {t("settings.map.saved")}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-900">
-            {error === "map-key" ? t("settings.map.missingKey") : t("settings.map.invalid")}
-          </p>
-        )}
+      {saved && (
+        <p role="status" className="mt-4 flex items-center gap-2 rounded-xl border border-[var(--line,#dedcd1)] border-l-4 border-l-[var(--signal,#d8ff3e)] bg-[var(--paper,#f2efe6)] px-4 py-3 text-sm font-bold text-[var(--ink,#101310)]">
+          <Icon name="check" className="h-4 w-4 shrink-0" />
+          {t("settings.map.saved")}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-4 flex items-center gap-2 rounded-xl border border-[var(--risk,#f04427)] bg-[#fae8e0] px-4 py-3 text-sm font-bold text-[var(--risk-text,#b42318)]">
+          <Icon name="alert" className="h-4 w-4 shrink-0" />
+          {error === "map-key" ? t("settings.map.missingKey") : t("settings.map.invalid")}
+        </p>
+      )}
 
-        <form action={action} className="mt-6 space-y-5">
-          <label className="block text-sm font-bold text-gray-800">
-            {t("settings.map.provider")}
+      <form action={action} className="mt-6 max-w-2xl space-y-5">
+        <label className="block">
+          <span className={LABEL}>{t("settings.map.provider")}</span>
+          <select
+            name="provider"
+            defaultValue={settings.provider}
+            className={`${FIELD} mt-1`}
+          >
+            {providers.map((provider) => (
+              <option key={provider.value} value={provider.value}>{provider.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <div>
+          <label htmlFor="map-api-key" className={LABEL}>
+            {t("settings.map.apiKey")}
+          </label>
+          <input
+            id="map-api-key"
+            name="apiKey"
+            type="password"
+            autoComplete="off"
+            placeholder={settings.hasApiKey ? t("settings.map.keyStored") : t("settings.map.keyPlaceholder")}
+            className={`${FIELD} mt-1`}
+          />
+          <p className="mt-1 text-xs text-[var(--muted,#62685f)]">{t("settings.map.keyHint")}</p>
+          {settings.hasApiKey && (
+            <label className="mt-2 flex min-h-11 items-center gap-2 text-xs font-bold text-[var(--ink,#101310)]">
+              <input type="checkbox" name="clearApiKey" className="h-4 w-4 accent-[var(--ink,#101310)]" />
+              {t("settings.map.clearKey")}
+            </label>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className={LABEL}>{t("settings.map.defaultLayer")}</span>
             <select
-              name="provider"
-              defaultValue={settings.provider}
-              className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-medium text-gray-900"
+              name="defaultLayer"
+              defaultValue={settings.defaultLayer}
+              className={`${FIELD} mt-1`}
             >
-              {providers.map((provider) => (
-                <option key={provider.value} value={provider.value}>{provider.label}</option>
+              {layers.map((layer) => (
+                <option key={layer.value} value={layer.value}>{layer.label}</option>
               ))}
             </select>
           </label>
-
-          <div>
-            <label htmlFor="map-api-key" className="block text-sm font-bold text-gray-800">
-              {t("settings.map.apiKey")}
-            </label>
+          <label className="block">
+            <span className={LABEL}>{t("settings.map.defaultZoom")}</span>
             <input
-              id="map-api-key"
-              name="apiKey"
-              type="password"
-              autoComplete="off"
-              placeholder={settings.hasApiKey ? t("settings.map.keyStored") : t("settings.map.keyPlaceholder")}
-              className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-medium text-gray-900"
+              name="defaultZoom"
+              type="number"
+              min={2}
+              max={19}
+              defaultValue={settings.defaultZoom}
+              className={`${FIELD} mt-1`}
             />
-            <p className="mt-1 text-xs text-gray-600">{t("settings.map.keyHint")}</p>
-            {settings.hasApiKey && (
-              <label className="mt-2 flex items-center gap-2 text-xs font-bold text-gray-700">
-                <input type="checkbox" name="clearApiKey" className="h-4 w-4" />
-                {t("settings.map.clearKey")}
-              </label>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-gray-800">
-              {t("settings.map.defaultLayer")}
-              <select
-                name="defaultLayer"
-                defaultValue={settings.defaultLayer}
-                className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-medium text-gray-900"
-              >
-                {layers.map((layer) => (
-                  <option key={layer.value} value={layer.value}>{layer.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm font-bold text-gray-800">
-              {t("settings.map.defaultZoom")}
-              <input
-                name="defaultZoom"
-                type="number"
-                min={2}
-                max={19}
-                defaultValue={settings.defaultZoom}
-                className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-medium text-gray-900"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-gray-800">
-              {t("settings.map.centerLat")}
-              <input
-                name="centerLat"
-                type="number"
-                step="any"
-                min={-90}
-                max={90}
-                defaultValue={settings.centerLat ?? ""}
-                className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-medium text-gray-900"
-              />
-            </label>
-            <label className="block text-sm font-bold text-gray-800">
-              {t("settings.map.centerLng")}
-              <input
-                name="centerLng"
-                type="number"
-                step="any"
-                min={-180}
-                max={180}
-                defaultValue={settings.centerLng ?? ""}
-                className="mt-1 w-full rounded-xl border-2 border-gray-300 bg-white p-3 text-sm font-medium text-gray-900"
-              />
-            </label>
-          </div>
-          <p className="-mt-3 text-xs text-gray-600">{t("settings.map.centerHint")}</p>
-
-          <label className="flex items-center gap-3 text-sm font-bold text-gray-800">
-            <input
-              type="checkbox"
-              name="scrollWheelZoom"
-              defaultChecked={settings.scrollWheelZoom}
-              className="h-5 w-5"
-            />
-            {t("settings.map.scrollWheel")}
           </label>
+        </div>
 
-          <button
-            type="submit"
-            className="min-h-11 rounded-xl bg-[var(--primary-color)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90"
-          >
-            {t("settings.map.save")}
-          </button>
-        </form>
-      </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className={LABEL}>{t("settings.map.centerLat")}</span>
+            <input
+              name="centerLat"
+              type="number"
+              step="any"
+              min={-90}
+              max={90}
+              defaultValue={settings.centerLat ?? ""}
+              className={`${FIELD} mt-1`}
+            />
+          </label>
+          <label className="block">
+            <span className={LABEL}>{t("settings.map.centerLng")}</span>
+            <input
+              name="centerLng"
+              type="number"
+              step="any"
+              min={-180}
+              max={180}
+              defaultValue={settings.centerLng ?? ""}
+              className={`${FIELD} mt-1`}
+            />
+          </label>
+        </div>
+        <p className="-mt-3 text-xs text-[var(--muted,#62685f)]">{t("settings.map.centerHint")}</p>
+
+        <label className="flex min-h-11 items-center gap-3 text-sm font-bold text-[var(--ink,#101310)]">
+          <input
+            type="checkbox"
+            name="scrollWheelZoom"
+            defaultChecked={settings.scrollWheelZoom}
+            className="h-5 w-5 accent-[var(--ink,#101310)]"
+          />
+          {t("settings.map.scrollWheel")}
+        </label>
+
+        <button type="submit" className={SIGNAL_BUTTON}>
+          {t("settings.map.save")}
+        </button>
+      </form>
     </section>
   );
 }

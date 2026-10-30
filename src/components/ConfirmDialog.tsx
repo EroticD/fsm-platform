@@ -197,7 +197,7 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-[var(--ink,#101310)]/50 p-4 backdrop-blur-[1px]"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
@@ -211,13 +211,13 @@ export default function ConfirmDialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl outline-none"
+        className="w-full max-w-md rounded-card border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-6 shadow-[0_18px_48px_-20px_rgba(16,19,16,0.45)] outline-none"
       >
-        <h2 id={titleId} className="text-lg font-bold text-gray-900">
+        <h2 id={titleId} className="text-lg font-extrabold text-[var(--ink,#101310)]">
           {title}
         </h2>
         {description && (
-          <p id={descriptionId} className="mt-2 text-sm text-gray-600">
+          <p id={descriptionId} className="mt-2 text-sm text-[var(--muted,#62685f)]">
             {description}
           </p>
         )}
@@ -228,7 +228,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="min-h-11 rounded-xl border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="min-h-11 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)] disabled:opacity-50"
           >
             {resolved.cancelLabel}
           </button>
@@ -237,10 +237,10 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
             aria-busy={busy || undefined}
-            className={`min-h-11 rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${
+            className={`min-h-11 rounded-[10px] border border-[var(--ink,#101310)] px-4 py-2 text-xs font-bold text-[var(--ink,#101310)] shadow-[2px_2px_0_var(--ink,#101310)] transition hover:shadow-[1px_1px_0_var(--ink,#101310)] disabled:opacity-50 ${
               resolved.danger
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-blue-600 hover:bg-blue-700"
+                ? "bg-[var(--risk,#f04427)]"
+                : "bg-[var(--signal,#d8ff3e)]"
             }`}
           >
             {busy ? t("components.confirm.busy") : resolved.confirmLabel}

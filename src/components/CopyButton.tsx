@@ -27,11 +27,11 @@ export default function CopyButton({
     <button
       type="button"
       onClick={handleCopy}
-      className="text-xs font-bold bg-gray-800 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition whitespace-nowrap"
+      className="inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
     >
       {copied
         ? t("components.copy.copied")
-        : `📋 ${label ?? t("components.copy.label")}`}
+        : (label ?? t("components.copy.label"))}
     </button>
   );
 }

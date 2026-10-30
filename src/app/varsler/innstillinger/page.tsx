@@ -1,7 +1,9 @@
 import Link from "next/link";
+import Icon from "@/components/icons";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
+import PageHeader from "@/components/PageHeader";
 import NotificationPreferences from "./NotificationPreferences";
 
 export default async function NotificationSettingsPage() {
@@ -11,20 +13,20 @@ export default async function NotificationSettingsPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-5 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900">{t("p3.notificationSettings.title")}</h1>
-          <p className="text-sm text-gray-600">
-            {t("p3.notificationSettings.description")}
-          </p>
-        </div>
-        <Link
-          href="/varsler"
-          className="inline-flex max-sm:min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 sm:w-auto"
-        >
-          {t("p3.notificationSettings.toNotifications")}
-        </Link>
-      </div>
+      <PageHeader
+        title={t("p3.notificationSettings.title")}
+        subtitle={t("p3.notificationSettings.description")}
+        icon={<Icon name="settings" className="h-5 w-5" />}
+        actions={
+          <Link
+            href="/varsler"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+          >
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("p3.notificationSettings.toNotifications")}
+          </Link>
+        }
+      />
       <NotificationPreferences />
     </div>
   );

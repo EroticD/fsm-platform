@@ -100,7 +100,7 @@ export default function RecentSearches({
     <section aria-labelledby="recent-searches-title">
       <h3
         id="recent-searches-title"
-        className="text-sm font-bold text-gray-700"
+        className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted,#62685f)]"
       >
         {t("components.search.recentTitle")}
       </h3>
@@ -109,7 +109,7 @@ export default function RecentSearches({
           <li key={item}>
             <Link
               href={`/sok?q=${encodeURIComponent(item)}`}
-              className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:border-blue-300 hover:bg-blue-50"
+              className="inline-flex min-h-11 items-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-1.5 text-sm font-medium text-[var(--ink,#101310)] transition hover:border-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
             >
               {item}
             </Link>

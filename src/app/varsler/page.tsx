@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/session";
 import { parsePage } from "@/lib/pagination";
 import { listNotifications } from "@/server/notifications";
+import PageHeader from "@/components/PageHeader";
 import NotificationCard from "./NotificationCard";
 import { markAllReadFormAction } from "./actions";
 
@@ -18,6 +19,13 @@ type NotificationItem = {
   readAt: Date | null;
   createdAt: Date;
 };
+
+const CARD = "office-card";
+const INK_BUTTON =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]";
+const SIGNAL_BUTTON =
+  "signal-button text-xs shadow-[2px_2px_0_var(--ink,#101310)] hover:shadow-[1px_1px_0_var(--ink,#101310)]";
+const MUTED = "text-[var(--muted,#62685f)]";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -62,46 +70,46 @@ export default async function NotificationsPage({
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-5 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("p3.notifications.title")}</h1>
-          <p className="text-sm text-gray-600">
-            {t("p3.notifications.unreadOf", { unread: data.unread, total: data.total })}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/varsler/innstillinger"
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
-          >
-            {t("p3.notifications.settings")}
-          </Link>
-          <Link
-            href={unreadOnly ? "/varsler" : "/varsler?u=1"}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
-          >
-            {unreadOnly ? t("p3.notifications.all") : t("p3.notifications.unreadOnly")}
-          </Link>
-          {data.unread > 0 && (
-            <form action={markAllReadFormAction}>
-              <button
-                type="submit"
-                className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
-              >
-                {t("p3.notifications.markAllRead")}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={t("p3.notifications.title")}
+        subtitle={t("p3.notifications.unreadOf", {
+          unread: data.unread,
+          total: data.total,
+        })}
+        icon={<Icon name="bell" className="h-5 w-5" />}
+        actions={
+          <>
+            <Link href="/varsler/innstillinger" className={INK_BUTTON}>
+              <Icon name="settings" className="h-4 w-4 shrink-0" />
+              {t("p3.notifications.settings")}
+            </Link>
+            <Link
+              href={unreadOnly ? "/varsler" : "/varsler?u=1"}
+              className={INK_BUTTON}
+            >
+              <Icon name="filter" className="h-4 w-4 shrink-0" />
+              {unreadOnly
+                ? t("p3.notifications.all")
+                : t("p3.notifications.unreadOnly")}
+            </Link>
+            {data.unread > 0 && (
+              <form action={markAllReadFormAction}>
+                <button type="submit" className={SIGNAL_BUTTON}>
+                  {t("p3.notifications.markAllRead")}
+                </button>
+              </form>
+            )}
+          </>
+        }
+      />
 
       {data.items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-          <p className="flex justify-center text-gray-400" aria-hidden="true">
+        <div className="rounded-card border border-dashed border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-10 text-center">
+          <p className="flex justify-center text-[var(--muted,#62685f)]" aria-hidden="true">
             <Icon name="bell" className="h-8 w-8" />
           </p>
-          <p className="mt-2 font-bold text-gray-900">{t("p3.notifications.emptyTitle")}</p>
-          <p className="text-sm text-gray-600">{t("p3.notifications.emptyDescription")}</p>
+          <p className="mt-2 font-extrabold text-[var(--ink,#101310)]">{t("p3.notifications.emptyTitle")}</p>
+          <p className={`text-sm ${MUTED}`}>{t("p3.notifications.emptyDescription")}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -117,39 +125,39 @@ export default async function NotificationsPage({
       {data.totalPages > 1 && (
         <nav
           aria-label={t("p3.notifications.paginationAria")}
-          className="flex items-center justify-between gap-3 text-sm"
+          className={`${CARD} flex items-center justify-between gap-3 p-2 text-xs`}
         >
           {data.page > 1 ? (
             <Link
               href={pageLink(data.page - 1)}
               aria-label={t("p3.notifications.previousAria")}
-              className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
+              className={INK_BUTTON}
             >
               {t("p3.notifications.previous")}
             </Link>
           ) : (
             <span
               aria-disabled="true"
-              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-600"
+              className="inline-flex min-h-11 cursor-not-allowed items-center rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 font-bold text-[var(--muted,#62685f)]"
             >
               {t("p3.notifications.previous")}
             </span>
           )}
-          <span className="text-gray-600">
+          <span className="text-center text-xs text-[var(--muted,#62685f)]">
             {t("p3.notifications.pageOf", { page: data.page, pages: data.totalPages })}
           </span>
           {data.page < data.totalPages ? (
             <Link
               href={pageLink(data.page + 1)}
               aria-label={t("p3.notifications.nextAria")}
-              className="rounded-lg border px-3 py-2 font-bold text-gray-700 hover:bg-gray-50"
+              className={INK_BUTTON}
             >
               {t("p3.notifications.next")}
             </Link>
           ) : (
             <span
               aria-disabled="true"
-              className="cursor-not-allowed rounded-lg border border-gray-200 px-3 py-2 font-bold text-gray-600"
+              className="inline-flex min-h-11 cursor-not-allowed items-center rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 font-bold text-[var(--muted,#62685f)]"
             >
               {t("p3.notifications.next")}
             </span>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import Icon from "@/components/icons";
 import CreateWorkOrderForm from "./CreateWorkOrderForm";
 import { getCurrentUser } from "@/lib/session";
 import { hasPermission } from "@/lib/permissions";
@@ -20,14 +21,22 @@ export default async function TechnicianCreateWorkOrderPage({
 
   if (!user.departmentId) {
     return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-xl mx-auto bg-white border-2 border-amber-200 rounded-2xl p-6 space-y-3">
-          <h1 className="text-xl font-black text-gray-900">{t("orders.fieldNew.noDepartmentTitle")}</h1>
-          <p className="text-sm text-gray-700">
+      <div className="field-app flex min-h-screen items-center justify-center p-4 sm:p-6">
+        <div className="field-card w-full max-w-md p-5 sm:p-6">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-risk/40 bg-risk/10 text-signal">
+            <Icon name="alert" className="h-5 w-5" />
+          </span>
+          <h1 className="text-xl font-black text-paper">
+            {t("orders.fieldNew.noDepartmentTitle")}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-paper/70">
             {t("orders.fieldNew.noDepartmentText")}
           </p>
-          <Link href="/mine-oppdrag" className="inline-block bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold">
-            {t("orders.fieldNew.backToMyWorkOrders")}
+          <Link href="/mine-oppdrag" className="signal-button mt-4 w-full">
+            <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
+            {t("orders.fieldNew.backToMyWorkOrders")
+              .replace(/^[^\p{L}\p{N}]+/u, "")
+              .trim()}
           </Link>
         </div>
       </div>

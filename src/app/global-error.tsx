@@ -41,7 +41,7 @@ export default function GlobalError({
 
   return (
     <html lang="nb" className="h-full antialiased">
-      <body className="min-h-full bg-gray-50 text-gray-900">
+      <body className="office-app min-h-full [--focus-ring:var(--ink,#101310)]">
         <title>{errorsNb.errors.global.title}</title>
         <meta
           name="viewport"

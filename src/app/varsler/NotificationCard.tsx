@@ -4,7 +4,6 @@ import { relativeTimeLabel } from "@/lib/notification-time";
 import {
   notificationSourceText,
   notificationTypePresentation,
-  type NotificationTone,
 } from "@/lib/notification-display";
 import Icon, { type IconName } from "@/components/icons";
 import { markReadFormAction } from "./actions";
@@ -17,15 +16,6 @@ export type NotificationCardItem = {
   sourceLabel: string | null;
   readAt: Date | null;
   createdAt: Date;
-};
-
-const TONE_CLASSES: Record<NotificationTone, string> = {
-  blue: "bg-blue-50 text-blue-800 ring-blue-200",
-  amber: "bg-amber-50 text-amber-800 ring-amber-200",
-  red: "bg-red-50 text-red-800 ring-red-200",
-  green: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  purple: "bg-purple-50 text-purple-800 ring-purple-200",
-  gray: "bg-gray-100 text-gray-700 ring-gray-200",
 };
 
 const NOTIFICATION_ICONS: Record<string, IconName> = {
@@ -61,18 +51,13 @@ export default async function NotificationCard({
     t("p3.notifications.sourceFallback"),
   );
   const unread = !notification.readAt;
-  const toneClass = presentation
-    ? TONE_CLASSES[presentation.tone]
-    : TONE_CLASSES.gray;
   const absolute = formatDateTimeLocalized(notification.createdAt, locale);
   const relative = relativeTimeLabel(notification.createdAt, locale);
 
   const content = (
     <>
       <span className="flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ring-inset ${toneClass}`}
-        >
+        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2.5 py-0.5 text-xs font-bold text-[var(--ink,#101310)]">
           <Icon
             name={NOTIFICATION_ICONS[notification.type] ?? "bell"}
             className="h-3.5 w-3.5 shrink-0"
@@ -80,15 +65,15 @@ export default async function NotificationCard({
           {typeLabel}
         </span>
         {unread && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
-            <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ink,#101310)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[var(--paper,#f2efe6)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--signal,#d8ff3e)]" aria-hidden="true" />
             {t("p3.notifications.unread")}
           </span>
         )}
         <time
           dateTime={notification.createdAt.toISOString()}
           title={absolute}
-          className="ml-auto text-xs font-medium text-gray-600"
+          className="ml-auto text-xs font-medium text-[var(--muted,#62685f)]"
         >
           {relative ?? absolute}
         </time>
@@ -96,26 +81,28 @@ export default async function NotificationCard({
 
       <span
         className={`mt-2 block text-base font-bold ${
-          unread ? "text-gray-900" : "text-gray-700"
+          unread
+            ? "text-[var(--ink,#101310)]"
+            : "text-[#3f453d]"
         }`}
       >
         {notification.title}
       </span>
 
       {notification.body && (
-        <span className="mt-1 block whitespace-pre-line text-sm text-gray-600">
+        <span className="mt-1 block whitespace-pre-line text-sm text-[var(--muted,#62685f)]">
           {notification.body}
         </span>
       )}
 
-      <span className="mt-3 block text-sm text-gray-600">
-        <span className="font-bold text-gray-800">
+      <span className="mt-3 block text-sm text-[var(--muted,#62685f)]">
+        <span className="font-bold text-[var(--ink,#101310)]">
           {t("p3.notifications.fromLabel")}
         </span>{" "}
         {source}
       </span>
 
-      <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-blue-700 group-hover:underline">
+      <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[var(--ink,#101310)] group-hover:underline">
         {t("p3.notifications.open")}
         <Icon name="arrowRight" className="h-3.5 w-3.5 shrink-0" />
       </span>
@@ -123,25 +110,25 @@ export default async function NotificationCard({
   );
 
   return (
-    <li
-      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow ${
-        unread
-          ? "border-blue-200 ring-1 ring-blue-100"
-          : "border-gray-200 hover:shadow"
-      }`}
-    >
+    <li className="office-card relative overflow-hidden">
+      {unread && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-1 bg-[var(--signal,#d8ff3e)]"
+        />
+      )}
       <a
         href={`/varsler/apne/${notification.id}`}
         aria-label={t("p3.notifications.openAria", {
           title: notification.title,
         })}
-        className="group block cursor-pointer p-4 text-left transition-colors hover:bg-blue-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-inset"
+        className="group block cursor-pointer p-4 pl-5 text-left transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)]"
       >
         {content}
       </a>
 
       {unread && (
-        <div className="border-t border-gray-100 bg-gray-50 px-4 py-2">
+        <div className="border-t border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-4 py-2 pl-5">
           <form action={markReadFormAction}>
             <input type="hidden" name="id" value={notification.id} />
             <button
@@ -149,7 +136,7 @@ export default async function NotificationCard({
               aria-label={t("p3.notifications.markReadAria", {
                 title: notification.title,
               })}
-              className="cursor-pointer rounded-lg px-1 py-1 text-xs font-bold text-gray-700 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="cursor-pointer rounded-lg px-1 py-1 text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
             >
               {t("p3.notifications.markRead")}
             </button>

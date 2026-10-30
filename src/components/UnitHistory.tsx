@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import MarkdownView from "@/components/MarkdownView";
+import Icon from "@/components/icons";
 import { formatDateLocalized } from "@/lib/dates";
 import {
   isLineCommentKey,
@@ -72,14 +73,14 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
 
   if (history.length === 0) {
     return (
-      <p className="text-xs text-gray-500 italic">
+      <p className="text-xs italic text-[var(--muted,#62685f)]">
         {t("orders.unitHistory.empty")}
       </p>
     );
   }
 
   return (
-    <ol className="space-y-2">
+    <ol className="space-y-2 [--focus-ring:var(--ink,#101310)]">
       {history.map((entry) => {
         let fields: HistoryField[] = [];
         try {
@@ -110,45 +111,50 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
         const ok = entry.status !== "AVVIK";
 
         return (
-          <li key={entry.id} className="bg-white border border-gray-200 rounded-lg p-2.5">
+          <li key={entry.id} className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-bold text-gray-900">
+              <p className="text-xs font-bold text-[var(--ink,#101310)]">
                 {formatDateLocalized(
                   serviceDate(entry),
                   locale,
                   undefined,
                   t("orders.unitHistory.noDate"),
                 )}
-                <span className="font-normal text-gray-500">
+                <span className="font-normal text-[var(--muted,#62685f)]">
                   {" • "}
                   {entry.report.template?.title ?? t("orders.unitHistory.serviceReport")}
                 </span>
               </p>
               <span
-                className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full border ${
                   ok
-                    ? "bg-green-100 text-green-800 border-green-200"
-                    : "bg-red-100 text-red-800 border-red-200"
+                    ? "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]"
+                    : "border-[#e7b5ae] bg-[#fdf4f2] text-[var(--risk-text,#b42318)]"
                 }`}
               >
+                <Icon
+                  name={ok ? "check" : "alert"}
+                  className="h-3.5 w-3.5 shrink-0"
+                  strokeWidth={2}
+                />
                 {ok ? t("orders.unitHistory.approved") : t("orders.unitHistory.deviation")}
               </span>
             </div>
 
-            <p className="text-xs text-gray-600 mt-1">{entry.report.workOrder.title}</p>
+            <p className="mt-1 text-xs text-[var(--muted,#62685f)]">{entry.report.workOrder.title}</p>
 
             {entry.comment ? (
-              <div className="text-xs text-gray-700 mt-1">
+              <div className="mt-1 text-xs text-[var(--ink,#101310)]">
                 <MarkdownView value={entry.comment} size="sm" />
               </div>
             ) : null}
 
             {rows.length > 0 ? (
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-bold text-blue-700">
+                <summary className="inline-flex min-h-11 cursor-pointer items-center text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4">
                   {t("orders.unitHistory.showCheckpoints", { count: rows.length })}
                 </summary>
-                <div className="mt-1.5 space-y-1.5 border-l-2 border-gray-200 pl-2">
+                <div className="mt-1.5 space-y-1.5 border-l-2 border-[var(--line,#dedcd1)] pl-2">
                   {rows.map((row, index) => {
                     const comment = row.field ? readLineComment(answers, row.field.id) : "";
                     const alert = row.field ? needsComment(row.field, row.value) : false;
@@ -158,21 +164,21 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
                     const richValue = typeof row.value === "string" ? row.value.trim() : "";
                     return (
                       <div key={`${row.label}-${index}`} className="text-xs">
-                        <p className={alert ? "text-red-800 font-bold" : "text-gray-700"}>
-                          <span className="font-bold text-gray-900">{row.label}: </span>
+                        <p className={alert ? "font-bold text-[var(--risk-text,#b42318)]" : "text-[#3d4237]"}>
+                          <span className="font-bold text-[var(--ink,#101310)]">{row.label}: </span>
                           {richText ? null : fieldValue(row.field, row.value, translate)}
                         </p>
                         {richText ? (
                           richValue ? (
-                            <div className="text-gray-800 mt-0.5">
+                            <div className="mt-0.5 text-[var(--ink,#101310)]">
                               <MarkdownView value={richValue} size="xs" />
                             </div>
                           ) : (
-                            <p className="text-gray-400">{t("orders.unitHistory.notAnswered")}</p>
+                            <p className="text-[var(--muted,#62685f)]">{t("orders.unitHistory.notAnswered")}</p>
                           )
                         ) : null}
                         {comment ? (
-                          <div className="text-xs text-amber-800 italic">
+                          <div className="text-xs italic text-warning">
                             <MarkdownView value={comment} size="xs" />
                           </div>
                         ) : null}
@@ -184,7 +190,7 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
             ) : null}
 
             {images.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mt-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {images.map((url) => (
                   <a key={url} href={url} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -192,24 +198,26 @@ export default async function UnitHistory({ entries }: { entries: UnitHistoryEnt
                       src={url}
                       alt={t("orders.unitHistory.imageAlt")}
                       loading="lazy"
-                      className="h-14 w-14 object-cover rounded-lg border border-gray-200"
+                      className="h-14 w-14 rounded-lg border border-[var(--line,#dedcd1)] object-cover"
                     />
                   </a>
                 ))}
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-3 mt-2">
+            <div className="mt-2 flex flex-wrap gap-3">
               <Link
                 href={`/rapporter/${entry.report.workOrderId}?rapport=${entry.report.id}`}
-                className="text-xs font-bold text-blue-700 hover:underline"
+                className="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-[var(--ink,#101310)] underline decoration-[var(--signal,#d8ff3e)] decoration-2 underline-offset-4 hover:decoration-[var(--ink,#101310)]"
               >
+                <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
                 {t("orders.unitHistory.openReport")}
               </Link>
               <Link
                 href={`/oppdrag/${entry.report.workOrder.id}`}
-                className="text-xs font-bold text-gray-600 hover:underline"
+                className="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-[var(--muted,#62685f)] underline decoration-transparent decoration-2 underline-offset-4 transition hover:text-[var(--ink,#101310)] hover:decoration-[var(--signal,#d8ff3e)]"
               >
+                <Icon name="clipboard" className="h-3.5 w-3.5 shrink-0" />
                 {t("orders.unitHistory.openWorkOrder")}
               </Link>
             </div>

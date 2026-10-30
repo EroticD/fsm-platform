@@ -16,7 +16,6 @@ import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
-import SectionCard from "@/components/SectionCard";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
 import { chooseSettingsTab } from "@/lib/settings-tabs";
 import { getMapSettingsView } from "@/server/map-settings";
@@ -153,8 +152,8 @@ export default async function SettingsPage({
       : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
+      <div className="mx-auto max-w-5xl space-y-5">
         <PageHeader
           title={t("settings.title")}
           subtitle={
@@ -164,7 +163,10 @@ export default async function SettingsPage({
           }
           icon={<Icon name="settings" className="h-5 w-5" />}
           actions={
-            <Link href="/" className="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm">
+            <Link
+              href="/"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--ink,#101310)] bg-transparent px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--ink,#101310)] hover:text-[var(--paper,#f2efe6)]"
+            >
               <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
               {t("settings.backToDashboard")}
             </Link>
@@ -271,17 +273,22 @@ export default async function SettingsPage({
         )}
 
         {currentTab === "roller" && isAdmin && (
-          <div>
-            <SectionCard
-              title={
-                <>
-                  <Icon name="shield" className="inline-block h-4 w-4 align-[-0.125em]" />{" "}
+          <div className="space-y-4">
+            <div className="office-card flex items-start gap-3 p-4 sm:p-5">
+              <span
+                aria-hidden="true"
+                className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              <div className="min-w-0">
+                <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
+                  <Icon name="shield" className="h-4 w-4 shrink-0" />
                   {t("settings.roles.title")}
-                </>
-              }
-              description={t("settings.roles.description")}
-              className="mb-6"
-            />
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
+                  {t("settings.roles.description")}
+                </p>
+              </div>
+            </div>
             <RolesAdmin
               roles={roleRows}
               error={resolvedParams.error}
@@ -291,17 +298,22 @@ export default async function SettingsPage({
         )}
 
         {currentTab === "avdelinger" && isAdmin && (
-          <div>
-            <SectionCard
-              title={
-                <>
-                  <Icon name="building" className="inline-block h-4 w-4 align-[-0.125em]" />{" "}
+          <div className="space-y-4">
+            <div className="office-card flex items-start gap-3 p-4 sm:p-5">
+              <span
+                aria-hidden="true"
+                className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--signal,#d8ff3e)]"
+              />
+              <div className="min-w-0">
+                <h2 className="flex items-center gap-2 text-base font-extrabold text-[var(--ink,#101310)]">
+                  <Icon name="building" className="h-4 w-4 shrink-0" />
                   {t("settings.departments.title")}
-                </>
-              }
-              description={t("settings.departments.description")}
-              className="mb-6"
-            />
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted,#62685f)]">
+                  {t("settings.departments.description")}
+                </p>
+              </div>
+            </div>
             <DepartmentsAdmin departments={departmentRows} />
           </div>
         )}
