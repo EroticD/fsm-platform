@@ -50,6 +50,7 @@ import {
   dateOnlyInOslo,
   formatDateLocalized,
   formatDateRangeLocalized,
+  formatDateTimeLocalized,
   parseDateOnly,
   todayInOslo,
 } from "@/lib/dates";
@@ -69,6 +70,7 @@ import {
   splitTemplatesByCategory,
 } from "@/lib/template-categories";
 import { verifiedSubmittedTemplateId } from "@/lib/report-submission";
+import { slaRemainingMinutes, slaStateAt } from "@/lib/sla";
 
 // Command Center-verdier. Fallbackene matcher office-card/signal-button/
 // ink-button-tokenene, slik at flaten står riktig også før de er lastet.
@@ -150,6 +152,22 @@ const PLANNING_ERROR_KEYS: Record<string, string> = {
   notFound: "orders.detail.planning.errors.notFound",
   conflict: "orders.detail.planning.errors.conflict",
   generic: "orders.detail.planning.errors.generic",
+};
+
+const SLA_STATE_KEYS: Record<string, string> = {
+  ON_TRACK: "orders.detail.sla.onTrack",
+  AT_RISK: "orders.detail.sla.atRisk",
+  BREACHED: "orders.detail.sla.breached",
+  MET: "orders.detail.sla.met",
+  CANCELLED: "orders.detail.sla.cancelled",
+};
+
+const SLA_STATE_TONES: Record<string, string> = {
+  ON_TRACK: "border-[#bcd39a] bg-[#eef7d6] text-[#283509]",
+  AT_RISK: "border-[#e4c98f] bg-[#fdf5e4] text-[#6b4808]",
+  BREACHED: "border-[#e7b5ae] bg-[#fbe9e7] text-[var(--risk-text,#b42318)]",
+  MET: "border-[#b9cdb4] bg-[#eaf3e4] text-[#24502f]",
+  CANCELLED: "border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] text-[#3d372b]",
 };
 
 const VISIT_STATUS_TONES: Record<string, string> = {
@@ -490,6 +508,11 @@ export default async function AdminWorkOrderPage({
           },
         },
         orderBy: [{ startsAt: "asc" }, { sequence: "asc" }],
+      },
+      slaClocks: {
+        orderBy: { startedAt: "desc" },
+        take: 5,
+        include: { policy: { select: { id: true, name: true } } },
       },
     }
   });
@@ -1245,6 +1268,116 @@ export default async function AdminWorkOrderPage({
             </div>
 
             <div className="space-y-4 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+
+              {/* SLA – klokken er beregnet server-side med åpningstider. */}
+              {(workOrder.slaClocks?.length ?? 0) > 0 && (
+                <div className={`${CARD} p-4 sm:p-5`}>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line,#d8d3c5)] pb-2">
+                    <h2 className={SECTION_TITLE}>
+                      {t("orders.detail.sla.title")}
+                    </h2>
+                    <span className="text-xs font-bold text-[#5e6356]">
+                      {t("orders.detail.sla.hint")}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {workOrder.slaClocks.map((clock) => {
+                      const slaNow = new Date();
+                      const state = slaStateAt(clock, slaNow);
+                      const remaining = slaRemainingMinutes(clock, slaNow);
+                      const terminal =
+                        Boolean(clock.resolvedAt) ||
+                        state === "MET" ||
+                        state === "CANCELLED";
+                      return (
+                        <div
+                          key={clock.id}
+                          className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-bold">
+                              {clock.policy.name}
+                            </span>
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[11px] font-black uppercase ${
+                                SLA_STATE_TONES[state] ??
+                                SLA_STATE_TONES.ON_TRACK
+                              }`}
+                            >
+                              {t(SLA_STATE_KEYS[state] ?? SLA_STATE_KEYS.ON_TRACK)}
+                            </span>
+                          </div>
+                          <dl className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+                            <div className="flex gap-1.5">
+                              <dt className="font-bold text-[#5e6356]">
+                                {t("orders.detail.sla.respondBy")}:
+                              </dt>
+                              <dd>
+                                {formatDateTimeLocalized(
+                                  clock.respondBy,
+                                  locale,
+                                  "–",
+                                )}
+                              </dd>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <dt className="font-bold text-[#5e6356]">
+                                {t("orders.detail.sla.resolveBy")}:
+                              </dt>
+                              <dd>
+                                {formatDateTimeLocalized(
+                                  clock.resolveBy,
+                                  locale,
+                                  "–",
+                                )}
+                              </dd>
+                            </div>
+                            {clock.respondedAt ? (
+                              <div className="flex gap-1.5">
+                                <dt className="font-bold text-[#5e6356]">
+                                  {t("orders.detail.sla.respondedAt")}:
+                                </dt>
+                                <dd>
+                                  {formatDateTimeLocalized(
+                                    clock.respondedAt,
+                                    locale,
+                                    "–",
+                                  )}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {clock.resolvedAt ? (
+                              <div className="flex gap-1.5">
+                                <dt className="font-bold text-[#5e6356]">
+                                  {t("orders.detail.sla.resolvedAt")}:
+                                </dt>
+                                <dd>
+                                  {formatDateTimeLocalized(
+                                    clock.resolvedAt,
+                                    locale,
+                                    "–",
+                                  )}
+                                </dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                          {!terminal ? (
+                            <p className="mt-1 text-xs font-bold">
+                              {remaining >= 0
+                                ? t("orders.detail.sla.timeLeft", {
+                                    minutes: remaining,
+                                  })
+                                : t("orders.detail.sla.overdue", {
+                                    minutes: Math.abs(remaining),
+                                  })}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* PLANLEGGING – visittene er kilden til oppdragets datoperiode. */}
               <div id="planlegging" className={`scroll-mt-4 ${CARD} p-4 sm:p-5`}>

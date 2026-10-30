@@ -12,6 +12,7 @@ import {
   toDateOnly,
 } from "@/lib/dates";
 import { createDefaultVisit, recomputeWorkOrderSchedule } from "@/server/visits";
+import { startClock } from "@/server/sla";
 
 export type RecurringGenerationResult = {
   contractId: string;
@@ -24,6 +25,7 @@ export type RecurringGenerationResult = {
     | "already-generated"
     | "not-found"
     | "locked"
+    | "ended"
     | "error";
   error?: string;
 };
@@ -86,7 +88,12 @@ export async function generateRecurringWorkOrderForContract(
   });
 
   if (!contract) return { contractId, skipped: "not-found" };
-  if (!contract.isActive) return { contractId, skipped: "inactive" };
+  if (
+    !contract.isActive ||
+    (contract.status && contract.status !== "ACTIVE")
+  ) {
+    return { contractId, skipped: "inactive" };
+  }
 
   // En mykt slettet kunde skal ikke få nye serviceoppdrag. Avtalen røres ikke:
   // den kan gjenopprettes sammen med kunden uten en overraskende statusendring.
@@ -107,6 +114,12 @@ export async function generateRecurringWorkOrderForContract(
   // perioden, skal ikke få et nytt oppdrag.
   if (due > now || toDateOnly(due) < toDateOnly(contract.nextServiceDate)) {
     return { contractId, skipped: "not-due" };
+  }
+
+  // En avtale som er utløpt skal ikke generere service etter sluttdatoen.
+  // Automatisk fornyelse flytter endDate før denne jobben kjører.
+  if (contract.endDate && toDateOnly(contract.endDate) < toDateOnly(due)) {
+    return { contractId, skipped: "ended" };
   }
 
   // Forrige oppdrag på samme avtale som faktisk har en ikke-slettet rapport.
@@ -189,6 +202,13 @@ export async function generateRecurringWorkOrderForContract(
           allDay: true,
         });
         await recomputeWorkOrderSchedule(tx, workOrder.id);
+
+        // Avtalens SLA-policy – eller avdelingens standard – starter klokken
+        // i samme transaksjon som oppdraget. Uten policy blir det ingen klokke.
+        await startClock(tx, workOrder.id, {
+          policyId: contract.slaPolicyId ?? null,
+          now,
+        });
 
         await tx.auditLog.create({
           data: {
@@ -310,6 +330,7 @@ async function generateDueRecurringWorkOrdersBatch(
   const contracts = await prisma.contract.findMany({
     where: {
       isActive: true,
+      status: "ACTIVE",
       nextServiceDate: { lte: now },
       // Mykt slettede kunder skal ikke lenger generere serviceoppdrag.
       customer: { deletedAt: null },

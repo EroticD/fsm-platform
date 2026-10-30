@@ -27,6 +27,8 @@ export const NOTIFICATION_TYPES = [
   "CONTRACT_DUE",
   "OVERDUE",
   "CONTACT_UPDATE",
+  "SLA_AT_RISK",
+  "SLA_BREACHED",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -475,7 +477,14 @@ export async function notifyWorkOrderEvent(
 
   const recipients = new Set(workOrder.technicians.map((user) => user.id));
 
-  if (type === "BOOKING" || type === "REPORT_READY" || type === "CONTRACT_DUE" || type === "OVERDUE") {
+  if (
+    type === "BOOKING" ||
+    type === "REPORT_READY" ||
+    type === "CONTRACT_DUE" ||
+    type === "OVERDUE" ||
+    type === "SLA_AT_RISK" ||
+    type === "SLA_BREACHED"
+  ) {
     const office = await prisma.user.findMany({
       where: {
         departmentId: workOrder.departmentId,

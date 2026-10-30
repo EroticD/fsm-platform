@@ -5,13 +5,21 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
   addContact,
-  createContract,
   deleteContact,
-  deleteContract,
   deleteCustomer,
-  toggleContract,
   updateContact,
 } from "@/server/customers";
+import {
+  addContractLine,
+  createContract,
+  deleteContract,
+  deleteContractLine,
+  pauseContract,
+  renewContract,
+  resumeContract,
+  terminateContract,
+  updateContract,
+} from "@/server/contracts";
 import { customerErrorParam } from "../feedback";
 
 /** Myksletter kunden fra kundekortet. Bare administrator. */
@@ -34,6 +42,7 @@ function revalidateContracts(customerId: string) {
   revalidatePath("/kalender");
   revalidatePath("/oppdrag");
   revalidatePath("/mine-oppdrag");
+  revalidatePath("/avtaler");
   revalidatePath("/");
 }
 
@@ -130,13 +139,32 @@ export async function createContractAction(
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
+  const lineScope = formData.get("lineScope");
+  const lineProductId = formData.get("lineProductId");
   const result = await createContract(actor, customerId, {
     title: formData.get("title"),
+    contractNumber: formData.get("contractNumber"),
     startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
     intervalMonths: formData.get("intervalMonths"),
     departmentId: formData.get("departmentId"),
     contactId: formData.get("contactId"),
     templateId: formData.get("templateId"),
+    slaPolicyId: formData.get("slaPolicyId"),
+    priceListId: formData.get("priceListId"),
+    status: formData.get("status"),
+    renewalMode: formData.get("renewalMode"),
+    noticeDays: formData.get("noticeDays"),
+    indexationPercent: formData.get("indexationPercent"),
+    lines:
+      lineScope || lineProductId
+        ? [
+            {
+              productId: lineProductId,
+              scope: lineScope,
+            },
+          ]
+        : [],
   });
 
   if (!result.ok) {
@@ -149,31 +177,155 @@ export async function createContractAction(
   redirect(`/kunder/${customerId}?tab=avtaler&status=avtale-opprettet`);
 }
 
-export async function toggleContractAction(
+export async function updateContractAction(
   customerId: string,
   formData: FormData,
 ) {
   const actor = await getCurrentUser();
   if (!actor) redirect("/api/auth/signin");
 
-  const active = formData.get("active") === "true";
-  const result = await toggleContract(actor, customerId, {
-    id: formData.get("id"),
-    active: formData.get("active"),
-  });
-
+  const result = await updateContract(
+    actor,
+    String(formData.get("id") ?? ""),
+    {
+      title: formData.get("title"),
+      contractNumber: formData.get("contractNumber"),
+      startDate: formData.get("startDate"),
+      endDate: formData.get("endDate"),
+      intervalMonths: formData.get("intervalMonths"),
+      departmentId: formData.get("departmentId"),
+      contactId: formData.get("contactId"),
+      templateId: formData.get("templateId"),
+      slaPolicyId: formData.get("slaPolicyId"),
+      priceListId: formData.get("priceListId"),
+      status: formData.get("status") || undefined,
+      renewalMode: formData.get("renewalMode"),
+      noticeDays: formData.get("noticeDays"),
+      indexationPercent: formData.get("indexationPercent"),
+    },
+  );
   if (!result.ok) {
     redirect(
       `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
     );
   }
-
   revalidateContracts(customerId);
-  redirect(
-    `/kunder/${customerId}?tab=avtaler&status=${
-      active ? "avtale-aktivert" : "avtale-pauset"
-    }`,
-  );
+  redirect(`/kunder/${customerId}?tab=avtaler&status=avtale-oppdatert`);
+}
+
+function contractLifecycleAction(
+  customerId: string,
+  contractId: string,
+  action: "pause" | "resume" | "terminate" | "renew",
+) {
+  return async () => {
+    const actor = await getCurrentUser();
+    if (!actor) redirect("/api/auth/signin");
+
+    const result =
+      action === "pause"
+        ? await pauseContract(actor, contractId)
+        : action === "resume"
+          ? await resumeContract(actor, contractId)
+          : action === "terminate"
+            ? await terminateContract(actor, contractId)
+            : await renewContract(actor, contractId);
+
+    if (!result.ok) {
+      redirect(
+        `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
+      );
+    }
+    revalidateContracts(customerId);
+    const status =
+      action === "pause"
+        ? "avtale-pauset"
+        : action === "resume"
+          ? "avtale-gjenopptatt"
+          : action === "terminate"
+            ? "avtale-avsluttet"
+            : "avtale-fornyet";
+    redirect(`/kunder/${customerId}?tab=avtaler&status=${status}`);
+  };
+}
+
+export async function pauseContractAction(customerId: string, formData: FormData) {
+  return contractLifecycleAction(
+    customerId,
+    String(formData.get("id") ?? ""),
+    "pause",
+  )();
+}
+
+export async function resumeContractAction(customerId: string, formData: FormData) {
+  return contractLifecycleAction(
+    customerId,
+    String(formData.get("id") ?? ""),
+    "resume",
+  )();
+}
+
+export async function terminateContractAction(
+  customerId: string,
+  formData: FormData,
+) {
+  return contractLifecycleAction(
+    customerId,
+    String(formData.get("id") ?? ""),
+    "terminate",
+  )();
+}
+
+export async function renewContractAction(customerId: string, formData: FormData) {
+  return contractLifecycleAction(
+    customerId,
+    String(formData.get("id") ?? ""),
+    "renew",
+  )();
+}
+
+export async function addContractLineAction(
+  customerId: string,
+  formData: FormData,
+) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const result = await addContractLine(actor, {
+    contractId: formData.get("contractId"),
+    productId: formData.get("productId"),
+    scope: formData.get("scope"),
+    visitsPerYear: formData.get("visitsPerYear"),
+    responseMinutes: formData.get("responseMinutes"),
+    resolutionMinutes: formData.get("resolutionMinutes"),
+  });
+  if (!result.ok) {
+    redirect(
+      `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
+    );
+  }
+  revalidateContracts(customerId);
+  redirect(`/kunder/${customerId}?tab=avtaler&status=avtale-linje-lagt-til`);
+}
+
+export async function deleteContractLineAction(
+  customerId: string,
+  formData: FormData,
+) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const result = await deleteContractLine(actor, {
+    id: formData.get("id"),
+    contractId: formData.get("contractId"),
+  });
+  if (!result.ok) {
+    redirect(
+      `/kunder/${customerId}?tab=avtaler&error=${customerErrorParam(result.reason)}`,
+    );
+  }
+  revalidateContracts(customerId);
+  redirect(`/kunder/${customerId}?tab=avtaler&status=avtale-linje-slettet`);
 }
 
 export async function deleteContractAction(

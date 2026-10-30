@@ -23,6 +23,8 @@ export default async function NotificationPreferences() {
     CONTRACT_DUE: t("p3.notificationSettings.labels.CONTRACT_DUE"),
     OVERDUE: t("p3.notificationSettings.labels.OVERDUE"),
     CONTACT_UPDATE: t("p3.notificationSettings.labels.CONTACT_UPDATE"),
+    SLA_AT_RISK: t("p3.notificationSettings.labels.SLA_AT_RISK"),
+    SLA_BREACHED: t("p3.notificationSettings.labels.SLA_BREACHED"),
   };
 
   return (

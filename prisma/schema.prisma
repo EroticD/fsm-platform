@@ -28,10 +28,13 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users      User[]
-  workOrders WorkOrder[]
-  contracts  Contract[]
-  customers  Customer[]
+  users         User[]
+  workOrders    WorkOrder[]
+  contracts     Contract[]
+  customers     Customer[]
+  slaPolicies   SlaPolicy[]
+  businessHours BusinessHours[]
+  holidays      Holiday[]
 
   @@index([isActive])
 }
@@ -251,8 +254,9 @@ model Product {
 
   customerId  String
   customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  workOrder   WorkOrder[]
-  reportUnits ReportUnit[]
+  workOrder     WorkOrder[]
+  reportUnits   ReportUnit[]
+  contractLines ContractLine[]
 
   @@index([customerId])
   @@index([customerId, serialNumber])
@@ -261,21 +265,48 @@ model Product {
   @@index([location(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_location_trgm")
 }
 
+/// Livssyklusen til en serviceavtale. `isActive` beholdes som et avledet
+/// felt for eldre kode og er alltid `status = ACTIVE`.
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  TERMINATED
+}
+
+enum RenewalMode {
+  AUTO
+  MANUAL
+}
+
 // En serviceavtale beskriver en gjentagende service for en kunde. Hver gang
 // neste service faller forfaller, opprettes et nytt oppdrag med kundedataene
 // ferdig utfylt. Sjekklisten er en mal som festes til oppdraget, men selve
 // rapporten er alltid ny og tom – den forrige rapporten legges ved som PDF.
 model Contract {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   title           String
+  /// Menneskelig, valgfri avtalenummer. Unik når den er satt.
+  contractNumber  String?        @unique
   /// Intervall i måneder. Bare 3, 6, 12 og 24 er gyldige.
   intervalMonths  Int
-  startDate       DateTime @db.Date
+  startDate       DateTime       @db.Date
+  /// Siste gyldige dag. Tom betyr tidsubegrenset.
+  endDate         DateTime?      @db.Date
   /// Neste dato det skal opprettes et oppdrag for.
-  nextServiceDate DateTime @db.Date
-  isActive        Boolean  @default(true)
-  customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id])
+  nextServiceDate DateTime       @db.Date
+  status          ContractStatus @default(ACTIVE)
+  /// Avledet av `status`; beholdes for eksisterende spørringer og backfill.
+  isActive        Boolean        @default(true)
+  renewalMode     RenewalMode    @default(MANUAL)
+  /// Antall dager før utløp en manuell fornyelse bør varsles om.
+  noticeDays      Int            @default(30)
+  /// Referanseverdi for prisjustering. Ingen fakturering eller beregning.
+  indexationPercent Decimal?    @db.Decimal(5, 2)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
 
   // Avtalen eier avdelingen som de genererte oppdragene havner i.
   departmentId String
@@ -290,12 +321,146 @@ model Contract {
   templateId String?
   template   Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
+  // SLA-avtalen og prislisten er referanser. Prislisten brukes bare til
+  // visning; systemet har ingen faktureringssemantikk.
+  slaPolicyId String?
+  slaPolicy   SlaPolicy? @relation(fields: [slaPolicyId], references: [id], onDelete: SetNull)
+  priceListId String?
+  priceList   PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+
+  lines      ContractLine[]
   workOrders WorkOrder[]
 
   @@index([customerId])
   @@index([departmentId])
   @@index([nextServiceDate])
   @@index([isActive, nextServiceDate])
+  @@index([status, endDate])
+  @@index([slaPolicyId])
+  @@index([priceListId])
+}
+
+/// Dekningen en avtale gir. `productId = null` betyr alt utstyr hos kunden.
+model ContractLine {
+  id            String  @id @default(cuid())
+  contractId    String
+  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  scope         String   @default("")
+  visitsPerYear Int?
+  responseMinutes   Int?
+  resolutionMinutes Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([contractId])
+  @@index([productId])
+}
+
+/// Prisliste er referansedata for visning. Ingen beløp brukes i fakturering.
+model PriceList {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  items     PriceListItem[]
+  contracts Contract[]
+
+  @@index([isActive])
+}
+
+model PriceListItem {
+  id          String    @id @default(cuid())
+  priceListId String
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  code        String
+  label       String
+  unit        String
+  /// Visningsbeløp. Systemet beregner eller fakturerer aldri dette.
+  amount      Decimal   @db.Decimal(12, 2)
+
+  @@unique([priceListId, code])
+  @@index([priceListId])
+}
+
+/// Svar- og løsningsfrist for oppdrag. En avdeling kan ha flere policyer;
+/// avtalen peker på den som gjelder.
+model SlaPolicy {
+  id                String   @id @default(cuid())
+  name              String
+  departmentId      String?
+  department        Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  responseMinutes   Int
+  resolutionMinutes Int
+  businessHoursOnly Boolean  @default(true)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+
+  contracts Contract[]
+  clocks    SlaClock[]
+
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+enum SlaState {
+  ON_TRACK
+  AT_RISK
+  BREACHED
+  MET
+  CANCELLED
+}
+
+/// Én klokke per oppdrag og policy. Tidspunktene er absolutte og regnet ut
+/// gjennom `src/server/business-hours.ts`, også over sommertid.
+model SlaClock {
+  id          String   @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  policyId    String
+  policy      SlaPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  startedAt   DateTime
+  respondBy   DateTime
+  resolveBy   DateTime
+  respondedAt DateTime?
+  resolvedAt  DateTime?
+  state       SlaState @default(ON_TRACK)
+  breachedAt  DateTime?
+
+  @@unique([workOrderId, policyId])
+  @@index([state, resolveBy])
+  @@index([workOrderId])
+  @@index([policyId])
+}
+
+/// Åpningstider per ukedag, minutter fra midnatt i Europe/Oslo. 0 = mandag.
+model BusinessHours {
+  id           String @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  weekday      Int
+  openMinute   Int
+  closeMinute  Int
+
+  @@unique([departmentId, weekday])
+  @@index([departmentId])
+}
+
+/// Helligdag som lukker SLA-klokken. Uten avdeling gjelder den alle.
+model Holiday {
+  id           String    @id @default(cuid())
+  date         DateTime  @db.Date
+  name         String
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([date, departmentId])
+  @@index([date])
+  @@index([departmentId])
 }
 
 model CustomerAttachment {
@@ -426,6 +591,7 @@ model WorkOrder {
   // speiler fortsatt min/maks av visitene for eksisterende konsumenter.
   visits            Visit[]
   skillRequirements WorkOrderSkill[]
+  slaClocks         SlaClock[]
 
   @@unique([departmentId, orderNumberNormalized])
   // Hindrer at to samtidige kjøringer lager samme serviceavtale-oppdrag.

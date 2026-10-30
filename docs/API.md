@@ -1,7 +1,7 @@
 # REST API
 
-FSM-plattformen har et lesbart REST-API for oppdrag, visiter, kunder, rapporter
-og dokumenter. API-et bruker egne API-nøkler og er helt atskilt fra
+FSM-plattformen har et lesbart REST-API for oppdrag, visiter, kunder, avtaler,
+SLA, rapporter og dokumenter. API-et bruker egne API-nøkler og er helt atskilt fra
 nettleserøkten: informasjonskapsler godtas aldri, og alle kall må sende en
 Bearer-nøkkel.
 
@@ -54,6 +54,12 @@ betyr blant annet:
 | `PATCH /visits/{id}` | `workorders.assign` (flytting/montører), `workorders.update` (status) eller `workorders.edit` (metadata) |
 | `DELETE /visits/{id}` | `workorders.edit` |
 | `GET /customers`, `GET /customers/{id}` | `customers.view` |
+| `GET /contracts` | `contracts.view` |
+| `POST /contracts` | `contracts.manage` |
+| `GET /contracts/{id}` | `contracts.view` + avtalen i brukerens avdeling |
+| `PATCH /contracts/{id}` | `contracts.manage` + avtalen i brukerens avdeling |
+| `GET /contracts/{id}/pdf` | `contracts.view` |
+| `GET /sla-policies` | `contracts.view`, `contracts.manage` eller `sla.manage` |
 | `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/pdf` | `reports.view` |
 | `GET /documents`, `GET /documents/{id}` | `documents.view` |
 
@@ -153,6 +159,12 @@ avdelings- eller kundeomfanget, slik at API-et ikke røper at det finnes.
 | `GET` | `/visits/{id}` | `workorders.view` | Visitt med montører og oppdrag |
 | `PATCH` | `/visits/{id}` | avhengig av operasjon | Flytt, tildel, endre status eller metadata |
 | `DELETE` | `/visits/{id}` | `workorders.edit` | Slette visitt |
+| `GET` | `/contracts` | `contracts.view` | Avdelingssperret avtaleliste |
+| `POST` | `/contracts` | `contracts.manage` | Opprette serviceavtale |
+| `GET` | `/contracts/{id}` | `contracts.view` | Avtale med linjer og prisliste |
+| `PATCH` | `/contracts/{id}` | `contracts.manage` | Delvis oppdatering |
+| `GET` | `/contracts/{id}/pdf` | `contracts.view` | Last ned avtale-PDF |
+| `GET` | `/sla-policies` | `contracts.view`/`sla.manage` | Aktive SLA-policyer |
 | `GET` | `/customers` | `customers.view` | Kunde liste med søk |
 | `GET` | `/customers/{id}` | `customers.view` | Kundekort |
 | `GET` | `/reports` | `reports.view` | Rapportliste |
@@ -556,6 +568,111 @@ curl -s "$FSM_BASE_URL/api/v1/customers/cm123" \
 ---
 
 ## Rapporter
+
+## Serviceavtaler og SLA
+
+Avtaler er avdelingssperret: administrator ser alle, andre ser avtaler i egen
+avdeling. Prislister er referansedata for visning – API-et beregner, fakturerer
+eller eksporterer aldri beløp.
+
+### `GET /contracts`
+
+Støtter `status` (`DRAFT`, `ACTIVE`, `PAUSED`, `EXPIRED`, `TERMINATED`),
+`customerId`, `expiringDays`, `q`, `page` og `limit`.
+
+```bash
+curl -s "$FSM_BASE_URL/api/v1/contracts?status=ACTIVE&expiringDays=60" \
+  -H "Authorization: Bearer $FSM_API_KEY"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "cm...",
+      "title": "Årlig service",
+      "contractNumber": "A-100",
+      "status": "ACTIVE",
+      "startDate": "2026-01-01",
+      "endDate": "2026-12-31",
+      "nextServiceDate": "2026-12-01",
+      "intervalMonths": 12,
+      "renewalMode": "AUTO",
+      "noticeDays": 30,
+      "customer": { "id": "cm...", "name": "Acme AS" },
+      "department": { "id": "cm...", "name": "Øst" },
+      "slaPolicy": { "id": "cm...", "name": "Standard" },
+      "priceList": null,
+      "lineCount": 2,
+      "workOrderCount": 3
+    }
+  ],
+  "meta": { "total": 1, "page": 1, "limit": 50, "totalPages": 1 }
+}
+```
+
+### `POST /contracts`
+
+```bash
+curl -s -X POST "$FSM_BASE_URL/api/v1/contracts" \
+  -H "Authorization: Bearer $FSM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "cm...",
+    "title": "Årlig service",
+    "contractNumber": "A-100",
+    "startDate": "2026-01-01",
+    "endDate": "2026-12-31",
+    "intervalMonths": 12,
+    "slaPolicyId": "cm...",
+    "priceListId": "cm...",
+    "renewalMode": "AUTO",
+    "lines": [{ "productId": "cm...", "scope": "Pumpe" }]
+  }'
+```
+
+Svarer `201` med `Location: /api/v1/contracts/{id}`. `contractNumber` er unik
+når den er satt; duplikat gir `409 conflict`.
+
+### `PATCH /contracts/{id}`
+
+Delvis oppdatering. Utelatte felter beholder verdien sin. `status` kan settes
+til en av livssyklusstatusene; `ACTIVE` gjør avtalen aktiv, alle andre setter
+`isActive = false`.
+
+### `GET /contracts/{id}/pdf`
+
+Returnerer en A4-PDF med avtale, kunde, periode, SLA, dekning og prisliste.
+`locale` kan være `nb` (standard), `en`, `pl` eller `de`.
+
+### `GET /sla-policies`
+
+Aktive policyer brukeren kan bruke. Administrator ser alle; andre ser globale
+policyer og policyer i egen avdeling.
+
+### SLA på oppdrag
+
+Både `GET /work-orders` og `GET /work-orders/{id}` har `sla` på hvert oppdrag:
+
+```json
+{
+  "sla": {
+    "id": "cm...",
+    "policyId": "cm...",
+    "policyName": "Standard",
+    "state": "AT_RISK",
+    "startedAt": "2026-10-30T07:00:00.000Z",
+    "respondBy": "2026-10-30T09:00:00.000Z",
+    "resolveBy": "2026-10-30T13:00:00.000Z",
+    "respondedAt": null,
+    "resolvedAt": null,
+    "breachedAt": null
+  }
+}
+```
+
+`state` er `ON_TRACK`, `AT_RISK`, `BREACHED`, `MET` eller `CANCELLED`. `null`
+betyr at ingen aktiv SLA-policy gjelder for oppdraget.
 
 ### `GET /reports`
 

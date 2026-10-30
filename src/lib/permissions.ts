@@ -15,6 +15,9 @@ export const PERMISSION_KEYS = [
   "workorders.delete",
   "customers.view",
   "customers.manage",
+  "contracts.view",
+  "contracts.manage",
+  "sla.manage",
   "equipment.view",
   "equipment.manage",
   "reports.view",
@@ -49,6 +52,7 @@ export type PermissionDefinition = {
 const PERMISSION_GROUP_KEYS: Record<string, string> = {
   Oppdrag: "settings.permissions.groups.workOrders",
   "Kunder og utstyr": "settings.permissions.groups.customersEquipment",
+  "Avtaler og SLA": "settings.permissions.groups.contractsSla",
   "Rapporter og dokumenter": "settings.permissions.groups.reportsDocuments",
   Administrasjon: "settings.permissions.groups.administration",
 };
@@ -120,6 +124,26 @@ const PERMISSION_DEFINITIONS: Omit<
     group: "Kunder og utstyr",
     label: "Administrere kunder",
     description: "Opprette og endre kunder, kontakter, serviceavtaler og kundeportalbrukere.",
+  },
+  {
+    key: "contracts.view",
+    group: "Avtaler og SLA",
+    label: "Se serviceavtaler",
+    description: "Se serviceavtaler, dekning og SLA-status i egen avdeling.",
+  },
+  {
+    key: "contracts.manage",
+    group: "Avtaler og SLA",
+    label: "Administrere serviceavtaler",
+    description:
+      "Opprette, redigere, pause, avslutte og forny serviceavtaler, avtalelinjer og prislister i egen avdeling.",
+  },
+  {
+    key: "sla.manage",
+    group: "Avtaler og SLA",
+    label: "Administrere SLA",
+    description:
+      "Opprette SLA-policyer og vedlikeholde åpningstider og helligdager.",
   },
   {
     key: "equipment.view",
@@ -215,6 +239,8 @@ const OFFICE_PERMISSIONS: Permission[] = [
   "workorders.assign",
   "customers.view",
   "customers.manage",
+  "contracts.view",
+  "contracts.manage",
   "equipment.view",
   "equipment.manage",
   "reports.view",
@@ -233,6 +259,7 @@ const TECHNICIAN_PERMISSIONS: Permission[] = [
   "workorders.create",
   "workorders.update",
   "customers.view",
+  "contracts.view",
   "equipment.view",
   "reports.view",
   "reports.write",

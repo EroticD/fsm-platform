@@ -16,6 +16,8 @@ describe("notificationTypePresentation", () => {
       "CONTRACT_DUE",
       "OVERDUE",
       "CONTACT_UPDATE",
+      "SLA_AT_RISK",
+      "SLA_BREACHED",
     ];
 
     for (const type of types) {

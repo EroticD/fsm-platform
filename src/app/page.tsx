@@ -268,6 +268,7 @@ async function DashboardOverview({
   dateContext,
   locale,
   canAssign,
+  canViewSla,
   view,
   sort,
   footer,
@@ -278,6 +279,7 @@ async function DashboardOverview({
   dateContext: DateContext;
   locale: string;
   canAssign: boolean;
+  canViewSla: boolean;
   view: DashboardView;
   sort: QueueSort;
   footer?: ReactNode;
@@ -299,6 +301,8 @@ async function DashboardOverview({
     inProgressOrders,
     unassignedOrders,
     team,
+    slaAtRiskCount,
+    slaBreachedCount,
   ] = await Promise.all([
     prisma.workOrder.groupBy({
       by: ["status"],
@@ -374,6 +378,22 @@ async function DashboardOverview({
       orderBy: { name: "asc" },
       take: 8,
     }),
+    canViewSla
+      ? prisma.slaClock.count({
+          where: {
+            state: "AT_RISK",
+            workOrder: { AND: [scope, visibleStatus] },
+          },
+        })
+      : Promise.resolve(0),
+    canViewSla
+      ? prisma.slaClock.count({
+          where: {
+            state: "BREACHED",
+            workOrder: { AND: [scope, visibleStatus] },
+          },
+        })
+      : Promise.resolve(0),
   ]);
 
   const countByStatus = (status: WorkStatus) =>
@@ -474,6 +494,28 @@ async function DashboardOverview({
       tone: "paper",
       marker: "signal",
     },
+    ...(canViewSla
+      ? [
+          {
+            key: "slaAtRisk",
+            label: t("dashboard.kpi.slaAtRisk"),
+            foot: t("dashboard.kpi.slaAtRiskSub"),
+            value: slaAtRiskCount,
+            href: "/oppdrag",
+            tone: "paper" as const,
+            marker: "signal" as const,
+          },
+          {
+            key: "slaBreached",
+            label: t("dashboard.kpi.slaBreached"),
+            foot: t("dashboard.kpi.slaBreachedSub"),
+            value: slaBreachedCount,
+            href: "/oppdrag",
+            tone: "ink" as const,
+            marker: "risk" as const,
+          },
+        ]
+      : []),
   ];
 
   const sortLinks = QUEUE_SORT_KEYS.reduce(
@@ -890,6 +932,9 @@ export default async function AdminDashboard({
   const canSeeCancelled = user.role !== "TECHNICIAN";
   const canViewAudit = hasPermission(user, "audit.view");
   const canAssign = hasPermission(user, "workorders.assign");
+  const canViewSla =
+    hasPermission(user, "contracts.view") ||
+    hasPermission(user, "contracts.manage");
 
   const primaryActions: QuickAction[] = [
     canCreate
@@ -1017,6 +1062,7 @@ export default async function AdminDashboard({
             dateContext={dateContext}
             locale={locale}
             canAssign={canAssign}
+            canViewSla={canViewSla}
             view={view}
             sort={sort}
             footer={

@@ -34,6 +34,12 @@ vi.mock("./visits", () => ({
   createDefaultVisit: mocks.createDefaultVisit,
   recomputeWorkOrderSchedule: mocks.recomputeWorkOrderSchedule,
 }));
+vi.mock("./sla", () => ({
+  startClock: vi.fn(async () => null),
+  markResponded: vi.fn(async () => undefined),
+  markResolved: vi.fn(async () => undefined),
+  cancelClocks: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/access", () => ({
   workOrderScope: vi.fn(() => ({})),
   staffForDepartment: vi.fn(() => ({})),

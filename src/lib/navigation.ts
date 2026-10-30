@@ -85,6 +85,13 @@ export const STAFF_NAV: NavItem[] = [
     section: "primary",
   },
   {
+    href: "/avtaler",
+    labelKey: "contracts",
+    icon: "file",
+    requires: "contracts.view",
+    section: "menu",
+  },
+  {
     href: "/sok",
     labelKey: "search",
     icon: "search",

@@ -15,6 +15,7 @@ import AuditLogTab from "@/components/settings/AuditLogTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import ApiKeysTab from "@/components/settings/ApiKeysTab";
+import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
@@ -28,6 +29,8 @@ import {
   getStatistics,
 } from "@/server/settings";
 import { listApiKeys } from "@/server/api-keys";
+import { getSlaSettingsView } from "@/server/sla";
+import { listPriceLists } from "@/server/contracts";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -41,6 +44,16 @@ import {
   updateTagAction,
 } from "./actions";
 import { createApiKeyAction, revokeApiKeyAction } from "./api-actions";
+import {
+  addPriceListItemAction,
+  createPriceListAction,
+  deactivateSlaPolicyAction,
+  deleteHolidayAction,
+  deletePriceListItemAction,
+  saveBusinessHoursAction,
+  saveHolidayAction,
+  saveSlaPolicyAction,
+} from "./sla-actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -64,6 +77,7 @@ export default async function SettingsPage({
     setup?: string;
     ok?: string;
     category?: string;
+    department?: string;
   }>;
 }) {
   const user = await getCurrentUser();
@@ -79,8 +93,17 @@ export default async function SettingsPage({
   const canDocuments = hasPermission(user, "documents.manage");
   const canAudit = hasPermission(user, "audit.view");
   const canStats = hasPermission(user, "reports.view");
+  const canSla = hasPermission(user, "sla.manage");
   const canUseSettings =
-    canBranding || canMap || canUsers || canTemplates || canDocuments || canAudit || canStats || isAdmin;
+    canBranding ||
+    canMap ||
+    canUsers ||
+    canTemplates ||
+    canDocuments ||
+    canAudit ||
+    canStats ||
+    canSla ||
+    isAdmin;
   // Lesetilgang til statistikk/aktivitetslogg er ikke det samme som å kunne
   // administrere systemet. Tekstene skal ikke love mer enn rettighetene.
   const canManageSettings =
@@ -110,6 +133,7 @@ export default async function SettingsPage({
     canDocuments,
     canAudit,
     canStats,
+    canSla,
     isAdmin,
   });
   const searchQuery = resolvedParams.search || "";
@@ -157,6 +181,15 @@ export default async function SettingsPage({
   const apiKeys =
     currentTab === "api" && isAdmin ? await listApiKeys(user) : null;
 
+  const slaSettings =
+    currentTab === "sla" && canSla
+      ? await getSlaSettingsView(user, resolvedParams.department)
+      : null;
+  const priceLists =
+    currentTab === "sla" && hasPermission(user, "contracts.manage")
+      ? await listPriceLists(user)
+      : null;
+
   return (
     <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-5xl space-y-5">
@@ -188,6 +221,7 @@ export default async function SettingsPage({
           canDocuments={canDocuments}
           canAudit={canAudit}
           canStats={canStats}
+          canSla={canSla}
           isAdmin={isAdmin}
         />
 
@@ -275,6 +309,30 @@ export default async function SettingsPage({
             statusFilter={statusFilter}
             customerFilter={customerFilter}
             technicianFilter={technicianFilter}
+          />
+        )}
+
+        {currentTab === "sla" && canSla && slaSettings?.ok && (
+          <SlaSettingsTab
+            policies={slaSettings.data.policies}
+            departments={slaSettings.data.departments}
+            departmentId={slaSettings.data.departmentId}
+            hours={slaSettings.data.hours}
+            holidays={slaSettings.data.holidays}
+            priceLists={
+              priceLists?.ok ? priceLists.data.priceLists : []
+            }
+            canManageContracts={hasPermission(user, "contracts.manage")}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            savePolicy={saveSlaPolicyAction}
+            deactivatePolicy={deactivateSlaPolicyAction}
+            saveHours={saveBusinessHoursAction}
+            saveHoliday={saveHolidayAction}
+            deleteHoliday={deleteHolidayAction}
+            createPriceList={createPriceListAction}
+            addPriceItem={addPriceListItemAction}
+            deletePriceItem={deletePriceListItemAction}
           />
         )}
 

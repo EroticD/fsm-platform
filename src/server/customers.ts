@@ -10,22 +10,7 @@ import {
   customerCreateSchema,
   customerUpdateSchema,
 } from "@/lib/schemas/customer";
-import {
-  contractCreateSchema,
-  contractDeleteSchema,
-  contractToggleSchema,
-} from "@/lib/schemas/contract";
 import { unitCreateSchema, unitUpdateSchema } from "@/lib/schemas/unit";
-import {
-  firstOccurrenceOnOrAfter,
-  parseDateOnly,
-  todayUtc,
-} from "@/lib/dates";
-import {
-  contractIntervalLabel,
-  isContractInterval,
-} from "@/lib/contracts";
-import { generateRecurringWorkOrderForContract } from "@/lib/recurring";
 import {
   getActiveDepartments,
   getDefaultDepartmentId,
@@ -50,6 +35,7 @@ import {
   type ServiceResult,
 } from "./actor";
 import { reportWorkOrderScope } from "@/lib/report-scope";
+import { contractScopeFor } from "./contracts";
 
 /** Bare filer som ligger i opplastingsmappen kan knyttes til en kunde. */
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]+$/;
@@ -213,6 +199,9 @@ export async function getCustomerDetail(
   const isAdmin = isAdminActor(actor);
   const canViewReports = can(actor, "reports.view");
   const canViewEquipment = can(actor, "equipment.view");
+  const canViewContracts =
+    can(actor, "contracts.view") || can(actor, "contracts.manage");
+  const canManageContracts = can(actor, "contracts.manage");
   const { tab: currentTab } = resolveCustomerTab(params.tab);
   const orderPage = Math.max(1, params.orderPage);
   const unitQuery = cleanText(params.unitQuery, { maxLength: LIMITS.short });
@@ -239,11 +228,44 @@ export async function getCustomerDetail(
       responsibleTechnician: true,
       contacts: { orderBy: { name: "asc" }, take: 100 },
       contracts: {
+        // C-05: Avtaler er avdelingssperret. Uten dette filteret kunne
+        // kontoret se og redigere avtaler som hører til en annen avdeling.
+        where: contractScopeFor(actor),
         orderBy: { startDate: "desc" },
         take: 50,
         include: {
           department: true,
           template: true,
+          slaPolicy: {
+            select: {
+              id: true,
+              name: true,
+              responseMinutes: true,
+              resolutionMinutes: true,
+              businessHoursOnly: true,
+            },
+          },
+          priceList: {
+            select: {
+              id: true,
+              name: true,
+              items: { orderBy: { code: "asc" }, take: 200 },
+            },
+          },
+          lines: {
+            orderBy: { createdAt: "asc" },
+            take: 200,
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  model: true,
+                  serialNumber: true,
+                  location: true,
+                },
+              },
+            },
+          },
           workOrders: {
             where: workOrderScopeFor(actor),
             orderBy: { scheduledFor: "desc" },
@@ -256,7 +278,7 @@ export async function getCustomerDetail(
       _count: {
         select: {
           contacts: true,
-          contracts: true,
+          contracts: { where: contractScopeFor(actor) },
           products: true,
           attachments: true,
         },
@@ -270,6 +292,55 @@ export async function getCustomerDetail(
     : [];
   const departments = isAdmin ? await getActiveDepartments() : [];
   const defaultDepartmentId = office ? await getDefaultDepartmentId() : null;
+
+  // Avtaleeditoren trenger aktive SLA-policyer, prislister og kundens utstyr.
+  const loadContractOptions =
+    currentTab === "avtaler" && canViewContracts;
+  const [slaPolicies, priceLists, contractProducts] = await Promise.all([
+    loadContractOptions
+      ? prisma.slaPolicy.findMany({
+          where: {
+            isActive: true,
+            ...(isAdmin
+              ? {}
+              : {
+                  OR: [
+                    { departmentId: null },
+                    { departmentId: actor.departmentId ?? "" },
+                  ],
+                }),
+          },
+          orderBy: { name: "asc" },
+          take: 100,
+          select: { id: true, name: true, departmentId: true },
+        })
+      : Promise.resolve([]),
+    loadContractOptions
+      ? prisma.priceList.findMany({
+          where: { isActive: true },
+          orderBy: { name: "asc" },
+          take: 100,
+          select: {
+            id: true,
+            name: true,
+            items: { orderBy: { code: "asc" }, take: 200 },
+          },
+        })
+      : Promise.resolve([]),
+    loadContractOptions
+      ? prisma.product.findMany({
+          where: { customerId },
+          orderBy: { model: "asc" },
+          take: 300,
+          select: {
+            id: true,
+            model: true,
+            serialNumber: true,
+            location: true,
+          },
+        })
+      : Promise.resolve([]),
+  ]);
 
   // Kansellerte oppdrag er avsluttet og skal ikke vises til montørene.
   // Kontoret ser dem fortsatt i kundekortet.
@@ -536,6 +607,10 @@ export async function getCustomerDetail(
     templates,
     departments,
     defaultDepartmentId,
+    slaPolicies,
+    priceLists,
+    contractProducts,
+    canManageContracts,
     products,
     totalOrders,
     activeOrders,
@@ -1119,211 +1194,16 @@ export async function deleteUnit(
 // ---------------------------------------------------------------------------
 // Serviceavtaler
 // ---------------------------------------------------------------------------
+//
+// Avtaleservicen bor i `src/server/contracts.ts`. Re-eksporten holder eldre
+// kall og tester som importerer fra kundetjenesten kompatible.
 
-export type ContractCreateInput = {
-  title?: unknown;
-  startDate?: unknown;
-  intervalMonths?: unknown;
-  departmentId?: unknown;
-  contactId?: unknown;
-  templateId?: unknown;
-};
-
-export async function createContract(
-  actor: ServiceActor,
-  customerId: string,
-  input: ContractCreateInput,
-): Promise<ServiceResult<{ id: string }>> {
-  if (!can(actor, "customers.manage")) return fail("forbidden");
-
-  // Administrator kan velge avdeling. Andre oppretter avtaler i egen avdeling.
-  let departmentId: string | null = null;
-  if (isAdminActor(actor)) {
-    const requested = cleanText(input.departmentId, {
-      maxLength: LIMITS.line,
-    });
-    if (requested) {
-      const department = await prisma.department.findFirst({
-        where: { id: requested, isActive: true },
-        select: { id: true },
-      });
-      departmentId = department?.id ?? null;
-    }
-    departmentId = departmentId ?? (await getDefaultDepartmentId());
-  } else {
-    departmentId = actor.departmentId;
-  }
-  if (!departmentId) return fail("forbidden");
-
-  const parsed = contractCreateSchema.safeParse({
-    title: cleanText(input.title, { maxLength: LIMITS.title }),
-    startDate: cleanText(input.startDate, { maxLength: LIMITS.line }),
-    intervalMonths: cleanText(input.intervalMonths, {
-      maxLength: LIMITS.short,
-    }),
-    departmentId,
-    contactId: cleanText(input.contactId, { maxLength: LIMITS.line }),
-    templateId: cleanText(input.templateId, { maxLength: LIMITS.line }),
-  });
-  if (!parsed.success) return fail("invalid");
-
-  const { title, contactId, templateId } = parsed.data;
-  const startDate = parseDateOnly(parsed.data.startDate);
-  const intervalMonths = parsed.data.intervalMonths;
-  if (!startDate || !isContractInterval(intervalMonths)) return fail("invalid");
-
-  const customerExists = await prisma.customer.findFirst({
-    where: { id: customerId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!customerExists) return fail("not_found");
-
-  // Kontaktpersonen og malen må faktisk finnes og høre til denne kunden.
-  let validContactId: string | null = null;
-  if (contactId) {
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-    if (contact?.customerId === customerId) validContactId = contactId;
-  }
-
-  let validTemplateId: string | null = null;
-  if (templateId) {
-    const template = await prisma.template.findUnique({
-      where: { id: templateId },
-      select: { id: true },
-    });
-    if (template) validTemplateId = templateId;
-  }
-
-  const nextServiceDate = firstOccurrenceOnOrAfter(
-    startDate,
-    intervalMonths,
-    todayUtc(),
-  );
-
-  const contract = await prisma.$transaction(async (tx) => {
-    const created = await tx.contract.create({
-      data: {
-        title,
-        startDate,
-        intervalMonths,
-        nextServiceDate,
-        isActive: true,
-        customerId,
-        departmentId,
-        contactId: validContactId,
-        templateId: validTemplateId,
-      },
-    });
-
-    await audit(tx, {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `Opprettet serviceavtale: ${title} (${contractIntervalLabel(intervalMonths)})`,
-      actor: toAuditActor(actor),
-      metadata: { contractId: created.id },
-    });
-
-    return created;
-  });
-
-  // Starter avtalen i dag, skal første oppdrag lages med en gang. Ellers tar
-  // bakgrunnsjobben det når neste service forfaller.
-  if (nextServiceDate <= new Date()) {
-    try {
-      await generateRecurringWorkOrderForContract(contract.id);
-    } catch (error) {
-      console.error("Kunne ikke opprette første serviceavtale-oppdrag:", error);
-    }
-  }
-
-  return ok({ id: contract.id });
-}
-
-export async function toggleContract(
-  actor: ServiceActor,
-  customerId: string,
-  input: { id?: unknown; active?: unknown },
-): Promise<ServiceResult> {
-  if (!can(actor, "customers.manage")) return fail("forbidden");
-
-  const parsed = contractToggleSchema.safeParse({
-    id: cleanText(input.id, { maxLength: LIMITS.line }),
-    active: input.active,
-  });
-  if (!parsed.success) return fail("invalid");
-  const { id, active } = parsed.data;
-
-  const contract = await prisma.contract.findUnique({
-    where: { id },
-    select: { id: true, customerId: true, departmentId: true, title: true },
-  });
-  if (!contract || contract.customerId !== customerId) return fail("not_found");
-  if (!isAdminActor(actor) && contract.departmentId !== actor.departmentId) {
-    return fail("forbidden");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.contract.update({
-      where: { id },
-      data: { isActive: active },
-    });
-
-    await audit(tx, {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `${active ? "Aktiverte" : "Pauset"} serviceavtale: ${contract.title}`,
-      actor: toAuditActor(actor),
-      metadata: { contractId: id },
-    });
-  });
-
-  // Ved gjenaktivering kan neste service allerede ha forfalt. Da lages det
-  // nyeste forfalte oppdraget med en gang i stedet for å vente på jobben.
-  if (active) {
-    try {
-      await generateRecurringWorkOrderForContract(id);
-    } catch (error) {
-      console.error("Kunne ikke gjenoppta serviceavtale:", error);
-    }
-  }
-
-  return ok(undefined);
-}
-
-export async function deleteContract(
-  actor: ServiceActor,
-  customerId: string,
-  input: { id?: unknown },
-): Promise<ServiceResult> {
-  // Sletting er alltid forbeholdt administrator.
-  if (!isAdminActor(actor) || !actor.isActive) return fail("forbidden");
-
-  const parsed = contractDeleteSchema.safeParse({
-    id: cleanText(input.id, { maxLength: LIMITS.line }),
-  });
-  if (!parsed.success) return fail("invalid");
-  const id = parsed.data.id;
-
-  const contract = await prisma.contract.findUnique({
-    where: { id },
-    select: { id: true, customerId: true, title: true },
-  });
-  if (!contract || contract.customerId !== customerId) return fail("not_found");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.contract.delete({ where: { id } });
-
-    await audit(tx, {
-      entityType: "Customer",
-      entityId: customerId,
-      action: `Slettet serviceavtale: ${contract.title}`,
-      actor: toAuditActor(actor),
-      metadata: { contractId: id },
-    });
-  });
-
-  return ok(undefined);
-}
+export {
+  createContract,
+  deleteContract,
+  toggleContract,
+  type ContractCreateInput,
+} from "./contracts";
 
 // ---------------------------------------------------------------------------
 // Kundeverlegg

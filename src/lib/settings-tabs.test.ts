@@ -13,6 +13,7 @@ const noPermissions: SettingsTabPermissions = {
   canDocuments: false,
   canAudit: false,
   canStats: false,
+  canSla: false,
   isAdmin: false,
 };
 
@@ -25,6 +26,7 @@ const admin: SettingsTabPermissions = {
   canDocuments: true,
   canAudit: true,
   canStats: true,
+  canSla: true,
   isAdmin: true,
 };
 
@@ -47,6 +49,14 @@ describe("chooseSettingsTab", () => {
     expect(chooseSettingsTab("roller", office)).toBe("ansatte");
     expect(chooseSettingsTab("avdelinger", office)).toBe("ansatte");
     expect(chooseSettingsTab("api", office)).toBe("ansatte");
+  });
+
+  it("viser SLA-fanen bare med sla.manage", () => {
+    expect(isSettingsTabAllowed("sla", admin)).toBe(true);
+    expect(isSettingsTabAllowed("sla", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("sla", { ...noPermissions, canSla: true }),
+    ).toBe("sla");
   });
 
   it("lar bare administrator åpne API-fanen", () => {

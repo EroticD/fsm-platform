@@ -64,6 +64,16 @@ export const NOTIFICATION_TYPE_PRESENTATION: Record<
     labelKey: "p3.notifications.types.CONTACT_UPDATE",
     tone: "gray",
   },
+  SLA_AT_RISK: {
+    icon: "⏳",
+    labelKey: "p3.notifications.types.SLA_AT_RISK",
+    tone: "amber",
+  },
+  SLA_BREACHED: {
+    icon: "🚨",
+    labelKey: "p3.notifications.types.SLA_BREACHED",
+    tone: "red",
+  },
 };
 
 /**

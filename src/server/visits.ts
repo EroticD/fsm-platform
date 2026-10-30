@@ -29,6 +29,7 @@ import {
   type ServiceFailure,
   type ServiceResult,
 } from "./actor";
+import { markResponded, markResolved } from "./sla";
 
 /** Millisekunder i et døgn. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -816,6 +817,13 @@ export async function setVisitStatus(
       where: { id },
       data: { status },
     });
+
+    // SLA: første EN_ROUTE/ON_SITE er responsen, DONE er løsningen.
+    if (status === "EN_ROUTE" || status === "ON_SITE") {
+      await markResponded(tx, current.workOrderId);
+    } else if (status === "DONE") {
+      await markResolved(tx, current.workOrderId);
+    }
 
     await audit(tx, {
       entityType: "Visit",

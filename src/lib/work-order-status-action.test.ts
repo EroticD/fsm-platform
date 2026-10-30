@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
+vi.mock("@/server/sla", () => ({
+  markResolved: vi.fn(async () => undefined),
+  cancelClocks: vi.fn(async () => undefined),
+}));
 
 import { transitionWorkOrderStatus } from "./work-order-status-action";
 

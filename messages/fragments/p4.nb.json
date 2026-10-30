@@ -1,0 +1,239 @@
+{
+  "nav": {
+    "contracts": "Avtaler"
+  },
+  "customers": {
+    "contracts": {
+      "contractNumber": "Avtalenummer",
+      "contractNumberValue": "Avtale {number}",
+      "endDate": "Sluttdato",
+      "endDateValue": "Sluttdato: {date}",
+      "noEndDate": "Tidsubegrenset",
+      "statusLabel": "Status",
+      "status": {
+        "draft": "Utkast",
+        "active": "Aktiv",
+        "paused": "Pauset",
+        "expired": "Utløpt",
+        "terminated": "Avsluttet"
+      },
+      "renewalMode": "Fornyelse",
+      "renewal": {
+        "auto": "Automatisk",
+        "manual": "Manuell"
+      },
+      "renewalValue": "Fornyelse: {mode} · {days} dagers varsel",
+      "noticeDays": "Varsel før utløp (dager)",
+      "indexationPercent": "Prisjustering (%)",
+      "indexationValue": "Prisjustering {percent} %",
+      "slaPolicy": "SLA-policy",
+      "noSlaPolicy": "Ingen SLA-policy",
+      "slaValue": "SLA: {name} · svar {response} min · løsning {resolution} min",
+      "priceList": "Prisliste",
+      "noPriceList": "Ingen prisliste",
+      "priceListValue": "Prisliste: {name} ({count} linjer, referanse)",
+      "pdf": "Last ned PDF",
+      "renew": "Forny",
+      "terminate": "Avslutt",
+      "terminateConfirm": "Avslutte serviceavtalen «{title}»? Den kan ikke gjenåpnes etterpå.",
+      "editTitle": "Rediger avtalen",
+      "saveChanges": "Lagre endringer",
+      "lineEquipment": "Utstyr",
+      "lineAllEquipment": "Alt utstyr",
+      "lineScope": "Dekning",
+      "linesTitle": "Dekning ({count})",
+      "linesEmpty": "Ingen avtalelinjer. Avtalen dekker alt utstyr.",
+      "visitsPerYear": "Besøk/år",
+      "visitsPerYearValue": "{count} besøk/år",
+      "responseMinutes": "Svartid (min)",
+      "resolutionMinutes": "Løsningstid (min)",
+      "minutesValue": "{count} min",
+      "addLine": "Legg til linje",
+      "notSet": "ikke satt"
+    },
+    "feedback": {
+      "status": {
+        "contractUpdated": "Serviceavtalen er oppdatert.",
+        "contractResumed": "Serviceavtalen er gjenopptatt.",
+        "contractTerminated": "Serviceavtalen er avsluttet.",
+        "contractRenewed": "Serviceavtalen er fornyet.",
+        "contractLineCreated": "Avtalelinjen er lagt til.",
+        "contractLineDeleted": "Avtalelinjen er fjernet."
+      },
+      "error": {
+        "conflict": "Handlingen er i konflikt med en annen endring. Last siden på nytt."
+      }
+    }
+  },
+  "contractsPage": {
+    "title": "Serviceavtaler",
+    "subtitle": "Alle avtaler du har tilgang til, med status, utløp og SLA.",
+    "customers": "Kunder",
+    "search": "Søk",
+    "searchPlaceholder": "Tittel, avtalenummer eller kunde",
+    "filterStatus": "Status",
+    "allStatuses": "Alle statuser",
+    "expiringSoon": "Utløper innen 60 dager",
+    "period": "{start} – {end}",
+    "noEndDate": "tidsubegrenset",
+    "sla": "SLA: {name}",
+    "linesAndOrders": "{lines} linjer · {orders} oppdrag",
+    "pdf": "PDF",
+    "edit": "Rediger",
+    "emptyTitle": "Ingen avtaler",
+    "emptyDescription": "Ingen avtaler passer med filtrene. Nullstill filtrene eller opprett en avtale fra kundekortet.",
+    "status": {
+      "draft": "Utkast",
+      "active": "Aktiv",
+      "paused": "Pauset",
+      "expired": "Utløpt",
+      "terminated": "Avsluttet"
+    }
+  },
+  "orders": {
+    "detail": {
+      "sla": {
+        "title": "SLA",
+        "hint": "Frister regnet med avtalens åpningstider",
+        "onTrack": "I rute",
+        "atRisk": "I fare",
+        "breached": "Brutt",
+        "met": "Oppfylt",
+        "cancelled": "Kansellert",
+        "respondBy": "Svar innen",
+        "resolveBy": "Løs innen",
+        "respondedAt": "Svart",
+        "resolvedAt": "Løst",
+        "timeLeft": "{minutes} minutter igjen",
+        "overdue": "{minutes} minutter over fristen"
+      }
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "slaAtRisk": "SLA i fare",
+      "slaAtRiskSub": "Nærmer seg fristen",
+      "slaBreached": "SLA brutt",
+      "slaBreachedSub": "Fristen er passert"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sla": "SLA og åpningstider"
+    },
+    "permissions": {
+      "groups": {
+        "contractsSla": "Avtaler og SLA"
+      },
+      "items": {
+        "contracts_view": {
+          "label": "Se serviceavtaler",
+          "description": "Se serviceavtaler, dekning og SLA-status i egen avdeling."
+        },
+        "contracts_manage": {
+          "label": "Administrere serviceavtaler",
+          "description": "Opprette, redigere, pause, avslutte og forny serviceavtaler, avtalelinjer og prislister i egen avdeling."
+        },
+        "sla_manage": {
+          "label": "Administrere SLA",
+          "description": "Opprette SLA-policyer og vedlikeholde åpningstider og helligdager."
+        }
+      }
+    },
+    "sla": {
+      "sections": {
+        "policies": "SLA-policyer",
+        "policiesHint": "Policyen setter svar- og løsningsfrist. Avtaler kan peke på en policy; ellers brukes avdelingens standard.",
+        "hours": "Åpningstider",
+        "hoursHint": "Brukes når en policy bare teller innenfor åpningstid. Helligdager lukker dagen.",
+        "holidays": "Helligdager",
+        "holidaysHint": "Globale helligdager gjelder alle avdelinger. Avdelingsspesifikke rader overstyrer bare den avdelingen.",
+        "priceLists": "Prislister"
+      },
+      "policy": {
+        "name": "Navn",
+        "department": "Avdeling",
+        "global": "Alle avdelinger",
+        "active": "Aktiv",
+        "responseMinutes": "Svartid (minutter)",
+        "resolutionMinutes": "Løsningstid (minutter)",
+        "businessHoursOnly": "Tell bare innenfor åpningstid",
+        "create": "Opprett policy",
+        "empty": "Ingen SLA-policyer er opprettet.",
+        "activeLabel": "Aktiv",
+        "inactiveLabel": "Inaktiv",
+        "linked": "{contracts} avtaler · {clocks} klokker",
+        "deactivate": "Deaktiver"
+      },
+      "hours": {
+        "department": "Avdeling",
+        "show": "Vis",
+        "open": "Åpner",
+        "close": "Stenger",
+        "closed": "Stengt",
+        "save": "Lagre åpningstider",
+        "forDepartment": "Lagrer for {department}."
+      },
+      "weekdays": {
+        "0": "Mandag",
+        "1": "Tirsdag",
+        "2": "Onsdag",
+        "3": "Torsdag",
+        "4": "Fredag",
+        "5": "Lørdag",
+        "6": "Søndag"
+      },
+      "holidays": {
+        "date": "Dato",
+        "name": "Navn",
+        "department": "Avdeling",
+        "global": "Alle avdelinger",
+        "add": "Legg til",
+        "empty": "Ingen helligdager er registrert."
+      },
+      "priceLists": {
+        "name": "Navn",
+        "create": "Opprett prisliste",
+        "empty": "Ingen prislister er opprettet.",
+        "linked": "{count} avtaler",
+        "noItems": "Ingen linjer i prislisten.",
+        "code": "Kode",
+        "label": "Beskrivelse",
+        "unit": "Enhet",
+        "amount": "Beløp",
+        "addItem": "Legg til linje",
+        "referenceOnly": "Prislister er referansedata for visning. Systemet fakturerer ikke og beregner ikke beløp."
+      },
+      "feedback": {
+        "policy": "SLA-policyen er lagret.",
+        "policyDeactivated": "SLA-policyen er deaktivert.",
+        "hours": "Åpningstidene er lagret.",
+        "holiday": "Helligdagen er lagt til.",
+        "holidayDeleted": "Helligdagen er slettet.",
+        "priceList": "Prislisten er opprettet.",
+        "priceItem": "Prislistelinjen er lagt til.",
+        "priceItemDeleted": "Prislistelinjen er slettet."
+      },
+      "errors": {
+        "invalid": "Feltene er ikke gyldige.",
+        "forbidden": "Du har ikke tilgang til å endre SLA-innstillinger.",
+        "notFound": "Fant ikke det du prøvde å endre.",
+        "conflict": "Raden finnes allerede."
+      }
+    }
+  },
+  "p3": {
+    "notifications": {
+      "types": {
+        "SLA_AT_RISK": "SLA i fare",
+        "SLA_BREACHED": "SLA brutt"
+      }
+    },
+    "notificationSettings": {
+      "labels": {
+        "SLA_AT_RISK": "SLA i fare",
+        "SLA_BREACHED": "SLA brutt"
+      }
+    }
+  }
+}

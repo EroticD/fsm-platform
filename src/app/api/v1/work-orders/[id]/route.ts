@@ -71,6 +71,22 @@ const SUMMARY_SELECT = {
     take: EMBEDDED_VISIT_LIMIT,
     select: EMBEDDED_VISIT_SELECT,
   },
+  slaClocks: {
+    orderBy: { startedAt: "desc" },
+    take: 1,
+    select: {
+      id: true,
+      policyId: true,
+      startedAt: true,
+      respondBy: true,
+      resolveBy: true,
+      respondedAt: true,
+      resolvedAt: true,
+      state: true,
+      breachedAt: true,
+      policy: { select: { name: true } },
+    },
+  },
 } satisfies Prisma.WorkOrderSelect;
 
 const DETAIL_SELECT = {
@@ -118,6 +134,19 @@ type EmbeddedVisitSource = {
   technicians: { user: { id: string; name: string | null; email: string | null } }[];
 };
 
+type EmbeddedSlaSource = {
+  id: string;
+  policyId: string;
+  startedAt: Date;
+  respondBy: Date;
+  resolveBy: Date;
+  respondedAt: Date | null;
+  resolvedAt: Date | null;
+  state: string;
+  breachedAt: Date | null;
+  policy: { name: string };
+};
+
 type SummarySource = {
   id: string;
   title: string;
@@ -132,6 +161,7 @@ type SummarySource = {
   updatedAt: Date;
   _count?: { reports: number };
   visits?: EmbeddedVisitSource[];
+  slaClocks?: EmbeddedSlaSource[];
 };
 
 type DetailSource = SummarySource & {
@@ -182,6 +212,22 @@ function toEmbeddedVisit(visit: EmbeddedVisitSource) {
   };
 }
 
+function toEmbeddedSla(clock: EmbeddedSlaSource | undefined) {
+  if (!clock) return null;
+  return {
+    id: clock.id,
+    policyId: clock.policyId,
+    policyName: clock.policy.name,
+    state: clock.state,
+    startedAt: clock.startedAt.toISOString(),
+    respondBy: clock.respondBy.toISOString(),
+    resolveBy: clock.resolveBy.toISOString(),
+    respondedAt: clock.respondedAt?.toISOString() ?? null,
+    resolvedAt: clock.resolvedAt?.toISOString() ?? null,
+    breachedAt: clock.breachedAt?.toISOString() ?? null,
+  };
+}
+
 function toSummary(row: SummarySource) {
   return {
     id: row.id,
@@ -195,6 +241,7 @@ function toSummary(row: SummarySource) {
     department: row.department,
     reportCount: row._count?.reports ?? 0,
     visits: (row.visits ?? []).map(toEmbeddedVisit),
+    sla: toEmbeddedSla(row.slaClocks?.[0]),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

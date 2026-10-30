@@ -41,6 +41,7 @@ import { dateOnlySchema } from "@/lib/schemas/common";
 import { transitionWorkOrderStatus } from "@/lib/work-order-status-action";
 import { isClosedStatus } from "@/lib/work-order-status";
 import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
+import { startClock } from "./sla";
 
 /** Millisekunder i et døgn. Kalenderdatoer lagres som UTC-midnatt. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -529,6 +530,10 @@ export async function createWorkOrder(
         technicianIds,
       });
       await recomputeWorkOrderSchedule(tx, newWorkOrder.id);
+
+      // Aktive avtaler og avdelingens SLA-policy starter klokken med en gang.
+      // Uten policy opprettes ingen klokke.
+      await startClock(tx, newWorkOrder.id);
 
       await audit(tx, {
         entityType: "WorkOrder",

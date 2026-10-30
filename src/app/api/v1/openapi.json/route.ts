@@ -20,7 +20,8 @@ const openApiDocument = {
   info: {
     title: "FSM-plattformen REST API",
     version: "1.0.0",
-    summary: "Oppdrag, visiter, kunder, rapporter og dokumenter for FSM-plattformen.",
+    summary:
+      "Oppdrag, visiter, kunder, avtaler, SLA, rapporter og dokumenter for FSM-plattformen.",
     description:
       "Alle dataendepunkter under /api/v1 krever en API-nøkkel sendt som " +
       "`Authorization: Bearer fsm_...`. Responser bruker konvolutten " +
@@ -44,6 +45,12 @@ const openApiDocument = {
       description: "Planlagte visiter, flytting, tildeling og status.",
     },
     { name: "Customers", description: "Kunder og kundekort." },
+    {
+      name: "Contracts",
+      description:
+        "Serviceavtaler, avtalelinjer, prislister (referanse) og PDF.",
+    },
+    { name: "SLA", description: "SLA-policyer og klokker på oppdrag." },
     { name: "Reports", description: "Signerte servicerapporter." },
     { name: "Documents", description: "Dokumentbiblioteket." },
   ],
@@ -648,6 +655,256 @@ const openApiDocument = {
         },
       },
     },
+    "/contracts": {
+      get: {
+        tags: ["Contracts"],
+        operationId: "listContracts",
+        summary: "List serviceavtaler",
+        description:
+          "Avdelingssperret liste. Administrator ser alle avtaler; andre ser " +
+          "avtaler i egen avdeling. Filtrer på status, kunde, fritekst eller " +
+          "avtaler som utløper innen `expiringDays` dager.",
+        parameters: [
+          { $ref: "#/components/parameters/Page" },
+          { $ref: "#/components/parameters/Limit" },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: [
+                "DRAFT",
+                "ACTIVE",
+                "PAUSED",
+                "EXPIRED",
+                "TERMINATED",
+              ],
+            },
+          },
+          {
+            name: "customerId",
+            in: "query",
+            schema: { type: "string" },
+          },
+          {
+            name: "expiringDays",
+            in: "query",
+            description: "Aktive avtaler med sluttdato innen N dager.",
+            schema: { type: "integer", minimum: 1, maximum: 3650 },
+          },
+          {
+            name: "q",
+            in: "query",
+            description: "Fritekst i tittel, avtalenummer eller kundenavn.",
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Side med avtaler.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ContractList" },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        tags: ["Contracts"],
+        operationId: "createContract",
+        summary: "Opprett serviceavtale",
+        description:
+          "Krever `contracts.manage`. Prislister er referansedata; tjenesten " +
+          "har ingen faktureringssemantikk.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContractCreate" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Avtalen er opprettet.",
+            headers: {
+              Location: {
+                description: "Relativ adresse til avtalen.",
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/contracts/{id}": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Contracts"],
+        operationId: "getContract",
+        summary: "Hent serviceavtale",
+        responses: {
+          "200": {
+            description: "Avtalen med linjer, prisliste og siste oppdrag.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { $ref: "#/components/schemas/ContractDetail" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      patch: {
+        tags: ["Contracts"],
+        operationId: "updateContract",
+        summary: "Oppdater serviceavtale",
+        description:
+          "Delvis oppdatering. Utelatte felter beholder verdien sin. Krever " +
+          "`contracts.manage`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ContractUpdate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Avtalen er oppdatert.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "object",
+                      required: ["id"],
+                      properties: { id: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/contracts/{id}/pdf": {
+      parameters: [{ $ref: "#/components/parameters/Id" }],
+      get: {
+        tags: ["Contracts"],
+        operationId: "downloadContractPdf",
+        summary: "Last ned serviceavtale som PDF",
+        parameters: [
+          {
+            name: "locale",
+            in: "query",
+            description: "PDF-språk: nb, en, pl eller de. Standard nb.",
+            schema: {
+              type: "string",
+              enum: ["nb", "en", "pl", "de"],
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "PDF-filen.",
+            headers: {
+              "Content-Disposition": {
+                description: "Vedlegg med filnavn.",
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/pdf": {
+                schema: { type: "string", format: "binary" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/sla-policies": {
+      get: {
+        tags: ["SLA"],
+        operationId: "listSlaPolicies",
+        summary: "List aktive SLA-policyer",
+        description:
+          "Administrator ser alle; andre ser globale policyer og policyer i " +
+          "egen avdeling.",
+        responses: {
+          "200": {
+            description: "Aktive policyer.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/SlaPolicy" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
     "/documents": {
       get: {
         tags: ["Documents"],
@@ -1017,6 +1274,305 @@ const openApiDocument = {
           customerId: nullableString,
         },
       },
+      ContractSummary: {
+        type: "object",
+        required: [
+          "id",
+          "title",
+          "status",
+          "startDate",
+          "intervalMonths",
+          "customer",
+          "department",
+          "lineCount",
+          "workOrderCount",
+        ],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          contractNumber: nullableString,
+          status: {
+            type: "string",
+            enum: [
+              "DRAFT",
+              "ACTIVE",
+              "PAUSED",
+              "EXPIRED",
+              "TERMINATED",
+            ],
+          },
+          startDate: { type: "string", format: "date" },
+          endDate: { type: ["string", "null"], format: "date" },
+          nextServiceDate: { type: "string", format: "date" },
+          intervalMonths: { type: "integer" },
+          renewalMode: { type: "string", enum: ["AUTO", "MANUAL"] },
+          noticeDays: { type: "integer", minimum: 0 },
+          customer: { $ref: "#/components/schemas/Ref" },
+          department: { $ref: "#/components/schemas/Ref" },
+          slaPolicy: {
+            oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+          },
+          priceList: {
+            oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+          },
+          lineCount: { type: "integer", minimum: 0 },
+          workOrderCount: { type: "integer", minimum: 0 },
+        },
+      },
+      ContractList: {
+        type: "object",
+        required: ["data", "meta"],
+        properties: {
+          data: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ContractSummary" },
+          },
+          meta: { $ref: "#/components/schemas/Meta" },
+        },
+      },
+      ContractLine: {
+        type: "object",
+        required: ["id", "scope"],
+        properties: {
+          id: { type: "string" },
+          product: {
+            oneOf: [
+              {
+                type: "object",
+                required: ["id", "model"],
+                properties: {
+                  id: { type: "string" },
+                  model: { type: "string" },
+                  serialNumber: nullableString,
+                  location: nullableString,
+                },
+              },
+              { type: "null" },
+            ],
+          },
+          scope: { type: "string" },
+          visitsPerYear: { type: ["integer", "null"], minimum: 0 },
+          responseMinutes: { type: ["integer", "null"], minimum: 0 },
+          resolutionMinutes: { type: ["integer", "null"], minimum: 0 },
+        },
+      },
+      PriceListItem: {
+        type: "object",
+        required: ["id", "code", "label", "unit", "amount"],
+        properties: {
+          id: { type: "string" },
+          code: { type: "string" },
+          label: { type: "string" },
+          unit: { type: "string" },
+          amount: {
+            type: "string",
+            description:
+              "Visningsbeløp med to desimaler. Brukes ikke til fakturering.",
+          },
+        },
+      },
+      ContractDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/ContractSummary" },
+          {
+            type: "object",
+            properties: {
+              indexationPercent: {
+                type: ["number", "null"],
+                description: "Referanseverdi. Ingen beregning eller fakturering.",
+              },
+              isActive: { type: "boolean" },
+              contact: {
+                oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+              },
+              template: {
+                oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+              },
+              priceList: {
+                oneOf: [
+                  {
+                    type: "object",
+                    required: ["id", "name", "items"],
+                    properties: {
+                      id: { type: "string" },
+                      name: { type: "string" },
+                      items: {
+                        type: "array",
+                        items: {
+                          $ref: "#/components/schemas/PriceListItem",
+                        },
+                      },
+                    },
+                  },
+                  { type: "null" },
+                ],
+              },
+              lines: {
+                type: "array",
+                items: { $ref: "#/components/schemas/ContractLine" },
+              },
+              workOrders: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    status: { type: "string" },
+                    scheduledFor: {
+                      type: ["string", "null"],
+                      format: "date",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      ContractCreate: {
+        type: "object",
+        required: ["customerId", "title", "startDate", "intervalMonths"],
+        properties: {
+          customerId: { type: "string" },
+          title: { type: "string" },
+          contractNumber: nullableString,
+          startDate: { type: "string", format: "date" },
+          endDate: { type: ["string", "null"], format: "date" },
+          intervalMonths: {
+            type: "integer",
+            enum: [3, 6, 12, 24],
+          },
+          departmentId: nullableString,
+          contactId: nullableString,
+          templateId: nullableString,
+          slaPolicyId: nullableString,
+          priceListId: nullableString,
+          status: {
+            type: "string",
+            enum: ["DRAFT", "ACTIVE"],
+            default: "ACTIVE",
+          },
+          renewalMode: {
+            type: "string",
+            enum: ["AUTO", "MANUAL"],
+            default: "MANUAL",
+          },
+          noticeDays: { type: "integer", minimum: 0, default: 30 },
+          indexationPercent: {
+            type: ["number", "null"],
+            minimum: -100,
+            maximum: 100,
+          },
+          lines: {
+            type: "array",
+            maxItems: 200,
+            items: {
+              type: "object",
+              properties: {
+                productId: nullableString,
+                scope: { type: "string" },
+                visitsPerYear: { type: ["integer", "null"], minimum: 0 },
+                responseMinutes: {
+                  type: ["integer", "null"],
+                  minimum: 0,
+                },
+                resolutionMinutes: {
+                  type: ["integer", "null"],
+                  minimum: 0,
+                },
+              },
+            },
+          },
+        },
+      },
+      ContractUpdate: {
+        type: "object",
+        minProperties: 1,
+        properties: {
+          title: { type: "string" },
+          contractNumber: nullableString,
+          startDate: { type: "string", format: "date" },
+          endDate: { type: ["string", "null"], format: "date" },
+          intervalMonths: { type: "integer", enum: [3, 6, 12, 24] },
+          departmentId: nullableString,
+          contactId: nullableString,
+          templateId: nullableString,
+          slaPolicyId: nullableString,
+          priceListId: nullableString,
+          status: {
+            type: "string",
+            enum: [
+              "DRAFT",
+              "ACTIVE",
+              "PAUSED",
+              "EXPIRED",
+              "TERMINATED",
+            ],
+          },
+          renewalMode: { type: "string", enum: ["AUTO", "MANUAL"] },
+          noticeDays: { type: "integer", minimum: 0 },
+          indexationPercent: {
+            type: ["number", "null"],
+            minimum: -100,
+            maximum: 100,
+          },
+        },
+      },
+      SlaPolicy: {
+        type: "object",
+        required: [
+          "id",
+          "name",
+          "responseMinutes",
+          "resolutionMinutes",
+          "businessHoursOnly",
+        ],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          departmentId: nullableString,
+          department: {
+            oneOf: [{ $ref: "#/components/schemas/Ref" }, { type: "null" }],
+          },
+          responseMinutes: { type: "integer", minimum: 1 },
+          resolutionMinutes: { type: "integer", minimum: 1 },
+          businessHoursOnly: { type: "boolean" },
+        },
+      },
+      SlaClock: {
+        type: ["object", "null"],
+        required: [
+          "id",
+          "policyId",
+          "policyName",
+          "state",
+          "startedAt",
+          "respondBy",
+          "resolveBy",
+        ],
+        properties: {
+          id: { type: "string" },
+          policyId: { type: "string" },
+          policyName: { type: "string" },
+          state: {
+            type: "string",
+            enum: [
+              "ON_TRACK",
+              "AT_RISK",
+              "BREACHED",
+              "MET",
+              "CANCELLED",
+            ],
+          },
+          startedAt: { type: "string", format: "date-time" },
+          respondBy: { type: "string", format: "date-time" },
+          resolveBy: { type: "string", format: "date-time" },
+          respondedAt: nullableDateTime,
+          resolvedAt: nullableDateTime,
+          breachedAt: nullableDateTime,
+        },
+      },
       WorkOrderSummary: {
         type: "object",
         required: [
@@ -1068,6 +1624,14 @@ const openApiDocument = {
             description:
               "Opptil 20 visiter, sortert på rekkefølge og starttidspunkt.",
             items: { $ref: "#/components/schemas/VisitSummary" },
+          },
+          sla: {
+            description:
+              "Nyeste SLA-klokke på oppdraget, eller null når ingen policy gjelder.",
+            oneOf: [
+              { $ref: "#/components/schemas/SlaClock" },
+              { type: "null" },
+            ],
           },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },

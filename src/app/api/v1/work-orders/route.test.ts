@@ -179,6 +179,7 @@ describe("GET /api/v1/work-orders", () => {
             updatedAt: "2026-10-30T08:30:00.000Z",
           },
         ],
+        sla: null,
         createdAt: "2026-10-30T08:15:00.000Z",
         updatedAt: "2026-10-30T09:15:00.000Z",
       },

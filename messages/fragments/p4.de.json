@@ -1,0 +1,239 @@
+{
+  "nav": {
+    "contracts": "Verträge"
+  },
+  "customers": {
+    "contracts": {
+      "contractNumber": "Vertragsnummer",
+      "contractNumberValue": "Vertrag {number}",
+      "endDate": "Enddatum",
+      "endDateValue": "Enddatum: {date}",
+      "noEndDate": "Unbefristet",
+      "statusLabel": "Status",
+      "status": {
+        "draft": "Entwurf",
+        "active": "Aktiv",
+        "paused": "Pausiert",
+        "expired": "Abgelaufen",
+        "terminated": "Beendet"
+      },
+      "renewalMode": "Verlängerung",
+      "renewal": {
+        "auto": "Automatisch",
+        "manual": "Manuell"
+      },
+      "renewalValue": "Verlängerung: {mode} · {days} Tage Vorlauf",
+      "noticeDays": "Vorlauf vor Ablauf (Tage)",
+      "indexationPercent": "Preisanpassung (%)",
+      "indexationValue": "Preisanpassung {percent} %",
+      "slaPolicy": "SLA-Richtlinie",
+      "noSlaPolicy": "Keine SLA-Richtlinie",
+      "slaValue": "SLA: {name} · Reaktion {response} Min. · Lösung {resolution} Min.",
+      "priceList": "Preisliste",
+      "noPriceList": "Keine Preisliste",
+      "priceListValue": "Preisliste: {name} ({count} Positionen, Referenz)",
+      "pdf": "PDF herunterladen",
+      "renew": "Verlängern",
+      "terminate": "Beenden",
+      "terminateConfirm": "Servicevertrag „{title}“ beenden? Er kann danach nicht wieder geöffnet werden.",
+      "editTitle": "Vertrag bearbeiten",
+      "saveChanges": "Änderungen speichern",
+      "lineEquipment": "Gerät",
+      "lineAllEquipment": "Alle Geräte",
+      "lineScope": "Abdeckung",
+      "linesTitle": "Abdeckung ({count})",
+      "linesEmpty": "Keine Vertragspositionen. Der Vertrag deckt alle Geräte ab.",
+      "visitsPerYear": "Besuche/Jahr",
+      "visitsPerYearValue": "{count} Besuche/Jahr",
+      "responseMinutes": "Reaktion (Min.)",
+      "resolutionMinutes": "Lösung (Min.)",
+      "minutesValue": "{count} Min.",
+      "addLine": "Position hinzufügen",
+      "notSet": "nicht gesetzt"
+    },
+    "feedback": {
+      "status": {
+        "contractUpdated": "Der Servicevertrag wurde aktualisiert.",
+        "contractResumed": "Der Servicevertrag wurde fortgesetzt.",
+        "contractTerminated": "Der Servicevertrag wurde beendet.",
+        "contractRenewed": "Der Servicevertrag wurde verlängert.",
+        "contractLineCreated": "Die Vertragsposition wurde hinzugefügt.",
+        "contractLineDeleted": "Die Vertragsposition wurde entfernt."
+      },
+      "error": {
+        "conflict": "Die Aktion steht im Konflikt mit einer anderen Änderung. Seite neu laden."
+      }
+    }
+  },
+  "contractsPage": {
+    "title": "Serviceverträge",
+    "subtitle": "Alle zugänglichen Verträge mit Status, Ablauf und SLA.",
+    "customers": "Kunden",
+    "search": "Suchen",
+    "searchPlaceholder": "Titel, Vertragsnummer oder Kunde",
+    "filterStatus": "Status",
+    "allStatuses": "Alle Status",
+    "expiringSoon": "Läuft in 60 Tagen ab",
+    "period": "{start} – {end}",
+    "noEndDate": "unbefristet",
+    "sla": "SLA: {name}",
+    "linesAndOrders": "{lines} Positionen · {orders} Aufträge",
+    "pdf": "PDF",
+    "edit": "Bearbeiten",
+    "emptyTitle": "Keine Verträge",
+    "emptyDescription": "Keine Verträge passen zu den Filtern. Filter zurücksetzen oder einen Vertrag auf der Kundenseite anlegen.",
+    "status": {
+      "draft": "Entwurf",
+      "active": "Aktiv",
+      "paused": "Pausiert",
+      "expired": "Abgelaufen",
+      "terminated": "Beendet"
+    }
+  },
+  "orders": {
+    "detail": {
+      "sla": {
+        "title": "SLA",
+        "hint": "Fristen mit den Geschäftszeiten des Vertrags berechnet",
+        "onTrack": "Im Plan",
+        "atRisk": "Gefährdet",
+        "breached": "Verletzt",
+        "met": "Erfüllt",
+        "cancelled": "Storniert",
+        "respondBy": "Reaktion bis",
+        "resolveBy": "Lösung bis",
+        "respondedAt": "Reagiert",
+        "resolvedAt": "Gelöst",
+        "timeLeft": "{minutes} Minuten übrig",
+        "overdue": "{minutes} Minuten über der Frist"
+      }
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "slaAtRisk": "SLA gefährdet",
+      "slaAtRiskSub": "Frist nähert sich",
+      "slaBreached": "SLA verletzt",
+      "slaBreachedSub": "Die Frist ist überschritten"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sla": "SLA und Geschäftszeiten"
+    },
+    "permissions": {
+      "groups": {
+        "contractsSla": "Verträge und SLA"
+      },
+      "items": {
+        "contracts_view": {
+          "label": "Serviceverträge ansehen",
+          "description": "Serviceverträge, Abdeckung und SLA-Status in der eigenen Abteilung ansehen."
+        },
+        "contracts_manage": {
+          "label": "Serviceverträge verwalten",
+          "description": "Serviceverträge, Vertragspositionen und Preislisten in der eigenen Abteilung anlegen, bearbeiten, pausieren, beenden und verlängern."
+        },
+        "sla_manage": {
+          "label": "SLA verwalten",
+          "description": "SLA-Richtlinien anlegen und Geschäftszeiten sowie Feiertage pflegen."
+        }
+      }
+    },
+    "sla": {
+      "sections": {
+        "policies": "SLA-Richtlinien",
+        "policiesHint": "Die Richtlinie legt Reaktions- und Lösungsfrist fest. Verträge können auf eine Richtlinie verweisen; sonst gilt die Standardrichtlinie der Abteilung.",
+        "hours": "Geschäftszeiten",
+        "hoursHint": "Wird verwendet, wenn eine Richtlinie nur innerhalb der Geschäftszeiten zählt. Feiertage schließen den Tag.",
+        "holidays": "Feiertage",
+        "holidaysHint": "Globale Feiertage gelten für alle Abteilungen. Abteilungsspezifische Einträge überschreiben nur diese Abteilung.",
+        "priceLists": "Preislisten"
+      },
+      "policy": {
+        "name": "Name",
+        "department": "Abteilung",
+        "global": "Alle Abteilungen",
+        "active": "Aktiv",
+        "responseMinutes": "Reaktionszeit (Minuten)",
+        "resolutionMinutes": "Lösungszeit (Minuten)",
+        "businessHoursOnly": "Nur Geschäftszeiten zählen",
+        "create": "Richtlinie anlegen",
+        "empty": "Es wurden keine SLA-Richtlinien angelegt.",
+        "activeLabel": "Aktiv",
+        "inactiveLabel": "Inaktiv",
+        "linked": "{contracts} Verträge · {clocks} Uhren",
+        "deactivate": "Deaktivieren"
+      },
+      "hours": {
+        "department": "Abteilung",
+        "show": "Anzeigen",
+        "open": "Öffnet",
+        "close": "Schließt",
+        "closed": "Geschlossen",
+        "save": "Geschäftszeiten speichern",
+        "forDepartment": "Speichern für {department}."
+      },
+      "weekdays": {
+        "0": "Montag",
+        "1": "Dienstag",
+        "2": "Mittwoch",
+        "3": "Donnerstag",
+        "4": "Freitag",
+        "5": "Samstag",
+        "6": "Sonntag"
+      },
+      "holidays": {
+        "date": "Datum",
+        "name": "Name",
+        "department": "Abteilung",
+        "global": "Alle Abteilungen",
+        "add": "Hinzufügen",
+        "empty": "Es sind keine Feiertage registriert."
+      },
+      "priceLists": {
+        "name": "Name",
+        "create": "Preisliste anlegen",
+        "empty": "Es wurden keine Preislisten angelegt.",
+        "linked": "{count} Verträge",
+        "noItems": "Keine Positionen in der Preisliste.",
+        "code": "Code",
+        "label": "Beschreibung",
+        "unit": "Einheit",
+        "amount": "Betrag",
+        "addItem": "Position hinzufügen",
+        "referenceOnly": "Preislisten sind Referenzdaten zur Anzeige. Das System fakturiert nicht und berechnet keine Beträge."
+      },
+      "feedback": {
+        "policy": "Die SLA-Richtlinie wurde gespeichert.",
+        "policyDeactivated": "Die SLA-Richtlinie wurde deaktiviert.",
+        "hours": "Die Geschäftszeiten wurden gespeichert.",
+        "holiday": "Der Feiertag wurde hinzugefügt.",
+        "holidayDeleted": "Der Feiertag wurde gelöscht.",
+        "priceList": "Die Preisliste wurde angelegt.",
+        "priceItem": "Die Preislistenposition wurde hinzugefügt.",
+        "priceItemDeleted": "Die Preislistenposition wurde gelöscht."
+      },
+      "errors": {
+        "invalid": "Die Felder sind ungültig.",
+        "forbidden": "Kein Zugriff zum Ändern der SLA-Einstellungen.",
+        "notFound": "Die zu ändernde Zeile wurde nicht gefunden.",
+        "conflict": "Der Eintrag existiert bereits."
+      }
+    }
+  },
+  "p3": {
+    "notifications": {
+      "types": {
+        "SLA_AT_RISK": "SLA gefährdet",
+        "SLA_BREACHED": "SLA verletzt"
+      }
+    },
+    "notificationSettings": {
+      "labels": {
+        "SLA_AT_RISK": "SLA gefährdet",
+        "SLA_BREACHED": "SLA verletzt"
+      }
+    }
+  }
+}

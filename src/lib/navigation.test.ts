@@ -49,6 +49,7 @@ describe("toppnavigasjon", () => {
       defaultPermissionsForRole("TECHNICIAN"),
     );
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/avtaler",
       "/sok",
       "/rapporter",
       "/hms",
@@ -64,6 +65,7 @@ describe("toppnavigasjon", () => {
   it("samler kontorets gjenværende valg i hamburgermenyen", () => {
     const items = navItemsFor("OFFICE");
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/avtaler",
       "/sok",
       "/hms",
       "/dokumenter",
@@ -84,6 +86,7 @@ describe("toppnavigasjon", () => {
       "/rapporter",
     ]);
     expect(hrefs(menuNavFor(items))).toEqual([
+      "/avtaler",
       "/sok",
       "/hms",
       "/dokumenter",
@@ -156,6 +159,7 @@ describe("toppnavigasjon", () => {
       "/oppdrag",
       "/kalender",
       "/kunder",
+      "/avtaler",
       "/rapporter",
       "/sok",
       "/hms",
@@ -214,6 +218,7 @@ describe("toppnavigasjon", () => {
       "/oppdrag": "clipboard",
       "/kalender": "calendar",
       "/kunder": "building",
+      "/avtaler": "file",
       "/sok": "search",
       "/rapporter": "chart",
       "/hms": "shield",

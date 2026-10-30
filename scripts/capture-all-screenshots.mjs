@@ -444,6 +444,7 @@ function buildRoutes(fixtures) {
     ["tags", "Tags"],
     ["auditlog", "Aktivitetslogg"],
     ["statistikk", "Statistikk"],
+    ["sla", "SLA og åpningstider"],
     ["sikkerhet", "Sikkerhet"],
     ["api", "API-nøkler"],
   ];
@@ -624,6 +625,14 @@ function buildRoutes(fixtures) {
       title: "Kundekatalog",
       heading: "Kundekatalog",
       legacy: { desktop: "05-kunder.png" },
+    },
+    {
+      slug: "avtaler",
+      route: "/avtaler",
+      role: "admin",
+      title: "Serviceavtaler",
+      heading: "Serviceavtaler",
+      expectTexts: ["Alle statuser"],
     },
     {
       slug: "kunde-oversikt",

@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { generateDueRecurringWorkOrders } from "@/lib/recurring";
+import { runScheduledJobs } from "@/lib/recurring-scheduler";
 import { safeEqual } from "@/lib/secrets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Manuell/ekstern kjøring av serviceavtale-jobben.
+ * Manuell/ekstern kjøring av bakgrunnsjobbene: avtalefornyelse, generering av
+ * serviceoppdrag og SLA-sveip.
  *
- * Appen starter jobben selv ved oppstart, men denne ruten gjør det mulig å
+ * Appen starter jobbene selv ved oppstart, men denne ruten gjør det mulig å
  * bruke en ekstern cron (eller å teste) uten å vente på neste intervall.
  * Krever `Authorization: Bearer <CRON_SECRET>`.
  */
@@ -26,12 +27,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Ingen tilgang" }, { status: 401 });
   }
 
-  const results = await generateDueRecurringWorkOrders();
+  const run = await runScheduledJobs();
 
   return NextResponse.json({
     ok: true,
-    generated: results.filter((result) => result.workOrderId).length,
-    results,
+    generated: run.recurring.filter((result) => result.workOrderId).length,
+    renewed: run.lifecycle.renewed,
+    expired: run.lifecycle.expired,
+    sla: run.sla,
+    results: run.recurring,
   });
 }
 

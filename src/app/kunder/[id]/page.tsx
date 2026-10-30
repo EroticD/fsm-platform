@@ -42,12 +42,18 @@ import {
 } from "@/components/customer/customerStyles";
 import {
   addContactAction,
+  addContractLineAction,
   createContractAction,
   deleteContactAction,
   deleteContractAction,
+  deleteContractLineAction,
   deleteCustomerAction,
-  toggleContractAction,
+  pauseContractAction,
+  renewContractAction,
+  resumeContractAction,
+  terminateContractAction,
   updateContactAction,
+  updateContractAction,
 } from "./actions";
 import { createUnit, deleteUnit, updateUnit } from "./unit-actions";
 import {
@@ -87,6 +93,10 @@ export default async function CustomerDetailPage({
 
   const canManageCustomers = hasPermission(user, "customers.manage");
   const canManageEquipment = hasPermission(user, "equipment.manage");
+  const canViewContracts =
+    hasPermission(user, "contracts.view") ||
+    hasPermission(user, "contracts.manage");
+  const canManageContracts = hasPermission(user, "contracts.manage");
   const canCreateWorkOrders = hasPermission(user, "workorders.create");
   const canViewEquipment = hasPermission(user, "equipment.view");
   const canViewReports = hasPermission(user, "reports.view");
@@ -236,12 +246,16 @@ export default async function CustomerDetailPage({
           },
         ]
       : []),
-    {
-      key: "avtaler",
-      label: t("customers.detail.tabs.contracts"),
-      icon: "file",
-      count: customer._count.contracts,
-    },
+    ...(canViewContracts
+      ? [
+          {
+            key: "avtaler" as CustomerTab,
+            label: t("customers.detail.tabs.contracts"),
+            icon: "file" as IconName,
+            count: customer._count.contracts,
+          },
+        ]
+      : []),
     {
       key: "mer",
       label: t("customers.detail.tabs.more"),
@@ -264,8 +278,14 @@ export default async function CustomerDetailPage({
   const updateContact = updateContactAction.bind(null, customerId);
   const deleteContact = deleteContactAction.bind(null, customerId);
   const createContract = createContractAction.bind(null, customerId);
-  const toggleContract = toggleContractAction.bind(null, customerId);
   const deleteContract = deleteContractAction.bind(null, customerId);
+  const updateContract = updateContractAction.bind(null, customerId);
+  const pauseContract = pauseContractAction.bind(null, customerId);
+  const resumeContract = resumeContractAction.bind(null, customerId);
+  const terminateContract = terminateContractAction.bind(null, customerId);
+  const renewContract = renewContractAction.bind(null, customerId);
+  const addContractLine = addContractLineAction.bind(null, customerId);
+  const deleteContractLine = deleteContractLineAction.bind(null, customerId);
 
   return (
     <div className={`office-app min-h-screen p-3 sm:p-6 lg:p-8 ${LEGACY_SURFACE}`}>
@@ -388,19 +408,28 @@ export default async function CustomerDetailPage({
             />
           ))}
 
-        {currentTab === "avtaler" && (
+        {currentTab === "avtaler" && canViewContracts && (
           <CustomerContractsTab
             customer={customer}
             templates={data.templates}
             departments={data.departments}
             defaultDepartmentId={data.defaultDepartmentId}
-            office={office}
+            slaPolicies={data.slaPolicies}
+            priceLists={data.priceLists}
+            contractProducts={data.contractProducts}
+            office={canManageContracts}
             isAdmin={isAdmin}
             ownDepartmentId={ownDepartmentId}
             userDepartmentName={user.department?.name ?? null}
             createContract={createContract}
-            toggleContract={toggleContract}
             deleteContract={deleteContract}
+            updateContract={updateContract}
+            pauseContract={pauseContract}
+            resumeContract={resumeContract}
+            terminateContract={terminateContract}
+            renewContract={renewContract}
+            addContractLine={addContractLine}
+            deleteContractLine={deleteContractLine}
           />
         )}
 

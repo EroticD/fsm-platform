@@ -14,6 +14,7 @@ type SettingsTabsProps = {
   canDocuments: boolean;
   canAudit: boolean;
   canStats: boolean;
+  canSla: boolean;
   isAdmin: boolean;
 };
 
@@ -54,6 +55,7 @@ export default function SettingsTabs({
   canDocuments,
   canAudit,
   canStats,
+  canSla,
   isAdmin,
 }: SettingsTabsProps) {
   const t = useTranslations("common");
@@ -182,6 +184,17 @@ export default function SettingsTabs({
           >
             <Icon name="chart" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.statistics")}
+          </Link>
+        )}
+        {canSla && (
+          <Link
+            href="?tab=sla"
+            ref={currentTab === "sla" ? activeRef : undefined}
+            className={linkClass(currentTab === "sla")}
+            aria-current={currentTab === "sla" ? "page" : undefined}
+          >
+            <Icon name="clock" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.sla")}
           </Link>
         )}
         {isAdmin && (

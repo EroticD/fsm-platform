@@ -18,6 +18,12 @@ describe("rettigheter", () => {
 
   it("gir kontor standardtilgang uten aktivitetslogg", () => {
     expect(defaultPermissionsForRole("OFFICE")).toContain("customers.manage");
+    expect(defaultPermissionsForRole("OFFICE")).toContain("contracts.manage");
+    expect(defaultPermissionsForRole("OFFICE")).not.toContain("sla.manage");
+    expect(defaultPermissionsForRole("TECHNICIAN")).toContain("contracts.view");
+    expect(defaultPermissionsForRole("TECHNICIAN")).not.toContain(
+      "contracts.manage",
+    );
     expect(defaultPermissionsForRole("OFFICE")).not.toContain("audit.view");
   });
 

@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/recurring", () => ({
-  generateDueRecurringWorkOrders: vi.fn(async () => []),
+vi.mock("@/lib/recurring-scheduler", () => ({
+  runScheduledJobs: vi.fn(async () => ({
+    recurring: [],
+    lifecycle: { renewed: 0, expired: 0, generated: 0 },
+    sla: { checked: 0, atRisk: 0, breached: 0, met: 0, notified: 0 },
+  })),
 }));
 
 import { GET } from "./route";

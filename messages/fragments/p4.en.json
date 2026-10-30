@@ -1,0 +1,239 @@
+{
+  "nav": {
+    "contracts": "Contracts"
+  },
+  "customers": {
+    "contracts": {
+      "contractNumber": "Agreement number",
+      "contractNumberValue": "Agreement {number}",
+      "endDate": "End date",
+      "endDateValue": "End date: {date}",
+      "noEndDate": "No end date",
+      "statusLabel": "Status",
+      "status": {
+        "draft": "Draft",
+        "active": "Active",
+        "paused": "Paused",
+        "expired": "Expired",
+        "terminated": "Terminated"
+      },
+      "renewalMode": "Renewal",
+      "renewal": {
+        "auto": "Automatic",
+        "manual": "Manual"
+      },
+      "renewalValue": "Renewal: {mode} · {days} days notice",
+      "noticeDays": "Notice before expiry (days)",
+      "indexationPercent": "Price adjustment (%)",
+      "indexationValue": "Price adjustment {percent} %",
+      "slaPolicy": "SLA policy",
+      "noSlaPolicy": "No SLA policy",
+      "slaValue": "SLA: {name} · response {response} min · resolution {resolution} min",
+      "priceList": "Price list",
+      "noPriceList": "No price list",
+      "priceListValue": "Price list: {name} ({count} lines, reference)",
+      "pdf": "Download PDF",
+      "renew": "Renew",
+      "terminate": "Terminate",
+      "terminateConfirm": "Terminate the service agreement “{title}”? It cannot be reopened.",
+      "editTitle": "Edit agreement",
+      "saveChanges": "Save changes",
+      "lineEquipment": "Equipment",
+      "lineAllEquipment": "All equipment",
+      "lineScope": "Coverage",
+      "linesTitle": "Coverage ({count})",
+      "linesEmpty": "No agreement lines. The agreement covers all equipment.",
+      "visitsPerYear": "Visits/year",
+      "visitsPerYearValue": "{count} visits/year",
+      "responseMinutes": "Response (min)",
+      "resolutionMinutes": "Resolution (min)",
+      "minutesValue": "{count} min",
+      "addLine": "Add line",
+      "notSet": "not set"
+    },
+    "feedback": {
+      "status": {
+        "contractUpdated": "The service agreement was updated.",
+        "contractResumed": "The service agreement was resumed.",
+        "contractTerminated": "The service agreement was terminated.",
+        "contractRenewed": "The service agreement was renewed.",
+        "contractLineCreated": "The agreement line was added.",
+        "contractLineDeleted": "The agreement line was removed."
+      },
+      "error": {
+        "conflict": "The action conflicts with another change. Reload the page."
+      }
+    }
+  },
+  "contractsPage": {
+    "title": "Service agreements",
+    "subtitle": "All agreements you can access, with status, expiry and SLA.",
+    "customers": "Customers",
+    "search": "Search",
+    "searchPlaceholder": "Title, agreement number or customer",
+    "filterStatus": "Status",
+    "allStatuses": "All statuses",
+    "expiringSoon": "Expires within 60 days",
+    "period": "{start} – {end}",
+    "noEndDate": "no end date",
+    "sla": "SLA: {name}",
+    "linesAndOrders": "{lines} lines · {orders} work orders",
+    "pdf": "PDF",
+    "edit": "Edit",
+    "emptyTitle": "No agreements",
+    "emptyDescription": "No agreements match the filters. Reset the filters or create an agreement from the customer page.",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "paused": "Paused",
+      "expired": "Expired",
+      "terminated": "Terminated"
+    }
+  },
+  "orders": {
+    "detail": {
+      "sla": {
+        "title": "SLA",
+        "hint": "Deadlines calculated with the agreement's business hours",
+        "onTrack": "On track",
+        "atRisk": "At risk",
+        "breached": "Breached",
+        "met": "Met",
+        "cancelled": "Cancelled",
+        "respondBy": "Respond by",
+        "resolveBy": "Resolve by",
+        "respondedAt": "Responded",
+        "resolvedAt": "Resolved",
+        "timeLeft": "{minutes} minutes left",
+        "overdue": "{minutes} minutes past the deadline"
+      }
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "slaAtRisk": "SLA at risk",
+      "slaAtRiskSub": "Approaching the deadline",
+      "slaBreached": "SLA breached",
+      "slaBreachedSub": "The deadline has passed"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sla": "SLA and business hours"
+    },
+    "permissions": {
+      "groups": {
+        "contractsSla": "Agreements and SLA"
+      },
+      "items": {
+        "contracts_view": {
+          "label": "View service agreements",
+          "description": "View service agreements, coverage and SLA status in your own department."
+        },
+        "contracts_manage": {
+          "label": "Manage service agreements",
+          "description": "Create, edit, pause, terminate and renew service agreements, agreement lines and price lists in your own department."
+        },
+        "sla_manage": {
+          "label": "Manage SLA",
+          "description": "Create SLA policies and maintain business hours and holidays."
+        }
+      }
+    },
+    "sla": {
+      "sections": {
+        "policies": "SLA policies",
+        "policiesHint": "The policy sets the response and resolution deadline. Agreements can point to a policy; otherwise the department default is used.",
+        "hours": "Business hours",
+        "hoursHint": "Used when a policy only counts time within business hours. Holidays close the day.",
+        "holidays": "Holidays",
+        "holidaysHint": "Global holidays apply to every department. Department-specific rows only override that department.",
+        "priceLists": "Price lists"
+      },
+      "policy": {
+        "name": "Name",
+        "department": "Department",
+        "global": "All departments",
+        "active": "Active",
+        "responseMinutes": "Response time (minutes)",
+        "resolutionMinutes": "Resolution time (minutes)",
+        "businessHoursOnly": "Count business hours only",
+        "create": "Create policy",
+        "empty": "No SLA policies have been created.",
+        "activeLabel": "Active",
+        "inactiveLabel": "Inactive",
+        "linked": "{contracts} agreements · {clocks} clocks",
+        "deactivate": "Deactivate"
+      },
+      "hours": {
+        "department": "Department",
+        "show": "Show",
+        "open": "Opens",
+        "close": "Closes",
+        "closed": "Closed",
+        "save": "Save business hours",
+        "forDepartment": "Saving for {department}."
+      },
+      "weekdays": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      },
+      "holidays": {
+        "date": "Date",
+        "name": "Name",
+        "department": "Department",
+        "global": "All departments",
+        "add": "Add",
+        "empty": "No holidays have been registered."
+      },
+      "priceLists": {
+        "name": "Name",
+        "create": "Create price list",
+        "empty": "No price lists have been created.",
+        "linked": "{count} agreements",
+        "noItems": "No lines in the price list.",
+        "code": "Code",
+        "label": "Description",
+        "unit": "Unit",
+        "amount": "Amount",
+        "addItem": "Add line",
+        "referenceOnly": "Price lists are reference data for display. The system does not invoice or calculate amounts."
+      },
+      "feedback": {
+        "policy": "The SLA policy was saved.",
+        "policyDeactivated": "The SLA policy was deactivated.",
+        "hours": "The business hours were saved.",
+        "holiday": "The holiday was added.",
+        "holidayDeleted": "The holiday was deleted.",
+        "priceList": "The price list was created.",
+        "priceItem": "The price list line was added.",
+        "priceItemDeleted": "The price list line was deleted."
+      },
+      "errors": {
+        "invalid": "The fields are not valid.",
+        "forbidden": "You do not have access to change SLA settings.",
+        "notFound": "Could not find what you tried to change.",
+        "conflict": "The row already exists."
+      }
+    }
+  },
+  "p3": {
+    "notifications": {
+      "types": {
+        "SLA_AT_RISK": "SLA at risk",
+        "SLA_BREACHED": "SLA breached"
+      }
+    },
+    "notificationSettings": {
+      "labels": {
+        "SLA_AT_RISK": "SLA at risk",
+        "SLA_BREACHED": "SLA breached"
+      }
+    }
+  }
+}

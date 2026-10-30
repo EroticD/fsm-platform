@@ -29,7 +29,7 @@ export function todayInOslo(now = new Date()): DateOnly {
 }
 
 /** Hvor mange minutter Oslo ligger foran UTC på et gitt tidspunkt. */
-function osloOffsetMinutes(date: Date): number {
+export function osloOffsetMinutes(date: Date): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: OSLO_TZ,
     year: "numeric",

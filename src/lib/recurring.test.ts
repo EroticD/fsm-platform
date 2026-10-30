@@ -18,6 +18,9 @@ vi.mock("@/server/visits", () => ({
   createDefaultVisit: vi.fn(),
   recomputeWorkOrderSchedule: vi.fn(),
 }));
+vi.mock("@/server/sla", () => ({
+  startClock: vi.fn(async () => null),
+}));
 
 import prisma from "@/lib/prisma";
 import { getOrRenderReportPdf } from "@/lib/report-pdf-store";

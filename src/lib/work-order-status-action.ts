@@ -2,6 +2,7 @@ import type { Prisma, WorkStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit, type AuditActor } from "@/lib/audit";
 import { canTransition } from "@/lib/work-order-status";
+import { cancelClocks, markResolved } from "@/server/sla";
 
 export type StatusTransitionResult =
   | { ok: true }
@@ -36,6 +37,15 @@ export async function transitionWorkOrderStatus(params: {
       data: { status: params.to },
     });
     if (result.count === 0) return false;
+
+    // SLA-klokken følger oppdragets livssyklus. Visittens DONE/EN_ROUTE er
+    // førsteprioritet, men et kontor som fullfører eller kansellerer direkte
+    // skal også lukke klokken – i samme transaksjon.
+    if (params.to === "COMPLETED") {
+      await markResolved(tx, params.workOrderId);
+    } else if (params.to === "CANCELLED") {
+      await cancelClocks(tx, params.workOrderId);
+    }
 
     await audit(tx, {
       entityType: "WorkOrder",

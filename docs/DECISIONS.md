@@ -232,3 +232,26 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   alle fire språk.
 - Paritetskontrollen `npm run check:i18n` sammenligner nå alle fire kataloger;
   hardkodede norske strenger og ubrukte nøkler rapporteres fortsatt som før.
+
+## Avtaler, SLA og prislister (2026-10-30)
+
+- **Prislister er referansedata.** `PriceListItem.amount` vises i avtale-PDF og
+  innstillinger, men systemet beregner, fakturerer eller eksporterer aldri
+  beløp. Produktet er fortsatt et dokumentasjons- og planleggingssystem, ikke
+  et quote-to-cash-system.
+- **SLA-klokker regnes med åpningstider.** Alle frister går gjennom
+  `src/lib/business-hours.ts`; ingen direkte dato-aritmetikk. Standard når en
+  avdeling ikke har lagret åpningstider er hverdager 08–16 i Europe/Oslo.
+  Helligdager kan være globale eller avdelingsspesifikke.
+- **Én klokke per oppdrag og policy.** `SlaClock` har unik
+  `(workOrderId, policyId)`. Første `EN_ROUTE`/`ON_SITE` registrerer respons,
+  `DONE` eller `COMPLETED` registrerer løsning, og `CANCELLED` kansellerer
+  klokken. Sveipingen er idempotent og varsler bare på overgangen til
+  `AT_RISK`/`BREACHED`.
+- **Automatisk fornyelse er betinget.** Scheduleren fornyer bare avtaler med
+  `renewalMode = AUTO` og bruker en betinget `updateMany` på forrige sluttdato,
+  slik at samtidige kjøringer fornyer nøyaktig én gang. Manuelle avtaler som
+  passerer sluttdatoen blir `EXPIRED`.
+- **Avdelingssperren gjelder også kundekortet.** C-05 er rettet: avtalefanen
+  laster bare avtaler i aktørens avdeling, og `_count.contracts` bruker samme
+  filter.

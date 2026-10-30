@@ -1,0 +1,239 @@
+{
+  "nav": {
+    "contracts": "Umowy"
+  },
+  "customers": {
+    "contracts": {
+      "contractNumber": "Numer umowy",
+      "contractNumberValue": "Umowa {number}",
+      "endDate": "Data końca",
+      "endDateValue": "Data końca: {date}",
+      "noEndDate": "Bez daty końca",
+      "statusLabel": "Status",
+      "status": {
+        "draft": "Szkic",
+        "active": "Aktywna",
+        "paused": "Wstrzymana",
+        "expired": "Wygasła",
+        "terminated": "Zakończona"
+      },
+      "renewalMode": "Odnowienie",
+      "renewal": {
+        "auto": "Automatyczne",
+        "manual": "Ręczne"
+      },
+      "renewalValue": "Odnowienie: {mode} · powiadomienie {days} dni",
+      "noticeDays": "Powiadomienie przed wygaśnięciem (dni)",
+      "indexationPercent": "Indeksacja cen (%)",
+      "indexationValue": "Indeksacja cen {percent} %",
+      "slaPolicy": "Polityka SLA",
+      "noSlaPolicy": "Brak polityki SLA",
+      "slaValue": "SLA: {name} · reakcja {response} min · rozwiązanie {resolution} min",
+      "priceList": "Cennik",
+      "noPriceList": "Brak cennika",
+      "priceListValue": "Cennik: {name} ({count} pozycji, referencja)",
+      "pdf": "Pobierz PDF",
+      "renew": "Odnów",
+      "terminate": "Zakończ",
+      "terminateConfirm": "Zakończyć umowę serwisową „{title}”? Nie będzie można jej ponownie otworzyć.",
+      "editTitle": "Edytuj umowę",
+      "saveChanges": "Zapisz zmiany",
+      "lineEquipment": "Urządzenie",
+      "lineAllEquipment": "Wszystkie urządzenia",
+      "lineScope": "Zakres",
+      "linesTitle": "Zakres ({count})",
+      "linesEmpty": "Brak pozycji umowy. Umowa obejmuje wszystkie urządzenia.",
+      "visitsPerYear": "Wizyty/rok",
+      "visitsPerYearValue": "{count} wizyt/rok",
+      "responseMinutes": "Reakcja (min)",
+      "resolutionMinutes": "Rozwiązanie (min)",
+      "minutesValue": "{count} min",
+      "addLine": "Dodaj pozycję",
+      "notSet": "nie ustawiono"
+    },
+    "feedback": {
+      "status": {
+        "contractUpdated": "Umowa serwisowa została zaktualizowana.",
+        "contractResumed": "Umowa serwisowa została wznowiona.",
+        "contractTerminated": "Umowa serwisowa została zakończona.",
+        "contractRenewed": "Umowa serwisowa została odnowiona.",
+        "contractLineCreated": "Pozycja umowy została dodana.",
+        "contractLineDeleted": "Pozycja umowy została usunięta."
+      },
+      "error": {
+        "conflict": "Działanie koliduje z inną zmianą. Odśwież stronę."
+      }
+    }
+  },
+  "contractsPage": {
+    "title": "Umowy serwisowe",
+    "subtitle": "Wszystkie dostępne umowy ze statusem, wygaśnięciem i SLA.",
+    "customers": "Klienci",
+    "search": "Szukaj",
+    "searchPlaceholder": "Tytuł, numer umowy lub klient",
+    "filterStatus": "Status",
+    "allStatuses": "Wszystkie statusy",
+    "expiringSoon": "Wygasa w ciągu 60 dni",
+    "period": "{start} – {end}",
+    "noEndDate": "bez daty końca",
+    "sla": "SLA: {name}",
+    "linesAndOrders": "{lines} pozycji · {orders} zleceń",
+    "pdf": "PDF",
+    "edit": "Edytuj",
+    "emptyTitle": "Brak umów",
+    "emptyDescription": "Żadna umowa nie pasuje do filtrów. Wyczyść filtry lub utwórz umowę na karcie klienta.",
+    "status": {
+      "draft": "Szkic",
+      "active": "Aktywna",
+      "paused": "Wstrzymana",
+      "expired": "Wygasła",
+      "terminated": "Zakończona"
+    }
+  },
+  "orders": {
+    "detail": {
+      "sla": {
+        "title": "SLA",
+        "hint": "Terminy obliczone według godzin pracy umowy",
+        "onTrack": "Zgodnie z planem",
+        "atRisk": "Zagrożone",
+        "breached": "Naruszone",
+        "met": "Spełnione",
+        "cancelled": "Anulowane",
+        "respondBy": "Reakcja do",
+        "resolveBy": "Rozwiązanie do",
+        "respondedAt": "Zareagowano",
+        "resolvedAt": "Rozwiązano",
+        "timeLeft": "Pozostało {minutes} min",
+        "overdue": "{minutes} min po terminie"
+      }
+    }
+  },
+  "dashboard": {
+    "kpi": {
+      "slaAtRisk": "SLA zagrożone",
+      "slaAtRiskSub": "Zbliża się termin",
+      "slaBreached": "SLA naruszone",
+      "slaBreachedSub": "Termin minął"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "sla": "SLA i godziny pracy"
+    },
+    "permissions": {
+      "groups": {
+        "contractsSla": "Umowy i SLA"
+      },
+      "items": {
+        "contracts_view": {
+          "label": "Przeglądanie umów serwisowych",
+          "description": "Przeglądanie umów serwisowych, zakresu i statusu SLA w swoim dziale."
+        },
+        "contracts_manage": {
+          "label": "Zarządzanie umowami serwisowymi",
+          "description": "Tworzenie, edycja, wstrzymywanie, zakończenie i odnawianie umów, pozycji umów i cenników w swoim dziale."
+        },
+        "sla_manage": {
+          "label": "Zarządzanie SLA",
+          "description": "Tworzenie polityk SLA oraz utrzymywanie godzin pracy i dni wolnych."
+        }
+      }
+    },
+    "sla": {
+      "sections": {
+        "policies": "Polityki SLA",
+        "policiesHint": "Polityka określa termin reakcji i rozwiązania. Umowy mogą wskazywać politykę; w przeciwnym razie używana jest domyślna polityka działu.",
+        "hours": "Godziny pracy",
+        "hoursHint": "Używane, gdy polityka liczy tylko czas w godzinach pracy. Dni wolne zamykają dzień.",
+        "holidays": "Dni wolne",
+        "holidaysHint": "Globalne dni wolne dotyczą wszystkich działów. Wpisy działu zastępują tylko ten dział.",
+        "priceLists": "Cenniki"
+      },
+      "policy": {
+        "name": "Nazwa",
+        "department": "Dział",
+        "global": "Wszystkie działy",
+        "active": "Aktywna",
+        "responseMinutes": "Czas reakcji (minuty)",
+        "resolutionMinutes": "Czas rozwiązania (minuty)",
+        "businessHoursOnly": "Licz tylko w godzinach pracy",
+        "create": "Utwórz politykę",
+        "empty": "Nie utworzono żadnych polityk SLA.",
+        "activeLabel": "Aktywna",
+        "inactiveLabel": "Nieaktywna",
+        "linked": "{contracts} umów · {clocks} zegarów",
+        "deactivate": "Dezaktywuj"
+      },
+      "hours": {
+        "department": "Dział",
+        "show": "Pokaż",
+        "open": "Otwarcie",
+        "close": "Zamknięcie",
+        "closed": "Zamknięte",
+        "save": "Zapisz godziny pracy",
+        "forDepartment": "Zapisywanie dla {department}."
+      },
+      "weekdays": {
+        "0": "Poniedziałek",
+        "1": "Wtorek",
+        "2": "Środa",
+        "3": "Czwartek",
+        "4": "Piątek",
+        "5": "Sobota",
+        "6": "Niedziela"
+      },
+      "holidays": {
+        "date": "Data",
+        "name": "Nazwa",
+        "department": "Dział",
+        "global": "Wszystkie działy",
+        "add": "Dodaj",
+        "empty": "Nie zarejestrowano żadnych dni wolnych."
+      },
+      "priceLists": {
+        "name": "Nazwa",
+        "create": "Utwórz cennik",
+        "empty": "Nie utworzono żadnych cenników.",
+        "linked": "{count} umów",
+        "noItems": "Brak pozycji w cenniku.",
+        "code": "Kod",
+        "label": "Opis",
+        "unit": "Jednostka",
+        "amount": "Kwota",
+        "addItem": "Dodaj pozycję",
+        "referenceOnly": "Cenniki są danymi referencyjnymi do wyświetlania. System nie fakturowa ani nie oblicza kwot."
+      },
+      "feedback": {
+        "policy": "Polityka SLA została zapisana.",
+        "policyDeactivated": "Polityka SLA została dezaktywowana.",
+        "hours": "Godziny pracy zostały zapisane.",
+        "holiday": "Dzień wolny został dodany.",
+        "holidayDeleted": "Dzień wolny został usunięty.",
+        "priceList": "Cennik został utworzony.",
+        "priceItem": "Pozycja cennika została dodana.",
+        "priceItemDeleted": "Pozycja cennika została usunięta."
+      },
+      "errors": {
+        "invalid": "Pola są nieprawidłowe.",
+        "forbidden": "Brak dostępu do zmiany ustawień SLA.",
+        "notFound": "Nie znaleziono elementu do zmiany.",
+        "conflict": "Wpis już istnieje."
+      }
+    }
+  },
+  "p3": {
+    "notifications": {
+      "types": {
+        "SLA_AT_RISK": "SLA zagrożone",
+        "SLA_BREACHED": "SLA naruszone"
+      }
+    },
+    "notificationSettings": {
+      "labels": {
+        "SLA_AT_RISK": "SLA zagrożone",
+        "SLA_BREACHED": "SLA naruszone"
+      }
+    }
+  }
+}
