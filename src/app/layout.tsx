@@ -13,6 +13,7 @@ import MobileTabBar from "@/components/MobileTabBar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import prisma from "@/lib/prisma";
 import { isSafeLogoUrl } from "@/lib/logo";
+import { BRAND_COLORS } from "@/lib/brand";
 import { readableTextColor } from "@/lib/colors";
 import ToastProvider from "@/components/ToastProvider";
 import OfflineBanner from "@/components/OfflineBanner";
@@ -53,7 +54,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#0F2E4C",
+  // Nettleserens/PWA-rammen bruker samme blekksvart som merket og manifestet.
+  themeColor: BRAND_COLORS.ink,
   // La PWA-en bruke hele skjermen, også under hakk og systemlinjer. Header og
   // menylokk kompenserer med safe-area-inset slik at innholdet ikke klippes.
   viewportFit: "cover",

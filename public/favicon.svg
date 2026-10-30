@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Field service">
-  <title>Field service</title>
-  <rect width="64" height="64" rx="15" fill="#0F2E4C"/>
-  <path fill="#FFB020" d="M52 24A20 20 0 0 0 12 24C12 34 22 45 32 59.5 42 45 52 34 52 24z"/>
-  <path fill="none" stroke="#0F2E4C" stroke-width="6.6" stroke-linecap="round" stroke-linejoin="round" d="M21.8 24.6l7.6 7.6L42.2 18.2"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="0.75" y="0.75" width="62.5" height="62.5" rx="14.25" fill="#d8ff3e" stroke="#101310" stroke-opacity="0.18" stroke-width="1.5"/><path d="M32 7.5c-11.6 0-21 9.4-21 21 0 15.6 21 30.5 21 30.5s21-14.9 21-30.5c0-11.6-9.4-21-21-21Z" fill="#101310"/><path d="m22.6 29.1 6.7 6.7 13.2-13.2" fill="none" stroke="#d8ff3e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>

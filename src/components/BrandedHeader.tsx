@@ -16,6 +16,7 @@ import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
 import NotificationSoundToggle from "./NotificationSoundToggle";
 import LogoutButton from "./LogoutButton";
+import BrandMark from "./BrandMark";
 import Icon from "./icons";
 import {
   activeNavHref,
@@ -228,15 +229,9 @@ export default function BrandedHeader({
               className="h-9 w-auto max-w-[120px] shrink-0 object-contain xl:max-w-[220px]"
             />
           ) : (
-            <div
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg font-bold shadow-sm ${
-                isField ? "bg-[var(--signal)] text-[var(--ink)]" : "text-[var(--paper,#f2efe6)]"
-              }`}
-              suppressHydrationWarning
-              style={isField ? undefined : { backgroundColor: pc }}
-            >
-              {company.charAt(0).toUpperCase()}
-            </div>
+            // Uten opplastet logo bruker vi det felles merket. Den lyse
+            // signalflaten holder kontrasten også på den mørke felttoppen.
+            <BrandMark size={36} title={company} className="shrink-0" />
           )}
           <div className="hidden max-w-[180px] sm:block lg:hidden xl:block">
             {title && (

@@ -2,6 +2,49 @@
 
 import { useEffect, useRef } from "react";
 
+import { BRAND_CHECK_PATH, BRAND_COLORS, BRAND_PIN_PATH } from "@/lib/brand";
+import { readableTextColor } from "@/lib/colors";
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function createBrandPath(d: string, className: string) {
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", d);
+  path.setAttribute("class", className);
+  return path;
+}
+
+/**
+ * Bygger en liten merkenål som DOM, ikke som HTML-streng. Fargen kommer fra
+ * oppdragsstatusen, mens haken velger blekk eller papir ut fra lesbarhet.
+ * Ingen SVG hentes over nett, så markørene virker offline også.
+ */
+function buildPinElement(point: WorkOrderMapPoint) {
+  const pin = document.createElement("span");
+  pin.className = "work-order-map-pin";
+  pin.setAttribute("aria-hidden", "true");
+  pin.style.setProperty("--work-order-pin-fill", point.color);
+  pin.style.setProperty(
+    "--work-order-pin-mark",
+    readableTextColor(point.color) === "#111827"
+      ? BRAND_COLORS.ink
+      : BRAND_COLORS.paper,
+  );
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 64 64");
+  svg.setAttribute("class", "work-order-map-pin-svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.append(
+    createBrandPath(BRAND_PIN_PATH, "work-order-map-pin-body"),
+    createBrandPath(BRAND_CHECK_PATH, "work-order-map-pin-check"),
+  );
+  pin.appendChild(svg);
+
+  return pin;
+}
+
 export type WorkOrderMapPoint = {
   id: string;
   title: string;
@@ -215,23 +258,20 @@ export default function WorkOrderMap({
       };
 
       const addIndividualMarker = (point: WorkOrderMapPoint) => {
-        const dot = document.createElement("span");
-        dot.className = "work-order-map-marker-dot";
-        dot.style.backgroundColor = point.color;
-        dot.setAttribute("aria-hidden", "true");
-
         const icon = L.divIcon({
           className: "work-order-map-marker",
-          html: dot,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
-          popupAnchor: [0, -16],
+          html: buildPinElement(point),
+          // Nålen er 32 × 32 i DOM, men selve spissen ligger på y = 59/64.
+          iconSize: [32, 32],
+          iconAnchor: [16, 30],
+          popupAnchor: [0, -28],
         });
 
         const marker = L.marker([point.lat, point.lng], {
           icon,
           title: `${point.title} · ${point.status}`,
           keyboard: true,
+          riseOnHover: true,
         });
         marker.bindPopup(buildPopup(point));
         markerLayer.addLayer(marker);
@@ -260,6 +300,7 @@ export default function WorkOrderMap({
           icon,
           title: String(group.length),
           keyboard: true,
+          riseOnHover: true,
         });
         marker.on("click", () => {
           currentMap.fitBounds(groupBounds, {
@@ -353,35 +394,97 @@ export default function WorkOrderMap({
         </p>
       )}
       <style jsx global>{`
-        .work-order-map-marker {
-          background: transparent;
-          border: none;
-        }
-        .work-order-map-marker-dot {
-          display: flex;
-          height: 26px;
-          width: 26px;
-          border: 3px solid var(--paper, #f2efe6);
-          border-radius: 9999px;
-          box-shadow: 0 1px 5px rgb(0 0 0 / 0.35);
-        }
+        .work-order-map-marker,
         .work-order-map-cluster-icon {
           background: transparent;
           border: none;
         }
+        .work-order-map-marker {
+          border-radius: 6px;
+        }
+        .work-order-map-pin {
+          display: block;
+          height: 32px;
+          width: 32px;
+          transform-origin: 16px 30px;
+          transition: transform 120ms ease;
+          filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35));
+        }
+        .work-order-map-pin-svg {
+          display: block;
+          height: 100%;
+          width: 100%;
+          overflow: visible;
+        }
+        .work-order-map-pin-body {
+          fill: var(--work-order-pin-fill, var(--ink, #101310));
+          stroke: var(--paper, #f2efe6);
+          stroke-width: 2.25;
+          stroke-linejoin: round;
+        }
+        .work-order-map-pin-check {
+          fill: none;
+          stroke: var(--work-order-pin-mark, var(--paper, #f2efe6));
+          stroke-width: 5.5;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .work-order-map-marker:hover .work-order-map-pin,
+        .work-order-map-marker:focus-visible .work-order-map-pin {
+          transform: translateY(-2px) scale(1.08);
+        }
+        .work-order-map-marker:focus-visible,
+        .work-order-map-cluster-icon:focus-visible {
+          outline: 3px solid var(--signal, #d8ff3e);
+          outline-offset: 2px;
+          border-radius: 8px;
+        }
         .work-order-map-cluster {
+          position: relative;
           display: flex;
-          height: 38px;
-          width: 38px;
+          height: 42px;
+          width: 42px;
           align-items: center;
           justify-content: center;
-          border: 3px solid var(--paper, #f2efe6);
-          border-radius: 9999px;
+          border: 2px solid var(--signal, #d8ff3e);
+          border-radius: 11px;
           background: var(--ink, #101310);
-          color: var(--paper, #f2efe6);
-          font-size: 13px;
+          color: var(--signal, #d8ff3e);
+          font-size: 14px;
           font-weight: 800;
+          line-height: 1;
           box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+          transition: transform 120ms ease;
+        }
+        /* Liten nålespiss under flisen, i samme blekk/signal-par som flisen. */
+        .work-order-map-cluster::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: -6px;
+          height: 10px;
+          width: 10px;
+          transform: translateX(-50%) rotate(45deg);
+          border-right: 2px solid var(--signal, #d8ff3e);
+          border-bottom: 2px solid var(--signal, #d8ff3e);
+          border-bottom-right-radius: 2px;
+          background: var(--ink, #101310);
+        }
+        .work-order-map-cluster-icon:hover .work-order-map-cluster,
+        .work-order-map-cluster-icon:focus-visible .work-order-map-cluster {
+          transform: translateY(-1px) scale(1.04);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .work-order-map-pin,
+          .work-order-map-cluster {
+            transition: none;
+          }
+          .work-order-map-marker:hover .work-order-map-pin,
+          .work-order-map-marker:focus-visible .work-order-map-pin,
+          .work-order-map-cluster-icon:hover .work-order-map-cluster,
+          .work-order-map-cluster-icon:focus-visible .work-order-map-cluster {
+            transform: none;
+          }
         }
         .work-order-map-popup {
           color: var(--ink, #101310);
@@ -391,13 +494,22 @@ export default function WorkOrderMap({
           font-size: 12px;
           color: var(--muted, #62685f);
         }
-        .work-order-map-popup-link {
+        .work-order-map-popup a.work-order-map-popup-link {
           display: inline-block;
           margin-top: 6px;
           border-bottom: 2px solid var(--signal, #d8ff3e);
           font-size: 12px;
           font-weight: 700;
           color: var(--ink, #101310);
+          text-decoration: none;
+        }
+        .work-order-map-popup a.work-order-map-popup-link:hover {
+          border-bottom-color: var(--ink, #101310);
+        }
+        .work-order-map-popup a.work-order-map-popup-link:focus-visible {
+          outline: 3px solid var(--signal, #d8ff3e);
+          outline-offset: 2px;
+          border-radius: 2px;
         }
       `}</style>
     </div>
