@@ -14,6 +14,8 @@
     "seed": "node scripts/seed.mjs",
     "seed:e2e": "node scripts/seed-e2e.mjs",
     "screenshots": "node scripts/capture-screenshots.mjs",
+    "screenshots:all": "node scripts/capture-all-screenshots.mjs",
+    "screenshots:verify": "node scripts/verify-screenshot-coverage.mjs",
     "db:migrate": "node ./node_modules/prisma/build/index.js migrate deploy",
     "db:status": "node ./node_modules/prisma/build/index.js migrate status",
     "postinstall": "node ./node_modules/prisma/build/index.js generate",

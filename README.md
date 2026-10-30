@@ -116,8 +116,12 @@ npm run dev -- -p 3100
 set -a && . ./.env.e2e.local && set +a
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npm run test:e2e
 
-# 5. Med appen kjørende: ta skjermbildene til screenshots/.
-npm run screenshots
+# 5. Med appen kjørende: ta alle skjermbildene til screenshots/.
+#    (15 README-bilder + desktop/mobile for hver side i screenshots/pages/.)
+npm run screenshots:all
+
+# 6. Verifiser at alle page.tsx-ruter er dekket og at bildene er gyldige.
+npm run screenshots:verify
 ```
 
 Rolle-testene bruker `E2E_ADMIN_*`, `E2E_OFFICE_*`, `E2E_TECHNICIAN_*` og
