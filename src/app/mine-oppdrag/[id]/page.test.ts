@@ -46,6 +46,7 @@ vi.mock("./actions", () => ({
   addComment: vi.fn(),
   addTechnician: vi.fn(),
   addTemplate: vi.fn(),
+  setVisitStatus: vi.fn(),
   updateStatus: vi.fn(),
 }));
 vi.mock("@/components/MarkdownEditor", () => ({ default: () => null }));
@@ -105,6 +106,25 @@ function makeReport(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeVisit(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "visit-1",
+    startsAt: new Date("2026-10-30T08:00:00.000Z"),
+    endsAt: new Date("2026-10-30T10:00:00.000Z"),
+    allDay: false,
+    status: "PLANNED",
+    notes: null,
+    technicians: [
+      {
+        visitId: "visit-1",
+        userId: "tech-1",
+        user: { id: "tech-1", name: "Ola Montør", email: "montor@example.test" },
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function makeWorkOrder(overrides: Record<string, unknown> = {}) {
   return {
     id: "wo-1",
@@ -152,6 +172,7 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     reports: [makeReport()],
     reportDrafts: [],
     tags: [],
+    visits: [],
     workComments: [],
     attachments: [],
     product: { id: "prod-1", model: "Portautomatikk" },
@@ -166,11 +187,14 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function render(overrides: Record<string, unknown> = {}) {
+async function render(
+  overrides: Record<string, unknown> = {},
+  searchParams: Record<string, string> = {},
+) {
   mocks.workOrderFindFirst.mockResolvedValue(makeWorkOrder(overrides));
   const element = await TechnicianWorkOrderPage({
     params: Promise.resolve({ id: "wo-1" }),
-    searchParams: Promise.resolve({}),
+    searchParams: Promise.resolve(searchParams),
   });
   return renderToStaticMarkup(element);
 }
@@ -312,5 +336,87 @@ describe("feltdetalj – framdrift og CTA", () => {
 
     expect(html).toContain('href="/mine-oppdrag/wo-1/skjema/tpl-2"');
     expect(html).toContain("orders.fieldDetail.stickyContinueForm");
+  });
+});
+
+describe("feltdetalj – visitt", () => {
+  it("viser dagens visitt med ekte start–slutt, sted, status og montører", async () => {
+    const html = await render({ visits: [makeVisit()] });
+
+    expect(html).toContain("orders.fieldDetail.visits.todayTitle");
+    expect(html).toContain("09:00");
+    expect(html).toContain("11:00");
+    expect(html).toContain("Storgata 1, 6002, Ålesund");
+    expect(html).toContain("Ola Montør");
+    expect(html).toContain("visits.status.planned");
+    expect(html).toContain('name="status" value="EN_ROUTE"');
+    expect(html).toContain('aria-live="polite"');
+  });
+
+  it("viser «Hele dagen» for heldagsvisitt", async () => {
+    const html = await render({
+      visits: [
+        makeVisit({
+          allDay: true,
+          startsAt: new Date("2026-10-30T00:00:00.000Z"),
+          endsAt: new Date("2026-10-31T00:00:00.000Z"),
+        }),
+      ],
+    });
+
+    expect(html).toContain("orders.fieldDetail.visits.allDay");
+    expect(html).not.toContain("09:00");
+  });
+
+  it("viser tomtilstand når oppdraget mangler visitt", async () => {
+    const html = await render({ visits: [] });
+
+    expect(html).toContain("orders.fieldDetail.visits.empty");
+    expect(html).not.toContain('name="visitId"');
+    expect(html).not.toContain('value="EN_ROUTE"');
+  });
+
+  it("går fra start kjøring til på stedet", async () => {
+    const html = await render({
+      visits: [makeVisit({ status: "EN_ROUTE" })],
+    });
+
+    expect(html).toContain("visits.status.enRoute");
+    expect(html).toContain('name="status" value="ON_SITE"');
+    expect(html).not.toContain('name="status" value="EN_ROUTE"');
+    expect(html).not.toContain('name="status" value="DONE"');
+  });
+
+  it("fullfører bare en visitt som er på stedet", async () => {
+    const html = await render({
+      visits: [makeVisit({ status: "ON_SITE" })],
+    });
+
+    expect(html).toContain('name="status" value="DONE"');
+    expect(html).not.toContain('name="status" value="ON_SITE"');
+    expect(html).not.toContain('name="status" value="EN_ROUTE"');
+  });
+
+  it("skjuler statusknapper på en avsluttet visitt", async () => {
+    const html = await render({
+      visits: [makeVisit({ status: "DONE" })],
+    });
+
+    expect(html).toContain("visits.status.done");
+    expect(html).toContain("orders.fieldDetail.visits.locked");
+    expect(html).not.toContain('name="status" value="DONE"');
+  });
+
+  it("viser resultatet av statusendringen i en aria-live-sone", async () => {
+    const okHtml = await render({ visits: [makeVisit()] }, { visitOk: "1" });
+    expect(okHtml).toContain("orders.fieldDetail.visits.statusUpdated");
+
+    const errorHtml = await render(
+      { visits: [makeVisit()] },
+      { visitError: "statusTransition" },
+    );
+    expect(errorHtml).toContain(
+      "orders.fieldDetail.visits.errors.statusTransition",
+    );
   });
 });
