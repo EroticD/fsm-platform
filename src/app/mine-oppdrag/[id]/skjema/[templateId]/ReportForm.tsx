@@ -1128,6 +1128,127 @@ export default function ReportForm({
               </div>
             )}
 
+            {/* Enhetsvalg og metadata ligger øverst i hver sjekkliste, slik
+                at montøren vet hvilken enhet som kontrolleres før resultatet. */}
+            {requiresUnits && (
+              <details open className="group rounded-xl border border-line bg-white/40">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-gray-800 sm:hidden [&::-webkit-details-marker]:hidden">
+                  <span className="flex items-center gap-2">
+                    <Icon name="wrench" className="h-4 w-4" />
+                    {t("orders.reportForm.unitDetails")}
+                  </span>
+                  <span aria-hidden className="text-gray-500 group-open:hidden">
+                    <Icon name="plus" className="h-4 w-4" />
+                  </span>
+                  <span aria-hidden className="hidden text-gray-500 group-open:inline">
+                    <Icon name="close" className="h-4 w-4" />
+                  </span>
+                </summary>
+                <div className="hidden space-y-3 border-t border-line p-3 group-open:block sm:block sm:border-0 sm:p-0">
+                  {customerUnits.length > 0 && (
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-product`} className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
+                      <select
+                        id={`${formId}-${unit.key}-product`}
+                        value={unit.productId}
+                        onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
+                        aria-describedby={`${formId}-${unit.key}-product-hint${
+                          duplicateProductUnitKey === unit.key
+                            ? ` ${formId}-${unit.key}-product-error`
+                            : ""
+                        }`}
+                        aria-invalid={
+                          duplicateProductUnitKey === unit.key || undefined
+                        }
+                        className={`min-h-12 w-full rounded-xl border-2 p-2.5 text-base font-bold text-ink outline-none focus:border-success sm:text-sm ${
+                          duplicateProductUnitKey === unit.key
+                            ? "border-red-600 bg-red-50"
+                            : "border-line bg-white"
+                        }`}
+                      >
+                        <option value="">{t("orders.reportForm.newUnit")}</option>
+                        {(selectableUnitsByKey.get(unit.key) ?? []).map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.model}
+                            {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
+                            {u.location ? ` – ${u.location}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <p
+                        id={`${formId}-${unit.key}-product-hint`}
+                        className="mt-1.5 text-[11px] font-medium text-gray-600"
+                      >
+                        {t("orders.reportForm.unitUniqueHint")}
+                      </p>
+                      {duplicateProductUnitKey === unit.key && (
+                        <p
+                          id={`${formId}-${unit.key}-product-error`}
+                          role="alert"
+                          className="mt-1.5 flex items-start gap-1.5 text-xs font-bold text-red-700"
+                        >
+                          <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>{t("orders.reportForm.unitAlreadyUsed")}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-label`} className={statusLabel}>{t("orders.reportForm.labelField")}</label>
+                      <input
+                        id={`${formId}-${unit.key}-label`}
+                        type="text"
+                        required
+                        value={unit.label}
+                        onChange={(e) => patchUnit(unit.key, { label: e.target.value })}
+                        onInvalid={(e) => {
+                          // Åpne enhetsdetaljene når et påkrevd felt skjuler seg
+                          // bak den sammenklappede seksjonen på mobil.
+                          const details =
+                            e.currentTarget.closest<HTMLDetailsElement>("details");
+                          if (details) details.open = true;
+                        }}
+                        placeholder={t("orders.reportForm.labelPlaceholder")}
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-serial`} className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
+                      <input
+                        id={`${formId}-${unit.key}-serial`}
+                        type="text"
+                        value={unit.serialNumber}
+                        onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
+                        placeholder={t("orders.reportForm.serialNumberPlaceholder")}
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`${formId}-${unit.key}-location`} className={statusLabel}>{t("orders.reportForm.location")}</label>
+                      <input
+                        id={`${formId}-${unit.key}-location`}
+                        type="text"
+                        value={unit.location}
+                        onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
+                        placeholder={t("orders.reportForm.locationPlaceholder")}
+                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
+                      />
+                    </div>
+                  </div>
+
+                  {unit.productId ? (
+                    <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
+                  ) : (
+                    unit.label.trim() !== "" && (
+                      <p className="text-[11px] font-bold text-success">{t("orders.reportForm.newUnitSaved")}</p>
+                    )
+                  )}
+                </div>
+              </details>
+            )}
+
             {/* RESULTAT – enhetsstatus finnes bare når malen bruker enheter. */}
             {visibility.showUnitResult && (
               <fieldset>
@@ -1255,126 +1376,6 @@ export default function ReportForm({
               </div>
             )}
 
-            {/* Enhetsmetadata er sjelden i felt. På mobil ligger den derfor
-                sammenklappet under sjekkpunktene, mens den er synlig på desktop. */}
-            {requiresUnits && (
-              <details className="group rounded-xl border border-line bg-white/40">
-                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-gray-800 sm:hidden [&::-webkit-details-marker]:hidden">
-                  <span className="flex items-center gap-2">
-                    <Icon name="wrench" className="h-4 w-4" />
-                    {t("orders.reportForm.unitDetails")}
-                  </span>
-                  <span aria-hidden className="text-gray-500 group-open:hidden">
-                    <Icon name="plus" className="h-4 w-4" />
-                  </span>
-                  <span aria-hidden className="hidden text-gray-500 group-open:inline">
-                    <Icon name="close" className="h-4 w-4" />
-                  </span>
-                </summary>
-                <div className="hidden space-y-3 border-t border-line p-3 group-open:block sm:block sm:border-0 sm:p-0">
-                  {customerUnits.length > 0 && (
-                    <div>
-                      <label htmlFor={`${formId}-${unit.key}-product`} className={statusLabel}>{t("orders.reportForm.fromCustomerEquipment")}</label>
-                      <select
-                        id={`${formId}-${unit.key}-product`}
-                        value={unit.productId}
-                        onChange={(e) => linkRegisteredUnit(unit.key, e.target.value)}
-                        aria-describedby={`${formId}-${unit.key}-product-hint${
-                          duplicateProductUnitKey === unit.key
-                            ? ` ${formId}-${unit.key}-product-error`
-                            : ""
-                        }`}
-                        aria-invalid={
-                          duplicateProductUnitKey === unit.key || undefined
-                        }
-                        className={`min-h-12 w-full rounded-xl border-2 p-2.5 text-base font-bold text-ink outline-none focus:border-success sm:text-sm ${
-                          duplicateProductUnitKey === unit.key
-                            ? "border-red-600 bg-red-50"
-                            : "border-line bg-white"
-                        }`}
-                      >
-                        <option value="">{t("orders.reportForm.newUnit")}</option>
-                        {(selectableUnitsByKey.get(unit.key) ?? []).map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.model}
-                            {u.serialNumber ? ` (SN: ${u.serialNumber})` : ""}
-                            {u.location ? ` – ${u.location}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <p
-                        id={`${formId}-${unit.key}-product-hint`}
-                        className="mt-1.5 text-[11px] font-medium text-gray-600"
-                      >
-                        {t("orders.reportForm.unitUniqueHint")}
-                      </p>
-                      {duplicateProductUnitKey === unit.key && (
-                        <p
-                          id={`${formId}-${unit.key}-product-error`}
-                          role="alert"
-                          className="mt-1.5 flex items-start gap-1.5 text-xs font-bold text-red-700"
-                        >
-                          <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                          <span>{t("orders.reportForm.unitAlreadyUsed")}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label htmlFor={`${formId}-${unit.key}-label`} className={statusLabel}>{t("orders.reportForm.labelField")}</label>
-                      <input
-                        id={`${formId}-${unit.key}-label`}
-                        type="text"
-                        required
-                        value={unit.label}
-                        onChange={(e) => patchUnit(unit.key, { label: e.target.value })}
-                        onInvalid={(e) => {
-                          // Åpne enhetsdetaljene når et påkrevd felt skjuler seg
-                          // bak den sammenklappede seksjonen på mobil.
-                          const details =
-                            e.currentTarget.closest<HTMLDetailsElement>("details");
-                          if (details) details.open = true;
-                        }}
-                        placeholder={t("orders.reportForm.labelPlaceholder")}
-                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor={`${formId}-${unit.key}-serial`} className={statusLabel}>{t("orders.reportForm.serialNumber")}</label>
-                      <input
-                        id={`${formId}-${unit.key}-serial`}
-                        type="text"
-                        value={unit.serialNumber}
-                        onChange={(e) => patchUnit(unit.key, { serialNumber: e.target.value })}
-                        placeholder={t("orders.reportForm.serialNumberPlaceholder")}
-                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor={`${formId}-${unit.key}-location`} className={statusLabel}>{t("orders.reportForm.location")}</label>
-                      <input
-                        id={`${formId}-${unit.key}-location`}
-                        type="text"
-                        value={unit.location}
-                        onChange={(e) => patchUnit(unit.key, { location: e.target.value })}
-                        placeholder={t("orders.reportForm.locationPlaceholder")}
-                        className="min-h-12 w-full border-2 border-line p-2.5 rounded-xl text-base sm:text-sm font-bold text-ink bg-white outline-none focus:border-success"
-                      />
-                    </div>
-                  </div>
-
-                  {unit.productId ? (
-                    <p className="text-[11px] font-bold text-green-700">{t("orders.reportForm.linkedUnit")}</p>
-                  ) : (
-                    unit.label.trim() !== "" && (
-                      <p className="text-[11px] font-bold text-success">{t("orders.reportForm.newUnitSaved")}</p>
-                    )
-                  )}
-                </div>
-              </details>
-            )}
           </div>
         ))}
       </div>

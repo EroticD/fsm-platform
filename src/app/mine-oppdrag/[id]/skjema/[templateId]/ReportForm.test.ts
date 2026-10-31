@@ -222,3 +222,25 @@ describe("ReportForm – stegstripe og live telling", () => {
     );
   });
 });
+describe("ReportForm – registrert enhet", () => {
+  it("holder enhetsdetaljene åpne slik at registrert utstyr kan velges", () => {
+    const html = render({
+      customerUnits: [
+        {
+          id: "prod-1",
+          model: "Port Nord",
+          serialNumber: "PN-1",
+          location: "Resepsjon",
+        },
+      ],
+    });
+
+    expect(html).toContain("<details open");
+    expect(html).toContain('id="');
+    expect(html).toContain("prod-1");
+    expect(html).toContain("orders.reportForm.fromCustomerEquipment");
+    expect(html.indexOf("orders.reportForm.fromCustomerEquipment")).toBeLessThan(
+      html.indexOf("orders.reportForm.unitResult"),
+    );
+  });
+});
