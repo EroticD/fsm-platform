@@ -75,7 +75,7 @@ export async function geocodeAddress(
         "User-Agent":
           process.env.GEOCODE_USER_AGENT ??
           process.env.APP_URL ??
-          "FSM-platform/0.8.0",
+          "FSM-platform/0.8.5",
       },
       signal: AbortSignal.timeout(Number(process.env.GEOCODE_TIMEOUT_MS) || 3500),
     });
