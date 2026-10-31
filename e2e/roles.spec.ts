@@ -149,10 +149,15 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
   ).toBeVisible();
   // Åpne oppdraget fra listen. Testen skal ikke avhenge av om jobben ligger
   // i heroen akkurat i dag; detaljsiden har alltid sjekklisten og statusvalget.
-  await page
+  const serviceLink = page
     .getByRole("link", { name: /Service – automatiske dører/ })
-    .first()
-    .click();
+    .first();
+  const serviceHref = await serviceLink.getAttribute("href");
+  expect(serviceHref).toBeTruthy();
+  // Gå direkte til detaljsiden i stedet for å klikke kortet. Kortet kan ha en
+  // «Fortsett»-knapp over seg når en annen test har laget en kladd, og da blir
+  // klikket blokkert selv om detaljsiden er tilgjengelig.
+  await page.goto(serviceHref!);
   await expect(
     page.getByRole("heading", { name: "Service – automatiske dører" }),
   ).toBeVisible();
