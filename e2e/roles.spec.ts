@@ -160,10 +160,18 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
       let node = heading.parentElement;
       while (node) {
         const links = [...node.querySelectorAll<HTMLAnchorElement>("a[href]")];
-        const detail = links.find((link) =>
-          /^\/mine-oppdrag\/[^/]+$/.test(link.getAttribute("href") ?? ""),
-        );
-        if (detail) return detail.getAttribute("href");
+        const link = links.find((candidate) => {
+          const href = candidate.getAttribute("href") ?? "";
+          return /^\/mine-oppdrag\/[^/]+(?:\/skjema\/[^/]+)?$/.test(href);
+        });
+        if (link) {
+          const href = link.getAttribute("href") ?? "";
+          // Heroen har bare «Start skjema»; detaljsiden er samme id uten
+          // /skjema/<mal>. Listekortet har allerede detaljlenken.
+          return href.includes("/skjema/")
+            ? href.split("/skjema/")[0]
+            : href;
+        }
         node = node.parentElement;
       }
       return null;
