@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { useFormStatus } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import FieldInput, { type TemplateField } from "./FieldInput";
+import UnitCompletionHeader from "./UnitCompletionHeader";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import SignaturePad from "@/components/SignaturePad";
 import ErrorBanner from "@/components/ErrorBanner";
@@ -28,6 +36,15 @@ import {
   selectableCustomerUnits,
 } from "./unit-selection";
 import {
+  completionUndoReducer,
+  evaluateUnitCompletion,
+  hasAnswer,
+  isFieldVisible,
+  undoUnitStatus,
+  type UnitCompletionNotice,
+  type UnitStatusUndo,
+} from "./unit-completion";
+import {
   loadDraftLocally,
   queueDraftForRetry,
   removeOutboxForReport,
@@ -42,43 +59,6 @@ export type CustomerUnit = {
 };
 
 export type InitialReport = ReportSeed;
-
-/** Sammenligner et svar med malens betingelsesverdi, uten hensyn til case. */
-function answerMatches(value: unknown, expected: string | undefined): boolean {
-  if (expected === undefined) return true;
-  const raw = (value === undefined || value === null ? "" : String(value))
-    .trim()
-    .toLowerCase();
-  const wanted = expected.trim().toLowerCase();
-  if (raw === wanted) return true;
-  // Avkrysningsfelt lagres som «true»/«false», men malbyggeren kan ha skrevet
-  // «Ja»/«Nei» som betingelse. Godta begge skrivemåtene.
-  const truthy = ["true", "ja", "yes", "1"];
-  const falsy = ["false", "nei", "no", "0"];
-  return (
-    (truthy.includes(raw) && truthy.includes(wanted)) ||
-    (falsy.includes(raw) && falsy.includes(wanted))
-  );
-}
-
-/**
- * Er feltet synlig ut fra svarene i samme enhet? Betingede felt blir først
- * vist når kildefeltet har verdien malen krever.
- */
-function isFieldVisible(
-  field: TemplateField,
-  answers: Record<string, unknown>,
-): boolean {
-  if (!field.conditionalFieldId) return true;
-  return answerMatches(answers[field.conditionalFieldId], field.conditionalValue);
-}
-
-/** Et sjekkpunkt teller som besvart når feltet har en faktisk verdi. */
-function hasAnswer(value: unknown): boolean {
-  if (value === undefined || value === null) return false;
-  if (typeof value === "string") return value.trim() !== "";
-  return true;
-}
 
 /**
  * Lagre-knapp som viser at skjemaet sendes, og hindrer dobbeltklikk.
@@ -525,6 +505,15 @@ export default function ReportForm({
   // Brukes til å advare hvis enheten likevel er satt til «Godkjent».
   const [followUps, setFollowUps] = useState<Record<string, string[]>>({});
   const [unitToRemove, setUnitToRemove] = useState<string | null>(null);
+  // Mobil hurtigfullføring: inline forklaring per enhet og én angre-toast.
+  const [completionNotices, setCompletionNotices] = useState<
+    Record<string, UnitCompletionNotice>
+  >({});
+  const [undoState, dispatchUndo] = useReducer(completionUndoReducer, {
+    undo: null,
+  });
+  const [announcement, setAnnouncement] = useState("");
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setFieldNeedsComment = (unitKey: string, fieldId: string, needs: boolean) =>
     setFollowUps((prev) => {
@@ -545,12 +534,122 @@ export default function ReportForm({
     scheduleSave();
   };
 
+  const clearUndoTimer = () => {
+    if (undoTimer.current) {
+      clearTimeout(undoTimer.current);
+      undoTimer.current = null;
+    }
+  };
+
+  const clearCompletionNotice = (key: string) => {
+    setCompletionNotices((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  /**
+   * Fullfører en enhet fra mobilhodet (sveip eller fallback-knapp).
+   *
+   * Samme kontroll som skjemaet ellers krever: alle synlige, påkrevde
+   * sjekkpunkter må være besvart, og ingen synlig tilstand må kreve oppfølging.
+   * En enhet med avvik overskrives aldri – der må radioknappen brukes.
+   */
+  const completeUnit = (unit: UnitEntry, unitNumber: number) => {
+    const imageCounts: Record<string, number> = {};
+    for (const field of fields) {
+      if (field.type !== "IMAGE") continue;
+      imageCounts[field.id] =
+        photoCounts[`${unit.key}:${field.id}`] ??
+        parseImageUrls(unit.answers[field.id]).length;
+    }
+
+    const check = evaluateUnitCompletion({ unit, fields, imageCounts });
+    if (!check.ok) {
+      if (check.blocker.kind === "status-approved") return;
+      if (check.blocker.kind === "status-deviation") {
+        setCompletionNotices((prev) => ({
+          ...prev,
+          [unit.key]: { kind: "deviation" },
+        }));
+        return;
+      }
+
+      const { missing, triggers } = check.blocker;
+      const notice: UnitCompletionNotice =
+        triggers.length > 0
+          ? {
+              kind: "trigger",
+              field: triggers[0].label,
+              value: triggers[0].value,
+              missingCount: missing.length,
+              missingFields: missing.map((entry) => entry.label),
+            }
+          : {
+              kind: "missing",
+              count: missing.length,
+              fields: missing.map((entry) => entry.label),
+            };
+      setCompletionNotices((prev) => ({ ...prev, [unit.key]: notice }));
+      return;
+    }
+
+    clearCompletionNotice(unit.key);
+    const undo: UnitStatusUndo = {
+      unitKey: unit.key,
+      previousStatus: unit.status,
+    };
+    dispatchUndo({ type: "offer", undo });
+    patchUnit(unit.key, { status: "GODKJENT" });
+    setAnnouncement(t("orders.reportForm.undoAnnouncement", { number: unitNumber }));
+    clearUndoTimer();
+    undoTimer.current = setTimeout(() => {
+      undoTimer.current = null;
+      dispatchUndo({ type: "expire" });
+    }, 3000);
+  };
+
+  /** Gjenoppretter nøyaktig statusen enheten hadde før hurtigfullføringen. */
+  const undoCompletion = () => {
+    const undo = undoState.undo;
+    if (!undo) return;
+    clearUndoTimer();
+    setState((s) => ({ ...s, units: undoUnitStatus(s.units, undo) }));
+    scheduleSave();
+    dispatchUndo({ type: "clear" });
+    setAnnouncement(t("orders.reportForm.undoDone"));
+  };
+
+  /** Vanlig radiovalg skal alltid vinne over en pågående angre-toast. */
+  const changeUnitStatus = (key: string, status: UnitEntry["status"]) => {
+    if (undoState.undo?.unitKey === key) {
+      clearUndoTimer();
+      dispatchUndo({ type: "clear" });
+    }
+    clearCompletionNotice(key);
+    patchUnit(key, { status });
+  };
+
+  useEffect(
+    () => () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    },
+    [],
+  );
+
   const addUnit = () => {
     setState((s) => ({ counter: s.counter + 1, units: [...s.units, makeUnit(`unit-${s.counter}`)] }));
     scheduleSave();
   };
 
   const removeUnit = (key: string) => {
+    if (undoState.undo?.unitKey === key) {
+      clearUndoTimer();
+      dispatchUndo({ type: "clear" });
+    }
+    clearCompletionNotice(key);
     setState((s) => ({ ...s, units: s.units.filter((u) => u.key !== key) }));
     scheduleSave();
   };
@@ -909,6 +1008,11 @@ export default function ReportForm({
 
       <ErrorBanner message={submitErrorMessage} />
 
+      {/* Skjermlesere får beskjed om fullføring og angre uten at fokus flyttes. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
       {/* Fast 3-stegsstripe med levende telling, kladdestatus og tid. */}
       <nav
         aria-label={t("orders.reportForm.stepsLabel")}
@@ -1116,16 +1220,29 @@ export default function ReportForm({
             className="field-sheet p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 space-y-4"
           >
             {requiresUnits && (
-              <div className="flex justify-between items-center gap-3">
-                <h3 className="font-black text-ink">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
-                <button
-                  type="button"
-                  onClick={() => setUnitToRemove(unit.key)}
-                  className="inline-flex min-h-12 items-center text-[11px] font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
-                >
-                  {t("orders.reportForm.removeUnit")}
-                </button>
-              </div>
+              <>
+                {/* Mobil: sveip høyre eller bruk den vanlige knappen. Begge
+                    går gjennom samme kontroll og gir samme angre. */}
+                <UnitCompletionHeader
+                  unitNumber={index + 1}
+                  status={unit.status}
+                  notice={completionNotices[unit.key]}
+                  undoAvailable={undoState.undo?.unitKey === unit.key}
+                  onComplete={() => completeUnit(unit, index + 1)}
+                  onUndo={undoCompletion}
+                  onRemove={() => setUnitToRemove(unit.key)}
+                />
+                <div className="hidden justify-between items-center gap-3 sm:flex">
+                  <h3 className="font-black text-ink">{t("orders.reportForm.unitTitle", { number: index + 1 })}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setUnitToRemove(unit.key)}
+                    className="inline-flex min-h-12 items-center text-[11px] font-bold text-risk bg-risk/10 hover:bg-risk/15 px-3 py-1.5 rounded-lg border border-risk/30 transition whitespace-nowrap"
+                  >
+                    {t("orders.reportForm.removeUnit")}
+                  </button>
+                </div>
+              </>
             )}
 
             {/* Enhetsvalg og metadata ligger øverst i hver sjekkliste, slik
@@ -1269,7 +1386,7 @@ export default function ReportForm({
                       name={`status__${unit.key}`}
                       value="GODKJENT"
                       checked={unit.status === "GODKJENT"}
-                      onChange={() => patchUnit(unit.key, { status: "GODKJENT" })}
+                      onChange={() => changeUnitStatus(unit.key, "GODKJENT")}
                       className="w-5 h-5 text-green-600"
                     />
                     <span className="font-bold text-ink">{t("orders.reportForm.approved")}</span>
@@ -1285,7 +1402,7 @@ export default function ReportForm({
                       name={`status__${unit.key}`}
                       value="AVVIK"
                       checked={unit.status === "AVVIK"}
-                      onChange={() => patchUnit(unit.key, { status: "AVVIK" })}
+                      onChange={() => changeUnitStatus(unit.key, "AVVIK")}
                       className="w-5 h-5 text-red-600"
                     />
                     <span className="font-bold text-ink">{t("orders.reportForm.deviation")}</span>
@@ -1313,14 +1430,18 @@ export default function ReportForm({
                       onNeedsComment={(needs) =>
                         setFieldNeedsComment(unit.key, field.id, needs)
                       }
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
+                        // Et svar som retter opp en manglende verdi gjør den
+                        // gamle forklaringen utdatert.
+                        clearCompletionNotice(unit.key);
                         patchUnit(unit.key, {
                           answers: { ...unit.answers, [field.id]: value },
-                        })
-                      }
-                      onImageCountChange={(count) =>
-                        registerPhotoCount(`${unit.key}:${field.id}`, count)
-                      }
+                        });
+                      }}
+                      onImageCountChange={(count) => {
+                        clearCompletionNotice(unit.key);
+                        registerPhotoCount(`${unit.key}:${field.id}`, count);
+                      }}
                       workOrderId={workOrderId}
                       anchorId={
                         field.type === "IMAGE" && field.id === firstImageFieldId
