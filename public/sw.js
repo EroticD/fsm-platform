@@ -309,6 +309,28 @@ async function removeOutboxItem(id) {
 }
 
 /**
+ * Marker den lokale kladden som synkronisert når bakgrunnssynken har sendt
+ * outbox-oppføringen. Uten dette ville `pendingDraftSummary` fortsatt telt
+ * kladden som ventende, og appen ville sendt samme payload på nytt ved neste
+ * åpning. En nyere lokal kladd skal fortsatt sendes, så vi sammenligner
+ * `updatedAt` med outbox-oppføringens `createdAt`.
+ */
+async function markDraftSyncedInBackground(userId, item) {
+  const identity = itemReportIdentity(item);
+  if (!identity) return;
+  const key = reportKey(userId, identity);
+  await withOfflineStore(DRAFT_STORE, "readwrite", async (store) => {
+    const draft = await requestResult(store.get(key));
+    if (!draft || draft.updatedAt > item.createdAt) return undefined;
+    if ((draft.syncedAt ?? 0) >= draft.updatedAt) return undefined;
+    const next = { ...draft, syncedAt: draft.updatedAt };
+    delete next.syncError;
+    store.put(next);
+    return undefined;
+  });
+}
+
+/**
  * Oppdaterer bare dersom oppføringen fortsatt har samme forsøksteller. Det
  * hindrer at en sen bakgrunnssynk skriver over en nyere tilstand fra appen.
  */
@@ -417,6 +439,9 @@ async function replayDraftOutbox(userId) {
     }
 
     if (response.ok) {
+      // Marker kladden først, slik at en samtidig app-åpning ikke rekker å
+      // enqueue den på nytt før outbox-oppføringen forsvinner.
+      await markDraftSyncedInBackground(userId, item);
       await removeOutboxItem(item.id);
       sent += 1;
       continue;

@@ -55,9 +55,20 @@ function deferredRequest<T>(result: T) {
   return request;
 }
 
-function installFakeIndexedDb(initial: OutboxItem[]) {
+type DraftItem = {
+  key: string;
+  userId: string;
+  workOrderId: string;
+  templateId: string;
+  payload: string;
+  updatedAt: number;
+  syncedAt?: number;
+  syncError?: string;
+};
+
+function installFakeIndexedDb(initial: OutboxItem[], drafts: DraftItem[] = []) {
   const stores = new Map<string, Map<string, unknown>>([
-    ["drafts", new Map()],
+    ["drafts", new Map(drafts.map((entry) => [entry.key, { ...entry }]))],
     ["outbox", new Map(initial.map((entry) => [entry.id, { ...entry }]))],
   ]);
 
@@ -158,10 +169,14 @@ function loadWorker(options: {
   outbox: OutboxItem[];
   fetch: ReturnType<typeof vi.fn>;
   online?: boolean;
+  drafts?: DraftItem[];
 }) {
   const listeners = new Map<string, (event: unknown) => void>();
   const clients = [{ postMessage: vi.fn() }];
-  const { stores, indexedDB } = installFakeIndexedDb(options.outbox);
+  const { stores, indexedDB } = installFakeIndexedDb(
+    options.outbox,
+    options.drafts,
+  );
   const caches = installFakeCaches(options.userId);
 
   const self = {
@@ -370,6 +385,54 @@ describe("service worker – sync-hendelse", () => {
 
     await expect(worker.dispatchSync()).rejects.toThrow("draft-sync-offline");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("markerer den lokale kladden som synkronisert etter vellykket replay", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    const draft: DraftItem = {
+      key: "u1:wo1:tpl1",
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: JSON.stringify({ workOrderId: "wo1", templateId: "tpl1" }),
+      updatedAt: 1,
+      syncedAt: 0,
+    };
+    const worker = loadWorker({
+      userId: "u1",
+      fetch: fetchMock,
+      outbox: [item({ id: "o1", createdAt: 2 })],
+      drafts: [draft],
+    });
+
+    await worker.dispatchSync();
+
+    const stored = worker.stores.get("drafts")?.get(draft.key) as DraftItem;
+    expect(stored.syncedAt).toBe(1);
+  });
+
+  it("lar en nyere lokal kladd forbli usynkronisert etter replay", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    const draft: DraftItem = {
+      key: "u1:wo1:tpl1",
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: JSON.stringify({ workOrderId: "wo1", templateId: "tpl1" }),
+      updatedAt: 5,
+      syncedAt: 0,
+    };
+    const worker = loadWorker({
+      userId: "u1",
+      fetch: fetchMock,
+      outbox: [item({ id: "o1", createdAt: 2 })],
+      drafts: [draft],
+    });
+
+    await worker.dispatchSync();
+
+    const stored = worker.stores.get("drafts")?.get(draft.key) as DraftItem;
+    expect(stored.syncedAt).toBe(0);
   });
 
   it("ignorerer andre sync-tagger", async () => {
