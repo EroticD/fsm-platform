@@ -159,10 +159,11 @@ test("technician: dagens oppdrag viser sjekkliste og riktige statusvalg", async 
     .evaluate((heading) => {
       let node = heading.parentElement;
       while (node) {
-        const link = node.querySelector<HTMLAnchorElement>(
-          'a[href^="/mine-oppdrag/"]',
+        const links = [...node.querySelectorAll<HTMLAnchorElement>("a[href]")];
+        const detail = links.find((link) =>
+          /^\/mine-oppdrag\/[^/]+$/.test(link.getAttribute("href") ?? ""),
         );
-        if (link) return link.getAttribute("href");
+        if (detail) return detail.getAttribute("href");
         node = node.parentElement;
       }
       return null;
