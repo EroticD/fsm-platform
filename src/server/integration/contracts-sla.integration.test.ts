@@ -124,7 +124,9 @@ describeIntegration("Avtaler, dekning og SLA", () => {
 
     const createdA = await createContract(office, customer, {
       title: unique("IT-avtale-A"),
-      startDate: toDateOnly(new Date()),
+      // Fast startdato: dekningstesten under bruker et fast «now» i oktober.
+      // Dagens dato ville gjort testen avhengig av hvilken dag den kjøres.
+      startDate: "2026-01-01",
       endDate: null,
       intervalMonths: 12,
       departmentId: departmentA,
@@ -143,7 +145,7 @@ describeIntegration("Avtaler, dekning og SLA", () => {
       customer,
       {
         title: unique("IT-avtale-B"),
-        startDate: toDateOnly(new Date()),
+        startDate: "2026-01-01",
         intervalMonths: 12,
         departmentId: departmentB,
       },
