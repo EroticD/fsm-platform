@@ -150,7 +150,9 @@ export default function UnitCompletionHeader({
       : t("orders.reportForm.swipeProgress", { percent: progress })
     : t("orders.reportForm.swipeCompleteHint");
   const noticeLines: string[] = [];
-  if (notice?.kind === "missing") {
+  if (notice?.kind === "unit-label") {
+    noticeLines.push(t("orders.reportForm.swipeUnitLabelMissing"));
+  } else if (notice?.kind === "missing") {
     noticeLines.push(
       t("orders.reportForm.swipeMissingAnswers", {
         count: notice.count,
@@ -192,6 +194,9 @@ export default function UnitCompletionHeader({
           event.stopPropagation();
         }}
         style={{
+          // Global `pointer: coarse`-regel setter 44 px og ligger utenfor
+          // Tailwind-laget. Feltflaten skal være minst 48 px.
+          minHeight: 48,
           touchAction: "pan-y",
           transform: offset > 0 ? `translateX(${offset}px)` : undefined,
           transition:
@@ -221,6 +226,7 @@ export default function UnitCompletionHeader({
           <button
             type="button"
             onClick={onRemove}
+            style={{ minHeight: 48 }}
             className="inline-flex min-h-12 shrink-0 items-center rounded-lg border border-risk/30 bg-risk/10 px-3 py-1.5 text-[11px] font-bold text-risk transition hover:bg-risk/15"
           >
             {t("orders.reportForm.removeUnit")}
@@ -257,6 +263,7 @@ export default function UnitCompletionHeader({
               type="button"
               onClick={onComplete}
               aria-describedby={hintId}
+              style={{ minHeight: 48 }}
               className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border-2 border-ink/20 bg-white px-3 text-xs font-black text-ink transition hover:border-ink/40 hover:bg-white/80"
             >
               <Icon name="check" className="h-4 w-4" />
@@ -295,6 +302,7 @@ export default function UnitCompletionHeader({
           <button
             type="button"
             onClick={onUndo}
+            style={{ minHeight: 48 }}
             className="inline-flex min-h-11 items-center rounded-lg border border-success/50 bg-white px-3 text-xs font-black text-success transition hover:bg-success/10"
           >
             {t("orders.reportForm.undoComplete")}

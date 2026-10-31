@@ -101,6 +101,7 @@ test("mobil: sveip og fullfør-knapp forklarer manglende sjekkpunkter", async ({
 
   // Sveip høyre over enhetshodet. Terskelen er 84 px.
   const surface = page.locator('[data-swipe-complete="true"]').first();
+  await surface.scrollIntoViewIfNeeded();
   const surfaceBox = await surface.boundingBox();
   expect(surfaceBox).not.toBeNull();
   await page.mouse.move(surfaceBox!.x + 20, surfaceBox!.y + surfaceBox!.height / 2);

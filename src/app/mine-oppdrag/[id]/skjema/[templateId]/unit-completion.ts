@@ -94,6 +94,7 @@ export type DeviationTrigger = {
 export type UnitCompletionBlocker =
   | { kind: "status-approved" }
   | { kind: "status-deviation" }
+  | { kind: "unit-label" }
   | {
       kind: "incomplete";
       missing: MissingAnswer[];
@@ -114,7 +115,7 @@ export function evaluateUnitCompletion({
   fields,
   imageCounts = {},
 }: {
-  unit: Pick<UnitEntry, "status" | "answers">;
+  unit: Pick<UnitEntry, "status" | "answers" | "label">;
   fields: CompletionField[];
   imageCounts?: Record<string, number>;
 }): UnitCompletionCheck {
@@ -123,6 +124,11 @@ export function evaluateUnitCompletion({
   }
   if (unit.status === "AVVIK") {
     return { ok: false, blocker: { kind: "status-deviation" } };
+  }
+  // Enheten må kunne identifiseres i rapporten. Skjemaet krever enhetsnavn ved
+  // innsending; hurtigfullføring skal ikke omgå det kravet.
+  if (unit.label.trim() === "") {
+    return { ok: false, blocker: { kind: "unit-label" } };
   }
 
   const missing: MissingAnswer[] = [];
@@ -211,6 +217,7 @@ export function undoUnitStatus(
 
 /** Beskrivelsen som vises inline når en sveip/knapp ikke kan fullføre. */
 export type UnitCompletionNotice =
+  | { kind: "unit-label" }
   | { kind: "missing"; count: number; fields: string[] }
   | {
       kind: "trigger";

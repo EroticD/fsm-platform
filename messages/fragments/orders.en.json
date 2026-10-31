@@ -609,6 +609,7 @@
       "stepDraftOffline": "draft saved locally",
       "stepDraftIdle": "draft saves automatically",
       "unitDetails": "Unit details",
+      "swipeUnitLabelMissing": "Cannot complete: the unit has no name.",
       "swipeCompleteHint": "Swipe right or tap “Complete unit”",
       "swipeProgress": "{percent}% – keep swiping",
       "swipeReleaseHint": "Release to complete",

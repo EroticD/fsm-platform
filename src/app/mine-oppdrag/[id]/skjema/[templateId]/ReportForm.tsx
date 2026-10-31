@@ -576,6 +576,13 @@ export default function ReportForm({
         }));
         return;
       }
+      if (check.blocker.kind === "unit-label") {
+        setCompletionNotices((prev) => ({
+          ...prev,
+          [unit.key]: { kind: "unit-label" },
+        }));
+        return;
+      }
 
       const { missing, triggers } = check.blocker;
       const notice: UnitCompletionNotice =

@@ -128,6 +128,16 @@ describe("evaluateUnitCompletion", () => {
     });
   });
 
+  it("blokkerer en enhet uten navn", () => {
+    expect(
+      evaluateUnitCompletion({
+        unit: unit({ label: "", answers: { f1: "OK", f3: "OK" } }),
+        fields,
+        imageCounts: { f2: 1 },
+      }),
+    ).toEqual({ ok: false, blocker: { kind: "unit-label" } });
+  });
+
   it("gjør ingenting når enheten allerede er godkjent", () => {
     expect(
       evaluateUnitCompletion({

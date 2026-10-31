@@ -609,6 +609,7 @@
       "stepDraftOffline": "kladd lagret lokalt",
       "stepDraftIdle": "kladd lagres automatisk",
       "unitDetails": "Enhetsdetaljer",
+      "swipeUnitLabelMissing": "Kan ikke fullføre: enheten mangler navn.",
       "swipeCompleteHint": "Sveip høyre eller trykk «Fullfør enhet»",
       "swipeProgress": "{percent} % – sveip videre",
       "swipeReleaseHint": "Slipp for å fullføre",
