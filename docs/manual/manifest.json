@@ -1,0 +1,38 @@
+{
+  "version": "0.8.5",
+  "date": "2026-10-31",
+  "documents": [
+    {
+      "locale": "nb",
+      "title": "FSM-brukermanual",
+      "subtitle": "Kontor · Tekniker · Administrator",
+      "output": "FSM-brukermanual-nb.pdf",
+      "tocTitle": "Innhold",
+      "coverKicker": "Systemmanual",
+      "coverNote": "Praktisk veiledning for kontor, teknikere og administratorer.",
+      "sections": [
+        { "file": "00-innledning.md", "label": "Introduksjon" },
+        { "file": "10-kontor.md", "label": "Kontor", "part": "Del 1" },
+        { "file": "20-tekniker.md", "label": "Tekniker", "part": "Del 2" },
+        { "file": "30-administrator.md", "label": "Administrator", "part": "Del 3" },
+        { "file": "90-oppslag.md", "label": "Oppslag og feilsøking" }
+      ]
+    },
+    {
+      "locale": "en",
+      "title": "FSM User Manual",
+      "subtitle": "Office · Technician · Administrator",
+      "output": "FSM-user-manual-en.pdf",
+      "tocTitle": "Contents",
+      "coverKicker": "System manual",
+      "coverNote": "A practical guide for office staff, technicians and administrators.",
+      "sections": [
+        { "file": "00-introduction.md", "label": "Introduction" },
+        { "file": "10-office.md", "label": "Office", "part": "Part 1" },
+        { "file": "20-technician.md", "label": "Technician", "part": "Part 2" },
+        { "file": "30-administrator.md", "label": "Administrator", "part": "Part 3" },
+        { "file": "90-reference.md", "label": "Reference and troubleshooting" }
+      ]
+    }
+  ]
+}

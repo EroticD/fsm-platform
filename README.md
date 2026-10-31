@@ -60,6 +60,15 @@ Alle sidevisninger er også fanget i desktop- og mobilformat under
 `manifest.json`. `npm run screenshots:verify` kontrollerer at hver `page.tsx`
 er dekket.
 
+## Brukermanual
+
+- [Norsk brukermanual (PDF)](docs/manual/FSM-brukermanual-nb.pdf)
+- [English user manual (PDF)](docs/manual/FSM-user-manual-en.pdf)
+- [Markdown-kilder og byggeinstruksjoner](docs/manual/README.md)
+
+Manualen er delt i kontor, tekniker og administrator, med en egen
+introduksjon og oppslagsdel.
+
 ## Designsystem
 
 Visuell retning, fargepalett, typografi, UX-prinsipper og komponentregler er
