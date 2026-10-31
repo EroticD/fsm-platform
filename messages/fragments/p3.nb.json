@@ -87,6 +87,8 @@
       "retryNow": "Send nå",
       "retryFailed": "Prøv igjen",
       "retrying": "Sender …",
+      "syncing": "🔄 Sender kladder …",
+      "syncDone": "✓ {count} sendt",
       "discardDrafts": "Forkast mine kladder",
       "discardConfirm": "Forkaste alle lokale kladder og ventende sendinger på denne enheten? Dette kan ikke angres.",
       "noStorage": "📴 Du er offline – denne nettleseren kan ikke lagre kladder lokalt"

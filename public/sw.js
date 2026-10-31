@@ -31,6 +31,30 @@ const HTML_KIND = "html";
 const RSC_KIND = "rsc";
 const META_KIND_SUFFIX = "meta";
 
+/*
+ * Bakgrunnssynk av offline-kladden.
+ *
+ * Workeren leser samme IndexedDB som appen (`fsm-offline`) og replayer bare
+ * gjeldende offline-brukers outbox til `/api/offline/draft`. Reglene for
+ * nyeste-per-rapport, terminale feil og backoff speiler
+ * src/lib/offline/outbox-order.ts. Hold konstantene i takt med den filen.
+ *
+ * Begrensning: Background Sync støttes i praksis bare av Chromium-nettlesere.
+ * Nettleseren bestemmer selv når jobben kjøres, og en utløpt innlogging gir
+ * 401 – da stopper vi uten å brenne forsøkene. Uten støtte sendes kladden først
+ * når appen åpnes og banneret tømmer køen.
+ */
+const OFFLINE_DB_NAME = "fsm-offline";
+const OFFLINE_DB_VERSION = 1;
+const DRAFT_STORE = "drafts";
+const OUTBOX_STORE = "outbox";
+const DRAFT_SYNC_TAG = "fsm-draft-sync";
+const DRAFT_SYNC_RESULT_MESSAGE = "FSM_DRAFT_SYNC_RESULT";
+const MAX_OUTBOX_PAYLOAD_BYTES = 2_000_000;
+const MAX_OUTBOX_ATTEMPTS = 10;
+const RETRY_BASE_MS = 15_000;
+const RETRY_MAX_MS = 30 * 60_000;
+
 /** Rapporteringsskjemaet – fortsatt den viktigste offline-siden. */
 function isReportFormPage(pathname) {
   return /^\/mine-oppdrag\/[^/]+\/skjema\/[^/]+\/?$/.test(pathname);
@@ -126,6 +150,350 @@ async function clearOfflineUser() {
     await cache.delete(OFFLINE_USER_KEY);
   } catch {
     // CacheStorage kan være utilgjengelig.
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * Outbox-replay i bakgrunnen
+ * ---------------------------------------------------------------------- */
+
+function openOfflineDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DRAFT_STORE)) {
+        db.createObjectStore(DRAFT_STORE, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
+        db.createObjectStore(OUTBOX_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function requestResult(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionDone(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+async function withOfflineStore(storeName, mode, action) {
+  if (typeof indexedDB === "undefined") return null;
+  const db = await openOfflineDb();
+  try {
+    const transaction = db.transaction(storeName, mode);
+    const result = await action(transaction.objectStore(storeName));
+    await transactionDone(transaction);
+    return result;
+  } finally {
+    db.close();
+  }
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function payloadReportIdentity(payload) {
+  try {
+    const parsed = JSON.parse(payload);
+    const workOrderId = nonEmptyString(parsed.workOrderId);
+    const templateId = nonEmptyString(parsed.templateId);
+    if (!workOrderId || !templateId) return null;
+    return { workOrderId, templateId };
+  } catch {
+    return null;
+  }
+}
+
+function itemReportIdentity(item) {
+  if (item.workOrderId && item.templateId) {
+    return { workOrderId: item.workOrderId, templateId: item.templateId };
+  }
+  return payloadReportIdentity(item.payload);
+}
+
+function reportKey(userId, identity) {
+  return `${userId}:${identity.workOrderId}:${identity.templateId}`;
+}
+
+function sortOutboxOldestFirst(items) {
+  return [...items].sort(
+    (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id),
+  );
+}
+
+function newestPerReport(items, userId) {
+  const ordered = sortOutboxOldestFirst(items);
+  const newest = new Map();
+
+  for (const item of ordered) {
+    if (item.userId !== userId) continue;
+    const identity = itemReportIdentity(item);
+    if (!identity) continue;
+    newest.set(reportKey(userId, identity), item);
+  }
+
+  const stale = [];
+  const toSend = [];
+  for (const item of ordered) {
+    if (item.userId !== userId) continue;
+    const identity = itemReportIdentity(item);
+    if (!identity) {
+      toSend.push(item);
+      continue;
+    }
+    if (newest.get(reportKey(userId, identity)) === item) {
+      toSend.push(item);
+    } else {
+      stale.push(item);
+    }
+  }
+
+  return { ordered: toSend, stale };
+}
+
+function isOutboxTerminal(item) {
+  return typeof item.failedAt === "number" && item.failedAt > 0;
+}
+
+function isAttemptLimitReached(attempts) {
+  return attempts >= MAX_OUTBOX_ATTEMPTS;
+}
+
+function isOutboxReady(item, now) {
+  if (isOutboxTerminal(item)) return false;
+  return !item.nextAttemptAt || item.nextAttemptAt <= now;
+}
+
+function retryDelayMs(attempts) {
+  const exponent = Math.max(0, Math.min(attempts - 1, 16));
+  return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** exponent);
+}
+
+function payloadByteLength(payload) {
+  if (typeof TextEncoder === "undefined") return payload.length;
+  return new TextEncoder().encode(payload).byteLength;
+}
+
+function isPayloadWithinLimit(payload) {
+  return payloadByteLength(payload) <= MAX_OUTBOX_PAYLOAD_BYTES;
+}
+
+async function listOutboxForUser(userId) {
+  const result = await withOfflineStore(OUTBOX_STORE, "readonly", (store) =>
+    requestResult(store.getAll()),
+  );
+  return sortOutboxOldestFirst((result ?? []).filter(
+    (item) => item.userId === userId,
+  ));
+}
+
+async function removeOutboxItem(id) {
+  await withOfflineStore(OUTBOX_STORE, "readwrite", (store) => {
+    store.delete(id);
+    return Promise.resolve(undefined);
+  });
+}
+
+/**
+ * Oppdaterer bare dersom oppføringen fortsatt har samme forsøksteller. Det
+ * hindrer at en sen bakgrunnssynk skriver over en nyere tilstand fra appen.
+ */
+async function updateOutboxItem(item, update) {
+  await withOfflineStore(OUTBOX_STORE, "readwrite", async (store) => {
+    const current = await requestResult(store.get(item.id));
+    if (!current || current.attempts !== item.attempts) return undefined;
+    store.put(update(current));
+    return undefined;
+  });
+}
+
+async function recordOutboxFailure(item, reason) {
+  const attempts = item.attempts + 1;
+  const terminal = isAttemptLimitReached(attempts);
+  await updateOutboxItem(item, (current) => {
+    const next = { ...current, attempts };
+    if (terminal) {
+      next.failedAt = Date.now();
+      next.failureReason = reason;
+      next.nextAttemptAt = 0;
+    } else {
+      next.nextAttemptAt = Date.now() + retryDelayMs(attempts);
+    }
+    return next;
+  });
+}
+
+function summarizeOutbox(items, userId) {
+  const pendingKeys = new Set();
+  const failedKeys = new Set();
+
+  for (const item of items) {
+    if (item.userId !== userId) continue;
+    const identity = itemReportIdentity(item);
+    const key = identity ? reportKey(userId, identity) : `outbox:${item.id}`;
+    if (isOutboxTerminal(item) || isAttemptLimitReached(item.attempts)) {
+      failedKeys.add(key);
+    } else {
+      pendingKeys.add(key);
+    }
+  }
+
+  for (const key of failedKeys) pendingKeys.delete(key);
+  return { pending: pendingKeys.size, failed: failedKeys.size };
+}
+
+/**
+ * Replayer gjeldende brukers outbox. Returnerer `retry` når en nettverks- eller
+ * serverfeil gjorde at noe fortsatt venter, slik at `sync`-hendelsen kan
+ * avvises og nettleseren prøver igjen senere. Autorisasjonsfeil gir ikke retry:
+ * da må brukeren logge inn igjen først.
+ */
+async function replayDraftOutbox(userId) {
+  const all = await listOutboxForUser(userId);
+  const { ordered, stale } = newestPerReport(all, userId);
+
+  for (const item of stale) {
+    await removeOutboxItem(item.id);
+  }
+
+  let sent = 0;
+  let retry = false;
+  let authBlocked = false;
+  const now = Date.now();
+
+  for (const item of ordered) {
+    if (isAttemptLimitReached(item.attempts)) {
+      await updateOutboxItem(item, (current) => ({
+        ...current,
+        attempts: current.attempts,
+        failedAt: Date.now(),
+        failureReason: "attempts-exhausted",
+        nextAttemptAt: 0,
+      }));
+      continue;
+    }
+    if (!isOutboxReady(item, now)) continue;
+
+    if (!isPayloadWithinLimit(item.payload)) {
+      await updateOutboxItem(item, (current) => ({
+        ...current,
+        failedAt: Date.now(),
+        failureReason: "payload-too-large",
+        nextAttemptAt: 0,
+      }));
+      continue;
+    }
+
+    let response;
+    try {
+      response = await fetch(
+        new URL("/api/offline/draft", self.location.origin).toString(),
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: item.payload,
+        },
+      );
+    } catch {
+      await recordOutboxFailure(item, "network");
+      retry = true;
+      // Nettet er sannsynligvis borte. Ikke brenn forsøk på resten av køen.
+      break;
+    }
+
+    if (response.ok) {
+      await removeOutboxItem(item.id);
+      sent += 1;
+      continue;
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      // Økten er utløpt. Behold kladden og prøv ikke igjen før brukeren har
+      // logget inn på nytt.
+      authBlocked = true;
+      break;
+    }
+
+    if (response.status === 400 || response.status === 413) {
+      await updateOutboxItem(item, (current) => ({
+        ...current,
+        failedAt: Date.now(),
+        failureReason:
+          response.status === 413 ? "payload-too-large" : "rejected",
+        nextAttemptAt: 0,
+      }));
+      continue;
+    }
+
+    await recordOutboxFailure(item, `http-${response.status}`);
+    retry = true;
+    // 429/5xx gjelder tjenesten, ikke én kladd. Stopp og la backoffen virke.
+    break;
+  }
+
+  const remaining = await listOutboxForUser(userId);
+  return {
+    sent,
+    ...summarizeOutbox(remaining, userId),
+    retry: retry && !authBlocked,
+  };
+}
+
+async function notifyDraftSyncResult(result) {
+  try {
+    const clientList = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    for (const client of clientList) {
+      client.postMessage({
+        type: DRAFT_SYNC_RESULT_MESSAGE,
+        result,
+      });
+    }
+  } catch {
+    // Uten åpne klienter er det ingenting å varsle.
+  }
+}
+
+async function handleDraftSyncEvent() {
+  // Brukeren må være kjent fra CacheStorage-markøren. Uten den kan en
+  // bakgrunnssynk ikke vite hvilken outbox som er gjeldende brukers.
+  const userId = await readOfflineUser();
+  if (!userId) return;
+  if (typeof indexedDB === "undefined") return;
+  if (self.navigator && self.navigator.onLine === false) {
+    // Nettleseren kan ha vekket oss før nettet er klart. Avvis, så prøver den
+    // igjen senere i stedet for at vi markerer kladden som feilet.
+    throw new Error("draft-sync-offline");
+  }
+
+  const outcome = await replayDraftOutbox(userId);
+  await notifyDraftSyncResult({
+    sent: outcome.sent,
+    pending: outcome.pending,
+    failed: outcome.failed,
+  });
+
+  if (outcome.retry) {
+    // Avvist sync-hendelse gjør at nettleseren prøver igjen senere. Selve
+    // backoffen er allerede skrevet på outbox-oppføringen.
+    throw new Error("draft-sync-retry");
   }
 }
 
@@ -499,6 +867,11 @@ self.addEventListener("message", (event) => {
       })(),
     );
   }
+});
+
+self.addEventListener("sync", (event) => {
+  if (event.tag !== DRAFT_SYNC_TAG) return;
+  event.waitUntil(handleDraftSyncEvent());
 });
 
 self.addEventListener("fetch", (event) => {

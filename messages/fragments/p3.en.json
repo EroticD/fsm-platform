@@ -87,6 +87,8 @@
       "retryNow": "Send now",
       "retryFailed": "Try again",
       "retrying": "Sending …",
+      "syncing": "🔄 Syncing drafts …",
+      "syncDone": "✓ {count} sent",
       "discardDrafts": "Discard my drafts",
       "discardConfirm": "Discard all local drafts and pending uploads on this device? This cannot be undone.",
       "noStorage": "📴 You are offline – this browser cannot store drafts locally"

@@ -28,6 +28,13 @@ import {
   retryFailedDrafts,
   saveDraftLocally,
 } from "./draft-outbox";
+import {
+  DRAFT_SYNC_TAG,
+  SYNC_END_EVENT,
+  SYNC_PROGRESS_EVENT,
+  SYNC_START_EVENT,
+  type SyncResultDetail,
+} from "./sync";
 
 type State = {
   drafts: OfflineDraft[];
@@ -480,5 +487,97 @@ describe("offline outbox – rapportopprydding", () => {
     expect(mocks.removeOutbox).toHaveBeenCalledTimes(1);
     expect(mocks.removeOutbox).toHaveBeenCalledWith("a");
     expect(state.drafts[0].syncedAt).toBe(1);
+  });
+});
+
+describe("offline outbox – bakgrunnssynk og fremdrift", () => {
+  function collectSyncEvents(target: EventTarget) {
+    const seen: Array<{ type: string; detail: SyncResultDetail }> = [];
+    for (const type of [SYNC_START_EVENT, SYNC_PROGRESS_EVENT, SYNC_END_EVENT]) {
+      target.addEventListener(type, (event) => {
+        seen.push({
+          type,
+          detail: (event as CustomEvent<SyncResultDetail>).detail,
+        });
+      });
+    }
+    return seen;
+  }
+
+  it("registrerer bakgrunnssynk når en kladd legges i køen", async () => {
+    const register = vi.fn(async () => undefined);
+    vi.stubGlobal("navigator", {
+      onLine: true,
+      serviceWorker: {
+        getRegistration: vi.fn(async () => ({})),
+        ready: Promise.resolve({ sync: { register } }),
+      },
+    });
+
+    await saveDraftLocally({
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: { notes: "a" },
+    });
+
+    await vi.waitFor(() => {
+      expect(register).toHaveBeenCalledWith(DRAFT_SYNC_TAG);
+    });
+  });
+
+  it("sender start-, fremdrifts- og slutt-event fra tømmingen", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    state.outbox = [outboxItem({ id: "o1" })];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+    const target = new EventTarget();
+    vi.stubGlobal("window", target);
+    const seen = collectSyncEvents(target);
+
+    await flushDraftOutbox();
+
+    expect(seen.map((entry) => entry.type)).toEqual([
+      SYNC_START_EVENT,
+      SYNC_PROGRESS_EVENT,
+      SYNC_END_EVENT,
+    ]);
+    expect(seen[0].detail).toEqual({ sent: 0, pending: 1, failed: 0 });
+    expect(seen[1].detail).toEqual({ sent: 1, pending: 0, failed: 0 });
+    expect(seen[2].detail).toEqual({ sent: 1, pending: 0, failed: 0 });
+  });
+
+  it("er en no-op uten nett: ingen fetch og ingen synk-events", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    state.outbox = [outboxItem({ id: "o1" })];
+    vi.stubGlobal("navigator", { onLine: false });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const target = new EventTarget();
+    vi.stubGlobal("window", target);
+    const seen = collectSyncEvents(target);
+
+    const result = await flushDraftOutbox();
+
+    expect(result).toEqual({ sent: 0, pending: 1, failed: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(seen).toEqual([]);
+  });
+
+  it("sender ikke synk-events når ingenting er klart for sending", async () => {
+    localStorage.setItem("fsm:offline-user", "u1");
+    state.outbox = [outboxItem({ id: "o1", nextAttemptAt: Date.now() + 60_000 })];
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const target = new EventTarget();
+    vi.stubGlobal("window", target);
+    const seen = collectSyncEvents(target);
+
+    await flushDraftOutbox();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(seen).toEqual([]);
   });
 });

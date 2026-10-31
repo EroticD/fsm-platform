@@ -3246,6 +3246,8 @@
         "retryNow": "Wyślij teraz",
         "retryFailed": "Spróbuj ponownie",
         "retrying": "Wysyłanie …",
+        "syncing": "🔄 Wysyłanie wersji roboczych …",
+        "syncDone": "✓ wysłano: {count}",
         "discardDrafts": "Odrzuć moje wersje robocze",
         "discardConfirm": "Odrzucić wszystkie lokalne wersje robocze i oczekujące przesyłania na tym urządzeniu? Tej operacji nie można cofnąć.",
         "noStorage": "📴 Jesteś offline – ta przeglądarka nie może przechowywać wersji roboczych lokalnie"

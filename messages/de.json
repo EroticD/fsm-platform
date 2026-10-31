@@ -3246,6 +3246,8 @@
         "retryNow": "Jetzt senden",
         "retryFailed": "Erneut versuchen",
         "retrying": "Wird gesendet …",
+        "syncing": "🔄 Entwürfe werden gesendet …",
+        "syncDone": "✓ {count} gesendet",
         "discardDrafts": "Meine Entwürfe verwerfen",
         "discardConfirm": "Alle lokalen Entwürfe und ausstehenden Uploads auf diesem Gerät verwerfen? Dies kann nicht rückgängig gemacht werden.",
         "noStorage": "📴 Sie sind offline – dieser Browser kann Entwürfe nicht lokal speichern"

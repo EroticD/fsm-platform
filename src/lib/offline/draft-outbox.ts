@@ -20,6 +20,12 @@ import {
   newestPerReport,
   reportKey,
 } from "./outbox-order";
+import {
+  emitSyncEnd,
+  emitSyncProgress,
+  emitSyncStart,
+  requestDraftBackgroundSync,
+} from "./sync";
 
 export type DraftPayload = Record<string, unknown>;
 
@@ -157,7 +163,11 @@ export async function saveDraftLocally(input: {
   const payload = outboxPayload(input);
   if (payload) {
     const result = await enqueueOutbox(payload, input.userId);
-    if (result === "too-large") {
+    if (result === "queued") {
+      // Be nettleseren vekke service workeren selv om appen lukkes. Kallet er
+      // en no-op uten SyncManager, og skal aldri blokkere den lokale lagringen.
+      void requestDraftBackgroundSync();
+    } else if (result === "too-large") {
       // Marker bare denne versjonen; en senere lagring kan være mindre og
       // skriver da et nytt snapshot uten feilmarkeringen.
       const current = await getOfflineDraft(draft.key);
@@ -212,6 +222,7 @@ export async function queueDraftForRetry(
   // liggende i skjemaet i stedet for å havne i en annen brukers kø.
   if (!userId) throw new Error("Mangler bruker for offline-kladden");
   const result = await enqueueOutbox(JSON.stringify(payload), userId);
+  if (result === "queued") void requestDraftBackgroundSync();
   notifyOutboxChanged();
   return result;
 }
@@ -349,6 +360,9 @@ export async function flushDraftOutbox(
     return { sent: 0, ...(await pendingDraftSummary(userId)) };
   }
 
+  // Starttelleren leses før nye kladder legges i køen, slik at banneret får et
+  // konsistent utgangspunkt for fremdriftseventene.
+  const initial = await pendingDraftSummary(userId);
   await enqueueUnsyncedDrafts(userId);
 
   const items = await listOutboxForUser(userId);
@@ -358,55 +372,81 @@ export async function flushDraftOutbox(
     await removeOutbox(item.id);
   }
 
-  let sent = 0;
   const now = Date.now();
-  for (const item of ordered) {
-    // Eldre oppføringer kan mangle `failedAt` selv om forsøksbudsjettet er
-    // brukt opp (feltet ble skrevet, men aldri lest). Marker dem terminalt i
-    // stedet for å sende én gang til.
-    if (isAttemptLimitReached(item.attempts)) {
-      await recordOutboxFailure(item, {
-        terminal: true,
-        reason: "attempts-exhausted",
-      });
-      continue;
-    }
-    if (!isOutboxReady(item, now)) continue;
+  const hasSendable = ordered.some(
+    (item) =>
+      !isOutboxTerminal(item) &&
+      !isAttemptLimitReached(item.attempts) &&
+      isOutboxReady(item, now),
+  );
 
-    try {
-      const response = await fetch("/api/offline/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: item.payload,
-      });
-      if (!response.ok) {
-        const terminal = response.status === 413 || response.status === 400;
+  let sent = 0;
+  if (hasSendable) {
+    emitSyncStart({ sent: 0, ...initial });
+  }
+
+  try {
+    for (const item of ordered) {
+      // Eldre oppføringer kan mangle `failedAt` selv om forsøksbudsjettet er
+      // brukt opp (feltet ble skrevet, men aldri lest). Marker dem terminalt i
+      // stedet for å sende én gang til.
+      if (isAttemptLimitReached(item.attempts)) {
         await recordOutboxFailure(item, {
-          terminal,
-          reason:
-            response.status === 413
-              ? "payload-too-large"
-              : response.status === 400
-                ? "rejected"
-                : `http-${response.status}`,
+          terminal: true,
+          reason: "attempts-exhausted",
         });
         continue;
       }
-      await removeOutbox(item.id);
-      sent += 1;
-      const identity = itemReportIdentity(item);
-      if (identity) {
-        await markDraftSynced({
-          userId,
-          workOrderId: identity.workOrderId,
-          templateId: identity.templateId,
-          // Outbox-oppføringen ble laget etter den lokale kladden. En kladd
-          // som er skrevet senere enn dette skal fortsatt sendes.
-          syncedUpTo: item.createdAt,
+      if (!isOutboxReady(item, now)) continue;
+
+      try {
+        const response = await fetch("/api/offline/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: item.payload,
         });
+        if (!response.ok) {
+          const terminal = response.status === 413 || response.status === 400;
+          await recordOutboxFailure(item, {
+            terminal,
+            reason:
+              response.status === 413
+                ? "payload-too-large"
+                : response.status === 400
+                  ? "rejected"
+                  : `http-${response.status}`,
+          });
+          continue;
+        }
+        await removeOutbox(item.id);
+        sent += 1;
+        const identity = itemReportIdentity(item);
+        if (identity) {
+          await markDraftSynced({
+            userId,
+            workOrderId: identity.workOrderId,
+            templateId: identity.templateId,
+            // Outbox-oppføringen ble laget etter den lokale kladden. En kladd
+            // som er skrevet senere enn dette skal fortsatt sendes.
+            syncedUpTo: item.createdAt,
+          });
+        }
+        emitSyncProgress({
+          sent,
+          pending: Math.max(0, initial.pending - sent),
+          failed: initial.failed,
+        });
+      } catch {
+        await recordOutboxFailure(item, { reason: "network" });
       }
-    } catch {
-      await recordOutboxFailure(item, { reason: "network" });
+    }
+  } finally {
+    if (hasSendable) {
+      try {
+        emitSyncEnd({ sent, ...(await pendingDraftSummary(userId)) });
+      } catch {
+        // En mislykket oppsummering skal ikke skjule selve flush-resultatet.
+      }
     }
   }
 

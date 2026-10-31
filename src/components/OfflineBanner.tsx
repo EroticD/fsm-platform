@@ -12,6 +12,13 @@ import {
   type DraftSummary,
 } from "@/lib/offline/draft-outbox";
 import { announceOfflineUser } from "@/lib/offline/cache";
+import {
+  requestDraftBackgroundSync,
+  SYNC_END_EVENT,
+  SYNC_PROGRESS_EVENT,
+  SYNC_START_EVENT,
+  type SyncResultDetail,
+} from "@/lib/offline/sync";
 
 /**
  * Viser offline-status og hvor mange kladder som venter på sending.
@@ -32,6 +39,10 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
     failed: 0,
   });
   const [retrying, setRetrying] = useState(false);
+  // `syncing` dekker både klienttømming og en bakgrunnssynk som service
+  // workeren varsler om. `lastSync` viser resultatet av den siste kjøringen.
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<SyncResultDetail | null>(null);
   const flushing = useRef(false);
 
   const online = useSyncExternalStore(
@@ -62,11 +73,60 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
     if (!userId) return;
     rememberOfflineUser(userId);
     announceOfflineUser(userId);
+    // En ny innlogging skal umiddelbart kunne gjenoppta en kø som ble liggende
+    // fra forrige økt. Registreringen er en no-op uten SyncManager.
+    void requestDraftBackgroundSync();
   }, [userId]);
 
   const refresh = useCallback(async () => {
     setSummary(await pendingDraftSummary());
   }, []);
+
+  // Synkestatus kommer som typede vindushendelser fra tømmingen, og som en
+  // melding fra service workeren når bakgrunnssynken kjørte uten åpen fane.
+  useEffect(() => {
+    const onStart = () => setSyncing(true);
+    const onProgress = (event: Event) => {
+      const detail = (event as CustomEvent<SyncResultDetail>).detail;
+      if (detail) setLastSync(detail);
+    };
+    const onEnd = (event: Event) => {
+      const detail = (event as CustomEvent<SyncResultDetail>).detail;
+      setSyncing(false);
+      if (detail) setLastSync(detail);
+      void refresh();
+    };
+    const onWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "FSM_DRAFT_SYNC_RESULT") return;
+      const result = event.data.result as SyncResultDetail | undefined;
+      if (!result) return;
+      setSyncing(false);
+      setLastSync(result);
+      void refresh();
+    };
+
+    window.addEventListener(SYNC_START_EVENT, onStart);
+    window.addEventListener(SYNC_PROGRESS_EVENT, onProgress);
+    window.addEventListener(SYNC_END_EVENT, onEnd);
+
+    let container: ServiceWorkerContainer | null = null;
+    try {
+      container =
+        typeof navigator !== "undefined" && "serviceWorker" in navigator
+          ? navigator.serviceWorker
+          : null;
+    } catch {
+      container = null;
+    }
+    container?.addEventListener("message", onWorkerMessage);
+
+    return () => {
+      window.removeEventListener(SYNC_START_EVENT, onStart);
+      window.removeEventListener(SYNC_PROGRESS_EVENT, onProgress);
+      window.removeEventListener(SYNC_END_EVENT, onEnd);
+      container?.removeEventListener("message", onWorkerMessage);
+    };
+  }, [refresh]);
 
   const flushAndRefresh = useCallback(async () => {
     if (flushing.current) return;
@@ -97,12 +157,29 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
       void Promise.resolve().then(flushAndRefresh);
     }
 
-    const onOnline = () => void flushAndRefresh();
+    const onOnline = () => {
+      void requestDraftBackgroundSync();
+      void flushAndRefresh();
+    };
     // En lokal lagring legger kladden i outboxen. Da skal telleren oppdateres,
-    // men vi skal ikke sende for hvert tastetrykk.
-    const onOutboxChanged = () => void refresh();
+    // men vi skal ikke sende for hvert tastetrykk. Det gamle synkresultatet
+    // skjules, slik at «sendt» ikke står ved siden av en ny ventende kladd.
+    const onOutboxChanged = () => {
+      setLastSync(null);
+      void requestDraftBackgroundSync();
+      void refresh();
+    };
+    // Nettleseren kan ha suspendert timeren mens fanen var skjult. Ved retur
+    // registrerer vi bakgrunnssynk på nytt og tømmer køen med en gang.
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      void requestDraftBackgroundSync();
+      if (navigator.onLine) void flushAndRefresh();
+      else void refresh();
+    };
     window.addEventListener("online", onOnline);
     window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged);
+    document.addEventListener("visibilitychange", onVisibility);
     const interval = window.setInterval(() => {
       if (navigator.onLine) void flushAndRefresh();
       else void refresh();
@@ -111,12 +188,13 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.clearInterval(interval);
     };
   }, [flushAndRefresh, refresh, userId]);
 
   const retryNow = async () => {
-    if (retrying) return;
+    if (retrying || syncing || flushing.current) return;
     setRetrying(true);
     try {
       if (summary.failed > 0) await retryFailedDrafts();
@@ -128,11 +206,12 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
   };
 
   const discardDrafts = async () => {
-    if (retrying) return;
+    if (retrying || syncing) return;
     if (!window.confirm(t("p3.offline.discardConfirm"))) return;
     setRetrying(true);
     try {
       await clearOfflineUserData();
+      setLastSync(null);
       await refresh();
     } finally {
       setRetrying(false);
@@ -142,7 +221,7 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
   const total = summary.pending + summary.failed;
   if (online && (total === 0 || !storageSupported)) return null;
 
-  const statusText = !storageSupported
+  const baseStatus = !storageSupported
     ? t("p3.offline.noStorage")
     : !online && total > 0
       ? t("p3.offline.offlineWithPending", { count: total })
@@ -154,10 +233,21 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
             ? t("p3.offline.failed", { count: summary.failed })
             : t("p3.offline.pending", { count: summary.pending });
 
+  // Under synk vises bare den korte statusen. Etterpå henges antall sendte
+  // kladder på samme linje, så banneret ikke får en ekstra rad (og dermed
+  // hopper i høyden) hver gang en synk fullføres.
+  const statusText = syncing
+    ? t("p3.offline.syncing")
+    : online && lastSync && lastSync.sent > 0
+      ? `${baseStatus} · ${t("p3.offline.syncDone", { count: lastSync.sent })}`
+      : baseStatus;
+  const busy = retrying || syncing;
+
   return (
     <div
       role="status"
       aria-live="polite"
+      aria-atomic="true"
       className={`sticky top-0 z-50 border-b px-4 py-2 text-xs font-bold backdrop-blur ${
         online
           ? "border-blue-200 bg-blue-50/95 text-blue-900"
@@ -178,10 +268,10 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
           <button
             type="button"
             onClick={() => void retryNow()}
-            disabled={retrying}
+            disabled={busy}
             className="rounded-lg border border-current px-2.5 py-1 font-black transition hover:bg-white/60 disabled:opacity-60"
           >
-            {retrying
+            {busy
               ? t("p3.offline.retrying")
               : summary.failed > 0
                 ? t("p3.offline.retryFailed")
@@ -192,7 +282,7 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
           <button
             type="button"
             onClick={() => void discardDrafts()}
-            disabled={retrying}
+            disabled={busy}
             className="underline decoration-2 underline-offset-2 opacity-80 hover:opacity-100 disabled:opacity-60"
           >
             {t("p3.offline.discardDrafts")}
