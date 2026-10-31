@@ -244,3 +244,46 @@ describe("ReportForm – registrert enhet", () => {
     );
   });
 });
+
+describe("ReportForm – mobil hurtigfullføring", () => {
+  it("viser sveipeflate, hint og en vanlig knapp på minst 48 px", () => {
+    const html = render();
+
+    expect(html).toContain('data-swipe-complete="true"');
+    expect(html).toContain("touch-action:pan-y");
+    expect(html).toContain("orders.reportForm.swipeCompleteHint");
+    expect(html).toContain("orders.reportForm.completeUnit");
+    expect(html).toContain("min-h-12");
+  });
+
+  it("skjuler sveipingen på desktop og beholder den vanlige enhetstittelen", () => {
+    const html = render();
+
+    // Mobilhodet ligger i en `sm:hidden`-beholder, mens desktopraden er
+    // `hidden ... sm:flex`. Begge har fjern-knappen, men bare én vises av gangen.
+    expect(html).toContain("sm:hidden");
+    expect(html).toContain("hidden justify-between items-center gap-3 sm:flex");
+    expect(html.match(/orders\.reportForm\.removeUnit</g)?.length).toBe(2);
+  });
+
+  it("tilbyr ikke fullføring når enheten allerede er godkjent", () => {
+    const html = render({
+      initialReport: report({
+        units: [
+          {
+            productId: "",
+            label: "Port Nord",
+            serialNumber: "",
+            location: "",
+            status: "GODKJENT",
+            comment: "",
+            answers: {},
+          },
+        ],
+      }),
+    });
+
+    expect(html).not.toContain("orders.reportForm.completeUnit");
+    expect(html).toContain("orders.reportForm.approved");
+  });
+});
