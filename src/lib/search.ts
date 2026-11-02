@@ -709,6 +709,7 @@ export async function performSearch(
       select: {
         id: true,
         title: true,
+        reference: true,
         orderNumber: true,
         description: true,
         creatorName: true,
@@ -915,6 +916,7 @@ export async function performSearch(
       (wo) => wo.id,
       (wo) => [
         wo.title,
+        wo.reference,
         wo.orderNumber,
         wo.description,
         wo.creatorName,
@@ -1004,10 +1006,11 @@ export async function performSearch(
       capped: totals.workOrder.capped,
       items: rankedWorkOrders.map(({ item: wo, score }) => ({
         id: wo.id,
-        title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
+        title: `${wo.reference} · ${wo.title}`,
         // Utdatert reservefelt for eldre konsumenter (bl.a. eksisterende
         // tester). UI-en bruker subtitleParts og oversetter ved visning.
         subtitle: joinInfo([
+          wo.reference,
           wo.orderNumber,
           wo.customer?.name,
           wo.status,
@@ -1017,6 +1020,10 @@ export async function performSearch(
             : null,
         ]),
         subtitleParts: subtitleParts(
+          {
+            key: "components.search.subtitles.workOrderReference",
+            params: { reference: wo.reference },
+          },
           wo.orderNumber
             ? {
                 key: "components.search.subtitles.workOrderNumber",

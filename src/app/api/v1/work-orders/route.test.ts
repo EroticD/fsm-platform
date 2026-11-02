@@ -205,6 +205,8 @@ describe("GET /api/v1/work-orders", () => {
     expect(call.where.AND).toContainEqual({
       OR: [
         { title: { contains: "nordlys", mode: "insensitive" } },
+        { reference: { contains: "nordlys", mode: "insensitive" } },
+        { orderNumber: { contains: "nordlys", mode: "insensitive" } },
         { customer: { name: { contains: "nordlys", mode: "insensitive" } } },
       ],
     });

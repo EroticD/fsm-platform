@@ -118,6 +118,7 @@ describeIntegration("Live sporing og omtaler", () => {
     const now = Date.now();
     const order = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-sporing-oppdrag"),
         departmentId,
         customerId,
@@ -142,6 +143,7 @@ describeIntegration("Live sporing og omtaler", () => {
 
     const offOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-sporing-av-oppdrag"),
         departmentId: departmentOffId,
         status: "OPEN",

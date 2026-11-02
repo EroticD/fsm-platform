@@ -53,12 +53,13 @@ export type NameSearchColumn = "name" | "city" | "model" | "title";
  */
 export const SUBSTRING_SEARCH_FIELDS = {
   "WorkOrder.title": { table: '"WorkOrder"', column: '"title"', hasDeletedAt: true },
+  "WorkOrder.reference": { table: '"WorkOrder"', column: '"reference"', hasDeletedAt: true },
   "WorkOrder.orderNumber": { table: '"WorkOrder"', column: '"orderNumber"', hasDeletedAt: true },
   "Tag.name": { table: '"Tag"', column: '"name"', hasDeletedAt: false },
 } as const;
 
 export type SubstringSearchTable = "WorkOrder" | "Tag";
-export type SubstringSearchColumn = "title" | "orderNumber" | "name";
+export type SubstringSearchColumn = "title" | "reference" | "orderNumber" | "name";
 
 /**
  * Tabeller og kolonner som kan søkes med normalisert delstreng. Listen er en
@@ -102,7 +103,7 @@ const NORMALIZED_SEARCH_TABLES = {
   },
   WorkOrder: {
     table: '"WorkOrder"',
-    columns: ["title", "description", "orderNumber"],
+    columns: ["title", "reference", "description", "orderNumber"],
     hasDeletedAt: true,
   },
   Tag: { table: '"Tag"', columns: ["name"], hasDeletedAt: false },
@@ -724,6 +725,11 @@ export async function searchWorkOrderIdsWithTotal(
 
   const take = takeLimit(limit);
   const term = normalizedSql(Prisma.sql`${normalizedQuery}`);
+  const compactTerm = normalizedSql(
+    Prisma.sql`${normalizeSearchCompact(query)}`,
+  );
+  const compactReference = Prisma.sql`replace(${normalizedSql(Prisma.sql`w."reference"`)}, ' ', '')`;
+  const compactOrderNumber = Prisma.sql`replace(${normalizedSql(Prisma.sql`w."orderNumber"`)}, ' ', '')`;
 
   const rows = await prisma.$queryRaw<{ id: string; total: number | bigint }[]>(Prisma.sql`
     SELECT w."id", COUNT(*) OVER() AS "total"
@@ -733,7 +739,10 @@ export async function searchWorkOrderIdsWithTotal(
       AND (
         strpos(${normalizedSql(Prisma.sql`w."title"`)}, ${term}) > 0
         OR strpos(${normalizedSql(Prisma.sql`w."description"`)}, ${term}) > 0
+        OR strpos(${normalizedSql(Prisma.sql`w."reference"`)}, ${term}) > 0
+        OR strpos(${compactReference}, ${compactTerm}) > 0
         OR strpos(${normalizedSql(Prisma.sql`w."orderNumber"`)}, ${term}) > 0
+        OR strpos(${compactOrderNumber}, ${compactTerm}) > 0
         OR strpos(${normalizedSql(Prisma.sql`c."name"`)}, ${term}) > 0
         OR strpos(${normalizedSql(Prisma.sql`c."city"`)}, ${term}) > 0
         OR strpos(${normalizedSql(Prisma.sql`c."address"`)}, ${term}) > 0

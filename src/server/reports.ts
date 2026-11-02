@@ -21,6 +21,7 @@ import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
 import { generateReportNumber } from "@/lib/report-number";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { isTemplateFieldVisible } from "@/lib/template-visibility";
 
 /**
@@ -1543,6 +1544,7 @@ export async function submitReport(
           const remediation = await tx.workOrder.create({
             data: {
               title: summary.title,
+              reference: generateWorkOrderReference(),
               description: summary.description,
               // Utbedringsoppdraget er udatert; kontoret planlegger det selv.
               scheduledFor: null,

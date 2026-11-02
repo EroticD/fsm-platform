@@ -63,9 +63,19 @@ describe("workOrderListSearchWhere", () => {
     const json = JSON.stringify(where);
 
     expect(json).toContain('"orderNumber"');
+    expect(json).toContain('"reference"');
     expect(json).toContain('"tags"');
     expect(json).toContain("2026-1042");
     expect(json).toContain("2026 1042");
+  });
+
+  it("søker i referanse både med og uten tegnsetting", () => {
+    const where = workOrderListSearchWhere("o-261030-abcd1234");
+    const json = JSON.stringify(where);
+
+    expect(json).toContain('"reference"');
+    expect(json).toContain("o-261030-abcd1234");
+    expect(json).toContain("o 261030 abcd1234");
   });
 
   it("tar med id-er fra normalisert SQL-søk", () => {

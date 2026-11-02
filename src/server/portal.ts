@@ -10,6 +10,10 @@ import { staffForDepartment } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { neutralizeUrls } from "@/lib/neutralize-urls";
 import {
+  bookingReferenceForWorkOrder,
+  generateWorkOrderReference,
+} from "@/lib/work-order-reference";
+import {
   LIMITS,
   cleanMarkdown,
   cleanPhone,
@@ -230,12 +234,6 @@ function canRescheduleBooking(
     bookingChangeDeadline(requestedDate, requestedFrom),
     now,
   );
-}
-
-/** Kort referanse kunden kan oppgi til kontoret. */
-function bookingReference(workOrderId: string, now = new Date()): string {
-  const day = toDateOnly(now).slice(2).replace(/-/g, "");
-  return `B-${day}-${workOrderId.slice(-6).toUpperCase()}`;
 }
 
 /**
@@ -507,7 +505,7 @@ export async function createBooking(
           kind: "duplicate",
           id: duplicate.id,
           reference:
-            duplicate.bookingRequest?.reference ?? bookingReference(duplicate.id),
+            duplicate.bookingRequest?.reference ?? bookingReferenceForWorkOrder(duplicate.id),
           status:
             duplicate.bookingRequest?.status === "CONFIRMED"
               ? "CONFIRMED"
@@ -614,6 +612,7 @@ export async function createBooking(
         const workOrder = await tx.workOrder.create({
           data: {
             title,
+            reference: generateWorkOrderReference(),
             description: description || "",
             departmentId,
             customerId,
@@ -649,7 +648,7 @@ export async function createBooking(
         });
         await recomputeWorkOrderSchedule(tx, workOrder.id);
 
-        const reference = bookingReference(workOrder.id);
+        const reference = bookingReferenceForWorkOrder(workOrder.id);
         const booking = await tx.bookingRequest.create({
           data: {
             reference,
@@ -669,6 +668,12 @@ export async function createBooking(
             confirmedAt: new Date(),
           },
           select: { id: true, reference: true },
+        });
+        // Kunden og kontoret skal se samme referanse på bestillingen og
+        // oppdraget. Oppdateringen skjer i samme transaksjon som begge radene.
+        await tx.workOrder.update({
+          where: { id: workOrder.id },
+          data: { reference: booking.reference },
         });
 
         await tx.bookingRequestEvent.createMany({
@@ -735,6 +740,7 @@ export async function createBooking(
       const workOrder = await tx.workOrder.create({
         data: {
           title,
+          reference: generateWorkOrderReference(),
           description: description || "",
           departmentId,
           customerId,
@@ -759,7 +765,7 @@ export async function createBooking(
       // Ingen visitt opprettes før kontoret eller montøren har bekreftet og
       // planlagt oppdraget. Den ønskede datoen ligger på oppdraget og i
       // bestillingsforespørselen; ønsket klokkeslett står i beskrivelsen.
-      const reference = bookingReference(workOrder.id);
+      const reference = bookingReferenceForWorkOrder(workOrder.id);
       const booking = await tx.bookingRequest.create({
         data: {
           reference,
@@ -776,6 +782,12 @@ export async function createBooking(
           contactPhone,
         },
         select: { id: true, reference: true },
+      });
+      // Kunden og kontoret skal se samme referanse på bestillingen og
+      // oppdraget. Oppdateringen skjer i samme transaksjon som begge radene.
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { reference: booking.reference },
       });
 
       await tx.bookingRequestEvent.create({

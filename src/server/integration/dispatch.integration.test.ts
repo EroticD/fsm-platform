@@ -104,6 +104,7 @@ describeIntegration("dispatch-intelligens", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-dispatch-oppdrag"),
         departmentId,
         status: "PLANNED",
@@ -276,7 +277,8 @@ describeIntegration("dispatch-intelligens", () => {
       },
     });
     const workOrder = await prisma.workOrder.create({
-      data: { title: unique("IT-kart-oppdrag"), departmentId: department.id },
+      data: { reference: unique("REF"),
+        title: unique("IT-kart-oppdrag"), departmentId: department.id },
     });
     const visit = await prisma.visit.create({
       data: {

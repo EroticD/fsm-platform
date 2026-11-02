@@ -303,6 +303,7 @@ describe("work-orders-tjenesten", () => {
     expect(tx.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: "Service",
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
         orderNumber: "K-1001",
         orderNumberNormalized: "K1001",
         departmentId: "dep-a",
@@ -1318,6 +1319,7 @@ describe("work-orders-tjenesten", () => {
     expect(tx.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: "Service",
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
         orderNumber: null,
         orderNumberNormalized: null,
         description: "Beskrivelse",

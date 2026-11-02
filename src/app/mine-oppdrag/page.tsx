@@ -52,6 +52,7 @@ function listSelect(userId: string) {
   return {
     id: true,
     title: true,
+    reference: true,
     orderNumber: true,
     status: true,
     address: true,
@@ -354,6 +355,7 @@ export default async function TechnicianDashboard({
     ? {
         OR: [
           { title: { contains: searchQuery, mode: "insensitive" } },
+          { reference: { contains: searchQuery, mode: "insensitive" } },
           { orderNumber: { contains: searchQuery, mode: "insensitive" } },
           { description: { contains: searchQuery, mode: "insensitive" } },
           {
@@ -614,6 +616,7 @@ export default async function TechnicianDashboard({
   const heroDraftTime = heroDraft
     ? formatDateLocalized(heroDraft.updatedAt, locale, { timeStyle: "short", hourCycle: "h23" })
     : "";
+  const heroReference = hero?.reference?.trim() || "";
   const heroOrderNumber = hero?.orderNumber?.trim() || "";
   const routeKm = routeDistanceKm(sortByVisitStart(todayRouteRows));
   const routeDistanceLabel =
@@ -701,6 +704,9 @@ export default async function TechnicianDashboard({
               <span className="min-w-0 truncate">
                 {wo.customer?.name || t("orders.reportsPage.noCustomer")}
               </span>
+            </span>
+            <span className={`rounded px-1.5 py-0.5 font-bold ${metaChip}`}>
+              {t("orders.list.reference")} {wo.reference}
             </span>
             {wo.orderNumber && (
               <span className={`rounded px-1.5 py-0.5 font-bold ${metaChip}`}>
@@ -1008,6 +1014,14 @@ export default async function TechnicianDashboard({
                   {hero.customer?.name || t("orders.reportsPage.noCustomer")}
                 </span>
               </p>
+              {heroReference && (
+                <p className="mt-1 flex items-center gap-2 text-xs font-bold text-paper/65">
+                  <Icon name="file" className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {t("orders.detail.reference")} {heroReference}
+                  </span>
+                </p>
+              )}
               {heroOrderNumber && (
                 <p className="mt-1 flex items-center gap-2 text-xs font-bold text-paper/65">
                   <Icon name="file" className="h-3.5 w-3.5 shrink-0" />

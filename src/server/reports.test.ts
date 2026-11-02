@@ -1956,6 +1956,7 @@ describe("reports-tjenesten", () => {
       ]
     )[0];
     expect(create.data).toMatchObject({
+      reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
       scheduledFor: null,
       scheduledTo: null,
       status: "OPEN",

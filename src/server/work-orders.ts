@@ -8,6 +8,7 @@ import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { normalizeOrderNumber } from "@/lib/order-number";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { addressHash, effectiveAddress, geocodeAddress } from "@/lib/geocode";
 import {
   staffForDepartment,
@@ -487,6 +488,7 @@ export async function createWorkOrder(
       const newWorkOrder = await tx.workOrder.create({
         data: {
           title,
+          reference: generateWorkOrderReference(),
           orderNumber,
           orderNumberNormalized,
           description: description || "",
@@ -1723,6 +1725,7 @@ export async function cloneWorkOrder(
       const created = await tx.workOrder.create({
         data: {
           title: source.title,
+          reference: generateWorkOrderReference(),
           // Ordrenummeret er unikt per avdeling og hører til det opprinnelige
           // oppdraget. En klone starter derfor uten ordrenummer, og kontoret
           // setter et nytt hvis klonen skal ha et eksternt nummer.

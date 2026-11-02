@@ -79,6 +79,7 @@ function workOrderRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "wo-1",
     title: "Service",
+    reference: "O-261030-ABCD1234",
     orderNumber: "NO-2026-1042",
     description: null,
     creatorName: null,
@@ -158,7 +159,7 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
     expect(tagGroup?.total).toBe(1);
 
     const workOrderGroup = results.groups.find((group) => group.kind === "workOrder");
-    expect(workOrderGroup?.items[0].title).toContain("NO-2026-1042");
+    expect(workOrderGroup?.items[0].title).toContain("O-261030-ABCD1234");
     expect(workOrderGroup?.items[0].subtitle).toContain("Årlig service");
 
     // Tag-treffet gir også oppdraget, selv uten treff i tittel/ordrenummer.
@@ -232,7 +233,7 @@ describe("performSearch – ordrenummer, tagger og delte rapporter", () => {
       expect.any(Number),
     );
     const workOrderGroup = results.groups.find((group) => group.kind === "workOrder");
-    expect(workOrderGroup?.items[0].title).toContain("NO-2026-1042");
+    expect(workOrderGroup?.items[0].title).toContain("O-261030-ABCD1234");
   });
 
   it("utelater kommentarer som henger på en slettet kunde", async () => {

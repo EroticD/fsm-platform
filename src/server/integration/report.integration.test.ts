@@ -28,6 +28,7 @@ describeIntegration("Report: snapshot og unikhet", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-oppdrag"),
         departmentId,
         customerId,
