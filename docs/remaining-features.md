@@ -1,8 +1,32 @@
 # Remaining feature worklist
 
-> **Status snapshot:** `dev` @ `e53fa9a` (app 0.8.5), 2026-11-02.
+> **Status snapshot:** `dev` @ `e83f38c` + merge (app 0.8.6), 2026-11-03.
 > This is a queue for workers, not a description of shipped behaviour.
 > Do not mark an item done without the acceptance criteria and the gates below.
+
+## Status etter 0.8.6 (2026-11-03)
+
+Levert og verifisert i 0.8.6:
+
+- **CORE-01–04** — bemanning/kompetanse/kapasitet, portaldelegering,
+  kundesteder og planlegging av datoforespørsler i bookingkøen.
+- **SEC-01–05** — krypterte offline-kladder med PIN, PDF-sanering,
+  strømmende opplasting med kvoter, API-nøkkel-scopes/rotasjon og påkrevd 2FA.
+- **DATA-02/03** — hash-kjedet revisjonslogg med oppbevaring/legal hold,
+  revisjonseksport og signert bevis-eksport per oppdrag.
+- **OPS-01–04** — automatiserte backuper med ferskhetskontroll, metrics/
+  varsler, trusted proxy og separate runtime-/migrasjonsroller.
+- **UX-01–07** — vedlikeholdsplaner, utstyrsfilter, dispatch-innstillinger,
+  omtaler, booking-e-post, iCal og PDF-sidesøk.
+- **QA-01/02** — utvidet a11y/E2E og API-/OpenAPI-kontrakttest.
+- **CUST-EXPORT-01 v1** — admin-only eksport/import av kundepakker med
+  manifest, sjekksum, dry-run, id-remapping, filhåndtering og reell
+  PostgreSQL-test. Se kjente begrensninger i
+  [`docs/backlog-customer-export-import.md`](backlog-customer-export-import.md).
+
+Fortsatt åpne fra denne listen: **DATA-01** (GDPR-sletting/anonymisering)
+og **DOC-01** (dokumentasjon/overlappspolicy), samt P3.
+
 
 ## How to work this list
 
@@ -209,24 +233,27 @@ unreachable branch; tests cover the chosen behaviour.
 
 ## P2 — major missing capability
 
-### CUST-EXPORT-01 · Admin customer export/import (L) — **BACKLOG ONLY, DO NOT START**
+### CUST-EXPORT-01 · Admin customer export/import (L) — **LEVERT (v1)**
 
-**Gap:** No admin customer transfer package. User has requested export/import of
-customer data, equipment and equipment-generated documentation, admin-only,
-with practical testing and data validation.
+**Gap (historisk):** No admin customer transfer package.
 
-**Status:** **NOT STARTED.** Full specification:
+**Status:** **IMPLEMENTED v1 in 0.8.6.** Full specification and current
+limitations:
 [`docs/backlog-customer-export-import.md`](backlog-customer-export-import.md).
 
-**Do not begin implementation until the specification is accepted.** The spec
-already defines scope, ZIP/manifest format, checksums, dry-run, ID remapping,
-duplicate/conflict policy, transactional import, zip-bomb/path/MIME controls,
-admin-only authorization, audit, and a real-PostgreSQL test plan.
+**Levert:** admin-only guard (ADMIN + `settings.manage`), ZIP med manifest/
+sjekksum/content-addressed filer, deterministisk eksport av kunde, kontakter,
+steder, delegering, utstyr, målinger, vedlikeholdsplaner, kontrakter, oppdrag,
+besøk, rapporter/revisjoner/PDF, dokumenter/versjoner og vedlegg, dry-run med
+konfliktanalyse, id-remapping, transaksjonell import med filstaging/rollback,
+audit og innstillinger-fane. Verifisert med eksport → import i ren PostgreSQL,
+inkludert avvisning av traversal/sjekksum-/MIME-feil og 403 for ikke-admin.
 
-**Acceptance for the future worker:** the spec’s acceptance criteria are all
-met, including export→clean-import→verify counts/relations/files/PDFs,
-malformed/duplicate/oversized/traversal packages rejected, and no
-passwords/secrets transferred.
+**Gjenstående (dokumentert, ikke påstått levert):** asynkron jobbworker/
+gjenopptakelse, pakkesignatur/kryptering, kryssversjon-migratorer,
+rekonciliering av final-filer etter krasj, og juridisk avklaring for
+signaturbilder/HMS.
+
 
 ### DATA-02 · Audit retention, legal hold and export (M)
 
