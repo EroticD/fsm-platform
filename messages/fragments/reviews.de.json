@@ -1,0 +1,21 @@
+{
+  "reviews": {
+    "title": "Kundenbewertungen",
+    "subtitle": "Eingereichte Kundenbewertungen, begrenzt auf die Aufträge, auf die du Zugriff hast.",
+    "back": "Zurück zum Dashboard",
+    "average": "Durchschnitt",
+    "count": "Bewertungen",
+    "thisPage": "Auf dieser Seite",
+    "empty": "Noch keine Bewertungen",
+    "emptyHint": "Bewertungen erscheinen hier, sobald Kunden auf die Anfragen antworten.",
+    "score": "{score} von 5",
+    "noCustomer": "Ohne Kunde",
+    "openOrder": "Auftrag öffnen",
+    "noComment": "Der Kunde hat keinen Kommentar hinterlassen.",
+    "showing": "{shown} von {total} Bewertungen",
+    "loadError": "Die Bewertungen konnten nicht geladen werden.",
+    "railTitle": "Kundenbewertungen",
+    "averageShort": "Ø",
+    "openList": "Alle Bewertungen ansehen"
+  }
+}

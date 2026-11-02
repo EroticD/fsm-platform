@@ -1284,10 +1284,12 @@ export async function performSearch(
       capped: totals.document.capped,
       items: rankedDocuments.map(({ item: d, score }) => {
         const hit = documentById.get(d.id);
+        const page = hit?.page ?? null;
+        const pageHash = page ? `#page=${page}` : "";
         // Bare filer i opplastingsmappen kan åpnes direkte. Dokumenttreffet
         // skal ellers gå til dokumentbiblioteket, ikke til råfilen.
         const directHref = d.filePath.startsWith("/uploads/")
-          ? d.filePath
+          ? `${d.filePath}${pageHash}`
           : undefined;
         const documentSnippet =
           d.description?.slice(0, 60) ??
@@ -1312,11 +1314,18 @@ export async function performSearch(
                 }
               : null,
             documentSnippet ? { text: documentSnippet } : null,
+            page
+              ? {
+                  key: "components.search.subtitles.page",
+                  params: { page },
+                }
+              : null,
           ),
-          href: withReturnTo(
-            `/dokumenter?doc=${encodeURIComponent(d.id)}`,
-            returnTo,
-          ),
+          href:
+            withReturnTo(
+              `/dokumenter?doc=${encodeURIComponent(d.id)}`,
+              returnTo,
+            ) + pageHash,
           ...(directHref
             ? {
                 directHref,

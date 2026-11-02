@@ -41,6 +41,7 @@ vi.mock("@/lib/departments", () => ({
 
 import {
   createMaintenancePlan,
+  deleteMaintenancePlan,
   evaluateMeterMaintenance,
   generateDueMaintenanceWorkOrders,
   updateMaintenancePlan,
@@ -116,6 +117,92 @@ describe("vedlikeholdsplaner – validering", () => {
       { id: "plan-1", isActive: false },
     );
     expect(result).toEqual({ ok: false, reason: "forbidden" });
+  });
+});
+
+describe("redigering og sletting av vedlikeholdsplan", () => {
+  it("oppdaterer alle redigerbare felter og revisjonslogger", async () => {
+    mocks.prisma.maintenancePlan.findUnique.mockResolvedValue({
+      id: "plan-1",
+      title: "Gammel tittel",
+      trigger: "CALENDAR",
+      intervalMonths: 12,
+      meterInterval: null,
+      nextDueDate: null,
+    });
+
+    const result = await updateMaintenancePlan(actor(), {
+      id: "plan-1",
+      title: "Ny tittel",
+      isActive: false,
+      intervalMonths: "6",
+      meterInterval: "250",
+      leadDays: "30",
+      nextDueDate: "2027-01-15",
+    });
+
+    expect(result).toEqual({ ok: true, data: { id: "plan-1" } });
+    expect(mocks.prisma.maintenancePlan.update).toHaveBeenCalledWith({
+      where: { id: "plan-1" },
+      data: expect.objectContaining({
+        title: "Ny tittel",
+        isActive: false,
+        intervalMonths: 6,
+        leadDays: 30,
+      }),
+    });
+    expect(mocks.audit).toHaveBeenCalledTimes(1);
+    expect(mocks.audit).toHaveBeenCalledWith(
+      mocks.prisma,
+      expect.objectContaining({ entityType: "MaintenancePlan", entityId: "plan-1" }),
+    );
+  });
+
+  it("sletter en plan uten forekomster", async () => {
+    mocks.prisma.maintenancePlan.findUnique.mockResolvedValue({
+      id: "plan-1",
+      title: "Årlig service",
+      _count: { occurrences: 0 },
+    });
+
+    const result = await deleteMaintenancePlan(actor(), "plan-1");
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(mocks.prisma.maintenancePlan.delete).toHaveBeenCalledWith({
+      where: { id: "plan-1" },
+    });
+    expect(mocks.audit).toHaveBeenCalledTimes(1);
+  });
+
+  it("blokkerer sletting når planen har forekomster", async () => {
+    mocks.prisma.maintenancePlan.findUnique.mockResolvedValue({
+      id: "plan-1",
+      title: "Årlig service",
+      _count: { occurrences: 2 },
+    });
+
+    const result = await deleteMaintenancePlan(actor(), "plan-1");
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "in_use",
+      details: {
+        code: "maintenance.errors.planInUse",
+        occurrences: 2,
+      },
+    });
+    expect(mocks.prisma.maintenancePlan.delete).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("krever equipment.manage for sletting", async () => {
+    const result = await deleteMaintenancePlan(
+      actor({ permissions: ["equipment.view"] }),
+      "plan-1",
+    );
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.maintenancePlan.findUnique).not.toHaveBeenCalled();
   });
 });
 

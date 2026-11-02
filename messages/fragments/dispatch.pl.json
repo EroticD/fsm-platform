@@ -149,7 +149,16 @@
       "center": "Środek",
       "latitude": "Szerokość geograficzna",
       "longitude": "Długość geograficzna",
-      "saveTerritory": "Dodaj terytorium"
+      "saveTerritory": "Dodaj terytorium",
+      "active": "Aktywna",
+      "inactive": "Nieaktywna",
+      "editPolicy": "Edytuj reguły",
+      "noPolicies": "Nie dodano jeszcze żadnych reguł przydziału.",
+      "newPolicy": "Nowa reguła przydziału",
+      "createPolicy": "Utwórz regułę",
+      "saveTerritoryChanges": "Zapisz terytorium",
+      "newTerritory": "Nowe terytorium",
+      "deleteTerritoryConfirm": "Usunąć terytorium? Tej operacji nie można cofnąć."
     }
   }
 }

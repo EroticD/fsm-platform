@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
     review: {
       upsert: vi.fn(),
       findUnique: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
       updateMany: vi.fn(),
       aggregate: vi.fn(),
     },
@@ -25,7 +27,9 @@ vi.mock("@/lib/rate-limit-db", () => ({
 import {
   getPublicReview,
   hashReviewToken,
+  listStaffReviews,
   requestReview,
+  reviewSummaryForActor,
   reviewSummaryForScope,
   REVIEW_TOKEN_PATTERN,
   submitReview,
@@ -76,6 +80,8 @@ beforeEach(() => {
   });
   mocks.allowRequestDb.mockResolvedValue({ allowed: true, retryAfterSeconds: 0 });
   mocks.audit.mockResolvedValue(undefined);
+  mocks.prisma.review.findMany.mockResolvedValue([]);
+  mocks.prisma.review.count.mockResolvedValue(0);
 });
 
 describe("be om omtale", () => {
@@ -254,6 +260,81 @@ describe("omtaleaggregat", () => {
     await expect(reviewSummaryForScope({})).resolves.toEqual({
       average: null,
       count: 0,
+    });
+  });
+});
+
+describe("omtaler for kontoret", () => {
+  it("avgrenser listen til oppdragenes synlighetsomfang", async () => {
+    const submittedAt = new Date("2026-10-30T12:00:00.000Z");
+    mocks.prisma.review.count.mockResolvedValue(1);
+    mocks.prisma.review.findMany.mockResolvedValue([
+      {
+        id: "review-1",
+        score: 5,
+        comment: "Rask service",
+        submittedAt,
+        workOrder: {
+          id: "wo-1",
+          title: "Årlig service",
+          reference: "B-1",
+          customer: { id: "cust-1", name: "Kunde AS" },
+        },
+      },
+    ]);
+    mocks.prisma.review.aggregate.mockResolvedValue({
+      _avg: { score: 5 },
+      _count: { _all: 1 },
+    });
+
+    const result = await listStaffReviews(
+      actor({ permissions: ["workorders.view", "workorders.edit"] }),
+      { page: 1, pageSize: 20 },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.summary).toEqual({ average: 5, count: 1 });
+    expect(result.data.items).toHaveLength(1);
+    expect(mocks.prisma.review.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          submittedAt: { not: null },
+          workOrder: {
+            AND: [
+              expect.objectContaining({
+                departmentId: "dep-1",
+                deletedAt: null,
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("avviser ansatte uten workorders.view", async () => {
+    const result = await listStaffReviews(
+      actor({ permissions: [], roleDefinition: null }),
+    );
+
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.review.findMany).not.toHaveBeenCalled();
+  });
+
+  it("gir scoped sammendrag for dashbordet", async () => {
+    mocks.prisma.review.aggregate.mockResolvedValue({
+      _avg: { score: 4.4 },
+      _count: { _all: 3 },
+    });
+
+    await expect(
+      reviewSummaryForActor(
+        actor({ permissions: ["workorders.view", "workorders.edit"] }),
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      data: { average: 4.4, count: 3 },
     });
   });
 });

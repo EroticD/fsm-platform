@@ -552,8 +552,9 @@ describe("performSearch – dokumentfilnavn", () => {
         title: "Faktura 123",
         description: null,
         fileName: "Faktura #123 (kunde).pdf",
-        filePath: "/dokumenter/doc-1",
+        filePath: "/uploads/doc-1.pdf",
         snippet: null,
+        page: 3,
         score: 1,
         total: 1,
       },
@@ -564,7 +565,7 @@ describe("performSearch – dokumentfilnavn", () => {
         title: "Faktura 123",
         description: null,
         fileName: "Faktura #123 (kunde).pdf",
-        filePath: "/dokumenter/doc-1",
+        filePath: "/uploads/doc-1.pdf",
         tags: [],
       },
     ]);
@@ -576,6 +577,8 @@ describe("performSearch – dokumentfilnavn", () => {
     expect(group?.items[0]).toMatchObject({
       id: "doc-1",
       title: "Faktura 123",
+      href: "/dokumenter?doc=doc-1#page=3",
+      directHref: "/uploads/doc-1.pdf#page=3",
     });
     expect(group?.total).toBe(1);
 

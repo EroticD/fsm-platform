@@ -43,7 +43,9 @@ export async function saveDispatchPolicyAction(formData: FormData) {
       sla: weight(formData, "weightSla"),
       load: weight(formData, "weightLoad"),
     },
-    isActive: formData.get("isActive") !== "off",
+    isActive:
+      formData.get("isActive") === "on" ||
+      formData.get("isActive") === "true",
   });
 
   if (!result.ok) {
@@ -67,7 +69,9 @@ export async function saveTerritoryAction(formData: FormData) {
     radiusKm: formData.get("radiusKm"),
     centerLat: formData.get("centerLat"),
     centerLng: formData.get("centerLng"),
-    isActive: formData.get("isActive") !== "off",
+    isActive:
+      formData.get("isActive") === "on" ||
+      formData.get("isActive") === "true",
   });
 
   if (!result.ok) {

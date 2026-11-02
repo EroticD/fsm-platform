@@ -11,9 +11,12 @@ import {
   listEquipmentCategories,
   listEquipmentForest,
   type EquipmentForestData,
-  type EquipmentForestItem,
   type EquipmentListData,
 } from "@/server/equipment";
+import {
+  buildEquipmentListHref,
+  matchesEquipmentFilters,
+} from "@/lib/equipment-list-filters";
 import EmptyState from "@/components/EmptyState";
 import Pagination, { paginationLabels } from "@/components/Pagination";
 import Icon from "@/components/icons";
@@ -43,27 +46,6 @@ function param(
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
   return { title: t("assets.list.title") };
-}
-
-function matchesForestFilters(
-  item: EquipmentForestItem,
-  query: string,
-  status: string,
-  categoryId: string,
-): boolean {
-  if (status && status !== "ALL" && item.status !== status) return false;
-  if (categoryId && item.categoryId !== categoryId) return false;
-  if (!query) return true;
-  const needle = query.toLocaleLowerCase("nb");
-  return [
-    item.model,
-    item.serialNumber,
-    item.location,
-    item.customer.name,
-    item.category?.name,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .some((value) => value.toLocaleLowerCase("nb").includes(needle));
 }
 
 function TreeBranch({
@@ -128,7 +110,7 @@ export default async function EquipmentPage({
   const [categoriesResult, listResult] = await Promise.all([
     listEquipmentCategories(user),
     hierarchy
-      ? listEquipmentForest(user)
+      ? listEquipmentForest(user, { customerId })
       : listEquipment(user, {
           q: query,
           status,
@@ -147,26 +129,16 @@ export default async function EquipmentPage({
   } else if (listResult.ok) {
     listData = listResult.data as EquipmentListData;
   }
+  const filters = { query, status, categoryId, customerId, hierarchy };
   const forestItems = forestData
-    ? forestData.items.filter((item) =>
-        matchesForestFilters(item, query, status, categoryId),
-      )
+    ? forestData.items.filter((item) => matchesEquipmentFilters(item, filters))
     : [];
   const total = forestData ? forestItems.length : listData?.total ?? 0;
   const totalPages = forestData ? 1 : listData?.totalPages ?? 0;
   const tree = forestData ? buildEquipmentTree(forestItems) : [];
 
-  const hrefFor = (nextPage: number) => {
-    const params = new URLSearchParams();
-    if (query) params.set("q", query);
-    if (status) params.set("status", status);
-    if (categoryId) params.set("kategori", categoryId);
-    if (customerId) params.set("kunde", customerId);
-    if (hierarchy) params.set("hierarki", "1");
-    if (nextPage > 1) params.set("side", String(nextPage));
-    const suffix = params.toString();
-    return `/enheter${suffix ? `?${suffix}` : ""}`;
-  };
+  const hrefFor = (nextPage: number) =>
+    buildEquipmentListHref(filters, nextPage);
 
   return (
     <div className="office-app min-h-screen p-3 sm:p-6 lg:p-8">
@@ -204,6 +176,7 @@ export default async function EquipmentPage({
             {t("assets.list.searchLabel")}
           </h2>
           <form method="GET" action="/enheter" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {customerId && <input type="hidden" name="kunde" value={customerId} />}
             <div className="lg:col-span-2">
               <label htmlFor="assets-q" className={LABEL}>
                 {t("assets.list.searchLabel")}

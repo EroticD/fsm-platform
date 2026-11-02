@@ -239,12 +239,18 @@ export type EquipmentListData = Extract<
  * og detaljsiden bruker den til å bygge en foreldresti. Selve visningen er
  * begrenset til 500 enheter, som er langt over hva en normal kunde har.
  */
-export async function listEquipmentForest(actor: ServiceActor) {
+export async function listEquipmentForest(
+  actor: ServiceActor,
+  params: { customerId?: string } = {},
+) {
   const denied = requirePermission(actor, "equipment.view");
   if (denied) return denied;
 
+  const customerId = cleanId(params.customerId);
   const items = await prisma.product.findMany({
-    where: equipmentScopeFor(actor),
+    where: {
+      AND: [equipmentScopeFor(actor), ...(customerId ? [{ customerId }] : [])],
+    },
     orderBy: [{ model: "asc" }, { id: "asc" }],
     take: EQUIPMENT_TREE_LIMIT,
     include: {

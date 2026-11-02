@@ -22,6 +22,7 @@ import { hasPermission } from "@/lib/permissions";
 import { departmentUsersScope, workOrderScope } from "@/lib/access";
 import { reportWorkOrderScope } from "@/lib/report-scope";
 import { getDispatchExceptionCounts } from "@/server/dispatch";
+import { reviewSummaryForActor } from "@/server/reviews";
 import type { ServiceActor } from "@/server/actor";
 import { homePathForRole } from "@/lib/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -305,6 +306,7 @@ async function DashboardOverview({
     unassignedOrders,
     team,
     exceptionCounts,
+    reviewSummary,
   ] = await Promise.all([
     prisma.workOrder.groupBy({
       by: ["status"],
@@ -381,6 +383,7 @@ async function DashboardOverview({
       take: 8,
     }),
     getDispatchExceptionCounts(actor, new Date()),
+    reviewSummaryForActor(actor),
   ]);
 
   const countByStatus = (status: WorkStatus) =>
@@ -540,6 +543,11 @@ async function DashboardOverview({
             todayRemaining: todayCount,
             todayInProgress: todayInProgressCount,
           }}
+          reviewSummary={
+            reviewSummary.ok
+              ? reviewSummary.data
+              : { average: null, count: 0 }
+          }
           updatedAt={updatedTime}
           locale={locale}
           canAssign={canAssign}

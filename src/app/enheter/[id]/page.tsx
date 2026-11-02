@@ -28,10 +28,12 @@ import {
   addMeterReadingAction,
   createMaintenancePlanAction,
   deleteEquipmentAction,
+  deleteMaintenancePlanAction,
   moveEquipmentAction,
   rotateQrTokenAction,
   toggleMaintenancePlanAction,
   updateEquipmentAction,
+  updateMaintenancePlanAction,
 } from "../actions";
 
 const CARD = "office-card min-w-0 p-4 sm:p-5";
@@ -535,6 +537,117 @@ export default async function EquipmentDetailPage({
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {canManage && (
+                    <details className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                      <summary className="min-h-11 cursor-pointer list-none text-xs font-bold text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
+                        {t("assets.detail.editPlan")}
+                      </summary>
+                      <p className="mt-1 text-xs text-[var(--muted,#62685f)]">
+                        {t("assets.detail.editPlanHint")}
+                      </p>
+                      <form action={updateMaintenancePlanAction} className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <input type="hidden" name="id" value={equipment.id} />
+                        <input type="hidden" name="customerId" value={equipment.customer.id} />
+                        <input type="hidden" name="planId" value={plan.id} />
+                        <div className="sm:col-span-2">
+                          <label htmlFor={`plan-${plan.id}-title`} className={LABEL}>
+                            {t("assets.detail.planTitle")} *
+                          </label>
+                          <input
+                            id={`plan-${plan.id}-title`}
+                            name="title"
+                            required
+                            maxLength={200}
+                            defaultValue={plan.title}
+                            className={CONTROL}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`plan-${plan.id}-months`} className={LABEL}>
+                            {t("assets.detail.intervalMonths")}
+                          </label>
+                          <input
+                            id={`plan-${plan.id}-months`}
+                            name="intervalMonths"
+                            type="number"
+                            min={1}
+                            max={120}
+                            defaultValue={plan.intervalMonths ?? ""}
+                            className={CONTROL}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`plan-${plan.id}-meter`} className={LABEL}>
+                            {t("assets.detail.meterInterval")}
+                          </label>
+                          <input
+                            id={`plan-${plan.id}-meter`}
+                            name="meterInterval"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            defaultValue={plan.meterInterval?.toString() ?? ""}
+                            className={CONTROL}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`plan-${plan.id}-lead`} className={LABEL}>
+                            {t("assets.detail.leadDays")}
+                          </label>
+                          <input
+                            id={`plan-${plan.id}-lead`}
+                            name="leadDays"
+                            type="number"
+                            min={0}
+                            max={365}
+                            defaultValue={plan.leadDays}
+                            className={CONTROL}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={`plan-${plan.id}-due`} className={LABEL}>
+                            {t("assets.detail.nextDue")}
+                          </label>
+                          <input
+                            id={`plan-${plan.id}-due`}
+                            name="nextDueDate"
+                            type="date"
+                            defaultValue={plan.nextDueDate?.toISOString().slice(0, 10) ?? ""}
+                            className={CONTROL}
+                          />
+                        </div>
+                        <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--ink,#101310)]">
+                          <input
+                            type="checkbox"
+                            name="isActive"
+                            defaultChecked={plan.isActive}
+                            className="h-5 w-5 rounded border-[var(--line,#dedcd1)]"
+                          />
+                          {t("assets.detail.planActive")}
+                        </label>
+                        <div className="flex items-end">
+                          <SubmitButton className={SIGNAL_BUTTON}>
+                            {t("assets.detail.savePlan")}
+                          </SubmitButton>
+                        </div>
+                      </form>
+                      <ConfirmSubmitForm
+                        action={deleteMaintenancePlanAction}
+                        confirmMessage={t("assets.detail.deletePlanConfirm")}
+                        confirmLabel={t("assets.detail.deletePlan")}
+                        danger
+                        className="mt-2"
+                      >
+                        <input type="hidden" name="id" value={equipment.id} />
+                        <input type="hidden" name="customerId" value={equipment.customer.id} />
+                        <input type="hidden" name="planId" value={plan.id} />
+                        <button type="submit" className={INK_BUTTON}>
+                          <Icon name="trash" className="h-4 w-4" />
+                          {t("assets.detail.deletePlan")}
+                        </button>
+                      </ConfirmSubmitForm>
+                    </details>
                   )}
                 </li>
               ))}

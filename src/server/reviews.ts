@@ -252,6 +252,110 @@ export type ReviewSummary = {
   count: number;
 };
 
+export type StaffReviewItem = {
+  id: string;
+  score: number;
+  comment: string | null;
+  submittedAt: Date;
+  workOrder: {
+    id: string;
+    title: string;
+    reference: string | null;
+    customer: { id: string; name: string } | null;
+  };
+};
+
+export type StaffReviewPage = {
+  items: StaffReviewItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  summary: ReviewSummary;
+};
+
+/**
+ * Innsendte omtaler for kontoret, alltid avgrenset av oppdragenes
+ * synlighetsomfang. Vi viser poengsum, kommentar og hvilket oppdrag/kunde
+ * omtalen gjelder – ikke mottakeradresser eller andre identifikatorer.
+ */
+export async function listStaffReviews(
+  actor: ServiceActor,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<ServiceResult<StaffReviewPage>> {
+  if (!actor?.isActive || !can(actor, "workorders.view")) {
+    return fail("forbidden");
+  }
+
+  const page = Math.max(1, Math.floor(options.page ?? 1));
+  const pageSize = Math.min(50, Math.max(1, Math.floor(options.pageSize ?? 20)));
+  const scope = workOrderScopeFor(actor);
+  const where: Prisma.ReviewWhereInput = {
+    submittedAt: { not: null },
+    score: { not: null },
+    workOrder: { AND: [scope] },
+  };
+
+  const [total, items, aggregate] = await Promise.all([
+    prisma.review.count({ where }),
+    prisma.review.findMany({
+      where,
+      orderBy: { submittedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        score: true,
+        comment: true,
+        submittedAt: true,
+        workOrder: {
+          select: {
+            id: true,
+            title: true,
+            reference: true,
+            customer: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    prisma.review.aggregate({
+      where,
+      _avg: { score: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const average = aggregate._avg.score;
+  return ok({
+    items: items.flatMap((item) =>
+      item.score === null || item.submittedAt === null
+        ? []
+        : [{ ...item, score: item.score, submittedAt: item.submittedAt }],
+    ),
+    total,
+    page,
+    pageSize,
+    totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
+    summary: {
+      average:
+        average === null || average === undefined
+          ? null
+          : Math.round(average * 10) / 10,
+      count: aggregate._count._all,
+    },
+  });
+}
+
+/** Scoped sammendrag for dashbordet. */
+export async function reviewSummaryForActor(
+  actor: ServiceActor,
+): Promise<ServiceResult<ReviewSummary>> {
+  if (!actor?.isActive || !can(actor, "workorders.view")) {
+    return fail("forbidden");
+  }
+  return ok(await reviewSummaryForScope(workOrderScopeFor(actor)));
+}
+
 /**
  * Aggregat for dashbordet. Summene gjøres i databasen og er alltid avgrenset
  * av oppdragenes synlighetsomfang; ingen omtaler lastes inn i minnet.

@@ -1471,6 +1471,20 @@ function sanitizeWeights(input: unknown): DispatchWeights {
   return result;
 }
 
+function sameWeights(left: DispatchWeights, right: DispatchWeights): boolean {
+  return (Object.keys(DEFAULT_DISPATCH_WEIGHTS) as Array<keyof DispatchWeights>).every(
+    (key) => left[key] === right[key],
+  );
+}
+
+/** En ikke-admin kan bare endre egne avdelingsinnstillinger. */
+function departmentAllowed(
+  actor: ServiceActor,
+  departmentId: string,
+): boolean {
+  return actor.role === "ADMIN" || actor.departmentId === departmentId;
+}
+
 function cleanStringArray(value: unknown, pattern: RegExp, max = 50): string[] | null {
   if (value === undefined || value === null) return [];
   const raw = Array.isArray(value)
@@ -1553,6 +1567,7 @@ export async function saveAssignmentPolicy(
   const mode = String(input.mode ?? "").toUpperCase();
   if (
     !departmentId ||
+    !departmentAllowed(actor, departmentId) ||
     !(DISPATCH_POLICY_MODES as readonly string[]).includes(mode)
   ) {
     return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
@@ -1570,6 +1585,28 @@ export async function saveAssignmentPolicy(
         select: { id: true },
       })
     : null;
+  if (input.id && !existing) {
+    return fail("not_found", { code: DISPATCH_ERROR_CODES.notFound });
+  }
+
+  // Samme avdeling kan ha flere policyer, men ikke to identiske aktive regler.
+  const siblings = await prisma.assignmentPolicy.findMany({
+    where: {
+      departmentId,
+      isActive: true,
+      ...(existing ? { id: { not: existing.id } } : {}),
+    },
+    select: { id: true, mode: true, weights: true },
+  });
+  if (
+    input.isActive !== false &&
+    siblings.some(
+      (policy) =>
+        policy.mode === mode && sameWeights(sanitizeWeights(policy.weights), weights),
+    )
+  ) {
+    return fail("conflict", { code: DISPATCH_ERROR_CODES.conflict });
+  }
 
   const saved = await prisma.$transaction(async (tx) => {
     const result = existing
@@ -1627,7 +1664,7 @@ export async function saveTerritory(
   }
   const departmentId = cleanId(input.departmentId);
   const name = cleanText(input.name, { maxLength: LIMITS.short });
-  if (!departmentId || name.length < 2) {
+  if (!departmentId || name.length < 2 || !departmentAllowed(actor, departmentId)) {
     return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
   }
 
@@ -1679,6 +1716,9 @@ export async function saveTerritory(
         select: { id: true },
       })
     : null;
+  if (input.id && !existing) {
+    return fail("not_found", { code: DISPATCH_ERROR_CODES.notFound });
+  }
 
   let saved;
   try {

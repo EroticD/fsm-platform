@@ -332,6 +332,7 @@ describe("getCalendarFeed", () => {
           postalCode: "1234",
           city: "Oslo",
         },
+        visits: [],
       },
     ]);
 
@@ -349,5 +350,76 @@ describe("getCalendarFeed", () => {
       where: { id: "u1" },
       data: { calendarTokenLastUsedAt: expect.any(Date) },
     });
+  });
+
+  it("gir én VEVENT per aktiv visitt med Oslo-tid, DST og stabil UID", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      ...actor,
+      role: "OFFICE",
+      roleDefinition: null,
+    });
+    mocks.prisma.workOrder.findMany.mockResolvedValue([
+      {
+        id: "wo1",
+        title: "Service",
+        description: null,
+        status: "PLANNED",
+        scheduledFor: new Date("2026-01-15T00:00:00.000Z"),
+        scheduledTo: new Date("2026-03-29T00:00:00.000Z"),
+        customer: {
+          name: "Kunde AS",
+          address: "Gate 1",
+          postalCode: "1234",
+          city: "Oslo",
+        },
+        visits: [
+          {
+            id: "v-winter",
+            sequence: 0,
+            startsAt: new Date("2026-01-15T09:00:00.000Z"),
+            endsAt: new Date("2026-01-15T10:30:00.000Z"),
+            allDay: false,
+            status: "PLANNED",
+          },
+          {
+            id: "v-summer",
+            sequence: 1,
+            startsAt: new Date("2026-03-29T09:00:00.000Z"),
+            endsAt: new Date("2026-03-29T10:30:00.000Z"),
+            allDay: false,
+            status: "ASSIGNED",
+          },
+          {
+            id: "v-cancelled",
+            sequence: 2,
+            startsAt: new Date("2026-03-30T09:00:00.000Z"),
+            endsAt: new Date("2026-03-30T10:30:00.000Z"),
+            allDay: false,
+            status: "CANCELLED",
+          },
+        ],
+      },
+    ]);
+
+    const result = await getCalendarFeed(RAW_TOKEN, {
+      from: new Date("2026-01-01T00:00:00.000Z"),
+      to: new Date("2026-12-31T23:59:59.000Z"),
+    });
+
+    if (!result.ok) throw new Error("forventet feed");
+    const events = result.feed.split("BEGIN:VEVENT").length - 1;
+    expect(events).toBe(2);
+    expect(result.feed).toContain("BEGIN:VTIMEZONE");
+    expect(result.feed).toContain("TZID:Europe/Oslo");
+    expect(result.feed).toContain("UID:visit-v-winter@fsm");
+    expect(result.feed).toContain("UID:visit-v-summer@fsm");
+    expect(result.feed).not.toContain("v-cancelled");
+    // Vintertid: 09:00Z er 10:00 i Oslo. Sommertid: 09:00Z er 11:00.
+    expect(result.feed).toContain("DTSTART;TZID=Europe/Oslo:20260115T100000");
+    expect(result.feed).toContain("DTEND;TZID=Europe/Oslo:20260115T113000");
+    expect(result.feed).toContain("DTSTART;TZID=Europe/Oslo:20260329T110000");
+    expect(result.feed).toContain("DTEND;TZID=Europe/Oslo:20260329T123000");
+    // Oppdraget skal ikke også dukke opp som et heldagsarrangement.
+    expect(result.feed).not.toContain("UID:workorder-wo1@fsm");
   });
 });

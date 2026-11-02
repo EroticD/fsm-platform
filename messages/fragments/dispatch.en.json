@@ -149,7 +149,16 @@
       "center": "Centre",
       "latitude": "Latitude",
       "longitude": "Longitude",
-      "saveTerritory": "Add territory"
+      "saveTerritory": "Add territory",
+      "active": "Active",
+      "inactive": "Inactive",
+      "editPolicy": "Edit rules",
+      "noPolicies": "No assignment rules have been added yet.",
+      "newPolicy": "New assignment rule",
+      "createPolicy": "Create rule",
+      "saveTerritoryChanges": "Save territory",
+      "newTerritory": "New territory",
+      "deleteTerritoryConfirm": "Delete the territory? This cannot be undone."
     }
   }
 }

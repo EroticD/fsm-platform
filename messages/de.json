@@ -34,6 +34,7 @@
           "templateKind": "Checkliste / Vorlage",
           "templateReportName": "Berichtsname: {name}",
           "folderHint": "Ordner in der Dokumentenbibliothek",
+          "page": "Seite {page}",
           "workOrderTitle": "Auftrag: {title}",
           "folderPath": "📁 {path}"
         },
@@ -3922,7 +3923,13 @@
         "unknown": "Unbekannt",
         "dangerous": "Gefahrenbereich",
         "delete": "Anlage löschen",
-        "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden."
+        "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden.",
+        "editPlan": "Plan bearbeiten",
+        "editPlanHint": "Titel, Intervall, Vorlaufzeit, nächste Fälligkeit und Aktivität des Plans ändern.",
+        "planActive": "Plan ist aktiv",
+        "savePlan": "Plan speichern",
+        "deletePlan": "Plan löschen",
+        "deletePlanConfirm": "Wartungsplan löschen? Pläne mit bereits erzeugten Vorkommen können nicht gelöscht werden."
       },
       "form": {
         "title": "Neue Anlage",
@@ -4005,6 +4012,7 @@
         "readingAdded": "Der Messwert wurde erfasst.",
         "planCreated": "Der Wartungsplan wurde erstellt.",
         "planUpdated": "Der Wartungsplan wurde aktualisiert.",
+        "planDeleted": "Der Wartungsplan wurde gelöscht.",
         "deleted": "Die Anlage wurde gelöscht."
       },
       "planStatus": {

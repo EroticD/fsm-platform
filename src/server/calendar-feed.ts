@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { addDaysUtc, toDateOnly } from "@/lib/dates";
+import { osloLocalParts } from "@/lib/business-hours";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import {
   fail,
@@ -164,6 +165,14 @@ function icsDate(value: Date): string {
   return toDateOnly(value).replace(/-/g, "");
 }
 
+/** Veggklokketid i Europe/Oslo, uten tidssone-suffiks (TZID står i feltet). */
+function icsOsloLocal(value: Date): string {
+  const parts = osloLocalParts(value);
+  const hour = Math.floor(parts.minuteOfDay / 60);
+  const minute = parts.minuteOfDay % 60;
+  return `${parts.dateOnly.replace(/-/g, "")}T${String(hour).padStart(2, "0")}${String(minute).padStart(2, "0")}00`;
+}
+
 function fold(line: string): string {
   if (line.length <= 75) return line;
   const parts: string[] = [];
@@ -275,6 +284,15 @@ export async function getCalendarFeed(
           OR: [
             { scheduledFor: { gte: from, lte: to } },
             { scheduledTo: { gte: from, lte: to } },
+            {
+              visits: {
+                some: {
+                  status: { not: "CANCELLED" },
+                  startsAt: { lte: to },
+                  endsAt: { gte: from },
+                },
+              },
+            },
           ],
         },
       ],
@@ -294,6 +312,17 @@ export async function getCalendarFeed(
           city: true,
         },
       },
+      visits: {
+        orderBy: { startsAt: "asc" },
+        select: {
+          id: true,
+          sequence: true,
+          startsAt: true,
+          endsAt: true,
+          allDay: true,
+          status: true,
+        },
+      },
     },
     orderBy: { scheduledFor: "asc" },
     take: 2000,
@@ -306,6 +335,24 @@ export async function getCalendarFeed(
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${icsEscape(user.name || "FSM-oppdrag")}`,
+    "BEGIN:VTIMEZONE",
+    "TZID:Europe/Oslo",
+    "X-LIC-LOCATION:Europe/Oslo",
+    "BEGIN:DAYLIGHT",
+    "TZOFFSETFROM:+0100",
+    "TZOFFSETTO:+0200",
+    "TZNAME:CEST",
+    "DTSTART:19700329T020000",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+    "END:DAYLIGHT",
+    "BEGIN:STANDARD",
+    "TZOFFSETFROM:+0200",
+    "TZOFFSETTO:+0100",
+    "TZNAME:CET",
+    "DTSTART:19701025T030000",
+    "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+    "END:STANDARD",
+    "END:VTIMEZONE",
   ];
 
   const stamp = new Date()
@@ -314,16 +361,82 @@ export async function getCalendarFeed(
     .replace(/\.\d{3}Z$/, "Z");
 
   for (const workOrder of workOrders) {
-    if (!workOrder.scheduledFor) continue;
-    const start = workOrder.scheduledFor;
-    const end = workOrder.scheduledTo
-      ? addDaysUtc(workOrder.scheduledTo, 1)
-      : addDaysUtc(start, 1);
     const location = workOrder.customer
       ? [workOrder.customer.address, workOrder.customer.postalCode, workOrder.customer.city]
           .filter(Boolean)
           .join(", ")
       : "";
+    const activeVisits = (workOrder.visits ?? []).filter(
+      (visit) =>
+        visit.status !== "CANCELLED" &&
+        visit.startsAt.getTime() <= to.getTime() &&
+        visit.endsAt.getTime() >= from.getTime(),
+    );
+
+    if (activeVisits.length > 0) {
+      for (const visit of activeVisits) {
+        const summary =
+          activeVisits.length > 1
+            ? `${workOrder.title} (${visit.sequence + 1})`
+            : workOrder.title;
+        const description = [
+          workOrder.description ?? "",
+          workOrder.customer?.name
+            ? `Kunde: ${workOrder.customer.name}`
+            : "",
+          `Status: ${workOrder.status}`,
+          activeVisits.length > 1 ? `Visitt: ${visit.sequence + 1}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        if (visit.allDay) {
+          const startDay = toDateOnly(visit.startsAt);
+          const rawEnd = toDateOnly(visit.endsAt);
+          const endDay =
+            rawEnd <= startDay
+              ? toDateOnly(addDaysUtc(visit.startsAt, 1))
+              : rawEnd;
+          lines.push(
+            "BEGIN:VEVENT",
+            `UID:visit-${visit.id}@fsm`,
+            `DTSTAMP:${stamp}`,
+            `DTSTART;VALUE=DATE:${startDay.replace(/-/g, "")}`,
+            `DTEND;VALUE=DATE:${endDay.replace(/-/g, "")}`,
+            `SUMMARY:${icsEscape(summary)}`,
+            `DESCRIPTION:${icsEscape(description)}`,
+            ...(location ? [`LOCATION:${icsEscape(location)}`] : []),
+            "STATUS:CONFIRMED",
+            "END:VEVENT",
+          );
+        } else {
+          lines.push(
+            "BEGIN:VEVENT",
+            `UID:visit-${visit.id}@fsm`,
+            `DTSTAMP:${stamp}`,
+            `DTSTART;TZID=Europe/Oslo:${icsOsloLocal(visit.startsAt)}`,
+            `DTEND;TZID=Europe/Oslo:${icsOsloLocal(visit.endsAt)}`,
+            `SUMMARY:${icsEscape(summary)}`,
+            `DESCRIPTION:${icsEscape(description)}`,
+            ...(location ? [`LOCATION:${icsEscape(location)}`] : []),
+            "STATUS:CONFIRMED",
+            "END:VEVENT",
+          );
+        }
+      }
+      continue;
+    }
+
+    // All-day fallback gjelder bare oppdrag som faktisk ikke har visiter.
+    // Har oppdraget visiter utenfor perioden (eller bare kansellerte), skal
+    // det ikke dukke opp som et falskt heldagsarrangement.
+    if ((workOrder.visits?.length ?? 0) > 0) continue;
+
+    if (!workOrder.scheduledFor) continue;
+    const start = workOrder.scheduledFor;
+    const end = workOrder.scheduledTo
+      ? addDaysUtc(workOrder.scheduledTo, 1)
+      : addDaysUtc(start, 1);
 
     lines.push(
       "BEGIN:VEVENT",

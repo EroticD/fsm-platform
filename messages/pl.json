@@ -34,6 +34,7 @@
           "templateKind": "Lista kontrolna / szablon",
           "templateReportName": "Nazwa raportu: {name}",
           "folderHint": "Folder w bibliotece dokumentów",
+          "page": "Strona {page}",
           "workOrderTitle": "Zlecenie: {title}",
           "folderPath": "📁 {path}"
         },
@@ -3922,7 +3923,13 @@
         "unknown": "Nieznane",
         "dangerous": "Strefa zagrożenia",
         "delete": "Usuń urządzenie",
-        "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć."
+        "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć.",
+        "editPlan": "Edytuj plan",
+        "editPlanHint": "Zmień nazwę, interwał, czas wyprzedzenia, następny termin i aktywność planu.",
+        "planActive": "Plan jest aktywny",
+        "savePlan": "Zapisz plan",
+        "deletePlan": "Usuń plan",
+        "deletePlanConfirm": "Usunąć plan konserwacji? Planów, które mają już wystąpienia, nie można usunąć."
       },
       "form": {
         "title": "Nowe urządzenie",
@@ -4005,6 +4012,7 @@
         "readingAdded": "Odczyt został zarejestrowany.",
         "planCreated": "Plan konserwacji został utworzony.",
         "planUpdated": "Plan konserwacji został zaktualizowany.",
+        "planDeleted": "Plan konserwacji został usunięty.",
         "deleted": "Urządzenie zostało usunięte."
       },
       "planStatus": {

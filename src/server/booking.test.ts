@@ -16,14 +16,18 @@ const mocks = vi.hoisted(() => ({
       update: vi.fn(),
     },
     customer: { findFirst: vi.fn() },
+    contact: { findFirst: vi.fn() },
+    portalDelegation: { findUnique: vi.fn() },
     product: { findFirst: vi.fn() },
     user: { findFirst: vi.fn() },
     bookingRequest: { create: vi.fn() },
     bookingRequestEvent: { create: vi.fn() },
+    auditLog: { findFirst: vi.fn(), create: vi.fn() },
     $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  sendBookingNotification: vi.fn(),
   allowRequestDb: vi.fn(),
   getDefaultDepartmentId: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
@@ -51,6 +55,9 @@ vi.mock("./notifications", () => ({
 }));
 vi.mock("./sms-events", () => ({
   trySendBookingConfirmedSms: mocks.trySendBookingConfirmedSms,
+}));
+vi.mock("@/lib/email", () => ({
+  sendBookingNotification: mocks.sendBookingNotification,
 }));
 
 import { createBooking } from "./portal";
@@ -98,6 +105,7 @@ beforeEach(() => {
   mocks.prisma.customer.findFirst.mockResolvedValue({
     id: "cust-1",
     departmentId: null,
+    name: "Kunde AS",
   });
   mocks.prisma.product.findFirst.mockResolvedValue(null);
   mocks.prisma.user.findFirst.mockResolvedValue({ name: "Tekniker" });
@@ -116,6 +124,17 @@ beforeEach(() => {
   });
   mocks.createDefaultVisit.mockResolvedValue(undefined);
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+  mocks.prisma.contact.findFirst.mockResolvedValue({
+    email: "kari@example.test",
+    locale: "nb",
+  });
+  mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
+  mocks.prisma.auditLog.findFirst.mockResolvedValue(null);
+  mocks.prisma.auditLog.create.mockResolvedValue({ id: "audit-email" });
+  mocks.sendBookingNotification.mockResolvedValue({
+    officeSent: 1,
+    customerSent: true,
+  });
 });
 
 describe("createBooking", () => {
@@ -347,6 +366,64 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledTimes(1);
     expect(mocks.audit).toHaveBeenCalledTimes(1);
     expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+
+  it("sender én lokalisert bekreftelse til kontaktens e-post", async () => {
+    const result = await createBooking(
+      customer({ contactId: "contact-1" }),
+      booking,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.sendBookingNotification).toHaveBeenCalledTimes(1);
+    expect(mocks.sendBookingNotification).toHaveBeenCalledWith(
+      "dep-1",
+      "kari@example.test",
+      expect.objectContaining({
+        title: booking.title,
+        customerName: "Kunde AS",
+        locale: "nb",
+        reference: "B-TEST-1",
+      }),
+    );
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        action: "Sendte bestillingsbekreftelse på e-post",
+      }),
+    });
+  });
+
+  it("er idempotent når bekreftelsen allerede er markert sendt", async () => {
+    mocks.prisma.auditLog.findFirst.mockResolvedValue({ id: "audit-marker" });
+
+    const result = await createBooking(customer(), booking);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.sendBookingNotification).not.toHaveBeenCalled();
+    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("ruller ikke tilbake bookingen når SMTP feiler", async () => {
+    mocks.sendBookingNotification.mockRejectedValue(new Error("SMTP nede"));
+
+    const result = await createBooking(customer(), booking);
+
+    expect(result).toMatchObject({ ok: true, data: { id: "wo-1" } });
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("sender ikke bekreftelse på nytt for en duplikatbestilling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-existing",
+      bookingRequest: { reference: "B-EXISTING" },
+    });
+
+    await createBooking(customer(), booking);
+
+    expect(mocks.sendBookingNotification).not.toHaveBeenCalled();
   });
 
   it("bruker alltid aktørens egen customerId", async () => {
