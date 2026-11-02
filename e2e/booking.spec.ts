@@ -20,7 +20,9 @@ test("kundeportalen viser sted, tjeneste og datofelt på mobil", async ({
   await expect(page.getByText("2. Velg tjeneste")).toBeVisible();
   await expect(page.getByText("3. Velg ønsket dato")).toBeVisible();
   await expect(page.locator('input[name="requestedDate"]')).toBeVisible();
-  await expect(page.getByText(/Skriv ønsket klokkeslett/)).toBeVisible();
+  await expect(
+    page.getByText(/Skriv ønsket klokkeslett/).first(),
+  ).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 900 });
   const overflow = await page.evaluate(
