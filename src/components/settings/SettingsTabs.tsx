@@ -12,6 +12,7 @@ type SettingsTabsProps = {
   canUsers: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
+  canEquipment: boolean;
   canAudit: boolean;
   canStats: boolean;
   canSla: boolean;
@@ -55,6 +56,7 @@ export default function SettingsTabs({
   canUsers,
   canTemplates,
   canDocuments,
+  canEquipment,
   canAudit,
   canStats,
   canSla,
@@ -160,6 +162,17 @@ export default function SettingsTabs({
           >
             <Icon name="flag" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.tags")}
+          </Link>
+        )}
+        {canEquipment && (
+          <Link
+            href="?tab=utstyr"
+            ref={currentTab === "utstyr" ? activeRef : undefined}
+            className={linkClass(currentTab === "utstyr")}
+            aria-current={currentTab === "utstyr" ? "page" : undefined}
+          >
+            <Icon name="wrench" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.equipment")}
           </Link>
         )}
         {canAudit && (

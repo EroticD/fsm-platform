@@ -18,6 +18,7 @@ import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
+import EquipmentCategoriesTab from "@/components/settings/EquipmentCategoriesTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
 import { parseTemplateCategoryFilter } from "@/lib/template-category";
@@ -35,6 +36,7 @@ import { getSlaSettingsView } from "@/server/sla";
 import { getSmsSettingsView } from "@/server/sms";
 import { getDispatchSettings } from "@/server/dispatch";
 import { listPriceLists } from "@/server/contracts";
+import { listEquipmentCategories } from "@/server/equipment";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -47,6 +49,11 @@ import {
   updateDocumentTagAction,
   updateTagAction,
 } from "./actions";
+import {
+  createEquipmentCategoryAction,
+  deleteEquipmentCategoryAction,
+  updateEquipmentCategoryAction,
+} from "./equipment-category-actions";
 import { createApiKeyAction, revokeApiKeyAction } from "./api-actions";
 import {
   addPriceListItemAction,
@@ -104,6 +111,8 @@ export default async function SettingsPage({
   const canUsers = hasPermission(user, "users.view");
   const canTemplates = hasPermission(user, "templates.manage");
   const canDocuments = hasPermission(user, "documents.manage");
+  const canEquipment = hasPermission(user, "equipment.view");
+  const canManageEquipment = hasPermission(user, "equipment.manage");
   const canAudit = hasPermission(user, "audit.view");
   const canStats = hasPermission(user, "reports.view");
   const canSla = hasPermission(user, "sla.manage");
@@ -117,6 +126,7 @@ export default async function SettingsPage({
     canUsers ||
     canTemplates ||
     canDocuments ||
+    canEquipment ||
     canAudit ||
     canStats ||
     canSla ||
@@ -130,6 +140,7 @@ export default async function SettingsPage({
     canMap ||
     canTemplates ||
     canDocuments ||
+    canManageEquipment ||
     isAdmin ||
     hasPermission(user, "users.manage");
 
@@ -150,6 +161,7 @@ export default async function SettingsPage({
     canUsers,
     canTemplates,
     canDocuments,
+    canEquipment,
     canAudit,
     canStats,
     canSla,
@@ -166,7 +178,10 @@ export default async function SettingsPage({
   const page = Math.max(1, parseInt(resolvedParams.page?.toString() || "1", 10) || 1);
   const templateCategory = parseTemplateCategoryFilter(resolvedParams.category);
 
-  const overview = canUseSettings ? await getSettingsOverview(user) : null;
+  const overview =
+    canUseSettings && currentTab !== "utstyr" && currentTab !== "sikkerhet"
+      ? await getSettingsOverview(user)
+      : null;
   if (overview && !overview.ok) redirect("/");
   const branding = overview?.ok ? overview.data.branding : null;
   const templates = overview?.ok ? overview.data.templates : [];
@@ -187,6 +202,10 @@ export default async function SettingsPage({
 
   const mapSettings =
     currentTab === "kart" && canMap ? await getMapSettingsView(user) : null;
+  const equipmentCategories =
+    currentTab === "utstyr" && canEquipment
+      ? await listEquipmentCategories(user)
+      : null;
 
   const statistics =
     currentTab === "statistikk" && canStats
@@ -247,6 +266,7 @@ export default async function SettingsPage({
           canUsers={canUsers}
           canTemplates={canTemplates}
           canDocuments={canDocuments}
+          canEquipment={canEquipment}
           canAudit={canAudit}
           canStats={canStats}
           canSla={canSla}
@@ -303,6 +323,23 @@ export default async function SettingsPage({
         )}
 
         {/* FANE: TAGS */}
+        {currentTab === "utstyr" && canEquipment && equipmentCategories?.ok && (
+          <EquipmentCategoriesTab
+            tree={equipmentCategories.data.tree}
+            flat={equipmentCategories.data.categories.map((category) => ({
+              id: category.id,
+              name: category.name,
+              parentId: category.parentId,
+            }))}
+            canManage={canManageEquipment}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            createCategory={createEquipmentCategoryAction}
+            updateCategory={updateEquipmentCategoryAction}
+            deleteCategory={deleteEquipmentCategoryAction}
+          />
+        )}
+
         {currentTab === "tags" && (canTemplates || canDocuments) && (
           <TagsTab
             tags={tags}

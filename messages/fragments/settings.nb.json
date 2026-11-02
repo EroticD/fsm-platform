@@ -16,7 +16,8 @@
       "departments": "Avdelinger",
       "security": "Sikkerhet",
       "map": "Kart",
-      "api": "API-nøkler"
+      "api": "API-nøkler",
+      "equipment": "Utstyr"
     },
     "branding": {
       "title": "White-label Innstillinger",
@@ -461,6 +462,28 @@
         "light": "Lyst",
         "satellite": "Satellitt"
       }
+    },
+    "equipmentCategories": {
+      "title": "Enhetskategorier",
+      "description": "Administrer kategorier og hierarki for utstyr og enheter. Kategoriene brukes når enheter registreres og filtreres.",
+      "createTitle": "Ny kategori",
+      "name": "Kategorinavn",
+      "namePlaceholder": "F.eks. Pumper",
+      "parent": "Overordnet kategori",
+      "noParent": "Ingen overordnet",
+      "create": "Opprett kategori",
+      "edit": "Rediger",
+      "save": "Lagre",
+      "delete": "Slett",
+      "deleteConfirm": "Slette kategorien «{name}»?",
+      "inUse": "Kategorien er i bruk og kan ikke slettes.",
+      "products": "{count} enheter",
+      "children": "{count} underkategorier",
+      "empty": "Ingen kategorier er opprettet ennå.",
+      "readOnly": "Du kan se kategoriene, men ikke endre dem. Kontakt en bruker med redigeringstilgang til utstyr.",
+      "created": "Kategorien er opprettet.",
+      "updated": "Kategorien er oppdatert.",
+      "deleted": "Kategorien er slettet."
     }
   },
   "users": {

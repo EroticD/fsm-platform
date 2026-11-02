@@ -11,6 +11,7 @@ const noPermissions: SettingsTabPermissions = {
   canUsers: false,
   canTemplates: false,
   canDocuments: false,
+  canEquipment: false,
   canAudit: false,
   canStats: false,
   canSla: false,
@@ -26,6 +27,7 @@ const admin: SettingsTabPermissions = {
   canUsers: true,
   canTemplates: true,
   canDocuments: true,
+  canEquipment: true,
   canAudit: true,
   canStats: true,
   canSla: true,
@@ -83,6 +85,16 @@ describe("chooseSettingsTab", () => {
     expect(chooseSettingsTab("api", admin)).toBe("api");
     expect(isSettingsTabAllowed("api", admin)).toBe(true);
     expect(isSettingsTabAllowed("api", noPermissions)).toBe(false);
+  });
+
+  it("lar brukere med utstyrstilgang åpne utstyrsfanen", () => {
+    const equipment: SettingsTabPermissions = {
+      ...noPermissions,
+      canEquipment: true,
+    };
+
+    expect(chooseSettingsTab("utstyr", equipment)).toBe("utstyr");
+    expect(chooseSettingsTab(undefined, equipment)).toBe("utstyr");
   });
 
   it("lar alle innloggede åpne sikkerhetsfanen", () => {

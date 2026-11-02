@@ -16,7 +16,8 @@
       "departments": "Departments",
       "security": "Security",
       "map": "Map",
-      "api": "API keys"
+      "api": "API keys",
+      "equipment": "Equipment"
     },
     "branding": {
       "title": "White-label settings",
@@ -461,6 +462,28 @@
         "light": "Light",
         "satellite": "Satellite"
       }
+    },
+    "equipmentCategories": {
+      "title": "Equipment categories",
+      "description": "Manage categories and hierarchy for equipment and units. Categories are used when registering and filtering equipment.",
+      "createTitle": "New category",
+      "name": "Category name",
+      "namePlaceholder": "E.g. Pumps",
+      "parent": "Parent category",
+      "noParent": "No parent",
+      "create": "Create category",
+      "edit": "Edit",
+      "save": "Save",
+      "delete": "Delete",
+      "deleteConfirm": "Delete the category “{name}”?",
+      "inUse": "The category is in use and cannot be deleted.",
+      "products": "{count} units",
+      "children": "{count} subcategories",
+      "empty": "No categories have been created yet.",
+      "readOnly": "You can view categories but not change them. Contact a user with equipment editing access.",
+      "created": "Category created.",
+      "updated": "Category updated.",
+      "deleted": "Category deleted."
     }
   },
   "users": {

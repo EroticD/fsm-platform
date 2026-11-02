@@ -1356,7 +1356,7 @@
         "stepDraftIdle": "Entwurf wird automatisch gespeichert",
         "unitDetails": "Gerätedetails",
         "swipeUnitLabelMissing": "Abschluss nicht möglich: Die Einheit hat keinen Namen.",
-      "swipeCompleteHint": "Nach rechts wischen oder „Einheit abschließen“ antippen",
+        "swipeCompleteHint": "Nach rechts wischen oder „Einheit abschließen“ antippen",
         "swipeProgress": "{percent} % – weiter wischen",
         "swipeReleaseHint": "Loslassen zum Abschließen",
         "swipeReleaseShort": "Loslassen",
@@ -2239,7 +2239,8 @@
         "security": "Sicherheit",
         "map": "Karte",
         "api": "API-Schlüssel",
-        "sla": "SLA und Geschäftszeiten"
+        "sla": "SLA und Geschäftszeiten",
+        "equipment": "Ausstattung"
       },
       "branding": {
         "title": "White-Label-Einstellungen",
@@ -2778,6 +2779,28 @@
           "notFound": "Die zu ändernde Zeile wurde nicht gefunden.",
           "conflict": "Der Eintrag existiert bereits."
         }
+      },
+      "equipmentCategories": {
+        "title": "Gerätekategorien",
+        "description": "Kategorien und Hierarchie für Geräte und Einheiten verwalten. Kategorien werden beim Anlegen und Filtern von Geräten verwendet.",
+        "createTitle": "Neue Kategorie",
+        "name": "Kategoriename",
+        "namePlaceholder": "Z. B. Pumpen",
+        "parent": "Übergeordnete Kategorie",
+        "noParent": "Keine übergeordnete Kategorie",
+        "create": "Kategorie erstellen",
+        "edit": "Bearbeiten",
+        "save": "Speichern",
+        "delete": "Löschen",
+        "deleteConfirm": "Kategorie „{name}“ löschen?",
+        "inUse": "Die Kategorie wird verwendet und kann nicht gelöscht werden.",
+        "products": "{count} Einheiten",
+        "children": "{count} Unterkategorien",
+        "empty": "Es wurden noch keine Kategorien erstellt.",
+        "readOnly": "Sie können Kategorien ansehen, aber nicht ändern. Wenden Sie sich an einen Benutzer mit Bearbeitungsrechten für Geräte.",
+        "created": "Kategorie erstellt.",
+        "updated": "Kategorie aktualisiert.",
+        "deleted": "Kategorie gelöscht."
       }
     },
     "users": {

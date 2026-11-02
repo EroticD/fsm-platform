@@ -1356,7 +1356,7 @@
         "stepDraftIdle": "wersja robocza zapisuje się automatycznie",
         "unitDetails": "Szczegóły urządzenia",
         "swipeUnitLabelMissing": "Nie można zakończyć: jednostka nie ma nazwy.",
-      "swipeCompleteHint": "Przesuń w prawo lub naciśnij „Zakończ jednostkę”",
+        "swipeCompleteHint": "Przesuń w prawo lub naciśnij „Zakończ jednostkę”",
         "swipeProgress": "{percent}% – przesuń dalej",
         "swipeReleaseHint": "Puść, aby zakończyć",
         "swipeReleaseShort": "Puść",
@@ -2239,7 +2239,8 @@
         "security": "Bezpieczeństwo",
         "map": "Mapa",
         "api": "Klucze API",
-        "sla": "SLA i godziny pracy"
+        "sla": "SLA i godziny pracy",
+        "equipment": "Sprzęt"
       },
       "branding": {
         "title": "Ustawienia white label",
@@ -2778,6 +2779,28 @@
           "notFound": "Nie znaleziono elementu do zmiany.",
           "conflict": "Wpis już istnieje."
         }
+      },
+      "equipmentCategories": {
+        "title": "Kategorie sprzętu",
+        "description": "Zarządzaj kategoriami i hierarchią sprzętu oraz jednostek. Kategorie są używane podczas rejestrowania i filtrowania sprzętu.",
+        "createTitle": "Nowa kategoria",
+        "name": "Nazwa kategorii",
+        "namePlaceholder": "Np. Pompy",
+        "parent": "Kategoria nadrzędna",
+        "noParent": "Brak kategorii nadrzędnej",
+        "create": "Utwórz kategorię",
+        "edit": "Edytuj",
+        "save": "Zapisz",
+        "delete": "Usuń",
+        "deleteConfirm": "Usunąć kategorię „{name}”?",
+        "inUse": "Kategoria jest używana i nie można jej usunąć.",
+        "products": "{count} jednostek",
+        "children": "{count} podkategorii",
+        "empty": "Nie utworzono jeszcze żadnych kategorii.",
+        "readOnly": "Możesz wyświetlać kategorie, ale nie możesz ich zmieniać. Skontaktuj się z użytkownikiem mającym uprawnienia do edycji sprzętu.",
+        "created": "Kategoria została utworzona.",
+        "updated": "Kategoria została zaktualizowana.",
+        "deleted": "Kategoria została usunięta."
       }
     },
     "users": {
