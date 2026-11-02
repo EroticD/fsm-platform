@@ -205,6 +205,17 @@ export default function SettingsTabs({
             {t("searchAdmin.linkLabel")}
           </Link>
         )}
+        {isAdmin && (
+          <Link
+            href="?tab=bevis"
+            ref={currentTab === "bevis" ? activeRef : undefined}
+            className={linkClass(currentTab === "bevis")}
+            aria-current={currentTab === "bevis" ? "page" : undefined}
+          >
+            <Icon name="folder" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.evidence")}
+          </Link>
+        )}
         {canStats && (
           <Link
             href="?tab=statistikk"

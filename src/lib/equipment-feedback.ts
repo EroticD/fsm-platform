@@ -16,6 +16,7 @@ const EQUIPMENT_ERROR_FALLBACKS: Record<ServiceError, string> = {
   file_not_found: "assets.errors.notFound",
   customer_not_found: "assets.errors.notFound",
   deadline_passed: "assets.errors.generic",
+  too_large: "assets.errors.generic",
 };
 
 /** Oversetter en tjenestefeil til en i18n-nøkkel under `assets.errors`. */

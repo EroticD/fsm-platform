@@ -17,7 +17,8 @@
       "security": "Security",
       "map": "Map",
       "api": "API keys",
-      "equipment": "Equipment"
+      "equipment": "Equipment",
+      "evidence": "Evidence"
     },
     "branding": {
       "title": "White-label settings",
@@ -86,7 +87,35 @@
       "fromDate": "From date",
       "toDate": "To date",
       "search": "Search",
-      "reset": "Reset"
+      "reset": "Reset",
+      "retentionTitle": "Retention and export",
+      "retentionDesc": "Audit logs older than the retention period are purged automatically. Rows under legal hold are kept. 0 turns automatic purging off.",
+      "retentionDays": "Days",
+      "save": "Save",
+      "retentionSaved": "The retention period has been saved.",
+      "exportTitle": "Export audit log",
+      "exportDesc": "Downloads a ZIP archive with a SHA-256 manifest and hash chain. The export itself is audited.",
+      "exportButton": "Download archive",
+      "holdTitle": "Legal hold",
+      "holdDesc": "Protect an audit row or a whole entity from automatic purging. The history itself is not changed.",
+      "holdLogId": "Log ID",
+      "holdReason": "Reason (required)",
+      "holdSet": "Set hold",
+      "holdRelease": "Release",
+      "holdSaved": "The legal hold has been recorded.",
+      "holdReleased": "The legal hold has been released.",
+      "holdError": "The action could not be completed. Check the details."
+    },
+    "evidence": {
+      "title": "Work order evidence package",
+      "desc": "Download one work order with customer, reports, revisions, attachments and relevant audit rows. The package is sealed with a SHA-256 manifest and can be verified offline.",
+      "empty": "There are no work orders to export yet.",
+      "selectWorkOrder": "Select work order",
+      "selectPlaceholder": "Select a work order …",
+      "exportButton": "Download evidence package",
+      "contentsTitle": "What the package contains",
+      "contents": "work-order.json, customer.json, reports with revisions, attachments and signatures, audit/audit.jsonl, manifest.json and manifest.sha256. Missing files are listed with a reason.",
+      "verifyHint": "Verify with sha256sum -c manifest.sha256 and compare the files in manifest.json. If a file changes, verification fails."
     },
     "statistics": {
       "title": "Statistics",

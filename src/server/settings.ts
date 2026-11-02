@@ -123,6 +123,14 @@ export async function getAuditLogPage(
   const page = Math.max(1, params.page);
   const where: Prisma.AuditLogWhereInput = {};
 
+  // Samme avdelingssperre som resten av innstillingene: administrator ser alt,
+  // andre ser bare hendelser fra egen avdeling. Eldre rader uten avdeling er
+  // bare synlige for administrator, slik at en slettet eller ukjent avdeling
+  // ikke lekker historikk.
+  if (!isAdminActor(actor)) {
+    where.departmentId = actor.departmentId ?? { in: [] };
+  }
+
   const searchQuery = params.search.trim();
   if (searchQuery) {
     where.OR = [

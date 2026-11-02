@@ -40,7 +40,8 @@ export type ServiceError =
   | "invalid_logo"
   | "file_not_found"
   | "customer_not_found"
-  | "deadline_passed";
+  | "deadline_passed"
+  | "too_large";
 
 export type ServiceFailure = {
   ok: false;
@@ -63,7 +64,12 @@ export function fail(reason: ServiceError, details?: unknown): ServiceFailure {
 
 /** Aktørformatet revisjonsloggen lagrer. */
 export function toAuditActor(actor: ServiceActor): AuditActor {
-  return { id: actor.id, name: actor.name, email: actor.email };
+  return {
+    id: actor.id,
+    name: actor.name,
+    email: actor.email,
+    departmentId: actor.departmentId,
+  };
 }
 
 export function can(actor: ServiceActor, permission: Permission): boolean {

@@ -2286,7 +2286,8 @@
         "map": "Mapa",
         "api": "Klucze API",
         "sla": "SLA i godziny pracy",
-        "equipment": "Sprzęt"
+        "equipment": "Sprzęt",
+        "evidence": "Dowody"
       },
       "branding": {
         "title": "Ustawienia white label",
@@ -2355,7 +2356,35 @@
         "fromDate": "Data od",
         "toDate": "Data do",
         "search": "Szukaj",
-        "reset": "Resetuj"
+        "reset": "Resetuj",
+        "retentionTitle": "Przechowywanie i eksport",
+        "retentionDesc": "Wpisy w dzienniku starsze niż okres przechowywania są automatycznie usuwane. Wiersze objęte obowiązkiem przechowywania pozostają. 0 wyłącza automatyczne usuwanie.",
+        "retentionDays": "Dni",
+        "save": "Zapisz",
+        "retentionSaved": "Okres przechowywania został zapisany.",
+        "exportTitle": "Eksportuj dziennik",
+        "exportDesc": "Pobiera archiwum ZIP z manifestem SHA-256 i łańcuchem skrótów. Eksport jest rejestrowany w dzienniku.",
+        "exportButton": "Pobierz archiwum",
+        "holdTitle": "Obowiązek przechowywania",
+        "holdDesc": "Chroni wiersz dziennika lub cały obiekt przed automatycznym usunięciem. Sama historia nie jest zmieniana.",
+        "holdLogId": "Identyfikator wpisu",
+        "holdReason": "Powód (wymagany)",
+        "holdSet": "Ustaw blokadę",
+        "holdRelease": "Zwolnij",
+        "holdSaved": "Obowiązek przechowywania został zapisany.",
+        "holdReleased": "Obowiązek przechowywania został zwolniony.",
+        "holdError": "Nie udało się wykonać operacji. Sprawdź dane."
+      },
+      "evidence": {
+        "title": "Pakiet dowodowy dla zlecenia",
+        "desc": "Pobiera jedno zlecenie z klientem, raportami, wersjami, załącznikami i powiązanymi wpisami dziennika. Pakiet jest opieczętowany manifestem SHA-256 i można go zweryfikować offline.",
+        "empty": "Nie ma jeszcze zleceń do wyeksportowania.",
+        "selectWorkOrder": "Wybierz zlecenie",
+        "selectPlaceholder": "Wybierz zlecenie …",
+        "exportButton": "Pobierz pakiet dowodowy",
+        "contentsTitle": "Zawartość pakietu",
+        "contents": "work-order.json, customer.json, raporty z wersjami, załączniki i podpisy, audit/audit.jsonl, manifest.json i manifest.sha256. Brakujące pliki są wymienione z powodem.",
+        "verifyHint": "Zweryfikuj poleceniem sha256sum -c manifest.sha256 i porównaj pliki z manifest.json. Zmiana pliku powoduje błąd weryfikacji."
       },
       "statistics": {
         "title": "Statystyki",

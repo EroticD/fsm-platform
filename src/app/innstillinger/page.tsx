@@ -12,6 +12,7 @@ import CalendarFeedSettings from "@/components/CalendarFeedSettings";
 import TemplatesTab from "@/components/settings/TemplatesTab";
 import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
+import EvidenceExportTab from "@/components/settings/EvidenceExportTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import ApiKeysTab from "@/components/settings/ApiKeysTab";
@@ -33,6 +34,11 @@ import {
   getStatistics,
 } from "@/server/settings";
 import { listApiKeys } from "@/server/api-keys";
+import {
+  getAuditRetentionView,
+  listAuditHolds,
+} from "@/server/audit-retention";
+import { listEvidenceCandidates } from "@/server/evidence-export";
 import { getSlaSettingsView } from "@/server/sla";
 import { getSmsSettingsView } from "@/server/sms";
 import { getDispatchSettings } from "@/server/dispatch";
@@ -56,7 +62,15 @@ import {
   deleteEquipmentCategoryAction,
   updateEquipmentCategoryAction,
 } from "./equipment-category-actions";
-import { createApiKeyAction, revokeApiKeyAction } from "./api-actions";
+import {
+  createApiKeyAction,
+  revokeApiKeyAction,
+} from "./api-actions";
+import {
+  releaseAuditHoldAction,
+  saveAuditRetentionAction,
+  setAuditHoldAction,
+} from "./audit-actions";
 import {
   addPriceListItemAction,
   createPriceListAction,
@@ -225,6 +239,19 @@ export default async function SettingsPage({
           dateTo,
           page,
         })
+      : null;
+
+  const auditRetention =
+    currentTab === "auditlog" && canAudit && isAdmin
+      ? await getAuditRetentionView(user)
+      : null;
+  const auditHolds =
+    currentTab === "auditlog" && canAudit && isAdmin
+      ? await listAuditHolds(user)
+      : null;
+  const evidenceCandidates =
+    currentTab === "bevis" && isAdmin
+      ? await listEvidenceCandidates(user)
       : null;
 
   const mapSettings =
@@ -421,7 +448,30 @@ export default async function SettingsPage({
             search={searchQuery}
             dateFrom={dateFrom}
             dateTo={dateTo}
+            canManageAudit={isAdmin}
+            retentionDays={
+              auditRetention?.ok
+                ? auditRetention.data.retentionDays
+                : null
+            }
+            holds={auditHolds?.ok ? auditHolds.data : []}
+            message={
+              resolvedParams.error
+                ? `error:${resolvedParams.error}`
+                : resolvedParams.ok
+                  ? `ok:${resolvedParams.ok}`
+                  : null
+            }
+            saveRetention={
+              isAdmin ? saveAuditRetentionAction : undefined
+            }
+            setHold={isAdmin ? setAuditHoldAction : undefined}
+            releaseHold={isAdmin ? releaseAuditHoldAction : undefined}
           />
+        )}
+
+        {currentTab === "bevis" && isAdmin && evidenceCandidates?.ok && (
+          <EvidenceExportTab candidates={evidenceCandidates.data} />
         )}
 
         {/* FANE 5: STATISTIKK (AVDELINGSBEGRENSET) */}
