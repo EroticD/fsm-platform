@@ -985,6 +985,69 @@ describe("reports-tjenesten", () => {
     });
   });
 
+  it("oppretter ikke nye enheter når et påkrevd bilde mangler", async () => {
+    const imageTemplate = {
+      ...template,
+      fieldsJson: JSON.stringify([
+        { id: "f_image", type: "IMAGE", label: "Bilde", required: true },
+      ]),
+    };
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      customerId: "cust-1",
+      templates: [imageTemplate],
+    });
+
+    const result = await submitReport(actor(), formData());
+
+    expect(result).toMatchObject({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.product.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("beholder bindestrek i serienummer og oppretter én enhet per rad", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      ...workOrder(),
+      customerId: "cust-1",
+    });
+    mocks.prisma.report.findUnique.mockResolvedValue(null);
+    mocks.prisma.product.findFirst.mockResolvedValue(null);
+    mocks.prisma.product.create
+      .mockResolvedValueOnce({ id: "prod-40" })
+      .mockResolvedValueOnce({ id: "prod-41" });
+    const tx = withTransaction();
+    const data = formData();
+    data.set(
+      "unitsJson",
+      JSON.stringify([
+        { key: "unit-0", label: "Pumpe", productId: "", serialNumber: "40-410568535", location: "" },
+        { key: "unit-1", label: "Pumpe", productId: "", serialNumber: "40-410568536", location: "" },
+      ]),
+    );
+    data.set("status__unit-1", "GODKJENT");
+    data.set("answer__unit-1__f1", "OK");
+
+    const result = await submitReport(actor(), data);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.product.create).toHaveBeenCalledTimes(2);
+    expect(mocks.prisma.product.create).toHaveBeenNthCalledWith(1, {
+      data: expect.objectContaining({ serialNumber: "40-410568535" }),
+    });
+    expect(mocks.prisma.product.create).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({ serialNumber: "40-410568536" }),
+    });
+    const units = (
+      tx.report.create as unknown as {
+        mock: { calls: Array<[{ data: { units: { create: Array<{ serialNumber: string }> } } }]> };
+      }
+    ).mock.calls[0][0].data.units.create;
+    expect(units.map((unit) => unit.serialNumber)).toEqual([
+      "40-410568535",
+      "40-410568536",
+    ]);
+  });
+
   it("bevarer tall, dato og tekst når rapporten har bildefelt", async () => {
     const mixedTemplate = {
       id: "tpl-mixed",
