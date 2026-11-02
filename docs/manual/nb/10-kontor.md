@@ -581,6 +581,50 @@ portalbrukere som har sluttet, og se over utstyr uten målinger eller med utløp
 garanti. SLA-policyer, åpningstider, helligdager og prislister forvaltes av
 administrator; be om endring ved behov.
 
+## Kundeoverføring (bare administrator)
+
+Fanen **Kundeoverføring** ligger under **Innstillinger** og vises bare for en
+aktiv administrator som også har rettigheten **Administrere innstillinger**.
+Kontor, montører og kundeportalbrukere får `403` også om de kaller ruten direkte.
+Fanen brukes til å flytte én eller flere kunder mellom installasjoner – den er
+ikke en sikkerhetskopi.
+
+**Eksport**
+
+1. Åpne **Innstillinger → Kundeoverføring**, søk opp kunden og kryss av.
+2. Velg om filer, revisjonssnapshot, slettede rader og bevaringsplikt skal med.
+   Signaturbilder er av som standard og krever en egen, dokumentert vurdering.
+3. Les personopplysningsvarselet og kryss av bekreftelsen.
+4. Trykk **Start eksport**. Du får en ZIP med `manifest.json`,
+   `checksums.sha256`, datafiler og filer. Pakken er tilgjengelig i 24 timer og
+   kan bare lastes ned av deg.
+5. Verifiser gjerne manuelt med `sha256sum -c checksums.sha256`. Sjekksummene
+   oppdager korrupsjon, men beviser ikke hvem som lagde pakken.
+
+Pakken inneholder aldri passord, passordhasher, 2FA-hemmeligheter, sesjoner
+eller API-nøkler. Portalerbrukere følger med som metadata og importeres
+deaktivert uten passord.
+
+**Import**
+
+1. Last opp ZIP-en. Serveren validerer struktur, sjekksummer, filtyper og
+   referanser, og viser en forhåndsvisning. Ingenting skrives ennå.
+2. Kontroller antall, advarsler og feil. Feil blokkerer importen. For
+   konflikter velger du **hopp over** (standard), **opprett ny** eller – for
+   kunde og utstyr – **oppdater**. Rapporter oppdateres aldri.
+3. Kryss av bekreftelsen og trykk **Importer pakken**. Alle rader og filer
+   skrives i én transaksjon; feiler noe, blir databasen uendret og midlertidige
+   filer ryddes.
+4. Etter importen får hver portalerbruker ny id, er deaktivert og mangler
+   passord. Send vanlig invitasjon eller tilbakestill passord før innlogging.
+   Ansatte og maler opprettes aldri automatisk.
+
+**Begrensninger:** Pakken er begrenset til 500 MiB og 50 MiB per fil, og
+eksporten kjører synkront. Globale dokumenter uten kunde-/utstyrseier følger
+ikke med. Signaturer, SLA-klokker, bookinger, varsler, SMS, sporing og
+rapportkladder er bevisst utelatt. Se `docs/backlog-customer-export-import.md`
+for full liste.
+
 ## Grensesnitt mot tekniker- og administratordelen
 
 | Kontoret gjør | Teknikeren gjør | Hvor det står |

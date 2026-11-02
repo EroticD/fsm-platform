@@ -10,9 +10,10 @@ const nextConfig: NextConfig = {
 
   // Middleware (proxy.ts) begrenser forespørselens body til 10 MB som standard.
   // Store PDF-filer overstiger dette, og da blir multipart-bodyen avkuttet før
-  // den når opplastingsruten. Øker grensen så store dokumenter kommer gjennom.
+  // den når opplastingsruten. Kundeimport tar imot en ZIP på opptil 500 MiB,
+  // så grensen heves til 512 MiB (hard grense i customer-transfer/constants.ts).
   experimental: {
-    proxyClientMaxBodySize: 100 * 1024 * 1024, // 100 MB
+    proxyClientMaxBodySize: 512 * 1024 * 1024,
 
     // Rapporter sendes som server action med signaturbilder som data-URL-er.
     // Standardgrensen på 1 MB er for lav for to signaturer + skjemafelt, og

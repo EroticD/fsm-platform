@@ -20,6 +20,7 @@ type SettingsTabsProps = {
   canSms: boolean;
   canDispatch: boolean;
   isAdmin: boolean;
+  canCustomerTransfer: boolean;
 };
 
 const linkClass = (active: boolean) =>
@@ -65,6 +66,7 @@ export default function SettingsTabs({
   canSms,
   canDispatch,
   isAdmin,
+  canCustomerTransfer,
 }: SettingsTabsProps) {
   const t = useTranslations("common");
   const navRef = useRef<HTMLElement>(null);
@@ -291,6 +293,17 @@ export default function SettingsTabs({
           >
             <ApiKeyIcon className="h-4 w-4 shrink-0" />
             {t("settings.tabs.api")}
+          </Link>
+        )}
+        {canCustomerTransfer && (
+          <Link
+            href="?tab=kundeoverforing"
+            ref={currentTab === "kundeoverforing" ? activeRef : undefined}
+            className={linkClass(currentTab === "kundeoverforing")}
+            aria-current={currentTab === "kundeoverforing" ? "page" : undefined}
+          >
+            <Icon name="folder" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.customerTransfer")}
           </Link>
         )}
         <Link

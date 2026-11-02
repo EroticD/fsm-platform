@@ -247,6 +247,7 @@ model Customer {
   attachments      CustomerAttachment[]
   maintenancePlans MaintenancePlan[]
   messageThreads   MessageThread[]
+  documents        Document[]
 
   users User[]
 
@@ -404,6 +405,7 @@ model Product {
 
   meterReadings    MeterReading[]
   maintenancePlans MaintenancePlan[]
+  documents        Document[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -1263,6 +1265,15 @@ model Document {
   folderId String?
   folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
+  // Eierskap for kundedokumenter. Den globale dokumentmappen kan inneholde
+  // dokumenter uten eier; de eksporteres aldri som en del av en kundepakke.
+  // `customerId`/`productId` settes bare når eierskapet er kjent, aldri gjettet
+  // fra tittel eller filnavn.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  productId  String?
+  product    Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
   tags DocumentTag[] @relation("DocumentTagRelation")
 
   uploadedBy String?
@@ -1274,6 +1285,8 @@ model Document {
   versions DocumentVersion[]
 
   @@index([folderId])
+  @@index([customerId])
+  @@index([productId])
   @@index([title])
   @@index([deletedAt])
   @@index([searchTsv], type: Gin, map: "Document_searchTsv")
@@ -1615,6 +1628,81 @@ model AuditPurgedHash {
   hash     String   @id
   purgedAt DateTime @default(now())
   reason   String?
+}
+
+/// Vedvarende jobb for admin-eksport/import av en kundepakke.
+///
+/// Raden er både tilstand og revisjonsspor. JSON-feltene skal bare inneholde
+/// id-er, antall, tilstander og stabile feilkoder – aldri kundedata, fritekst
+/// eller filinnhold. Selve pakken ligger i en tilgangsbegrenset staging-mappe
+/// og slettes når `expiresAt` er passert.
+model CustomerTransferJob {
+  id     String @id @default(cuid())
+  actorId String
+  /// EXPORT | IMPORT
+  kind   String
+  /// PENDING | STAGED | DRY_RUN | READY | COMPLETED | FAILED | ABORTED | EXPIRED
+  status String @default("PENDING")
+
+  /// SHA-256 av hele ZIP-filen. Bindes til forhåndsvisningen og bekreftelsen.
+  packageChecksum String?
+  sourceInstanceId String?
+  schemaVersion    String?
+  /// Valgte kundekilder (eksport) eller kilder i pakken (import), bare id-er.
+  customerIdsJson  Json?
+  /// Per-entitet antall og handlinger; ingen navn eller fritekst.
+  countsJson       Json?
+  /// Stabile feilkoder med JSON-peker. Ingen rå feilmeldinger eller PII.
+  errorJson        Json?
+  resultJson       Json?
+
+  progressStage     String?
+  progressProcessed Int @default(0)
+  progressTotal     Int @default(0)
+
+  /// Kortlevd, hash-et forhåndsvisningstoken bundet til aktør, jobb og sjekksum.
+  previewTokenHash String?
+  previewExpiresAt DateTime?
+  /// Fingeravtrykk av målbasen ved forhåndsvisning, for å oppdage endringer.
+  targetFingerprint String?
+
+  /// Mappe under uploadDir()/.transfer. Slettes etter fullført/avbrutt/utløpt jobb.
+  stagingPath String?
+  expiresAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  updatedAt   DateTime @updatedAt
+
+  records CustomerTransferRecord[]
+
+  @@index([actorId, createdAt])
+  @@index([kind, status])
+  @@index([expiresAt])
+  @@index([packageChecksum])
+}
+
+/// Anvendt kilde→mål-mapping per importjobb.
+///
+/// Gjør det mulig å svare «allerede importert» ved en ny import av samme pakke
+/// og bevarer proveniens uten å legge en `sourceId`-kolonne på hver domeneTabell.
+model CustomerTransferRecord {
+  id               String @id @default(cuid())
+  jobId            String
+  job              CustomerTransferJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceInstanceId String
+  sourceEntityType String
+  sourceId         String
+  targetEntityType String
+  targetId         String?
+  /// CREATE | SKIP | UPDATE | CONFLICT | INVALID
+  action           String
+  createdAt        DateTime @default(now())
+
+  @@unique([jobId, sourceInstanceId, sourceEntityType, sourceId])
+  @@index([sourceInstanceId, sourceEntityType, sourceId])
+  @@index([jobId, action])
 }
 
 model Notification {

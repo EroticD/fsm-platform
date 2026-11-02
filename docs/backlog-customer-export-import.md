@@ -1,23 +1,61 @@
 # Backlog — Admin export and import of customers
 
-> **STATUS: NOT STARTED — BACKLOG ONLY**
+> **STATUS: v1 IMPLEMENTED — SEE LIMITATIONS**
 >
-> This document specifies future functionality. It is **not** a description of
-> shipped behaviour, and no export/import feature, schema, route, service, UI or
-> test for it exists at the time of writing (HEAD `e53fa9a`, app version 0.8.5).
-> Do not claim in UI, release notes, manual or API docs that this feature exists
-> before every acceptance criterion below is met and verified against a real
-> PostgreSQL database.
+> The v1 transfer feature described here is implemented in `feat/cust-export`
+> (schema migration `20261103120000_customer_transfer`, services under
+> `src/lib/customer-transfer/` and `src/server/customer-transfer.ts`, settings
+> tab `kundeoverforing`, and internal routes under
+> `/api/innstillinger/kunder/`). It has been exercised by unit tests and by a
+> real-PostgreSQL integration suite that exports a synthetic dossier, imports it
+> into a cleaned target, verifies new IDs/relations/files, repeats the import,
+> and rejects malformed/checksum/path-traversal/missing-file packages without
+> writes.
 >
-> The customer portal already has a small CSV export at
-> `src/app/api/kundeportal/export/route.ts`. That is an unrelated, customer-facing
-> "my work orders" export and must not be extended into this admin feature.
+> **Honest v1 limitations (not silently dropped):**
+>
+> - **Synchronous, in-memory jobs.** Export/import runs in the request process
+>   and the ZIP is buffered in memory. Durable job rows record state, but there
+>   is no async worker, resume-after-crash or progress streaming. Package limit
+>   is therefore 500 MiB in total and 50 MiB per file. A process crash between
+>   the file move and the DB commit can leave unreferenced files; v1 cleans
+>   staging automatically but does not run a background reconciliation of final
+>   `/uploads` files. Operators should compare the filesystem against `Upload`
+>   rows after a crash during import.
+> - **No package encryption or signature.** SHA-256 checksums detect corruption,
+>   not tampering. ZIP passwords are deliberately rejected; confidentiality
+>   relies on authenticated HTTPS, ephemeral staging (24 h) and restrictive
+>   permissions. Envelope encryption is future work.
+> - **Signatures excluded by default.** Signature images are included only when
+>   the admin explicitly opts in; the default package sets `signatureExcluded`
+>   and relies on the cached PDF. The legal basis for signatures/HMS data must
+>   be assessed before enabling the option.
+> - **Audit snapshot is provenance only.** Source audit rows are exported to
+>   `data/audit-snapshot.json` (cap 5 000 rows) and referenced from
+>   `provenance/audit.json`; they are never copied into the target `AuditLog`.
+>   The target gets one `CustomerTransfer` audit entry for the import itself.
+> - **One schema major version.** Only `1.x` is accepted; there are no
+>   cross-version migrators, and unknown future majors are rejected.
+> - **No equipment attachment version model.** Equipment `Upload` rows are
+>   transferred as distinct attachments; versions are not inferred from time.
+> - **Document ownership is nullable.** Only documents with `customerId` or
+>   `productId` are exported. Unowned/global documents are excluded and are
+>   never guessed from title or filename.
+> - **Conflict updates are narrow.** Only customer and equipment fields can be
+>   updated; reports are never updated, and contacts/sites/contracts/work
+>   orders/plans/readings/documents/uploads are skip-or-new.
+> - **Not exposed on `/api/v1`.** Routes are internal, admin-session-only and
+>   intentionally unavailable to API keys or the customer portal.
+> - **No SLA clocks, booking workflow, notifications, SMS, tracking pings,
+>   reviews, drafts or offline/outbox data.** These remain explicit non-goals
+>   (§5.11) rather than partial imports.
+>
+> The customer portal CSV export at
+> `src/app/api/kundeportal/export/route.ts` is still unrelated and untouched.
 
 **Created:** 2026-11-02
 **Owner:** Platform/admin
-**Type:** Backlog specification for future workers
-**Prerequisites:** None implemented. Requires new database objects, a package
-service, an import job runner, admin UI and real-database tests.
+**Type:** Backlog specification (v1 implemented, limitations above)
 
 ## 0. How a future worker should use this document
 

@@ -24,6 +24,8 @@ export type ZipEntry = {
   data: Buffer;
   method: number;
   crc32: number;
+  /** Komprimert størrelse fra sentralkatalogen. Brukes til bombekontroll. */
+  compressedSize: number;
 };
 
 const LOCAL_FILE_HEADER = 0x04034b50;
@@ -33,6 +35,7 @@ const UTF8_FLAG = 0x0800;
 const MAX_ENTRY_BYTES = 100 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 500 * 1024 * 1024;
 const MAX_ENTRIES = 20_000;
+const MAX_COMPRESSION_RATIO = 100;
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -130,6 +133,13 @@ export function createZip(entries: readonly ZipEntryInput[]): Buffer {
     const crc = crc32(data);
     const compressed = deflateRawSync(data, { level: 9 });
     const useDeflate = compressed.length < data.length;
+    if (
+      useDeflate &&
+      compressed.length > 0 &&
+      data.length / compressed.length > MAX_COMPRESSION_RATIO
+    ) {
+      throw new Error(`Kompresjonsforholdet er for høyt for ${entry.path}`);
+    }
     const payload = useDeflate ? compressed : data;
     const method = useDeflate ? 8 : 0;
     const { time, date } = dosDateTime(
@@ -211,6 +221,11 @@ export function readZip(buffer: Buffer): ZipEntry[] {
   }
   const endOffset = findEndOfCentralDirectory(buffer);
   if (endOffset < 0) throw new Error("Fant ikke ZIP-sentralkatalogen");
+  // Arkivet skal slutte nøyaktig ved EOCD. Data etter sentralkatalogen kan
+  // være en sammenslått eller manipulert ZIP og avvises.
+  if (endOffset + 22 !== buffer.length) {
+    throw new Error("Ugyldig ZIP-arkiv");
+  }
 
   const entryCount = buffer.readUInt16LE(endOffset + 10);
   if (entryCount > MAX_ENTRIES) throw new Error("For mange filer i arkivet");
@@ -220,10 +235,23 @@ export function readZip(buffer: Buffer): ZipEntry[] {
   const entries: ZipEntry[] = [];
   let totalBytes = 0;
   let cursor = centralOffset;
+  const seenPaths = new Set<string>();
 
   for (let index = 0; index < entryCount; index += 1) {
     if (cursor + 46 > buffer.length || buffer.readUInt32LE(cursor) !== CENTRAL_DIRECTORY) {
       throw new Error("Ugyldig oppføring i sentralkatalogen");
+    }
+    const flags = buffer.readUInt16LE(cursor + 8);
+    // Bit 0 markerer krypterte oppføringer. V1 støtter ikke krypterte ZIP-er;
+    // en «passordbeskyttet» ZIP er svak kryptering og avvises bevisst.
+    if ((flags & 0x0001) !== 0) {
+      throw new Error("Krypterte arkiv støttes ikke");
+    }
+    // Unix-modus ligger i de øvre 16 bitene av external attributes. Symlinker
+    // (0xA000) skal aldri pakkes ut eller følges.
+    const unixMode = (buffer.readUInt32LE(cursor + 38) >>> 16) & 0xffff;
+    if ((unixMode & 0xf000) === 0xa000) {
+      throw new Error("Symlink i arkivet støttes ikke");
     }
     const method = buffer.readUInt16LE(cursor + 10);
     const crc = buffer.readUInt32LE(cursor + 16);
@@ -240,6 +268,10 @@ export function readZip(buffer: Buffer): ZipEntry[] {
     if (!isSafeZipPath(entryPath)) {
       throw new Error(`Utrygg filbane i arkivet: ${entryPath}`);
     }
+    if (seenPaths.has(entryPath)) {
+      throw new Error(`Duplikat filbane i arkivet: ${entryPath}`);
+    }
+    seenPaths.add(entryPath);
 
     if (localOffset + 30 > buffer.length) throw new Error("Ugyldig lokal header");
     if (buffer.readUInt32LE(localOffset) !== LOCAL_FILE_HEADER) {
@@ -264,11 +296,25 @@ export function readZip(buffer: Buffer): ZipEntry[] {
     if (data.length !== uncompressedSize || data.length > MAX_ENTRY_BYTES) {
       throw new Error("Feil størrelse i arkivet");
     }
+    // Kompresjonsbombe: svært høy ratio regnes som ondsinnet. JSON komprimeres
+    // typisk 5–20x, så 100:1 er romslig for legitime pakker.
+    if (
+      compressedSize > 0 &&
+      data.length / compressedSize > MAX_COMPRESSION_RATIO
+    ) {
+      throw new Error(`Kompresjonsforholdet er for høyt for ${entryPath}`);
+    }
     if (crc32(data) !== crc) throw new Error(`CRC-feil for ${entryPath}`);
     totalBytes += data.length;
     if (totalBytes > MAX_TOTAL_BYTES) throw new Error("Arkivet er for stort");
 
-    entries.push({ path: entryPath, data, method, crc32: crc });
+    entries.push({
+      path: entryPath,
+      data,
+      method,
+      crc32: crc,
+      compressedSize,
+    });
     cursor = nameEnd + extraLength + commentLength;
   }
 
