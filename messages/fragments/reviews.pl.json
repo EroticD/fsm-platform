@@ -1,0 +1,21 @@
+{
+  "reviews": {
+    "title": "Opinie klientów",
+    "subtitle": "Przesłane opinie klientów, ograniczone do zleceń, do których masz dostęp.",
+    "back": "Powrót do pulpitu",
+    "average": "Średnia",
+    "count": "Liczba opinii",
+    "thisPage": "Na tej stronie",
+    "empty": "Brak opinii",
+    "emptyHint": "Opinie pojawią się tutaj, gdy klienci odpowiedzą na prośby.",
+    "score": "{score} z 5",
+    "noCustomer": "Bez klienta",
+    "openOrder": "Otwórz zlecenie",
+    "noComment": "Klient nie zostawił komentarza.",
+    "showing": "Wyświetlono {shown} z {total} opinii",
+    "loadError": "Nie udało się pobrać opinii.",
+    "railTitle": "Opinie klientów",
+    "averageShort": "śr.",
+    "openList": "Zobacz wszystkie opinie"
+  }
+}

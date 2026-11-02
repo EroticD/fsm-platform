@@ -45,7 +45,10 @@ describe("searchDocuments", () => {
     expect(sql.text).toMatch(
       /SELECT\s+d\."id",\s+d\."title",\s+d\."description",\s+d\."fileName",\s+d\."filePath",\s+CASE/,
     );
-    expect(sql.text).not.toContain("pageTexts");
+    // Sideteksten brukes bare i databasen for å finne riktig PDF-side.
+    expect(sql.text).toContain("pageTexts");
+    expect(sql.text).toContain('AS "page"');
+    expect(sql.text).toContain("jsonb_array_elements");
   });
 
   it("sender søkeordet som parameter, ikke som SQL-tekst", async () => {

@@ -57,6 +57,10 @@ import smsNb from "../../messages/fragments/sms.nb.json";
 import smsEn from "../../messages/fragments/sms.en.json";
 import smsPl from "../../messages/fragments/sms.pl.json";
 import smsDe from "../../messages/fragments/sms.de.json";
+import reviewsNb from "../../messages/fragments/reviews.nb.json";
+import reviewsEn from "../../messages/fragments/reviews.en.json";
+import reviewsPl from "../../messages/fragments/reviews.pl.json";
+import reviewsDe from "../../messages/fragments/reviews.de.json";
 
 type Messages = Record<string, unknown>;
 
@@ -106,6 +110,7 @@ const nbFragments = mergeAll([
   bookingNb,
   trackingNb,
   smsNb,
+  reviewsNb,
 ]);
 
 const enFragments = mergeAll([
@@ -130,6 +135,7 @@ const enFragments = mergeAll([
   bookingEn,
   trackingEn,
   smsEn,
+  reviewsEn,
 ]);
 
 /**
@@ -144,6 +150,7 @@ const plFragments = mergeAll([
   trackingPl,
   smsPl,
   portalExpansionPl,
+  reviewsPl,
 ]);
 const deFragments = mergeAll([
   p4De,
@@ -152,6 +159,7 @@ const deFragments = mergeAll([
   trackingDe,
   smsDe,
   portalExpansionDe,
+  reviewsDe,
 ]);
 
 export const messages = {

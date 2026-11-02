@@ -20,6 +20,8 @@ export type DocumentSearchRow = {
   fileName: string;
   filePath: string;
   snippet: string | null;
+  /** Første side i PDF-en der søket matcher indeksert sidetekst. */
+  page?: number | null;
   /** ts_rank fra fulltekstsøket, når det finnes. */
   score?: number;
   /** Antall treff før LIMIT. */
@@ -576,6 +578,23 @@ export async function searchDocuments(
     ELSE left(coalesce(nullif(d."description", ''), d."title", ''), 160)
   END`;
 
+  // Sideteksten ligger som JSON på dokumentet. Vi finner første side som
+  // matcher den samme tsqueryen, uten å sende hele pageTexts til Node.
+  const matchingPage = Prisma.sql`(
+    SELECT (element->>'page')::int
+    FROM jsonb_array_elements(
+      CASE
+        WHEN d."pageTexts" IS NULL OR btrim(d."pageTexts") = ''
+          THEN '[]'::jsonb
+        ELSE d."pageTexts"::jsonb
+      END
+    ) AS element
+    WHERE numnode(q.tsq) > 0
+      AND to_tsvector('norwegian', coalesce(element->>'text', '')) @@ q.tsq
+    ORDER BY (element->>'page')::int
+    LIMIT 1
+  )`;
+
   const score = Prisma.sql`GREATEST(
     ts_rank(d."searchTsv", q.tsq) * 4,
     similarity(coalesce(d."fileName", ''), ${rawQuery}),
@@ -599,6 +618,7 @@ export async function searchDocuments(
       d."fileName",
       d."filePath",
       ${headline} AS "snippet",
+      ${matchingPage} AS "page",
       ${score} AS "score",
       COUNT(*) OVER() AS "total"
     FROM "Document" d, q

@@ -3,7 +3,13 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { parseDateOnly, toDateOnly, todayInOslo } from "@/lib/dates";
+import {
+  formatDateLocalized,
+  parseDateOnly,
+  toDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
+import { sendBookingNotification } from "@/lib/email";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { addressHash, geocodeAddress } from "@/lib/geocode";
 import { staffForDepartment } from "@/lib/access";
@@ -235,6 +241,89 @@ async function resolveBookingSite(
     metadata: { siteId: site.id, fromBooking: true },
   });
   return site.id;
+}
+
+/** Stabil revisjonsnøkkel som også brukes som idempotensmarkør for e-post. */
+const BOOKING_EMAIL_AUDIT_ACTION = "Sendte bestillingsbekreftelse på e-post";
+
+/**
+ * Beste-forsøk bekreftelse etter at bookingen er committet. SMTP-feil skal
+ * aldri rulle tilbake bookingen, og revisjonsraden gjør gjentatte kall
+ * idempotente uten å kreve en egen migrering.
+ */
+async function sendBookingConfirmationEmail(input: {
+  actor: ServiceActor;
+  workOrderId: string;
+  reference: string;
+  departmentId: string;
+  customerId: string;
+  customerName: string;
+  title: string;
+  description: string;
+  schedule: BookingSchedule;
+}): Promise<void> {
+  try {
+    const alreadySent = await prisma.auditLog.findFirst({
+      where: {
+        entityType: "WorkOrder",
+        entityId: input.workOrderId,
+        action: BOOKING_EMAIL_AUDIT_ACTION,
+      },
+      select: { id: true },
+    });
+    if (alreadySent) return;
+
+    let contactEmail = input.actor.email?.trim() || null;
+    let locale = "nb";
+    if (input.actor.contactId) {
+      const contact = await prisma.contact.findFirst({
+        where: { id: input.actor.contactId, customerId: input.customerId },
+        select: { email: true, locale: true },
+      });
+      contactEmail = contact?.email?.trim() || contactEmail;
+      locale = contact?.locale || locale;
+    }
+
+    const result = await sendBookingNotification(
+      input.departmentId,
+      contactEmail,
+      {
+        title: input.title,
+        description: input.description,
+        customerName: input.customerName,
+        bookedBy: input.actor.name || input.actor.email || "Kunde",
+        locale,
+        reference: input.reference,
+        date: formatDateLocalized(input.schedule.requestedDate, locale),
+        time:
+          input.schedule.requestedFrom && input.schedule.requestedTo
+            ? `${input.schedule.requestedFrom}–${input.schedule.requestedTo}`
+            : null,
+      },
+    );
+
+    const delivered = contactEmail
+      ? result.customerSent
+      : result.officeSent > 0;
+    if (delivered) {
+      await prisma.auditLog.create({
+        data: {
+          entityType: "WorkOrder",
+          entityId: input.workOrderId,
+          action: BOOKING_EMAIL_AUDIT_ACTION,
+          userName: input.actor.name || input.actor.email || "Ukjent",
+          actorId: input.actor.id || null,
+          metadata: {
+            customerSent: result.customerSent,
+            officeSent: result.officeSent,
+          },
+        },
+      });
+    }
+  } catch (error) {
+    // E-post er en sideeffekt. Bookingen er allerede lagret og skal bestå.
+    console.error("Kunne ikke sende bestillingsbekreftelse:", error);
+  }
 }
 
 /** Fristen for å be om ny tid på bestillingen. */
@@ -919,6 +1008,18 @@ export async function createBooking(
   } catch (error) {
     console.error("Kunne ikke legge bestillingsvarsel i køen:", error);
   }
+
+  await sendBookingConfirmationEmail({
+    actor,
+    workOrderId: created.id,
+    reference: created.reference,
+    departmentId,
+    customerId,
+    customerName: customer.name,
+    title,
+    description,
+    schedule: schedule.data,
+  });
 
   return ok(created);
 }

@@ -14,6 +14,7 @@ import {
 } from "@/server/equipment";
 import {
   createMaintenancePlan,
+  deleteMaintenancePlan,
   updateMaintenancePlan,
 } from "@/server/maintenance";
 
@@ -202,6 +203,53 @@ export async function toggleMaintenancePlanAction(formData: FormData) {
 
   revalidateEquipment(id, customerId);
   redirect(detailHref(id, { meldt: "plan-updated", hash: "#planer" }));
+}
+
+export async function updateMaintenancePlanAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const id = String(formData.get("id") ?? "");
+  const customerId = String(formData.get("customerId") ?? "");
+  const result = await updateMaintenancePlan(actor, {
+    id: formData.get("planId"),
+    title: formData.get("title"),
+    isActive: formData.get("isActive") === "on",
+    intervalMonths: formData.get("intervalMonths"),
+    meterInterval: formData.get("meterInterval"),
+    leadDays: formData.get("leadDays"),
+    nextDueDate: formData.get("nextDueDate"),
+  });
+
+  if (!result.ok) {
+    redirect(
+      detailHref(id, { feil: equipmentErrorParam(result), hash: "#planer" }),
+    );
+  }
+
+  revalidateEquipment(id, customerId);
+  redirect(detailHref(id, { meldt: "plan-updated", hash: "#planer" }));
+}
+
+export async function deleteMaintenancePlanAction(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const id = String(formData.get("id") ?? "");
+  const customerId = String(formData.get("customerId") ?? "");
+  const result = await deleteMaintenancePlan(
+    actor,
+    String(formData.get("planId") ?? ""),
+  );
+
+  if (!result.ok) {
+    redirect(
+      detailHref(id, { feil: equipmentErrorParam(result), hash: "#planer" }),
+    );
+  }
+
+  revalidateEquipment(id, customerId);
+  redirect(detailHref(id, { meldt: "plan-deleted", hash: "#planer" }));
 }
 
 export async function deleteEquipmentAction(formData: FormData) {

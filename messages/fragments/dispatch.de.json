@@ -149,7 +149,16 @@
       "center": "Zentrum",
       "latitude": "Breitengrad",
       "longitude": "Längengrad",
-      "saveTerritory": "Territorium hinzufügen"
+      "saveTerritory": "Territorium hinzufügen",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "editPolicy": "Regeln bearbeiten",
+      "noPolicies": "Es wurden noch keine Zuweisungsregeln hinzugefügt.",
+      "newPolicy": "Neue Zuweisungsregel",
+      "createPolicy": "Regel erstellen",
+      "saveTerritoryChanges": "Territorium speichern",
+      "newTerritory": "Neues Territorium",
+      "deleteTerritoryConfirm": "Territorium löschen? Dies kann nicht rückgängig gemacht werden."
     }
   }
 }

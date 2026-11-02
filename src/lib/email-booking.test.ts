@@ -127,6 +127,23 @@ describe("sendBookingNotification", () => {
     expect(mocks.sendMail).not.toHaveBeenCalled();
   });
 
+  it("lokaliserer kundebekreftelsen etter kontaktens språk", async () => {
+    const result = await sendBookingNotification("dep-a", "kunde@example.test", {
+      ...booking,
+      locale: "en",
+    });
+
+    expect(result.customerSent).toBe(true);
+    const mail = mocks.sendMail.mock.calls.at(-1)?.[0] as {
+      subject: string;
+      html: string;
+    };
+    expect(mail.subject).toContain("We have received your booking");
+    expect(mail.html).toContain("Booking received");
+    expect(mail.html).toContain("<strong>Customer:</strong> Kunde AS");
+    expect(mail.html).not.toContain("Bestilling mottatt");
+  });
+
   it("nøytraliserer URL-er i brukerstyrt tittel og beskrivelse", async () => {
     await sendBookingNotification("dep-a", null, {
       ...booking,

@@ -1,0 +1,21 @@
+{
+  "reviews": {
+    "title": "Kundeomtaler",
+    "subtitle": "Innsendte omtaler fra kunder, avgrenset til oppdragene du har tilgang til.",
+    "back": "Til dashbordet",
+    "average": "Gjennomsnitt",
+    "count": "Antall omtaler",
+    "thisPage": "På denne siden",
+    "empty": "Ingen omtaler ennå",
+    "emptyHint": "Omtaler vises her når kundene har svart på forespørslene.",
+    "score": "{score} av 5",
+    "noCustomer": "Uten kunde",
+    "openOrder": "Åpne oppdrag",
+    "noComment": "Kunden skrev ingen kommentar.",
+    "showing": "Viser {shown} av {total} omtaler",
+    "loadError": "Kunne ikke hente omtalene.",
+    "railTitle": "Kundeomtaler",
+    "averageShort": "snitt",
+    "openList": "Se alle omtaler"
+  }
+}

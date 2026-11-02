@@ -43,6 +43,7 @@ export const EQUIPMENT_FEEDBACK_KEYS: Record<string, string> = {
   "reading-added": "assets.feedback.readingAdded",
   "plan-created": "assets.feedback.planCreated",
   "plan-updated": "assets.feedback.planUpdated",
+  "plan-deleted": "assets.feedback.planDeleted",
   deleted: "assets.feedback.deleted",
 };
 

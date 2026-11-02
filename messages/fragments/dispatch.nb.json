@@ -149,7 +149,16 @@
       "center": "Senter",
       "latitude": "Breddegrad",
       "longitude": "Lengdegrad",
-      "saveTerritory": "Legg til territorium"
+      "saveTerritory": "Legg til territorium",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "editPolicy": "Rediger regler",
+      "noPolicies": "Ingen fordelingsregler er lagt inn ennå.",
+      "newPolicy": "Ny fordelingsregel",
+      "createPolicy": "Opprett regel",
+      "saveTerritoryChanges": "Lagre territorium",
+      "newTerritory": "Nytt territorium",
+      "deleteTerritoryConfirm": "Slette territoriet? Dette kan ikke angres."
     }
   }
 }
