@@ -4,8 +4,12 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { staffForDepartment } from "@/lib/access";
-import { toDateOnly } from "@/lib/dates";
-import { requestedWindow } from "@/lib/booking-time";
+import { parseDateOnly, toDateOnly } from "@/lib/dates";
+import {
+  BOOKING_TIME_VALUE,
+  requestedWindow,
+} from "@/lib/booking-time";
+import { OPEN_STATUSES } from "@/lib/work-order-status";
 import { notifyWorkOrderEvent } from "./notifications";
 import { trySendBookingConfirmedSms } from "./sms-events";
 import {
@@ -49,6 +53,9 @@ export type BookingQueueItem = {
     title: string;
     status: string;
   };
+  /** Alle aktive ansatte i oppdragets avdeling som kan planlegges. */
+  technicians: BookingQueueTechnician[];
+  /** Ansatte som er ledige i det opprinnelige tidsvinduet, når det finnes. */
   availableTechnicians: BookingQueueTechnician[];
 };
 
@@ -68,6 +75,59 @@ function whereForFilter(
     return { status: { in: ["CANCELLED", "EXPIRED"] } };
   }
   return {};
+}
+
+/**
+ * Et konkret tidsrom kontoret har valgt for en ellers datobasert forespørsel.
+ * Dato og klokkeslett tolkes alltid i Europe/Oslo, slik at nettleserens
+ * tidssone ikke kan flytte planleggingen.
+ */
+type PlannedBookingWindow = {
+  date: Date;
+  dateOnly: string;
+  from: string;
+  to: string;
+  startsAt: Date;
+  endsAt: Date;
+};
+
+/**
+ * Leser et eksplisitt planleggingsvindu fra kontorskjemaet. Alle tre feltene
+ * må være satt; en halvutfylt planlegging skal ikke falle tilbake til den
+ * gamle forespørselen uten tid.
+ */
+function parsePlannedWindow(input: {
+  date?: unknown;
+  from?: unknown;
+  to?: unknown;
+}): ServiceResult<PlannedBookingWindow | null> {
+  const dateText =
+    typeof input.date === "string" ? input.date.trim().slice(0, 10) : "";
+  const from = typeof input.from === "string" ? input.from.trim() : "";
+  const to = typeof input.to === "string" ? input.to.trim() : "";
+  if (!dateText && !from && !to) return ok(null);
+
+  const date = parseDateOnly(dateText);
+  if (!date || !BOOKING_TIME_VALUE.test(from) || !BOOKING_TIME_VALUE.test(to)) {
+    return fail("invalid", { code: "invalid_time" });
+  }
+
+  const window = requestedWindow({
+    requestedDate: date,
+    requestedFrom: from,
+    requestedTo: to,
+  });
+  if (window.endsAt.getTime() <= window.startsAt.getTime()) {
+    return fail("invalid", { code: "invalid_time" });
+  }
+
+  return ok({
+    date,
+    dateOnly: toDateOnly(date),
+    from,
+    to,
+    ...window,
+  });
 }
 
 /**
@@ -121,10 +181,11 @@ export async function listBookingQueue(
   });
 
   const items: BookingQueueItem[] = [];
+  const staffByDepartment = new Map<string, BookingQueueTechnician[]>();
   for (const booking of bookings) {
     let availableTechnicians: BookingQueueTechnician[] = [];
     // Nye kundebestillinger har bare ønsket dato; kontoret planlegger tid og
-    // montør på oppdraget. Vis ikke falske ledige timer for slike saker.
+    // montør i køen. Vis ikke falske ledige timer for slike saker.
     if (
       booking.status === "PENDING" &&
       booking.requestedFrom &&
@@ -146,6 +207,26 @@ export async function listBookingQueue(
         },
       );
     }
+
+    // Skjemaet må kunne planlegge vilkårlige tider og datoer, også når den
+    // opprinnelige forespørselen bare hadde en dato. Derfor viser vi alle
+    // aktive ansatte i avdelingen og lar tjenestelaget validere valget.
+    let technicians: BookingQueueTechnician[] = [];
+    if (booking.status === "PENDING") {
+      const cached = staffByDepartment.get(booking.workOrder.departmentId);
+      if (cached) {
+        technicians = cached;
+      } else {
+        technicians = await prisma.user.findMany({
+          where: staffForDepartment(booking.workOrder.departmentId),
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+          take: 200,
+        });
+        staffByDepartment.set(booking.workOrder.departmentId, technicians);
+      }
+    }
+
     items.push({
       id: booking.id,
       reference: booking.reference,
@@ -170,6 +251,7 @@ export async function listBookingQueue(
         title: booking.workOrder.title,
         status: booking.workOrder.status,
       },
+      technicians,
       availableTechnicians,
     });
   }
@@ -178,13 +260,22 @@ export async function listBookingQueue(
 }
 
 /**
- * Bekrefter en ventende forespørsel mot en ledig montør. Timen kontrolleres
- * på nytt under lås, slik at to saksbehandlere ikke kan bekrefte samme
- * montør og tid samtidig.
+ * Bekrefter en ventende forespørsel mot en ledig montør. Kontoret kan sende
+ * inn et konkret tidsrom for datobestillinger; eldre forespørsler med lagret
+ * tidsvindu bruker det når skjemaet ikke oppgir noe. Timen kontrolleres på nytt
+ * under lås, slik at to saksbehandlere ikke kan bekrefte samme montør og tid
+ * samtidig.
  */
 export async function confirmBooking(
   actor: ServiceActor,
-  input: { bookingId: unknown; technicianId?: unknown },
+  input: {
+    bookingId: unknown;
+    technicianId?: unknown;
+    /** Valgfritt planleggingsvindu fra kontorskjemaet, i Oslo-tid. */
+    date?: unknown;
+    from?: unknown;
+    to?: unknown;
+  },
 ): Promise<
   ServiceResult<{
     reference: string;
@@ -201,6 +292,10 @@ export async function confirmBooking(
     typeof input.technicianId === "string"
       ? input.technicianId.trim().slice(0, 64)
       : "";
+
+  const parsedWindow = parsePlannedWindow(input);
+  if (!parsedWindow.ok) return parsedWindow;
+  const explicitWindow = parsedWindow.data;
 
   try {
     const result = await runSerializable(async (tx) => {
@@ -238,15 +333,42 @@ export async function confirmBooking(
       }
       if (booking.status !== "PENDING") return fail("conflict");
 
-      if (!booking.requestedFrom || !booking.requestedTo) {
-        return fail("conflict", { code: "needs_planning" });
+      let window: PlannedBookingWindow;
+      if (explicitWindow) {
+        window = explicitWindow;
+      } else {
+        // Eldre forespørsler kan ha et lagret tidsvindu. Nye kundebestillinger
+        // er datobaserte og må få dato, start og slutt fra kontorskjemaet.
+        if (
+          !booking.requestedFrom ||
+          !booking.requestedTo ||
+          !BOOKING_TIME_VALUE.test(booking.requestedFrom) ||
+          !BOOKING_TIME_VALUE.test(booking.requestedTo)
+        ) {
+          return fail("conflict", { code: "needs_planning" });
+        }
+        const date = toDateOnly(booking.requestedDate);
+        const requestedDate = parseDateOnly(date);
+        if (!requestedDate) {
+          return fail("conflict", { code: "needs_planning" });
+        }
+        const requested = requestedWindow({
+          requestedDate,
+          requestedFrom: booking.requestedFrom,
+          requestedTo: booking.requestedTo,
+        });
+        if (requested.endsAt.getTime() <= requested.startsAt.getTime()) {
+          return fail("invalid", { code: "invalid_time" });
+        }
+        window = {
+          date: requestedDate,
+          dateOnly: date,
+          from: booking.requestedFrom,
+          to: booking.requestedTo,
+          ...requested,
+        };
       }
-      const window = requestedWindow({
-        requestedDate: booking.requestedDate,
-        requestedFrom: booking.requestedFrom,
-        requestedTo: booking.requestedTo,
-      });
-      const date = toDateOnly(booking.requestedDate);
+
       const candidates = requestedTechnicianId
         ? await tx.user.findMany({
             where: {
@@ -258,7 +380,7 @@ export async function confirmBooking(
           })
         : await listAvailableTechniciansForWindow(tx, {
             departmentId: booking.workOrder.departmentId,
-            date,
+            date: window.dateOnly,
             startsAt: window.startsAt,
             endsAt: window.endsAt,
             excludeVisitId: booking.visitId ?? undefined,
@@ -271,13 +393,15 @@ export async function confirmBooking(
       const available = await assertTechnicianSlotAvailable(tx, {
         departmentId: booking.workOrder.departmentId,
         technicianId: technician.id,
-        date,
+        date: window.dateOnly,
         startsAt: window.startsAt,
         endsAt: window.endsAt,
         excludeVisitId: booking.visitId ?? undefined,
         leadHours: 0,
       });
-      if (!available.ok) return fail("conflict");
+      if (!available.ok) {
+        return fail("conflict", { code: "technician_unavailable" });
+      }
 
       let visitId = booking.visitId;
       if (!visitId) {
@@ -344,7 +468,7 @@ export async function confirmBooking(
       await tx.workOrder.updateMany({
         where: {
           id: booking.workOrder.id,
-          status: { in: ["OPEN", "PENDING"] },
+          status: { in: [...OPEN_STATUSES] },
         },
         data: { status: "PLANNED" },
       });
@@ -353,9 +477,9 @@ export async function confirmBooking(
         data: {
           bookingRequestId: booking.id,
           type: "CONFIRMED",
-          requestedDate: booking.requestedDate,
-          requestedFrom: booking.requestedFrom,
-          requestedTo: booking.requestedTo,
+          requestedDate: window.date,
+          requestedFrom: window.from,
+          requestedTo: window.to,
           message: technician.name,
           actorName: actor.name || actor.email || "Kontoret",
         },
@@ -370,6 +494,9 @@ export async function confirmBooking(
           reference: booking.reference,
           technicianId: technician.id,
           technicianName: technician.name,
+          plannedDate: window.dateOnly,
+          plannedFrom: window.from,
+          plannedTo: window.to,
         },
       });
 
@@ -378,8 +505,8 @@ export async function confirmBooking(
         booking.workOrder.id,
         {
           reference: booking.reference,
-          date: toDateOnly(booking.requestedDate),
-          time: `${booking.requestedFrom}–${booking.requestedTo}`,
+          date: window.dateOnly,
+          time: `${window.from}–${window.to}`,
           technicianName: technician.name ?? "",
         },
         tx,

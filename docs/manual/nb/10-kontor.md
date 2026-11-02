@@ -398,16 +398,23 @@ Bookingkøen ligger på `/bookinger` med **Alle**, **Venter**, **Bekreftet** og
 **Sted**, **Tjeneste**, **Montør** og status.
 
 1. Åpne `/bookinger` og filtrer på **Venter**.
-2. Velg **Montør** i **Velg montør**.
-3. Trykk **Bekreft booking**, eller **Avlys** for å avvise.
+2. Fyll inn **Dato**, **Fra** og **Til** for den planlagte visitten. Ønsket
+   dato er forhåndsutfylt, men kan endres.
+3. Velg **Montør** i **Velg montør**. Alle aktive ansatte i avdelingen kan
+   velges; ledighet, fravær og reservasjoner kontrolleres når du bekrefter.
+4. Trykk **Planlegg og bekreft**, eller **Avlys** for å avvise.
 
 Ved bekreftelse settes oppdraget til **Planlagt**, visitten opprettes eller
-oppdateres, og kunden får SMS hvis kontakten har samtykket.
+oppdateres, og kunden får SMS hvis kontakten har samtykket. Hvis montøren
+allerede er opptatt i tidsrommet, blir bookingen stående som **Venter** og du
+får beskjed om å velge en annen tid eller montør.
 
 Kunden velger sted, tjeneste og ønsket dato i portalen, og skriver ønsket
 klokkeslett i beskrivelsen. Kunden kan ikke velge tidsblokk, og bestillingen
 opprettes alltid som et nytt oppdrag med status **Åpen/Ny**. Det opprettes
-ingen visitt eller bekreftet tid.
+ingen visitt eller bekreftet tid. Kontoret planlegger derfor tid og montør
+direkte i bookingkøen; eldre bestillinger som allerede har et lagret
+tidsvindu, kan fortsatt bekreftes med dette vinduet.
 
 Kontoret eller montøren planlegger oppdraget og setter status **Planlagt**.
 Passer ikke tiden, settes det til **Venter** til ny planlegging. Kunden får
