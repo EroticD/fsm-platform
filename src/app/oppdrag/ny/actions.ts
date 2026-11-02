@@ -28,6 +28,8 @@ export async function createWorkOrder(formData: FormData) {
     technicianIds: formData.getAll("technicianIds"),
     templateIds: formData.getAll("templateIds"),
     tagNames: formData.getAll("tags"),
+    skillIds: formData.getAll("skillIds"),
+    mandatorySkillIds: formData.getAll("mandatorySkillIds"),
   });
 
   if (!result.ok) {

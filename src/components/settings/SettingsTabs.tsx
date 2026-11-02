@@ -10,6 +10,7 @@ type SettingsTabsProps = {
   canBranding: boolean;
   canMap: boolean;
   canUsers: boolean;
+  canWorkforce: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
   canEquipment: boolean;
@@ -54,6 +55,7 @@ export default function SettingsTabs({
   canBranding,
   canMap,
   canUsers,
+  canWorkforce,
   canTemplates,
   canDocuments,
   canEquipment,
@@ -140,6 +142,17 @@ export default function SettingsTabs({
           >
             <Icon name="users" className="h-4 w-4 shrink-0" />
             {t("settings.tabs.employees")}
+          </Link>
+        )}
+        {canWorkforce && (
+          <Link
+            href="?tab=kompetanse"
+            ref={currentTab === "kompetanse" ? activeRef : undefined}
+            className={linkClass(currentTab === "kompetanse")}
+            aria-current={currentTab === "kompetanse" ? "page" : undefined}
+          >
+            <Icon name="shield" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.workforce")}
           </Link>
         )}
         {canTemplates && (

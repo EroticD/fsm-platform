@@ -2,6 +2,7 @@ export type SettingsTabKey =
   | "branding"
   | "kart"
   | "ansatte"
+  | "kompetanse"
   | "maler"
   | "tags"
   | "utstyr"
@@ -19,6 +20,7 @@ export type SettingsTabPermissions = {
   canBranding: boolean;
   canMap: boolean;
   canUsers: boolean;
+  canWorkforce: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
   canEquipment: boolean;
@@ -35,6 +37,7 @@ const TAB_ORDER: SettingsTabKey[] = [
   "branding",
   "kart",
   "ansatte",
+  "kompetanse",
   "maler",
   "tags",
   "utstyr",
@@ -60,6 +63,8 @@ export function isSettingsTabAllowed(
       return permissions.canMap;
     case "ansatte":
       return permissions.canUsers;
+    case "kompetanse":
+      return permissions.canWorkforce;
     case "maler":
       return permissions.canTemplates;
     case "tags":

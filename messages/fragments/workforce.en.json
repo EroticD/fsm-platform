@@ -1,0 +1,112 @@
+{
+  "settings": {
+    "tabs": {
+      "workforce": "Workforce & skills"
+    },
+    "workforce": {
+      "error": "The change could not be saved. Check the fields and try again.",
+      "saved": "The change has been saved.",
+      "edit": "Edit",
+      "readOnly": "View details",
+      "readOnlyHint": "You have read access, but lack the permission required to change this section.",
+      "weekdays": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      },
+      "skills": {
+        "title": "Skills catalogue",
+        "hint": "Skills are used by dispatch to require and match the right expertise. The key is stable and used in APIs and import files.",
+        "empty": "No skills have been registered yet.",
+        "usage": "{users} employees · {orders} work orders",
+        "key": "Key",
+        "keyPlaceholder": "e.g. hms.sja",
+        "label": "Name",
+        "category": "Category",
+        "create": "Create skill",
+        "save": "Save",
+        "delete": "Delete"
+      },
+      "staff": {
+        "title": "Employee skills, availability and absences",
+        "hint": "Select an employee to view and maintain skills, weekly availability and absences. Changes take effect in dispatch immediately.",
+        "select": "Employee",
+        "show": "Show",
+        "noStaff": "No employees in your department.",
+        "noDepartment": "no department",
+        "departmentFallback": "Department: {department}. Availability and absences apply to this employee; the department is used when no per-person capacity is set."
+      },
+      "userSkills": {
+        "title": "Skills",
+        "hint": "Tick the skills the employee holds. Level is optional (1–5), and the valid-until date is used when dispatch assesses the skill at the start of a work order.",
+        "noSkills": "Add skills to the catalogue above first.",
+        "skill": "Skill",
+        "level": "Level",
+        "validUntil": "Valid until",
+        "levelFor": "Level for {skill}",
+        "validUntilFor": "Valid until for {skill}",
+        "save": "Save skills",
+        "hidden": "Employee skill details require the “manage employees” permission."
+      },
+      "availability": {
+        "title": "Weekly availability",
+        "hint": "Times are local time in Oslo. Leave both fields empty for a day with no working hours. Windows on the same day cannot overlap, but they may touch.",
+        "from": "From",
+        "to": "To",
+        "fromFor": "Start time {day}",
+        "toFor": "End time {day}",
+        "save": "Save availability"
+      },
+      "absences": {
+        "title": "Absences",
+        "hint": "Absences block assignment during the period. Exactly the same start and end is rejected as a duplicate; partial overlap is allowed.",
+        "empty": "No absences are registered.",
+        "start": "From",
+        "end": "To",
+        "kind": "Type",
+        "note": "Note",
+        "create": "Register absence",
+        "save": "Save",
+        "delete": "Delete",
+        "kinds": {
+          "ferie": "Holiday",
+          "sykdom": "Sick leave",
+          "kurs": "Training",
+          "annet": "Other"
+        }
+      },
+      "capacity": {
+        "title": "Capacity plans",
+        "hint": "Set available minutes per department or per technician. 0 means a deliberately closed day. A technician row overrides the department row for the same day.",
+        "fallbackHint": "Without an explicit row, the capacity view uses the department row, then opening hours. Technicians without their own row follow the department default.",
+        "department": "Department",
+        "from": "From",
+        "to": "To",
+        "date": "Date",
+        "technician": "Technician",
+        "departmentWide": "Whole department",
+        "minutes": "Minutes",
+        "current": "Set to {minutes} minutes",
+        "save": "Save",
+        "delete": "Delete",
+        "empty": "No explicit capacity plans in the period.",
+        "filter": "Show period"
+      }
+    }
+  },
+  "orders": {
+    "skills": {
+      "title": "Skill requirements",
+      "hint": "Select the skills the work order requires. Also tick “Required” for skills that must be valid for assignment; unticked requirements are desirable and only affect ranking.",
+      "empty": "No skills are registered. Add them under Settings → Workforce & skills.",
+      "mandatory": "Required",
+      "requiredBadge": "Required",
+      "optionalBadge": "Desirable",
+      "invalidMandatory": "A skill cannot be required without being selected."
+    }
+  }
+}
