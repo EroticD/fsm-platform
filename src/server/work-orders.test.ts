@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccessUser } from "@/lib/access";
 import { osloDayStart } from "@/lib/dates";
+import { defaultVisitWindow } from "@/lib/visit-window";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -1334,12 +1335,13 @@ describe("work-orders-tjenesten", () => {
       }),
       select: { id: true },
     });
-    // Kilden mangler visitt, men har dato: klonen får én all-day-visitt.
+    // Kilden mangler visitt, men har dato: klonen får standard firetimersblokk.
+    const cloneWindow = defaultVisitWindow(new Date("2026-10-24"));
     expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
       workOrderId: "wo-new",
-      startsAt: osloDayStart("2026-10-24"),
-      endsAt: osloDayStart("2026-10-25"),
-      allDay: true,
+      startsAt: cloneWindow.startsAt,
+      endsAt: cloneWindow.endsAt,
+      allDay: false,
       technicianIds: ["tech-1"],
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
@@ -1684,7 +1686,7 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-new" });
   });
 
-  it("oppretter én all-day-visitt med montører når oppdraget får dato", async () => {
+  it("oppretter en firetimers standardvisitt med montører når oppdraget får dato", async () => {
     mocks.prisma.user.findMany.mockResolvedValue([{ id: "tech-1" }]);
     const tx = withTransaction();
 
@@ -1702,11 +1704,12 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     });
 
     expect(result).toEqual({ ok: true, id: "wo-new" });
+    const createWindow = defaultVisitWindow(new Date("2026-10-24"));
     expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
       workOrderId: "wo-new",
-      startsAt: osloDayStart("2026-10-24"),
-      endsAt: osloDayStart("2026-10-26"),
-      allDay: true,
+      startsAt: createWindow.startsAt,
+      endsAt: createWindow.endsAt,
+      allDay: false,
       technicianIds: ["tech-1"],
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");

@@ -7,7 +7,6 @@ import { audit } from "@/lib/audit";
 import {
   addDaysUtc,
   addMonthsUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayUtc,
@@ -19,6 +18,7 @@ import {
   maintenancePlanUpdateSchema,
 } from "@/lib/schemas/equipment";
 import { createDefaultVisit } from "@/server/visits";
+import { defaultVisitWindow } from "@/lib/visit-window";
 import {
   can,
   fail,
@@ -617,11 +617,12 @@ export async function generateMaintenanceOccurrence(
           select: { id: true },
         });
 
+        const visitWindow = defaultVisitWindow(dueDate);
         await createDefaultVisit(tx, {
           workOrderId: workOrder.id,
-          startsAt: osloDayStart(toDateOnly(dueDate)),
-          endsAt: osloDayStart(toDateOnly(addDaysUtc(dueDate, 1))),
-          allDay: true,
+          startsAt: visitWindow.startsAt,
+          endsAt: visitWindow.endsAt,
+          allDay: false,
         });
 
         const occurrence = await tx.maintenancePlanOccurrence.create({
@@ -821,11 +822,12 @@ export async function evaluateMeterMaintenance(
       select: { id: true },
     });
 
+    const visitWindow = defaultVisitWindow(dueDate);
     await createDefaultVisit(tx, {
       workOrderId: workOrder.id,
-      startsAt: osloDayStart(toDateOnly(dueDate)),
-      endsAt: osloDayStart(toDateOnly(addDaysUtc(dueDate, 1))),
-      allDay: true,
+      startsAt: visitWindow.startsAt,
+      endsAt: visitWindow.endsAt,
+      allDay: false,
     });
 
     await tx.maintenancePlanOccurrence.create({

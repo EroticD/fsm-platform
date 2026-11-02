@@ -386,7 +386,7 @@ ikke beløp.
 
 Ved hvert intervall opprettes et nytt oppdrag med avtalens tittel, kunde,
 kontaktperson, avdeling og sjekklistemal. Det får status **Planlagt**, en
-heldagsvisitt uten montører, og SLA-klokken starter. Rapporten er ny og tom;
+firetimers standardvisitt uten montører (08:00–12:00), og SLA-klokken starter. Rapporten er ny og tom;
 forrige rapport legges ved som PDF. Har jobben vært nede, brukes siste forfalte
 forekomst. Utløpte avtaler genererer ikke nye oppdrag.
 

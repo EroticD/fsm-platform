@@ -21,6 +21,7 @@ import {
   parseDateOnly,
   toDateOnly,
 } from "@/lib/dates";
+import { defaultVisitWindow } from "@/lib/visit-window";
 import {
   LIMITS,
   cleanEmail,
@@ -521,12 +522,14 @@ export async function createWorkOrder(
       // Et datofestet oppdrag har alltid minst én planlagt visitt. Visiten er
       // den tildelbare tidsblokken; `scheduledFor`/`scheduledTo` avledes av
       // visitene og holdes i takt i samme transaksjon.
-      const visitWindow = allDayVisitWindow(scheduledFor, scheduledTo);
+      // Et nytt oppdrag starter med en redigerbar firetimersblokk samme dag,
+      // ikke en heldagsvisitt. Kontoret kan justere tidene i etterkant.
+      const visitWindow = defaultVisitWindow(scheduledFor);
       await createDefaultVisit(tx, {
         workOrderId: newWorkOrder.id,
         startsAt: visitWindow.startsAt,
         endsAt: visitWindow.endsAt,
-        allDay: true,
+        allDay: false,
         technicianIds,
       });
       await recomputeWorkOrderSchedule(tx, newWorkOrder.id);
@@ -1771,16 +1774,13 @@ export async function cloneWorkOrder(
         }
       } else if (source.scheduledFor) {
         // Eldre oppdrag kan mangle visitt selv om de har dato. Da lager
-        // klonen én standard all-day-visitt, med samme montører som oppdraget.
-        const window = allDayVisitWindow(
-          source.scheduledFor,
-          source.scheduledTo,
-        );
+        // klonen en standard firetimersblokk, med samme montører som oppdraget.
+        const window = defaultVisitWindow(source.scheduledFor);
         await createDefaultVisit(tx, {
           workOrderId: created.id,
           startsAt: window.startsAt,
           endsAt: window.endsAt,
-          allDay: true,
+          allDay: false,
           technicianIds: source.technicians.map((technician) => technician.id),
         });
       }

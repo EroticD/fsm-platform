@@ -370,8 +370,8 @@ calculate amounts.**
 ### Recurring work orders
 
 At each interval a new **Planned** work order is created with the agreement's
-customer, contact, department and checklist, plus an all-day visit without
-technicians. Expired agreements do not generate new work orders.
+customer, contact, department and checklist, plus a four-hour default visit without
+technicians (08:00–12:00). Expired agreements do not generate new work orders.
 
 ## Bookings
 
