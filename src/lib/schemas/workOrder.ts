@@ -34,6 +34,7 @@ export const workOrderCreateSchema = z
     departmentId: idSchema,
     customerId: optionalIdSchema,
     contactId: optionalIdSchema,
+    siteId: optionalIdSchema,
     scheduledFor: dateOnlySchema,
     scheduledTo: optionalDateOnlySchema,
     technicianIds: idListSchema,
@@ -63,6 +64,7 @@ export const workOrderUpdateSchema = z
     // kunde kan lagres uten å måtte knyttes til en kunde.
     customerId: optionalIdSchema,
     contactId: optionalIdSchema,
+    siteId: optionalIdSchema,
     scheduledFor: optionalDateOnlySchema,
     scheduledTo: optionalDateOnlySchema,
     technicianIds: idListSchema,

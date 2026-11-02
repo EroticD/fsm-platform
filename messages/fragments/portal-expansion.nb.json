@@ -140,6 +140,26 @@
         "sitesTitle": "Steder",
         "noSites": "Ingen steder er registrert.",
         "primary": "Primær"
+      },
+      "sites": {
+        "title": "Mine steder",
+        "description": "Administrer steder som kan velges når du bestiller service.",
+        "error": "Kunne ikke lagre stedet. Prøv igjen.",
+        "saved": "Stedet er lagret.",
+        "name": "Navn",
+        "address": "Adresse",
+        "postalCode": "Postnummer",
+        "city": "Sted",
+        "setPrimary": "Sett som primærsted",
+        "add": "Legg til sted",
+        "empty": "Ingen steder registrert ennå.",
+        "primary": "Primær",
+        "noAddress": "Ingen adresse",
+        "makePrimary": "Gjør primær",
+        "delete": "Slett",
+        "deleteConfirm": "Slette stedet «{name}»?",
+        "edit": "Endre",
+        "save": "Lagre"
       }
     }
   }

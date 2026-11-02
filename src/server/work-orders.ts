@@ -367,6 +367,7 @@ export type CreateWorkOrderInput = {
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
+  siteId?: unknown;
   scheduledFor: unknown;
   scheduledTo: unknown;
   technicianIds: unknown[];
@@ -414,6 +415,24 @@ export async function createWorkOrder(
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });
     if (!contact || contact.customerId !== customerId) validContactId = "";
   }
+
+  // Stedet må tilhøre den valgte kunden. Et internt oppdrag uten kunde kan
+  // ikke peke på en kundes sted.
+  const requestedSiteId = rawId(input.siteId);
+  const site = requestedSiteId
+    ? await prisma.customerSite.findFirst({
+        where: { id: requestedSiteId, customerId: customerId || "__none__" },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+        },
+      })
+    : null;
+  if (requestedSiteId && !site) return { ok: false, error: "ugyldig-data" };
+  const siteId = site?.id ?? null;
 
   const requestedTechnicianIds = input.technicianIds
     .map(rawId)
@@ -477,7 +496,7 @@ export async function createWorkOrder(
     address: parsed.data.address,
     postalCode: parsed.data.postalCode,
     city: parsed.data.city,
-    customer: customerAddress,
+    customer: site ?? customerAddress,
   });
   const geoHash = addressHash(address.query);
   const coordinates = geoHash ? await geocodeAddress(address.query) : null;
@@ -501,6 +520,7 @@ export async function createWorkOrder(
           departmentId,
           customerId: customerId || undefined,
           contactId: parsed.data.contactId || undefined,
+          siteId: siteId || undefined,
           scheduledFor,
           scheduledTo,
           creatorName: user.name || user.email || "Kontor",
@@ -547,6 +567,7 @@ export async function createWorkOrder(
         actor: auditActor(user),
         metadata: {
           customerId: customerId || null,
+          ...(siteId ? { siteId } : {}),
           orderNumber,
           orderNumberNormalized,
         },
@@ -578,6 +599,7 @@ export type UpdateWorkOrderInput = {
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
+  siteId?: unknown;
   scheduledFor: unknown;
   scheduledTo: unknown;
   technicianIds: unknown[];
@@ -600,6 +622,7 @@ export async function updateWorkOrder(
       id: true,
       departmentId: true,
       customerId: true,
+      siteId: true,
       status: true,
       legalHold: true,
       orderNumber: true,
@@ -677,6 +700,7 @@ export async function updateWorkOrder(
     departmentId,
     customerId: rawId(input.customerId),
     contactId: rawId(input.contactId),
+    siteId: rawId(input.siteId),
     scheduledFor: scheduledForInput,
     scheduledTo: scheduledToInput,
     technicianIds: validTechnicianIds,
@@ -693,6 +717,7 @@ export async function updateWorkOrder(
     city,
     customerId,
     contactId,
+    siteId: requestedSiteId,
     scheduledFor,
     scheduledTo,
   } = parsed.data;
@@ -741,6 +766,35 @@ export async function updateWorkOrder(
     if (!contact || contact.customerId !== customerId) validContactId = undefined;
   }
 
+  // Stedet må tilhøre kunden oppdraget skal ligge hos. Når feltet ikke er
+  // sendt i det hele tatt beholder vi dagens sted; en tom verdi fjerner det.
+  // En kundeflytting uten nytt sted rydder bort det gamle stedet.
+  const siteFieldProvided = Object.prototype.hasOwnProperty.call(
+    input,
+    "siteId",
+  );
+  const candidateSiteId = siteFieldProvided
+    ? requestedSiteId
+    : customerChanged
+      ? undefined
+      : (currentWorkOrder.siteId ?? undefined);
+  const site = candidateSiteId
+    ? await prisma.customerSite.findFirst({
+        where: { id: candidateSiteId, customerId: nextCustomerId || "__none__" },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+        },
+      })
+    : null;
+  if (candidateSiteId && !site) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+  const nextSiteId = site?.id ?? null;
+
   const customerAddress = customerId
     ? await prisma.customer.findUnique({
         where: { id: customerId },
@@ -751,7 +805,7 @@ export async function updateWorkOrder(
     address: explicitAddress,
     postalCode,
     city,
-    customer: customerAddress,
+    customer: site ?? customerAddress,
   });
   const geoHash = addressHash(effective.query);
   const coordinates =
@@ -797,6 +851,7 @@ export async function updateWorkOrder(
           // Tom kunde betyr et internt oppdrag, ikke en uendret kunde.
           customerId: nextCustomerId,
           contactId: validContactId || null,
+          siteId: nextSiteId,
           scheduledFor: scheduledForDate,
           scheduledTo: nextScheduledTo,
           technicians: { set: validTechnicianIds.map((id) => ({ id })) },
@@ -858,6 +913,10 @@ export async function updateWorkOrder(
             to: orderNumberValue,
           },
           orderNumberNormalized,
+          siteId: {
+            from: currentWorkOrder.siteId ?? null,
+            to: nextSiteId,
+          },
           // Bare id-er, aldri kundedata. Bare med når kunden faktisk endres.
           ...(customerChanged
             ? {

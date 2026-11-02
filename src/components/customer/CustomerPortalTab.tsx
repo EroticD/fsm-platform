@@ -24,6 +24,7 @@ type PortalTabProps = {
     formData: FormData,
   ) => Promise<InviteActionState>;
   setPortalUserActive: (formData: FormData) => Promise<void>;
+  savePortalDelegation: (formData: FormData) => Promise<void>;
   resendPortalInvite: (
     state: InviteActionState,
     formData: FormData,
@@ -38,6 +39,7 @@ export default async function CustomerPortalTab({
   portalError,
   createPortalUser,
   setPortalUserActive,
+  savePortalDelegation,
   resendPortalInvite,
 }: PortalTabProps) {
   const t = await getTranslations("common");
@@ -64,6 +66,79 @@ export default async function CustomerPortalTab({
       {portalError && (
         <div className="rounded-xl border border-[#e7b5ae] bg-[#fdf4f2] px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)]">
           {portalError}
+        </div>
+      )}
+
+      {contacts.length > 0 && (
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-sm font-black text-[var(--ink,#101310)]">
+              {t("customers.portal.delegation.title")}
+            </h3>
+            <p className={`mt-1 text-xs leading-5 ${CUSTOMER_MUTED}`}>
+              {t("customers.portal.delegation.description")}
+            </p>
+          </div>
+          {contacts.map((contact) => {
+            const delegation = contact.portalDelegation;
+            const value = (flag: keyof NonNullable<typeof delegation>) =>
+              delegation ? Boolean(delegation[flag]) : true;
+            return (
+              <form
+                key={contact.id}
+                action={savePortalDelegation}
+                className={`${CUSTOMER_INSET} space-y-3 p-3`}
+              >
+                <input type="hidden" name="contactId" value={contact.id} />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-[var(--ink,#101310)]">
+                    {contact.name}
+                    {contact.role ? (
+                      <span className={`ml-1 text-xs font-normal ${CUSTOMER_MUTED}`}>
+                        ({contact.role})
+                      </span>
+                    ) : null}
+                  </p>
+                  {!delegation && (
+                    <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                      {t("customers.portal.delegation.fullAccessFallback")}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      "isActive",
+                      "canBook",
+                      "canViewDocuments",
+                      "canViewContracts",
+                      "canViewEquipment",
+                    ] as const
+                  ).map((key) => (
+                    <label
+                      key={key}
+                      className="flex min-h-11 items-center gap-2 rounded-[10px] border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-1.5 text-sm font-bold"
+                    >
+                      <input
+                        type="checkbox"
+                        name={key}
+                        value="true"
+                        defaultChecked={value(key)}
+                        className="h-4 w-4 shrink-0 accent-[var(--ink,#101310)]"
+                      />
+                      {t(`customers.portal.delegation.${key}`)}
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="submit"
+                  className={`${CUSTOMER_INK_BUTTON} w-full`}
+                >
+                  {t("customers.portal.delegation.save")}
+                </button>
+              </form>
+            );
+          })}
         </div>
       )}
 

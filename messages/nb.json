@@ -259,7 +259,9 @@
         "unknown": "Ukjent",
         "dangerous": "Fareområde",
         "delete": "Slett enhet",
-        "deleteConfirm": "Slette enheten permanent? Dette kan ikke angres."
+        "deleteConfirm": "Slette enheten permanent? Dette kan ikke angres.",
+        "site": "Sted",
+        "noSite": "Ingen sted"
       },
       "form": {
         "title": "Ny enhet",
@@ -277,7 +279,9 @@
         "meterUnit": "Måleenhet",
         "meterUnitHint": "For eksempel timer, km eller sykluser.",
         "submit": "Registrer enhet",
-        "cancel": "Avbryt"
+        "cancel": "Avbryt",
+        "site": "Sted",
+        "noSite": "Ingen sted"
       },
       "label": {
         "title": "Utstyrsmerking",

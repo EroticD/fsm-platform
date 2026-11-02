@@ -259,7 +259,9 @@
         "unknown": "Unknown",
         "dangerous": "Danger zone",
         "delete": "Delete asset",
-        "deleteConfirm": "Delete the asset permanently? This cannot be undone."
+        "deleteConfirm": "Delete the asset permanently? This cannot be undone.",
+        "site": "Site",
+        "noSite": "No site"
       },
       "form": {
         "title": "New asset",
@@ -277,7 +279,9 @@
         "meterUnit": "Meter unit",
         "meterUnitHint": "For example hours, km or cycles.",
         "submit": "Register asset",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "site": "Site",
+        "noSite": "No site"
       },
       "label": {
         "title": "Asset label",

@@ -20,6 +20,7 @@ import CustomerReportsTab from "@/components/customer/CustomerReportsTab";
 import CustomerContractsTab from "@/components/customer/CustomerContractsTab";
 import CustomerUnitsTab from "@/components/customer/CustomerUnitsTab";
 import CustomerContactsTab from "@/components/customer/CustomerContactsTab";
+import CustomerSitesTab from "@/components/customer/CustomerSitesTab";
 import CustomerPortalTab from "@/components/customer/CustomerPortalTab";
 import CustomerActivityTab from "@/components/customer/CustomerActivityTab";
 import CustomerAttachments from "@/components/CustomerAttachments";
@@ -59,8 +60,15 @@ import { createUnit, deleteUnit, updateUnit } from "./unit-actions";
 import {
   createPortalUser,
   resendPortalInvite,
+  savePortalDelegation,
   setPortalUserActive,
 } from "./portal-actions";
+import {
+  createSiteAction,
+  deleteSiteAction,
+  setPrimarySiteAction,
+  updateSiteAction,
+} from "./site-actions";
 import {
   customerErrorMessageKey,
   customerStatusMessageKey,
@@ -286,6 +294,11 @@ export default async function CustomerDetailPage({
   const renewContract = renewContractAction.bind(null, customerId);
   const addContractLine = addContractLineAction.bind(null, customerId);
   const deleteContractLine = deleteContractLineAction.bind(null, customerId);
+  const createSite = createSiteAction.bind(null, customerId);
+  const updateSite = updateSiteAction.bind(null, customerId);
+  const deleteSite = deleteSiteAction.bind(null, customerId);
+  const setPrimarySite = setPrimarySiteAction.bind(null, customerId);
+  const saveDelegation = savePortalDelegation.bind(null, customerId);
 
   return (
     <div className={`office-app min-h-screen p-3 sm:p-6 lg:p-8 ${LEGACY_SURFACE}`}>
@@ -472,6 +485,18 @@ export default async function CustomerDetailPage({
               />
             </div>
             {office && (
+              <div id="steder" className="scroll-mt-24">
+                <CustomerSitesTab
+                  sites={customer.sites}
+                  office={office}
+                  createSite={createSite}
+                  updateSite={updateSite}
+                  deleteSite={deleteSite}
+                  setPrimarySite={setPrimarySite}
+                />
+              </div>
+            )}
+            {office && (
               <div id="portal" className="scroll-mt-24">
                 <CustomerPortalTab
                   customerId={customerId}
@@ -481,6 +506,7 @@ export default async function CustomerDetailPage({
                   portalError={portalError}
                   createPortalUser={createPortalUser}
                   setPortalUserActive={setPortalUserActive}
+                  savePortalDelegation={saveDelegation}
                   resendPortalInvite={resendPortalInvite}
                 />
               </div>

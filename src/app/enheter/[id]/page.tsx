@@ -115,7 +115,7 @@ export default async function EquipmentDetailPage({
   const history = historyResult.ok ? historyResult.data : [];
   const options = optionsResult.ok
     ? optionsResult.data
-    : { customers: [], categories: [], equipment: [] };
+    : { customers: [], categories: [], equipment: [], sites: [] };
   const canManage = hasPermission(user, "equipment.manage");
   const isAdmin = user.role === "ADMIN";
   const meldt = param(query.meldt);
@@ -177,6 +177,7 @@ export default async function EquipmentDetailPage({
                     {equipment.customer.name}
                   </Link>
                   {equipment.location ? ` · ${equipment.location}` : ""}
+                  {equipment.site ? ` · ${equipment.site.name}` : ""}
                   {equipment.serialNumber ? ` · ${equipment.serialNumber}` : ""}
                 </p>
                 {ancestors.length > 0 && (
@@ -256,6 +257,14 @@ export default async function EquipmentDetailPage({
               <dd className="mt-0.5">{equipment.location || t("assets.detail.noLocation")}</dd>
             </div>
             <div>
+              <dt className={LABEL}>{t("assets.detail.site")}</dt>
+              <dd className="mt-0.5">
+                {equipment.site
+                  ? `${equipment.site.name}${equipment.site.address ? ` · ${equipment.site.address}` : ""}`
+                  : t("assets.detail.noSite")}
+              </dd>
+            </div>
+            <div>
               <dt className={LABEL}>{t("assets.detail.criticality")}</dt>
               <dd className="mt-0.5 font-bold">
                 {t(`assets.criticality.${equipment.criticality}`)}
@@ -305,6 +314,20 @@ export default async function EquipmentDetailPage({
                 <div>
                   <label htmlFor="edit-location" className={LABEL}>{t("assets.form.location")}</label>
                   <input id="edit-location" name="location" defaultValue={equipment.location ?? ""} className={CONTROL} />
+                </div>
+                <div>
+                  <label htmlFor="edit-site" className={LABEL}>{t("assets.form.site")}</label>
+                  <select id="edit-site" name="siteId" defaultValue={equipment.siteId ?? ""} className={CONTROL}>
+                    <option value="">{t("assets.form.noSite")}</option>
+                    {options.sites
+                      .filter((site) => site.customerId === equipment.customer.id)
+                      .map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {site.name}
+                          {site.address ? ` — ${site.address}` : ""}
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <div>
                   <label htmlFor="edit-category" className={LABEL}>{t("assets.form.category")}</label>

@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     },
     upload: { findMany: vi.fn() },
     customer: { findFirst: vi.fn(), findMany: vi.fn() },
+    customerSite: { findFirst: vi.fn() },
     user: { findMany: vi.fn() },
     workOrder: { findMany: vi.fn() },
     reportUnit: { findMany: vi.fn() },
@@ -296,5 +297,78 @@ describe("garanti", () => {
     expect(where.warrantyUntil.gte).toBeInstanceOf(Date);
     expect(where.warrantyUntil.lte).toBeInstanceOf(Date);
     expect(mocks.prisma.product.findMany.mock.calls[0][0].take).toBe(100);
+  });
+});
+
+describe("utstyrets sted", () => {
+  beforeEach(() => {
+    mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+  });
+
+  it("lagrer sted når det tilhører kunden", async () => {
+    mocks.prisma.customerSite.findFirst.mockResolvedValue({ id: "site-1" });
+
+    const result = await createEquipment(actor(), {
+      customerId: "cust-1",
+      model: "Pumpe",
+      siteId: "site-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "site-1", customerId: "cust-1" },
+      }),
+    );
+    expect(mocks.prisma.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    );
+  });
+
+  it("avviser sted fra en annen kunde", async () => {
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+
+    const result = await createEquipment(actor(), {
+      customerId: "cust-1",
+      model: "Pumpe",
+      siteId: "annens-sted",
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: "invalid" });
+    expect(mocks.prisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it("oppdaterer stedet på enheten", async () => {
+    mocks.prisma.product.findFirst.mockResolvedValue({
+      id: "product-1",
+      model: "Pumpe",
+      customerId: "cust-1",
+      parentId: null,
+      siteId: null,
+      categoryId: null,
+      installDate: null,
+      warrantyUntil: null,
+      status: "ACTIVE",
+      criticality: 2,
+      meterUnit: null,
+      serialNumber: null,
+      location: null,
+    });
+    mocks.prisma.customerSite.findFirst.mockResolvedValue({ id: "site-1" });
+
+    const result = await updateEquipment(actor(), {
+      id: "product-1",
+      siteId: "site-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.product.update).toHaveBeenCalledWith({
+      where: { id: "product-1" },
+      data: expect.objectContaining({
+        site: { connect: { id: "site-1" } },
+      }),
+    });
   });
 });

@@ -140,6 +140,26 @@
         "sitesTitle": "Lokalizacje",
         "noSites": "Nie zarejestrowano lokalizacji.",
         "primary": "Główna"
+      },
+      "sites": {
+        "title": "Moje lokalizacje",
+        "description": "Zarządzaj lokalizacjami dostępnymi przy rezerwacji serwisu.",
+        "error": "Nie udało się zapisać lokalizacji. Spróbuj ponownie.",
+        "saved": "Lokalizacja została zapisana.",
+        "name": "Nazwa",
+        "address": "Adres",
+        "postalCode": "Kod pocztowy",
+        "city": "Miasto",
+        "setPrimary": "Ustaw jako główną lokalizację",
+        "add": "Dodaj lokalizację",
+        "empty": "Nie zarejestrowano jeszcze lokalizacji.",
+        "primary": "Główna",
+        "noAddress": "Brak adresu",
+        "makePrimary": "Ustaw jako główną",
+        "delete": "Usuń",
+        "deleteConfirm": "Usunąć lokalizację „{name}”?",
+        "edit": "Edytuj",
+        "save": "Zapisz"
       }
     }
   }

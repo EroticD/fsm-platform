@@ -20,6 +20,7 @@ export const equipmentCreateSchema = z.object({
   location: limitedText(LIMITS.line).default(""),
   categoryId: optionalIdSchema,
   parentId: optionalIdSchema,
+  siteId: optionalIdSchema,
   installDate: z.preprocess(
     (value) => (value === "" || value === null ? undefined : value),
     dateOnlySchema.optional(),
@@ -44,6 +45,7 @@ export const equipmentUpdateSchema = z.object({
   location: limitedText(LIMITS.line).optional(),
   categoryId: z.string().max(LIMITS.line).optional(),
   parentId: z.string().max(LIMITS.line).optional(),
+  siteId: z.string().max(LIMITS.line).optional(),
   installDate: z.preprocess(
     (value) => (value === "" || value === null ? null : value),
     dateOnlySchema.nullable().optional(),

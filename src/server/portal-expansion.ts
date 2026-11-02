@@ -684,6 +684,7 @@ export async function createPortalSite(
     address?: unknown;
     postalCode?: unknown;
     city?: unknown;
+    isPrimary?: unknown;
   },
 ): Promise<ServiceResult<PortalSite>> {
   const access = await portal(actor, "canBook");
@@ -695,31 +696,217 @@ export async function createPortalSite(
   const postalCode =
     cleanText(input.postalCode, { maxLength: LIMITS.short }) || null;
   const city = cleanText(input.city, { maxLength: LIMITS.short }) || null;
+  const wantsPrimary =
+    input.isPrimary === true ||
+    input.isPrimary === "true" ||
+    input.isPrimary === "on";
 
   try {
-    const existingCount = await prisma.customerSite.count({
-      where: { customerId: access.data.customerId },
-    });
-    const site = await prisma.customerSite.create({
-      data: {
-        customerId: access.data.customerId,
-        name,
-        address,
-        postalCode,
-        city,
-        isPrimary: existingCount === 0,
-      },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        postalCode: true,
-        city: true,
-        isPrimary: true,
-      },
+    const site = await prisma.$transaction(async (tx) => {
+      const existingCount = await tx.customerSite.count({
+        where: { customerId: access.data.customerId },
+      });
+      const isPrimary = existingCount === 0 || wantsPrimary;
+      if (isPrimary) {
+        await tx.customerSite.updateMany({
+          where: { customerId: access.data.customerId },
+          data: { isPrimary: false },
+        });
+      }
+      const created = await tx.customerSite.create({
+        data: {
+          customerId: access.data.customerId,
+          name,
+          address,
+          postalCode,
+          city,
+          isPrimary,
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+          isPrimary: true,
+        },
+      });
+      await audit(tx, {
+        entityType: "Customer",
+        entityId: access.data.customerId,
+        action: `Kunden opprettet sted: ${name}`,
+        actor: toAuditActor(actor),
+        metadata: { siteId: created.id, isPrimary },
+      });
+      return created;
     });
     return ok(site);
   } catch {
     return fail("conflict");
+  }
+}
+
+/**
+ * Endrer et sted kunden selv eier. Kunden kan aldri flytte stedet til en
+ * annen kunde, og navnet må fortsatt være unikt innenfor kunden.
+ */
+export async function updatePortalSite(
+  actor: ServiceActor,
+  siteId: unknown,
+  input: {
+    name?: unknown;
+    address?: unknown;
+    postalCode?: unknown;
+    city?: unknown;
+    isPrimary?: unknown;
+  },
+): Promise<ServiceResult<PortalSite>> {
+  const access = await portal(actor, "canBook");
+  if (!access.ok) return access;
+
+  const id = cleanText(siteId, { maxLength: LIMITS.line });
+  if (!id) return fail("invalid");
+  const name = cleanText(input.name, { maxLength: SITE_NAME_MAX });
+  if (!name) return fail("missing_fields");
+  const address = cleanText(input.address, { maxLength: SITE_LINE_MAX }) || null;
+  const postalCode =
+    cleanText(input.postalCode, { maxLength: LIMITS.short }) || null;
+  const city = cleanText(input.city, { maxLength: LIMITS.short }) || null;
+  const wantsPrimary =
+    input.isPrimary === true ||
+    input.isPrimary === "true" ||
+    input.isPrimary === "on";
+
+  try {
+    const site = await prisma.$transaction(async (tx) => {
+      const existing = await tx.customerSite.findFirst({
+        where: { id, customerId: access.data.customerId },
+        select: { id: true, isPrimary: true },
+      });
+      if (!existing) return null;
+      if (wantsPrimary) {
+        await tx.customerSite.updateMany({
+          where: { customerId: access.data.customerId, id: { not: id } },
+          data: { isPrimary: false },
+        });
+      }
+      const updated = await tx.customerSite.update({
+        where: { id },
+        data: {
+          name,
+          address,
+          postalCode,
+          city,
+          ...(wantsPrimary ? { isPrimary: true } : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+          isPrimary: true,
+        },
+      });
+      await audit(tx, {
+        entityType: "Customer",
+        entityId: access.data.customerId,
+        action: `Kunden endret sted: ${name}`,
+        actor: toAuditActor(actor),
+        metadata: { siteId: id, isPrimary: updated.isPrimary },
+      });
+      return updated;
+    });
+    return site ? ok(site) : fail("not_found");
+  } catch {
+    return fail("conflict");
+  }
+}
+
+/** Sletter et sted kunden eier. Et primært sted erstattes av et annet. */
+export async function deletePortalSite(
+  actor: ServiceActor,
+  siteId: unknown,
+): Promise<ServiceResult> {
+  const access = await portal(actor, "canBook");
+  if (!access.ok) return access;
+
+  const id = cleanText(siteId, { maxLength: LIMITS.line });
+  if (!id) return fail("invalid");
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.customerSite.findFirst({
+        where: { id, customerId: access.data.customerId },
+        select: { id: true, name: true, isPrimary: true },
+      });
+      if (!existing) return "not_found" as const;
+      await tx.customerSite.delete({ where: { id } });
+      if (existing.isPrimary) {
+        const next = await tx.customerSite.findFirst({
+          where: { customerId: access.data.customerId },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: { id: true },
+        });
+        if (next) {
+          await tx.customerSite.update({
+            where: { id: next.id },
+            data: { isPrimary: true },
+          });
+        }
+      }
+      await audit(tx, {
+        entityType: "Customer",
+        entityId: access.data.customerId,
+        action: `Kunden slettet sted: ${existing.name}`,
+        actor: toAuditActor(actor),
+        metadata: { siteId: id, wasPrimary: existing.isPrimary },
+      });
+      return "deleted" as const;
+    });
+    return result === "deleted" ? ok(undefined) : fail("not_found");
+  } catch {
+    return fail("error");
+  }
+}
+
+/** Setter ett av kundens steder som primært. */
+export async function setPortalPrimarySite(
+  actor: ServiceActor,
+  siteId: unknown,
+): Promise<ServiceResult> {
+  const access = await portal(actor, "canBook");
+  if (!access.ok) return access;
+
+  const id = cleanText(siteId, { maxLength: LIMITS.line });
+  if (!id) return fail("invalid");
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.customerSite.findFirst({
+        where: { id, customerId: access.data.customerId },
+        select: { id: true, name: true },
+      });
+      if (!existing) return false;
+      await tx.customerSite.updateMany({
+        where: { customerId: access.data.customerId },
+        data: { isPrimary: false },
+      });
+      await tx.customerSite.update({
+        where: { id },
+        data: { isPrimary: true },
+      });
+      await audit(tx, {
+        entityType: "Customer",
+        entityId: access.data.customerId,
+        action: `Kunden satte sted som primært: ${existing.name}`,
+        actor: toAuditActor(actor),
+        metadata: { siteId: id },
+      });
+      return true;
+    });
+    return result ? ok(undefined) : fail("not_found");
+  } catch {
+    return fail("error");
   }
 }

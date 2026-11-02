@@ -92,6 +92,20 @@ export default async function NewEquipmentPage({
               </select>
             </div>
             <div>
+              <label htmlFor="siteId" className={LABEL}>
+                {t("assets.form.site")}
+              </label>
+              <select id="siteId" name="siteId" className={CONTROL}>
+                <option value="">{t("assets.form.noSite")}</option>
+                {result.data.sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name} · {site.customer.name}
+                    {site.address ? ` — ${site.address}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label htmlFor="model" className={LABEL}>
                 {t("assets.form.model")} *
               </label>

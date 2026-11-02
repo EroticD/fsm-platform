@@ -331,6 +331,7 @@ export default async function EquipmentPage({
                       {" · "}
                       {item.customer.name}
                       {item.location ? ` · ${item.location}` : ""}
+                      {item.site ? ` · ${item.site.name}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs">

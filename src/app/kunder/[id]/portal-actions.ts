@@ -10,6 +10,8 @@ import {
   resendPortalInvite as resendPortalInviteService,
   setPortalUserActive as setPortalUserActiveService,
 } from "@/server/users";
+import { savePortalDelegation as savePortalDelegationService } from "@/server/portal-delegation";
+import { customerErrorParam } from "../feedback";
 
 /**
  * Oppretter en kundeportalbruker koblet til en kontaktperson på kundekortet.
@@ -71,6 +73,35 @@ export async function setPortalUserActive(formData: FormData) {
   if (!result.ok || !customerId) return;
 
   revalidatePath(`/kunder/${customerId}`);
+}
+
+/** Lagrer delegerte portaltilganger for en kontaktperson. */
+export async function savePortalDelegation(
+  customerId: string,
+  formData: FormData,
+) {
+  const actor = await getCurrentUser();
+  if (!actor) redirect("/api/auth/signin");
+
+  const result = await savePortalDelegationService(actor, customerId, {
+    contactId: formData.get("contactId"),
+    isActive: formData.get("isActive"),
+    canBook: formData.get("canBook"),
+    canViewDocuments: formData.get("canViewDocuments"),
+    canViewContracts: formData.get("canViewContracts"),
+    canViewEquipment: formData.get("canViewEquipment"),
+  });
+
+  if (!result.ok) {
+    const error =
+      result.reason === "invalid_contact"
+        ? "ugyldig_kontakt"
+        : customerErrorParam(result.reason);
+    redirect(`/kunder/${customerId}?tab=mer&error=${error}#portal`);
+  }
+
+  revalidatePath(`/kunder/${customerId}`);
+  redirect(`/kunder/${customerId}?tab=mer&status=delegering-lagret#portal`);
 }
 
 /** Lager en ny invitasjonslenke for en kundeportalbruker. */

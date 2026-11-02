@@ -101,6 +101,18 @@ export default async function EditWorkOrderPage({
     take: 100,
   });
   const tags = await prisma.tag.findMany({ orderBy: { name: "asc" } });
+  const sites = await prisma.customerSite.findMany({
+    where: { customer: { deletedAt: null } },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 1000,
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      customerId: true,
+      customer: { select: { name: true } },
+    },
+  });
   // Kontaktene til den valgte kunden, slik at valgt kontakt vises umiddelbart
   // og overlever en feil i det etterfølgende kontakt-søket.
   const selectedCustomerContacts = workOrder.customerId
@@ -284,6 +296,30 @@ export default async function EditWorkOrderPage({
                 />
                 <p className={HINT}>
                   {t("orders.edit.contactHint")}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="office-edit-site" className={LABEL}>
+                  {t("orders.edit.siteLabel")}
+                </label>
+                <select
+                  id="office-edit-site"
+                  name="siteId"
+                  defaultValue={workOrder.siteId ?? ""}
+                  aria-describedby="office-edit-site-hint"
+                  className={controlClassName("min-h-11")}
+                >
+                  <option value="">{t("orders.edit.noSite")}</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name} · {site.customer.name}
+                      {site.address ? ` — ${site.address}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p id="office-edit-site-hint" className={HINT}>
+                  {t("orders.edit.siteHint")}
                 </p>
               </div>
 

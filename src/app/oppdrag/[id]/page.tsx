@@ -488,6 +488,7 @@ export default async function AdminWorkOrderPage({
     include: {
       department: true,
       customer: { include: { contacts: true } },
+      site: true,
       contact: true,
       technicians: true,
       templates: true,
@@ -640,7 +641,9 @@ export default async function AdminWorkOrderPage({
     scheduledEnd && !isClosed && scheduledEnd < startOfToday,
   );
   const hasAddress = Boolean(
-    workOrder.address ?? workOrder.customer?.address,
+    workOrder.site?.address ??
+      workOrder.address ??
+      workOrder.customer?.address,
   );
   const feedbackKey = ok ? DETAIL_FEEDBACK_MESSAGE_KEYS[ok] : undefined;
   const canCompleteNow =
@@ -768,14 +771,19 @@ export default async function AdminWorkOrderPage({
                   <p className="mt-0.5 truncate text-xs text-[#5e6356]">
                     {hasAddress ? (
                       <GoogleMapsLink
-                        address={workOrder.address ?? workOrder.customer?.address}
-                        postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
-                        city={workOrder.city ?? workOrder.customer?.city}
+                        address={workOrder.site?.address ?? workOrder.address ?? workOrder.customer?.address}
+                        postalCode={workOrder.site?.postalCode ?? workOrder.postalCode ?? workOrder.customer?.postalCode}
+                        city={workOrder.site?.city ?? workOrder.city ?? workOrder.customer?.city}
                       />
                     ) : (
                       <span className="italic">{t("orders.detail.noAddress")}</span>
                     )}
                   </p>
+                  {workOrder.site && (
+                    <p className="mt-0.5 truncate text-xs font-bold text-[#3d4237]">
+                      {t("orders.detail.site")}: {workOrder.site.name}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`${SUB_CARD} min-w-0 px-3 py-2`}>
@@ -1158,14 +1166,19 @@ export default async function AdminWorkOrderPage({
                   <p className="font-bold">
                     {hasAddress ? (
                       <GoogleMapsLink
-                        address={workOrder.address ?? workOrder.customer?.address}
-                        postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
-                        city={workOrder.city ?? workOrder.customer?.city}
+                        address={workOrder.site?.address ?? workOrder.address ?? workOrder.customer?.address}
+                        postalCode={workOrder.site?.postalCode ?? workOrder.postalCode ?? workOrder.customer?.postalCode}
+                        city={workOrder.site?.city ?? workOrder.city ?? workOrder.customer?.city}
                       />
                     ) : (
                       <span className="text-xs italic text-[#5e6356]">{t("orders.detail.noAddress")}</span>
                     )}
                   </p>
+                  {workOrder.site && (
+                    <p className="text-xs font-bold text-[#3d4237]">
+                      {t("orders.detail.site")}: {workOrder.site.name}
+                    </p>
+                  )}
                 </div>
 
                 {workOrder.creatorName && (

@@ -8,9 +8,14 @@ const mocks = vi.hoisted(() => ({
     workOrder: { findFirst: vi.fn() },
     user: { findMany: vi.fn() },
   },
+  portalAccess: { resolve: vi.fn(), allows: vi.fn() },
 }));
 
 vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
+vi.mock("./portal-access", () => ({
+  resolvePortalAccess: mocks.portalAccess.resolve,
+  portalAccessAllows: mocks.portalAccess.allows,
+}));
 
 import {
   getReportRevision,
@@ -109,6 +114,18 @@ beforeEach(() => {
   mocks.prisma.user.findMany.mockResolvedValue([
     { id: "u2", name: "Ola", email: "ola@example.com" },
   ]);
+  mocks.portalAccess.resolve.mockResolvedValue({
+    ok: true,
+    data: {
+      capabilities: {
+        canBook: true,
+        canViewDocuments: true,
+        canViewContracts: true,
+        canViewEquipment: true,
+      },
+    },
+  });
+  mocks.portalAccess.allows.mockReturnValue(true);
 });
 
 describe("listReportRevisions – tilgang", () => {
@@ -310,6 +327,16 @@ describe("getReportRevisionForPdf", () => {
         },
       }),
     );
+
+    const result = await getReportRevisionForPdf(customer(), "rev1");
+
+    expect(result).toEqual({ ok: false, error: "forbidden" });
+  });
+
+  it("avviser revisjons-PDF når delegasjonen mangler dokumenttilgang", async () => {
+    mocks.prisma.reportRevision.findFirst.mockResolvedValue(revisionRow());
+    mocks.prisma.report.findFirst.mockResolvedValue(reportRow());
+    mocks.portalAccess.allows.mockReturnValue(false);
 
     const result = await getReportRevisionForPdf(customer(), "rev1");
 

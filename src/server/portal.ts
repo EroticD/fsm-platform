@@ -188,6 +188,55 @@ function requestedWindow(schedule: BookingSchedule): {
   return requestedWindowAt(schedule);
 }
 
+/**
+ * Finner eller oppretter et gjenbrukbart sted for bestillingen. Kunden kan
+ * skrive inn et nytt sted i bestillingsskjemaet; da skal det ikke bare bli
+ * tekst på oppdraget, men også dukke opp på kundekortet og i senere
+ * bestillinger. Samme navn hos samme kunde gjenbrukes.
+ */
+async function resolveBookingSite(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  snapshot: {
+    id: string | null;
+    name: string | null;
+    address: string | null;
+    postalCode: string | null;
+    city: string | null;
+  },
+  actor: ServiceActor,
+): Promise<string | null> {
+  if (snapshot.id) return snapshot.id;
+  if (!snapshot.name) return null;
+
+  const existing = await tx.customerSite.findFirst({
+    where: { customerId, name: snapshot.name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const existingCount = await tx.customerSite.count({ where: { customerId } });
+  const site = await tx.customerSite.create({
+    data: {
+      customerId,
+      name: snapshot.name,
+      address: snapshot.address,
+      postalCode: snapshot.postalCode,
+      city: snapshot.city,
+      isPrimary: existingCount === 0,
+    },
+    select: { id: true },
+  });
+  await audit(tx, {
+    entityType: "Customer",
+    entityId: customerId,
+    action: `Opprettet sted fra booking: ${snapshot.name}`,
+    actor: toAuditActor(actor),
+    metadata: { siteId: site.id, fromBooking: true },
+  });
+  return site.id;
+}
+
 /** Fristen for å be om ny tid på bestillingen. */
 export function bookingChangeDeadline(
   requestedDate: Date,
@@ -590,24 +639,12 @@ export async function createBooking(
           }
         }
 
-        let bookingSiteId = siteSnapshot.id;
-        if (!bookingSiteId && siteSnapshot.name) {
-          const existingSites = await tx.customerSite.count({
-            where: { customerId },
-          });
-          const site = await tx.customerSite.create({
-            data: {
-              customerId,
-              name: siteSnapshot.name,
-              address: siteSnapshot.address,
-              postalCode: siteSnapshot.postalCode,
-              city: siteSnapshot.city,
-              isPrimary: existingSites === 0,
-            },
-            select: { id: true },
-          });
-          bookingSiteId = site.id;
-        }
+        const bookingSiteId = await resolveBookingSite(
+          tx,
+          customerId,
+          siteSnapshot,
+          actor,
+        );
 
         const workOrder = await tx.workOrder.create({
           data: {
@@ -737,6 +774,13 @@ export async function createBooking(
         } as const;
       }
 
+      const pendingSiteId = await resolveBookingSite(
+        tx,
+        customerId,
+        siteSnapshot,
+        actor,
+      );
+
       const workOrder = await tx.workOrder.create({
         data: {
           title,
@@ -748,7 +792,7 @@ export async function createBooking(
           contactId: actor.contactId || undefined,
           creatorName: actor.name || actor.email || "Kunde",
           status: "OPEN",
-          siteId: siteSnapshot.id || undefined,
+          siteId: pendingSiteId || undefined,
           address: bookingAddress.address || undefined,
           postalCode: bookingAddress.postalCode || undefined,
           city: bookingAddress.city || undefined,
@@ -773,7 +817,7 @@ export async function createBooking(
           customerId,
           ...schedule.data,
           serviceType,
-          siteId: siteSnapshot.id,
+          siteId: pendingSiteId,
           equipmentId: equipmentId || null,
           equipmentLabel,
           preferredTechnicianId: technicianId || null,

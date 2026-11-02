@@ -841,7 +841,10 @@
         "addressLabel": "Adres",
         "postalCodeLabel": "Kod pocztowy",
         "cityLabel": "Miasto",
-        "locationHint": "Pozostaw puste, aby użyć adresu klienta."
+        "locationHint": "Pozostaw puste, aby użyć adresu klienta.",
+        "siteLabel": "Lokalizacja",
+        "noSite": "Brak lokalizacji (użyj adresu klienta)",
+        "siteHint": "Wybierz zarejestrowaną lokalizację. Adres jest używany jako zapasowy, gdy lokalizacja nie ma adresu."
       },
       "customerSelect": {
         "label": "Wybierz klienta",
@@ -1072,7 +1075,8 @@
           "resolvedAt": "Rozwiązano",
           "timeLeft": "Pozostało {minutes} min",
           "overdue": "{minutes} min po terminie"
-        }
+        },
+        "site": "Lokalizacja"
       },
       "edit": {
         "notFoundTitle": "Zlecenie nie istnieje",
@@ -1104,7 +1108,10 @@
         "addressLabel": "Adres",
         "postalCodeLabel": "Kod pocztowy",
         "cityLabel": "Miasto",
-        "locationHint": "Pozostaw puste, aby użyć adresu klienta."
+        "locationHint": "Pozostaw puste, aby użyć adresu klienta.",
+        "siteLabel": "Lokalizacja",
+        "noSite": "Brak lokalizacji (użyj adresu klienta)",
+        "siteHint": "Wybierz zarejestrowaną lokalizację dla zlecenia."
       },
       "fieldList": {
         "greeting": "Cześć, {name}",
@@ -1976,7 +1983,18 @@
         "activate": "Aktywuj",
         "errorMissingFields": "Wypełnij imię i nazwisko, e-mail i wybierz kontakt.",
         "errorInvalidContact": "Kontakt nie należy do tego klienta.",
-        "errorDuplicateEmail": "Użytkownik z tym adresem e-mail już istnieje."
+        "errorDuplicateEmail": "Użytkownik z tym adresem e-mail już istnieje.",
+        "delegation": {
+          "title": "Delegowany dostęp do portalu",
+          "description": "Określ, co każda osoba kontaktowa może robić w portalu klienta. Kontakt bez zapisanej delegacji zachowuje pełny dostęp.",
+          "fullAccessFallback": "Pełny dostęp (domyślnie)",
+          "save": "Zapisz delegację",
+          "isActive": "Aktywny użytkownik portalu",
+          "canBook": "Może rezerwować",
+          "canViewDocuments": "Może przeglądać dokumenty i raporty",
+          "canViewContracts": "Może przeglądać umowy",
+          "canViewEquipment": "Może przeglądać sprzęt"
+        }
       },
       "activity": {
         "feedTitle": "Kanał aktywności",
@@ -2027,7 +2045,12 @@
           "contractTerminated": "Umowa serwisowa została zakończona.",
           "contractRenewed": "Umowa serwisowa została odnowiona.",
           "contractLineCreated": "Pozycja umowy została dodana.",
-          "contractLineDeleted": "Pozycja umowy została usunięta."
+          "contractLineDeleted": "Pozycja umowy została usunięta.",
+          "siteCreated": "Dodano lokalizację.",
+          "siteUpdated": "Zaktualizowano lokalizację.",
+          "siteDeleted": "Usunięto lokalizację.",
+          "sitePrimary": "Ustawiono lokalizację jako główną.",
+          "delegationSaved": "Zapisano delegację portalu."
         },
         "error": {
           "invalid": "Formularz zawiera nieprawidłowe lub brakujące pola.",
@@ -2036,6 +2059,25 @@
           "unknown": "Coś poszło nie tak. Spróbuj ponownie.",
           "conflict": "Działanie koliduje z inną zmianą. Odśwież stronę."
         }
+      },
+      "sites": {
+        "title": "Lokalizacje",
+        "description": "Lokalizacje i adresy klienta. Można je wybierać w zleceniach, sprzęcie i portalu klienta.",
+        "name": "Nazwa",
+        "namePlaceholder": "Np. Magazyn południowy",
+        "address": "Adres",
+        "postalCode": "Kod pocztowy",
+        "city": "Miasto",
+        "setPrimary": "Ustaw jako główną lokalizację",
+        "add": "Dodaj lokalizację",
+        "empty": "Brak zarejestrowanych lokalizacji.",
+        "primary": "Główna",
+        "noAddress": "Brak adresu",
+        "makePrimary": "Ustaw jako główną",
+        "delete": "Usuń lokalizację",
+        "deleteConfirm": "Usunąć lokalizację „{name}”? Zlecenia i sprzęt wskazujące na nią utracą powiązanie.",
+        "edit": "Edytuj lokalizację",
+        "save": "Zapisz lokalizację"
       }
     },
     "documents": {
@@ -3922,7 +3964,9 @@
         "unknown": "Nieznane",
         "dangerous": "Strefa zagrożenia",
         "delete": "Usuń urządzenie",
-        "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć."
+        "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć.",
+        "site": "Lokalizacja",
+        "noSite": "Brak lokalizacji"
       },
       "form": {
         "title": "Nowe urządzenie",
@@ -3940,7 +3984,9 @@
         "meterUnit": "Jednostka licznika",
         "meterUnitHint": "Na przykład godziny, km lub cykle.",
         "submit": "Zarejestruj urządzenie",
-        "cancel": "Anuluj"
+        "cancel": "Anuluj",
+        "site": "Lokalizacja",
+        "noSite": "Brak lokalizacji"
       },
       "label": {
         "title": "Etykieta urządzenia",
