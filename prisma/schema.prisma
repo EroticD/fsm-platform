@@ -1545,19 +1545,70 @@ model RateLimit {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
+  id String @id @default(cuid())
+  /// Monoton rekkefølge. Hash-kjeden følger denne, ikke tidspunktet, slik at
+  /// to hendelser i samme millisekund fortsatt får en entydig rekkefølge.
+  seq        Int      @unique @default(autoincrement())
   entityType String
   entityId   String
   action     String
   userName   String
   actorId    String?
+  /// Avdelingen hendelsen skjedde i. Brukes til avdelingssperret visning og
+  /// eksport; eldre rader kan mangle verdi og vises bare for administrator.
+  departmentId String?
   metadata   Json?
+  /// SHA-256 av forrige rad i kjeden (null for første rad).
+  prevHash   String?
+  /// SHA-256 av denne radens kanoniske innhold og `prevHash`.
+  hash       String?
   createdAt  DateTime @default(now())
 
   @@index([entityType])
   @@index([entityId])
   @@index([entityType, entityId, createdAt])
   @@index([createdAt])
+  @@index([departmentId, createdAt])
+  @@index([hash])
+  @@index([prevHash])
+}
+
+/// Konfigurasjon for revisjonsloggens oppbevaringstid. Én rad med id «default».
+model AuditRetentionSetting {
+  id            String   @id @default("default")
+  /// Antall dager revisjonslogger beholdes før de kan purres. 0 = aldri.
+  retentionDays Int      @default(365)
+  updatedAt     DateTime @updatedAt
+  updatedById   String?
+}
+
+/// Bevaringsplikt på revisjonslogger. Holdet ligger i en egen tabell fordi
+/// selve revisjonsraden skal være uforanderlig: et hold er en markering, ikke
+/// en endring av historikken. Et hold kan gjelde én logg eller en hel entitet.
+model AuditHold {
+  id          String    @id @default(cuid())
+  auditLogId  String?
+  entityType  String?
+  entityId    String?
+  reason      String
+  createdById String?
+  createdAt   DateTime  @default(now())
+  releasedAt  DateTime?
+  releasedById String?
+
+  @@index([auditLogId])
+  @@index([entityType, entityId])
+  @@index([releasedAt])
+}
+
+/// Hash-verdier som er fjernet av retensjonsjobben. Uten disse ville en
+/// verifisering se på neste rad som brutt, fordi `prevHash` peker på en rad som
+/// er purret med vilje. Tombstones gjør at et kontrollert hull kan skilles fra
+/// manipulering.
+model AuditPurgedHash {
+  hash     String   @id
+  purgedAt DateTime @default(now())
+  reason   String?
 }
 
 model Notification {

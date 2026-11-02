@@ -8,6 +8,7 @@ import { parseDateOnly, todayInOslo } from "@/lib/dates";
 import { logger } from "@/lib/logger";
 import { deleteUploadIfOwned } from "@/lib/upload-store";
 import { releaseUpload } from "@/lib/upload-cleanup";
+import { cleanupExpiredAuditLogs } from "@/server/audit-retention";
 import {
   notifyOverdueWorkOrders,
   processPendingNotificationEmails,
@@ -65,6 +66,9 @@ export const RETENTION_DAYS = Math.max(
 /** Hvor ofte bevaringsjobben ser etter utløpte oppdrag. */
 export const RETENTION_CLEANUP_INTERVAL_MS = 6 * 60 * 60_000;
 
+/** Revisjonsloggen purres sjelden; en gang i døgnet er rikelig. */
+export const AUDIT_RETENTION_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000;
+
 /**
  * Søkeloggen brukes til anonymisert søkeanalyse. Den inneholder søkeord som
  * kan være personopplysninger, så den skal ikke beholdes for alltid.
@@ -94,6 +98,7 @@ type WorkerGlobal = typeof globalThis & {
   __fsmPdfJobWorkerStarted?: boolean;
   __fsmDraftCleanupStarted?: boolean;
   __fsmWorkOrderRetentionStarted?: boolean;
+  __fsmAuditRetentionStarted?: boolean;
   __fsmSearchLogCleanupStarted?: boolean;
   __fsmBookingHoldCleanupStarted?: boolean;
   __fsmLocationPingCleanupStarted?: boolean;
@@ -639,6 +644,43 @@ export function startWorkOrderRetentionCleanup(): void {
   timer.unref?.();
 }
 
+/**
+ * Purrer revisjonslogger etter oppbevaringstiden.
+ *
+ * Når runtime-rollen er låst for DELETE på AuditLog (anbefalt i produksjon),
+ * feiler jobben med en loggfeil i stedet for å slette. Da kjøres den med
+ * vedlikeholdsrollen, se docs/audit-retention.md. Hold og tombstone-logikken
+ * ligger i tjenestelaget.
+ */
+export function startAuditRetentionCleanup(): void {
+  const scope = globalThis as WorkerGlobal;
+  if (scope.__fsmAuditRetentionStarted) return;
+  scope.__fsmAuditRetentionStarted = true;
+
+  const run = () => {
+    void cleanupExpiredAuditLogs()
+      .then((result) => {
+        if (result.disabled) return;
+        if (result.deleted > 0 || result.held > 0) {
+          logger.info("Purged expired audit logs", {
+            deleted: result.deleted,
+            held: result.held,
+            retentionDays: result.retentionDays,
+          });
+        }
+      })
+      .catch((error) => {
+        logger.error("Could not run the audit retention job", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+  };
+
+  run();
+  const timer = setInterval(run, AUDIT_RETENTION_CLEANUP_INTERVAL_MS);
+  timer.unref?.();
+}
+
 async function runWorkerLoop(workerIndex: number): Promise<void> {
   // Litt spredning, så ikke alle workerne spør databasen i samme øyeblikk.
   await sleep(1_000 + workerIndex * 250);
@@ -681,6 +723,9 @@ export function startJobWorker(): void {
 
   // Hard-slett mykt slettede oppdrag når bevaringsperioden er utløpt.
   startWorkOrderRetentionCleanup();
+
+  // Purr revisjonslogger etter konfigurert oppbevaringstid (hold respekteres).
+  startAuditRetentionCleanup();
 
   // Søkeloggen er analyse, ikke revisjon: slett gamle søkeord (PII).
   startSearchLogCleanup();
@@ -740,6 +785,7 @@ export function resetJobWorkerForTests(): void {
   scope.__fsmPdfJobWorkerStarted = false;
   scope.__fsmDraftCleanupStarted = false;
   scope.__fsmWorkOrderRetentionStarted = false;
+  scope.__fsmAuditRetentionStarted = false;
   scope.__fsmSearchLogCleanupStarted = false;
   scope.__fsmBookingHoldCleanupStarted = false;
   scope.__fsmLocationPingCleanupStarted = false;

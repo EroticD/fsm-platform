@@ -17,7 +17,8 @@
       "security": "Sikkerhet",
       "map": "Kart",
       "api": "API-nøkler",
-      "equipment": "Utstyr"
+      "equipment": "Utstyr",
+      "evidence": "Bevis"
     },
     "branding": {
       "title": "White-label Innstillinger",
@@ -86,7 +87,35 @@
       "fromDate": "Fra dato",
       "toDate": "Til dato",
       "search": "Søk",
-      "reset": "Nullstill"
+      "reset": "Nullstill",
+      "retentionTitle": "Oppbevaring og eksport",
+      "retentionDesc": "Revisjonslogger eldre enn oppbevaringstiden purres automatisk. Rader med bevaringsplikt beholdes. 0 slår automatisk purring av.",
+      "retentionDays": "Dager",
+      "save": "Lagre",
+      "retentionSaved": "Oppbevaringstiden er lagret.",
+      "exportTitle": "Eksporter revisjonslogg",
+      "exportDesc": "Laster ned et ZIP-arkiv med SHA-256-manifest og hash-kjede. Eksporten logges i revisjonsloggen.",
+      "exportButton": "Last ned arkiv",
+      "holdTitle": "Bevaringsplikt",
+      "holdDesc": "Fest en revisjonsrad eller en hel entitet mot automatisk purring. Historikken endres ikke.",
+      "holdLogId": "Logg-ID",
+      "holdReason": "Grunn (påkrevd)",
+      "holdSet": "Sett hold",
+      "holdRelease": "Opphev",
+      "holdSaved": "Bevaringsplikten er registrert.",
+      "holdReleased": "Bevaringsplikten er opphevet.",
+      "holdError": "Handlingen kunne ikke utføres. Kontroller opplysningene."
+    },
+    "evidence": {
+      "title": "Bevispakke for oppdrag",
+      "desc": "Last ned ett oppdrag med kunde, rapporter, revisjoner, vedlegg og relevante revisjonslogger. Pakken er signert med SHA-256-manifest og kan verifiseres offline.",
+      "empty": "Det finnes ingen oppdrag å eksportere ennå.",
+      "selectWorkOrder": "Velg oppdrag",
+      "selectPlaceholder": "Velg et oppdrag …",
+      "exportButton": "Last ned bevispakke",
+      "contentsTitle": "Dette inneholder pakken",
+      "contents": "work-order.json, customer.json, rapporter med revisjoner, vedlegg og signaturer, audit/audit.jsonl, manifest.json og manifest.sha256. Manglende filer listes med årsak.",
+      "verifyHint": "Verifiser med sha256sum -c manifest.sha256 og sammenlign filene i manifest.json. Endres en fil, bryter verifiseringen."
     },
     "statistics": {
       "title": "Statistikk",

@@ -2243,7 +2243,8 @@
         "map": "Karte",
         "api": "API-Schlüssel",
         "sla": "SLA und Geschäftszeiten",
-        "equipment": "Ausstattung"
+        "equipment": "Ausstattung",
+        "evidence": "Nachweise"
       },
       "branding": {
         "title": "White-Label-Einstellungen",
@@ -2312,7 +2313,35 @@
         "fromDate": "Von Datum",
         "toDate": "Bis Datum",
         "search": "Suchen",
-        "reset": "Zurücksetzen"
+        "reset": "Zurücksetzen",
+        "retentionTitle": "Aufbewahrung und Export",
+        "retentionDesc": "Auditprotokolle, die älter als die Aufbewahrungsfrist sind, werden automatisch gelöscht. Zeilen mit Aufbewahrungspflicht bleiben erhalten. 0 schaltet das automatische Löschen aus.",
+        "retentionDays": "Tage",
+        "save": "Speichern",
+        "retentionSaved": "Die Aufbewahrungsfrist wurde gespeichert.",
+        "exportTitle": "Auditprotokoll exportieren",
+        "exportDesc": "Lädt ein ZIP-Archiv mit SHA-256-Manifest und Hash-Kette herunter. Der Export wird selbst protokolliert.",
+        "exportButton": "Archiv herunterladen",
+        "holdTitle": "Aufbewahrungspflicht",
+        "holdDesc": "Schützt eine Auditzeile oder eine ganze Entität vor automatischem Löschen. Die Historie selbst wird nicht verändert.",
+        "holdLogId": "Protokoll-ID",
+        "holdReason": "Grund (erforderlich)",
+        "holdSet": "Sperre setzen",
+        "holdRelease": "Aufheben",
+        "holdSaved": "Die Aufbewahrungspflicht wurde erfasst.",
+        "holdReleased": "Die Aufbewahrungspflicht wurde aufgehoben.",
+        "holdError": "Die Aktion konnte nicht ausgeführt werden. Prüfen Sie die Angaben."
+      },
+      "evidence": {
+        "title": "Nachweispaket für Auftrag",
+        "desc": "Lädt einen Auftrag mit Kunde, Berichten, Revisionen, Anhängen und relevanten Auditzeilen herunter. Das Paket ist mit einem SHA-256-Manifest versiegelt und offline prüfbar.",
+        "empty": "Es gibt noch keine Aufträge zum Exportieren.",
+        "selectWorkOrder": "Auftrag auswählen",
+        "selectPlaceholder": "Auftrag auswählen …",
+        "exportButton": "Nachweispaket herunterladen",
+        "contentsTitle": "Inhalt des Pakets",
+        "contents": "work-order.json, customer.json, Berichte mit Revisionen, Anhänge und Signaturen, audit/audit.jsonl, manifest.json und manifest.sha256. Fehlende Dateien werden mit Grund aufgeführt.",
+        "verifyHint": "Prüfen Sie mit sha256sum -c manifest.sha256 und vergleichen Sie die Dateien in manifest.json. Ändert sich eine Datei, schlägt die Prüfung fehl."
       },
       "statistics": {
         "title": "Statistik",

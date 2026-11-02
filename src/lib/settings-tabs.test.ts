@@ -87,6 +87,15 @@ describe("chooseSettingsTab", () => {
     expect(isSettingsTabAllowed("api", noPermissions)).toBe(false);
   });
 
+  it("lar bare administrator åpne bevisfanen", () => {
+    expect(chooseSettingsTab("bevis", admin)).toBe("bevis");
+    expect(isSettingsTabAllowed("bevis", admin)).toBe(true);
+    expect(isSettingsTabAllowed("bevis", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("bevis", { ...noPermissions, canAudit: true }),
+    ).toBe("auditlog");
+  });
+
   it("lar brukere med utstyrstilgang åpne utstyrsfanen", () => {
     const equipment: SettingsTabPermissions = {
       ...noPermissions,

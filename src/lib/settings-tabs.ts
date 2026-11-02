@@ -6,6 +6,7 @@ export type SettingsTabKey =
   | "tags"
   | "utstyr"
   | "auditlog"
+  | "bevis"
   | "statistikk"
   | "sla"
   | "sms"
@@ -39,6 +40,7 @@ const TAB_ORDER: SettingsTabKey[] = [
   "tags",
   "utstyr",
   "auditlog",
+  "bevis",
   "statistikk",
   "sla",
   "sms",
@@ -68,6 +70,8 @@ export function isSettingsTabAllowed(
       return permissions.canEquipment;
     case "auditlog":
       return permissions.canAudit;
+    case "bevis":
+      return permissions.isAdmin;
     case "statistikk":
       return permissions.canStats;
     case "sla":

@@ -37,6 +37,7 @@ vi.mock("@/lib/prisma", () => ({ default: mocks.prisma }));
 import {
   createTemplate,
   deleteTemplate,
+  getAuditLogPage,
   getStatistics,
   saveBranding,
   updateTemplate,
@@ -94,6 +95,43 @@ describe("innstillingstjenesten – autorisasjon", () => {
 
     expect(result).toEqual({ ok: false, reason: "forbidden" });
     expect(mocks.prisma.workOrder.count).not.toHaveBeenCalled();
+  });
+
+  it("begrenser aktivitetsloggen til egen avdeling", async () => {
+    mocks.prisma.auditLog.findMany.mockResolvedValue([]);
+    mocks.prisma.auditLog.count.mockResolvedValue(0);
+
+    const result = await getAuditLogPage(
+      actor({
+        departmentId: "dep-a",
+        roleDefinition: { permissions: ["audit.view"] },
+      }),
+      { search: "", dateFrom: "", dateTo: "", page: 1 },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ departmentId: "dep-a" }),
+      }),
+    );
+  });
+
+  it("lar administrator se aktivitetsloggen uten avdelingsfilter", async () => {
+    mocks.prisma.auditLog.findMany.mockResolvedValue([]);
+    mocks.prisma.auditLog.count.mockResolvedValue(0);
+
+    await getAuditLogPage(admin(), {
+      search: "",
+      dateFrom: "",
+      dateTo: "",
+      page: 1,
+    });
+
+    const args = mocks.prisma.auditLog.findMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+    };
+    expect(args.where.departmentId).toBeUndefined();
   });
 
   it("avviser eksterne logo-URL-er", async () => {
