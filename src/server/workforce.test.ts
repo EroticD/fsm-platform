@@ -813,7 +813,7 @@ describe("availableTechnicians", () => {
     expect(mocks.prisma.user.findMany).not.toHaveBeenCalled();
   });
 
-  it("avgrenser til 200 og ekskluderer fravær og overlappende visitter", async () => {
+  it("avgrenser til 200 og ekskluderer fravær, men ikke overlappende visitter", async () => {
     await availableTechnicians(office(), range);
 
     const query = mocks.prisma.user.findMany.mock.calls[0][0];
@@ -830,17 +830,6 @@ describe("availableTechnicians", () => {
             none: {
               startsAt: { lt: range.endsAt },
               endsAt: { gt: range.startsAt },
-            },
-          },
-        }),
-        expect.objectContaining({
-          visitAssignments: {
-            none: {
-              visit: expect.objectContaining({
-                status: { not: "CANCELLED" },
-                startsAt: { lt: range.endsAt },
-                endsAt: { gt: range.startsAt },
-              }),
             },
           },
         }),

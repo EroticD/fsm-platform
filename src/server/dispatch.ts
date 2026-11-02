@@ -612,20 +612,14 @@ export async function scoreCandidatesForVisits(
 function planFromRanking(
   visit: VisitRow,
   ranking: DispatchRanking,
-  reserved: Array<{ technicianId: string; startsAt: Date; endsAt: Date }>,
 ): { plan: AutoAssignPlan | null; reason: string | null } {
   if (visit.technicians.length > 0) {
     return { plan: null, reason: "already_assigned" };
   }
   for (const candidate of ranking.candidates) {
     if (!candidate.eligible) continue;
-    const conflict = reserved.some(
-      (slot) =>
-        slot.technicianId === candidate.id &&
-        slot.startsAt < visit.endsAt &&
-        slot.endsAt > visit.startsAt,
-    );
-    if (conflict) continue;
+    // Overlapp er tillatt. Flere oppdrag kan ligge samtidig på samme montør;
+    // belastningen inngår i poengsummen i stedet for å diskvalifisere.
     return {
       plan: {
         visitId: visit.id,
@@ -681,21 +675,12 @@ export async function autoAssign(
     rankings.set(visit.id, await rankVisit(loaded.data, visit));
   }
 
-  const reserved: Array<{
-    technicianId: string;
-    startsAt: Date;
-    endsAt: Date;
-  }> = [];
   const assignments: AutoAssignPlan[] = [];
   const skipped: AutoAssignSkipped[] = [];
 
   for (const visit of loaded.data.visits) {
     const ranking = rankings.get(visit.id);
-    const { plan, reason } = planFromRanking(
-      visit,
-      ranking!,
-      reserved,
-    );
+    const { plan, reason } = planFromRanking(visit, ranking!);
     if (!plan) {
       skipped.push({
         visitId: visit.id,
@@ -705,11 +690,6 @@ export async function autoAssign(
       continue;
     }
     assignments.push(plan);
-    reserved.push({
-      technicianId: plan.technicianId,
-      startsAt: visit.startsAt,
-      endsAt: visit.endsAt,
-    });
   }
 
   if (dryRun) {
@@ -962,15 +942,6 @@ export async function findSlot(
             );
             if (!available) continue;
           }
-          const conflict = visits.some(
-            (visit) =>
-              visit.technicians.some(
-                (technician) => technician.userId === candidate.id,
-              ) &&
-              visit.startsAt < endsAt &&
-              visit.endsAt > startsAt,
-          );
-          if (conflict) continue;
           const held = holds.some(
             (hold) =>
               (hold.technicianId === null ||

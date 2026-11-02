@@ -269,7 +269,8 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   gjennomsnittsfart; det finnes ingen dupliserte avstandsformler.
 - **Scoring er deterministisk og forklarbar.** `rankDispatchCandidates` er ren
   matematikk; tjenestelaget henter data og gir dem inn. Kompetansekrav,
-  fravær, arbeidstid og overlapp er harde filtre. Poengsummen består av
+  fravær og arbeidstid er harde filtre. Overlapp er bare en opptatt-markering;
+  montøren kan fortsatt tildeles flere samtidige oppdrag. Poengsummen består av
   kompetanse, avstand, reisetid, ledig tid, SLA-hast og belastning, og hver
   komponent lagres i revisjonsloggen ved automatisk tildeling.
 - **Auto-tildeling er tørrkjøring som standard.** `autoAssign(..., { dryRun })`
@@ -305,7 +306,9 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   Slotmatematikken ligger i `src/lib/availability.ts` og er uten I/O.
   `BusinessHours` snittes med `UserAvailability`; fravær, aktive visiter,
   aktive `BookingHold` og 24 timers ledetid trekkes fra. `DONE` og `CANCELLED`
-  blokkerer ikke. Heldagsvisiter stenger hele kalenderdagen/de dagene de dekker.
+  blokkerer ikke. Heldagsvisiter er en planleggingsmarkør som gjør montøren
+  opptatt, men stenger ikke hele kalenderdagen; timevisiter opptar sin konkrete
+  tid. Montører kan likevel tildeles overlappende oppdrag.
 - **Manglende arbeidstid er en eksplisitt standard.** Har en montør ingen
   `UserAvailability`, brukes avdelingens åpningstider og resultatet flagger
   `unconfiguredPolicy = "business_hours"`. Har avdelingen ingen

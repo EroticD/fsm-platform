@@ -209,13 +209,18 @@ function blocksCandidate(
   startsAt: Date,
   endsAt: Date,
   ranges: readonly BlockingRange[] | undefined,
+  options: { ignoreAllDay?: boolean } = {},
 ): boolean {
   for (const range of ranges ?? []) {
     if (range.status !== undefined && !isBlockingStatus(range.status)) {
       continue;
     }
     if (range.allDay) {
-      if (allDayRangeCoversDate(range, date)) return true;
+      // En heldagsvisitt er en planleggingsmarkør, ikke en 24-timers
+      // blokkering. Den gjør montøren opptatt, men stenger ikke alle timer.
+      if (!options.ignoreAllDay && allDayRangeCoversDate(range, date)) {
+        return true;
+      }
       continue;
     }
     if (startsAt.getTime() < range.endsAt.getTime() && endsAt.getTime() > range.startsAt.getTime()) {
@@ -289,9 +294,14 @@ export function generateDaySlots(input: DaySlotInput): DaySlotResult {
       if (osloLocalParts(startsAt).minuteOfDay !== minute) continue;
       if (startsAt.getTime() < earliest) continue;
       if (seen.has(startsAt.getTime())) continue;
+      // Visiter er informasjon om at montøren er opptatt, ikke en hard
+      // blokkering. Et heldagsoppdrag stenger ikke hele dagen, og timeplaner
+      // kan overlappe. Fravær og aktive bookingreservasjoner er fortsatt harde.
       if (
         blocksCandidate(input.date, startsAt, endsAt, input.absences) ||
-        blocksCandidate(input.date, startsAt, endsAt, input.visits) ||
+        blocksCandidate(input.date, startsAt, endsAt, input.visits, {
+          ignoreAllDay: true,
+        }) ||
         blocksCandidate(input.date, startsAt, endsAt, input.holds)
       ) {
         continue;
@@ -375,9 +385,13 @@ export function isRangeBookable(input: {
   });
   if (!startsInWindow) return false;
 
+  // Timede visiter opptar den konkrete tiden, mens heldagsvisiter bare er
+  // planleggingsmarkører og ikke stenger hele dagen.
   return !(
     blocksCandidate(input.date, input.startsAt, input.endsAt, input.absences) ||
-    blocksCandidate(input.date, input.startsAt, input.endsAt, input.visits) ||
+    blocksCandidate(input.date, input.startsAt, input.endsAt, input.visits, {
+      ignoreAllDay: true,
+    }) ||
     blocksCandidate(input.date, input.startsAt, input.endsAt, input.holds)
   );
 }

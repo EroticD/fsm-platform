@@ -1101,7 +1101,8 @@ function osloMoment(date: Date): OsloMoment {
  *    begrenset til `staffScopeFor(actor)` – egen avdeling for ikke-admin.
  *    Bare aktive, ikke-kundeportale ansatte i en aktiv avdeling er med.
  * 2. Ansatte med et fravær som overlapper intervallet utelates.
- * 3. Ansatte med en overlappende visitt som ikke er kansellert utelates.
+ * 3. Overlappende visiter er tillatt og utelater ikke ansatte; de er bare
+ *    informasjon om at montøren er opptatt.
  * 4. `skillKeys` krever at ALLE nøklene finnes på den ansatte og er gyldige
  *    ved intervallets start. Dette er bevisst «alle», ikke «minst én».
  * 5. Ukentlig arbeidstid: intervallet kan spenne over flere dager, men bare
@@ -1157,17 +1158,6 @@ export async function availableTechnicians(
         {
           absences: {
             none: { startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
-          },
-        },
-        {
-          visitAssignments: {
-            none: {
-              visit: {
-                status: { not: "CANCELLED" },
-                startsAt: { lt: endsAt },
-                endsAt: { gt: startsAt },
-              },
-            },
           },
         },
         ...skillFilters,

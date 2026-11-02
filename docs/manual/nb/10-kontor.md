@@ -122,8 +122,9 @@ visitten:
 4. Trykk **Lagre visitt**.
 
 En visitt varer i maksimalt 31 dager, og sluttid må være etter starttid.
-Overlapp gir **En eller flere montører er allerede tildelt en overlappende
-visitt.** Fullførte og kansellerte visiter er låst. Endre med **Rediger visitt**
+Overlappende visiter er tillatt. Montøren vises som opptatt, men kan fortsatt
+tildeles et nytt oppdrag; bruk kalenderen og kapasitetsvisningen til å vurdere
+belastningen. Fullførte og kansellerte visiter er låst. Endre med **Rediger visitt**
 → **Flytt visitt**, **Tildel montører** eller **Notat og rekkefølge**.
 
 ### HMS-bibliotek og QR-etiketter
@@ -297,7 +298,7 @@ filter** og **Nullstill** gjelder alle datavisningene.
 Kalenderen viser visiter med status **Planlagt**, **Tildelt**, **På vei**, **På
 stedet**, **Fullført** eller **Kansellert**. Dra en visitt til en annen dag
 eller et annet tidsrom for å flytte den. Ved konflikt lagres ikke flyttingen, og
-du får beskjed om overlapp. Fullførte og kansellerte visiter er låst.
+du får beskjed om overlappet. Fullførte og kansellerte visiter er låst.
 
 **Ressursoversikt** viser montører, aktive oppdrag, oppdrag uten montør og nylig
 fullførte. **Ufordelte oppdrag** har **Tildel montør**. Du kan dra kort mellom
@@ -315,7 +316,7 @@ oppdraget.
 **Automatisk tildeling** tørrkjøres med **Tørrkjør**; **Bruk N forslag** lagrer
 først når du velger det. **Foreslå montør** rangerer etter **Kompetanse**,
 **Avstand**, **Reise**, **Ledig**, **SLA** og **Belastning**. Kompetanse, fravær,
-arbeidstid og overlapp er harde krav.
+arbeidstid er harde krav; overlapp er bare en opptatt-markering.
 
 **Kapasitet** (`/kalender/kapasitet`) viser **Planlagt kapasitet mot faktisk
 belastning per avdeling, dag og montør**. Velg **Fra** og **Til**, trykk **Vis**,
@@ -595,7 +596,7 @@ administratordelen (del 3).
 | Får ikke tildelt | Mangler **Tildele montører**, låst eller bevaringsplikt | Be om rettighet, eller gjenåpne som administrator |
 | Dra og slipp endret ikke dato | Dra og slipp tildeler montør | Flytt visitten i kalenderen |
 | Kalenderen er tom | Ingen visiter, filter eller utenfor ±6 måneder | Nullstill filter, velg **I dag**, kontroller visitt |
-| Overlappende visitt | Montøren er dobbelbooket | Flytt visitten eller velg annen montør |
+| Overlappende visitt | Montøren har flere oppdrag samtidig | Vurder kapasiteten og flytt en visitt ved behov |
 | Rapporten er låst | Innsendt rapport | Be administrator **Lås opp for retting** |
 | Kunden ser ikke rapporten | Ikke låst, eller mangler portal-/dokumenttilgang | Lås rapporten, kontroller portalbruker |
 | Kunden kan ikke booke | Mangler kontakt, aktiv bruker eller ledig tid | Sjekk kontakt, bruker, 24 timer og ledige tidsrom |

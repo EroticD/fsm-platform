@@ -117,8 +117,8 @@ a date; the time is set on the visit:
 4. Press **Save visit**.
 
 A visit lasts at most 31 days, and the end time must be after the start time.
-An overlap gives **One or more technicians are already assigned to an
-overlapping visit.**
+Overlapping visits are allowed. The technician is shown as busy, but can still
+be assigned another job; use the calendar and capacity view to judge the load.
 
 ### HMS library and QR labels
 
@@ -285,7 +285,7 @@ maximum of 1000 visits; visits outside the window may be missing.
 The calendar shows visits with the status **Planned**, **Assigned**, **On the
 way**, **On site**, **Completed** or **Cancelled**. Drag a visit to another day
 or time range to move it. On conflict the move is not saved, and you are told
-about the overlap.
+about the overlapping assignment.
 
 **Resource overview** shows technicians, active work, unassigned work and recent
 completions. **Unassigned work orders** have **Assign technician**. You can drag
@@ -570,7 +570,7 @@ restoration. See the administrator part (Part 3).
 | Cannot assign | Missing **Assign technicians**, locked or legal hold | Request permission, or reopen as administrator |
 | Drag and drop did not change the date | Drag and drop assigns a technician | Move the visit in the calendar |
 | Calendar is empty | No visits, filter or outside ±6 months | Reset filter, choose **Today**, check visit |
-| Overlapping visit | Technician is double-booked | Move the visit or choose another technician |
+| Overlapping visit | Technician has several jobs at the same time | Check capacity and move one of the visits if needed |
 | Report is locked | Submitted report | Ask an administrator to **Unlock for editing** |
 | Customer cannot see the report | Not locked, or missing portal/document access | Lock the report, check portal user |
 | Customer cannot book | Missing contact, active user or available time | Check contact, user, 24 hours and available time slots |

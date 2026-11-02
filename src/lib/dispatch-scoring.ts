@@ -181,15 +181,6 @@ function isAvailable(
   );
 }
 
-function hasOverlap(
-  candidate: DispatchCandidateInput,
-  visit: DispatchVisitInput,
-): boolean {
-  return candidate.assignedVisits.some((assigned) =>
-    overlaps(assigned, { startsAt: visit.startsAt, endsAt: visit.endsAt }),
-  );
-}
-
 function assignedMinutesForDay(candidate: DispatchCandidateInput): number {
   return candidate.assignedVisits.reduce(
     (sum, assigned) =>
@@ -238,13 +229,13 @@ function scoreOne(
 
   const absent = isAbsent(candidate, visit);
   const available = isAvailable(candidate, visit);
-  const overlapping = hasOverlap(candidate, visit);
 
+  // Overlappende visiter er tillatt. De påvirker belastning/ledig tid i
+  // poengsummen, men gjør ikke montøren inhabil.
   let excludedReason: DispatchCandidateScore["excludedReason"] = null;
   if (missingSkillIds.length > 0) excludedReason = "missing_skills";
   else if (absent) excludedReason = "absence";
   else if (!available) excludedReason = "unavailable";
-  else if (overlapping) excludedReason = "overlap";
 
   const matchedOptional = required.filter(
     (skill) => !skill.mandatory && validSkills.has(skill.skillId),
