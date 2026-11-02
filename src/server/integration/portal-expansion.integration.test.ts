@@ -80,13 +80,25 @@ describeIntegration("Kundeportalens utvidelse", () => {
     });
     otherSiteId = otherSite.id;
 
+    // Hold besøket i fremtiden uavhengig av når CI kjører. Portalens
+    // tidslinje filtrerer på «kommende», så en fast dato blir feil neste dag.
+    const visitDay = new Date();
+    visitDay.setUTCDate(visitDay.getUTCDate() + 1);
+    visitDay.setUTCHours(0, 0, 0, 0);
+    const visitStart = new Date(visitDay);
+    visitStart.setUTCHours(9, 0, 0, 0);
+    const visitEnd = new Date(visitDay);
+    visitEnd.setUTCHours(10, 0, 0, 0);
+    const trackingExpires = new Date(visitDay);
+    trackingExpires.setUTCHours(12, 0, 0, 0);
+
     const workOrder = await prisma.workOrder.create({
       data: {
         title: unique("IT-portal-oppdrag"),
         departmentId,
         customerId,
         status: "PLANNED",
-        scheduledFor: new Date("2026-11-01T00:00:00Z"),
+        scheduledFor: visitDay,
       },
     });
     workOrderId = workOrder.id;
@@ -95,8 +107,8 @@ describeIntegration("Kundeportalens utvidelse", () => {
       data: {
         workOrderId,
         sequence: 0,
-        startsAt: new Date("2026-11-01T09:00:00Z"),
-        endsAt: new Date("2026-11-01T10:00:00Z"),
+        startsAt: visitStart,
+        endsAt: visitEnd,
         status: "EN_ROUTE",
       },
     });
@@ -106,7 +118,7 @@ describeIntegration("Kundeportalens utvidelse", () => {
         tokenHash: unique("tracking-hash").padEnd(64, "0").slice(0, 64),
         workOrderId,
         visitId,
-        expiresAt: new Date("2026-11-01T12:00:00Z"),
+        expiresAt: trackingExpires,
       },
     });
 
