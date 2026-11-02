@@ -1266,6 +1266,277 @@ export async function getCapacityOverview(
 }
 
 // ---------------------------------------------------------------------------
+// Kapasitetsplaner (skriving)
+// ---------------------------------------------------------------------------
+
+export type CapacityPlanView = {
+  id: string;
+  departmentId: string;
+  departmentName: string;
+  date: string;
+  technicianId: string | null;
+  technicianName: string | null;
+  capacityMinutes: number;
+};
+
+export type CapacityPlanInput = {
+  departmentId?: unknown;
+  date?: unknown;
+  technicianId?: unknown;
+  capacityMinutes?: unknown;
+};
+
+const MAX_CAPACITY_MINUTES = 24 * 60;
+
+function capacityDateOnly(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const parsed = parseDateOnly(text);
+  if (!parsed || toDateOnly(parsed) !== text) return null;
+  return text;
+}
+
+function capacityMinutes(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed =
+    typeof value === "number" ? value : Number(String(value).trim());
+  if (!Number.isInteger(parsed)) return null;
+  if (parsed < 0 || parsed > MAX_CAPACITY_MINUTES) return null;
+  return parsed;
+}
+
+function capacityScopeFor(
+  actor: ServiceActor,
+  departmentId: string,
+): boolean {
+  return actor.role === "ADMIN" || actor.departmentId === departmentId;
+}
+
+/**
+ * Lister eksplisitte kapasitetsplaner for en avdeling og et datointervall.
+ * Lesing krever `dispatch.configure` (eller `settings.manage`), fordi radene
+ * bare brukes til planlegging og redigering.
+ */
+export async function listCapacityPlans(
+  actor: ServiceActor,
+  options: {
+    departmentId?: string | null;
+    from?: string | null;
+    to?: string | null;
+  } = {},
+): Promise<ServiceResult<CapacityPlanView[]>> {
+  if (!canConfigure(actor)) {
+    return fail("forbidden", { code: DISPATCH_ERROR_CODES.forbidden });
+  }
+
+  const departmentId = cleanId(options.departmentId);
+  if (!departmentId || !capacityScopeFor(actor, departmentId)) {
+    return fail("forbidden", { code: DISPATCH_ERROR_CODES.forbidden });
+  }
+
+  const from = options.from ? capacityDateOnly(options.from) : null;
+  const to = options.to ? capacityDateOnly(options.to) : null;
+  if ((options.from && !from) || (options.to && !to)) {
+    return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
+  }
+  if (from && to && to < from) {
+    return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
+  }
+
+  const rows = await prisma.capacityPlan.findMany({
+    where: {
+      departmentId,
+      ...(from || to
+        ? {
+            date: {
+              ...(from ? { gte: parseDateOnly(from)! } : {}),
+              ...(to ? { lte: parseDateOnly(to)! } : {}),
+            },
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      departmentId: true,
+      date: true,
+      technicianId: true,
+      capacityMinutes: true,
+      department: { select: { name: true } },
+      technician: { select: { name: true } },
+    },
+    orderBy: [{ date: "asc" }, { technicianId: "asc" }],
+    take: MAX_CAPACITY_ROWS,
+  });
+
+  return ok(
+    rows.map((row) => ({
+      id: row.id,
+      departmentId: row.departmentId,
+      departmentName: row.department.name,
+      date: toDateOnly(row.date),
+      technicianId: row.technicianId,
+      technicianName: row.technician?.name ?? null,
+      capacityMinutes: row.capacityMinutes,
+    })),
+  );
+}
+
+/**
+ * Oppretter eller oppdaterer én kapasitetsplan. En avdelingsrad har
+ * `technicianId: null`; den delvise unike indeksen i databasen hindrer flere
+ * slike rader for samme dag. Prisma kan ikke bruke en unik nøkkel med NULL, så
+ * vi slår opp raden eksplisitt og oversetter en samtidig kollisjon til
+ * `conflict`.
+ */
+export async function upsertCapacityPlan(
+  actor: ServiceActor,
+  input: CapacityPlanInput,
+): Promise<ServiceResult<CapacityPlanView>> {
+  if (!canConfigure(actor)) {
+    return fail("forbidden", { code: DISPATCH_ERROR_CODES.forbidden });
+  }
+
+  const departmentId = cleanId(input.departmentId);
+  const dateOnly = capacityDateOnly(input.date);
+  const minutes = capacityMinutes(input.capacityMinutes);
+  const technicianId = cleanId(input.technicianId) || null;
+
+  if (!departmentId || !dateOnly || minutes === null) {
+    return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
+  }
+  if (!capacityScopeFor(actor, departmentId)) {
+    return fail("forbidden", { code: DISPATCH_ERROR_CODES.forbidden });
+  }
+
+  const department = await prisma.department.findFirst({
+    where: { id: departmentId, isActive: true },
+    select: { id: true, name: true },
+  });
+  if (!department) {
+    return fail("not_found", { code: DISPATCH_ERROR_CODES.notFound });
+  }
+
+  let technicianName: string | null = null;
+  if (technicianId) {
+    const technician = await prisma.user.findFirst({
+      where: {
+        id: technicianId,
+        departmentId,
+        isActive: true,
+        role: { not: "CUSTOMER" },
+      },
+      select: { id: true, name: true },
+    });
+    if (!technician) {
+      return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
+    }
+    technicianName = technician.name;
+  }
+
+  const date = parseDateOnly(dateOnly)!;
+  const existing = await prisma.capacityPlan.findFirst({
+    where: { departmentId, date, technicianId },
+    select: { id: true },
+  });
+
+  let saved: { id: string; capacityMinutes: number };
+  try {
+    saved = await prisma.$transaction(async (tx) => {
+      const result = existing
+        ? await tx.capacityPlan.update({
+            where: { id: existing.id },
+            data: { capacityMinutes: minutes },
+            select: { id: true, capacityMinutes: true },
+          })
+        : await tx.capacityPlan.create({
+            data: { departmentId, date, technicianId, capacityMinutes: minutes },
+            select: { id: true, capacityMinutes: true },
+          });
+      await audit(tx, {
+        entityType: "Department",
+        entityId: departmentId,
+        action: `Oppdaterte kapasitetsplan for ${department.name}: ${dateOnly}${
+          technicianName ? ` (${technicianName})` : ""
+        }`,
+        actor: toAuditActor(actor),
+        metadata: {
+          date: dateOnly,
+          technicianId,
+          capacityMinutes: minutes,
+        },
+      });
+      return result;
+    });
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2002"
+    ) {
+      return fail("conflict", { code: DISPATCH_ERROR_CODES.conflict });
+    }
+    throw error;
+  }
+
+  return ok({
+    id: saved.id,
+    departmentId,
+    departmentName: department.name,
+    date: dateOnly,
+    technicianId,
+    technicianName,
+    capacityMinutes: saved.capacityMinutes,
+  });
+}
+
+export async function deleteCapacityPlan(
+  actor: ServiceActor,
+  id: string,
+): Promise<ServiceResult> {
+  if (!canConfigure(actor)) {
+    return fail("forbidden", { code: DISPATCH_ERROR_CODES.forbidden });
+  }
+  const planId = cleanId(id);
+  if (!planId) {
+    return fail("invalid", { code: DISPATCH_ERROR_CODES.invalid });
+  }
+
+  const existing = await prisma.capacityPlan.findUnique({
+    where: { id: planId },
+    select: {
+      id: true,
+      departmentId: true,
+      date: true,
+      technicianId: true,
+      department: { select: { name: true } },
+      technician: { select: { name: true } },
+    },
+  });
+  if (!existing) {
+    return fail("not_found", { code: DISPATCH_ERROR_CODES.notFound });
+  }
+  if (!capacityScopeFor(actor, existing.departmentId)) {
+    return fail("forbidden", { code: DISPATCH_ERROR_CODES.forbidden });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.capacityPlan.delete({ where: { id: existing.id } });
+    await audit(tx, {
+      entityType: "Department",
+      entityId: existing.departmentId,
+      action: `Slettet kapasitetsplan for ${existing.department.name}: ${toDateOnly(
+        existing.date,
+      )}${existing.technician?.name ? ` (${existing.technician.name})` : ""}`,
+      actor: toAuditActor(actor),
+    });
+  });
+
+  return ok(undefined);
+}
+
+// ---------------------------------------------------------------------------
 // Unntak på dashbordet
 // ---------------------------------------------------------------------------
 

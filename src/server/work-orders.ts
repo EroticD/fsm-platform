@@ -228,6 +228,41 @@ function cleanTagNames(values: unknown[]): string[] {
     .filter(Boolean);
 }
 
+type NormalizedSkillRequirements = {
+  skillIds: string[];
+  mandatorySkillIds: string[];
+};
+
+/**
+ * Normaliserer kompetansekravene fra skjemaet. En kompetanse som er merket
+ * påkrevd må også være valgt; ellers avvises hele skjemaet i stedet for at
+ * kravet stille forsvinner.
+ */
+function normalizeSkillRequirements(input: {
+  skillIds?: unknown[];
+  mandatorySkillIds?: unknown[];
+}): NormalizedSkillRequirements | null {
+  const skillIds = Array.from(
+    new Set((input.skillIds ?? []).map(rawId).filter(Boolean)),
+  ).slice(0, 100);
+  const mandatorySkillIds = Array.from(
+    new Set((input.mandatorySkillIds ?? []).map(rawId).filter(Boolean)),
+  ).slice(0, 100);
+  if (mandatorySkillIds.some((id) => !skillIds.includes(id))) return null;
+  return { skillIds, mandatorySkillIds };
+}
+
+/** Alle kompetanse-id-ene må finnes i katalogen før de lagres på oppdraget. */
+async function skillsExist(ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  const found = await prisma.skill.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+    take: 100,
+  });
+  return found.length === ids.length;
+}
+
 /**
  * Kontrollerer datoperioden før hovedskjemaet. Da får brukeren en presis
  * melding om sluttdatoen i stedet for at en ugyldig periode blir stille
@@ -372,6 +407,8 @@ export type CreateWorkOrderInput = {
   technicianIds: unknown[];
   templateIds: unknown[];
   tagNames: unknown[];
+  skillIds?: unknown[];
+  mandatorySkillIds?: unknown[];
 };
 
 /**
@@ -437,6 +474,12 @@ export async function createWorkOrder(
   const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
   if (rangeError) return { ok: false, error: rangeError };
 
+  const skillRequirements = normalizeSkillRequirements(input);
+  if (!skillRequirements) return { ok: false, error: "ugyldig-data" };
+  if (!(await skillsExist(skillRequirements.skillIds))) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+
   const parsed = workOrderCreateSchema.safeParse({
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
@@ -452,6 +495,8 @@ export async function createWorkOrder(
     technicianIds,
     templateIds: input.templateIds.map(rawId).filter(Boolean),
     tagNames: cleanTagNames(input.tagNames),
+    skillIds: skillRequirements.skillIds,
+    mandatorySkillIds: skillRequirements.mandatorySkillIds,
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
 
@@ -517,6 +562,15 @@ export async function createWorkOrder(
               create: { name },
             })),
           },
+          skillRequirements:
+            parsed.data.skillIds.length > 0
+              ? {
+                  create: parsed.data.skillIds.map((skillId) => ({
+                    skillId,
+                    mandatory: parsed.data.mandatorySkillIds.includes(skillId),
+                  })),
+                }
+              : undefined,
         },
         select: { id: true },
       });
@@ -582,6 +636,8 @@ export type UpdateWorkOrderInput = {
   scheduledTo: unknown;
   technicianIds: unknown[];
   tagNames: unknown[];
+  skillIds?: unknown[];
+  mandatorySkillIds?: unknown[];
 };
 
 /** Redigerer tittel, kunde, dato, avdeling, montører og tags på et oppdrag. */
@@ -666,6 +722,12 @@ export async function updateWorkOrder(
   const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
   if (rangeError) return { ok: false, error: rangeError };
 
+  const skillRequirements = normalizeSkillRequirements(input);
+  if (!skillRequirements) return { ok: false, error: "ugyldig-data" };
+  if (!(await skillsExist(skillRequirements.skillIds))) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+
   const parsed = workOrderUpdateSchema.safeParse({
     id: workOrderId,
     title: cleanText(input.title, { maxLength: LIMITS.title }),
@@ -681,6 +743,8 @@ export async function updateWorkOrder(
     scheduledTo: scheduledToInput,
     technicianIds: validTechnicianIds,
     tagNames,
+    skillIds: skillRequirements.skillIds,
+    mandatorySkillIds: skillRequirements.mandatorySkillIds,
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
 
@@ -809,6 +873,19 @@ export async function updateWorkOrder(
           },
         },
       });
+
+      // Kompetansekravene erstattes i samme transaksjon. En feil senere i
+      // transaksjonen ruller da både oppdraget og kravene tilbake.
+      await tx.workOrderSkill.deleteMany({ where: { workOrderId } });
+      if (parsed.data.skillIds.length > 0) {
+        await tx.workOrderSkill.createMany({
+          data: parsed.data.skillIds.map((skillId) => ({
+            workOrderId,
+            skillId,
+            mandatory: parsed.data.mandatorySkillIds.includes(skillId),
+          })),
+        });
+      }
 
       if (datesChanged) {
         if (!scheduledForDate) {
@@ -1705,6 +1782,7 @@ export async function cloneWorkOrder(
       technicians: { select: { id: true } },
       templates: { select: { id: true } },
       tags: { select: { name: true } },
+      skillRequirements: { select: { skillId: true, mandatory: true } },
       visits: {
         select: {
           sequence: true,
@@ -1748,6 +1826,15 @@ export async function cloneWorkOrder(
               create: { name: tag.name },
             })),
           },
+          skillRequirements:
+            (source.skillRequirements ?? []).length > 0
+              ? {
+                  create: source.skillRequirements.map((entry) => ({
+                    skillId: entry.skillId,
+                    mandatory: entry.mandatory,
+                  })),
+                }
+              : undefined,
         },
         select: { id: true },
       });

@@ -1,0 +1,112 @@
+{
+  "settings": {
+    "tabs": {
+      "workforce": "Kadry i kompetencje"
+    },
+    "workforce": {
+      "error": "Nie udało się zapisać zmiany. Sprawdź pola i spróbuj ponownie.",
+      "saved": "Zmiana została zapisana.",
+      "edit": "Edytuj",
+      "readOnly": "Zobacz szczegóły",
+      "readOnlyHint": "Masz dostęp do odczytu, ale brakuje uprawnienia wymaganego do zmiany tej sekcji.",
+      "weekdays": {
+        "mon": "Poniedziałek",
+        "tue": "Wtorek",
+        "wed": "Środa",
+        "thu": "Czwartek",
+        "fri": "Piątek",
+        "sat": "Sobota",
+        "sun": "Niedziela"
+      },
+      "skills": {
+        "title": "Katalog kompetencji",
+        "hint": "Kompetencje są używane przez dispatch do wymagania i dopasowywania właściwych kwalifikacji. Klucz jest stały i używany w API oraz plikach importu.",
+        "empty": "Nie zarejestrowano jeszcze żadnych kompetencji.",
+        "usage": "{users} pracowników · {orders} zleceń",
+        "key": "Klucz",
+        "keyPlaceholder": "np. hms.sja",
+        "label": "Nazwa",
+        "category": "Kategoria",
+        "create": "Utwórz kompetencję",
+        "save": "Zapisz",
+        "delete": "Usuń"
+      },
+      "staff": {
+        "title": "Kompetencje, dostępność i nieobecności pracowników",
+        "hint": "Wybierz pracownika, aby wyświetlić i edytować kompetencje, tygodniową dostępność i nieobecności. Zmiany są od razu uwzględniane przez dispatch.",
+        "select": "Pracownik",
+        "show": "Pokaż",
+        "noStaff": "Brak pracowników w Twoim dziale.",
+        "noDepartment": "bez działu",
+        "departmentFallback": "Dział: {department}. Dostępność i nieobecności dotyczą tego pracownika; dział jest używany, gdy nie ustawiono wydajności dla osoby."
+      },
+      "userSkills": {
+        "title": "Kompetencje",
+        "hint": "Zaznacz kompetencje, które posiada pracownik. Poziom jest opcjonalny (1–5), a data ważności jest używana przez dispatch przy ocenie kompetencji na początku zlecenia.",
+        "noSkills": "Najpierw dodaj kompetencje do katalogu powyżej.",
+        "skill": "Kompetencja",
+        "level": "Poziom",
+        "validUntil": "Ważna do",
+        "levelFor": "Poziom dla {skill}",
+        "validUntilFor": "Ważna do dla {skill}",
+        "save": "Zapisz kompetencje",
+        "hidden": "Szczegóły kompetencji pracownika wymagają uprawnienia „zarządzanie pracownikami”."
+      },
+      "availability": {
+        "title": "Tygodniowa dostępność",
+        "hint": "Czasy są w czasie lokalnym Oslo. Pozostaw oba pola puste dla dnia bez godzin pracy. Okna w tym samym dniu nie mogą się nakładać, ale mogą stykać się.",
+        "from": "Od",
+        "to": "Do",
+        "fromFor": "Godzina rozpoczęcia {day}",
+        "toFor": "Godzina zakończenia {day}",
+        "save": "Zapisz dostępność"
+      },
+      "absences": {
+        "title": "Nieobecności",
+        "hint": "Nieobecności blokują przydział w danym okresie. Dokładnie taki sam początek i koniec jest odrzucany jako duplikat; częściowe nakładanie jest dozwolone.",
+        "empty": "Nie zarejestrowano żadnych nieobecności.",
+        "start": "Od",
+        "end": "Do",
+        "kind": "Typ",
+        "note": "Notatka",
+        "create": "Zarejestruj nieobecność",
+        "save": "Zapisz",
+        "delete": "Usuń",
+        "kinds": {
+          "ferie": "Urlop",
+          "sykdom": "Zwolnienie lekarskie",
+          "kurs": "Szkolenie",
+          "annet": "Inne"
+        }
+      },
+      "capacity": {
+        "title": "Plany wydajności",
+        "hint": "Ustaw dostępne minuty na dział lub na technika. 0 oznacza świadomie zamknięty dzień. Wiersz technika zastępuje wiersz działu na ten sam dzień.",
+        "fallbackHint": "Bez jawnego wiersza widok wydajności używa wiersza działu, a następnie godzin otwarcia. Technicy bez własnego wiersza korzystają z domyślnych wartości działu.",
+        "department": "Dział",
+        "from": "Od",
+        "to": "Do",
+        "date": "Data",
+        "technician": "Technik",
+        "departmentWide": "Cały dział",
+        "minutes": "Minuty",
+        "current": "Ustawiono na {minutes} minut",
+        "save": "Zapisz",
+        "delete": "Usuń",
+        "empty": "Brak jawnych planów wydajności w okresie.",
+        "filter": "Pokaż okres"
+      }
+    }
+  },
+  "orders": {
+    "skills": {
+      "title": "Wymagane kompetencje",
+      "hint": "Wybierz kompetencje wymagane przez zlecenie. Zaznacz także „Wymagane” dla kompetencji, które muszą być ważne przy przydziale; niezaznaczone wymagania są pożądane i wpływają tylko na ranking.",
+      "empty": "Brak zarejestrowanych kompetencji. Dodaj je w Ustawienia → Kadry i kompetencje.",
+      "mandatory": "Wymagane",
+      "requiredBadge": "Wymagane",
+      "optionalBadge": "Pożądane",
+      "invalidMandatory": "Kompetencja nie może być wymagana, jeśli nie została wybrana."
+    }
+  }
+}

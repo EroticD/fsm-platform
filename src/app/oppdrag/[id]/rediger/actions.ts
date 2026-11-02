@@ -30,6 +30,8 @@ export async function updateWorkOrder(formData: FormData) {
     scheduledTo: formData.get("scheduledTo"),
     technicianIds: formData.getAll("technicianIds"),
     tagNames: formData.getAll("tags"),
+    skillIds: formData.getAll("skillIds"),
+    mandatorySkillIds: formData.getAll("mandatorySkillIds"),
   });
 
   if (!result.ok) {

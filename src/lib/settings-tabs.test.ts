@@ -9,6 +9,7 @@ const noPermissions: SettingsTabPermissions = {
   canBranding: false,
   canMap: false,
   canUsers: false,
+  canWorkforce: false,
   canTemplates: false,
   canDocuments: false,
   canEquipment: false,
@@ -25,6 +26,7 @@ const admin: SettingsTabPermissions = {
   canBranding: true,
   canMap: true,
   canUsers: true,
+  canWorkforce: true,
   canTemplates: true,
   canDocuments: true,
   canEquipment: true,
@@ -79,6 +81,14 @@ describe("chooseSettingsTab", () => {
     expect(
       chooseSettingsTab("dispatch", { ...noPermissions, canDispatch: true }),
     ).toBe("dispatch");
+  });
+
+  it("viser bemanningsfanen med lesetilgang til ansatte eller dispatch", () => {
+    expect(isSettingsTabAllowed("kompetanse", admin)).toBe(true);
+    expect(isSettingsTabAllowed("kompetanse", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("kompetanse", { ...noPermissions, canWorkforce: true }),
+    ).toBe("kompetanse");
   });
 
   it("lar bare administrator åpne API-fanen", () => {

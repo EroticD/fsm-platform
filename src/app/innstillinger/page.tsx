@@ -18,6 +18,7 @@ import ApiKeysTab from "@/components/settings/ApiKeysTab";
 import SlaSettingsTab from "@/components/settings/SlaSettingsTab";
 import SmsSettingsTab from "@/components/settings/SmsSettingsTab";
 import DispatchSettingsTab from "@/components/settings/DispatchSettingsTab";
+import WorkforceSettingsTab from "@/components/settings/WorkforceSettingsTab";
 import EquipmentCategoriesTab from "@/components/settings/EquipmentCategoriesTab";
 import PageHeader from "@/components/PageHeader";
 import Icon from "@/components/icons";
@@ -35,6 +36,7 @@ import { listApiKeys } from "@/server/api-keys";
 import { getSlaSettingsView } from "@/server/sla";
 import { getSmsSettingsView } from "@/server/sms";
 import { getDispatchSettings } from "@/server/dispatch";
+import { getWorkforceAdminView } from "@/server/workforce-admin";
 import { listPriceLists } from "@/server/contracts";
 import { listEquipmentCategories } from "@/server/equipment";
 import {
@@ -74,6 +76,18 @@ import {
   saveDispatchPolicyAction,
   saveTerritoryAction,
 } from "./dispatch-actions";
+import {
+  createAbsenceAction,
+  createSkillAction,
+  deleteAbsenceAction,
+  deleteCapacityPlanAction,
+  deleteSkillAction,
+  saveAvailabilityAction,
+  saveCapacityPlanAction,
+  setUserSkillsAction,
+  updateAbsenceAction,
+  updateSkillAction,
+} from "./workforce-actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
@@ -98,6 +112,9 @@ export default async function SettingsPage({
     ok?: string;
     category?: string;
     department?: string;
+    staff?: string;
+    fra?: string;
+    til?: string;
   }>;
 }) {
   const user = await getCurrentUser();
@@ -120,10 +137,15 @@ export default async function SettingsPage({
   const canDispatch =
     hasPermission(user, "dispatch.configure") ||
     hasPermission(user, "settings.manage");
+  const canWorkforce =
+    canUsers ||
+    hasPermission(user, "dispatch.configure") ||
+    hasPermission(user, "settings.manage");
   const canUseSettings =
     canBranding ||
     canMap ||
     canUsers ||
+    canWorkforce ||
     canTemplates ||
     canDocuments ||
     canEquipment ||
@@ -141,6 +163,7 @@ export default async function SettingsPage({
     canTemplates ||
     canDocuments ||
     canManageEquipment ||
+    canDispatch ||
     isAdmin ||
     hasPermission(user, "users.manage");
 
@@ -159,6 +182,7 @@ export default async function SettingsPage({
     canBranding,
     canMap,
     canUsers,
+    canWorkforce,
     canTemplates,
     canDocuments,
     canEquipment,
@@ -179,7 +203,10 @@ export default async function SettingsPage({
   const templateCategory = parseTemplateCategoryFilter(resolvedParams.category);
 
   const overview =
-    canUseSettings && currentTab !== "utstyr" && currentTab !== "sikkerhet"
+    canUseSettings &&
+    currentTab !== "utstyr" &&
+    currentTab !== "kompetanse" &&
+    currentTab !== "sikkerhet"
       ? await getSettingsOverview(user)
       : null;
   if (overview && !overview.ok) redirect("/");
@@ -237,6 +264,16 @@ export default async function SettingsPage({
       ? await getDispatchSettings(user, resolvedParams.department)
       : null;
 
+  const workforceSettings =
+    currentTab === "kompetanse" && canWorkforce
+      ? await getWorkforceAdminView(user, {
+          staffId: resolvedParams.staff,
+          departmentId: resolvedParams.department,
+          from: resolvedParams.fra,
+          to: resolvedParams.til,
+        })
+      : null;
+
   return (
     <div className="min-h-screen bg-[var(--canvas,#f4f5f2)] p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-5xl space-y-5">
@@ -264,6 +301,7 @@ export default async function SettingsPage({
           canBranding={canBranding}
           canMap={canMap}
           canUsers={canUsers}
+          canWorkforce={canWorkforce}
           canTemplates={canTemplates}
           canDocuments={canDocuments}
           canEquipment={canEquipment}
@@ -308,6 +346,25 @@ export default async function SettingsPage({
             error={resolvedParams.error}
             page={page}
             baseUrl="/innstillinger?tab=ansatte"
+          />
+        )}
+
+        {/* FANE: BEMANNING OG KOMPETANSE */}
+        {currentTab === "kompetanse" && canWorkforce && workforceSettings?.ok && (
+          <WorkforceSettingsTab
+            {...workforceSettings.data}
+            error={resolvedParams.error}
+            ok={resolvedParams.ok}
+            createSkill={createSkillAction}
+            updateSkill={updateSkillAction}
+            deleteSkill={deleteSkillAction}
+            setUserSkills={setUserSkillsAction}
+            saveAvailability={saveAvailabilityAction}
+            createAbsence={createAbsenceAction}
+            updateAbsence={updateAbsenceAction}
+            deleteAbsence={deleteAbsenceAction}
+            saveCapacityPlan={saveCapacityPlanAction}
+            deleteCapacityPlan={deleteCapacityPlanAction}
           />
         )}
 

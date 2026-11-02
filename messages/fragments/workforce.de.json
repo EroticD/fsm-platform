@@ -1,0 +1,112 @@
+{
+  "settings": {
+    "tabs": {
+      "workforce": "Personal & Qualifikationen"
+    },
+    "workforce": {
+      "error": "Die Änderung konnte nicht gespeichert werden. Prüfen Sie die Felder und versuchen Sie es erneut.",
+      "saved": "Die Änderung wurde gespeichert.",
+      "edit": "Bearbeiten",
+      "readOnly": "Details anzeigen",
+      "readOnlyHint": "Sie haben Lesezugriff, aber nicht die Berechtigung, diesen Abschnitt zu ändern.",
+      "weekdays": {
+        "mon": "Montag",
+        "tue": "Dienstag",
+        "wed": "Mittwoch",
+        "thu": "Donnerstag",
+        "fri": "Freitag",
+        "sat": "Samstag",
+        "sun": "Sonntag"
+      },
+      "skills": {
+        "title": "Qualifikationskatalog",
+        "hint": "Qualifikationen werden von Dispatch verwendet, um die richtige Fachkunde zu verlangen und zuzuordnen. Der Schlüssel ist stabil und wird in APIs und Importdateien verwendet.",
+        "empty": "Es sind noch keine Qualifikationen registriert.",
+        "usage": "{users} Mitarbeitende · {orders} Aufträge",
+        "key": "Schlüssel",
+        "keyPlaceholder": "z. B. hms.sja",
+        "label": "Name",
+        "category": "Kategorie",
+        "create": "Qualifikation anlegen",
+        "save": "Speichern",
+        "delete": "Löschen"
+      },
+      "staff": {
+        "title": "Qualifikationen, Arbeitszeit und Abwesenheiten",
+        "hint": "Wählen Sie eine Person aus, um Qualifikationen, wöchentliche Arbeitszeit und Abwesenheiten zu pflegen. Änderungen wirken sofort in Dispatch.",
+        "select": "Mitarbeitende Person",
+        "show": "Anzeigen",
+        "noStaff": "Keine Mitarbeitenden in Ihrer Abteilung.",
+        "noDepartment": "ohne Abteilung",
+        "departmentFallback": "Abteilung: {department}. Arbeitszeit und Abwesenheiten gelten für diese Person; die Abteilung wird verwendet, wenn keine personenbezogene Kapazität gesetzt ist."
+      },
+      "userSkills": {
+        "title": "Qualifikationen",
+        "hint": "Markieren Sie die Qualifikationen der Person. Die Stufe ist optional (1–5); das Gültigkeitsdatum wird von Dispatch beim Auftragsbeginn berücksichtigt.",
+        "noSkills": "Fügen Sie zuerst Qualifikationen im Katalog oben hinzu.",
+        "skill": "Qualifikation",
+        "level": "Stufe",
+        "validUntil": "Gültig bis",
+        "levelFor": "Stufe für {skill}",
+        "validUntilFor": "Gültig bis für {skill}",
+        "save": "Qualifikationen speichern",
+        "hidden": "Details zu Qualifikationen erfordern die Berechtigung „Mitarbeitende verwalten“."
+      },
+      "availability": {
+        "title": "Wöchentliche Arbeitszeit",
+        "hint": "Zeiten sind Ortszeit Oslo. Lassen Sie beide Felder leer für einen Tag ohne Arbeitszeit. Fenster am selben Tag dürfen sich nicht überschneiden, aber aneinandergrenzen.",
+        "from": "Von",
+        "to": "Bis",
+        "fromFor": "Startzeit {day}",
+        "toFor": "Endzeit {day}",
+        "save": "Arbeitszeit speichern"
+      },
+      "absences": {
+        "title": "Abwesenheiten",
+        "hint": "Abwesenheiten blockieren die Zuweisung im Zeitraum. Exakt gleicher Beginn und gleiches Ende wird als Duplikat abgelehnt; teilweise Überschneidung ist erlaubt.",
+        "empty": "Es sind keine Abwesenheiten registriert.",
+        "start": "Von",
+        "end": "Bis",
+        "kind": "Art",
+        "note": "Notiz",
+        "create": "Abwesenheit erfassen",
+        "save": "Speichern",
+        "delete": "Löschen",
+        "kinds": {
+          "ferie": "Urlaub",
+          "sykdom": "Krankheit",
+          "kurs": "Schulung",
+          "annet": "Sonstiges"
+        }
+      },
+      "capacity": {
+        "title": "Kapazitätspläne",
+        "hint": "Legen Sie verfügbare Minuten pro Abteilung oder pro Techniker fest. 0 bedeutet einen bewusst geschlossenen Tag. Eine Technikerzeile überschreibt die Abteilungszeile am selben Tag.",
+        "fallbackHint": "Ohne explizite Zeile verwendet die Kapazitätsansicht die Abteilungszeile und dann die Öffnungszeiten. Techniker ohne eigene Zeile folgen dem Abteilungsstandard.",
+        "department": "Abteilung",
+        "from": "Von",
+        "to": "Bis",
+        "date": "Datum",
+        "technician": "Techniker",
+        "departmentWide": "Gesamte Abteilung",
+        "minutes": "Minuten",
+        "current": "Auf {minutes} Minuten gesetzt",
+        "save": "Speichern",
+        "delete": "Löschen",
+        "empty": "Keine expliziten Kapazitätspläne im Zeitraum.",
+        "filter": "Zeitraum anzeigen"
+      }
+    }
+  },
+  "orders": {
+    "skills": {
+      "title": "Qualifikationsanforderungen",
+      "hint": "Wählen Sie die vom Auftrag benötigten Qualifikationen. Markieren Sie zusätzlich „Erforderlich“ für Qualifikationen, die bei der Zuweisung gültig sein müssen; nicht markierte Anforderungen sind wünschenswert und beeinflussen nur das Ranking.",
+      "empty": "Es sind keine Qualifikationen registriert. Fügen Sie sie unter Einstellungen → Personal & Qualifikationen hinzu.",
+      "mandatory": "Erforderlich",
+      "requiredBadge": "Erforderlich",
+      "optionalBadge": "Wünschenswert",
+      "invalidMandatory": "Eine Qualifikation kann nicht erforderlich sein, ohne ausgewählt zu sein."
+    }
+  }
+}

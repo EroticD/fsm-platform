@@ -134,6 +134,7 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     technicians: [],
     templates: [],
     tags: [],
+    skillRequirements: [],
     visits: [],
     reports: [],
     workComments: [],
@@ -234,6 +235,30 @@ describe("oppdragsdetaljer – rapporter uten mal", () => {
 
     expect(text.join(" | ")).toContain("O-261030-REF12345");
     expect(text.join(" | ")).toContain("orders.detail.reference");
+  });
+
+  it("viser påkrevd og ønsket kompetanse på detaljsiden", async () => {
+    const { text } = await render({
+      skillRequirements: [
+        {
+          skillId: "skill-1",
+          mandatory: true,
+          skill: { label: "SJA", category: "HMS" },
+        },
+        {
+          skillId: "skill-2",
+          mandatory: false,
+          skill: { label: "Lift", category: null },
+        },
+      ],
+    });
+
+    const joined = text.join(" | ");
+    expect(joined).toContain("orders.skills.title");
+    expect(joined).toContain("SJA");
+    expect(joined).toContain("Lift");
+    expect(joined).toContain("orders.skills.requiredBadge");
+    expect(joined).toContain("orders.skills.optionalBadge");
   });
 
   it("henter bare ikke-slettede rapporter", async () => {

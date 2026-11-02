@@ -171,6 +171,48 @@ export async function listSkills(
   return ok(rows.map(toSkillSummary));
 }
 
+export type WorkforceStaffSummary = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+};
+
+/**
+ * Ansatte innenfor aktørens avdelingsomfang, brukt av bemanningsfanen.
+ * Bare `users.view` kreves; detaljerte kompetanse-, arbeidstids- og
+ * fraværslister krever fortsatt `users.manage`.
+ */
+export async function listWorkforceStaff(
+  actor: ServiceActor,
+): Promise<ServiceResult<WorkforceStaffSummary[]>> {
+  if (!can(actor, "users.view")) return fail("forbidden");
+
+  const rows = await prisma.user.findMany({
+    where: staffScopeFor(actor),
+    orderBy: { name: "asc" },
+    take: MAX_TECHNICIANS,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      departmentId: true,
+      department: { select: { name: true } },
+    },
+  });
+
+  return ok(
+    rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      departmentId: row.departmentId,
+      departmentName: row.department?.name ?? null,
+    })),
+  );
+}
+
 export async function createSkill(
   actor: ServiceActor,
   input: SkillInput,

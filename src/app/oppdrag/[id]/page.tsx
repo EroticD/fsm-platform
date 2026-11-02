@@ -492,6 +492,7 @@ export default async function AdminWorkOrderPage({
       technicians: true,
       templates: true,
       tags: true,
+      skillRequirements: { include: { skill: true } },
       reports: {
         where: { deletedAt: null },
         include: { units: { orderBy: { sortOrder: "asc" } } },
@@ -1262,6 +1263,34 @@ export default async function AdminWorkOrderPage({
                   </form>
                 )}
               </div>
+
+              {(workOrder.skillRequirements ?? []).length > 0 && (
+                <div className={`${CARD} p-4 text-sm`}>
+                  <h2 className={`${SECTION_TITLE} mb-3 border-b border-[var(--line,#d8d3c5)] pb-2`}>
+                    {t("orders.skills.title")}
+                  </h2>
+                  <ul className="space-y-2">
+                    {(workOrder.skillRequirements ?? []).map((requirement) => (
+                      <li
+                        key={requirement.skillId}
+                        className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-2.5"
+                      >
+                        <span className="min-w-0 flex-1 break-words font-bold text-[var(--ink,#131711)]">
+                          {requirement.skill.label}
+                          {requirement.skill.category
+                            ? ` · ${requirement.skill.category}`
+                            : ""}
+                        </span>
+                        <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-white px-2 py-0.5 text-[11px] font-black uppercase">
+                          {requirement.mandatory
+                            ? t("orders.skills.requiredBadge")
+                            : t("orders.skills.optionalBadge")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <WorkOrderAttachments
                 workOrderId={workOrderId}
