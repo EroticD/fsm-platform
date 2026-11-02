@@ -1,0 +1,46 @@
+{
+  "p3": {
+    "offlineLock": {
+      "lockedTitle": "Offline-Entwürfe sind gesperrt",
+      "lockedDescription": "Entsperren Sie mit Ihrer PIN, um die auf diesem Gerät gespeicherten Entwürfe anzuzeigen und zu senden.",
+      "setupTitle": "PIN für Offline-Entwürfe festlegen",
+      "setupDescription": "Entwürfe mit Kundennamen, Notizen, Fotos und Unterschriften werden auf diesem Gerät verschlüsselt. Nach einem Neustart oder 15 Minuten Inaktivität müssen Sie sie mit der PIN entsperren.",
+      "legacyTitle": "Unverschlüsselte Entwürfe gefunden",
+      "legacyDescription": "Entwürfe aus einer älteren Version sind auf diesem Gerät unverschlüsselt gespeichert. Legen Sie eine PIN fest, um sie zu verschlüsseln, oder verwerfen Sie sie. Nichts wird ohne Ihre Bestätigung gelöscht.",
+      "orphanedTitle": "Der PIN-Schlüssel fehlt",
+      "orphanedDescription": "Es gibt verschlüsselte Entwürfe, aber der Schlüssel zum Entsperren fehlt in diesem Browser. Die Entwürfe können nicht wiederhergestellt werden. Verwerfen Sie sie, um eine neue PIN festzulegen.",
+      "pinLabel": "PIN",
+      "pinConfirmLabel": "PIN wiederholen",
+      "currentPinLabel": "Aktuelle PIN",
+      "newPinLabel": "Neue PIN",
+      "setupAction": "PIN festlegen",
+      "migrateAction": "Mit PIN verschlüsseln",
+      "unlockAction": "Entsperren",
+      "changeAction": "PIN ändern",
+      "lockAction": "Jetzt sperren",
+      "discardAction": "Entwürfe verwerfen",
+      "discardConfirm": "Alle lokalen Entwürfe verwerfen und die PIN von diesem Gerät entfernen? Dies kann nicht rückgängig gemacht werden.",
+      "legacyDiscardAction": "Unverschlüsselte Entwürfe verwerfen",
+      "legacyDiscardConfirm": "Entwürfe aus einer älteren Version ohne Verschlüsselung verwerfen? Dies kann nicht rückgängig gemacht werden.",
+      "closeAction": "Schließen",
+      "pinHint": "Mindestens {min} Ziffern. Die PIN wird nicht gespeichert und kann nicht wiederhergestellt werden.",
+      "pinMismatch": "Die PINs stimmen nicht überein.",
+      "pinTooShort": "Die PIN muss mindestens {min} Ziffern haben.",
+      "pinInvalid": "Die PIN darf nur Ziffern enthalten.",
+      "wrongPin": "Falsche PIN. Noch {remaining} Versuche.",
+      "lockedOut": "Zu viele Fehlversuche. Versuchen Sie es in {seconds} Sekunden erneut.",
+      "unlockedStatus": "Entwürfe sind entsperrt.",
+      "changeSuccess": "PIN geändert.",
+      "migrated": "Entwürfe verschlüsselt: {count}.",
+      "cryptoUnavailable": "Verschlüsselung ist in diesem Browser nicht verfügbar. Offline-Entwürfe können nicht sicher gespeichert werden.",
+      "keyCorrupt": "Der PIN-Schlüssel kann nicht gelesen werden. Verwerfen Sie die Entwürfe und legen Sie eine neue PIN fest.",
+      "keyMissing": "Für diesen Benutzer wurde keine PIN gefunden. Legen Sie eine neue PIN fest."
+    }
+  },
+  "orders": {
+    "reportForm": {
+      "stepDraftLocked": "Entwurf gesperrt",
+      "unlockDraft": "Entwürfe entsperren"
+    }
+  }
+}

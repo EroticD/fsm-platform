@@ -318,6 +318,30 @@ describe("service worker – sync-hendelse", () => {
     });
   });
 
+  it("sender aldri krypterte kladder fra bakgrunnssynken", async () => {
+    const fetchMock = vi.fn();
+    const sealed = {
+      ...item({ id: "sealed" }),
+      enc: "aes-gcm-256-v1",
+      iv: "dGVzdA==",
+      payload: "Y2lwaGVydGV4dA==",
+    };
+    const worker = loadWorker({
+      userId: "u1",
+      fetch: fetchMock,
+      outbox: [sealed],
+    });
+
+    await expect(worker.dispatchSync()).resolves.toBeUndefined();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(worker.stores.get("outbox")?.has("sealed")).toBe(true);
+    expect(worker.clients[0].postMessage).toHaveBeenCalledWith({
+      type: "FSM_DRAFT_SYNC_RESULT",
+      result: { sent: 0, pending: 1, failed: 0, locked: true },
+    });
+  });
+
   it("gjør ingenting når ingen offline-bruker er kjent", async () => {
     const fetchMock = vi.fn();
     const worker = loadWorker({

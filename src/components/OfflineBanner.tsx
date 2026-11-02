@@ -79,7 +79,14 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
   }, [userId]);
 
   const refresh = useCallback(async () => {
-    setSummary(await pendingDraftSummary());
+    try {
+      setSummary(await pendingDraftSummary());
+    } catch {
+      // Kladdene er låst (eller IndexedDB er utilgjengelig). Låsepanelet
+      // viser opplåsingsvalget, så banneret skal ikke falle tilbake til et
+      // gammelt pending-tall.
+      setSummary({ pending: 0, failed: 0 });
+    }
   }, []);
 
   // Synkestatus kommer som typede vindushendelser fra tømmingen, og som en
@@ -136,7 +143,12 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
         await refresh();
         return;
       }
-      await flushDraftOutbox();
+      try {
+        await flushDraftOutbox();
+      } catch {
+        // Låst nøkkel eller utilgjengelig IndexedDB. Opplåsingspanelet tar
+        // over; ingen kladd skal sendes eller markeres som feilet her.
+      }
       await refresh();
     } finally {
       flushing.current = false;
@@ -197,8 +209,12 @@ export default function OfflineBanner({ userId }: { userId?: string | null }) {
     if (retrying || syncing || flushing.current) return;
     setRetrying(true);
     try {
-      if (summary.failed > 0) await retryFailedDrafts();
-      else await flushDraftOutbox();
+      try {
+        if (summary.failed > 0) await retryFailedDrafts();
+        else await flushDraftOutbox();
+      } catch {
+        // Låst nøkkel: låsepanelet ber om PIN. Ikke vis en evig «sender …».
+      }
       await refresh();
     } finally {
       setRetrying(false);

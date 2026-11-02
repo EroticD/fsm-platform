@@ -27,6 +27,11 @@ export type SyncResultDetail = {
   pending: number;
   /** Rapporter som har fått en terminal feil. */
   failed: number;
+  /**
+   * Bakgrunnssynken fant krypterte kladder (SEC-01) og lot dem ligge til
+   * brukeren har låst opp i appen.
+   */
+  locked?: boolean;
 };
 
 /**

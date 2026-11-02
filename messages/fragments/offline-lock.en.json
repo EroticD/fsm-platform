@@ -1,0 +1,46 @@
+{
+  "p3": {
+    "offlineLock": {
+      "lockedTitle": "Offline drafts are locked",
+      "lockedDescription": "Unlock with your PIN to view and send drafts stored on this device.",
+      "setupTitle": "Set a PIN for offline drafts",
+      "setupDescription": "Drafts containing customer names, notes, photos and signatures are encrypted on this device. You must unlock with your PIN after a restart or 15 minutes of inactivity.",
+      "legacyTitle": "Unencrypted drafts found",
+      "legacyDescription": "Drafts from an older version are stored unencrypted on this device. Set a PIN to encrypt them, or discard them. Nothing is deleted without your confirmation.",
+      "orphanedTitle": "The PIN key is missing",
+      "orphanedDescription": "Encrypted drafts exist, but the key that can unlock them is missing from this browser. The drafts cannot be recovered. Discard them to set a new PIN.",
+      "pinLabel": "PIN",
+      "pinConfirmLabel": "Repeat PIN",
+      "currentPinLabel": "Current PIN",
+      "newPinLabel": "New PIN",
+      "setupAction": "Set PIN",
+      "migrateAction": "Encrypt with PIN",
+      "unlockAction": "Unlock",
+      "changeAction": "Change PIN",
+      "lockAction": "Lock now",
+      "discardAction": "Discard drafts",
+      "discardConfirm": "Discard all local drafts and remove the PIN from this device? This cannot be undone.",
+      "legacyDiscardAction": "Discard unencrypted drafts",
+      "legacyDiscardConfirm": "Discard drafts from an older version without encrypting them? This cannot be undone.",
+      "closeAction": "Close",
+      "pinHint": "At least {min} digits. The PIN is not stored and cannot be recovered.",
+      "pinMismatch": "The PINs do not match.",
+      "pinTooShort": "The PIN must be at least {min} digits.",
+      "pinInvalid": "The PIN may only contain digits.",
+      "wrongPin": "Wrong PIN. {remaining} attempts left.",
+      "lockedOut": "Too many failed attempts. Try again in {seconds} seconds.",
+      "unlockedStatus": "Drafts are unlocked.",
+      "changeSuccess": "PIN changed.",
+      "migrated": "{count} draft(s) encrypted.",
+      "cryptoUnavailable": "Encryption is not available in this browser. Offline drafts cannot be stored safely.",
+      "keyCorrupt": "The PIN key cannot be read. Discard the drafts and set a new PIN.",
+      "keyMissing": "No PIN was found for this user. Set a new PIN."
+    }
+  },
+  "orders": {
+    "reportForm": {
+      "stepDraftLocked": "draft locked",
+      "unlockDraft": "Unlock drafts"
+    }
+  }
+}
