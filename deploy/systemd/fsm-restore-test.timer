@@ -1,0 +1,11 @@
+[Unit]
+Description=FSM-platform: ukentlig restore-test
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=30m
+Unit=fsm-restore-test.service
+
+[Install]
+WantedBy=timers.target

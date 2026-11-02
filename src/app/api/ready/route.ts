@@ -7,12 +7,19 @@ import { logger, requestIdFrom } from "@/lib/logger";
 import { hasValidBearer } from "@/lib/secrets";
 import { clientIpFrom } from "@/lib/client-ip";
 import { allowRequestMemory } from "@/lib/rate-limit-memory";
+import {
+  roleCanDdl,
+  runtimeRoleIsUnsafe,
+  type DatabaseRoleInfo,
+} from "@/lib/db-roles";
 
 /**
  * Readiness-sjekk for container/orchestrator.
  *
- * Uautentiserte kall får bare en billig databasekontroll og en kort status –
- * aldri disk- eller køarbeid. Detaljene (skrivbart volum, jobbkø) er gated bak
+ * Uautentiserte kall får en billig database- og rollekontroll og en kort
+ * status – aldri disk- eller køarbeid. Rollekontrollen gjør at
+ * Compose-healthchecken blir unhealthy når runtime-rollen kan DDL, uten å
+ * avsløre detaljer. Detaljene (rolle, skrivbart volum, jobbkø) er gated bak
  * READY_SECRET/CRON_SECRET. Kall uten hemmelighet rate-limites i minnet, slik
  * at ruten ikke kan brukes til å hamre på databasen.
  */
@@ -20,6 +27,35 @@ export const dynamic = "force-dynamic";
 
 /** Hvor mange uautentiserte readiness-kall som godtas per IP og minutt. */
 const UNAUTHENTICATED_LIMIT = 120;
+
+/**
+ * Leser rollen appen faktisk er koblet til. Kalles også for uautentiserte
+ * kall, slik at Compose-healthchecken blir unhealthy når runtime-rollen kan
+ * endre skjema. Detaljene returneres bare til autentiserte kall.
+ */
+async function inspectDatabaseRole(
+  requestId: string,
+): Promise<DatabaseRoleInfo | null> {
+  try {
+    const rows = await prisma.$queryRaw<DatabaseRoleInfo[]>`
+      SELECT current_user AS "currentUser",
+             r.rolsuper AS "superuser",
+             r.rolcreatedb AS "createDb",
+             r.rolcreaterole AS "createRole",
+             has_schema_privilege(current_user, 'public', 'CREATE') AS "schemaCreate"
+      FROM pg_roles r
+      WHERE r.rolname = current_user
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (error) {
+    logger.error("Readiness: database role cannot be inspected", {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   const requestId = requestIdFrom(new Headers(request.headers));
@@ -55,7 +91,12 @@ export async function GET(request: Request) {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    const ready = database === "up";
+    const role = database === "up" ? await inspectDatabaseRole(requestId) : null;
+    const roleCheckRequired = process.env.NODE_ENV === "production";
+    const ready =
+      database === "up" &&
+      (!roleCheckRequired || role !== null) &&
+      !runtimeRoleIsUnsafe(role);
     return NextResponse.json(
       { status: ready ? "ready" : "not_ready" },
       { status: ready ? 200 : 503 },
@@ -73,6 +114,28 @@ export async function GET(request: Request) {
     logger.error("Readiness: database is not responding", {
       requestId,
       error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const inspectedRole =
+    database === "up" ? await inspectDatabaseRole(requestId) : null;
+  const databaseRole = inspectedRole
+    ? { ...inspectedRole, canDdl: roleCanDdl(inspectedRole) }
+    : null;
+
+  if (database === "up" && !inspectedRole) {
+    // Rollen kunne ikke leses. Det er tryggere å være ikke-klar enn å anta at
+    // den er DML-only.
+    ready = false;
+  }
+
+  if (databaseRole && runtimeRoleIsUnsafe(databaseRole)) {
+    ready = false;
+    logger.error("Readiness: runtime database role can change schema", {
+      requestId,
+      role: databaseRole.currentUser,
+      canDdl: databaseRole.canDdl,
+      hint: "Run scripts/provision-db-roles.sh or set ALLOW_DB_DDL_ROLE=true deliberately.",
     });
   }
 
@@ -109,6 +172,7 @@ export async function GET(request: Request) {
     {
       status,
       database,
+      databaseRole,
       disk,
       queue,
       requestId,

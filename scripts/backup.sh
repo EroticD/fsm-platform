@@ -16,6 +16,9 @@
 #                         REQUIRE_BACKUP_ENCRYPTION=true.
 #   REQUIRE_BACKUP_ENCRYPTION  sett true for å kreve kryptering også lokalt.
 #   BACKUP_REMOTE         rclone-mål, f.eks. remote:fsm-backups
+#   BACKUP_VERIFY_REMOTE  verifiser ekstern kopi med rclone check (standard true)
+#   BACKUP_STATUS_FILE    statusfil for freshness/metrics
+#                         (standard <BACKUP_DIR>/backup-status.json)
 #   RETENTION_DAYS        hvor lenge lokale filer beholdes (standard 30)
 #
 # Docker Compose leser COMPOSE_FILE, så produksjon kan brukes med:
@@ -32,6 +35,7 @@ DB_USER="${POSTGRES_USER:-admin}"
 DB_NAME="${POSTGRES_DB:-fsm_db}"
 AGE_RECIPIENT="${BACKUP_AGE_RECIPIENT:-}"
 REQUIRE_ENCRYPTION="${REQUIRE_BACKUP_ENCRYPTION:-false}"
+STATUS_FILE="${BACKUP_STATUS_FILE:-$BACKUP_DIR/backup-status.json}"
 
 # I produksjon skal en backup aldri skrives ukryptert til disk. Feil lukket
 # før noe dumpes, slik at et manglende miljøoppsett ikke gir en stille
@@ -113,8 +117,20 @@ if [ -n "$AGE_RECIPIENT" ]; then
   echo "→ Krypterte backupene med age."
 fi
 
-# Valgfri kopi til ekstern lagring (rclone) – først etter at filene er skrevet
-# og eventuelt kryptert. Eksempel:
+# Sjekksumfilen gjør at freshness-proben kan oppdage en avkuttet eller endret
+# fil, også etter kopiering. Den inneholder bare hasher, ikke persondata, og
+# trenger derfor ikke krypteres.
+CHECKSUMS_FILE="$BACKUP_DIR/checksums-$STAMP.sha256"
+echo "→ Skriver sjekksummer ..."
+(
+  cd "$BACKUP_DIR"
+  sha256sum "$(basename "$DB_FILE")" "$(basename "$UPLOADS_FILE")" \
+    >"$(basename "$CHECKSUMS_FILE")"
+)
+[ -s "$CHECKSUMS_FILE" ] || { echo "Sjekksumfilen ble tom." >&2; exit 1; }
+
+# Valgfri kopi til ekstern lagring (rclone) – først etter at filene er skrevet,
+# kryptert og sjekksummet. Eksempel:
 #   BACKUP_REMOTE=remote:fsm-backups
 if [ -n "${BACKUP_REMOTE:-}" ]; then
   if ! command -v rclone >/dev/null 2>&1; then
@@ -123,7 +139,41 @@ if [ -n "${BACKUP_REMOTE:-}" ]; then
   fi
   rclone copy "$BACKUP_DIR" "$BACKUP_REMOTE" --include "*-$STAMP.*"
   echo "→ Kopierte backupene til $BACKUP_REMOTE."
+
+  # Verifiser at den eksterne kopien faktisk har samme innhold. Uten dette er
+  # «kopiert» bare en påstand fra rclone. Enkelte backender støtter ikke
+  # hashing; da kan BACKUP_VERIFY_REMOTE=false settes bevisst.
+  if [ "${BACKUP_VERIFY_REMOTE:-true}" = "true" ]; then
+    rclone check "$BACKUP_DIR" "$BACKUP_REMOTE" \
+      --include "db-$STAMP.*" \
+      --include "uploads-$STAMP.*" \
+      --include "checksums-$STAMP.sha256" \
+      --one-way
+    echo "→ Verifiserte den eksterne kopien."
+  fi
 fi
+
+# Skriv en liten statusfil som /api/metrics og backup-freshness.sh leser.
+# Den skrives atomisk og bare etter at dump, arkiv, sjekksum og eventuell
+# ekstern kopi er ferdig.
+echo "→ Oppdaterer backupstatus ..."
+mkdir -p "$(dirname "$STATUS_FILE")"
+STATUS_TMP="$STATUS_FILE.tmp.$$"
+ESC_REMOTE="$(printf '%s' "${BACKUP_REMOTE:-}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+cat >"$STATUS_TMP" <<JSON
+{
+  "completedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "stamp": "$STAMP",
+  "databaseFile": "$(basename "$DB_FILE")",
+  "uploadsFile": "$(basename "$UPLOADS_FILE")",
+  "checksumsFile": "$(basename "$CHECKSUMS_FILE")",
+  "encrypted": $([ -n "$AGE_RECIPIENT" ] && echo true || echo false),
+  "remote": "$ESC_REMOTE",
+  "databaseBytes": $(wc -c <"$DB_FILE" | tr -d ' '),
+  "uploadsBytes": $(wc -c <"$UPLOADS_FILE" | tr -d ' ')
+}
+JSON
+mv "$STATUS_TMP" "$STATUS_FILE"
 
 # Behold 30 dager. Juster med RETENTION_DAYS om nødvendig. Sletting skjer bare
 # etter at dump og arkiv er skrevet og eventuelt kopiert eksternt.
@@ -133,3 +183,5 @@ find "$BACKUP_DIR" -type f -mtime "+$RETENTION_DAYS" -delete
 echo "✓ Ferdig:"
 echo "  $DB_FILE"
 echo "  $UPLOADS_FILE"
+echo "  $CHECKSUMS_FILE"
+echo "  $STATUS_FILE"

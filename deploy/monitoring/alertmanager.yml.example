@@ -1,0 +1,21 @@
+# Eksempel på Alertmanager-konfigurasjon. Mottakeren må kunne ta imot
+# Alertmanager-payloaden (version 4). For en enkel generisk webhook kan
+# scripts/ops-alert.sh --test brukes til å verifisere kanalen utenom
+# Alertmanager.
+#
+#   cp deploy/monitoring/alertmanager.yml.example /etc/alertmanager/alertmanager.yml
+#   chmod 600 /etc/alertmanager/alertmanager.yml
+
+route:
+  receiver: fsm-default
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: fsm-default
+    webhook_configs:
+      - url: "https://alerts.example.invalid/fsm"
+        send_resolved: true
+        max_alerts: 0

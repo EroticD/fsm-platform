@@ -1,0 +1,49 @@
+# Eksempel på Caddy foran FSM-plattformen. Bruk denne som utgangspunkt og
+# erstatt domenet. Appen skal bare lytte på 127.0.0.1:3000.
+#
+# Viktig:
+#   * X-Forwarded-* overskrives, ikke appendes. En klient kan dermed ikke
+#     sende med sin egen X-Forwarded-For og påvirke rate-limit-nøkkelen.
+#   * Body-grensen er 55 MB (50 MB PDF + multipart-overhead), litt over
+#     appens egen grense, slik at appen kan svare med en tydelig 413.
+#   * Lange tidsavbrudd for PDF/OCR og store opplastinger.
+#
+# I .env:
+#   TRUST_PROXY=true
+#   TRUST_PROXY_HOPS=1
+#
+# Står det flere proxyer foran appen, må TRUST_PROXY_HOPS økes og bare
+# kantsonen skal overskrive X-Forwarded-For. Se deploy/proxy/README.md.
+
+fsm.example.com {
+	encode zstd gzip
+
+	# Caddy avviser større kropper før de når appen.
+	request_body {
+		max_size 55MB
+	}
+
+	reverse_proxy 127.0.0.1:3000 {
+		# Overskriv alle videresendingsheadere. Uten dette kan klienten
+		# bestemme både IP og protokoll.
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 300s
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	# Sikkerhetsheadere. Appen setter flere selv, men proxyen kan legge til
+	# HSTS og skjule serverversjonen.
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}

@@ -65,3 +65,7 @@ dist/
 
 # lokale sikkerhetskopier (skal ikke i git)
 /backups/
+
+# backupstatus skrives av drift på verten og leses read-only av appen.
+/monitoring/*
+!/monitoring/.gitkeep
