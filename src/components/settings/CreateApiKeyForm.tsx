@@ -5,6 +5,28 @@ import { useTranslations } from "next-intl";
 import Icon from "@/components/icons";
 import { controlClassName } from "@/components/ui/controlStyles";
 import type { ApiKeyActionState } from "@/app/innstillinger/api-actions";
+import { API_KEY_SCOPES } from "@/lib/api-key-scopes";
+
+const SCOPE_LABEL_KEYS: Record<string, string> = {
+  "workorders:read": "settings.apiKeys.scopes.workordersRead",
+  "workorders:write": "settings.apiKeys.scopes.workordersWrite",
+  "visits:read": "settings.apiKeys.scopes.visitsRead",
+  "visits:write": "settings.apiKeys.scopes.visitsWrite",
+  "customers:read": "settings.apiKeys.scopes.customersRead",
+  "contracts:read": "settings.apiKeys.scopes.contractsRead",
+  "contracts:write": "settings.apiKeys.scopes.contractsWrite",
+  "sla:read": "settings.apiKeys.scopes.slaRead",
+  "equipment:read": "settings.apiKeys.scopes.equipmentRead",
+  "equipment:write": "settings.apiKeys.scopes.equipmentWrite",
+  "maintenance:read": "settings.apiKeys.scopes.maintenanceRead",
+  "maintenance:write": "settings.apiKeys.scopes.maintenanceWrite",
+  "reports:read": "settings.apiKeys.scopes.reportsRead",
+  "documents:read": "settings.apiKeys.scopes.documentsRead",
+};
+
+const WRITE_SCOPES = new Set(
+  API_KEY_SCOPES.filter((scope) => scope.endsWith(":write")),
+);
 
 const INITIAL_STATE: ApiKeyActionState = { status: "idle" };
 const FIELD = controlClassName("min-h-11 text-sm font-medium");
@@ -24,6 +46,12 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function maxExpiryIso(maxDays: number): string {
+  return new Date(Date.now() + maxDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 /**
  * Oppretter en API-nøkkel og viser klarteksttokenet nøyaktig én gang.
  *
@@ -34,11 +62,15 @@ function todayIso(): string {
  */
 export default function CreateApiKeyForm({
   createKey,
+  defaultLifetimeDays,
+  maxLifetimeDays,
 }: {
   createKey: (
     state: ApiKeyActionState,
     formData: FormData,
   ) => Promise<ApiKeyActionState>;
+  defaultLifetimeDays: number;
+  maxLifetimeDays: number;
 }) {
   const t = useTranslations("common");
   const formRef = useRef<HTMLFormElement>(null);
@@ -49,6 +81,7 @@ export default function CreateApiKeyForm({
   );
   const [dismissedToken, setDismissedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
 
   const token =
     state.status === "created" && state.token !== dismissedToken
@@ -156,13 +189,61 @@ export default function CreateApiKeyForm({
               type="date"
               name="expiresAt"
               min={todayIso()}
+              max={maxExpiryIso(maxLifetimeDays)}
               className={FIELD}
             />
           </label>
         </div>
         <p className="text-xs text-[var(--muted,#62685f)]">
-          {t("settings.apiKeys.expiresHint")}
+          {t("settings.apiKeys.expiresHint", { days: defaultLifetimeDays })}
         </p>
+
+        <fieldset className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3 sm:p-4">
+          <legend className={LABEL}>{t("settings.apiKeys.scopesLabel")}</legend>
+          <p className="mb-3 text-xs text-[var(--muted,#62685f)]">
+            {t("settings.apiKeys.scopesHint")}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {API_KEY_SCOPES.map((scope) => {
+              const disabled = readOnly && WRITE_SCOPES.has(scope);
+              return (
+                <label
+                  key={scope}
+                  className={`flex min-h-11 items-center gap-2 rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2.5 py-1.5 text-xs font-bold text-[var(--ink,#101310)] ${
+                    disabled ? "opacity-50" : ""
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    name="scopes"
+                    value={scope}
+                    defaultChecked
+                    disabled={disabled}
+                    className="h-4 w-4 accent-[var(--ink,#101310)]"
+                  />
+                  <span className="min-w-0 break-words">
+                    {t(SCOPE_LABEL_KEYS[scope])}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <label className="mt-3 flex min-h-11 items-start gap-2 text-sm font-bold text-[var(--ink,#101310)]">
+            <input
+              type="checkbox"
+              name="readOnly"
+              checked={readOnly}
+              onChange={(event) => setReadOnly(event.currentTarget.checked)}
+              className="mt-1 h-4 w-4 accent-[var(--ink,#101310)]"
+            />
+            <span>
+              {t("settings.apiKeys.readOnly")}
+              <span className="mt-0.5 block text-xs font-medium text-[var(--muted,#62685f)]">
+                {t("settings.apiKeys.readOnlyHint")}
+              </span>
+            </span>
+          </label>
+        </fieldset>
         <button type="submit" disabled={pending} className={SIGNAL_BUTTON}>
           {pending
             ? t("settings.apiKeys.creating")

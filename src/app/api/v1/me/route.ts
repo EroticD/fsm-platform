@@ -27,5 +27,9 @@ export async function GET(request: Request) {
       : null,
     permissions: Array.from(effectivePermissions(actor)),
     customerId: actor.customerId ?? null,
+    key: {
+      scopes: auth.scopes,
+      readOnly: auth.readOnly,
+    },
   });
 }

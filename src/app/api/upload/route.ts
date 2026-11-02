@@ -1,9 +1,6 @@
 import fs from "node:fs/promises";
-import { createWriteStream } from "node:fs";
 import path from "path";
 import crypto from "crypto";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import prisma from "@/lib/prisma";
 import { internalApiError, type ApiErrorCode } from "@/lib/api-errors";
 import { uploadDir } from "@/lib/uploads";
@@ -24,9 +21,10 @@ import {
 } from "@/lib/upload-concurrency";
 import {
   declaredMimeMatches,
-  readRequestBodyWithLimit,
   sniffFileMime,
 } from "@/lib/upload-validation";
+import { readMultipartUpload } from "@/lib/upload-multipart";
+import { checkUploadQuota } from "@/lib/upload-quota";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +62,7 @@ export async function POST(request: Request) {
   }
 
   // Avvis åpenbart for store forespørsler før vi leser og parser multipart.
-  // Content-Length kan mangle eller lyve, så filstørrelsen sjekkes også under.
+  // Content-Length kan mangle eller lyve, så grensene sjekkes også underveis.
   const declaredLength = Number(request.headers.get("content-length") ?? "");
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
     return jsonError("too_large", 413, "errors.api.upload.tooLarge");
@@ -81,11 +79,10 @@ export async function POST(request: Request) {
     );
   }
 
-  // Lesing av kroppen er den minnetunge delen av opplastingen. En prosesslokal
-  // plassgrense hindrer at mange samtidige store filer bufres på én gang. Når
-  // alle plassene er opptatt, avvises forespørselen raskt med 503 i stedet for
-  // å hope seg opp. Grensen er per instans; proxy/ingress må fortsatt begrense
-  // kroppsstørrelse og samtidige tilkoblinger i multi-instans-drift.
+  // Selv om parsing nå strømmer til disk, holder denne porten antallet
+  // samtidige kroppslesinger nede. Da er minnebruken forutsigbar også når
+  // mange store filer kommer samtidig. Grensen er per instans; proxy/ingress
+  // må fortsatt begrense kroppsstørrelse og samtidige tilkoblinger.
   const bodyLease = tryAcquireUploadBodySlot();
   if (!bodyLease) {
     return jsonError(
@@ -96,43 +93,59 @@ export async function POST(request: Request) {
     );
   }
 
+  const uploadDirPath = uploadDir();
+  let tempPath: string | null = null;
   let filePath: string | null = null;
 
+  const removeTemp = async () => {
+    if (!tempPath) return;
+    const target = tempPath;
+    tempPath = null;
+    await fs.unlink(target).catch(() => undefined);
+  };
+
   try {
-    // Content-Length kan mangle eller lyve. Vi leser derfor strømmen med en
-    // hard grense og avbryter så snart den overskrides, før hele kroppen er
-    // bufret. Multipart-parsingen skjer etterpå på den avgrensede bufferen.
-    const limited = await (async () => {
+    // Den absolutte filgrensen er den største tillatte typen. Den konkrete
+    // MIME-grensen kontrolleres etter parsing, når innholdstypen er kjent.
+    const maxFileBytes = Math.max(
+      maxBytesForMime("application/pdf"),
+      maxBytesForMime("image/png"),
+    );
+
+    const parsed = await (async () => {
       try {
-        return await readRequestBodyWithLimit(request, MAX_REQUEST_BYTES);
+        return await readMultipartUpload(request, {
+          maxRequestBytes: MAX_REQUEST_BYTES,
+          maxFileBytes,
+          tempDir: uploadDirPath,
+        });
       } finally {
         bodyLease.release();
       }
     })();
-    if (!limited.ok) {
-      if (limited.reason === "too-large") {
-        return jsonError("too_large", 413, "errors.api.upload.tooLarge");
+
+    if (!parsed.ok) {
+      switch (parsed.reason) {
+        case "too_large":
+          return jsonError("too_large", 413, "errors.api.upload.tooLarge");
+        case "no_file":
+          return jsonError("no_file", 400, "errors.api.upload.noFile");
+        default:
+          return jsonError("invalid_request", 400);
       }
-      return jsonError("invalid_request", 400);
     }
 
-    const contentType = request.headers.get("content-type");
-    if (!contentType) return jsonError("invalid_request", 400);
-
-    const formData = await new Response(new Uint8Array(limited.buffer), {
-      headers: { "content-type": contentType },
-    }).formData();
-    const file = formData.get("file") as File;
-
+    const { fields, file } = parsed.data;
     if (!file) {
       return jsonError("no_file", 400, "errors.api.upload.noFile");
     }
+    tempPath = file.tempPath;
 
     // Konteksten avgjør hvem som senere kan lese filen.
-    const workOrderId = cleanText(formData.get("workOrderId"), { maxLength: LIMITS.line });
-    const customerId = cleanText(formData.get("customerId"), { maxLength: LIMITS.line });
-    const equipmentId = cleanText(formData.get("equipmentId"), { maxLength: LIMITS.line });
-    const purpose = cleanText(formData.get("purpose"), { maxLength: LIMITS.short });
+    const workOrderId = cleanText(fields.workOrderId, { maxLength: LIMITS.line });
+    const customerId = cleanText(fields.customerId, { maxLength: LIMITS.line });
+    const equipmentId = cleanText(fields.equipmentId, { maxLength: LIMITS.line });
+    const purpose = cleanText(fields.purpose, { maxLength: LIMITS.short });
 
     let ownerType:
       | "WORK_ORDER"
@@ -269,12 +282,12 @@ export async function POST(request: Request) {
       "image/gif": "gif",
       "application/pdf": "pdf",
     };
-    const fileExtension = allowedTypes[file.type];
+    const fileExtension = allowedTypes[file.contentType];
     if (!fileExtension) {
       return jsonError("invalid_file_type", 400, "errors.api.upload.invalidType");
     }
 
-    const maxSize = maxBytesForMime(file.type);
+    const maxSize = maxBytesForMime(file.contentType);
     if (file.size > maxSize) {
       return jsonError("too_large", 413, "errors.api.upload.tooLarge");
     }
@@ -282,41 +295,38 @@ export async function POST(request: Request) {
     // Magiske bytes avgjør hva filen faktisk er. En HTML-fil som hevder å være
     // PNG skal ikke lagres som bilde, og en EXE som hevder PDF skal ikke kunne
     // leveres med PDF-innholdstype.
-    const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-    const actualMime = sniffFileMime(headerBytes);
-    if (!declaredMimeMatches(file.type, actualMime)) {
+    const actualMime = sniffFileMime(file.headerBytes);
+    if (!declaredMimeMatches(file.contentType, actualMime)) {
       return jsonError("mime_mismatch", 415, "errors.api.upload.mimeMismatch");
     }
 
-    // Daglig lagringskvote per bruker (2 GiB de siste 24 timene). Hindrer at en
-    // kompromittert konto fyller opplastingsvolumet.
-    const dailyQuota = 2 * 1024 * 1024 * 1024;
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const used = await prisma.upload.aggregate({
-      where: { uploadedById: user.id, createdAt: { gte: since } },
-      _sum: { size: true },
+    // Kvoter kontrolleres etter at eierskapet er kjent, men før filen flyttes
+    // til den endelige mappen. Da blir det ingen orphan-fil ved avvisning.
+    const quota = await checkUploadQuota({
+      userId: user.id,
+      customerId: ownerCustomerId,
+      size: file.size,
     });
-    if ((used._sum.size ?? 0) + file.size > dailyQuota) {
-      return jsonError("storage_quota_exceeded", 429, "errors.api.upload.quota");
+    if (!quota.allowed) {
+      return jsonError("storage_quota_exceeded", 507, "errors.api.upload.quota");
     }
 
-    const uploadDirPath = uploadDir();
     const fileName = `${crypto.randomUUID()}.${fileExtension}`;
     const targetPath = path.join(/*turbopackIgnore: true*/ uploadDirPath, fileName);
 
-    let finalMime = file.type;
+    let finalMime = file.contentType;
     let finalBytes = file.size;
 
-    const processImage = file.type.startsWith("image/") && file.type !== "image/gif";
+    const processImage =
+      file.contentType.startsWith("image/") && file.contentType !== "image/gif";
 
     if (processImage) {
       // Komprimer bilder før de skrives til disk. Feltbilder kan være store;
       // vi begrenser til 2000 px og reduserer kvaliteten. Sharp er CPU-tungt,
       // så både innlesing og behandling går gjennom den delte opplastingskøen.
       let imageFailed = false;
-      await withUploadSlot(async () => {
-        const arrayBuffer = await file.arrayBuffer();
-        let buffer = Buffer.from(arrayBuffer);
+      const processed = await withUploadSlot(async () => {
+        let buffer = await fs.readFile(file.tempPath);
         let extension = fileExtension;
         try {
           const sharp = (await import("sharp")).default;
@@ -328,11 +338,11 @@ export async function POST(request: Request) {
             ? image.resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
             : image;
 
-          if (file.type === "image/png") {
+          if (file.contentType === "image/png") {
             buffer = await pipeline.png({ compressionLevel: 9 }).toBuffer();
             extension = "png";
             finalMime = "image/png";
-          } else if (file.type === "image/webp") {
+          } else if (file.contentType === "image/webp") {
             buffer = await pipeline.webp({ quality: 82 }).toBuffer();
             extension = "webp";
             finalMime = "image/webp";
@@ -348,7 +358,7 @@ export async function POST(request: Request) {
           // garantere at nettleseren håndterer trygt.
           console.error("Image compression failed:", error);
           imageFailed = true;
-          return;
+          return null;
         }
 
         // Filene ligger utenfor public/ og leses gjennom /uploads/[...sti].
@@ -357,46 +367,40 @@ export async function POST(request: Request) {
           /*turbopackIgnore: true*/ uploadDirPath,
           `${path.basename(targetPath, path.extname(targetPath))}.${extension}`,
         );
-        filePath = finalPath;
         await fs.writeFile(finalPath, buffer);
+        return finalPath;
       });
-      if (imageFailed) {
+      if (imageFailed || !processed) {
         return jsonError("image_processing_failed", 415, "errors.api.upload.imageFailed");
       }
-      // Filnavnet må bygges på nytt hvis endelsen endret seg (png/webp/jpg).
-      if (filePath) {
-        const actualName = path.basename(filePath);
-        return await storeUpload({
-          fileName: actualName,
-          filePath,
-          originalName: file.name,
-          mimeType: finalMime,
-          size: finalBytes,
-          ownerType,
-          ownerId,
-          departmentId,
-          customerId: ownerCustomerId,
-          uploadedById: user.id,
-        });
-      }
-      return jsonError("save_failed", 500, "errors.api.upload.saveFailed");
+      filePath = processed;
+      await removeTemp();
+
+      return await storeUpload({
+        fileName: path.basename(processed),
+        filePath: processed,
+        originalName: file.fileName,
+        mimeType: finalMime,
+        size: finalBytes,
+        ownerType,
+        ownerId,
+        departmentId,
+        customerId: ownerCustomerId,
+        uploadedById: user.id,
+      });
     }
 
-    // PDF-er og GIF-er skrives direkte fra strømmen. Da slipper vi å holde en
-    // full kopi av en stor fil i minnet.
+    // PDF-er og GIF-er flyttes direkte fra den midlertidige filen. Da slipper
+    // vi å holde en full kopi av en stor fil i minnet.
     await fs.mkdir(uploadDirPath, { recursive: true });
+    await fs.rename(file.tempPath, targetPath);
+    tempPath = null;
     filePath = targetPath;
-    await withUploadSlot(async () => {
-      await pipeline(
-        Readable.fromWeb(file.stream() as unknown as import("node:stream/web").ReadableStream),
-        createWriteStream(targetPath),
-      );
-    });
 
     return await storeUpload({
       fileName,
       filePath: targetPath,
-      originalName: file.name,
+      originalName: file.fileName,
       mimeType: finalMime,
       size: finalBytes,
       ownerType,
@@ -407,6 +411,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Upload failed:", error);
+    await removeTemp();
     if (filePath) {
       try {
         await fs.unlink(filePath);
@@ -415,6 +420,8 @@ export async function POST(request: Request) {
       }
     }
     return jsonError("server_error", 500, "errors.api.upload.failed");
+  } finally {
+    await removeTemp();
   }
 }
 

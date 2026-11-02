@@ -22,6 +22,29 @@
         "submitting": "Logger inn..."
       }
     },
+    "enrollment": {
+      "title": "To-trinns verifisering er påkrevd",
+      "desc": "Rollens sikkerhetskrav krever at du setter opp to-trinns verifisering for {companyName} før du kan logge inn.",
+      "startDesc": "Du blir bedt om å skanne en QR-kode og bekrefte med en engangskode. Det tar under ett minutt.",
+      "start": "Start oppsett",
+      "starting": "Starter …",
+      "step1": "1. Skann QR-koden med autentiseringsappen din.",
+      "qrAlt": "QR-kode for påkrevd to-trinns verifisering",
+      "manualToggle": "Kan du ikke skanne? Vis nøkkelen",
+      "codeLabel": "Engangskode fra appen",
+      "confirm": "Bekreft og logg inn",
+      "confirming": "Bekrefter …",
+      "backToLogin": "Tilbake til innlogging",
+      "errors": {
+        "expired": "Økten er utløpt. Logg inn på nytt.",
+        "invalid_code": "Feil engangskode. Prøv igjen.",
+        "setup_expired": "Oppsettet har utløpt. Start oppsettet på nytt.",
+        "forbidden": "Kontoen kan ikke brukes. Kontakt en administrator.",
+        "already_enabled": "To-trinns verifisering er allerede slått på. Logg inn på nytt.",
+        "TooManyAttempts": "For mange forsøk. Vent noen minutter og prøv igjen.",
+        "default": "Kunne ikke fullføre oppsettet."
+      }
+    },
     "forgot": {
       "title": "Glemt passord?",
       "rateLimited": "For mange forsøk. Vent 15 minutter før du prøver igjen.",

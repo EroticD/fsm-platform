@@ -37,6 +37,8 @@ function authenticated(overrides: Record<string, unknown> = {}) {
       department: { id: "dep-a", name: "Oslo", isActive: true },
     },
     apiKeyId: "key-1",
+    scopes: ["customers:read", "workorders:read"],
+    readOnly: true,
   };
 }
 
@@ -73,6 +75,7 @@ describe("GET /api/v1/me", () => {
         department: { id: "dep-a", name: "Oslo" },
         permissions: ["workorders.view", "customers.view"],
         customerId: null,
+        key: { scopes: ["customers:read", "workorders:read"], readOnly: true },
       },
     });
   });

@@ -68,6 +68,33 @@ describe("NextAuth authorize", () => {
     expect(result).toBeNull();
   });
 
+  it("avviser privilegert bruker uten 2FA når policyen krever det", async () => {
+    const original = process.env.REQUIRE_2FA_ROLES;
+    process.env.REQUIRE_2FA_ROLES = "ADMIN,OFFICE";
+    try {
+      mockedVerify.mockResolvedValue({
+        status: "ok",
+        user: {
+          id: "u3",
+          email: "office@example.com",
+          name: "Office",
+          role: "OFFICE",
+          isTwoFactorEnabled: false,
+          sessionVersion: 0,
+        },
+      });
+
+      const result = await authorize!(
+        { email: "office@example.com", password: "x" },
+        { headers: {} },
+      );
+      expect(result).toBeNull();
+    } finally {
+      if (original === undefined) delete process.env.REQUIRE_2FA_ROLES;
+      else process.env.REQUIRE_2FA_ROLES = original;
+    }
+  });
+
   it("avviser en inaktiv konto", async () => {
     mockedVerify.mockResolvedValue({ status: "inactive" });
 

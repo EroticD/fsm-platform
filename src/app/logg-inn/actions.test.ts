@@ -78,6 +78,35 @@ beforeEach(() => {
   });
 });
 
+describe("loginAction – påkrevd 2FA", () => {
+  it("sender privilegert bruker uten 2FA til enrollment-gaten", async () => {
+    const original = process.env.REQUIRE_2FA_ROLES;
+    process.env.REQUIRE_2FA_ROLES = "ADMIN,OFFICE";
+    mocks.verifyCredentials.mockResolvedValue({
+      status: "ok",
+      user: { ...credentialUser, isTwoFactorEnabled: false },
+    });
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+    });
+
+    try {
+      await expect(
+        loginAction(
+          formData({ email: credentialUser.email, password: "passord" }),
+        ),
+      ).rejects.toThrow("REDIRECT:/logg-inn/2fa/oppsett");
+
+      expect(mocks.setPendingTwoFactor).toHaveBeenCalledWith("user-1");
+      expect(mocks.createSessionCookie).not.toHaveBeenCalled();
+    } finally {
+      if (original === undefined) delete process.env.REQUIRE_2FA_ROLES;
+      else process.env.REQUIRE_2FA_ROLES = original;
+    }
+  });
+});
+
 describe("loginAction – fail closed for 2FA", () => {
   it("avviser innlogging når 2FA er slått på men hemmeligheten mangler", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({

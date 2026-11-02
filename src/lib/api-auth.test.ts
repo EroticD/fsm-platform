@@ -25,10 +25,15 @@ import { hashApiKeyToken } from "@/server/api-keys";
 
 const TOKEN = `fsm_${"a".repeat(43)}`;
 
-function request(authorization?: string, extraHeaders: Record<string, string> = {}) {
+function request(
+  authorization?: string,
+  extraHeaders: Record<string, string> = {},
+  path = "/api/v1/work-orders",
+  method = "GET",
+) {
   const headers = new Headers(extraHeaders);
   if (authorization !== undefined) headers.set("authorization", authorization);
-  return new Request("http://localhost/api/v1/work-orders", { headers });
+  return new Request(`http://localhost${path}`, { headers, method });
 }
 
 function keyRow(overrides: Record<string, unknown> = {}) {
@@ -36,6 +41,8 @@ function keyRow(overrides: Record<string, unknown> = {}) {
     id: "key-1",
     revokedAt: null,
     expiresAt: null,
+    scopes: [],
+    readOnly: false,
     user: {
       id: "u1",
       name: "Kari",
@@ -193,6 +200,57 @@ describe("authenticateApiRequest", () => {
       error: { code: "rate_limited" },
     });
     expect(mocks.prisma.apiKey.update).not.toHaveBeenCalled();
+  });
+
+  it("avviser kall utenfor nøkkelens scopes med 403", async () => {
+    mocks.prisma.apiKey.findUnique.mockResolvedValue(
+      keyRow({ scopes: ["customers:read"] }),
+    );
+
+    const result = await authenticateApiRequest(request(`Bearer ${TOKEN}`));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("forventet avvisning");
+    expect(result.response.status).toBe(403);
+    await expect(result.response.json()).resolves.toMatchObject({
+      error: {
+        code: "forbidden",
+        messageKey: "errors.api.apiKey.outOfScope",
+        details: { requiredScope: "workorders:read" },
+      },
+    });
+    expect(mocks.prisma.apiKey.update).not.toHaveBeenCalled();
+  });
+
+  it("lar en skrivebeskyttet nøkkel lese, men avviser skriving", async () => {
+    mocks.prisma.apiKey.findUnique.mockResolvedValue(
+      keyRow({ scopes: ["workorders:read", "workorders:write"], readOnly: true }),
+    );
+
+    const read = await authenticateApiRequest(
+      request(`Bearer ${TOKEN}`, {}, "/api/v1/work-orders", "GET"),
+    );
+    expect(read.ok).toBe(true);
+
+    const write = await authenticateApiRequest(
+      request(`Bearer ${TOKEN}`, {}, "/api/v1/work-orders", "POST"),
+    );
+    expect(write.ok).toBe(false);
+    if (write.ok) throw new Error("forventet avvisning");
+    expect(write.response.status).toBe(403);
+    await expect(write.response.json()).resolves.toMatchObject({
+      error: { messageKey: "errors.api.apiKey.readOnly" },
+    });
+  });
+
+  it("behandler tom scopes-liste som en eldre nøkkel med full tilgang", async () => {
+    mocks.prisma.apiKey.findUnique.mockResolvedValue(keyRow({ scopes: [] }));
+
+    const result = await authenticateApiRequest(
+      request(`Bearer ${TOKEN}`, {}, "/api/v1/reports", "GET"),
+    );
+
+    expect(result.ok).toBe(true);
   });
 
   it("returnerer en kontrollert 500-feil ved databasefeil", async () => {

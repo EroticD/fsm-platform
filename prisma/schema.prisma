@@ -183,6 +183,12 @@ model ApiKey {
   expiresAt  DateTime?
   revokedAt  DateTime?
 
+  // Tom liste betyr «alle scopes» for nøkler opprettet før scopes ble innført.
+  // Nye nøkler får alltid en eksplisitt liste.
+  scopes   String[] @default([])
+  // Skrivebeskyttet nøkkel: alle andre metoder enn GET/HEAD avvises.
+  readOnly Boolean  @default(false)
+
   @@index([userId])
   @@index([keyHash])
 }

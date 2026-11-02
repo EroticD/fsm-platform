@@ -981,7 +981,15 @@
       "twoFactorEnabled": "Slå på to-trinns verifisering",
       "twoFactorDisabled": "Slå av to-trinns verifisering",
       "twoFactorRecoveryRegenerated": "Genererte nye gjenopprettingskoder for to-trinns verifisering",
-      "twoFactorReset": "Tilbakestilte to-trinns verifisering for {name}"
+      "twoFactorReset": "Tilbakestilte to-trinns verifisering for {name}",
+      "twoFactorRequiredStarted": "2FA: påkrevd oppsett startet",
+      "twoFactorRequiredEnrollmentStarted": "2FA: startet påkrevd oppsett",
+      "twoFactorRequiredCompleted": "2FA: fullførte påkrevd oppsett",
+      "loginRequiredTwoFactor": "Logget inn med påkrevd 2FA",
+      "twoFactorBreakGlass": "2FA: break-glass nullstilte to-trinns verifisering",
+      "apiKeyCreated": "Opprettet API-nøkkel: {name} ({prefix}…)",
+      "apiKeyRevoked": "Tilbakekalte API-nøkkel: {name} ({prefix}…)",
+      "apiKeyRotated": "Rotert API-nøkkel: {name} ({oldPrefix}… → {newPrefix}…)"
     },
     "users": {
       "created": "Opprettet bruker: {name} ({role})",

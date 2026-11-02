@@ -185,9 +185,9 @@ const INTERNAL_DEFAULTS: Record<
     message: "The file could not be processed as an image.",
   },
   storage_quota_exceeded: {
-    status: 429,
+    status: 507,
     messageKey: "errors.api.storageQuotaExceeded",
-    message: "The daily storage quota has been reached. Try again later.",
+    message: "The storage quota has been reached. Free up space or contact an administrator.",
   },
   work_order_locked: {
     status: 403,
@@ -347,7 +347,10 @@ export const API_ERROR_FALLBACKS: Record<string, string> = {
   "errors.api.upload.noFile": "Ingen fil valgt.",
   "errors.api.upload.invalidType": "Ugyldig filtype. Bare bilder og PDF er tillatt.",
   "errors.api.upload.mimeMismatch": "Filinnholdet stemmer ikke med filtypen.",
-  "errors.api.upload.quota": "Daglig lagringskvote er nådd. Prøv igjen senere.",
+  "errors.api.upload.quota": "Lagringskvoten er nådd. Frigjør plass eller kontakt en administrator.",
+  "errors.api.apiKey.outOfScope": "API-nøkkelen har ikke scope for dette endepunktet.",
+  "errors.api.apiKey.readOnly": "API-nøkkelen er skrivebeskyttet og kan bare lese.",
+  "errors.api.reports.activeContent": "PDF-en inneholder aktivt innhold som ikke kan leveres.",
   "errors.api.upload.imageFailed": "Filen kunne ikke behandles som bilde.",
   "errors.api.upload.saveFailed": "Kunne ikke lagre filen.",
   "errors.api.upload.failed": "Kunne ikke laste opp fil.",

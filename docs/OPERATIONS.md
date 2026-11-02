@@ -71,8 +71,9 @@ driften:
 | Proxy | `TRUST_PROXY=false` (IP-limits inaktive); produksjon krever eksplisitt hoppantall når den er true | `TRUST_PROXY=true` + `TRUST_PROXY_HOPS`, se «Proxy og klient-IP» |
 | Backup | Daglig kryptert backup med sjekksum og statusfil; produksjon nekter å ta backup uten `BACKUP_AGE_RECIPIENT` | `BACKUP_REMOTE`, `REQUIRE_BACKUP_ENCRYPTION=true`, se «Backup og restore» |
 | Overvåking | `/api/metrics` er av uten `METRICS_SECRET` | `METRICS_SECRET`, se «Overvåking og varsling» |
-| Opplasting | 4 samtidige kroppslesinger per instans og 50 MB per PDF | `UPLOAD_BODY_CONCURRENCY` og `UPLOAD_MAX_DOCUMENT_MB`; proxyen må fortsatt sette egne grenser |
-| 2FA | Valgfritt, men anbefalt for `ADMIN` og `OFFICE` | Brukeren slår det på under Innstillinger → Sikkerhet; administrator kan nullstille |
+| Opplasting | 4 samtidige kroppslesinger per instans, 50 MB per PDF, 2 GiB per bruker/24 t og 10 GiB per kunde | `UPLOAD_BODY_CONCURRENCY`, `UPLOAD_MAX_DOCUMENT_MB`, `UPLOAD_QUOTA_USER_MB` og `UPLOAD_QUOTA_CUSTOMER_MB`; proxyen må fortsatt sette egne grenser |
+| 2FA | Valgfritt som standard, men anbefalt for `ADMIN` og `OFFICE` | Sett `REQUIRE_2FA_ROLES=ADMIN,OFFICE` for påkrevd oppsett ved innlogging. Break-glass: se «To-trinns verifisering» |
+| API-nøkler | Scopes, skrivebeskyttelse, 90 dagers standardlevetid og 365 dagers maks | `API_KEY_DEFAULT_LIFETIME_DAYS` og `API_KEY_MAX_LIFETIME_DAYS` |
 
 ## Minne og swap (1 GB Droplet)
 
@@ -618,18 +619,62 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
   Slett aldri lokal backup før den er verifisert eksternt og
   `RETENTION_DAYS` er passert.
 
+## To-trinns verifisering og break-glass
+
+- `REQUIRE_2FA_ROLES` styrer hvilke roller som må ha 2FA før innlogging. Tom
+  verdi betyr valgfritt; anbefalt produksjonsverdi er `ADMIN,OFFICE`.
+- En bruker uten oppsett får ingen sesjon. Etter riktig passord sendes hen til
+  `/logg-inn/2fa/oppsett`, skanner QR-koden og bekrefter med engangskode.
+  Gjenopprettingskodene vises i Innstillinger → Sikkerhet etterpå.
+- Roller utenfor listen, og eksisterende økter opprettet før policyen ble slått
+  på, påvirkes ikke før neste innlogging. En økt varer maks 12 timer.
+- **Break-glass** når en privilegert bruker har mistet både appen og
+  gjenopprettingskodene:
+
+  ```bash
+  cd /opt/fsm-platform
+  DATABASE_URL="$(grep '^DATABASE_URL=' .env | cut -d= -f2-)" \
+    node scripts/break-glass-2fa.mjs --email admin@example.com --confirm
+  ```
+
+  Skriptet nullstiller bare 2FA for én bruker, øker `sessionVersion` (alle økter
+  blir ugyldige) og skriver en revisjonsrad med årsak. Det endrer ikke passord
+  eller rettigheter. Brukeren må deretter logge inn og fullføre påkrevd oppsett.
+  Beskytt shell- og database tilgangen; dette er en bevisst nødvei, ikke en
+  vanlig administrativ handling.
+
+## API-nøkler
+
+- Opprettes under **Innstillinger → API-nøkler** av administrator.
+- Hver nøkkel har scopes (lese/skrive per område) og kan merkes
+  skrivebeskyttet. Kall utenfor scopene, eller skriving med en skrivebeskyttet
+  nøkkel, gir `403`. Nøkkelen arver fortsatt brukerens rettigheter og
+  avdelingsomfang.
+- Nøkler får alltid utløpsdato: standard `API_KEY_DEFAULT_LIFETIME_DAYS` (90)
+  og maks `API_KEY_MAX_LIFETIME_DAYS` (365).
+- **Rotasjon** tilbakekaller den gamle nøkkelen og lager en ny med samme eier,
+  navn, scopes og skrivebeskyttelse i samme transaksjon. Klarteksttokenet vises
+  én gang; oppdater integrasjonen umiddelbart.
+- Opprettelse, tilbakekalling og rotasjon logges i aktivitetsloggen. Sist brukt
+  og utløp vises i listen. Utløpte og tilbakekalte nøkler gir `401`.
+
 ## Disk, opplastinger og opprydding
 
 - Filer ligger i `UPLOAD_DIR` (standard `./uploads`, i Docker `/app/uploads`).
 - `/uploads/...` krever innlogging og sjekker `Upload`-raden per fil.
 - Per-fil-grenser: 15 MB for bilder og 50 MB for PDF (`UPLOAD_MAX_IMAGE_MB`,
   `UPLOAD_MAX_DOCUMENT_MB`). Hele forespørselen avvises tidlig med 413 basert på
-  `Content-Length`, og filstørrelsen sjekkes på nytt etter parsing.
-- **Det finnes ingen per-bruker- eller per-kunde-kvote i appen.** Total
-  diskbruk styres av opplastingsvolumet. På en liten maskin bør dere derfor
-  senke `UPLOAD_MAX_DOCUMENT_MB` (for eksempel til 25) og følge med på
-  volumbruken. Trenger dere harde kvoter, må det implementeres i
-  opplastingsflyten eller håndheves av lagringsløsningen.
+  `Content-Length`, og grensene håndheves på nytt mens multipart-kroppen
+  strømmes til en midlertidig fil. Filen flyttes først til opplastingsmappen når
+  type, kvote og eierskap er kontrollert.
+- **Kvoter:** `UPLOAD_QUOTA_USER_MB` (standard 2048, rullerende 24 timer per
+  bruker) og `UPLOAD_QUOTA_CUSTOMER_MB` (standard 10240, samlet per kunde).
+  Overskridelse gir `507 storage_quota_exceeded`, og brukeren får en tydelig
+  feilmelding. Kvotene er en applikasjonssperre, ikke et garantert tak under
+  samtidige opplastinger; volumbegrensning i drift er fortsatt nødvendig.
+- Midlertidige filer ligger i `UPLOAD_DIR/.tmp` og slettes når opplastingen
+  feiler. Cron-jobben `/api/cron/cleanup` fjerner i tillegg filer som er eldre
+  enn 24 timer etter en krasj. Sjekk at jobben kjører hvis diskbruken vokser.
 - Grov kapasitetsberegning: 1000 PDF-er à 20 MB = ca. 20 GB, og backup arkiverer
   det samme én gang til. Lokale backupfiler dobler altså diskbehovet. Hold
   minst 30 % ledig disk, og legg backupene utenfor datadisk hvis mulig.

@@ -33,13 +33,36 @@ bare en SHA-256-hash og et kort visningsprefiks, aldri selve nøkkelen.
 > serverlogger.
 
 En nøkkel kan tilbakekalles fra samme fane. Tilbakekalling virker umiddelbart.
-Utløpte og tilbakekalte nøkler gir `401 unauthorized`.
+Utløpte og tilbakekalte nøkler gir `401 unauthorized`. Du kan også **rotere** en
+nøkkel: den gamle tilbakekalles og en ny med samme scopes og skrivebeskyttelse
+opprettes. Det nye tokenet vises én gang. Sist brukt og utløpsdato vises i
+listen, og opprettelse, tilbakekalling og rotasjon havner i aktivitetsloggen.
 
-### Rettigheter (scopes)
+### Rettigheter og scopes
 
-API-et har ikke egne scopes. **Nøkkelen arver nøyaktig rettighetene til
-brukeren som opprettet den**, inkludert avdelings- og kundeomfanget. Det
-betyr blant annet:
+**Nøkkelen arver rettighetene til brukeren som opprettet den**, inkludert
+avdelings- og kundeomfanget. I tillegg har hver nøkkel eksplisitte scopes, og
+kan merkes skrivebeskyttet. En nøkkel med bare lese-scopes får `403` på
+skriveendepunkter, og en skrivebeskyttet nøkkel får `403` på alle andre metoder
+enn `GET`/`HEAD` – selv om eieren har rettigheten.
+
+| Scope | Dekker |
+| --- | --- |
+| `workorders:read` / `workorders:write` | Oppdrag, detaljer og endringer |
+| `visits:read` / `visits:write` | Visiter, også under `/work-orders/{id}/visits` |
+| `customers:read` | Kunder |
+| `contracts:read` / `contracts:write` | Serviceavtaler og PDF |
+| `sla:read` | SLA-policyer |
+| `equipment:read` / `equipment:write` | Utstyr og målinger |
+| `maintenance:read` / `maintenance:write` | Vedlikeholdsplaner |
+| `reports:read` | Rapporter og PDF |
+| `documents:read` | Dokumenter |
+
+Nøkler opprettet før scopes ble innført har tom liste og regnes som «alle
+scopes» til de roteres. Nye nøkler må ha minst ett scope. Standard levetid er
+90 dager (`API_KEY_DEFAULT_LIFETIME_DAYS`), og maks er 365 dager
+(`API_KEY_MAX_LIFETIME_DAYS`). Se tabellen under for hvilket scope hvert
+endepunkt krever:
 
 | Endepunkt | Påkrevd rettighet |
 | --- | --- |

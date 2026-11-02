@@ -2,15 +2,37 @@ import { getLocale, getTranslations } from "next-intl/server";
 import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import Icon from "@/components/icons";
 import CreateApiKeyForm from "@/components/settings/CreateApiKeyForm";
+import RotateApiKeyForm from "@/components/settings/RotateApiKeyForm";
 import { formatDateLocalized, formatDateTimeLocalized } from "@/lib/dates";
 import type { ApiKeyActionState } from "@/app/innstillinger/api-actions";
-import type { ApiKeySummary } from "@/server/api-keys";
+import {
+  apiKeyDefaultLifetimeDays,
+  apiKeyMaxLifetimeDays,
+  type ApiKeySummary,
+} from "@/server/api-keys";
 
 const ERROR_KEYS: Record<string, string> = {
   forbidden: "settings.apiKeys.errors.forbidden",
   validation_error: "settings.apiKeys.errors.invalid",
   not_found: "settings.apiKeys.errors.not_found",
   server_error: "settings.apiKeys.errors.error",
+};
+
+const SCOPE_LABEL_KEYS: Record<string, string> = {
+  "workorders:read": "settings.apiKeys.scopes.workordersRead",
+  "workorders:write": "settings.apiKeys.scopes.workordersWrite",
+  "visits:read": "settings.apiKeys.scopes.visitsRead",
+  "visits:write": "settings.apiKeys.scopes.visitsWrite",
+  "customers:read": "settings.apiKeys.scopes.customersRead",
+  "contracts:read": "settings.apiKeys.scopes.contractsRead",
+  "contracts:write": "settings.apiKeys.scopes.contractsWrite",
+  "sla:read": "settings.apiKeys.scopes.slaRead",
+  "equipment:read": "settings.apiKeys.scopes.equipmentRead",
+  "equipment:write": "settings.apiKeys.scopes.equipmentWrite",
+  "maintenance:read": "settings.apiKeys.scopes.maintenanceRead",
+  "maintenance:write": "settings.apiKeys.scopes.maintenanceWrite",
+  "reports:read": "settings.apiKeys.scopes.reportsRead",
+  "documents:read": "settings.apiKeys.scopes.documentsRead",
 };
 
 const INK_BUTTON =
@@ -28,6 +50,7 @@ export default async function ApiKeysTab({
   error,
   createKey,
   revokeKey,
+  rotateKey,
 }: {
   keys: ApiKeySummary[];
   error?: string;
@@ -36,6 +59,10 @@ export default async function ApiKeysTab({
     formData: FormData,
   ) => Promise<ApiKeyActionState>;
   revokeKey: (formData: FormData) => void | Promise<void>;
+  rotateKey: (
+    state: ApiKeyActionState,
+    formData: FormData,
+  ) => Promise<ApiKeyActionState>;
 }) {
   const t = await getTranslations("common");
   const locale = await getLocale();
@@ -71,7 +98,11 @@ export default async function ApiKeysTab({
         <p className="mb-3 mt-1 text-sm text-[var(--muted,#62685f)]">
           {t("settings.apiKeys.createDesc")}
         </p>
-        <CreateApiKeyForm createKey={createKey} />
+        <CreateApiKeyForm
+          createKey={createKey}
+          defaultLifetimeDays={apiKeyDefaultLifetimeDays()}
+          maxLifetimeDays={apiKeyMaxLifetimeDays()}
+        />
       </section>
 
       <section className="office-card p-5 sm:p-6">
@@ -143,7 +174,27 @@ export default async function ApiKeysTab({
                           )}
                           {status}
                         </span>
+                        {key.readOnly && (
+                          <span className="inline-flex items-center rounded-full border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-2 py-0.5 text-xs font-bold text-[var(--muted,#62685f)]">
+                            {t("settings.apiKeys.readOnly")}
+                          </span>
+                        )}
                       </div>
+
+                      <p className="mt-2 text-xs text-[var(--muted,#62685f)]">
+                        <span className="font-bold uppercase tracking-[0.06em]">
+                          {t("settings.apiKeys.scopesColumn")}:
+                        </span>{" "}
+                        {key.scopes.length === 0
+                          ? t("settings.apiKeys.scopes.allLegacy")
+                          : key.scopes
+                              .map((scope) =>
+                                SCOPE_LABEL_KEYS[scope]
+                                  ? t(SCOPE_LABEL_KEYS[scope])
+                                  : scope,
+                              )
+                              .join(", ")}
+                      </p>
 
                       <dl className="mt-2 grid grid-cols-1 gap-x-5 gap-y-1.5 text-xs text-[var(--muted,#62685f)] sm:grid-cols-2 lg:grid-cols-4">
                         <div className="min-w-0">
@@ -196,21 +247,28 @@ export default async function ApiKeysTab({
                     </div>
 
                     {!revoked && (
-                      <ConfirmSubmitForm
-                        action={revokeKey}
-                        confirmMessage={t("settings.apiKeys.revokeConfirm", {
-                          name: key.name,
-                        })}
-                        confirmLabel={t("settings.apiKeys.revokeLabel")}
-                        danger
-                        className="shrink-0"
-                      >
-                        <input type="hidden" name="id" value={key.id} />
-                        <button type="submit" className={DANGER_BUTTON}>
-                          <Icon name="close" className="mr-1 h-4 w-4 shrink-0" />
-                          {t("settings.apiKeys.revoke")}
-                        </button>
-                      </ConfirmSubmitForm>
+                      <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                        <RotateApiKeyForm
+                          id={key.id}
+                          name={key.name}
+                          rotateKey={rotateKey}
+                        />
+                        <ConfirmSubmitForm
+                          action={revokeKey}
+                          confirmMessage={t("settings.apiKeys.revokeConfirm", {
+                            name: key.name,
+                          })}
+                          confirmLabel={t("settings.apiKeys.revokeLabel")}
+                          danger
+                          className="shrink-0"
+                        >
+                          <input type="hidden" name="id" value={key.id} />
+                          <button type="submit" className={DANGER_BUTTON}>
+                            <Icon name="close" className="mr-1 h-4 w-4 shrink-0" />
+                            {t("settings.apiKeys.revoke")}
+                          </button>
+                        </ConfirmSubmitForm>
+                      </div>
                     )}
                   </div>
                 </li>

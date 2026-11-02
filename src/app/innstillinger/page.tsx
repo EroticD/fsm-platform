@@ -65,6 +65,7 @@ import {
 import {
   createApiKeyAction,
   revokeApiKeyAction,
+  rotateApiKeyAction,
 } from "./api-actions";
 import {
   releaseAuditHoldAction,
@@ -605,6 +606,7 @@ export default async function SettingsPage({
             }
             createKey={createApiKeyAction}
             revokeKey={revokeApiKeyAction}
+            rotateKey={rotateApiKeyAction}
           />
         )}
 
