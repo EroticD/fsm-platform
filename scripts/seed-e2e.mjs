@@ -483,9 +483,12 @@ async function main() {
 
   const createWorkOrder = (input) => {
     const scheduledFor = dateOnly(input.offsetDays);
+    const referenceDate = scheduledFor.toISOString().slice(2, 10).replace(/-/g, "");
+    const reference = `O-${referenceDate}-${randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 
     return prisma.workOrder.create({
       data: {
+        reference,
         title: input.title,
         description: input.description ?? null,
         scheduledFor,
