@@ -974,7 +974,15 @@
       "twoFactorEnabled": "Enabled two-factor authentication",
       "twoFactorDisabled": "Disabled two-factor authentication",
       "twoFactorRecoveryRegenerated": "Generated new two-factor recovery codes",
-      "twoFactorReset": "Reset two-factor authentication for {name}"
+      "twoFactorReset": "Reset two-factor authentication for {name}",
+      "twoFactorRequiredStarted": "2FA: required setup started",
+      "twoFactorRequiredEnrollmentStarted": "2FA: started required setup",
+      "twoFactorRequiredCompleted": "2FA: completed required setup",
+      "loginRequiredTwoFactor": "Signed in with required 2FA",
+      "twoFactorBreakGlass": "2FA: break-glass reset two-factor authentication",
+      "apiKeyCreated": "Created API key: {name} ({prefix}…)",
+      "apiKeyRevoked": "Revoked API key: {name} ({prefix}…)",
+      "apiKeyRotated": "Rotated API key: {name} ({oldPrefix}… → {newPrefix}…)"
     },
     "users": {
       "created": "Created user: {name} ({role})",

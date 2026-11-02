@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { attachmentDisposition } from "@/lib/http";
+import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { getReportPdfForViewer } from "@/server/reports";
 
 export const runtime = "nodejs";
@@ -44,13 +46,26 @@ export async function GET(
     return new NextResponse(result.message, { status: result.status });
   }
 
-  const asDownload = url.searchParams.get("download") === "1";
+  // Rapporter kan inneholde aktivt innhold dersom en fremmed PDF er blitt
+  // lagt inn i flyten. Aktivt innhold saneres eller avvises før filen sendes.
+  const sanitized = await sanitizePdfActiveContent(result.buffer);
+  if (!sanitized.ok) {
+    return new NextResponse("PDF contains active content", { status: 422 });
+  }
 
-  return new NextResponse(new Uint8Array(result.buffer), {
+  const fileName = result.fileName.toLowerCase().endsWith(".pdf")
+    ? result.fileName
+    : `${result.fileName}.pdf`;
+
+  return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${result.fileName}.pdf"`,
+      // Rapporter leveres alltid som vedlegg. Da kjører de ikke i
+      // nettleserens PDF-viser på appens domene, selv om en PDF skulle ha
+      // aktivt innhold som vi ikke kjenner igjen.
+      "Content-Disposition": attachmentDisposition(fileName),
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
       update: vi.fn(),
     },
     user: { findUnique: vi.fn() },
+    auditLog: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -22,10 +24,14 @@ import {
   createApiKeyForUser,
   generateApiKeyToken,
   hashApiKeyToken,
+  apiKeyDefaultLifetimeDays,
+  apiKeyMaxLifetimeDays,
   listApiKeys,
   parseApiKeyInput,
   revokeApiKey,
+  rotateApiKey,
 } from "./api-keys";
+import { allApiKeyScopes } from "@/lib/api-key-scopes";
 
 function actor(overrides: Partial<ServiceActor> = {}): ServiceActor {
   return {
@@ -50,8 +56,10 @@ function storedRow(overrides: Record<string, unknown> = {}) {
     userId: "actor",
     createdAt: new Date("2026-10-30T10:00:00.000Z"),
     lastUsedAt: null,
-    expiresAt: null,
+    expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     revokedAt: null,
+    scopes: allApiKeyScopes(),
+    readOnly: false,
     user: {
       id: "actor",
       name: "Admin",
@@ -63,6 +71,11 @@ function storedRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.prisma.$transaction.mockImplementation(
+    async (callback: (tx: typeof mocks.prisma) => Promise<unknown>) =>
+      callback(mocks.prisma),
+  );
+  mocks.prisma.auditLog.create.mockResolvedValue({ id: "audit-1" });
   mocks.prisma.apiKey.create.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({
       ...storedRow(),
@@ -119,6 +132,40 @@ describe("validering av API-nøkkelinput", () => {
       parseApiKeyInput({ name: "Test", expiresAt: "ikke-en-dato" }),
     ).toThrow(ApiKeyValidationError);
   });
+
+  it("gir standard levetid når utløpsdato mangler", () => {
+    const parsed = parseApiKeyInput({ name: "Standard" });
+    const days = (parsed.expiresAt.getTime() - Date.now()) / 86_400_000;
+
+    expect(days).toBeGreaterThan(apiKeyDefaultLifetimeDays() - 1);
+    expect(days).toBeLessThanOrEqual(apiKeyDefaultLifetimeDays());
+  });
+
+  it("avviser utløp utover maksimal levetid", () => {
+    const tooLate = new Date(
+      Date.now() + (apiKeyMaxLifetimeDays() + 1) * 86_400_000,
+    );
+    expect(() =>
+      parseApiKeyInput({ name: "For lenge", expiresAt: tooLate }),
+    ).toThrow(ApiKeyValidationError);
+  });
+
+  it("normaliserer scopes og avviser ukjente eller tomme lister", () => {
+    const parsed = parseApiKeyInput({
+      name: "Begrenset",
+      scopes: ["workorders:read", "workorders:read", "reports:read"],
+      readOnly: true,
+    });
+    expect(parsed.scopes).toEqual(["workorders:read", "reports:read"]);
+    expect(parsed.readOnly).toBe(true);
+
+    expect(() => parseApiKeyInput({ name: "Tom", scopes: [] })).toThrow(
+      ApiKeyValidationError,
+    );
+    expect(() =>
+      parseApiKeyInput({ name: "Ukjent", scopes: ["alt:les"] }),
+    ).toThrow(ApiKeyValidationError);
+  });
 });
 
 describe("createApiKeyForUser", () => {
@@ -141,6 +188,8 @@ describe("createApiKeyForUser", () => {
       prefix: result.token.slice(0, 12),
       userId: "user-1",
       expiresAt: new Date(expiresAt),
+      scopes: allApiKeyScopes(),
+      readOnly: false,
     });
     expect(create.data).not.toHaveProperty("token");
     expect(create.data.keyHash).not.toBe(result.token);
@@ -184,6 +233,15 @@ describe("createApiKey", () => {
       email: "admin@example.test",
     });
     expect(result.key).not.toHaveProperty("keyHash");
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entityType: "ApiKey",
+          action: expect.stringContaining("Opprettet API-nøkkel"),
+          actorId: "actor",
+        }),
+      }),
+    );
   });
 
   it("avviser ugyldig input med stabil feilkode", async () => {
@@ -244,6 +302,13 @@ describe("revokeApiKey", () => {
     const update = mocks.prisma.apiKey.update.mock.calls[0][0];
     expect(update.where).toEqual({ id: "key-1" });
     expect(update.data.revokedAt).toBeInstanceOf(Date);
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: expect.stringContaining("Tilbakekalte API-nøkkel"),
+        }),
+      }),
+    );
 
     mocks.prisma.apiKey.update.mockClear();
     mocks.prisma.apiKey.findUnique.mockResolvedValue({
@@ -261,6 +326,62 @@ describe("revokeApiKey", () => {
 
     mocks.prisma.apiKey.findUnique.mockResolvedValue(null);
     await expect(revokeApiKey(actor(), "ukjent")).resolves.toEqual({
+      ok: false,
+      error: "not_found",
+    });
+  });
+});
+
+describe("rotateApiKey", () => {
+  it("tilbakekaller gammel nøkkel og oppretter en ny med samme scopes", async () => {
+    mocks.prisma.apiKey.findUnique.mockResolvedValue({
+      id: "key-1",
+      name: "Integrasjon",
+      prefix: "fsm_gammel",
+      userId: "user-1",
+      revokedAt: null,
+      scopes: ["workorders:read", "reports:read"],
+      readOnly: true,
+    });
+
+    const result = await rotateApiKey(actor(), "key-1");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("forventet ok");
+    expect(result.token).toMatch(API_KEY_TOKEN_PATTERN);
+    expect(result.key.scopes).toEqual(["workorders:read", "reports:read"]);
+    expect(result.key.readOnly).toBe(true);
+
+    const update = mocks.prisma.apiKey.update.mock.calls[0][0];
+    expect(update.where).toEqual({ id: "key-1" });
+    expect(update.data.revokedAt).toBeInstanceOf(Date);
+    const create = mocks.prisma.apiKey.create.mock.calls[0][0];
+    expect(create.data).toMatchObject({
+      name: "Integrasjon",
+      userId: "user-1",
+      scopes: ["workorders:read", "reports:read"],
+      readOnly: true,
+    });
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("avviser ikke-administrator, ukjent og allerede tilbakekalt nøkkel", async () => {
+    expect(await rotateApiKey(actor({ role: "OFFICE" }), "key-1")).toEqual({
+      ok: false,
+      error: "forbidden",
+    });
+
+    mocks.prisma.apiKey.findUnique.mockResolvedValue(null);
+    expect(await rotateApiKey(actor(), "ukjent")).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+
+    mocks.prisma.apiKey.findUnique.mockResolvedValue({
+      id: "key-1",
+      revokedAt: new Date(),
+    });
+    expect(await rotateApiKey(actor(), "key-1")).toEqual({
       ok: false,
       error: "not_found",
     });

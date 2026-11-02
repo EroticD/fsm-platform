@@ -90,7 +90,8 @@
         "forbidden": "Du har ikke tilgang til rapporter.",
         "notFound": "Fant ikke rapporten.",
         "invalidLocked": "Ugyldig verdi for locked.",
-        "invalidAcknowledged": "Ugyldig verdi for acknowledged."
+        "invalidAcknowledged": "Ugyldig verdi for acknowledged.",
+        "activeContent": "PDF-en inneholder aktivt innhold som ikke kan leveres."
       },
       "visits": {
         "forbidden": "Du har ikke tilgang til visitten.",
@@ -120,7 +121,9 @@
       "apiKey": {
         "invalid": "Ugyldig eller utløpt API-nøkkel.",
         "missing": "Mangler Bearer-token.",
-        "authFailed": "Kunne ikke autentisere API-forespørselen."
+        "authFailed": "Kunne ikke autentisere API-forespørselen.",
+        "outOfScope": "API-nøkkelen har ikke scope for dette endepunktet.",
+        "readOnly": "API-nøkkelen er skrivebeskyttet og kan bare lese."
       },
       "attachment": {
         "notFound": "Vedlegget finnes ikke.",

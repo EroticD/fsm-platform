@@ -70,8 +70,8 @@ const openApiDocument = {
         operationId: "getMe",
         summary: "Hvem nøkkelen handler som",
         description:
-          "Returnerer brukeren som eier nøkkelen, avdelingen og de effektive " +
-          "rettighetene. Nøkkelen arver rettighetene til brukeren.",
+          "Returnerer brukeren som eier nøkkelen, avdelingen, de effektive " +
+          "rettighetene og nøkkelens egne scopes/skrivebeskyttelse.",
         responses: {
           "200": {
             description: "Identitet og rettigheter.",
@@ -1455,7 +1455,9 @@ const openApiDocument = {
         bearerFormat: "fsm_ API key",
         description:
           "API-nøkkel opprettet i Innstillinger → API-nøkler. Nøkkelen vises " +
-          "bare én gang. Den arver rettighetene til brukeren som opprettet den.",
+          "bare én gang. Den arver rettighetene til brukeren som opprettet den, " +
+          "men er i tillegg begrenset av nøkkelens scopes og eventuell " +
+          "skrivebeskyttelse. Kall utenfor scopene gir 403.",
       },
     },
     parameters: {
@@ -1749,6 +1751,14 @@ const openApiDocument = {
           },
           permissions: { type: "array", items: { type: "string" } },
           customerId: nullableString,
+          key: {
+            type: "object",
+            required: ["scopes", "readOnly"],
+            properties: {
+              scopes: { type: "array", items: { type: "string" } },
+              readOnly: { type: "boolean" },
+            },
+          },
         },
       },
       ContractSummary: {

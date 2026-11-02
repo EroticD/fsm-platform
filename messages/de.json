@@ -474,6 +474,29 @@
           "submitting": "Anmeldung läuft..."
         }
       },
+      "enrollment": {
+        "title": "Zwei-Faktor-Authentifizierung ist erforderlich",
+        "desc": "Die Sicherheitsrichtlinie Ihrer Rolle verlangt Zwei-Faktor-Authentifizierung für {companyName}, bevor Sie sich anmelden können.",
+        "startDesc": "Sie scannen einen QR-Code und bestätigen mit einem Einmalcode. Das dauert weniger als eine Minute.",
+        "start": "Einrichtung starten",
+        "starting": "Wird gestartet …",
+        "step1": "1. Scannen Sie den QR-Code mit Ihrer Authenticator-App.",
+        "qrAlt": "QR-Code für die erforderliche Zwei-Faktor-Authentifizierung",
+        "manualToggle": "Kein Scannen möglich? Schlüssel anzeigen",
+        "codeLabel": "Einmalcode aus der App",
+        "confirm": "Bestätigen und anmelden",
+        "confirming": "Wird bestätigt …",
+        "backToLogin": "Zurück zur Anmeldung",
+        "errors": {
+          "expired": "Die Sitzung ist abgelaufen. Melden Sie sich erneut an.",
+          "invalid_code": "Falscher Einmalcode. Versuchen Sie es erneut.",
+          "setup_expired": "Die Einrichtung ist abgelaufen. Starten Sie sie erneut.",
+          "forbidden": "Das Konto kann nicht verwendet werden. Wenden Sie sich an einen Administrator.",
+          "already_enabled": "Die Zwei-Faktor-Authentifizierung ist bereits aktiviert. Melden Sie sich erneut an.",
+          "TooManyAttempts": "Zu viele Versuche. Warten Sie einige Minuten und versuchen Sie es erneut.",
+          "default": "Die Einrichtung konnte nicht abgeschlossen werden."
+        }
+      },
       "forgot": {
         "title": "Passwort vergessen?",
         "rateLimited": "Zu viele Versuche. Warten Sie 15 Minuten, bevor Sie es erneut versuchen.",
@@ -570,7 +593,7 @@
         "invalidFileType": "Ungültiger Dateityp. Nur Bilder und PDF sind erlaubt.",
         "mimeMismatch": "Der Dateiinhalt passt nicht zum Dateityp.",
         "imageProcessingFailed": "Die Datei konnte nicht als Bild verarbeitet werden.",
-        "storageQuotaExceeded": "Das tägliche Speicherkontingent ist erreicht. Versuchen Sie es später erneut.",
+        "storageQuotaExceeded": "Das Speicherkontingent ist erreicht. Geben Sie Speicher frei oder wenden Sie sich an einen Administrator.",
         "workOrderLocked": "Der Auftrag ist gesperrt.",
         "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht.",
         "departmentInactive": "Die Abteilung ist deaktiviert.",
@@ -625,7 +648,8 @@
           "forbidden": "Kein Zugriff auf Berichte.",
           "notFound": "Bericht nicht gefunden.",
           "invalidLocked": "Ungültiger Wert für locked.",
-          "invalidAcknowledged": "Ungültiger Wert für acknowledged."
+          "invalidAcknowledged": "Ungültiger Wert für acknowledged.",
+          "activeContent": "Das PDF enthält aktiven Inhalt, der nicht ausgeliefert werden kann."
         },
         "visits": {
           "forbidden": "Kein Zugriff auf den Termin.",
@@ -655,7 +679,9 @@
         "apiKey": {
           "invalid": "Ungültiger oder abgelaufener API-Schlüssel.",
           "missing": "Bearer-Token fehlt.",
-          "authFailed": "Die API-Anfrage konnte nicht authentifiziert werden."
+          "authFailed": "Die API-Anfrage konnte nicht authentifiziert werden.",
+          "outOfScope": "Der API-Schlüssel hat keinen Scope für diesen Endpunkt.",
+          "readOnly": "Der API-Schlüssel ist schreibgeschützt und kann nur lesen."
         },
         "attachment": {
           "notFound": "Anhang nicht gefunden.",
@@ -683,7 +709,7 @@
           "noFile": "Keine Datei ausgewählt.",
           "invalidType": "Ungültiger Dateityp. Nur Bilder und PDF sind erlaubt.",
           "mimeMismatch": "Der Dateiinhalt passt nicht zum Dateityp.",
-          "quota": "Das tägliche Speicherkontingent ist erreicht. Versuchen Sie es später erneut.",
+          "quota": "Das Speicherkontingent ist erreicht. Geben Sie Speicher frei oder wenden Sie sich an einen Administrator.",
           "imageFailed": "Die Datei konnte nicht als Bild verarbeitet werden.",
           "saveFailed": "Die Datei konnte nicht gespeichert werden.",
           "failed": "Die Datei konnte nicht hochgeladen werden.",
@@ -2428,7 +2454,15 @@
         "name": "Name",
         "namePlaceholder": "z. B. Feld-App-Integration",
         "expiresAt": "Läuft ab (optional)",
-        "expiresHint": "Leer lassen für einen Schlüssel ohne Ablaufdatum.",
+        "expiresHint": "Leer lassen für die Standardlebensdauer von {days} Tagen. Die maximale Lebensdauer beträgt 365 Tage.",
+        "scopesLabel": "Worauf der Schlüssel zugreifen darf",
+        "scopesHint": "Der Schlüssel erbt die Berechtigungen des Benutzers, kann aber nur die ausgewählten Scope-Bereiche nutzen. Mindestens einen auswählen.",
+        "scopesColumn": "Scopes",
+        "readOnly": "Schreibgeschützt",
+        "readOnlyHint": "Nur Lesen (GET). Alle Änderungen werden mit 403 abgelehnt.",
+        "rotate": "Schlüssel rotieren",
+        "rotating": "Wird rotiert …",
+        "rotatedTitle": "Der Schlüssel \"{name}\" wurde rotiert",
         "create": "Schlüssel erstellen",
         "creating": "Wird erstellt …",
         "createdTitle": "Schlüssel erstellt",
@@ -2449,6 +2483,23 @@
         "active": "Aktiv",
         "expired": "Abgelaufen",
         "revoked": "Widerrufen",
+        "scopes": {
+          "workordersRead": "Aufträge – lesen",
+          "workordersWrite": "Aufträge – schreiben",
+          "visitsRead": "Besuche – lesen",
+          "visitsWrite": "Besuche – schreiben",
+          "customersRead": "Kunden – lesen",
+          "contractsRead": "Verträge – lesen",
+          "contractsWrite": "Verträge – schreiben",
+          "slaRead": "SLA – lesen",
+          "equipmentRead": "Geräte – lesen",
+          "equipmentWrite": "Geräte – schreiben",
+          "maintenanceRead": "Wartung – lesen",
+          "maintenanceWrite": "Wartung – schreiben",
+          "reportsRead": "Berichte – lesen",
+          "documentsRead": "Dokumente – lesen",
+          "allLegacy": "Alle (älterer Schlüssel ohne Einschränkung)"
+        },
         "revoke": "Widerrufen",
         "revokeConfirm": "API-Schlüssel \"{name}\" widerrufen? Integrationen, die ihn verwenden, funktionieren sofort nicht mehr.",
         "revokeLabel": "Schlüssel widerrufen",
@@ -3739,7 +3790,15 @@
         "twoFactorEnabled": "Zwei-Faktor-Authentifizierung aktiviert",
         "twoFactorDisabled": "Zwei-Faktor-Authentifizierung deaktiviert",
         "twoFactorRecoveryRegenerated": "Neue Zwei-Faktor-Wiederherstellungscodes erzeugt",
-        "twoFactorReset": "Zwei-Faktor-Authentifizierung für {name} zurückgesetzt"
+        "twoFactorReset": "Zwei-Faktor-Authentifizierung für {name} zurückgesetzt",
+        "twoFactorRequiredStarted": "2FA: erforderliche Einrichtung gestartet",
+        "twoFactorRequiredEnrollmentStarted": "2FA: erforderliche Einrichtung gestartet",
+        "twoFactorRequiredCompleted": "2FA: erforderliche Einrichtung abgeschlossen",
+        "loginRequiredTwoFactor": "Mit erforderlicher 2FA angemeldet",
+        "twoFactorBreakGlass": "2FA: Break-glass hat die Zwei-Faktor-Authentifizierung zurückgesetzt",
+        "apiKeyCreated": "API-Schlüssel erstellt: {name} ({prefix}…)",
+        "apiKeyRevoked": "API-Schlüssel widerrufen: {name} ({prefix}…)",
+        "apiKeyRotated": "API-Schlüssel rotiert: {name} ({oldPrefix}… → {newPrefix}…)"
       },
       "users": {
         "created": "Benutzer erstellt: {name} ({role})",

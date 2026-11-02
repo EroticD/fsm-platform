@@ -116,8 +116,10 @@ RUN groupadd --system --gid 1001 nodejs \
  && useradd --system --uid 1001 --gid nodejs nextjs
 
 # poppler-utils gir pdftotext/pdftoppm, som tekstuttrekk og OCR bygger på.
+# qpdf fjerner aktivt innhold (JavaScript, /Launch, innebygde filer) fra
+# rapport-PDF-er før de leveres. Se src/lib/pdf-active-content.ts.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils \
+ && apt-get install -y --no-install-recommends poppler-utils qpdf \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=tessdata --chown=nextjs:nodejs /tessdata /app/tessdata

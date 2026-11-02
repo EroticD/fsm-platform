@@ -3,6 +3,7 @@ import type { AccessUser } from "@/lib/access";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { apiError } from "@/lib/api-response";
 import { attachmentDisposition } from "@/lib/http";
+import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { hasPermission } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import { reportWorkOrderScope } from "@/lib/report-scope";
@@ -61,11 +62,18 @@ export async function GET(
     return apiError("not_found", 404, { message: result.message });
   }
 
+  const sanitized = await sanitizePdfActiveContent(result.buffer);
+  if (!sanitized.ok) {
+    return apiError("validation_error", 422, {
+      messageKey: "errors.api.reports.activeContent",
+    });
+  }
+
   const fileName = result.fileName.toLowerCase().endsWith(".pdf")
     ? result.fileName
     : `${result.fileName}.pdf`;
 
-  return new NextResponse(new Uint8Array(result.buffer), {
+  return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": attachmentDisposition(fileName),

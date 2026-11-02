@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { allowRequestDb } from "@/lib/rate-limit-db";
+import { attachmentDisposition } from "@/lib/http";
+import { sanitizePdfActiveContent } from "@/lib/pdf-active-content";
 import { getReportRevisionForPdf } from "@/server/report-revisions";
 
 export const runtime = "nodejs";
@@ -10,7 +12,7 @@ export const runtime = "nodejs";
  * databasen eller PDF-cachen – dokumentet bygges utelukkende fra revisjonen.
  */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const viewer = await getCurrentUser();
@@ -50,13 +52,22 @@ export async function GET(
     revision,
   );
 
-  const asDownload = new URL(request.url).searchParams.get("download") === "1";
+  const sanitized = await sanitizePdfActiveContent(pdf.buffer);
+  if (!sanitized.ok) {
+    return new NextResponse("PDF contains active content", { status: 422 });
+  }
 
-  return new NextResponse(new Uint8Array(pdf.buffer), {
+  const fileName = pdf.fileName.toLowerCase().endsWith(".pdf")
+    ? pdf.fileName
+    : `${pdf.fileName}.pdf`;
+
+  return new NextResponse(new Uint8Array(sanitized.buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${pdf.fileName}.pdf"`,
+      // Også revisjons-PDF-er leveres som vedlegg, aldri inline.
+      "Content-Disposition": attachmentDisposition(fileName),
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

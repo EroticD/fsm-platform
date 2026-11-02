@@ -54,7 +54,11 @@ import {
   deleteEquipmentCategoryAction,
   updateEquipmentCategoryAction,
 } from "./equipment-category-actions";
-import { createApiKeyAction, revokeApiKeyAction } from "./api-actions";
+import {
+  createApiKeyAction,
+  revokeApiKeyAction,
+  rotateApiKeyAction,
+} from "./api-actions";
 import {
   addPriceListItemAction,
   createPriceListAction,
@@ -498,6 +502,7 @@ export default async function SettingsPage({
             }
             createKey={createApiKeyAction}
             revokeKey={revokeApiKeyAction}
+            rotateKey={rotateApiKeyAction}
           />
         )}
 

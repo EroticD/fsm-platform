@@ -474,6 +474,29 @@
           "submitting": "Logowanie..."
         }
       },
+      "enrollment": {
+        "title": "Wymagane jest uwierzytelnianie dwuskładnikowe",
+        "desc": "Zasady bezpieczeństwa Twojej roli wymagają uwierzytelniania dwuskładnikowego dla {companyName} przed zalogowaniem.",
+        "startDesc": "Zeskanujesz kod QR i potwierdzisz jednorazowym kodem. Zajmie to mniej niż minutę.",
+        "start": "Rozpocznij konfigurację",
+        "starting": "Rozpoczynanie …",
+        "step1": "1. Zeskanuj kod QR aplikacją uwierzytelniającą.",
+        "qrAlt": "Kod QR wymaganego uwierzytelniania dwuskładnikowego",
+        "manualToggle": "Nie możesz zeskanować? Pokaż klucz",
+        "codeLabel": "Kod jednorazowy z aplikacji",
+        "confirm": "Potwierdź i zaloguj się",
+        "confirming": "Potwierdzanie …",
+        "backToLogin": "Powrót do logowania",
+        "errors": {
+          "expired": "Sesja wygasła. Zaloguj się ponownie.",
+          "invalid_code": "Nieprawidłowy kod jednorazowy. Spróbuj ponownie.",
+          "setup_expired": "Konfiguracja wygasła. Rozpocznij ją ponownie.",
+          "forbidden": "Konto nie może być używane. Skontaktuj się z administratorem.",
+          "already_enabled": "Uwierzytelnianie dwuskładnikowe jest już włączone. Zaloguj się ponownie.",
+          "TooManyAttempts": "Zbyt wiele prób. Poczekaj kilka minut i spróbuj ponownie.",
+          "default": "Nie udało się zakończyć konfiguracji."
+        }
+      },
       "forgot": {
         "title": "Nie pamiętasz hasła?",
         "rateLimited": "Zbyt wiele prób. Poczekaj 15 minut przed ponowną próbą.",
@@ -570,7 +593,7 @@
         "invalidFileType": "Nieprawidłowy typ pliku. Dozwolone są tylko obrazy i PDF.",
         "mimeMismatch": "Zawartość pliku nie odpowiada jego typowi.",
         "imageProcessingFailed": "Nie udało się przetworzyć pliku jako obrazu.",
-        "storageQuotaExceeded": "Osiągnięto dzienny limit pamięci. Spróbuj ponownie później.",
+        "storageQuotaExceeded": "Osiągnięto limit pamięci. Zwolnij miejsce lub skontaktuj się z administratorem.",
         "workOrderLocked": "Zlecenie jest zablokowane.",
         "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania.",
         "departmentInactive": "Dział jest nieaktywny.",
@@ -625,7 +648,8 @@
           "forbidden": "Brak dostępu do raportów.",
           "notFound": "Nie znaleziono raportu.",
           "invalidLocked": "Nieprawidłowa wartość pola locked.",
-          "invalidAcknowledged": "Nieprawidłowa wartość pola acknowledged."
+          "invalidAcknowledged": "Nieprawidłowa wartość pola acknowledged.",
+          "activeContent": "Plik PDF zawiera aktywną treść, której nie można udostępnić."
         },
         "visits": {
           "forbidden": "Brak dostępu do wizyty.",
@@ -655,7 +679,9 @@
         "apiKey": {
           "invalid": "Nieprawidłowy lub wygasły klucz API.",
           "missing": "Brak tokenu Bearer.",
-          "authFailed": "Nie udało się uwierzytelnić żądania API."
+          "authFailed": "Nie udało się uwierzytelnić żądania API.",
+          "outOfScope": "Klucz API nie ma zakresu dla tego punktu końcowego.",
+          "readOnly": "Klucz API jest tylko do odczytu i może jedynie czytać."
         },
         "attachment": {
           "notFound": "Nie znaleziono załącznika.",
@@ -683,7 +709,7 @@
           "noFile": "Nie wybrano pliku.",
           "invalidType": "Nieprawidłowy typ pliku. Dozwolone są tylko obrazy i PDF.",
           "mimeMismatch": "Zawartość pliku nie odpowiada jego typowi.",
-          "quota": "Osiągnięto dzienny limit pamięci. Spróbuj ponownie później.",
+          "quota": "Osiągnięto limit pamięci. Zwolnij miejsce lub skontaktuj się z administratorem.",
           "imageFailed": "Nie udało się przetworzyć pliku jako obrazu.",
           "saveFailed": "Nie udało się zapisać pliku.",
           "failed": "Nie udało się przesłać pliku.",
@@ -2428,7 +2454,15 @@
         "name": "Nazwa",
         "namePlaceholder": "Np. integracja z aplikacją terenową",
         "expiresAt": "Wygasa (opcjonalnie)",
-        "expiresHint": "Pozostaw puste, aby klucz nie wygasał.",
+        "expiresHint": "Pozostaw puste, aby użyć domyślnego czasu życia {days} dni. Maksymalny czas życia to 365 dni.",
+        "scopesLabel": "Do czego klucz ma dostęp",
+        "scopesHint": "Klucz dziedziczy uprawnienia użytkownika, ale może korzystać tylko z wybranych zakresów. Wybierz co najmniej jeden.",
+        "scopesColumn": "Zakresy",
+        "readOnly": "Tylko do odczytu",
+        "readOnlyHint": "Tylko odczyt (GET). Wszystkie zmiany są odrzucane z kodem 403.",
+        "rotate": "Obróć klucz",
+        "rotating": "Obracanie …",
+        "rotatedTitle": "Klucz „{name}” został obrócony",
         "create": "Utwórz klucz",
         "creating": "Tworzenie …",
         "createdTitle": "Klucz utworzony",
@@ -2449,6 +2483,23 @@
         "active": "Aktywny",
         "expired": "Wygasł",
         "revoked": "Odwołany",
+        "scopes": {
+          "workordersRead": "Zlecenia – odczyt",
+          "workordersWrite": "Zlecenia – zapis",
+          "visitsRead": "Wizyty – odczyt",
+          "visitsWrite": "Wizyty – zapis",
+          "customersRead": "Klienci – odczyt",
+          "contractsRead": "Umowy – odczyt",
+          "contractsWrite": "Umowy – zapis",
+          "slaRead": "SLA – odczyt",
+          "equipmentRead": "Urządzenia – odczyt",
+          "equipmentWrite": "Urządzenia – zapis",
+          "maintenanceRead": "Konserwacja – odczyt",
+          "maintenanceWrite": "Konserwacja – zapis",
+          "reportsRead": "Raporty – odczyt",
+          "documentsRead": "Dokumenty – odczyt",
+          "allLegacy": "Wszystko (starszy klucz bez ograniczeń)"
+        },
         "revoke": "Odwołaj",
         "revokeConfirm": "Odwołać klucz API „{name}”? Integracje, które go używają, natychmiast przestaną działać.",
         "revokeLabel": "Odwołaj klucz",
@@ -3739,7 +3790,15 @@
         "twoFactorEnabled": "Włączono weryfikację dwuetapową",
         "twoFactorDisabled": "Wyłączono weryfikację dwuetapową",
         "twoFactorRecoveryRegenerated": "Wygenerowano nowe kody odzyskiwania 2FA",
-        "twoFactorReset": "Zresetowano weryfikację dwuetapową dla {name}"
+        "twoFactorReset": "Zresetowano weryfikację dwuetapową dla {name}",
+        "twoFactorRequiredStarted": "2FA: rozpoczęto wymaganą konfigurację",
+        "twoFactorRequiredEnrollmentStarted": "2FA: rozpoczęto wymaganą konfigurację",
+        "twoFactorRequiredCompleted": "2FA: ukończono wymaganą konfigurację",
+        "loginRequiredTwoFactor": "Zalogowano z wymaganym 2FA",
+        "twoFactorBreakGlass": "2FA: break-glass zresetował uwierzytelnianie dwuskładnikowe",
+        "apiKeyCreated": "Utworzono klucz API: {name} ({prefix}…)",
+        "apiKeyRevoked": "Odwołano klucz API: {name} ({prefix}…)",
+        "apiKeyRotated": "Obrotowano klucz API: {name} ({oldPrefix}… → {newPrefix}…)"
       },
       "users": {
         "created": "Utworzono użytkownika: {name} ({role})",

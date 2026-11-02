@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(),
@@ -69,9 +72,21 @@ function pdfFile() {
   );
 }
 
-beforeEach(() => {
+let uploadRoot: string | null = null;
+
+beforeEach(async () => {
   vi.clearAllMocks();
   mocks.getCurrentUser.mockResolvedValue(user());
+  mocks.prisma.upload.aggregate.mockResolvedValue({ _sum: { size: 0 } });
+  mocks.prisma.upload.create.mockResolvedValue({ id: "upload-1" });
+});
+
+afterEach(async () => {
+  if (uploadRoot) {
+    await fs.rm(uploadRoot, { recursive: true, force: true });
+    uploadRoot = null;
+  }
+  delete process.env.UPLOAD_DIR;
 });
 
 describe("POST /api/upload – innholdskontroll", () => {
@@ -145,6 +160,47 @@ describe("POST /api/upload – kroppskonkurranse", () => {
 
     expect(response.status).toBe(415);
     expect(getUploadBodyGateState().active).toBe(0);
+  });
+});
+
+describe("POST /api/upload – strømming og kvote", () => {
+  it("strømmer en gyldig PDF til disk uten midlertidige rester", async () => {
+    uploadRoot = await fs.mkdtemp(path.join(os.tmpdir(), "fsm-upload-route-"));
+    process.env.UPLOAD_DIR = uploadRoot;
+
+    const response = await POST(multipart(pdfFile()));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      fileType: "application/pdf",
+    });
+    const stored = await fs.readdir(uploadRoot);
+    expect(stored.filter((name) => name.endsWith(".pdf"))).toHaveLength(1);
+    const tempEntries = await fs
+      .readdir(path.join(uploadRoot, ".tmp"))
+      .catch(() => []);
+    expect(tempEntries).toEqual([]);
+  });
+
+  it("svarer 507 når brukerkvoten er brukt opp", async () => {
+    uploadRoot = await fs.mkdtemp(path.join(os.tmpdir(), "fsm-upload-route-"));
+    process.env.UPLOAD_DIR = uploadRoot;
+    mocks.prisma.upload.aggregate.mockResolvedValue({
+      _sum: { size: 2048 },
+    });
+
+    const response = await POST(multipart(pdfFile()));
+
+    expect(response.status).toBe(507);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "storage_quota_exceeded",
+    });
+    expect(mocks.prisma.upload.create).not.toHaveBeenCalled();
+    const tempEntries = await fs
+      .readdir(path.join(uploadRoot, ".tmp"))
+      .catch(() => []);
+    expect(tempEntries).toEqual([]);
   });
 });
 

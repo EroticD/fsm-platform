@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { cleanupAbandonedUploads } from "@/lib/upload-cleanup";
+import { cleanupUploadTempFiles } from "@/lib/upload-multipart";
+import { uploadDir } from "@/lib/uploads";
 import { safeEqual } from "@/lib/secrets";
 
 export const runtime = "nodejs";
@@ -30,8 +32,11 @@ export async function GET(request: Request) {
   }
 
   const result = await cleanupAbandonedUploads();
+  // Midlertidige filer fra avbrutte eller krasjede opplastinger skal ikke bli
+  // liggende. Aktive opplastinger er langt yngre enn fristen på 24 timer.
+  const temp = await cleanupUploadTempFiles({ tempDir: uploadDir() });
 
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ok: true, ...result, tempRemoved: temp.removed });
 }
 
 export const POST = GET;

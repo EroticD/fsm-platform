@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import {
   createApiKey,
   revokeApiKey,
+  rotateApiKey,
   type ApiKeyError,
 } from "@/server/api-keys";
 
@@ -48,11 +49,39 @@ export async function createApiKeyAction(
   const result = await createApiKey(actor, {
     name: formData.get("name"),
     expiresAt,
+    scopes: formData.getAll("scopes").map(String),
+    readOnly: formData.get("readOnly") === "on",
   });
 
   if (!result.ok) {
     return { status: "error", error: result.error };
   }
+
+  revalidateApiKeys();
+  return {
+    status: "created",
+    token: result.token,
+    keyName: result.key.name,
+  };
+}
+
+/**
+ * Rullerer en nøkkel. Den gamle tilbakekalles og en ny med samme
+ * rettigheter opprettes. Det nye tokenet returneres i action-state og vises
+ * én gang, aldri i URL eller cookie.
+ */
+export async function rotateApiKeyAction(
+  _previous: ApiKeyActionState,
+  formData: FormData,
+): Promise<ApiKeyActionState> {
+  const actor = await getCurrentUser();
+  if (!actor) return { status: "error", error: "forbidden" };
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { status: "error", error: "validation_error" };
+
+  const result = await rotateApiKey(actor, id);
+  if (!result.ok) return { status: "error", error: result.error };
 
   revalidateApiKeys();
   return {

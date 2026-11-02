@@ -3,6 +3,7 @@ import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/lib/credentials";
 import { clientIpFrom } from "@/lib/client-ip";
+import { requiresTwoFactorEnrollment } from "@/lib/two-factor-policy";
 
 /**
  * Absolutt levetid for en innlogging, uavhengig av aktivitet. NextAuth
@@ -78,6 +79,13 @@ export const authOptions: NextAuthOptions = {
         // e-post/passord rett til /api/auth/callback/credentials og hoppe over
         // engangskoden.
         if (result.user.isTwoFactorEnabled) {
+          return null;
+        }
+
+        // Påkrevd 2FA for privilegerte roller: en klient kan ikke hoppe over
+        // oppsettet ved å poste passord direkte til NextAuth. En slik bruker
+        // må gå gjennom /logg-inn og enrollment-gaten.
+        if (requiresTwoFactorEnrollment(result.user)) {
           return null;
         }
 

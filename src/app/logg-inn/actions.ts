@@ -1,4 +1,6 @@
 "use server";
+// i18n-ignore-file: revisjonshandlinger lagres som stabile norske data og
+// oversettes ved visning i audit-actions.ts.
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -18,6 +20,7 @@ import { homePathForRole } from "@/lib/navigation";
 import { clientIpFrom } from "@/lib/client-ip";
 import { cleanEmail } from "@/lib/sanitize";
 import { logger } from "@/lib/logger";
+import { requiresTwoFactorEnrollment } from "@/lib/two-factor-policy";
 
 /**
  * Logger inn uten JavaScript. Passordet sendes i selve forespørselen via en
@@ -80,6 +83,32 @@ export async function loginAction(formData: FormData): Promise<never> {
     if (callbackUrl !== "/") params.set("callbackUrl", callbackUrl);
     const qs = params.toString();
     redirect(`/logg-inn/2fa${qs ? `?${qs}` : ""}`);
+  }
+
+  // Privilegerte roller kan være pålagt 2FA. Da opprettes ingen sesjon før
+  // brukeren har fullført oppsettet i enrollment-gaten. Den midlertidige
+  // cookien beviser at passordet nettopp er verifisert.
+  if (
+    requiresTwoFactorEnrollment({
+      role: result.user.role,
+      isTwoFactorEnabled: dbUser?.isTwoFactorEnabled ?? false,
+    })
+  ) {
+    await setPendingTwoFactor(result.user.id);
+    try {
+      await prisma.auditLog.create({
+        data: {
+          entityType: "User",
+          entityId: result.user.id,
+          action: "2FA: påkrevd oppsett startet",
+          userName: result.user.name || result.user.email || "Ukjent",
+          actorId: result.user.id,
+        },
+      });
+    } catch {
+      console.error("Kunne ikke logge påkrevd 2FA-oppsett");
+    }
+    redirect("/logg-inn/2fa/oppsett");
   }
 
   // Innlogging logges best effort. En feil her skal aldri hindre innlogging.
