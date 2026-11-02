@@ -136,7 +136,7 @@ afterAll(async () => {
 });
 
 describeIntegration("booking: samtidighet og reservasjoner", () => {
-  it("gir nøyaktig én bekreftet booking når 20 kunder ber om samme time", async () => {
+  it("oppretter bare ubekreftede forespørsler selv når 20 kunder sender samme tid", async () => {
     const results = await Promise.all(
       portalUsers.map((user, index) =>
         createBooking(user, {
@@ -153,41 +153,37 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
       ),
     );
 
-    const confirmed = results.filter((result) => result.ok);
-    expect(confirmed).toHaveLength(1);
-    if (confirmed[0]?.ok) {
-      expect(confirmed[0].data.status).toBe("CONFIRMED");
-    }
-    expect(results.filter((result) => !result.ok)).toHaveLength(
-      CUSTOMER_COUNT - 1,
-    );
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(
+      results.flatMap((result) => (result.ok ? [result.data.status] : [])),
+    ).toEqual(Array(CUSTOMER_COUNT).fill("PENDING"));
 
     const bookings = await prisma.bookingRequest.count({
-      where: {
-        status: "CONFIRMED",
-        preferredTechnicianId: technicianId,
-        requestedDate: parseDateOnly(requestedDate)!,
-      },
+      where: { requestedDate: parseDateOnly(requestedDate)! },
     });
-    expect(bookings).toBe(1);
+    expect(bookings).toBe(CUSTOMER_COUNT);
 
-    const visits = await prisma.visit.count({
-      where: {
-        status: { not: "CANCELLED" },
-        startsAt: { lt: endsAt },
-        endsAt: { gt: startsAt },
-        technicians: { some: { userId: technicianId } },
-        workOrder: { departmentId },
-      },
-    });
-    expect(visits).toBe(1);
+    expect(
+      await prisma.bookingRequest.count({
+        where: { status: "CONFIRMED", requestedDate: parseDateOnly(requestedDate)! },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.visit.count({
+        where: {
+          startsAt: { lt: endsAt },
+          endsAt: { gt: startsAt },
+          workOrder: { departmentId },
+        },
+      }),
+    ).toBe(0);
   });
 
-  it("bevarer PENDING-køen og lar kontoret bekrefte den mot en montør", async () => {
+  it("lar kontoret planlegge en ubekreftet forespørsel uten kundens tidsblokk", async () => {
     const customer = portalUsers[1];
     const pending = await createBooking(customer, {
       title: `IT-pending-${unique("b")}`,
-      description: "Eldre forespørsel",
+      description: "Ønsker helst formiddag",
       requestedDate,
       requestedFrom: "11:00",
       requestedTo: "12:00",
@@ -197,10 +193,22 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
     expect(pending.ok).toBe(true);
     if (!pending.ok) return;
     expect(pending.data.status).toBe("PENDING");
+
     const booking = await prisma.bookingRequest.findUniqueOrThrow({
       where: { workOrderId: pending.data.id },
-      select: { id: true },
+      select: {
+        id: true,
+        requestedFrom: true,
+        requestedTo: true,
+        visitId: true,
+        workOrder: { select: { status: true, scheduledFor: true } },
+      },
     });
+    expect(booking.requestedFrom).toBe("");
+    expect(booking.requestedTo).toBe("");
+    expect(booking.visitId).toBeNull();
+    expect(booking.workOrder.status).toBe("OPEN");
+    expect(booking.workOrder.scheduledFor).toEqual(parseDateOnly(requestedDate));
 
     const office: ServiceActor = {
       id: "it-office",
@@ -215,36 +223,14 @@ describeIntegration("booking: samtidighet og reservasjoner", () => {
       permissionsCustomized: true,
       roleDefinition: null,
     };
-    const confirmed = await confirmBooking(office, {
+    const notConfirmed = await confirmBooking(office, {
       bookingId: booking.id,
       technicianId,
     });
-    expect(confirmed.ok).toBe(true);
-    if (confirmed.ok) {
-      expect(confirmed.data.already).toBe(false);
-      expect(confirmed.data.technicianName).toBe("IT-tekniker");
-    }
-
-    const row = await prisma.bookingRequest.findUnique({
-      where: { id: booking.id },
-      select: {
-        status: true,
-        visit: {
-          select: {
-            status: true,
-            technicians: { select: { userId: true } },
-          },
-        },
-        workOrder: { select: { status: true } },
-      },
-    });
-    expect(row?.status).toBe("CONFIRMED");
-    expect(row?.visit?.status).toBe("PLANNED");
-    expect(row?.visit?.technicians).toEqual([{ userId: technicianId }]);
-    expect(row?.workOrder.status).toBe("PLANNED");
+    expect(notConfirmed.ok).toBe(false);
     expect(
       await prisma.visit.count({ where: { workOrderId: pending.data.id } }),
-    ).toBe(1);
+    ).toBe(0);
   });
 
   it("frigjør timen når reservasjonen utløper, og blokkerer en aktiv reservasjon", async () => {

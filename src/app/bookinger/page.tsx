@@ -154,8 +154,10 @@ export default async function BookingsPage({
                     {t("portal.bookingQueue.requested")}:{" "}
                   </dt>
                   <dd className="inline">
-                    {formatDateLocalized(booking.requestedDate, locale)}{" "}
-                    {booking.requestedFrom}–{booking.requestedTo}
+                    {formatDateLocalized(booking.requestedDate, locale)}
+                    {booking.requestedFrom && booking.requestedTo
+                      ? ` ${booking.requestedFrom}–${booking.requestedTo}`
+                      : ""}
                   </dd>
                 </div>
                 {booking.siteName && (

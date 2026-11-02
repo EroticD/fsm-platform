@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
 import {
   addDaysUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -146,20 +145,18 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
   });
 
-  it("avviser bestilling som starter innenfor minste ledetid", async () => {
+  it("tillater en datoforespørsel uten timebasert ledetid", async () => {
     const result = await createBooking(customer(), {
       ...booking,
-      // Dagens dato kl. 23:00 er alltid mindre enn 24 timer fram, uansett
-      // når på døgnet testen kjøres.
+      // Kunden velger bare dato; eventuell oppgitt tid ignoreres.
       requestedDate: todayInOslo(),
       requestedFrom: "23:00",
       requestedTo: "23:59",
     });
 
-    expect(result).toEqual({ ok: false, reason: "invalid" });
-    expect(mocks.allowRequestDb).not.toHaveBeenCalled();
-    expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
-    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, data: { status: "PENDING" } });
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).toHaveBeenCalled();
   });
 
   it("avviser den sjette bestillingen innenfor en time", async () => {
@@ -308,18 +305,10 @@ describe("createBooking", () => {
       }),
     );
 
-    // Bestillingens ønskede tidsvindu blir oppdragets første visitt.
-    const dayStart = osloDayStart(requestedDate);
-    expect(mocks.createDefaultVisit).toHaveBeenCalledWith(mocks.prisma, {
-      workOrderId: "wo-1",
-      startsAt: new Date(dayStart.getTime() + 8 * 60 * 60_000),
-      endsAt: new Date(dayStart.getTime() + 12 * 60 * 60_000),
-      allDay: false,
-    });
-    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(
-      mocks.prisma,
-      "wo-1",
-    );
+    // En kundebestilling er bare en ny forespørsel. Det opprettes ingen visitt
+    // eller bekreftet tid før kontoret/montøren planlegger oppdraget.
+    expect(mocks.createDefaultVisit).not.toHaveBeenCalled();
+    expect(mocks.recomputeWorkOrderSchedule).not.toHaveBeenCalled();
     expect(mocks.notifyWorkOrderEvent).toHaveBeenCalledWith(
       "wo-1",
       "BOOKING",

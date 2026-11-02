@@ -169,7 +169,7 @@ Office and technicians with `workorders.update` can change open statuses freely.
 
 ## 9. Booking, SMS, tracking and reviews
 
-**Booking:** the portal shows 30-minute slots up to 60 days ahead, with 24 hours’ lead time and at most three suggestions per technician per day. A slot is held for five minutes; confirmation creates a work order and planned visit. Availability uses **Business hours**, **Holidays**, visits, absences, bookings and technician working hours if configured, otherwise department hours and weekdays 08–16. In 0.8.5, working hours and absences are not edited in **Settings**. **Bookings** shows pending requests.
+**Booking:** the customer chooses a requested date (up to 60 days ahead) and writes the desired time in the description; the customer cannot select a time block. The request creates a new work order with status **Open/New** and no visit or confirmed time. The office or technician plans it and sets **Planned**, or **Waiting** if the time does not fit. **Bookings** shows unconfirmed requests; they can be declined, but planning happens on the work order.
 
 **SMS:** the provider is selected with `SMS_PROVIDER`, not in the UI. The default `console` is a dry run; `linkmobility`, `pswincom` and `twilio` are supported. **Sender** comes from `SMS_SENDER_ID`. Under **Settings → SMS and messaging** you can see the provider, sender, dry-run state and **Webhook signature**, and set **Default language**, **Opt-out keywords**, **Opt-in keywords**, **Monthly cap** and **Templates per event**.
 

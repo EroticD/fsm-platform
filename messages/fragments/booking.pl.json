@@ -46,7 +46,11 @@
         "holdFailed": "Nie udało się zarezerwować terminu. Spróbuj ponownie.",
         "slotTaken": "Ktoś właśnie zajął ten termin. Wybierz inny."
       },
-      "leadTimeHint": "Najwcześniejszy start to {date}. Termin musi być co najmniej {hours} godzin wcześniej."
+      "leadTimeHint": "Najwcześniejszy start to {date}. Termin musi być co najmniej {hours} godzin wcześniej.",
+      "dateStep": "3. Wybierz żądaną datę",
+      "dateLabel": "Żądana data",
+      "dateHint": "Wybierz datę od {date} do {horizon}. Możesz wybrać datę poza następnymi dwoma tygodniami.",
+      "timeInDescription": "Klient nie może wybrać bloku czasu. Wpisz żądaną godzinę w opisie; biuro lub technik zaplanuje zlecenie."
     },
     "bookingRequests": {
       "status": {
@@ -59,7 +63,7 @@
     },
     "bookingQueue": {
       "title": "Kolejka rezerwacji",
-      "desc": "Potwierdź prośbę klienta na wolnym terminie lub odrzuć ją. Potwierdzone rezerwacje pokazują status i technika.",
+      "desc": "Zaplanuj zgłoszenie klienta w zleceniu lub je odrzuć. Nowe zgłoszenia są niepotwierdzone, dopóki biuro nie ustawi czasu i statusu.",
       "empty": "Brak rezerwacji na tej liście.",
       "filterAll": "Wszystkie",
       "filterPending": "Oczekujące",

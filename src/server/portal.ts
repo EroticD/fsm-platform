@@ -22,7 +22,6 @@ import {
   canCustomerRescheduleBooking,
 } from "@/lib/booking-status";
 import {
-  BOOKING_TIME_VALUE,
   bookingChangeDeadline as bookingChangeDeadlineAt,
   requestedWindow as requestedWindowAt,
 } from "@/lib/booking-time";
@@ -33,7 +32,7 @@ import {
 } from "./availability";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { trySendBookingConfirmedSms } from "./sms-events";
-import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
+import { recomputeWorkOrderSchedule } from "./visits";
 import {
   fail,
   ok,
@@ -67,7 +66,6 @@ export const BOOKING_MIN_LEAD_HOURS = 24;
 const BOOKING_MAX_DAYS_AHEAD = 60;
 /** Bestillingshistorikken vises i sider, ikke som en stille hard grense. */
 export const PORTAL_BOOKING_PAGE_SIZE = 20;
-const TIME_VALUE = BOOKING_TIME_VALUE;
 
 /**
  * Tjenestetypene kunden velger i slotvelgeren. De er bevisst korte, stabile
@@ -152,13 +150,16 @@ function parseBookingSchedule(input: {
   const from = String(input.requestedFrom ?? "").trim();
   const to = String(input.requestedTo ?? "").trim();
 
-  if (!dateText || !from || !to) return fail("missing_fields");
+  if (!dateText) return fail("missing_fields");
 
   const requestedDate = parseDateOnly(dateText);
   if (!requestedDate) return fail("invalid");
-  if (!TIME_VALUE.test(from) || !TIME_VALUE.test(to) || from >= to) {
-    return fail("invalid");
-  }
+
+  // Kunden kan ikke velge tidsblokk. Selv om en klient sender med tid, lagres
+  // bare datoen; ønsket klokkeslett hører hjemme i beskrivelsen og bekreftes
+  // først når kontoret/montøren planlegger oppdraget.
+  void from;
+  void to;
 
   const today = parseDateOnly(todayInOslo());
   if (!today || requestedDate < today) return fail("invalid");
@@ -167,7 +168,7 @@ function parseBookingSchedule(input: {
   latest.setUTCDate(latest.getUTCDate() + BOOKING_MAX_DAYS_AHEAD);
   if (requestedDate > latest) return fail("invalid");
 
-  return ok({ requestedDate, requestedFrom: from, requestedTo: to });
+  return ok({ requestedDate, requestedFrom: "", requestedTo: "" });
 }
 
 /** Tidspunktet ønsket tidsvindu starter, i Oslo-tid. */
@@ -197,6 +198,9 @@ export function bookingChangeDeadline(
 
 /** Ønsket start må ligge minst `BOOKING_MIN_LEAD_HOURS` fram i tid. */
 function hasMinimumLeadTime(schedule: BookingSchedule, now = new Date()): boolean {
+  // Dato-only-forespørsler bekreftes ikke av kunden, og trenger derfor ikke
+  // timebasert ledetid. En eventuell tid som er oppgitt må fortsatt ha ledetid.
+  if (!schedule.requestedFrom || !schedule.requestedTo) return true;
   return (
     requestedStart(schedule).getTime() >=
     now.getTime() + BOOKING_MIN_LEAD_HOURS * 60 * 60_000
@@ -321,17 +325,10 @@ export async function createBooking(
     : null;
   const holdToken = cleanText(input.holdToken, { maxLength: 200 });
   const technicianId = idFrom(input.technicianId ?? input.preferredTechnicianId);
-  const confirmedBooking = Boolean(holdToken || technicianId);
-  if (confirmedBooking && !technicianId) return fail("invalid");
-
+  // Kunden kan aldri bekrefte en tid. Alle bestillinger starter som en ny,
+  // ubekreftet forespørsel; kontoret/montøren planlegger den senere.
+  const confirmedBooking = false;
   const window = requestedWindow(schedule.data);
-  if (
-    confirmedBooking &&
-    window.endsAt.getTime() - window.startsAt.getTime() !==
-      AVAILABILITY_SLOT_MINUTES * 60_000
-  ) {
-    return fail("invalid");
-  }
 
   // Utstyret må tilhøre kunden. Klienten kan ikke velge fritt blant enheter.
   const equipmentId = idFrom(input.equipmentId);
@@ -468,7 +465,10 @@ export async function createBooking(
     | { kind: "conflict" }
     | { kind: "slot_unavailable" };
   try {
-    outcome = await runSerializable(async (tx) => {
+    // Kundebestillinger er bare nye forespørsler; de trenger ikke
+    // SERIALIZABLE for å fordele en bekreftet time. En vanlig transaksjon
+    // unngår unødvendige serialiseringsfeil når mange kunder bestiller samtidig.
+    outcome = await prisma.$transaction(async (tx) => {
       // Låsen er per kunde og slippes automatisk ved commit/rollback.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:${customerId}`}))`;
 
@@ -750,23 +750,15 @@ export async function createBooking(
           longitude: coordinates?.lng ?? null,
           geoAddressHash,
           scheduledFor: schedule.data.requestedDate,
-          scheduledTo: schedule.data.requestedDate,
+          scheduledTo: null,
           technicians: { connect: [] },
         },
         select: { id: true },
       });
 
-      // Bestillingen er en konkret tidsblokk i kundens ønskede vindu. Kontoret
-      // kan senere flytte den på visit-nivå; `BookingRequest` beholder
-      // fortsatt kundens opprinnelige ønske som snapshot.
-      const defaultVisitId = await createDefaultVisit(tx, {
-        workOrderId: workOrder.id,
-        startsAt: window.startsAt,
-        endsAt: window.endsAt,
-        allDay: false,
-      });
-      await recomputeWorkOrderSchedule(tx, workOrder.id);
-
+      // Ingen visitt opprettes før kontoret eller montøren har bekreftet og
+      // planlagt oppdraget. Den ønskede datoen ligger på oppdraget og i
+      // bestillingsforespørselen; ønsket klokkeslett står i beskrivelsen.
       const reference = bookingReference(workOrder.id);
       const booking = await tx.bookingRequest.create({
         data: {
@@ -782,7 +774,6 @@ export async function createBooking(
           preferredTechnicianName,
           contactName,
           contactPhone,
-          visitId: defaultVisitId,
         },
         select: { id: true, reference: true },
       });
@@ -861,7 +852,11 @@ export async function createBooking(
         : "Ny bestilling fra kundeportal",
       confirmed
         ? `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}) hos ${created.technicianName || "montør"}. Tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`
-        : `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
+        : `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket dato: ${toDateOnly(schedule.data.requestedDate)}${
+            schedule.data.requestedFrom && schedule.data.requestedTo
+              ? ` kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}`
+              : ""
+          }.`,
       `/oppdrag/${created.id}`,
       `booking:${created.id}`,
     );
@@ -1611,7 +1606,7 @@ export async function rescheduleBooking(
 
         // Bare en ubekreftet sak flyttes direkte. En planlagt sak beholder
         // planen til kontoret har bekreftet den nye tiden.
-        const moved = await tx.workOrder.updateMany({
+        await tx.workOrder.updateMany({
           where: {
             id: booking.data.workOrder.id,
             customerId: access.data.customerId,
@@ -1619,42 +1614,12 @@ export async function rescheduleBooking(
           },
           data: {
             scheduledFor: schedule.data.requestedDate,
-            scheduledTo: schedule.data.requestedDate,
+            scheduledTo: null,
           },
         });
 
-        if (moved.count > 0) {
-          const visits = await tx.visit.findMany({
-            where: { workOrderId: booking.data.workOrder.id },
-            select: { id: true, status: true },
-            orderBy: { sequence: "asc" },
-            take: 50,
-          });
-
-          if (visits.length === 1) {
-            await tx.visit.update({
-              where: { id: visits[0].id },
-              data: {
-                startsAt: window.startsAt,
-                endsAt: window.endsAt,
-                allDay: false,
-              },
-            });
-          } else if (visits.length === 0) {
-            await createDefaultVisit(tx, {
-              workOrderId: booking.data.workOrder.id,
-              startsAt: window.startsAt,
-              endsAt: window.endsAt,
-              allDay: false,
-            });
-          }
-
-          // En bestilling har alltid én standardvisitt. Skulle raden likevel ha
-          // flere (visit-nivå har tatt over), røres de ikke her.
-          if (visits.length <= 1) {
-            await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
-          }
-        }
+        // En ubekreftet forespørsel har ingen visitt. Kontoret planlegger
+        // dato og tid når det bekrefter saken.
 
         await audit(tx, {
           entityType: "BookingRequest",

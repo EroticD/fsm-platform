@@ -123,7 +123,13 @@ export async function listBookingQueue(
   const items: BookingQueueItem[] = [];
   for (const booking of bookings) {
     let availableTechnicians: BookingQueueTechnician[] = [];
-    if (booking.status === "PENDING") {
+    // Nye kundebestillinger har bare ønsket dato; kontoret planlegger tid og
+    // montør på oppdraget. Vis ikke falske ledige timer for slike saker.
+    if (
+      booking.status === "PENDING" &&
+      booking.requestedFrom &&
+      booking.requestedTo
+    ) {
       const window = requestedWindow({
         requestedDate: booking.requestedDate,
         requestedFrom: booking.requestedFrom,
@@ -232,6 +238,9 @@ export async function confirmBooking(
       }
       if (booking.status !== "PENDING") return fail("conflict");
 
+      if (!booking.requestedFrom || !booking.requestedTo) {
+        return fail("conflict", { code: "needs_planning" });
+      }
       const window = requestedWindow({
         requestedDate: booking.requestedDate,
         requestedFrom: booking.requestedFrom,

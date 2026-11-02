@@ -386,16 +386,16 @@ The booking queue is at `/bookinger` with **All**, **Pending**, **Confirmed** an
 On confirmation the work order becomes **Planned**, the visit is created or
 updated, and the customer receives an SMS if the contact has consented.
 
-The customer books in the portal. Available times are 30-minute slots up to 60
-days ahead, with at least 24 hours' lead time. Working hours, absence, visits and
-unconfirmed reservations are deducted; the default is at most three suggested
-slots per technician per day. If working hours are missing, the department's opening hours
-are used, then weekdays 08–16. A selected time is held for five minutes while the
-customer completes the form.
+The customer chooses a site, service and requested date in the portal, and
+writes the desired time in the description. The customer cannot select a time
+block, and the booking always creates a new work order with status
+**Open/New**. No visit or confirmed time is created.
 
-A customer booking already creates a work order; there is no separate **Convert
-to work order** button. New bookings are confirmed directly. Older **Pending**
-requests become **Planned** with a visit when you confirm them.
+The office or technician plans the work order and sets the status to
+**Planned**. If the time does not fit, it is set to **Waiting** for
+replanning. The customer receives the final confirmation only then. A customer
+booking is already a work order; there is no separate **Convert to work order**
+button.
 
 ## Reports
 

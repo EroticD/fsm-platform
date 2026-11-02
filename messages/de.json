@@ -3434,8 +3434,8 @@
         "months": "{count} Monate"
       },
       "booking": {
-        "title": "Freie Zeit buchen",
-        "desc": "Wählen Sie Standort, Leistung und einen freien Termin. Die Buchung wird sofort bestätigt.",
+        "title": "Besuch anfragen",
+        "desc": "Wählen Sie Standort, Leistung und gewünschtes Datum. Schreiben Sie die gewünschte Uhrzeit in die Beschreibung. Büro oder Techniker bestätigen und planen den Besuch später.",
         "titleLabel": "Auftragstitel *",
         "titlePlaceholder": "Z. B. Jahreswartung",
         "descriptionLabel": "Beschreibung",
@@ -3454,7 +3454,7 @@
         "reference": "Referenz: {reference}",
         "nextTitle": "Wie geht es weiter?",
         "nextStep1": "Das Büro prüft die Anfrage und stellt sicher, dass Gerät und Zeitpunkt passen.",
-        "nextStep2": "Sie erhalten eine Bestätigung mit der endgültigen Zeit erst, nachdem das Büro geantwortet hat. Wenn Sie einen verfügbaren Tag ausgewählt haben, werden wir versuchen, diesen beizubehalten.",
+        "nextStep2": "Die endgültige bestätigte Zeit erhalten Sie erst, nachdem Büro oder Techniker den Auftrag geplant haben.",
         "nextStep3": "Sie können den Status unter “Ihre Anfragen” verfolgen. Dort können Sie auch stornieren oder eine neue Zeit anfordern.",
         "seeRequests": "Ihre Anfragen anzeigen",
         "errors": {

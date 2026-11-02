@@ -6,13 +6,8 @@ import { formatDateLocalized } from "@/lib/dates";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import Button from "@/components/ui/Button";
 import { controlClassName } from "@/components/ui/controlStyles";
-import AvailabilityBoard, {
-  type HeldSlot,
-  type SlotPickerSite,
-} from "@/components/portal/AvailabilityBoard";
 import {
   bookWorkOrderAction,
-  releaseHoldAction,
   type BookingActionState,
 } from "./booking-actions";
 
@@ -38,18 +33,18 @@ const SERVICE_TYPES = [
 ] as const;
 
 type BookingEquipment = { id: string; label: string };
+type BookingSite = { id: string; name: string; address?: string | null };
 
 /**
- * Kundens bestillingsskjema i tre steg: sted → tjeneste → ledig time.
+ * Kundens bestillingsskjema i tre steg: sted → tjeneste → ønsket dato.
  *
- * Timen reserveres i fem minutter når kunden klikker på den. Skjemaet kan
- * derfor ikke sendes uten en aktiv reservasjon, og serveren kontrollerer
- * fortsatt både reservasjonen og overlapp før den bekrefter.
+ * Kunden velger bare en dato. Ønsket klokkeslett skrives i beskrivelsen, og
+ * bestillingen opprettes alltid som en ny, ubekreftet forespørsel. Kontoret
+ * eller montøren bekrefter og planlegger den senere.
  */
 export default function BookingForm({
   minDate,
   horizonEnd,
-  minLeadHours = 24,
   defaultContactName,
   defaultContactPhone,
   equipment,
@@ -57,11 +52,10 @@ export default function BookingForm({
 }: {
   minDate: string;
   horizonEnd: string;
-  minLeadHours?: number;
   defaultContactName: string;
   defaultContactPhone: string;
   equipment: BookingEquipment[];
-  sites: SlotPickerSite[];
+  sites: BookingSite[];
 }) {
   const t = useTranslations("common");
   const locale = useLocale();
@@ -79,7 +73,7 @@ export default function BookingForm({
   const [equipmentId, setEquipmentId] = useState("");
   const [contactName, setContactName] = useState(defaultContactName);
   const [contactPhone, setContactPhone] = useState(defaultContactPhone);
-  const [held, setHeld] = useState<HeldSlot | null>(null);
+  const [requestedDate, setRequestedDate] = useState("");
   const [formVersion, setFormVersion] = useState(0);
 
   const [state, formAction, pending] = useActionState(
@@ -98,7 +92,7 @@ export default function BookingForm({
         setEquipmentId("");
         setContactName(defaultContactName);
         setContactPhone(defaultContactPhone);
-        setHeld(null);
+        setRequestedDate("");
         setFormVersion((current) => current + 1);
       }
       return result;
@@ -112,18 +106,14 @@ export default function BookingForm({
   const newSiteSelected = siteId === NEW_SITE;
   const canSubmit =
     !pending &&
-    held !== null &&
+    requestedDate.length > 0 &&
     title.trim().length > 0 &&
     contactName.trim().length > 0 &&
     contactPhone.trim().length >= 5 &&
     (!newSiteSelected || newSiteName.trim().length > 0);
 
-  const changeSite = async (value: string) => {
+  const changeSite = (value: string) => {
     if (value === siteId) return;
-    if (held) {
-      await releaseHoldAction(held.token);
-      setHeld(null);
-    }
     setSiteId(value);
   };
 
@@ -200,7 +190,7 @@ export default function BookingForm({
           <select
             id="booking-site"
             value={siteId}
-            onChange={(event) => void changeSite(event.target.value)}
+            onChange={(event) => changeSite(event.target.value)}
             className={controlClassName("min-h-11")}
           >
             {sites.map((site) => (
@@ -384,53 +374,37 @@ export default function BookingForm({
         </div>
       </fieldset>
 
-      {/* STEG 3: LEDIG TIME */}
+      {/* STEG 3: ØNSKET DATO */}
       <fieldset className="space-y-3 rounded-2xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-4">
         <legend className="px-1 text-sm font-bold text-[var(--ink,#101310)]">
-          {t("portal.bookingWizard.slotStep")}
+          {t("portal.bookingWizard.dateStep")}
         </legend>
+        <label
+          htmlFor="booking-requested-date"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
+        >
+          {t("portal.bookingWizard.dateLabel")}
+        </label>
+        <input
+          id="booking-requested-date"
+          type="date"
+          name="requestedDate"
+          required
+          min={minDate}
+          max={horizonEnd}
+          value={requestedDate}
+          onChange={(event) => setRequestedDate(event.target.value)}
+          className={controlClassName("min-h-11")}
+        />
         <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
-          {t("portal.bookingWizard.leadTimeHint", {
-            hours: minLeadHours,
+          {t("portal.bookingWizard.dateHint", {
             date: formatDateLocalized(minDate, locale),
+            horizon: formatDateLocalized(horizonEnd, locale),
           })}
         </p>
-        <AvailabilityBoard
-          sites={sites}
-          minDate={minDate}
-          horizonEnd={horizonEnd}
-          siteId={newSiteSelected ? "" : siteId}
-          onSelect={setHeld}
-          onClear={() => setHeld(null)}
-        />
-        {held ? (
-          <p
-            role="status"
-            className="rounded-lg border border-[#c7d98e] bg-[#f3fbd1] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)]"
-          >
-            {t("portal.bookingWizard.selectedSlot", {
-              technician:
-                held.technicianName || t("portal.availability.unknownName"),
-              date: formatDateLocalized(held.date, locale),
-              from: held.from,
-              to: held.to,
-            })}
-          </p>
-        ) : (
-          <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
-            {t("portal.bookingWizard.pickSlot")}
-          </p>
-        )}
-        <input type="hidden" name="requestedDate" value={held?.date ?? ""} />
-        <input type="hidden" name="requestedFrom" value={held?.from ?? ""} />
-        <input type="hidden" name="requestedTo" value={held?.to ?? ""} />
-        <input type="hidden" name="technicianId" value={held?.technicianId ?? ""} />
-        <input
-          type="hidden"
-          name="preferredTechnicianId"
-          value={held?.technicianId ?? ""}
-        />
-        <input type="hidden" name="holdToken" value={held?.token ?? ""} />
+        <p className="rounded-lg border border-[var(--line,#dedcd1)] bg-[var(--surface,#fffdf8)] px-3 py-2 text-xs font-bold leading-5 text-[var(--ink,#101310)]">
+          {t("portal.bookingWizard.timeInDescription")}
+        </p>
       </fieldset>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

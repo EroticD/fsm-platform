@@ -192,7 +192,7 @@ kategori **HMS-skjema**.
 
 ## 9. Booking, SMS, sporing og omtaler
 
-**Booking:** Portalen viser 30-minutters bolker inntil 60 dager fram, med minst 24 timers ledetid og maks tre forslag per montør per dag. Valgt time reserveres i fem minutter. Bekreftelse oppretter oppdrag og planlagt visitt. Tilgjengeligheten bygger på **Åpningstider**, **Helligdager**, aktive visiter, fravær, bookinger og montørens arbeidstid hvis den er registrert. Mangler den, brukes avdelingens åpningstider, deretter hverdager 08–16. I 0.8.5 redigeres ikke arbeidstid eller fravær i **Innstillinger**. **Bookinger** viser `PENDING`-forespørsler som kan bekreftes eller avlyses.
+**Booking:** Kunden velger ønsket dato (inntil 60 dager fram) og skriver ønsket klokkeslett i beskrivelsen; kunden kan ikke velge tidsblokk. Bestillingen opprettes som et nytt oppdrag med status **Åpen/Ny**, uten visitt eller bekreftet tid. Kontoret eller montøren planlegger og setter status **Planlagt**, eller **Venter** hvis tiden ikke passer. **Bookinger** viser ubekreftede forespørsler; de kan avvises, men planlegges i oppdraget.
 
 **SMS:** Leverandør velges med `SMS_PROVIDER`, ikke i grensesnittet. Standard `console` er tørrkjøring; `linkmobility`, `pswincom` og `twilio` støttes. **Avsender** kommer fra `SMS_SENDER_ID`. Under **Innstillinger → SMS og meldinger** ser du leverandør, avsender, tørrkjøring og **Webhook-signatur**, og kan sette **Standardspråk**, **Reservasjonsord**, **Samtykkeord**, **Månedlig grense** og **Maler per hendelse**.
 

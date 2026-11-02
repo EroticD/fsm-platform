@@ -404,15 +404,15 @@ Bookingkøen ligger på `/bookinger` med **Alle**, **Venter**, **Bekreftet** og
 Ved bekreftelse settes oppdraget til **Planlagt**, visitten opprettes eller
 oppdateres, og kunden får SMS hvis kontakten har samtykket.
 
-Kunden booker i portalen. Ledige tider er 30-minutters tidsrom inntil 60 dager
-fram, med minst 24 timers ledetid. Arbeidstid, fravær, visiter og ubekreftede
-reservasjoner trekkes fra; standard er maks tre forslag per montør per dag.
-Mangler arbeidstid, brukes avdelingens åpningstider, deretter hverdager 08–16.
-En valgt time holdes i fem minutter mens kunden fyller ut.
+Kunden velger sted, tjeneste og ønsket dato i portalen, og skriver ønsket
+klokkeslett i beskrivelsen. Kunden kan ikke velge tidsblokk, og bestillingen
+opprettes alltid som et nytt oppdrag med status **Åpen/Ny**. Det opprettes
+ingen visitt eller bekreftet tid.
 
-En kundebestilling oppretter allerede et oppdrag; det finnes ingen egen
-**Konverter til oppdrag**-knapp. Nye bestillinger bekreftes direkte. Eldre
-**Venter**-forespørsler blir **Planlagt** med visitt når du bekrefter dem.
+Kontoret eller montøren planlegger oppdraget og setter status **Planlagt**.
+Passer ikke tiden, settes det til **Venter** til ny planlegging. Kunden får
+endelig bekreftelse først da. En kundebestilling er allerede et oppdrag; det
+finnes ingen egen **Konverter til oppdrag**-knapp.
 
 ## Rapporter
 

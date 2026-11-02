@@ -83,7 +83,6 @@ export default async function PortalBookingsPage({
             <BookingForm
               minDate={minimumStart.date}
               horizonEnd={horizonEnd}
-              minLeadHours={BOOKING_MIN_LEAD_HOURS}
               defaultContactName={context.user.name ?? ""}
               defaultContactPhone={context.customer.phone ?? ""}
               equipment={products.map((product) => ({
@@ -101,7 +100,6 @@ export default async function PortalBookingsPage({
           <BookingRequests
             bookings={bookingHistory.items}
             minDate={minimumStart.date}
-            minFromTime={minimumStart.from}
             minLeadHours={BOOKING_MIN_LEAD_HOURS}
             horizonEnd={horizonEnd}
             sites={sites}

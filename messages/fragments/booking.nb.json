@@ -46,7 +46,11 @@
         "holdFailed": "Timen kunne ikke reserveres. Prøv igjen.",
         "slotTaken": "Timen ble nettopp tatt av en annen. Velg en ny time."
       },
-      "leadTimeHint": "Tidligste start er {date}. Timen må være minst {hours} timer fram i tid."
+      "leadTimeHint": "Tidligste start er {date}. Timen må være minst {hours} timer fram i tid.",
+      "dateStep": "3. Velg ønsket dato",
+      "dateLabel": "Ønsket dato",
+      "dateHint": "Velg en dato mellom {date} og {horizon}. Du kan velge en dato utenom de to neste ukene.",
+      "timeInDescription": "Kunden kan ikke velge tidsblokk. Skriv ønsket klokkeslett i beskrivelsen, så planlegger kontoret eller montøren oppdraget."
     },
     "bookingRequests": {
       "status": {
@@ -59,7 +63,7 @@
     },
     "bookingQueue": {
       "title": "Bookingkø",
-      "desc": "Bekreft kundens forespørsel mot en ledig time, eller avvis den. Bekreftede bookinger vises med status og montør.",
+      "desc": "Planlegg kundens forespørsel i oppdraget, eller avvis den. Nye bestillinger er alltid ubekreftede til kontoret har satt tid og status.",
       "empty": "Ingen bookinger i denne listen.",
       "filterAll": "Alle",
       "filterPending": "Venter",

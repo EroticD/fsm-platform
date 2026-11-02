@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
 import {
   addDaysUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -624,8 +623,8 @@ describe("kundeportaltjenesten", () => {
         status: "rescheduled",
         reference: "B-1",
         requestedDate: newDate,
-        requestedFrom: "09:00",
-        requestedTo: "11:00",
+        requestedFrom: "",
+        requestedTo: "",
       },
     });
     expect(mocks.allowRequestDb).toHaveBeenCalledWith(
@@ -635,30 +634,19 @@ describe("kundeportaltjenesten", () => {
     );
     expect(mocks.prisma.bookingRequest.update).toHaveBeenCalledWith({
       where: { id: "br-1" },
-      data: expect.objectContaining({ requestedFrom: "09:00", requestedTo: "11:00" }),
+      data: expect.objectContaining({ requestedFrom: "", requestedTo: "" }),
     });
     expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
       where: { id: "wo1", customerId: "cust-1", status: "OPEN" },
       data: {
         scheduledFor: expect.any(Date),
-        scheduledTo: expect.any(Date),
+        scheduledTo: null,
       },
     });
 
-    // Standardvisitten flyttes til det nye ønskede tidsvinduet.
-    const dayStart = osloDayStart(newDate);
-    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
-      where: { id: "visit-1" },
-      data: {
-        startsAt: new Date(dayStart.getTime() + 9 * 60 * 60_000),
-        endsAt: new Date(dayStart.getTime() + 11 * 60 * 60_000),
-        allDay: false,
-      },
-    });
-    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(
-      mocks.prisma,
-      "wo1",
-    );
+    // En ubekreftet forespørsel har ingen visitt før kontoret planlegger.
+    expect(mocks.prisma.visit.update).not.toHaveBeenCalled();
+    expect(mocks.recomputeWorkOrderSchedule).not.toHaveBeenCalled();
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "RESCHEDULED" }),
     });
@@ -668,35 +656,31 @@ describe("kundeportaltjenesten", () => {
       "Kunde ba om ny tid",
       expect.any(String),
       "/oppdrag/wo1",
-      `booking-reschedule:br-1:${newDate}:09:00:11:00`,
+      `booking-reschedule:br-1:${newDate}::`,
     );
   });
 
-  it("avviser ny tid som starter innenfor minste ledetid", async () => {
+  it("tillater en datoforespørsel uten timebasert ledetid", async () => {
     mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
 
     const result = await rescheduleBooking(customer(), {
       bookingId: "br-1",
       requestedDate: todayInOslo(),
-      requestedFrom: "23:00",
-      requestedTo: "23:59",
     });
 
-    expect(result).toEqual({ ok: false, reason: "invalid" });
-    expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
-    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
-    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, data: { status: "rescheduled" } });
+    expect(mocks.prisma.bookingRequest.update).toHaveBeenCalled();
   });
 
-  it("er en no-op når tidsvinduet er uendret", async () => {
-    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
+  it("er en no-op når datoen er uendret", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
+      ownBooking({ requestedFrom: "", requestedTo: "" }),
+    );
     const sameDate = toDateOnly(requestedDate);
 
     const result = await rescheduleBooking(customer(), {
       bookingId: "br-1",
       requestedDate: sameDate,
-      requestedFrom: "08:00",
-      requestedTo: "12:00",
     });
 
     expect(result).toEqual({
@@ -705,8 +689,8 @@ describe("kundeportaltjenesten", () => {
         status: "rescheduled",
         reference: "B-1",
         requestedDate: sameDate,
-        requestedFrom: "08:00",
-        requestedTo: "12:00",
+        requestedFrom: "",
+        requestedTo: "",
       },
     });
     expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();

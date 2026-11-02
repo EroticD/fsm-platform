@@ -46,7 +46,11 @@
         "holdFailed": "The time could not be held. Please try again.",
         "slotTaken": "Someone just took that time. Choose another slot."
       },
-      "leadTimeHint": "The earliest start is {date}. The time must be at least {hours} hours ahead."
+      "leadTimeHint": "The earliest start is {date}. The time must be at least {hours} hours ahead.",
+      "dateStep": "3. Choose a requested date",
+      "dateLabel": "Requested date",
+      "dateHint": "Choose a date between {date} and {horizon}. You may choose a date outside the next two weeks.",
+      "timeInDescription": "Customers cannot choose a time block. Write the desired time in the description; the office or technician will schedule the work order."
     },
     "bookingRequests": {
       "status": {
@@ -59,7 +63,7 @@
     },
     "bookingQueue": {
       "title": "Booking queue",
-      "desc": "Confirm the customer's request against an available time, or decline it. Confirmed bookings show status and technician.",
+      "desc": "Schedule the customer request on the work order, or decline it. New requests are always unconfirmed until the office has set a time and status.",
       "empty": "No bookings in this list.",
       "filterAll": "All",
       "filterPending": "Pending",

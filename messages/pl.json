@@ -3434,8 +3434,8 @@
         "months": "{count} mies."
       },
       "booking": {
-        "title": "Zarezerwuj wolny termin",
-        "desc": "Wybierz lokalizację, usługę i wolny termin. Rezerwacja jest potwierdzana od razu.",
+        "title": "Poproś o wizytę",
+        "desc": "Wybierz lokalizację, usługę i żądaną datę. Wpisz żądaną godzinę w opisie. Biuro lub technik potwierdzi i zaplanuje wizytę później.",
         "titleLabel": "Tytuł zlecenia *",
         "titlePlaceholder": "Np. Serwis roczny",
         "descriptionLabel": "Opis",
@@ -3454,7 +3454,7 @@
         "reference": "Numer referencyjny: {reference}",
         "nextTitle": "Co dalej?",
         "nextStep1": "Biuro sprawdza prośbę i weryfikuje, czy urządzenie i termin pasują.",
-        "nextStep2": "Potwierdzenie z ostatecznym terminem otrzymasz dopiero po odpowiedzi biura. Jeśli wybrano dostępny dzień, postaramy się go zachować.",
+        "nextStep2": "Ostateczny potwierdzony czas otrzymasz dopiero po zaplanowaniu zlecenia przez biuro lub technika.",
         "nextStep3": "Możesz śledzić status w sekcji „Twoje prośby”. Możesz tam również anulować prośbę lub poprosić o nowy termin.",
         "seeRequests": "Zobacz swoje prośby",
         "errors": {

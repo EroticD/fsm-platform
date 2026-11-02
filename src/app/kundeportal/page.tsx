@@ -586,7 +586,6 @@ export default async function KundeportalPage({
               <BookingForm
                 minDate={minimumStart.date}
                 horizonEnd={horizonEnd}
-                minLeadHours={BOOKING_MIN_LEAD_HOURS}
                 defaultContactName={user.name ?? ""}
                 defaultContactPhone={customer.phone ?? ""}
                 equipment={customer.products.map((product) => ({
@@ -605,7 +604,6 @@ export default async function KundeportalPage({
               <BookingRequests
                 bookings={bookings}
                 minDate={minimumStart.date}
-                minFromTime={minimumStart.from}
                 minLeadHours={BOOKING_MIN_LEAD_HOURS}
                 horizonEnd={horizonEnd}
                 sites={customer.sites}

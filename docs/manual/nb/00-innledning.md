@@ -84,12 +84,12 @@ Rollekapitlene beskriver hvert skritt i detalj. Her ser du hvordan rollene og da
 
 ### 2. Bestilling i kundeportalen → oppdrag og varsel → dispatch → montør
 
-1. **Kundeportalbrukeren** velger sted, tjeneste, ledig time og eventuelt utstyr i «Bestillinger». Timen holdes i fem minutter mens skjemaet fylles ut.
-2. **Systemet** bekrefter bookingen, oppretter oppdrag og visitt i kundens avdeling og varsler kontoret. Kunden kan få SMS-bekreftelse hvis samtykke er registrert.
-3. **Kontoret** ser bookingen i «Bookinger». Eldre eller manuelt opprettede forespørsler kan stå som `PENDING` og bekreftes mot en ledig montør eller avlyses. Kontoret kan også flytte eller tildele visitten via kalenderen eller dispatch.
-4. **Montøren** får tildelingsvarsel og ser besøket i «I dag». Kansellering gir nytt varsel. Flytting av en visitt varsler ikke; det er bare endring av oppdragets dato og bekreftelse eller avlysning av en booking som varsler.
+1. **Kundeportalbrukeren** velger sted, tjeneste og ønsket dato i «Bestillinger». Ønsket klokkeslett skrives i beskrivelsen; kunden kan ikke velge tidsblokk.
+2. **Systemet** oppretter et nytt oppdrag med status `OPEN` og en ubekreftet bestilling. Det opprettes ingen visitt eller bekreftet tid, og kontoret varsles.
+3. **Kontoret eller montøren** planlegger oppdraget og setter status **Planlagt**, eller **Venter** hvis tiden ikke passer. Først da bekreftes dato og tid.
+4. **Montøren** får tildelingsvarsel og ser besøket i «I dag». Kansellering gir nytt varsel.
 
-> **Tips:** En bekreftet bestilling er allerede et oppdrag og en visitt. Kontoret trenger ikke opprette oppdraget på nytt.
+> **Tips:** En kundebestilling er en forespørsel, ikke en bekreftet avtale. Kontoret må alltid planlegge den før kunden får endelig tid.
 
 ### 3. Kontoret oppretter oppdrag → kalender, tavle og tildeling → felt
 
