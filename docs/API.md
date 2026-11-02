@@ -264,7 +264,7 @@ oppdrag har en `visits`-liste med opptil 20 visiter; bruk
 | `status` | streng | `PLANNED`, `IN_PROGRESS`, `WAITING`, `COMPLETED`, `CANCELLED`, `OPEN`, `PENDING` |
 | `customerId` | streng | Filtrer på kunde |
 | `technicianId` | streng | Filtrer på tildelt montør |
-| `q` | streng | Søk i tittel og kundenavn |
+| `q` | streng | Søk i tittel, oppdragsreferanse, ordrenummer og kundenavn |
 | `scheduledFrom` | dato | `YYYY-MM-DD`, fra og med |
 | `scheduledTo` | dato | `YYYY-MM-DD`, til og med |
 | `updatedSince` | dato-tid | Bare oppdrag endret etter tidspunktet (ISO 8601) |
@@ -701,7 +701,8 @@ verdien. Flytting som lager en syklus avvises med `409` og
 
 ### `GET/POST /equipment/{id}/meters`
 
-Målinger er desimaler med kilde `MANUAL`, `VISIT` eller `IMPORT`.
+Målinger er desimaler med kilde `MANUAL`, `VISIT` eller `IMPORT`. Listen
+støtter `page` og `limit`; registrering svarer `201` med den nye målingen.
 
 ```json
 {
@@ -718,6 +719,9 @@ to målinger kommer samtidig. Utfaset utstyr gir `409` med
 `equipment.errors.retired`.
 
 ### `GET/POST /maintenance-plans`
+
+Listeendepunktet støtter `productId`, `customerId`, `trigger`, `active`,
+`page` og `limit`. Oppretting svarer `201` med den nye planen.
 
 ```json
 {
@@ -805,6 +809,11 @@ curl -s -X POST "$FSM_BASE_URL/api/v1/contracts" \
 
 Svarer `201` med `Location: /api/v1/contracts/{id}`. `contractNumber` er unik
 når den er satt; duplikat gir `409 conflict`.
+
+### `GET /contracts/{id}`
+
+Returnerer avtalen med linjer, prisliste, SLA og kunde. Ukjent eller
+utilgjengelig id gir `404 not_found`.
 
 ### `PATCH /contracts/{id}`
 

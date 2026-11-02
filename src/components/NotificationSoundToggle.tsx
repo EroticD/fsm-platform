@@ -44,6 +44,12 @@ export default function NotificationSoundToggle({
     () => "on",
   );
   const enabled = setting === "on";
+  const stateLabel = enabled
+    ? t("components.sound.on")
+    : t("components.sound.off");
+  const actionLabel = enabled
+    ? t("components.sound.turnOff")
+    : t("components.sound.turnOn");
 
   const toggle = () => {
     writeNotificationSoundSetting(enabled ? "off" : "on");
@@ -54,11 +60,7 @@ export default function NotificationSoundToggle({
       type="button"
       onClick={toggle}
       aria-pressed={enabled}
-      aria-label={
-        enabled
-          ? t("components.sound.turnOff")
-          : t("components.sound.turnOn")
-      }
+      aria-label={compact ? actionLabel : `${stateLabel} – ${actionLabel}`}
       title={enabled ? t("components.sound.on") : t("components.sound.off")}
       className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3 text-xs font-bold transition ${
         enabled
@@ -71,7 +73,7 @@ export default function NotificationSoundToggle({
         className={`h-4 w-4 shrink-0 ${enabled ? "" : "opacity-50"}`}
       />
       {!compact && (
-        <span>{enabled ? t("components.sound.on") : t("components.sound.off")}</span>
+        <span>{stateLabel}</span>
       )}
     </button>
   );

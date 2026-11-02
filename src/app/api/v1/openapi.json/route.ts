@@ -17,7 +17,7 @@ const nullableDateTime = {
   format: "date-time",
 } as const;
 
-const openApiDocument = {
+export const openApiDocument = {
   openapi: "3.1.0",
   info: {
     title: "FSM-plattformen REST API",

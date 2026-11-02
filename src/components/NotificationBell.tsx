@@ -267,7 +267,11 @@ export default function NotificationBell({ role }: { role?: string }) {
         type="button"
         onClick={toggle}
         aria-label={
-          count > 0 ? t("p3.bell.unread", { count }) : t("p3.bell.label")
+          count > 0
+            ? // Synlig antall må inngå i det tilgjengelige navnet uten
+              // parenteser; WCAG 2.5.3 sammenligner synlig tekst med navnet.
+              t("p3.bell.unread", { count }).replace(/[()]/g, "")
+            : t("p3.bell.label")
         }
         aria-expanded={open}
         aria-controls="notification-popover"
