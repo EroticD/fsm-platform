@@ -228,6 +228,7 @@ export function workOrderListSearchWhere(
     or.push(
       { title: contains },
       { description: contains },
+      { reference: contains },
       { orderNumber: contains },
       { customer: { name: contains } },
       { customer: { city: contains } },

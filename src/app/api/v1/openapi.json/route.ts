@@ -133,7 +133,7 @@ const openApiDocument = {
           {
             name: "q",
             in: "query",
-            description: "Fritekstsøk i tittel og kundenavn.",
+            description: "Fritekstsøk i tittel, referanse, ordrenummer og kundenavn.",
             schema: { type: "string" },
           },
           {
@@ -2055,6 +2055,7 @@ const openApiDocument = {
         required: [
           "id",
           "title",
+          "reference",
           "status",
           "customer",
           "technicians",
@@ -2066,6 +2067,7 @@ const openApiDocument = {
         properties: {
           id: { type: "string" },
           title: { type: "string" },
+          reference: { type: "string" },
           orderNumber: nullableString,
           status: {
             type: "string",

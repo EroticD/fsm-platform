@@ -94,6 +94,7 @@ describeIntegration("Kundeportalens utvidelse", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-portal-oppdrag"),
         departmentId,
         customerId,

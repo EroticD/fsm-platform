@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
       findFirst: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     customer: { findFirst: vi.fn() },
     product: { findFirst: vi.fn() },
@@ -93,6 +94,7 @@ beforeEach(() => {
   mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
   mocks.prisma.workOrder.count.mockResolvedValue(0);
   mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-1" });
+  mocks.prisma.workOrder.update.mockResolvedValue({ id: "wo-1" });
   mocks.prisma.customer.findFirst.mockResolvedValue({
     id: "cust-1",
     departmentId: null,
@@ -289,6 +291,7 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: booking.title,
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
         description: booking.description,
         departmentId: "dep-1",
         customerId: "cust-1",
@@ -296,6 +299,10 @@ describe("createBooking", () => {
         creatorName: "Kunde",
       }),
       select: { id: true },
+    });
+    expect(mocks.prisma.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { reference: "B-TEST-1" },
     });
     expect(mocks.audit).toHaveBeenCalledWith(
       mocks.prisma,

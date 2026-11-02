@@ -22,6 +22,7 @@ describeIntegration("order number backfill", () => {
     // orderNumberNormalized er tom.
     const plain = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-legacy-1"),
         orderNumber: "  K-1001 / A ",
         orderNumberNormalized: null,
@@ -34,6 +35,7 @@ describeIntegration("order number backfill", () => {
 
     const punctuation = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-legacy-2"),
         orderNumber: "k.1001",
         orderNumberNormalized: null,
@@ -75,6 +77,7 @@ describeIntegration("order number backfill", () => {
   it("avbryter uten å skrive når to ordrenumre normaliseres likt", async () => {
     const a = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-kollisjon-a"),
         orderNumber: "K-9",
         orderNumberNormalized: null,
@@ -86,6 +89,7 @@ describeIntegration("order number backfill", () => {
     collisionAId = a.id;
     const b = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-kollisjon-b"),
         orderNumber: "k 9",
         orderNumberNormalized: null,

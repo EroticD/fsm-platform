@@ -24,6 +24,7 @@ describeIntegration("Dato-kolonner: date round-trip", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-dato-oppdrag"),
         departmentId,
         customerId,

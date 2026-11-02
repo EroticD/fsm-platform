@@ -662,6 +662,9 @@ export default async function WorkOrdersPage({
                               >
                                 {wo.title}
                               </Link>
+                              <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
+                                {t("orders.list.reference")} {wo.reference}
+                              </span>
                               {wo.orderNumber ? (
                                 <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
                                   {t("orders.list.orderNumber")} {wo.orderNumber}

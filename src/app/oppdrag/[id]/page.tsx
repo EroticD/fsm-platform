@@ -679,6 +679,7 @@ export default async function AdminWorkOrderPage({
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#616656]">
                   {t("metadata.routes.oppdrag")}
+                  {` · ${t("orders.detail.reference")} ${workOrder.reference}`}
                   {workOrder.orderNumber
                     ? ` · ${t("orders.list.orderNumber")} ${workOrder.orderNumber}`
                     : ""}
@@ -687,6 +688,9 @@ export default async function AdminWorkOrderPage({
                   <h1 className="text-2xl font-black tracking-tight md:text-3xl">
                     {workOrder.title}
                   </h1>
+                  <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-2.5 py-1 text-xs font-bold tracking-wide text-[#5e6356]">
+                    {t("orders.detail.reference")} {workOrder.reference}
+                  </span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${
                       STATUS_TONE[workOrder.status] ??

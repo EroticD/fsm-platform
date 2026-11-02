@@ -766,6 +766,11 @@ export default async function TechnicianWorkOrderPage({
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <HeroFact
                 icon="file"
+                label={t("orders.detail.reference")}
+                value={workOrder.reference}
+              />
+              <HeroFact
+                icon="file"
                 label={t("orders.list.orderNumber")}
                 value={workOrder.orderNumber || missingValue}
               />

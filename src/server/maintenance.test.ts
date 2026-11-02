@@ -152,6 +152,12 @@ describe("målerplan", () => {
 
     expect(result.ok).toBe(true);
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
+      }),
+      select: { id: true },
+    });
     expect(mocks.prisma.maintenancePlanOccurrence.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

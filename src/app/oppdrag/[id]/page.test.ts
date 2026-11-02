@@ -145,6 +145,7 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     postalCode: null,
     city: null,
     orderNumber: "1001",
+    reference: "O-261030-REF12345",
     deletedAt: null,
     ...overrides,
   };
@@ -228,6 +229,13 @@ beforeEach(() => {
 });
 
 describe("oppdragsdetaljer – rapporter uten mal", () => {
+  it("viser oppdragsreferansen i headeren", async () => {
+    const { text } = await render();
+
+    expect(text.join(" | ")).toContain("O-261030-REF12345");
+    expect(text.join(" | ")).toContain("orders.detail.reference");
+  });
+
   it("henter bare ikke-slettede rapporter", async () => {
     await render();
 

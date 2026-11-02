@@ -79,6 +79,7 @@ describeIntegration("SMS: webhook, samtykke og kø", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-sms-oppdrag"),
         departmentId,
         customerId,

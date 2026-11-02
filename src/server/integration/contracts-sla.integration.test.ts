@@ -159,6 +159,7 @@ describeIntegration("Avtaler, dekning og SLA", () => {
     const scheduled = addDaysUtc(new Date(), 1);
     const order = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-SLA-oppdrag"),
         departmentId: departmentA,
         customerId: customer,

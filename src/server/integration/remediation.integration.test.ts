@@ -47,6 +47,7 @@ describeIntegration("Automatisk utbedringsoppdrag ved avvik", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-avviksoppdrag"),
         departmentId,
         customerId,

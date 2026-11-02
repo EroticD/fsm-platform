@@ -767,6 +767,10 @@ enum VisitStatus {
 model WorkOrder {
   id                    String     @id @default(cuid())
   title                 String
+  /// Menneskelig, unik referanse kunden kan oppgi og som kan søkes opp.
+  /// Ordinære oppdrag bruker O-YYMMDD-XXXXXXXX; kundebestillinger beholder
+  /// sin B-YYMMDD-XXXXXX-referanse.
+  reference             String     @unique
   /// Eksternt ordrenummer fra kundens system.
   orderNumber           String?
   /// Normalisert ordrenummer for duplikatkontroll/søk.

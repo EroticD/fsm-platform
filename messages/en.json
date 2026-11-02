@@ -25,6 +25,7 @@
           "customerNumber": "#{number}",
           "orgNumber": "Org. no. {number}",
           "workOrderNumber": "Order no. {number}",
+          "workOrderReference": "Reference {reference}",
           "noCustomer": "No customer",
           "tags": "🏷️ {tags}",
           "tagHint": "Show work orders with this tag",

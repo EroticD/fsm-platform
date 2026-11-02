@@ -25,6 +25,7 @@
           "customerNumber": "#{number}",
           "orgNumber": "Org.nr {number}",
           "workOrderNumber": "Ordrenr. {number}",
+          "workOrderReference": "Referanse {reference}",
           "noCustomer": "Uten kunde",
           "tags": "🏷️ {tags}",
           "tagHint": "Vis oppdrag med denne taggen",

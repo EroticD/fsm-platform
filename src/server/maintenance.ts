@@ -13,6 +13,7 @@ import {
 } from "@/lib/dates";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import {
   maintenancePlanCreateSchema,
   maintenancePlanUpdateSchema,
@@ -603,6 +604,7 @@ export async function generateMaintenanceOccurrence(
         const workOrder = await tx.workOrder.create({
           data: {
             title: plan.title,
+            reference: generateWorkOrderReference(now),
             description: `Forebyggende vedlikehold fra vedlikeholdsplanen «${plan.title}».`,
             departmentId: plan.departmentId,
             customerId: plan.customerId,
@@ -806,6 +808,7 @@ export async function evaluateMeterMaintenance(
     const workOrder = await tx.workOrder.create({
       data: {
         title: plan.title,
+        reference: generateWorkOrderReference(),
         description:
           `Forebyggende vedlikehold utløst av måler: ${input.value}` +
           `${unit ? ` ${unit}` : ""} (terskel ${interval}).`,
