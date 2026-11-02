@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { loginAsRole } from "./helpers";
 
 /**
- * Read-only røyktest for den nye slotvelgeren. Den muterer ingen data, slik at
- * den kan kjøres mot den vanlige E2E-basen uten opprydding.
+ * Read-only røyktest for kundebestillingen. Kunden velger dato – ikke
+ * tidsblokk – og bestillingen er en ubekreftet forespørsel.
  */
-test("kundeportalen viser sted, tjeneste og ekte slotvelger på mobil", async ({
+test("kundeportalen viser sted, tjeneste og datofelt på mobil", async ({
   page,
 }) => {
   const loggedIn = await loginAsRole(page, "customer");
@@ -14,14 +14,13 @@ test("kundeportalen viser sted, tjeneste og ekte slotvelger på mobil", async ({
   await page.goto("/kundeportal");
 
   await expect(
-    page.getByRole("heading", { name: "Book en ledig time" }),
+    page.getByRole("heading", { name: "Be om et besøk" }),
   ).toBeVisible();
   await expect(page.getByText("1. Velg sted")).toBeVisible();
   await expect(page.getByText("2. Velg tjeneste")).toBeVisible();
-  await expect(page.getByText("3. Velg ledig time")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Neste uke" }),
-  ).toBeVisible();
+  await expect(page.getByText("3. Velg ønsket dato")).toBeVisible();
+  await expect(page.locator('input[name="requestedDate"]')).toBeVisible();
+  await expect(page.getByText(/Skriv ønsket klokkeslett/)).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 900 });
   const overflow = await page.evaluate(
