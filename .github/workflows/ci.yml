@@ -182,7 +182,7 @@ jobs:
           fi
           npm run test:lighthouse
         env:
-          LIGHTHOUSE_URLS: http://127.0.0.1:3000/logg-inn,http://127.0.0.1:3000/oppdrag,http://127.0.0.1:3000/mine-oppdrag
+          LIGHTHOUSE_URLS: http://127.0.0.1:3000/logg-inn,http://127.0.0.1:3000/oppdrag,http://127.0.0.1:3000/kunder,http://127.0.0.1:3000/enheter,http://127.0.0.1:3000/avtaler,http://127.0.0.1:3000/meldinger,http://127.0.0.1:3000/kalender,http://127.0.0.1:3000/rapporter,http://127.0.0.1:3000/mine-oppdrag
           LIGHTHOUSE_AUTH_EMAIL: admin@example.test
           LIGHTHOUSE_AUTH_PASSWORD: "AdminTest123!"
           LIGHTHOUSE_A11Y_THRESHOLD: "0.95"

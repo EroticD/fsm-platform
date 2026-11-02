@@ -759,6 +759,40 @@ async function main() {
     ],
   });
 
+  // Én ferdig samtale, slik at meldingslista og tråddetaljen alltid har data
+  // i E2E-databasen. Tråden kaskades bort når kunden slettes i neste seed.
+  await prisma.messageThread.create({
+    data: {
+      threadKey: `customer:${nordvik.id}:contact:${kari.id}:wo:${order3.id}`,
+      customerId: nordvik.id,
+      departmentId: department.id,
+      workOrderId: order3.id,
+      contactId: kari.id,
+      subject: "Feilsøking – portåpner",
+      unreadCount: 1,
+      lastMessageAt: dateTimeAtNoon(-1),
+      messages: {
+        create: [
+          {
+            direction: "INBOUND",
+            channel: "SMS",
+            body: "Hei, porten stopper fortsatt halvveis. Kan dere se på den?",
+            fromAddress: "+47 22 00 00 01",
+            createdAt: dateTimeAtNoon(-1),
+          },
+          {
+            direction: "OUTBOUND",
+            channel: "SMS",
+            body: "Vi har bestilt ny motor og kommer tilbake så snart den er på lager.",
+            authorUserId: admin.id,
+            toAddress: "+47 22 00 00 01",
+            createdAt: dateTimeAtNoon(0),
+          },
+        ],
+      },
+    },
+  });
+
   await prisma.notification.create({
     data: {
       userId: technician.id,

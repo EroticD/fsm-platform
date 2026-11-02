@@ -1,0 +1,464 @@
+{
+  "paths": {
+    "/contracts": {
+      "GET": {
+        "parameters": [
+          "customerId",
+          "expiringDays",
+          "limit",
+          "page",
+          "q",
+          "status"
+        ],
+        "responses": [
+          "200",
+          "400",
+          "401",
+          "403",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [],
+        "responses": [
+          "201",
+          "400",
+          "401",
+          "403",
+          "409",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/contracts/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "PATCH": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/contracts/{id}/pdf": {
+      "GET": {
+        "parameters": [
+          "id",
+          "locale"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
+    "/customers": {
+      "GET": {
+        "parameters": [
+          "limit",
+          "page",
+          "q"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      }
+    },
+    "/customers/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
+    "/documents": {
+      "GET": {
+        "parameters": [
+          "folderId",
+          "limit",
+          "page",
+          "q",
+          "tag"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      }
+    },
+    "/documents/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
+    "/equipment": {
+      "GET": {
+        "parameters": [
+          "categoryId",
+          "customerId",
+          "limit",
+          "page",
+          "parentId",
+          "q",
+          "status"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [],
+        "responses": [
+          "201",
+          "401",
+          "403",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/equipment/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "PATCH": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "409",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/equipment/{id}/meters": {
+      "GET": {
+        "parameters": [
+          "id",
+          "limit",
+          "page"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "201",
+          "401",
+          "403",
+          "404",
+          "409",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/maintenance-plans": {
+      "GET": {
+        "parameters": [
+          "active",
+          "customerId",
+          "limit",
+          "page",
+          "productId",
+          "trigger"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [],
+        "responses": [
+          "201",
+          "401",
+          "403",
+          "409",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/me": {
+      "GET": {
+        "parameters": [],
+        "responses": [
+          "200",
+          "401",
+          "429"
+        ]
+      }
+    },
+    "/reports": {
+      "GET": {
+        "parameters": [
+          "acknowledged",
+          "customerId",
+          "from",
+          "limit",
+          "locked",
+          "page",
+          "q",
+          "to",
+          "workOrderId"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      }
+    },
+    "/reports/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
+    "/reports/{id}/pdf": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      }
+    },
+    "/sla-policies": {
+      "GET": {
+        "parameters": [],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      }
+    },
+    "/visits/{id}": {
+      "DELETE": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "204",
+          "401",
+          "403",
+          "404",
+          "409",
+          "429"
+        ]
+      },
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "PATCH": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/work-orders": {
+      "GET": {
+        "parameters": [
+          "customerId",
+          "limit",
+          "page",
+          "q",
+          "scheduledFrom",
+          "scheduledTo",
+          "status",
+          "technicianId",
+          "updatedSince"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [],
+        "responses": [
+          "201",
+          "400",
+          "401",
+          "403",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/work-orders/{id}": {
+      "GET": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "PATCH": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "200",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    },
+    "/work-orders/{id}/visits": {
+      "GET": {
+        "parameters": [
+          "id",
+          "limit",
+          "page"
+        ],
+        "responses": [
+          "200",
+          "401",
+          "403",
+          "404",
+          "429"
+        ]
+      },
+      "POST": {
+        "parameters": [
+          "id"
+        ],
+        "responses": [
+          "201",
+          "400",
+          "401",
+          "403",
+          "404",
+          "409",
+          "413",
+          "422",
+          "429"
+        ]
+      }
+    }
+  }
+}
