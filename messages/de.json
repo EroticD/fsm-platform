@@ -3441,8 +3441,6 @@
         "descriptionLabel": "Beschreibung",
         "descriptionPlaceholder": "Wobei benötigen Sie Hilfe?",
         "dateLabel": "Gewünschtes Datum *",
-        "fromLabel": "Von",
-        "toLabel": "Bis",
         "equipmentLabel": "Betroffenes Gerät",
         "equipmentNone": "Kein bestimmtes Gerät",
         "contactNameLabel": "Ansprechpartner *",

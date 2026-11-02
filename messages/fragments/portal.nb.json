@@ -61,8 +61,6 @@
       "descriptionLabel": "Beskrivelse",
       "descriptionPlaceholder": "Hva trenger du hjelp med?",
       "dateLabel": "Ønsket dato *",
-      "fromLabel": "Fra kl.",
-      "toLabel": "Til kl.",
       "equipmentLabel": "Utstyr det gjelder",
       "equipmentNone": "Gjelder ikke et bestemt utstyr",
       "contactNameLabel": "Kontaktperson *",

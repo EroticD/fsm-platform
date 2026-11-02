@@ -20,7 +20,6 @@
         "repair": "Repair",
         "inspection": "Inspection"
       },
-      "slotStep": "3. Choose an available time",
       "legendFree": "Available",
       "legendSlot": "{minutes} minutes per slot",
       "previousWeek": "Previous week",
@@ -30,7 +29,6 @@
       "loading": "Loading available times …",
       "noSlots": "No available times on this day.",
       "tryAnotherDay": "Choose another day from the list above.",
-      "pickSlot": "Choose an available time to hold it for five minutes.",
       "held": "The time with {technician} from {from} to {to} is held. You have {minutes} minutes.",
       "release": "Release the time",
       "selectedSlot": "Selected time: {technician}, {date} from {from} to {to}.",
@@ -46,7 +44,6 @@
         "holdFailed": "The time could not be held. Please try again.",
         "slotTaken": "Someone just took that time. Choose another slot."
       },
-      "leadTimeHint": "The earliest start is {date}. The time must be at least {hours} hours ahead.",
       "dateStep": "3. Choose a requested date",
       "dateLabel": "Requested date",
       "dateHint": "Choose a date between {date} and {horizon}. You may choose a date outside the next two weeks.",

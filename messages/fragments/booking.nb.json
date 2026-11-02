@@ -20,7 +20,6 @@
         "repair": "Reparasjon",
         "inspection": "Inspeksjon"
       },
-      "slotStep": "3. Velg ledig time",
       "legendFree": "Ledig",
       "legendSlot": "{minutes} minutter per time",
       "previousWeek": "Forrige uke",
@@ -30,7 +29,6 @@
       "loading": "Henter ledige timer …",
       "noSlots": "Ingen ledige timer denne dagen.",
       "tryAnotherDay": "Velg en annen dag i listen over.",
-      "pickSlot": "Velg en ledig time for å reservere den i fem minutter.",
       "held": "Timen er reservert hos {technician} kl. {from}–{to}. Du har {minutes} minutter på deg.",
       "release": "Frigjør timen",
       "selectedSlot": "Valgt time: {technician}, {date} kl. {from}–{to}.",
@@ -46,7 +44,6 @@
         "holdFailed": "Timen kunne ikke reserveres. Prøv igjen.",
         "slotTaken": "Timen ble nettopp tatt av en annen. Velg en ny time."
       },
-      "leadTimeHint": "Tidligste start er {date}. Timen må være minst {hours} timer fram i tid.",
       "dateStep": "3. Velg ønsket dato",
       "dateLabel": "Ønsket dato",
       "dateHint": "Velg en dato mellom {date} og {horizon}. Du kan velge en dato utenom de to neste ukene.",

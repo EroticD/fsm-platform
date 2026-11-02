@@ -20,7 +20,6 @@
         "repair": "Reparatur",
         "inspection": "Inspektion"
       },
-      "slotStep": "3. Freien Termin wählen",
       "legendFree": "Frei",
       "legendSlot": "{minutes} Minuten pro Termin",
       "previousWeek": "Vorherige Woche",
@@ -30,7 +29,6 @@
       "loading": "Freie Termine werden geladen …",
       "noSlots": "An diesem Tag sind keine Termine frei.",
       "tryAnotherDay": "Wählen Sie einen anderen Tag aus der Liste.",
-      "pickSlot": "Wählen Sie einen freien Termin, um ihn fünf Minuten zu reservieren.",
       "held": "Der Termin bei {technician} von {from} bis {to} ist reserviert. Sie haben {minutes} Minuten.",
       "release": "Termin freigeben",
       "selectedSlot": "Gewählter Termin: {technician}, {date} von {from} bis {to}.",
@@ -46,7 +44,6 @@
         "holdFailed": "Der Termin konnte nicht reserviert werden. Bitte versuchen Sie es erneut.",
         "slotTaken": "Jemand hat den Termin gerade belegt. Wählen Sie einen anderen."
       },
-      "leadTimeHint": "Der früheste Beginn ist {date}. Der Termin muss mindestens {hours} Stunden voraus liegen.",
       "dateStep": "3. Gewünschtes Datum wählen",
       "dateLabel": "Gewünschtes Datum",
       "dateHint": "Wählen Sie ein Datum zwischen {date} und {horizon}. Sie können auch ein Datum außerhalb der nächsten zwei Wochen wählen.",

@@ -20,7 +20,6 @@
         "repair": "Naprawa",
         "inspection": "Przegląd"
       },
-      "slotStep": "3. Wybierz wolny termin",
       "legendFree": "Wolne",
       "legendSlot": "{minutes} minut na termin",
       "previousWeek": "Poprzedni tydzień",
@@ -30,7 +29,6 @@
       "loading": "Ładowanie wolnych terminów …",
       "noSlots": "Brak wolnych terminów tego dnia.",
       "tryAnotherDay": "Wybierz inny dzień z listy powyżej.",
-      "pickSlot": "Wybierz wolny termin, aby zarezerwować go na pięć minut.",
       "held": "Termin u {technician} od {from} do {to} jest zarezerwowany. Masz {minutes} minut.",
       "release": "Zwolnij termin",
       "selectedSlot": "Wybrany termin: {technician}, {date} od {from} do {to}.",
@@ -46,7 +44,6 @@
         "holdFailed": "Nie udało się zarezerwować terminu. Spróbuj ponownie.",
         "slotTaken": "Ktoś właśnie zajął ten termin. Wybierz inny."
       },
-      "leadTimeHint": "Najwcześniejszy start to {date}. Termin musi być co najmniej {hours} godzin wcześniej.",
       "dateStep": "3. Wybierz żądaną datę",
       "dateLabel": "Żądana data",
       "dateHint": "Wybierz datę od {date} do {horizon}. Możesz wybrać datę poza następnymi dwoma tygodniami.",

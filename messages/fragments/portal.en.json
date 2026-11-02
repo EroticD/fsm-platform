@@ -61,8 +61,6 @@
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "What do you need help with?",
       "dateLabel": "Requested date *",
-      "fromLabel": "From",
-      "toLabel": "To",
       "equipmentLabel": "Equipment concerned",
       "equipmentNone": "Not about specific equipment",
       "contactNameLabel": "Contact person *",
