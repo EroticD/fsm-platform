@@ -93,6 +93,18 @@ export default async function AdminCreateWorkOrderPage({
         ...customers.filter((customer) => customer.id !== selectedCustomer.id),
       ]
     : customers;
+  const sites = await prisma.customerSite.findMany({
+    where: { customer: { deletedAt: null } },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 1000,
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      customerId: true,
+      customer: { select: { name: true } },
+    },
+  });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const { service: serviceTemplates, hms: hmsTemplates } =
     splitTemplatesByCategory(templates);
@@ -261,6 +273,30 @@ export default async function AdminCreateWorkOrderPage({
                 persistenceKey="fsm:office-create-work-order"
                 restoreSelection={Boolean(error)}
               />
+
+              <div>
+                <label htmlFor="office-new-site" className={LABEL}>
+                  {t("orders.new.siteLabel")}
+                </label>
+                <select
+                  id="office-new-site"
+                  name="siteId"
+                  defaultValue=""
+                  aria-describedby="office-new-site-hint"
+                  className={controlClassName("min-h-11")}
+                >
+                  <option value="">{t("orders.new.noSite")}</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name} · {site.customer.name}
+                      {site.address ? ` — ${site.address}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p id="office-new-site-hint" className={HINT}>
+                  {t("orders.new.siteHint")}
+                </p>
+              </div>
 
               <div
                 className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"

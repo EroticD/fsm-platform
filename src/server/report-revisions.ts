@@ -398,6 +398,21 @@ export async function getReportRevisionForPdf(
     return { ok: false, error: "forbidden" };
   }
 
+  // En kundeportalbruker må også ha dokumenttilgang. Uten denne kontrollen
+  // kunne en delegert kontakt uten dokumenter hentet revisjons-PDF-en direkte.
+  if (viewer.role === "CUSTOMER") {
+    const { portalAccessAllows, resolvePortalAccess } = await import(
+      "./portal-access"
+    );
+    const access = await resolvePortalAccess(viewer);
+    if (
+      !access.ok ||
+      !portalAccessAllows(access.data, "canViewDocuments")
+    ) {
+      return { ok: false, error: "forbidden" };
+    }
+  }
+
   const names = await actorNames([revision.createdById]);
   return {
     ok: true,

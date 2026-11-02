@@ -109,7 +109,10 @@
       "addressLabel": "Adresse",
       "postalCodeLabel": "Postnummer",
       "cityLabel": "By",
-      "locationHint": "La stå tomt for å bruke kundens adresse."
+      "locationHint": "La stå tomt for å bruke kundens adresse.",
+      "siteLabel": "Sted",
+      "noSite": "Ingen sted (bruk kundens adresse)",
+      "siteHint": "Velg et registrert sted. Adressen brukes som fallback når stedet mangler adresse."
     },
     "customerSelect": {
       "label": "Velg kunde",
@@ -325,7 +328,8 @@
           "conflict": "Visitten kan ikke lagres fordi den er i konflikt med en annen visitt.",
           "generic": "Visitten kunne ikke lagres. Sjekk feltene og prøv igjen."
         }
-      }
+      },
+      "site": "Sted"
     },
     "edit": {
       "notFoundTitle": "Oppdraget finnes ikke",
@@ -357,7 +361,10 @@
       "addressLabel": "Adresse",
       "postalCodeLabel": "Postnummer",
       "cityLabel": "By",
-      "locationHint": "La stå tomt for å bruke kundens adresse."
+      "locationHint": "La stå tomt for å bruke kundens adresse.",
+      "siteLabel": "Sted",
+      "noSite": "Ingen sted (bruk kundens adresse)",
+      "siteHint": "Velg et registrert sted for oppdraget."
     },
     "fieldList": {
       "greeting": "Hei, {name}",

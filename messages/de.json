@@ -841,7 +841,10 @@
         "addressLabel": "Adresse",
         "postalCodeLabel": "PLZ",
         "cityLabel": "Ort",
-        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden."
+        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden.",
+        "siteLabel": "Standort",
+        "noSite": "Kein Standort (Kundenadresse verwenden)",
+        "siteHint": "Wählen Sie einen registrierten Standort. Die Adresse dient als Fallback, wenn der Standort keine Adresse hat."
       },
       "customerSelect": {
         "label": "Kunde auswählen",
@@ -1072,7 +1075,8 @@
           "resolvedAt": "Gelöst",
           "timeLeft": "{minutes} Minuten übrig",
           "overdue": "{minutes} Minuten über der Frist"
-        }
+        },
+        "site": "Standort"
       },
       "edit": {
         "notFoundTitle": "Der Auftrag existiert nicht",
@@ -1104,7 +1108,10 @@
         "addressLabel": "Adresse",
         "postalCodeLabel": "PLZ",
         "cityLabel": "Ort",
-        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden."
+        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden.",
+        "siteLabel": "Standort",
+        "noSite": "Kein Standort (Kundenadresse verwenden)",
+        "siteHint": "Wählen Sie einen registrierten Standort für den Auftrag."
       },
       "fieldList": {
         "greeting": "Hallo, {name}",
@@ -1976,7 +1983,18 @@
         "activate": "Aktivieren",
         "errorMissingFields": "Geben Sie Name und E-Mail ein und wählen Sie einen Kontakt.",
         "errorInvalidContact": "Der Kontakt gehört nicht zu diesem Kunden.",
-        "errorDuplicateEmail": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits."
+        "errorDuplicateEmail": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
+        "delegation": {
+          "title": "Delegierter Portalzugriff",
+          "description": "Legen Sie fest, was jeder Kontakt im Kundenportal tun darf. Ein Kontakt ohne gespeicherte Delegation behält vollen Zugriff.",
+          "fullAccessFallback": "Voller Zugriff (Standard)",
+          "save": "Delegation speichern",
+          "isActive": "Aktiver Portalbenutzer",
+          "canBook": "Darf buchen",
+          "canViewDocuments": "Darf Dokumente und Berichte sehen",
+          "canViewContracts": "Darf Verträge sehen",
+          "canViewEquipment": "Darf Geräte sehen"
+        }
       },
       "activity": {
         "feedTitle": "Aktivitäts-Feed",
@@ -2027,7 +2045,12 @@
           "contractTerminated": "Der Servicevertrag wurde beendet.",
           "contractRenewed": "Der Servicevertrag wurde verlängert.",
           "contractLineCreated": "Die Vertragsposition wurde hinzugefügt.",
-          "contractLineDeleted": "Die Vertragsposition wurde entfernt."
+          "contractLineDeleted": "Die Vertragsposition wurde entfernt.",
+          "siteCreated": "Der Standort wurde hinzugefügt.",
+          "siteUpdated": "Der Standort wurde aktualisiert.",
+          "siteDeleted": "Der Standort wurde gelöscht.",
+          "sitePrimary": "Der Standort wurde als Hauptstandort festgelegt.",
+          "delegationSaved": "Die Portal-Delegation wurde gespeichert."
         },
         "error": {
           "invalid": "Das Formular enthält ungültige oder fehlende Felder.",
@@ -2036,6 +2059,25 @@
           "unknown": "Etwas ist schiefgelaufen. Versuchen Sie es erneut.",
           "conflict": "Die Aktion steht im Konflikt mit einer anderen Änderung. Seite neu laden."
         }
+      },
+      "sites": {
+        "title": "Standorte",
+        "description": "Standorte und Adressen des Kunden. Sie können in Aufträgen, Geräten und im Kundenportal ausgewählt werden.",
+        "name": "Name",
+        "namePlaceholder": "z. B. Lager Süd",
+        "address": "Adresse",
+        "postalCode": "Postleitzahl",
+        "city": "Ort",
+        "setPrimary": "Als Hauptstandort festlegen",
+        "add": "Standort hinzufügen",
+        "empty": "Keine Standorte registriert.",
+        "primary": "Hauptstandort",
+        "noAddress": "Keine Adresse",
+        "makePrimary": "Als Hauptstandort",
+        "delete": "Standort löschen",
+        "deleteConfirm": "Standort „{name}“ löschen? Aufträge und Geräte verlieren die Verknüpfung.",
+        "edit": "Standort bearbeiten",
+        "save": "Standort speichern"
       }
     },
     "documents": {
@@ -3922,7 +3964,9 @@
         "unknown": "Unbekannt",
         "dangerous": "Gefahrenbereich",
         "delete": "Anlage löschen",
-        "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden."
+        "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden.",
+        "site": "Standort",
+        "noSite": "Kein Standort"
       },
       "form": {
         "title": "Neue Anlage",
@@ -3940,7 +3984,9 @@
         "meterUnit": "Zählereinheit",
         "meterUnitHint": "Zum Beispiel Stunden, km oder Zyklen.",
         "submit": "Anlage erfassen",
-        "cancel": "Abbrechen"
+        "cancel": "Abbrechen",
+        "site": "Standort",
+        "noSite": "Kein Standort"
       },
       "label": {
         "title": "Anlagenetikett",

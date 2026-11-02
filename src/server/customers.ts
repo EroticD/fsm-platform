@@ -231,7 +231,15 @@ export async function getCustomerDetail(
     include: {
       department: true,
       responsibleTechnician: true,
-      contacts: { orderBy: { name: "asc" }, take: 100 },
+      contacts: {
+        orderBy: { name: "asc" },
+        take: 100,
+        include: { portalDelegation: true },
+      },
+      sites: {
+        orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+        take: 200,
+      },
       contracts: {
         // C-05: Avtaler er avdelingssperret. Uten dette filteret kunne
         // kontoret se og redigere avtaler som hører til en annen avdeling.

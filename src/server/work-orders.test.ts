@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     },
     user: { findFirst: vi.fn(), findMany: vi.fn() },
     contact: { findUnique: vi.fn(), create: vi.fn() },
+    customerSite: { findFirst: vi.fn() },
     customer: { findUnique: vi.fn(async () => null) },
     department: { findFirst: vi.fn() },
     skill: {
@@ -2214,5 +2215,121 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
       }),
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
+  });
+});
+
+describe("oppdragets sted", () => {
+  const site = {
+    id: "site-1",
+    name: "Lager",
+    address: "Lagergata 2",
+    postalCode: "1235",
+    city: "Oslo",
+  };
+
+  it("lagrer stedet når det tilhører kunden", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(site);
+    const tx = withTransaction();
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "site-1",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true, id: "wo-new" });
+    expect(mocks.prisma.customerSite.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "site-1", customerId: "cust-1" },
+      }),
+    );
+    expect(tx.workOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ siteId: "site-1" }),
+      select: { id: true },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    });
+  });
+
+  it("avviser et sted som tilhører en annen kunde", async () => {
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "annens-sted",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("oppdaterer stedet og avviser annen kundes sted", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      siteId: null,
+      status: "OPEN",
+      orderNumber: null,
+      orderNumberNormalized: null,
+    });
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(site);
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "site-1",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    );
+
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+    const denied = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "annens-sted",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+    expect(denied).toEqual({ ok: false, error: "ugyldig-data" });
   });
 });

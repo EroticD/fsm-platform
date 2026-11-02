@@ -109,7 +109,10 @@
       "addressLabel": "Address",
       "postalCodeLabel": "Postal code",
       "cityLabel": "City",
-      "locationHint": "Leave blank to use the customer address."
+      "locationHint": "Leave blank to use the customer address.",
+      "siteLabel": "Site",
+      "noSite": "No site (use customer address)",
+      "siteHint": "Choose a registered site. The address is used as a fallback when the site has no address."
     },
     "customerSelect": {
       "label": "Select customer",
@@ -325,7 +328,8 @@
           "conflict": "The visit cannot be saved because it conflicts with another visit.",
           "generic": "The visit could not be saved. Check the fields and try again."
         }
-      }
+      },
+      "site": "Site"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -357,7 +361,10 @@
       "addressLabel": "Address",
       "postalCodeLabel": "Postal code",
       "cityLabel": "City",
-      "locationHint": "Leave blank to use the customer address."
+      "locationHint": "Leave blank to use the customer address.",
+      "siteLabel": "Site",
+      "noSite": "No site (use customer address)",
+      "siteHint": "Choose a registered site for the work order."
     },
     "fieldList": {
       "greeting": "Hi, {name}",

@@ -14,16 +14,25 @@ const mocks = vi.hoisted(() => ({
       count: vi.fn(),
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      create: vi.fn(),
       updateMany: vi.fn(),
+      update: vi.fn(),
     },
     bookingRequest: {
       count: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    bookingRequestEvent: { create: vi.fn() },
+    bookingRequestEvent: { create: vi.fn(), createMany: vi.fn() },
+    customerSite: {
+      findFirst: vi.fn(),
+      count: vi.fn(),
+      create: vi.fn(),
+      updateMany: vi.fn(),
+    },
     report: { update: vi.fn(), updateMany: vi.fn() },
     customer: { findFirst: vi.fn() },
     contact: { findFirst: vi.fn() },
@@ -56,6 +65,7 @@ vi.mock("./notifications", () => ({
 import {
   acknowledgeReport,
   cancelBooking,
+  createBooking,
   getPortalBookingRequests,
   getPortalReportHistory,
   portalUpcomingWhere,
@@ -88,10 +98,28 @@ beforeEach(() => {
   mocks.prisma.bookingRequest.findFirst.mockResolvedValue(null);
   mocks.prisma.bookingRequest.count.mockResolvedValue(0);
   mocks.prisma.bookingRequest.findMany.mockResolvedValue([]);
+  mocks.prisma.bookingRequest.create.mockResolvedValue({
+    id: "br-1",
+    reference: "B-1",
+  });
   mocks.prisma.bookingRequest.update.mockResolvedValue({});
   mocks.prisma.bookingRequest.updateMany.mockResolvedValue({ count: 1 });
   mocks.prisma.bookingRequestEvent.create.mockResolvedValue({ id: "ev-1" });
-  mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+  mocks.prisma.bookingRequestEvent.createMany.mockResolvedValue({ count: 1 });
+  mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-1" });
+  mocks.prisma.workOrder.update.mockResolvedValue({});
+  mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+  mocks.prisma.customerSite.count.mockResolvedValue(0);
+  mocks.prisma.customerSite.create.mockResolvedValue({ id: "site-1" });
+  mocks.prisma.customerSite.updateMany.mockResolvedValue({ count: 0 });
+  mocks.prisma.customer.findFirst.mockResolvedValue({
+    id: "cust-1",
+    name: "Kunde",
+    departmentId: "dep-1",
+    address: "Testveien 1",
+    postalCode: "1234",
+    city: "Oslo",
+  });
   mocks.prisma.contact.findFirst.mockResolvedValue({ id: "contact-1" });
   mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
   mocks.prisma.report.update.mockResolvedValue({});
@@ -751,5 +779,74 @@ describe("kundeportaltjenesten", () => {
     expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
     expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("date-only bestilling med nytt sted", () => {
+  it("oppretter et gjenbrukbart sted og kobler det til bestillingen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+
+    const result = await createBooking(customer(), {
+      title: "Service",
+      description: "Trenger service",
+      requestedDate: toDateOnly(
+        addDaysUtc(parseDateOnly(todayInOslo())!, 7),
+      ),
+      contactName: "Kari",
+      contactPhone: "90000000",
+      newSiteName: "Nytt lager",
+      newSiteAddress: "Lagergata 2",
+      newSitePostalCode: "1235",
+      newSiteCity: "Oslo",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: "cust-1",
+          name: "Nytt lager",
+          isPrimary: true,
+        }),
+      }),
+    );
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: "cust-1",
+          siteId: "site-1",
+        }),
+      }),
+    );
+    expect(mocks.prisma.bookingRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    );
+  });
+
+  it("gjenbruker et sted med samme navn i stedet for å lage duplikat", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+    mocks.prisma.customerSite.findFirst.mockResolvedValue({ id: "site-old" });
+
+    const result = await createBooking(customer(), {
+      title: "Service",
+      description: "Trenger service",
+      requestedDate: toDateOnly(
+        addDaysUtc(parseDateOnly(todayInOslo())!, 7),
+      ),
+      contactName: "Kari",
+      contactPhone: "90000000",
+      newSiteName: "Nytt lager",
+      newSiteAddress: "Lagergata 2",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-old" }),
+      }),
+    );
   });
 });

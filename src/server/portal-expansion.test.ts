@@ -9,8 +9,12 @@ const mocks = vi.hoisted(() => ({
     visit: { findMany: vi.fn(), findFirst: vi.fn() },
     customerSite: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      delete: vi.fn(),
     },
     trackingLink: { updateMany: vi.fn(), create: vi.fn() },
     review: { upsert: vi.fn() },
@@ -39,6 +43,7 @@ import {
   PORTAL_LIST_PAGE_SIZE,
   createPortalSite,
   createPortalTrackingLink,
+  deletePortalSite,
   requestPortalReview,
   getPortalContracts,
   getPortalDocuments,
@@ -47,6 +52,8 @@ import {
   getPortalSites,
   getPortalVisitTimeline,
   sendPortalMessage,
+  setPortalPrimarySite,
+  updatePortalSite,
 } from "./portal-expansion";
 
 const actor: ServiceActor = {
@@ -88,6 +95,11 @@ beforeEach(() => {
   mocks.prisma.contract.findMany.mockResolvedValue([]);
   mocks.prisma.visit.findMany.mockResolvedValue([]);
   mocks.prisma.customerSite.findMany.mockResolvedValue([]);
+  mocks.prisma.customerSite.findFirst.mockResolvedValue({
+    id: "site-1",
+    name: "Lager",
+    isPrimary: true,
+  });
   mocks.prisma.customerSite.count.mockResolvedValue(0);
   mocks.prisma.customerSite.create.mockResolvedValue({
     id: "site-1",
@@ -97,6 +109,16 @@ beforeEach(() => {
     city: null,
     isPrimary: true,
   });
+  mocks.prisma.customerSite.update.mockResolvedValue({
+    id: "site-1",
+    name: "Lager",
+    address: null,
+    postalCode: null,
+    city: null,
+    isPrimary: true,
+  });
+  mocks.prisma.customerSite.updateMany.mockResolvedValue({ count: 1 });
+  mocks.prisma.customerSite.delete.mockResolvedValue({});
   mocks.prisma.trackingLink.updateMany.mockResolvedValue({ count: 0 });
   mocks.prisma.trackingLink.create.mockResolvedValue({ id: "tl-1" });
   mocks.prisma.review.upsert.mockResolvedValue({
@@ -343,6 +365,78 @@ describe("portalens meldinger og steder", () => {
         }),
       }),
     );
+  });
+
+  it("oppdaterer bare sted som tilhører kunden", async () => {
+    const result = await updatePortalSite(actor, "site-1", {
+      name: "Lager sør",
+      address: "Gate 2",
+    });
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "site-1", customerId: "cust-1" },
+      }),
+    );
+    expect(mocks.prisma.customerSite.update).toHaveBeenCalled();
+
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+    const denied = await updatePortalSite(actor, "annens-sted", {
+      name: "Fremmed",
+    });
+    expect(denied).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("sletter bare eget sted og forfremmer et nytt primærsted", async () => {
+    mocks.prisma.customerSite.findFirst
+      .mockResolvedValueOnce({ id: "site-1", name: "Lager", isPrimary: true })
+      .mockResolvedValueOnce({ id: "site-2" });
+
+    const result = await deletePortalSite(actor, "site-1");
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.delete).toHaveBeenCalledWith({
+      where: { id: "site-1" },
+    });
+    expect(mocks.prisma.customerSite.update).toHaveBeenCalledWith({
+      where: { id: "site-2" },
+      data: { isPrimary: true },
+    });
+  });
+
+  it("avviser sletting av annen kundes sted", async () => {
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+    const result = await deletePortalSite(actor, "annens-sted");
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(mocks.prisma.customerSite.delete).not.toHaveBeenCalled();
+  });
+
+  it("setter primærsted bare innenfor kundens egne steder", async () => {
+    const result = await setPortalPrimarySite(actor, "site-1");
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.updateMany).toHaveBeenCalledWith({
+      where: { customerId: "cust-1" },
+      data: { isPrimary: false },
+    });
+    expect(mocks.prisma.customerSite.update).toHaveBeenCalledWith({
+      where: { id: "site-1" },
+      data: { isPrimary: true },
+    });
+
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+    expect(await setPortalPrimarySite(actor, "annens-sted")).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+
+  it("krever canBook for å administrere steder", async () => {
+    mocks.requirePortalCapability.mockResolvedValue({
+      ok: false,
+      reason: "forbidden",
+    });
+    const result = await createPortalSite(actor, { name: "Lager" });
+    expect(result).toEqual({ ok: false, reason: "forbidden" });
+    expect(mocks.prisma.customerSite.create).not.toHaveBeenCalled();
   });
 
   it("lar listefunksjonen bruke sidestørrelse", async () => {

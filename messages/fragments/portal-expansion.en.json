@@ -140,6 +140,26 @@
         "sitesTitle": "Sites",
         "noSites": "No sites are registered.",
         "primary": "Primary"
+      },
+      "sites": {
+        "title": "My sites",
+        "description": "Manage the sites you can choose when booking service.",
+        "error": "Could not save the site. Please try again.",
+        "saved": "The site was saved.",
+        "name": "Name",
+        "address": "Address",
+        "postalCode": "Postal code",
+        "city": "City",
+        "setPrimary": "Set as primary site",
+        "add": "Add site",
+        "empty": "No sites registered yet.",
+        "primary": "Primary",
+        "noAddress": "No address",
+        "makePrimary": "Make primary",
+        "delete": "Delete",
+        "deleteConfirm": "Delete the site “{name}”?",
+        "edit": "Edit",
+        "save": "Save"
       }
     }
   }
