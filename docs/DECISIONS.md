@@ -449,3 +449,47 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   tilbakekalles) eller ber om omtale; tokens lagres fortsatt bare som hasher,
   og de eksisterende 5C-rutene `/sporing/[token]` og `/anmeldelse/[token]`
   gjenbrukes.
+
+## Kundeoverføring: admin-eksport og import (v1, 2026-11-03)
+
+- **Kun admin med `settings.manage`.** Vakten krever aktiv bruker, rolle
+  `ADMIN` og rettigheten `settings.manage`. Kontor med `settings.manage`,
+  montører, kundeportal og inaktive admins får `403` i hver rute og hver
+  handling. Rutene ligger under `/api/innstillinger/kunder/` og eksponeres
+  bevisst ikke på `/api/v1`, slik at API-nøkler ikke arver overføringsmakt.
+- **Dokumenteierskap er additivt og datadrevet.** `Document.customerId` og
+  `Document.productId` er nullable med indekser. Bare dokumenter med kjent
+  eier eksporteres; globale dokumenter blir liggende og ekskluderes. Eierskap
+  backfylles ikke ved gjetting fra tittel eller filnavn.
+- **Ny ID for hver importert rad.** Kilde-ID-er brukes bare i pakken og i
+  `CustomerTransferRecord`-tabellen. Forretningsnøkler (org.nr, kundenummer,
+  e-post, serienummer, avtalenummer, oppdragsreferanse, rapportnummer,
+  filhash) styrer konfliktvalg. `qrToken` gjenbrukes aldri.
+- **Standard er å hoppe over konflikter.** `update` er bare tillatt for trygge
+  kunde- og utstyrsfelt. Rapporter er uforanderlige bevis og oppdateres aldri.
+  Portalerbrukere med e-postkollisjon mot en annen rolle/kunde er en hard
+  konflikt. Ansatte og maler opprettes aldri; avdelinger/tags/kategorier bare
+  med eksplisitt valg.
+- **Pakken er ikke kryptert eller signert i v1.** SHA-256-sjekksummer gir
+  integritet, ikke autentisitet. Krypterte ZIP-er avvises. Konfidensialitet
+  bygger på autentisert HTTPS, 24 timers staging med `0700/0600` og
+  tilgangskontroll. En fremtidig versjon kan legge på en dokumentert
+  envelope-kryptering og signatur av `checksums.sha256` + kanonisk manifest.
+- **Signaturer og HMS-data er opt-in.** Standardpakken markerer
+  `signatureExcluded` og bruker rapport-PDF-en som visuelt bevis. Rettslig
+  grunnlag for signaturbilder må vurderes før administratoren slår på
+  `includeSignatures`.
+- **Kilde-audit er proveniens, ikke historie.** Revisjonsrader følger med som
+  `data/audit-snapshot.json` (maks 5 000) og refereres fra
+  `provenance/audit.json`. De kopieres aldri inn i målbasens `AuditLog`.
+  Importen skriver én ny `CustomerTransfer`-rad i samme transaksjon.
+- **Synkron v1 med varig tilstand.** Eksport/import kjører i requesten og
+  buffrer ZIP-en i minnet. `CustomerTransferJob` lagrer status, sjekksum,
+  kildeinstans, antall, feilkoder, staging-sti og utløp uten PII. En
+  bakgrunnsjobb rydder staging hver time. Grensene er 50 MiB per fil,
+  500 MiB per pakke, 20 000 oppføringer og 100:1 kompresjon.
+- **Serialisering og atomisitet.** Importen tar en radlås på jobben og en
+  advisory-lås per pakkesjekksum, og skriver alle DB-rader i én transaksjon.
+  Filer skrives med `wx` før commit og slettes hvis transaksjonen feiler.
+  Forhåndsvisningstokenet er kortlevd, bundet til aktør/jobb/sjekksum, og
+  målbasens fingeravtrykk oppdages på nytt før bekreftelse.

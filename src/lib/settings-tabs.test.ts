@@ -19,6 +19,7 @@ const noPermissions: SettingsTabPermissions = {
   canSms: false,
   canDispatch: false,
   isAdmin: false,
+  canCustomerTransfer: false,
 };
 
 const admin: SettingsTabPermissions = {
@@ -36,6 +37,7 @@ const admin: SettingsTabPermissions = {
   canSms: true,
   canDispatch: true,
   isAdmin: true,
+  canCustomerTransfer: true,
 };
 
 describe("chooseSettingsTab", () => {
@@ -67,8 +69,23 @@ describe("chooseSettingsTab", () => {
     ).toBe("sla");
   });
 
-  it("viser SMS-fanen bare med settings.manage", () => {
-    expect(isSettingsTabAllowed("sms", admin)).toBe(true);
+  it("viser kundeoverføring bare for administrator med settings.manage", () => {
+    expect(isSettingsTabAllowed("kundeoverforing", admin)).toBe(true);
+    expect(
+      isSettingsTabAllowed("kundeoverforing", {
+        ...noPermissions,
+        isAdmin: true,
+      }),
+    ).toBe(false);
+    expect(
+      chooseSettingsTab("kundeoverforing", {
+        ...noPermissions,
+        canUsers: true,
+      }),
+    ).toBe("ansatte");
+  });
+
+  it("viser SMS-fanen bare med settings.manage", () => {    expect(isSettingsTabAllowed("sms", admin)).toBe(true);
     expect(isSettingsTabAllowed("sms", noPermissions)).toBe(false);
     expect(
       chooseSettingsTab("sms", { ...noPermissions, canSms: true }),

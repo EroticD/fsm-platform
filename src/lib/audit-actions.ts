@@ -733,6 +733,24 @@ const rules: Rule[] = [
     translate: (m, t) =>
       t("auditActions.contract.recurringCreated", { title: m[1] }),
   },
+  {
+    pattern: /^Eksporterte kundepakke: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.customerTransfer.exported", { checksum: m[1] }),
+  },
+  {
+    pattern: /^Lastet ned kundepakke: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.customerTransfer.downloaded", { checksum: m[1] }),
+  },
+  {
+    pattern: /^Importerte kundepakke: (.*) \((\d+) kunder\)$/,
+    translate: (m, t) =>
+      t("auditActions.customerTransfer.imported", {
+        checksum: m[1],
+        count: m[2],
+      }),
+  },
 ];
 
 /**

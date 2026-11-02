@@ -15,7 +15,8 @@ export type SettingsTabKey =
   | "roller"
   | "avdelinger"
   | "api"
-  | "sikkerhet";
+  | "sikkerhet"
+  | "kundeoverforing";
 
 export type SettingsTabPermissions = {
   canBranding: boolean;
@@ -31,6 +32,7 @@ export type SettingsTabPermissions = {
   canSms: boolean;
   canDispatch: boolean;
   isAdmin: boolean;
+  canCustomerTransfer: boolean;
 };
 
 /** Fanene i den rekkefølgen de vises, med sikkerhet alltid tilgjengelig. */
@@ -52,6 +54,7 @@ const TAB_ORDER: SettingsTabKey[] = [
   "avdelinger",
   "api",
   "sikkerhet",
+  "kundeoverforing",
 ];
 
 export function isSettingsTabAllowed(
@@ -91,6 +94,8 @@ export function isSettingsTabAllowed(
       return permissions.isAdmin;
     case "sikkerhet":
       return true;
+    case "kundeoverforing":
+      return permissions.canCustomerTransfer;
   }
 }
 

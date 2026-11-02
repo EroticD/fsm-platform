@@ -14,6 +14,7 @@ import {
   processPendingNotificationEmails,
 } from "@/server/notifications";
 import { cleanupVisitLocationPings } from "@/server/tracking";
+import { cleanupTransfers } from "@/server/customer-transfer";
 
 /**
  * Vedvarende jobbkø for tekstuttrekk og OCR.
@@ -91,6 +92,9 @@ export const BOOKING_HOLD_RETENTION_MS = 24 * 60 * 60_000;
 
 /** Hvor ofte posisjonsping eldre enn 24 timer fjernes. */
 export const LOCATION_PING_CLEANUP_INTERVAL_MS = 60 * 60_000;
+
+/** Kundeoverføringer har 24 timers levetid; staging ryddes hver time. */
+export const TRANSFER_CLEANUP_INTERVAL_MS = 60 * 60_000;
 
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -735,6 +739,18 @@ export function startJobWorker(): void {
 
   // Posisjonsping har 24 timers levetid og skal aldri bli historikk.
   startLocationPingCleanup();
+
+  // Slett utløpte eksport-/importartefakter og forlatte staging-mapper.
+  const pruneTransfers = () => {
+    void cleanupTransfers().catch((error) => {
+      logger.error("Could not clean up customer transfer artifacts", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+  pruneTransfers();
+  const transferTimer = setInterval(pruneTransfers, TRANSFER_CLEANUP_INTERVAL_MS);
+  transferTimer.unref?.();
 
   // Rydd utløpte rate-limit-rader med jevne mellomrom. Tellere som er i bruk
   // har resetAt i fremtiden og røres ikke.

@@ -700,6 +700,34 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
   andre rader refererer til den (`src/lib/upload-cleanup.ts`). Sjekk volumet
   etter store slettinger.
 
+### Kundeoverføring (eksport/import)
+
+- Midlertidige kundepakker og staging ligger i `UPLOAD_DIR/.transfer/<jobbId>/`.
+  Mappen opprettes med `0700`, og `package.zip` skrives med `0600`.
+- **Grenser:** maks 50 MiB per fil, 500 MiB per pakke (ukomprimert og
+  komprimert), 20 000 ZIP-oppføringer og kompresjonsforhold 100:1. Hele pakken
+  holdes i minnet i v1, så den praktiske minnegrensen er også 500 MiB.
+  `next.config.ts` (`proxyClientMaxBodySize`) er hevet til 512 MiB for å slippe
+  importkroppen gjennom proxyen.
+- **Levetid:** eksportartefakter og importstaging utløper etter 24 timer.
+  Jobbworkeren kaller `cleanupExpiredTransfers()` hver time; den sletter
+  staging, markerer jobben `EXPIRED` og fjerner forlatte kataloger uten levende
+  jobb. Hjelperen kan også kalles manuelt ved diskmangel.
+- **Ingen offentlig URL:** ZIP-en serveres bare fra en autentisert
+  adminrute med `no-store`. Den skal aldri legges i `public/`, `/uploads` eller
+  en delt cache.
+- **Ikke backup:** kundepakken er et overføringsverktøy for én eller flere
+  kunder. Den erstatter ikke PostgreSQL-backup + uploadvolum, og den inneholder
+  bevisst ikke passord, sesjoner, API-nøkler eller 2FA-hemmeligheter.
+- **Overvåking:** følg diskbruk på `UPLOAD_DIR` og antall jobber med status
+  `FAILED`. Utløpte jobber skal forsvinne fra staging innen en time etter
+  `expiresAt`.
+- **Etter krasj under import:** DB-transaksjonen ruller tilbake, men filer som
+  allerede er skrevet til `UPLOAD_DIR` kan bli liggende uten `Upload`-rad fordi
+  v1 ikke har en egen avstemmingsjobb for ferdige filer. Sammenlign filsystemet
+  med `Upload.storedName` før du sletter noe manuelt; slett aldri filer som er
+  referert av en rad.
+
 ## Sanntid (SSE)
 
 - `/api/events` er bare for aktive interne roller (ikke kundeportal/utlogget).

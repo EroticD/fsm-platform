@@ -13,6 +13,7 @@ import TemplatesTab from "@/components/settings/TemplatesTab";
 import TagsTab from "@/components/settings/TagsTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import EvidenceExportTab from "@/components/settings/EvidenceExportTab";
+import CustomerTransferTab from "@/components/settings/CustomerTransferTab";
 import StatisticsTab from "@/components/settings/StatisticsTab";
 import MapSettingsTab from "@/components/settings/MapSettingsTab";
 import ApiKeysTab from "@/components/settings/ApiKeysTab";
@@ -45,6 +46,8 @@ import { getDispatchSettings } from "@/server/dispatch";
 import { getWorkforceAdminView } from "@/server/workforce-admin";
 import { listPriceLists } from "@/server/contracts";
 import { listEquipmentCategories } from "@/server/equipment";
+import { listTransferCustomers } from "@/server/customer-transfer";
+import { toTransferActor } from "@/lib/customer-transfer/guard";
 import {
   createDocumentTagAction,
   createTagAction,
@@ -156,6 +159,8 @@ export default async function SettingsPage({
     canUsers ||
     hasPermission(user, "dispatch.configure") ||
     hasPermission(user, "settings.manage");
+  const canCustomerTransfer =
+    isAdmin && hasPermission(user, "settings.manage");
   const canUseSettings =
     canBranding ||
     canMap ||
@@ -181,7 +186,6 @@ export default async function SettingsPage({
     canDispatch ||
     isAdmin ||
     hasPermission(user, "users.manage");
-
   // Vent på searchParams (kreves i nyere Next.js) og sett standardfane.
   // Sikkerhetsfanen er åpen for alle innloggede, slik at også montører kan
   // slå på to-trinns verifisering.
@@ -207,6 +211,7 @@ export default async function SettingsPage({
     canSms,
     canDispatch,
     isAdmin,
+    canCustomerTransfer,
   });
   const searchQuery = resolvedParams.search || "";
   const dateFrom = resolvedParams.dateFrom || "";
@@ -253,6 +258,11 @@ export default async function SettingsPage({
   const evidenceCandidates =
     currentTab === "bevis" && isAdmin
       ? await listEvidenceCandidates(user)
+      : null;
+
+  const transferCustomers =
+    currentTab === "kundeoverforing" && canCustomerTransfer
+      ? await listTransferCustomers(toTransferActor(user))
       : null;
 
   const mapSettings =
@@ -339,6 +349,7 @@ export default async function SettingsPage({
           canSms={canSms}
           canDispatch={canDispatch}
           isAdmin={isAdmin}
+          canCustomerTransfer={canCustomerTransfer}
         />
 
         {currentTab === "kart" && canMap && mapSettings?.ok && (
@@ -474,6 +485,12 @@ export default async function SettingsPage({
         {currentTab === "bevis" && isAdmin && evidenceCandidates?.ok && (
           <EvidenceExportTab candidates={evidenceCandidates.data} />
         )}
+
+        {currentTab === "kundeoverforing" &&
+          canCustomerTransfer &&
+          transferCustomers?.ok && (
+            <CustomerTransferTab customers={transferCustomers.data} />
+          )}
 
         {/* FANE 5: STATISTIKK (AVDELINGSBEGRENSET) */}
         {currentTab === "statistikk" && canStats && statistics?.ok && (
