@@ -192,8 +192,9 @@ Sikkerhetsarbeidet er gjennomført på `dev`. Ingenting er merget til `master`.
   per kundetype?
 - Rate limits og jobbkø er databasebaserte og deles mellom instanser. Ved
   mange instanser bør Redis/BullMQ vurderes (P4-2).
-- `TRUST_PROXY=true` må settes når appen står bak en reverse proxy som
-  overskriver `X-Forwarded-*`; ellers brukes ikke IP-nøkler.
+- `TRUST_PROXY=true` og eksplisitt `TRUST_PROXY_HOPS` må settes når appen står
+  bak en reverse proxy som overskriver `X-Forwarded-*`; ellers brukes ikke
+  IP-nøkler. Produksjon avviser tvetydig proxykonfigurasjon.
 
 ## Phase 1 — visiter, tid på dagen og arbeidsstyrke (2026-10-30)
 

@@ -4,6 +4,7 @@
 # og kontrollerer at:
 #   - ukryptert backup gir db-*.sql.gz og uploads-*.tar.gz
 #   - BACKUP_AGE_RECIPIENT gir bare .age-filer (ingen ukryptert fil på disk)
+#   - sjekksumfil og statusfil skrives
 #   - en feilende pg_dump ikke etterlater en halvskrevet fil
 #
 #   bash scripts/tests/backup.test.sh
@@ -53,12 +54,12 @@ cat >"$TMP/bin/rclone" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
 src="${2:-}"
-# Feiler hvis kilden inneholder noe annet enn .age-filer. Da beviser testen at
-# ekstern kopi bare skjer etter vellykket kryptering.
+# Feiler hvis kilden inneholder en ukryptert database/opplasting. Sjekksum og
+# status er metadata og skal kunne kopieres ukryptert.
 for f in "$src"/*; do
   [ -e "$f" ] || continue
   case "$f" in
-    *.age) ;;
+    *.age|*.sha256|*backup-status.json) ;;
     *) echo "rclone: ukryptert fil i kilden: $f" >&2; exit 3 ;;
   esac
 done
@@ -82,6 +83,12 @@ check "opplastingsarkiv er gyldig tar.gz" \
   'tar tzf "$TMP"/plain/uploads-*.tar.gz >/dev/null 2>&1'
 check "ingen .age-filer uten mottaker" \
   '! ls "$TMP"/plain/*.age >/dev/null 2>&1'
+check "sjekksumfil finnes" 'ls "$TMP"/plain/checksums-*.sha256 >/dev/null 2>&1'
+check "statusfil finnes" '[ -s "$TMP/plain/backup-status.json" ]'
+check "sjekksummen er gyldig" \
+  '(cd "$TMP/plain" && sha256sum --check --strict checksums-*.sha256 >/dev/null 2>&1)'
+check "statusfilen peker på backupen" \
+  'grep -q "\"stamp\"" "$TMP/plain/backup-status.json"'
 
 echo "→ Kryptert backup"
 BACKUP_DIR="$TMP/enc" BACKUP_AGE_RECIPIENT=age1test bash "$SCRIPT" >/dev/null
@@ -117,8 +124,11 @@ RCLONE_LOG="$TMP/rclone.log" BACKUP_DIR="$TMP/remote" \
   BACKUP_AGE_RECIPIENT=age1test BACKUP_REMOTE=remote:test \
   bash "$SCRIPT" >/dev/null
 check "rclone fikk backupmålet" 'grep -q "remote:test" "$TMP/rclone.log"'
-check "bare .age-filer ligger i kilden" \
-  '! find "$TMP/remote" -maxdepth 1 -type f ! -name "*.age" -print -quit | grep -q .'
+check "rclone verifiserte kopien" 'grep -q "check" "$TMP/rclone.log"'
+check "ingen ukryptert database/opplasting i kilden" \
+  '! find "$TMP/remote" -maxdepth 1 -type f \( -name "*.sql.gz" -o -name "*.tar.gz" \) -print -quit | grep -q .'
+check "sjekksum er med i kilden" \
+  'ls "$TMP"/remote/checksums-*.sha256 >/dev/null 2>&1'
 
 echo "→ Feilende pg_dump"
 set +e

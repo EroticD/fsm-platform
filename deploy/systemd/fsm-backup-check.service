@@ -1,0 +1,18 @@
+[Unit]
+Description=FSM-platform: kontrollerer backupens ferskhet og sjekksum
+Documentation=file:/opt/fsm-platform/docs/OPERATIONS.md
+Wants=network-online.target
+After=network-online.target
+OnFailure=fsm-alert@%n.service
+
+[Service]
+Type=oneshot
+User=fsmbackup
+Group=fsmbackup
+WorkingDirectory=/opt/fsm-platform
+EnvironmentFile=/etc/fsm/fsm-backup.env
+# Skriv Prometheus-målinger til node_exporter sin textfile-katalog. Katalogen
+# må finnes og være skrivbar for fsmbackup. Fjern argumentet hvis dere ikke
+# bruker node_exporter.
+ExecStart=/opt/fsm-platform/scripts/backup-freshness.sh --prometheus-output /var/lib/node_exporter/textfile/fsm-backup.prom
+Nice=10

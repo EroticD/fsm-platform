@@ -1,0 +1,18 @@
+[Unit]
+Description=FSM-platform: ukentlig restore-test mot midlertidig database
+Documentation=file:/opt/fsm-platform/docs/OPERATIONS.md
+Wants=network-online.target docker.service
+After=network-online.target docker.service fsm-backup.service
+OnFailure=fsm-alert@%n.service
+
+[Service]
+Type=oneshot
+User=fsmbackup
+Group=fsmbackup
+WorkingDirectory=/opt/fsm-platform
+EnvironmentFile=/etc/fsm/fsm-backup.env
+# Ikke test en backup som allerede er for gammel (7 dager = ukentlig + slark).
+ExecStartPre=/opt/fsm-platform/scripts/backup-freshness.sh --max-age-hours 168
+ExecStart=/opt/fsm-platform/scripts/restore-test.sh
+Nice=15
+TimeoutStartSec=2h

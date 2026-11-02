@@ -1,0 +1,9 @@
+[Unit]
+Description=FSM-platform: varsel for feilet enhet %i
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/fsm/fsm-alert.env
+# %i er enhetsnavnet som feilet, f.eks. fsm-backup.service.
+ExecStart=/opt/fsm-platform/scripts/ops-alert.sh critical "systemd: %i" "Enheten %i feilet på %H. Se journalctl -u %i."
+TimeoutStartSec=30s

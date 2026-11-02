@@ -110,9 +110,14 @@ bare bevisst, og dokumenter hvorfor.
   `reports.view` i tillegg til oppdragstilgang. `/uploads` svarer med
   `private, no-store` slik at tilbakekalt tilgang ikke overlever i en cache.
 - Reverse proxyen må overskrive `Host`, `X-Forwarded-Host`,
-  `X-Forwarded-Proto` og `X-Forwarded-For`. Appen stoler bare på
-  `x-forwarded-proto` når `TRUST_PROXY=true`.
+  `X-Forwarded-Proto`, `X-Forwarded-For` og `X-Real-IP`. Appen stoler bare på
+  `x-forwarded-proto` og IP-headerne når `TRUST_PROXY=true`, og bruker
+  `TRUST_PROXY_HOPS` til å velge riktig verdi fra høyre i kjeden. Produksjon
+  nekter å starte med tvetydig proxykonfigurasjon. Eksempler ligger i
+  `deploy/proxy/`.
 - Ta sikkerhetskopier med `scripts/backup.sh`. Bruk `BACKUP_AGE_RECIPIENT` for
-  kryptering og `BACKUP_REMOTE` for kopi til ekstern lagring. Kjør
-  `scripts/restore-test.sh` månedlig – den dekrypterer med `AGE_IDENTITY` og
-  verifiserer også opplastingsarkivet. Se `docs/OPERATIONS.md`.
+  kryptering og `BACKUP_REMOTE` for kopi til ekstern lagring. Skriptet skriver
+  sjekksum og statusfil; `scripts/backup-freshness.sh` kontrollerer alder og
+  innhold. Systemd-enhetene i `deploy/systemd/` kjører daglig backup, daglig
+  ferskhetskontroll og ukentlig restore-test med varsel ved feil. Se
+  `docs/OPERATIONS.md` for RPO/RTO og nøkkelgjenoppretting.

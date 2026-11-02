@@ -1,0 +1,11 @@
+[Unit]
+Description=FSM-platform: daglig backup
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=fsm-backup.service
+
+[Install]
+WantedBy=timers.target
