@@ -84,13 +84,34 @@
           }
         }
 
-        function itemIdentity(item) {
-          var fromPayload = payloadIdentity(item.payload);
+        function isEncryptedRecord(record) {
+          return Boolean(
+            record && typeof record.enc === "string" && record.enc.length > 0,
+          );
+        }
+
+        /**
+         * Krypterte poster har ikke lesbar payload. Metadata (oppdrag, mal og
+         * tid) er fortsatt klartekst, men notater og annet innhold vises først
+         * etter at appen har låst opp med PIN.
+         */
+        function recordIdentity(record) {
+          var metadata = {
+            workOrderId: String(record.workOrderId || ""),
+            templateId: String(record.templateId || ""),
+            notes: "",
+          };
+          if (isEncryptedRecord(record)) return metadata;
+          var fromPayload = payloadIdentity(record.payload);
           return {
-            workOrderId: String(item.workOrderId || fromPayload.workOrderId || ""),
-            templateId: String(item.templateId || fromPayload.templateId || ""),
+            workOrderId: metadata.workOrderId || fromPayload.workOrderId,
+            templateId: metadata.templateId || fromPayload.templateId,
             notes: fromPayload.notes,
           };
+        }
+
+        function itemIdentity(item) {
+          return recordIdentity(item);
         }
 
         function formLink(workOrderId, templateId) {
@@ -137,10 +158,14 @@
               (unsynced.length === 1
                 ? " kladd er lagret."
                 : " kladder er lagret.");
+            if (unsynced.some(isEncryptedRecord)) {
+              draftsStatus.textContent +=
+                " Kladdene er kryptert. Åpne appen og lås opp med PIN for å se innholdet. / Drafts are encrypted. Open the app and unlock with your PIN to view them.";
+            }
           }
 
           unsynced.forEach(function (draft) {
-            var identity = payloadIdentity(draft.payload);
+            var identity = recordIdentity(draft);
             var matching = outbox.find(function (item) {
               var itemId = itemIdentity(item);
               return (

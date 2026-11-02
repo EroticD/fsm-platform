@@ -1,0 +1,46 @@
+{
+  "p3": {
+    "offlineLock": {
+      "lockedTitle": "Szkice offline są zablokowane",
+      "lockedDescription": "Odblokuj kodem PIN, aby wyświetlić i wysłać szkice zapisane na tym urządzeniu.",
+      "setupTitle": "Ustaw PIN dla szkiców offline",
+      "setupDescription": "Szkice zawierające nazwiska klientów, notatki, zdjęcia i podpisy są szyfrowane na tym urządzeniu. Po ponownym uruchomieniu lub 15 minutach bezczynności musisz odblokować je kodem PIN.",
+      "legacyTitle": "Znaleziono niezaszyfrowane szkice",
+      "legacyDescription": "Szkice ze starszej wersji są zapisane bez szyfrowania na tym urządzeniu. Ustaw PIN, aby je zaszyfrować, albo je odrzuć. Nic nie zostanie usunięte bez potwierdzenia.",
+      "orphanedTitle": "Brakuje klucza PIN",
+      "orphanedDescription": "Istnieją zaszyfrowane szkice, ale klucz, który może je odblokować, zniknął z tej przeglądarki. Szkiców nie można odzyskać. Odrzuć je, aby ustawić nowy PIN.",
+      "pinLabel": "PIN",
+      "pinConfirmLabel": "Powtórz PIN",
+      "currentPinLabel": "Obecny PIN",
+      "newPinLabel": "Nowy PIN",
+      "setupAction": "Ustaw PIN",
+      "migrateAction": "Zaszyfruj kodem PIN",
+      "unlockAction": "Odblokuj",
+      "changeAction": "Zmień PIN",
+      "lockAction": "Zablokuj teraz",
+      "discardAction": "Odrzuć szkice",
+      "discardConfirm": "Odrzucić wszystkie lokalne szkice i usunąć PIN z tego urządzenia? Tej operacji nie można cofnąć.",
+      "legacyDiscardAction": "Odrzuć niezaszyfrowane szkice",
+      "legacyDiscardConfirm": "Odrzucić szkice ze starszej wersji bez ich szyfrowania? Tej operacji nie można cofnąć.",
+      "closeAction": "Zamknij",
+      "pinHint": "Co najmniej {min} cyfr. PIN nie jest przechowywany i nie można go odzyskać.",
+      "pinMismatch": "Kody PIN nie są takie same.",
+      "pinTooShort": "PIN musi mieć co najmniej {min} cyfr.",
+      "pinInvalid": "PIN może zawierać tylko cyfry.",
+      "wrongPin": "Nieprawidłowy PIN. Pozostało prób: {remaining}.",
+      "lockedOut": "Zbyt wiele nieudanych prób. Spróbuj ponownie za {seconds} s.",
+      "unlockedStatus": "Szkice są odblokowane.",
+      "changeSuccess": "PIN został zmieniony.",
+      "migrated": "Zaszyfrowano szkice: {count}.",
+      "cryptoUnavailable": "Szyfrowanie nie jest dostępne w tej przeglądarce. Nie można bezpiecznie zapisywać szkiców offline.",
+      "keyCorrupt": "Nie można odczytać klucza PIN. Odrzuć szkice i ustaw nowy PIN.",
+      "keyMissing": "Nie znaleziono PIN-u dla tego użytkownika. Ustaw nowy PIN."
+    }
+  },
+  "orders": {
+    "reportForm": {
+      "stepDraftLocked": "szkic zablokowany",
+      "unlockDraft": "Odblokuj szkice"
+    }
+  }
+}

@@ -225,6 +225,16 @@ function itemReportIdentity(item) {
   return payloadReportIdentity(item.payload);
 }
 
+/**
+ * SEC-01 krypterer outbox-payloaden i IndexedDB. Service workeren har ikke
+ * tilgang til den PIN-opplåste nøkkelen (den finnes bare i appens minne) og
+ * skal derfor aldri sende eller parse ciphertext. Slike poster blir liggende
+ * til brukeren åpner appen og låser opp.
+ */
+function isSealedRecord(item) {
+  return Boolean(item && typeof item.enc === "string" && item.enc.length > 0);
+}
+
 function reportKey(userId, identity) {
   return `${userId}:${identity.workOrderId}:${identity.templateId}`;
 }
@@ -386,6 +396,16 @@ function summarizeOutbox(items, userId) {
  */
 async function replayDraftOutbox(userId) {
   const all = await listOutboxForUser(userId);
+  if (all.some(isSealedRecord)) {
+    // Kladdene er kryptert og kan bare dekrypteres av appen etter PIN-opplåsing.
+    // Ikke send ciphertext til API-et og ikke marker noe som feilet.
+    return {
+      sent: 0,
+      ...summarizeOutbox(all, userId),
+      retry: false,
+      locked: true,
+    };
+  }
   const { ordered, stale } = newestPerReport(all, userId);
 
   for (const item of stale) {
@@ -513,6 +533,7 @@ async function handleDraftSyncEvent() {
     sent: outcome.sent,
     pending: outcome.pending,
     failed: outcome.failed,
+    ...(outcome.locked ? { locked: true } : {}),
   });
 
   if (outcome.retry) {

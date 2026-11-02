@@ -50,6 +50,8 @@ import {
   removeOutboxForReport,
   saveDraftLocally,
 } from "@/lib/offline/draft-outbox";
+import { isOfflineLockedError } from "@/lib/offline/crypto";
+import { requestOfflineUnlock } from "@/lib/offline/lock";
 
 export type CustomerUnit = {
   id: string;
@@ -295,8 +297,9 @@ export default function ReportForm({
   // Skriver lokale kladder sekvensielt, så en senere (nyere) snapshot alltid
   // havner etter en eldre – også om to lagringer skulle overlappe.
   const localWriteChain = useRef<Promise<void>>(Promise.resolve());
+  const localLockRef = useRef(false);
   const [draftStatus, setDraftStatus] = useState<
-    "idle" | "saving" | "saved" | "error" | "offline"
+    "idle" | "saving" | "saved" | "error" | "offline" | "locked"
   >(initialDraft ? "saved" : "idle");
   const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(
     draftUpdatedAt ? new Date(draftUpdatedAt) : null,
@@ -339,6 +342,7 @@ export default function ReportForm({
       form: payload,
       notes: payload.notes ?? "",
     };
+    localLockRef.current = false;
     const write = localWriteChain.current
       .catch(() => undefined)
       .then(() =>
@@ -350,8 +354,15 @@ export default function ReportForm({
         }),
       )
       .then(() => true)
-      .catch(() => {
-        // IndexedDB utilgjengelig – serverlagringen kan fortsatt lykkes.
+      .catch((error: unknown) => {
+        // En låst PIN-nøkkel er ikke det samme som utilgjengelig IndexedDB:
+        // montøren må få et tydelig valg om å låse opp, ellers tror hen at
+        // kladden er trygt lagret.
+        if (isOfflineLockedError(error)) {
+          localLockRef.current = true;
+          setDraftStatus("locked");
+        }
+        // Ellers: IndexedDB utilgjengelig – serverlagringen kan fortsatt lykkes.
         return false;
       });
     localWriteChain.current = write.then(
@@ -389,13 +400,13 @@ export default function ReportForm({
         setDraftStatus("saved");
         setDraftSavedAt(result.savedAt ? new Date(result.savedAt) : new Date());
       } else {
-        setDraftStatus("error");
+        setDraftStatus(localLockRef.current ? "locked" : "error");
       }
     } catch {
-      setDraftStatus("offline");
+      setDraftStatus(localLockRef.current ? "locked" : "offline");
       // Den lokale kladden er skrevet selv om serveren ikke nås. Vis tiden
       // den ble lagret på, slik at montøren ser at endringen ikke er tapt.
-      setDraftSavedAt(new Date());
+      if (!localLockRef.current) setDraftSavedAt(new Date());
       try {
         await queueDraftForRetry(readFormPayload(form));
       } catch {
@@ -484,8 +495,11 @@ export default function ReportForm({
         setDraftStatus("saved");
         setDraftSavedAt(new Date(local.updatedAt));
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         restoreSettledKey.current = draftIdentity;
+        // En låst lokal kladd skal ikke skjules som «ingen kladd». Vis at det
+        // finnes lokalt arbeid, men at det må låses opp før det kan hentes.
+        if (isOfflineLockedError(error)) setDraftStatus("locked");
       });
     return () => {
       active = false;
@@ -862,9 +876,11 @@ export default function ReportForm({
         ? t("orders.reportForm.stepDraftError")
         : draftStatus === "offline"
           ? t("orders.reportForm.stepDraftOffline")
-          : draftStatus === "saved"
-            ? t("orders.reportForm.stepDraftSaved")
-            : t("orders.reportForm.stepDraftIdle");
+          : draftStatus === "locked"
+            ? t("orders.reportForm.stepDraftLocked")
+            : draftStatus === "saved"
+              ? t("orders.reportForm.stepDraftSaved")
+              : t("orders.reportForm.stepDraftIdle");
   const draftTimeLabel =
     (draftStatus === "saved" || draftStatus === "offline") && draftSavedAt
       ? draftSavedAt.toLocaleTimeString(locale, {
@@ -875,11 +891,13 @@ export default function ReportForm({
   const draftIcon =
     draftStatus === "error"
       ? "alert"
-      : draftStatus === "saving" || draftStatus === "offline"
-        ? "sync"
-        : draftStatus === "saved"
-          ? "check"
-          : "clock";
+      : draftStatus === "locked"
+        ? "shield"
+        : draftStatus === "saving" || draftStatus === "offline"
+          ? "sync"
+          : draftStatus === "saved"
+            ? "check"
+            : "clock";
 
   // Aktivt steg følger faktisk rulleposisjon. Bildesteget finnes bare når
   // malen har et bildefelt; ellers hopper det til sjekkpunktene.
@@ -1100,6 +1118,16 @@ export default function ReportForm({
                 })}
               </span>
             </p>
+            {draftStatus === "locked" && (
+              <button
+                type="button"
+                onClick={() => requestOfflineUnlock()}
+                className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-signal/60 bg-signal/10 px-2.5 py-1 text-xs font-black text-signal transition hover:bg-signal/20"
+              >
+                <Icon name="shield" className="h-3.5 w-3.5" />
+                {t("orders.reportForm.unlockDraft")}
+              </button>
+            )}
             {checkpointProgress.total > 0 && (
               <div
                 role="progressbar"
