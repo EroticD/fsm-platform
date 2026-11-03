@@ -54,15 +54,13 @@
       "months": "{count} mnd"
     },
     "booking": {
-      "title": "Book en ledig time",
-      "desc": "Velg sted, tjeneste og en ledig time. Bookingen bekreftes med en gang.",
+      "title": "Be om et besøk",
+      "desc": "Velg sted, tjeneste og ønsket dato. Skriv ønsket klokkeslett i beskrivelsen. Kontoret eller montøren bekrefter og planlegger besøket senere.",
       "titleLabel": "Oppdragstittel *",
       "titlePlaceholder": "F.eks. Årlig service",
       "descriptionLabel": "Beskrivelse",
       "descriptionPlaceholder": "Hva trenger du hjelp med?",
       "dateLabel": "Ønsket dato *",
-      "fromLabel": "Fra kl.",
-      "toLabel": "Til kl.",
       "equipmentLabel": "Utstyr det gjelder",
       "equipmentNone": "Gjelder ikke et bestemt utstyr",
       "contactNameLabel": "Kontaktperson *",
@@ -74,7 +72,7 @@
       "reference": "Referanse: {reference}",
       "nextTitle": "Hva skjer nå?",
       "nextStep1": "Kontoret går gjennom forespørselen og sjekker at utstyr og tid passer.",
-      "nextStep2": "Du får en bekreftelse med endelig tid først når kontoret har svart. Har du valgt en ledig dag, prøver vi å holde den.",
+      "nextStep2": "Du får bekreftet endelig tid først når kontoret eller montøren har planlagt oppdraget.",
       "nextStep3": "Du kan følge statusen under «Dine bestillinger». Der kan du også kansellere eller be om ny tid.",
       "seeRequests": "Se forespørslene dine",
       "errors": {

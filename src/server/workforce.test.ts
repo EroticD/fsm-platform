@@ -52,6 +52,7 @@ import {
   listSkills,
   listUserAvailability,
   listUserSkills,
+  listWorkforceStaff,
   normalizeAvailabilityWindows,
   replaceUserAvailability,
   setUserSkills,
@@ -273,6 +274,45 @@ describe("ren validering", () => {
 // ---------------------------------------------------------------------------
 
 describe("kompetansekatalogen", () => {
+  it("lister ansatte med avdelingsnavn for bemanningsfanen", async () => {
+    mocks.prisma.user.findMany.mockResolvedValue([
+      {
+        id: "staff-1",
+        name: "Ola Montør",
+        email: "ola@example.test",
+        departmentId: "dep-a",
+        department: { name: "Hovedavdeling" },
+      },
+    ]);
+
+    await expect(listWorkforceStaff(viewer())).resolves.toMatchObject({
+      ok: true,
+      data: [
+        {
+          id: "staff-1",
+          name: "Ola Montør",
+          departmentId: "dep-a",
+          departmentName: "Hovedavdeling",
+        },
+      ],
+    });
+    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({ departmentId: "dep-a" }),
+          ]),
+        }),
+        take: 200,
+      }),
+    );
+
+    await expect(listWorkforceStaff(noAccess())).resolves.toMatchObject({
+      ok: false,
+      reason: "forbidden",
+    });
+  });
+
   it("krever users.view for å liste og users.manage for å endre", async () => {
     await expect(listSkills(noAccess())).resolves.toMatchObject({
       ok: false,
@@ -813,7 +853,7 @@ describe("availableTechnicians", () => {
     expect(mocks.prisma.user.findMany).not.toHaveBeenCalled();
   });
 
-  it("avgrenser til 200 og ekskluderer fravær og overlappende visitter", async () => {
+  it("avgrenser til 200 og ekskluderer fravær, men ikke overlappende visitter", async () => {
     await availableTechnicians(office(), range);
 
     const query = mocks.prisma.user.findMany.mock.calls[0][0];
@@ -830,17 +870,6 @@ describe("availableTechnicians", () => {
             none: {
               startsAt: { lt: range.endsAt },
               endsAt: { gt: range.startsAt },
-            },
-          },
-        }),
-        expect.objectContaining({
-          visitAssignments: {
-            none: {
-              visit: expect.objectContaining({
-                status: { not: "CANCELLED" },
-                startsAt: { lt: range.endsAt },
-                endsAt: { gt: range.startsAt },
-              }),
             },
           },
         }),

@@ -24,6 +24,7 @@ describeIntegration("searchReports – paginering over kandidatgrensen", () => {
     const created = await prisma.workOrder.createManyAndReturn({
       data: Array.from({ length: total }, (_, index) => ({
         title: `${marker} oppdrag ${index}`,
+        reference: `O-${marker.slice(0, 6)}-${String(index).padStart(8, "0")}`.slice(0, 20),
         departmentId,
         status: "OPEN" as const,
       })),

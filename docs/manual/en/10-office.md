@@ -117,8 +117,8 @@ a date; the time is set on the visit:
 4. Press **Save visit**.
 
 A visit lasts at most 31 days, and the end time must be after the start time.
-An overlap gives **One or more technicians are already assigned to an
-overlapping visit.**
+Overlapping visits are allowed. The technician is shown as busy, but can still
+be assigned another job; use the calendar and capacity view to judge the load.
 
 ### HMS library and QR labels
 
@@ -285,7 +285,7 @@ maximum of 1000 visits; visits outside the window may be missing.
 The calendar shows visits with the status **Planned**, **Assigned**, **On the
 way**, **On site**, **Completed** or **Cancelled**. Drag a visit to another day
 or time range to move it. On conflict the move is not saved, and you are told
-about the overlap.
+about the overlapping assignment.
 
 **Resource overview** shows technicians, active work, unassigned work and recent
 completions. **Unassigned work orders** have **Assign technician**. You can drag
@@ -370,8 +370,8 @@ calculate amounts.**
 ### Recurring work orders
 
 At each interval a new **Planned** work order is created with the agreement's
-customer, contact, department and checklist, plus an all-day visit without
-technicians. Expired agreements do not generate new work orders.
+customer, contact, department and checklist, plus a four-hour default visit without
+technicians (08:00–12:00). Expired agreements do not generate new work orders.
 
 ## Bookings
 
@@ -386,16 +386,16 @@ The booking queue is at `/bookinger` with **All**, **Pending**, **Confirmed** an
 On confirmation the work order becomes **Planned**, the visit is created or
 updated, and the customer receives an SMS if the contact has consented.
 
-The customer books in the portal. Available times are 30-minute slots up to 60
-days ahead, with at least 24 hours' lead time. Working hours, absence, visits and
-unconfirmed reservations are deducted; the default is at most three suggested
-slots per technician per day. If working hours are missing, the department's opening hours
-are used, then weekdays 08–16. A selected time is held for five minutes while the
-customer completes the form.
+The customer chooses a site, service and requested date in the portal, and
+writes the desired time in the description. The customer cannot select a time
+block, and the booking always creates a new work order with status
+**Open/New**. No visit or confirmed time is created.
 
-A customer booking already creates a work order; there is no separate **Convert
-to work order** button. New bookings are confirmed directly. Older **Pending**
-requests become **Planned** with a visit when you confirm them.
+The office or technician plans the work order and sets the status to
+**Planned**. If the time does not fit, it is set to **Waiting** for
+replanning. The customer receives the final confirmation only then. A customer
+booking is already a work order; there is no separate **Convert to work order**
+button.
 
 ## Reports
 
@@ -570,7 +570,7 @@ restoration. See the administrator part (Part 3).
 | Cannot assign | Missing **Assign technicians**, locked or legal hold | Request permission, or reopen as administrator |
 | Drag and drop did not change the date | Drag and drop assigns a technician | Move the visit in the calendar |
 | Calendar is empty | No visits, filter or outside ±6 months | Reset filter, choose **Today**, check visit |
-| Overlapping visit | Technician is double-booked | Move the visit or choose another technician |
+| Overlapping visit | Technician has several jobs at the same time | Check capacity and move one of the visits if needed |
 | Report is locked | Submitted report | Ask an administrator to **Unlock for editing** |
 | Customer cannot see the report | Not locked, or missing portal/document access | Lock the report, check portal user |
 | Customer cannot book | Missing contact, active user or available time | Check contact, user, 24 hours and available time slots |

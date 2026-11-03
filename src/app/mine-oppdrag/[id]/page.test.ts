@@ -131,6 +131,7 @@ function makeWorkOrder(overrides: Record<string, unknown> = {}) {
     id: "wo-1",
     title: "Service – portautomatikk",
     orderNumber: "1001",
+    reference: "O-261030-REF12345",
     status: "IN_PROGRESS",
     legalHold: false,
     departmentId: "dep-1",
@@ -209,9 +210,11 @@ beforeEach(() => {
 });
 
 describe("feltdetalj – live opplysninger", () => {
-  it("viser ordrenummer, dato, kunde, kontakt, adresse, montør og sjekklistetelling", async () => {
+  it("viser referanse, ordrenummer, dato, kunde, kontakt, adresse, montør og sjekklistetelling", async () => {
     const html = await render();
 
+    expect(html).toContain("O-261030-REF12345");
+    expect(html).toContain("orders.detail.reference");
     expect(html).toContain("1001");
     expect(html).toContain("Nordvik Testindustri AS");
     expect(html).toContain("Kari Kontakt");

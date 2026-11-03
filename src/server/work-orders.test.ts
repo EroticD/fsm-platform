@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccessUser } from "@/lib/access";
 import { osloDayStart } from "@/lib/dates";
+import { defaultVisitWindow } from "@/lib/visit-window";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -16,8 +17,14 @@ const mocks = vi.hoisted(() => ({
     },
     user: { findFirst: vi.fn(), findMany: vi.fn() },
     contact: { findUnique: vi.fn(), create: vi.fn() },
+    customerSite: { findFirst: vi.fn() },
     customer: { findUnique: vi.fn(async () => null) },
     department: { findFirst: vi.fn() },
+    skill: {
+      findMany: vi.fn(
+        async (): Promise<Array<{ id: string }>> => [],
+      ),
+    },
     comment: { create: vi.fn() },
     report: { updateMany: vi.fn(async () => ({ count: 0 })), findFirst: vi.fn(), update: vi.fn() },
     upload: { findMany: vi.fn(async () => []), updateMany: vi.fn(async () => ({ count: 0 })) },
@@ -111,6 +118,10 @@ function txClient() {
       delete: vi.fn(async () => ({})),
     },
     visitTechnician: {
+      createMany: vi.fn(async () => ({ count: 0 })),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+    },
+    workOrderSkill: {
       createMany: vi.fn(async () => ({ count: 0 })),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
@@ -302,6 +313,7 @@ describe("work-orders-tjenesten", () => {
     expect(tx.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: "Service",
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
         orderNumber: "K-1001",
         orderNumberNormalized: "K1001",
         departmentId: "dep-a",
@@ -323,8 +335,84 @@ describe("work-orders-tjenesten", () => {
     });
   });
 
-  it("avviser duplikat ordrenummer ved opprettelse med forståelig feil", async () => {
-    mocks.prisma.workOrder.count.mockResolvedValue(1);
+  it("lagrer kompetansekrav i samme transaksjon som oppdraget", async () => {
+    mocks.prisma.skill.findMany.mockResolvedValue([
+      { id: "skill-1" },
+      { id: "skill-2" },
+    ]);
+    const tx = withTransaction();
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+      skillIds: ["skill-1", "skill-2"],
+      mandatorySkillIds: ["skill-2"],
+    });
+
+    expect(result).toEqual({ ok: true, id: "wo-new" });
+    expect(tx.workOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        skillRequirements: {
+          create: [
+            { skillId: "skill-1", mandatory: false },
+            { skillId: "skill-2", mandatory: true },
+          ],
+        },
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("avviser kompetansekrav som ikke finnes i katalogen", async () => {
+    mocks.prisma.skill.findMany.mockResolvedValue([]);
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+      skillIds: ["ukjent"],
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser påkrevd kompetanse som ikke er valgt", async () => {
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+      skillIds: [],
+      mandatorySkillIds: ["skill-1"],
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("avviser duplikat ordrenummer ved opprettelse med forståelig feil", async () => {    mocks.prisma.workOrder.count.mockResolvedValue(1);
 
     const result = await createWorkOrder(actor(), {
       title: "Service",
@@ -370,6 +458,72 @@ describe("work-orders-tjenesten", () => {
 
     expect(result).toEqual({ ok: false, error: "duplikat-ordrenummer" });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("erstatter kompetansekrav ved redigering i samme transaksjon", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      orderNumber: null,
+      orderNumberNormalized: null,
+    });
+    mocks.prisma.skill.findMany.mockResolvedValue([{ id: "skill-2" }]);
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+      skillIds: ["skill-2"],
+      mandatorySkillIds: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrderSkill.deleteMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo-1" },
+    });
+    expect(tx.workOrderSkill.createMany).toHaveBeenCalledWith({
+      data: [{ workOrderId: "wo-1", skillId: "skill-2", mandatory: false }],
+    });
+  });
+
+  it("fjerner alle kompetansekrav når listen tømmes", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: null,
+      status: "OPEN",
+      orderNumber: null,
+      orderNumberNormalized: null,
+    });
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "",
+      contactId: "",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+      skillIds: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrderSkill.deleteMany).toHaveBeenCalledWith({
+      where: { workOrderId: "wo-1" },
+    });
+    expect(tx.workOrderSkill.createMany).not.toHaveBeenCalled();
   });
 
   it("lagrer normalisert ordrenummer og logger før/etter ved oppdatering", async () => {
@@ -1317,6 +1471,7 @@ describe("work-orders-tjenesten", () => {
     expect(tx.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: "Service",
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
         orderNumber: null,
         orderNumberNormalized: null,
         description: "Beskrivelse",
@@ -1334,12 +1489,13 @@ describe("work-orders-tjenesten", () => {
       }),
       select: { id: true },
     });
-    // Kilden mangler visitt, men har dato: klonen får én all-day-visitt.
+    // Kilden mangler visitt, men har dato: klonen får standard firetimersblokk.
+    const cloneWindow = defaultVisitWindow(new Date("2026-10-24"));
     expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
       workOrderId: "wo-new",
-      startsAt: osloDayStart("2026-10-24"),
-      endsAt: osloDayStart("2026-10-25"),
-      allDay: true,
+      startsAt: cloneWindow.startsAt,
+      endsAt: cloneWindow.endsAt,
+      allDay: false,
       technicianIds: ["tech-1"],
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
@@ -1684,7 +1840,7 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-new" });
   });
 
-  it("oppretter én all-day-visitt med montører når oppdraget får dato", async () => {
+  it("oppretter en firetimers standardvisitt med montører når oppdraget får dato", async () => {
     mocks.prisma.user.findMany.mockResolvedValue([{ id: "tech-1" }]);
     const tx = withTransaction();
 
@@ -1702,11 +1858,12 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
     });
 
     expect(result).toEqual({ ok: true, id: "wo-new" });
+    const createWindow = defaultVisitWindow(new Date("2026-10-24"));
     expect(mocks.createDefaultVisit).toHaveBeenCalledWith(tx, {
       workOrderId: "wo-new",
-      startsAt: osloDayStart("2026-10-24"),
-      endsAt: osloDayStart("2026-10-26"),
-      allDay: true,
+      startsAt: createWindow.startsAt,
+      endsAt: createWindow.endsAt,
+      allDay: false,
       technicianIds: ["tech-1"],
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
@@ -2058,5 +2215,121 @@ describe("visits – oppdrag og standardvisitt holdes i takt", () => {
       }),
     });
     expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(tx, "wo-new");
+  });
+});
+
+describe("oppdragets sted", () => {
+  const site = {
+    id: "site-1",
+    name: "Lager",
+    address: "Lagergata 2",
+    postalCode: "1235",
+    city: "Oslo",
+  };
+
+  it("lagrer stedet når det tilhører kunden", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(site);
+    const tx = withTransaction();
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "site-1",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true, id: "wo-new" });
+    expect(mocks.prisma.customerSite.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "site-1", customerId: "cust-1" },
+      }),
+    );
+    expect(tx.workOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ siteId: "site-1" }),
+      select: { id: true },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    });
+  });
+
+  it("avviser et sted som tilhører en annen kunde", async () => {
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+
+    const result = await createWorkOrder(actor(), {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "annens-sted",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      templateIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: "ugyldig-data" });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("oppdaterer stedet og avviser annen kundes sted", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      siteId: null,
+      status: "OPEN",
+      orderNumber: null,
+      orderNumberNormalized: null,
+    });
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(site);
+    const tx = withTransaction();
+
+    const result = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "site-1",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(tx.workOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    );
+
+    mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+    const denied = await updateWorkOrder(actor(), "wo-1", {
+      title: "Service",
+      description: "",
+      departmentId: "dep-a",
+      customerId: "cust-1",
+      contactId: "",
+      siteId: "annens-sted",
+      scheduledFor: "2026-10-24",
+      scheduledTo: "",
+      technicianIds: [],
+      tagNames: [],
+    });
+    expect(denied).toEqual({ ok: false, error: "ugyldig-data" });
   });
 });

@@ -183,6 +183,12 @@ model ApiKey {
   expiresAt  DateTime?
   revokedAt  DateTime?
 
+  // Tom liste betyr «alle scopes» for nøkler opprettet før scopes ble innført.
+  // Nye nøkler får alltid en eksplisitt liste.
+  scopes   String[] @default([])
+  // Skrivebeskyttet nøkkel: alle andre metoder enn GET/HEAD avvises.
+  readOnly Boolean  @default(false)
+
   @@index([userId])
   @@index([keyHash])
 }
@@ -241,6 +247,7 @@ model Customer {
   attachments      CustomerAttachment[]
   maintenancePlans MaintenancePlan[]
   messageThreads   MessageThread[]
+  documents        Document[]
 
   users User[]
 
@@ -398,6 +405,7 @@ model Product {
 
   meterReadings    MeterReading[]
   maintenancePlans MaintenancePlan[]
+  documents        Document[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -767,6 +775,10 @@ enum VisitStatus {
 model WorkOrder {
   id                    String     @id @default(cuid())
   title                 String
+  /// Menneskelig, unik referanse kunden kan oppgi og som kan søkes opp.
+  /// Ordinære oppdrag bruker O-YYMMDD-XXXXXXXX; kundebestillinger beholder
+  /// sin B-YYMMDD-XXXXXX-referanse.
+  reference             String     @unique
   /// Eksternt ordrenummer fra kundens system.
   orderNumber           String?
   /// Normalisert ordrenummer for duplikatkontroll/søk.
@@ -1253,6 +1265,15 @@ model Document {
   folderId String?
   folder   DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
+  // Eierskap for kundedokumenter. Den globale dokumentmappen kan inneholde
+  // dokumenter uten eier; de eksporteres aldri som en del av en kundepakke.
+  // `customerId`/`productId` settes bare når eierskapet er kjent, aldri gjettet
+  // fra tittel eller filnavn.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  productId  String?
+  product    Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
   tags DocumentTag[] @relation("DocumentTagRelation")
 
   uploadedBy String?
@@ -1264,6 +1285,8 @@ model Document {
   versions DocumentVersion[]
 
   @@index([folderId])
+  @@index([customerId])
+  @@index([productId])
   @@index([title])
   @@index([deletedAt])
   @@index([searchTsv], type: Gin, map: "Document_searchTsv")
@@ -1541,19 +1564,145 @@ model RateLimit {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
+  id String @id @default(cuid())
+  /// Monoton rekkefølge. Hash-kjeden følger denne, ikke tidspunktet, slik at
+  /// to hendelser i samme millisekund fortsatt får en entydig rekkefølge.
+  seq        Int      @unique @default(autoincrement())
   entityType String
   entityId   String
   action     String
   userName   String
   actorId    String?
+  /// Avdelingen hendelsen skjedde i. Brukes til avdelingssperret visning og
+  /// eksport; eldre rader kan mangle verdi og vises bare for administrator.
+  departmentId String?
   metadata   Json?
+  /// SHA-256 av forrige rad i kjeden (null for første rad).
+  prevHash   String?
+  /// SHA-256 av denne radens kanoniske innhold og `prevHash`.
+  hash       String?
   createdAt  DateTime @default(now())
 
   @@index([entityType])
   @@index([entityId])
   @@index([entityType, entityId, createdAt])
   @@index([createdAt])
+  @@index([departmentId, createdAt])
+  @@index([hash])
+  @@index([prevHash])
+}
+
+/// Konfigurasjon for revisjonsloggens oppbevaringstid. Én rad med id «default».
+model AuditRetentionSetting {
+  id            String   @id @default("default")
+  /// Antall dager revisjonslogger beholdes før de kan purres. 0 = aldri.
+  retentionDays Int      @default(365)
+  updatedAt     DateTime @updatedAt
+  updatedById   String?
+}
+
+/// Bevaringsplikt på revisjonslogger. Holdet ligger i en egen tabell fordi
+/// selve revisjonsraden skal være uforanderlig: et hold er en markering, ikke
+/// en endring av historikken. Et hold kan gjelde én logg eller en hel entitet.
+model AuditHold {
+  id          String    @id @default(cuid())
+  auditLogId  String?
+  entityType  String?
+  entityId    String?
+  reason      String
+  createdById String?
+  createdAt   DateTime  @default(now())
+  releasedAt  DateTime?
+  releasedById String?
+
+  @@index([auditLogId])
+  @@index([entityType, entityId])
+  @@index([releasedAt])
+}
+
+/// Hash-verdier som er fjernet av retensjonsjobben. Uten disse ville en
+/// verifisering se på neste rad som brutt, fordi `prevHash` peker på en rad som
+/// er purret med vilje. Tombstones gjør at et kontrollert hull kan skilles fra
+/// manipulering.
+model AuditPurgedHash {
+  hash     String   @id
+  purgedAt DateTime @default(now())
+  reason   String?
+}
+
+/// Vedvarende jobb for admin-eksport/import av en kundepakke.
+///
+/// Raden er både tilstand og revisjonsspor. JSON-feltene skal bare inneholde
+/// id-er, antall, tilstander og stabile feilkoder – aldri kundedata, fritekst
+/// eller filinnhold. Selve pakken ligger i en tilgangsbegrenset staging-mappe
+/// og slettes når `expiresAt` er passert.
+model CustomerTransferJob {
+  id     String @id @default(cuid())
+  actorId String
+  /// EXPORT | IMPORT
+  kind   String
+  /// PENDING | STAGED | DRY_RUN | READY | COMPLETED | FAILED | ABORTED | EXPIRED
+  status String @default("PENDING")
+
+  /// SHA-256 av hele ZIP-filen. Bindes til forhåndsvisningen og bekreftelsen.
+  packageChecksum String?
+  sourceInstanceId String?
+  schemaVersion    String?
+  /// Valgte kundekilder (eksport) eller kilder i pakken (import), bare id-er.
+  customerIdsJson  Json?
+  /// Per-entitet antall og handlinger; ingen navn eller fritekst.
+  countsJson       Json?
+  /// Stabile feilkoder med JSON-peker. Ingen rå feilmeldinger eller PII.
+  errorJson        Json?
+  resultJson       Json?
+
+  progressStage     String?
+  progressProcessed Int @default(0)
+  progressTotal     Int @default(0)
+
+  /// Kortlevd, hash-et forhåndsvisningstoken bundet til aktør, jobb og sjekksum.
+  previewTokenHash String?
+  previewExpiresAt DateTime?
+  /// Fingeravtrykk av målbasen ved forhåndsvisning, for å oppdage endringer.
+  targetFingerprint String?
+
+  /// Mappe under uploadDir()/.transfer. Slettes etter fullført/avbrutt/utløpt jobb.
+  stagingPath String?
+  expiresAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  updatedAt   DateTime @updatedAt
+
+  records CustomerTransferRecord[]
+
+  @@index([actorId, createdAt])
+  @@index([kind, status])
+  @@index([expiresAt])
+  @@index([packageChecksum])
+}
+
+/// Anvendt kilde→mål-mapping per importjobb.
+///
+/// Gjør det mulig å svare «allerede importert» ved en ny import av samme pakke
+/// og bevarer proveniens uten å legge en `sourceId`-kolonne på hver domeneTabell.
+model CustomerTransferRecord {
+  id               String @id @default(cuid())
+  jobId            String
+  job              CustomerTransferJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceInstanceId String
+  sourceEntityType String
+  sourceId         String
+  targetEntityType String
+  targetId         String?
+  /// CREATE | SKIP | UPDATE | CONFLICT | INVALID
+  action           String
+  createdAt        DateTime @default(now())
+
+  @@unique([jobId, sourceInstanceId, sourceEntityType, sourceId])
+  @@index([sourceInstanceId, sourceEntityType, sourceId])
+  @@index([jobId, action])
 }
 
 model Notification {

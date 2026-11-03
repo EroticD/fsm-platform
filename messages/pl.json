@@ -25,6 +25,7 @@
           "customerNumber": "#{number}",
           "orgNumber": "Nr organizacyjny {number}",
           "workOrderNumber": "Nr zlecenia {number}",
+          "workOrderReference": "Referencja {reference}",
           "noCustomer": "Brak klienta",
           "tags": "🏷️ {tags}",
           "tagHint": "Pokaż zlecenia z tym tagiem",
@@ -33,6 +34,7 @@
           "templateKind": "Lista kontrolna / szablon",
           "templateReportName": "Nazwa raportu: {name}",
           "folderHint": "Folder w bibliotece dokumentów",
+          "page": "Strona {page}",
           "workOrderTitle": "Zlecenie: {title}",
           "folderPath": "📁 {path}"
         },
@@ -473,6 +475,29 @@
           "submitting": "Logowanie..."
         }
       },
+      "enrollment": {
+        "title": "Wymagane jest uwierzytelnianie dwuskładnikowe",
+        "desc": "Zasady bezpieczeństwa Twojej roli wymagają uwierzytelniania dwuskładnikowego dla {companyName} przed zalogowaniem.",
+        "startDesc": "Zeskanujesz kod QR i potwierdzisz jednorazowym kodem. Zajmie to mniej niż minutę.",
+        "start": "Rozpocznij konfigurację",
+        "starting": "Rozpoczynanie …",
+        "step1": "1. Zeskanuj kod QR aplikacją uwierzytelniającą.",
+        "qrAlt": "Kod QR wymaganego uwierzytelniania dwuskładnikowego",
+        "manualToggle": "Nie możesz zeskanować? Pokaż klucz",
+        "codeLabel": "Kod jednorazowy z aplikacji",
+        "confirm": "Potwierdź i zaloguj się",
+        "confirming": "Potwierdzanie …",
+        "backToLogin": "Powrót do logowania",
+        "errors": {
+          "expired": "Sesja wygasła. Zaloguj się ponownie.",
+          "invalid_code": "Nieprawidłowy kod jednorazowy. Spróbuj ponownie.",
+          "setup_expired": "Konfiguracja wygasła. Rozpocznij ją ponownie.",
+          "forbidden": "Konto nie może być używane. Skontaktuj się z administratorem.",
+          "already_enabled": "Uwierzytelnianie dwuskładnikowe jest już włączone. Zaloguj się ponownie.",
+          "TooManyAttempts": "Zbyt wiele prób. Poczekaj kilka minut i spróbuj ponownie.",
+          "default": "Nie udało się zakończyć konfiguracji."
+        }
+      },
       "forgot": {
         "title": "Nie pamiętasz hasła?",
         "rateLimited": "Zbyt wiele prób. Poczekaj 15 minut przed ponowną próbą.",
@@ -569,7 +594,7 @@
         "invalidFileType": "Nieprawidłowy typ pliku. Dozwolone są tylko obrazy i PDF.",
         "mimeMismatch": "Zawartość pliku nie odpowiada jego typowi.",
         "imageProcessingFailed": "Nie udało się przetworzyć pliku jako obrazu.",
-        "storageQuotaExceeded": "Osiągnięto dzienny limit pamięci. Spróbuj ponownie później.",
+        "storageQuotaExceeded": "Osiągnięto limit pamięci. Zwolnij miejsce lub skontaktuj się z administratorem.",
         "workOrderLocked": "Zlecenie jest zablokowane.",
         "legalHold": "Zlecenie objęte jest obowiązkiem przechowywania.",
         "departmentInactive": "Dział jest nieaktywny.",
@@ -624,7 +649,8 @@
           "forbidden": "Brak dostępu do raportów.",
           "notFound": "Nie znaleziono raportu.",
           "invalidLocked": "Nieprawidłowa wartość pola locked.",
-          "invalidAcknowledged": "Nieprawidłowa wartość pola acknowledged."
+          "invalidAcknowledged": "Nieprawidłowa wartość pola acknowledged.",
+          "activeContent": "Plik PDF zawiera aktywną treść, której nie można udostępnić."
         },
         "visits": {
           "forbidden": "Brak dostępu do wizyty.",
@@ -654,7 +680,9 @@
         "apiKey": {
           "invalid": "Nieprawidłowy lub wygasły klucz API.",
           "missing": "Brak tokenu Bearer.",
-          "authFailed": "Nie udało się uwierzytelnić żądania API."
+          "authFailed": "Nie udało się uwierzytelnić żądania API.",
+          "outOfScope": "Klucz API nie ma zakresu dla tego punktu końcowego.",
+          "readOnly": "Klucz API jest tylko do odczytu i może jedynie czytać."
         },
         "attachment": {
           "notFound": "Nie znaleziono załącznika.",
@@ -682,7 +710,7 @@
           "noFile": "Nie wybrano pliku.",
           "invalidType": "Nieprawidłowy typ pliku. Dozwolone są tylko obrazy i PDF.",
           "mimeMismatch": "Zawartość pliku nie odpowiada jego typowi.",
-          "quota": "Osiągnięto dzienny limit pamięci. Spróbuj ponownie później.",
+          "quota": "Osiągnięto limit pamięci. Zwolnij miejsce lub skontaktuj się z administratorem.",
           "imageFailed": "Nie udało się przetworzyć pliku jako obrazu.",
           "saveFailed": "Nie udało się zapisać pliku.",
           "failed": "Nie udało się przesłać pliku.",
@@ -778,6 +806,7 @@
         "search": "Szukaj",
         "reset": "Resetuj",
         "orderNumber": "Nr zlecenia",
+        "reference": "Referencja",
         "filterTag": "Tag: {tag}",
         "clearTag": "Wyczyść filtr tagów",
         "emptyTitle": "Brak zleceń w tym widoku.",
@@ -839,7 +868,10 @@
         "addressLabel": "Adres",
         "postalCodeLabel": "Kod pocztowy",
         "cityLabel": "Miasto",
-        "locationHint": "Pozostaw puste, aby użyć adresu klienta."
+        "locationHint": "Pozostaw puste, aby użyć adresu klienta.",
+        "siteLabel": "Lokalizacja",
+        "noSite": "Brak lokalizacji (użyj adresu klienta)",
+        "siteHint": "Wybierz zarejestrowaną lokalizację. Adres jest używany jako zapasowy, gdy lokalizacja nie ma adresu."
       },
       "customerSelect": {
         "label": "Wybierz klienta",
@@ -877,6 +909,7 @@
         "goToDashboard": "Przejdź do panelu",
         "saveTags": "💾 Zapisz tagi",
         "noDate": "Nie wybrano daty",
+        "reference": "Referencja",
         "noAddress": "Nie zarejestrowano adresu",
         "assign": "Przypisz",
         "moveDate": "Zmień datę",
@@ -1069,7 +1102,8 @@
           "resolvedAt": "Rozwiązano",
           "timeLeft": "Pozostało {minutes} min",
           "overdue": "{minutes} min po terminie"
-        }
+        },
+        "site": "Lokalizacja"
       },
       "edit": {
         "notFoundTitle": "Zlecenie nie istnieje",
@@ -1101,7 +1135,10 @@
         "addressLabel": "Adres",
         "postalCodeLabel": "Kod pocztowy",
         "cityLabel": "Miasto",
-        "locationHint": "Pozostaw puste, aby użyć adresu klienta."
+        "locationHint": "Pozostaw puste, aby użyć adresu klienta.",
+        "siteLabel": "Lokalizacja",
+        "noSite": "Brak lokalizacji (użyj adresu klienta)",
+        "siteHint": "Wybierz zarejestrowaną lokalizację dla zlecenia."
       },
       "fieldList": {
         "greeting": "Cześć, {name}",
@@ -1356,7 +1393,7 @@
         "stepDraftIdle": "wersja robocza zapisuje się automatycznie",
         "unitDetails": "Szczegóły urządzenia",
         "swipeUnitLabelMissing": "Nie można zakończyć: jednostka nie ma nazwy.",
-      "swipeCompleteHint": "Przesuń w prawo lub naciśnij „Zakończ jednostkę”",
+        "swipeCompleteHint": "Przesuń w prawo lub naciśnij „Zakończ jednostkę”",
         "swipeProgress": "{percent}% – przesuń dalej",
         "swipeReleaseHint": "Puść, aby zakończyć",
         "swipeReleaseShort": "Puść",
@@ -1973,7 +2010,18 @@
         "activate": "Aktywuj",
         "errorMissingFields": "Wypełnij imię i nazwisko, e-mail i wybierz kontakt.",
         "errorInvalidContact": "Kontakt nie należy do tego klienta.",
-        "errorDuplicateEmail": "Użytkownik z tym adresem e-mail już istnieje."
+        "errorDuplicateEmail": "Użytkownik z tym adresem e-mail już istnieje.",
+        "delegation": {
+          "title": "Delegowany dostęp do portalu",
+          "description": "Określ, co każda osoba kontaktowa może robić w portalu klienta. Kontakt bez zapisanej delegacji zachowuje pełny dostęp.",
+          "fullAccessFallback": "Pełny dostęp (domyślnie)",
+          "save": "Zapisz delegację",
+          "isActive": "Aktywny użytkownik portalu",
+          "canBook": "Może rezerwować",
+          "canViewDocuments": "Może przeglądać dokumenty i raporty",
+          "canViewContracts": "Może przeglądać umowy",
+          "canViewEquipment": "Może przeglądać sprzęt"
+        }
       },
       "activity": {
         "feedTitle": "Kanał aktywności",
@@ -2024,7 +2072,12 @@
           "contractTerminated": "Umowa serwisowa została zakończona.",
           "contractRenewed": "Umowa serwisowa została odnowiona.",
           "contractLineCreated": "Pozycja umowy została dodana.",
-          "contractLineDeleted": "Pozycja umowy została usunięta."
+          "contractLineDeleted": "Pozycja umowy została usunięta.",
+          "siteCreated": "Dodano lokalizację.",
+          "siteUpdated": "Zaktualizowano lokalizację.",
+          "siteDeleted": "Usunięto lokalizację.",
+          "sitePrimary": "Ustawiono lokalizację jako główną.",
+          "delegationSaved": "Zapisano delegację portalu."
         },
         "error": {
           "invalid": "Formularz zawiera nieprawidłowe lub brakujące pola.",
@@ -2033,6 +2086,25 @@
           "unknown": "Coś poszło nie tak. Spróbuj ponownie.",
           "conflict": "Działanie koliduje z inną zmianą. Odśwież stronę."
         }
+      },
+      "sites": {
+        "title": "Lokalizacje",
+        "description": "Lokalizacje i adresy klienta. Można je wybierać w zleceniach, sprzęcie i portalu klienta.",
+        "name": "Nazwa",
+        "namePlaceholder": "Np. Magazyn południowy",
+        "address": "Adres",
+        "postalCode": "Kod pocztowy",
+        "city": "Miasto",
+        "setPrimary": "Ustaw jako główną lokalizację",
+        "add": "Dodaj lokalizację",
+        "empty": "Brak zarejestrowanych lokalizacji.",
+        "primary": "Główna",
+        "noAddress": "Brak adresu",
+        "makePrimary": "Ustaw jako główną",
+        "delete": "Usuń lokalizację",
+        "deleteConfirm": "Usunąć lokalizację „{name}”? Zlecenia i sprzęt wskazujące na nią utracą powiązanie.",
+        "edit": "Edytuj lokalizację",
+        "save": "Zapisz lokalizację"
       }
     },
     "documents": {
@@ -2239,7 +2311,9 @@
         "security": "Bezpieczeństwo",
         "map": "Mapa",
         "api": "Klucze API",
-        "sla": "SLA i godziny pracy"
+        "sla": "SLA i godziny pracy",
+        "equipment": "Sprzęt",
+        "evidence": "Dowody"
       },
       "branding": {
         "title": "Ustawienia white label",
@@ -2308,7 +2382,35 @@
         "fromDate": "Data od",
         "toDate": "Data do",
         "search": "Szukaj",
-        "reset": "Resetuj"
+        "reset": "Resetuj",
+        "retentionTitle": "Przechowywanie i eksport",
+        "retentionDesc": "Wpisy w dzienniku starsze niż okres przechowywania są automatycznie usuwane. Wiersze objęte obowiązkiem przechowywania pozostają. 0 wyłącza automatyczne usuwanie.",
+        "retentionDays": "Dni",
+        "save": "Zapisz",
+        "retentionSaved": "Okres przechowywania został zapisany.",
+        "exportTitle": "Eksportuj dziennik",
+        "exportDesc": "Pobiera archiwum ZIP z manifestem SHA-256 i łańcuchem skrótów. Eksport jest rejestrowany w dzienniku.",
+        "exportButton": "Pobierz archiwum",
+        "holdTitle": "Obowiązek przechowywania",
+        "holdDesc": "Chroni wiersz dziennika lub cały obiekt przed automatycznym usunięciem. Sama historia nie jest zmieniana.",
+        "holdLogId": "Identyfikator wpisu",
+        "holdReason": "Powód (wymagany)",
+        "holdSet": "Ustaw blokadę",
+        "holdRelease": "Zwolnij",
+        "holdSaved": "Obowiązek przechowywania został zapisany.",
+        "holdReleased": "Obowiązek przechowywania został zwolniony.",
+        "holdError": "Nie udało się wykonać operacji. Sprawdź dane."
+      },
+      "evidence": {
+        "title": "Pakiet dowodowy dla zlecenia",
+        "desc": "Pobiera jedno zlecenie z klientem, raportami, wersjami, załącznikami i powiązanymi wpisami dziennika. Pakiet jest opieczętowany manifestem SHA-256 i można go zweryfikować offline.",
+        "empty": "Nie ma jeszcze zleceń do wyeksportowania.",
+        "selectWorkOrder": "Wybierz zlecenie",
+        "selectPlaceholder": "Wybierz zlecenie …",
+        "exportButton": "Pobierz pakiet dowodowy",
+        "contentsTitle": "Zawartość pakietu",
+        "contents": "work-order.json, customer.json, raporty z wersjami, załączniki i podpisy, audit/audit.jsonl, manifest.json i manifest.sha256. Brakujące pliki są wymienione z powodem.",
+        "verifyHint": "Zweryfikuj poleceniem sha256sum -c manifest.sha256 i porównaj pliki z manifest.json. Zmiana pliku powoduje błąd weryfikacji."
       },
       "statistics": {
         "title": "Statystyki",
@@ -2424,7 +2526,15 @@
         "name": "Nazwa",
         "namePlaceholder": "Np. integracja z aplikacją terenową",
         "expiresAt": "Wygasa (opcjonalnie)",
-        "expiresHint": "Pozostaw puste, aby klucz nie wygasał.",
+        "expiresHint": "Pozostaw puste, aby użyć domyślnego czasu życia {days} dni. Maksymalny czas życia to 365 dni.",
+        "scopesLabel": "Do czego klucz ma dostęp",
+        "scopesHint": "Klucz dziedziczy uprawnienia użytkownika, ale może korzystać tylko z wybranych zakresów. Wybierz co najmniej jeden.",
+        "scopesColumn": "Zakresy",
+        "readOnly": "Tylko do odczytu",
+        "readOnlyHint": "Tylko odczyt (GET). Wszystkie zmiany są odrzucane z kodem 403.",
+        "rotate": "Obróć klucz",
+        "rotating": "Obracanie …",
+        "rotatedTitle": "Klucz „{name}” został obrócony",
         "create": "Utwórz klucz",
         "creating": "Tworzenie …",
         "createdTitle": "Klucz utworzony",
@@ -2445,6 +2555,23 @@
         "active": "Aktywny",
         "expired": "Wygasł",
         "revoked": "Odwołany",
+        "scopes": {
+          "workordersRead": "Zlecenia – odczyt",
+          "workordersWrite": "Zlecenia – zapis",
+          "visitsRead": "Wizyty – odczyt",
+          "visitsWrite": "Wizyty – zapis",
+          "customersRead": "Klienci – odczyt",
+          "contractsRead": "Umowy – odczyt",
+          "contractsWrite": "Umowy – zapis",
+          "slaRead": "SLA – odczyt",
+          "equipmentRead": "Urządzenia – odczyt",
+          "equipmentWrite": "Urządzenia – zapis",
+          "maintenanceRead": "Konserwacja – odczyt",
+          "maintenanceWrite": "Konserwacja – zapis",
+          "reportsRead": "Raporty – odczyt",
+          "documentsRead": "Dokumenty – odczyt",
+          "allLegacy": "Wszystko (starszy klucz bez ograniczeń)"
+        },
         "revoke": "Odwołaj",
         "revokeConfirm": "Odwołać klucz API „{name}”? Integracje, które go używają, natychmiast przestaną działać.",
         "revokeLabel": "Odwołaj klucz",
@@ -2778,6 +2905,28 @@
           "notFound": "Nie znaleziono elementu do zmiany.",
           "conflict": "Wpis już istnieje."
         }
+      },
+      "equipmentCategories": {
+        "title": "Kategorie sprzętu",
+        "description": "Zarządzaj kategoriami i hierarchią sprzętu oraz jednostek. Kategorie są używane podczas rejestrowania i filtrowania sprzętu.",
+        "createTitle": "Nowa kategoria",
+        "name": "Nazwa kategorii",
+        "namePlaceholder": "Np. Pompy",
+        "parent": "Kategoria nadrzędna",
+        "noParent": "Brak kategorii nadrzędnej",
+        "create": "Utwórz kategorię",
+        "edit": "Edytuj",
+        "save": "Zapisz",
+        "delete": "Usuń",
+        "deleteConfirm": "Usunąć kategorię „{name}”?",
+        "inUse": "Kategoria jest używana i nie można jej usunąć.",
+        "products": "{count} jednostek",
+        "children": "{count} podkategorii",
+        "empty": "Nie utworzono jeszcze żadnych kategorii.",
+        "readOnly": "Możesz wyświetlać kategorie, ale nie możesz ich zmieniać. Skontaktuj się z użytkownikiem mającym uprawnienia do edycji sprzętu.",
+        "created": "Kategoria została utworzona.",
+        "updated": "Kategoria została zaktualizowana.",
+        "deleted": "Kategoria została usunięta."
       }
     },
     "users": {
@@ -3411,15 +3560,13 @@
         "months": "{count} mies."
       },
       "booking": {
-        "title": "Zarezerwuj wolny termin",
-        "desc": "Wybierz lokalizację, usługę i wolny termin. Rezerwacja jest potwierdzana od razu.",
+        "title": "Poproś o wizytę",
+        "desc": "Wybierz lokalizację, usługę i żądaną datę. Wpisz żądaną godzinę w opisie. Biuro lub technik potwierdzi i zaplanuje wizytę później.",
         "titleLabel": "Tytuł zlecenia *",
         "titlePlaceholder": "Np. Serwis roczny",
         "descriptionLabel": "Opis",
         "descriptionPlaceholder": "Z czym potrzebujesz pomocy?",
         "dateLabel": "Żądana data *",
-        "fromLabel": "Od",
-        "toLabel": "Do",
         "equipmentLabel": "Dotyczy urządzenia",
         "equipmentNone": "Nie dotyczy konkretnego urządzenia",
         "contactNameLabel": "Osoba kontaktowa *",
@@ -3431,7 +3578,7 @@
         "reference": "Numer referencyjny: {reference}",
         "nextTitle": "Co dalej?",
         "nextStep1": "Biuro sprawdza prośbę i weryfikuje, czy urządzenie i termin pasują.",
-        "nextStep2": "Potwierdzenie z ostatecznym terminem otrzymasz dopiero po odpowiedzi biura. Jeśli wybrano dostępny dzień, postaramy się go zachować.",
+        "nextStep2": "Ostateczny potwierdzony czas otrzymasz dopiero po zaplanowaniu zlecenia przez biuro lub technika.",
         "nextStep3": "Możesz śledzić status w sekcji „Twoje prośby”. Możesz tam również anulować prośbę lub poprosić o nowy termin.",
         "seeRequests": "Zobacz swoje prośby",
         "errors": {
@@ -3715,7 +3862,15 @@
         "twoFactorEnabled": "Włączono weryfikację dwuetapową",
         "twoFactorDisabled": "Wyłączono weryfikację dwuetapową",
         "twoFactorRecoveryRegenerated": "Wygenerowano nowe kody odzyskiwania 2FA",
-        "twoFactorReset": "Zresetowano weryfikację dwuetapową dla {name}"
+        "twoFactorReset": "Zresetowano weryfikację dwuetapową dla {name}",
+        "twoFactorRequiredStarted": "2FA: rozpoczęto wymaganą konfigurację",
+        "twoFactorRequiredEnrollmentStarted": "2FA: rozpoczęto wymaganą konfigurację",
+        "twoFactorRequiredCompleted": "2FA: ukończono wymaganą konfigurację",
+        "loginRequiredTwoFactor": "Zalogowano z wymaganym 2FA",
+        "twoFactorBreakGlass": "2FA: break-glass zresetował uwierzytelnianie dwuskładnikowe",
+        "apiKeyCreated": "Utworzono klucz API: {name} ({prefix}…)",
+        "apiKeyRevoked": "Odwołano klucz API: {name} ({prefix}…)",
+        "apiKeyRotated": "Obrotowano klucz API: {name} ({oldPrefix}… → {newPrefix}…)"
       },
       "users": {
         "created": "Utworzono użytkownika: {name} ({role})",
@@ -3898,7 +4053,15 @@
         "unknown": "Nieznane",
         "dangerous": "Strefa zagrożenia",
         "delete": "Usuń urządzenie",
-        "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć."
+        "deleteConfirm": "Usunąć urządzenie trwale? Tej operacji nie można cofnąć.",
+        "site": "Lokalizacja",
+        "noSite": "Brak lokalizacji",
+        "editPlan": "Edytuj plan",
+        "editPlanHint": "Zmień nazwę, interwał, czas wyprzedzenia, następny termin i aktywność planu.",
+        "planActive": "Plan jest aktywny",
+        "savePlan": "Zapisz plan",
+        "deletePlan": "Usuń plan",
+        "deletePlanConfirm": "Usunąć plan konserwacji? Planów, które mają już wystąpienia, nie można usunąć."
       },
       "form": {
         "title": "Nowe urządzenie",
@@ -3916,7 +4079,9 @@
         "meterUnit": "Jednostka licznika",
         "meterUnitHint": "Na przykład godziny, km lub cykle.",
         "submit": "Zarejestruj urządzenie",
-        "cancel": "Anuluj"
+        "cancel": "Anuluj",
+        "site": "Lokalizacja",
+        "noSite": "Brak lokalizacji"
       },
       "label": {
         "title": "Etykieta urządzenia",
@@ -3981,6 +4146,7 @@
         "readingAdded": "Odczyt został zarejestrowany.",
         "planCreated": "Plan konserwacji został utworzony.",
         "planUpdated": "Plan konserwacji został zaktualizowany.",
+        "planDeleted": "Plan konserwacji został usunięty.",
         "deleted": "Urządzenie zostało usunięte."
       },
       "planStatus": {

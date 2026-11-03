@@ -105,7 +105,7 @@ export default async function MessagesPage({
             </Link>
             <Link href="/" className={INK_BUTTON}>
               <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
-              {t("dashboard")}
+              {t("nav.dashboard")}
             </Link>
           </>
         }

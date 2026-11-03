@@ -93,6 +93,18 @@ export default async function AdminCreateWorkOrderPage({
         ...customers.filter((customer) => customer.id !== selectedCustomer.id),
       ]
     : customers;
+  const sites = await prisma.customerSite.findMany({
+    where: { customer: { deletedAt: null } },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 1000,
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      customerId: true,
+      customer: { select: { name: true } },
+    },
+  });
   const templates = await prisma.template.findMany({ orderBy: { title: 'asc' } });
   const { service: serviceTemplates, hms: hmsTemplates } =
     splitTemplatesByCategory(templates);
@@ -103,6 +115,11 @@ export default async function AdminCreateWorkOrderPage({
     take: 100,
   });
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });
+  const skills = await prisma.skill.findMany({
+    orderBy: [{ category: "asc" }, { label: "asc" }],
+    select: { id: true, key: true, label: true, category: true },
+    take: 500,
+  });
 
   const errorMessages: Record<string, string> = {
     avdeling: t("orders.errors.department"),
@@ -257,6 +274,30 @@ export default async function AdminCreateWorkOrderPage({
                 restoreSelection={Boolean(error)}
               />
 
+              <div>
+                <label htmlFor="office-new-site" className={LABEL}>
+                  {t("orders.new.siteLabel")}
+                </label>
+                <select
+                  id="office-new-site"
+                  name="siteId"
+                  defaultValue=""
+                  aria-describedby="office-new-site-hint"
+                  className={controlClassName("min-h-11")}
+                >
+                  <option value="">{t("orders.new.noSite")}</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name} · {site.customer.name}
+                      {site.address ? ` — ${site.address}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p id="office-new-site-hint" className={HINT}>
+                  {t("orders.new.siteHint")}
+                </p>
+              </div>
+
               <div
                 className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
                 aria-describedby="office-new-location-hint"
@@ -394,6 +435,58 @@ export default async function AdminCreateWorkOrderPage({
                       </span>
                     </label>
                   ))}
+                </div>
+              </div>
+
+              <div
+                role="group"
+                aria-labelledby="office-new-skills-title"
+                aria-describedby="office-new-skills-hint"
+              >
+                <p
+                  id="office-new-skills-title"
+                  className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
+                >
+                  {t("orders.skills.title")}
+                </p>
+                <p id="office-new-skills-hint" className={HINT}>
+                  {t("orders.skills.hint")}
+                </p>
+                <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
+                  {skills.length === 0 ? (
+                    <p className="p-2 text-sm text-[var(--muted,#62685f)]">
+                      {t("orders.skills.empty")}
+                    </p>
+                  ) : (
+                    skills.map((skill) => (
+                      <div
+                        key={skill.id}
+                        className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] px-2 py-1.5 hover:bg-[var(--surface,#fffdf8)]"
+                      >
+                        <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="skillIds"
+                            value={skill.id}
+                            className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                          />
+                          <span className="min-w-0 break-words text-sm font-medium text-[var(--ink,#101310)]">
+                            {skill.label}
+                            {skill.category ? ` · ${skill.category}` : ""}
+                          </span>
+                        </label>
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-[var(--muted,#62685f)]">
+                          <input
+                            type="checkbox"
+                            name="mandatorySkillIds"
+                            value={skill.id}
+                            className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                          />
+                          {t("orders.skills.mandatory")}
+                        </label>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

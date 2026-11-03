@@ -488,10 +488,12 @@ export default async function AdminWorkOrderPage({
     include: {
       department: true,
       customer: { include: { contacts: true } },
+      site: true,
       contact: true,
       technicians: true,
       templates: true,
       tags: true,
+      skillRequirements: { include: { skill: true } },
       reports: {
         where: { deletedAt: null },
         include: { units: { orderBy: { sortOrder: "asc" } } },
@@ -640,7 +642,9 @@ export default async function AdminWorkOrderPage({
     scheduledEnd && !isClosed && scheduledEnd < startOfToday,
   );
   const hasAddress = Boolean(
-    workOrder.address ?? workOrder.customer?.address,
+    workOrder.site?.address ??
+      workOrder.address ??
+      workOrder.customer?.address,
   );
   const feedbackKey = ok ? DETAIL_FEEDBACK_MESSAGE_KEYS[ok] : undefined;
   const canCompleteNow =
@@ -679,6 +683,7 @@ export default async function AdminWorkOrderPage({
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#616656]">
                   {t("metadata.routes.oppdrag")}
+                  {` · ${t("orders.detail.reference")} ${workOrder.reference}`}
                   {workOrder.orderNumber
                     ? ` · ${t("orders.list.orderNumber")} ${workOrder.orderNumber}`
                     : ""}
@@ -687,6 +692,9 @@ export default async function AdminWorkOrderPage({
                   <h1 className="text-2xl font-black tracking-tight md:text-3xl">
                     {workOrder.title}
                   </h1>
+                  <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] px-2.5 py-1 text-xs font-bold tracking-wide text-[#5e6356]">
+                    {t("orders.detail.reference")} {workOrder.reference}
+                  </span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${
                       STATUS_TONE[workOrder.status] ??
@@ -764,14 +772,19 @@ export default async function AdminWorkOrderPage({
                   <p className="mt-0.5 truncate text-xs text-[#5e6356]">
                     {hasAddress ? (
                       <GoogleMapsLink
-                        address={workOrder.address ?? workOrder.customer?.address}
-                        postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
-                        city={workOrder.city ?? workOrder.customer?.city}
+                        address={workOrder.site?.address ?? workOrder.address ?? workOrder.customer?.address}
+                        postalCode={workOrder.site?.postalCode ?? workOrder.postalCode ?? workOrder.customer?.postalCode}
+                        city={workOrder.site?.city ?? workOrder.city ?? workOrder.customer?.city}
                       />
                     ) : (
                       <span className="italic">{t("orders.detail.noAddress")}</span>
                     )}
                   </p>
+                  {workOrder.site && (
+                    <p className="mt-0.5 truncate text-xs font-bold text-[#3d4237]">
+                      {t("orders.detail.site")}: {workOrder.site.name}
+                    </p>
+                  )}
                 </div>
 
                 <div className={`${SUB_CARD} min-w-0 px-3 py-2`}>
@@ -1154,14 +1167,19 @@ export default async function AdminWorkOrderPage({
                   <p className="font-bold">
                     {hasAddress ? (
                       <GoogleMapsLink
-                        address={workOrder.address ?? workOrder.customer?.address}
-                        postalCode={workOrder.postalCode ?? workOrder.customer?.postalCode}
-                        city={workOrder.city ?? workOrder.customer?.city}
+                        address={workOrder.site?.address ?? workOrder.address ?? workOrder.customer?.address}
+                        postalCode={workOrder.site?.postalCode ?? workOrder.postalCode ?? workOrder.customer?.postalCode}
+                        city={workOrder.site?.city ?? workOrder.city ?? workOrder.customer?.city}
                       />
                     ) : (
                       <span className="text-xs italic text-[#5e6356]">{t("orders.detail.noAddress")}</span>
                     )}
                   </p>
+                  {workOrder.site && (
+                    <p className="text-xs font-bold text-[#3d4237]">
+                      {t("orders.detail.site")}: {workOrder.site.name}
+                    </p>
+                  )}
                 </div>
 
                 {workOrder.creatorName && (
@@ -1258,6 +1276,34 @@ export default async function AdminWorkOrderPage({
                   </form>
                 )}
               </div>
+
+              {(workOrder.skillRequirements ?? []).length > 0 && (
+                <div className={`${CARD} p-4 text-sm`}>
+                  <h2 className={`${SECTION_TITLE} mb-3 border-b border-[var(--line,#d8d3c5)] pb-2`}>
+                    {t("orders.skills.title")}
+                  </h2>
+                  <ul className="space-y-2">
+                    {(workOrder.skillRequirements ?? []).map((requirement) => (
+                      <li
+                        key={requirement.skillId}
+                        className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[var(--line,#d8d3c5)] bg-[var(--paper,#f2efe6)] p-2.5"
+                      >
+                        <span className="min-w-0 flex-1 break-words font-bold text-[var(--ink,#131711)]">
+                          {requirement.skill.label}
+                          {requirement.skill.category
+                            ? ` · ${requirement.skill.category}`
+                            : ""}
+                        </span>
+                        <span className="rounded-full border border-[var(--line,#d8d3c5)] bg-white px-2 py-0.5 text-[11px] font-black uppercase">
+                          {requirement.mandatory
+                            ? t("orders.skills.requiredBadge")
+                            : t("orders.skills.optionalBadge")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <WorkOrderAttachments
                 workOrderId={workOrderId}

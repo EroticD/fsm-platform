@@ -130,11 +130,11 @@ export default async function NotificationCard({
           className="absolute inset-y-0 left-0 w-1 bg-[var(--signal,#d8ff3e)]"
         />
       )}
+      {/* Ingen aria-label: kortets synlige tittel, tekst og «Åpne» utgjør et
+          fullstendig tilgjengelig navn (WCAG 2.5.3). */}
       <a
         href={`/varsler/apne/${notification.id}`}
-        aria-label={t("p3.notifications.openAria", {
-          title,
-        })}
+        title={t("p3.notifications.openAria", { title })}
         className="group block cursor-pointer p-4 pl-5 text-left transition-colors hover:bg-[var(--paper,#f2efe6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink,#101310)]"
       >
         {content}
@@ -146,9 +146,10 @@ export default async function NotificationCard({
             <input type="hidden" name="id" value={notification.id} />
             <button
               type="submit"
-              aria-label={t("p3.notifications.markReadAria", {
-                title,
-              })}
+              aria-label={`${t("p3.notifications.markRead")} – ${t(
+                "p3.notifications.markReadAria",
+                { title },
+              )}`}
               className="cursor-pointer rounded-lg px-1 py-1 text-xs font-bold text-[var(--ink,#101310)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink,#101310)]"
             >
               {t("p3.notifications.markRead")}

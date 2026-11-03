@@ -9,14 +9,17 @@ const noPermissions: SettingsTabPermissions = {
   canBranding: false,
   canMap: false,
   canUsers: false,
+  canWorkforce: false,
   canTemplates: false,
   canDocuments: false,
+  canEquipment: false,
   canAudit: false,
   canStats: false,
   canSla: false,
   canSms: false,
   canDispatch: false,
   isAdmin: false,
+  canCustomerTransfer: false,
 };
 
 const admin: SettingsTabPermissions = {
@@ -24,14 +27,17 @@ const admin: SettingsTabPermissions = {
   canBranding: true,
   canMap: true,
   canUsers: true,
+  canWorkforce: true,
   canTemplates: true,
   canDocuments: true,
+  canEquipment: true,
   canAudit: true,
   canStats: true,
   canSla: true,
   canSms: true,
   canDispatch: true,
   isAdmin: true,
+  canCustomerTransfer: true,
 };
 
 describe("chooseSettingsTab", () => {
@@ -63,8 +69,23 @@ describe("chooseSettingsTab", () => {
     ).toBe("sla");
   });
 
-  it("viser SMS-fanen bare med settings.manage", () => {
-    expect(isSettingsTabAllowed("sms", admin)).toBe(true);
+  it("viser kundeoverføring bare for administrator med settings.manage", () => {
+    expect(isSettingsTabAllowed("kundeoverforing", admin)).toBe(true);
+    expect(
+      isSettingsTabAllowed("kundeoverforing", {
+        ...noPermissions,
+        isAdmin: true,
+      }),
+    ).toBe(false);
+    expect(
+      chooseSettingsTab("kundeoverforing", {
+        ...noPermissions,
+        canUsers: true,
+      }),
+    ).toBe("ansatte");
+  });
+
+  it("viser SMS-fanen bare med settings.manage", () => {    expect(isSettingsTabAllowed("sms", admin)).toBe(true);
     expect(isSettingsTabAllowed("sms", noPermissions)).toBe(false);
     expect(
       chooseSettingsTab("sms", { ...noPermissions, canSms: true }),
@@ -79,10 +100,37 @@ describe("chooseSettingsTab", () => {
     ).toBe("dispatch");
   });
 
+  it("viser bemanningsfanen med lesetilgang til ansatte eller dispatch", () => {
+    expect(isSettingsTabAllowed("kompetanse", admin)).toBe(true);
+    expect(isSettingsTabAllowed("kompetanse", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("kompetanse", { ...noPermissions, canWorkforce: true }),
+    ).toBe("kompetanse");
+  });
+
   it("lar bare administrator åpne API-fanen", () => {
     expect(chooseSettingsTab("api", admin)).toBe("api");
     expect(isSettingsTabAllowed("api", admin)).toBe(true);
     expect(isSettingsTabAllowed("api", noPermissions)).toBe(false);
+  });
+
+  it("lar bare administrator åpne bevisfanen", () => {
+    expect(chooseSettingsTab("bevis", admin)).toBe("bevis");
+    expect(isSettingsTabAllowed("bevis", admin)).toBe(true);
+    expect(isSettingsTabAllowed("bevis", noPermissions)).toBe(false);
+    expect(
+      chooseSettingsTab("bevis", { ...noPermissions, canAudit: true }),
+    ).toBe("auditlog");
+  });
+
+  it("lar brukere med utstyrstilgang åpne utstyrsfanen", () => {
+    const equipment: SettingsTabPermissions = {
+      ...noPermissions,
+      canEquipment: true,
+    };
+
+    expect(chooseSettingsTab("utstyr", equipment)).toBe("utstyr");
+    expect(chooseSettingsTab(undefined, equipment)).toBe("utstyr");
   });
 
   it("lar alle innloggede åpne sikkerhetsfanen", () => {

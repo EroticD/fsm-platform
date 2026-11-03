@@ -7,18 +7,19 @@ import { audit } from "@/lib/audit";
 import {
   addDaysUtc,
   addMonthsUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayUtc,
 } from "@/lib/dates";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { LIMITS, cleanText } from "@/lib/sanitize";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import {
   maintenancePlanCreateSchema,
   maintenancePlanUpdateSchema,
 } from "@/lib/schemas/equipment";
 import { createDefaultVisit } from "@/server/visits";
+import { defaultVisitWindow } from "@/lib/visit-window";
 import {
   can,
   fail,
@@ -603,6 +604,7 @@ export async function generateMaintenanceOccurrence(
         const workOrder = await tx.workOrder.create({
           data: {
             title: plan.title,
+            reference: generateWorkOrderReference(now),
             description: `Forebyggende vedlikehold fra vedlikeholdsplanen «${plan.title}».`,
             departmentId: plan.departmentId,
             customerId: plan.customerId,
@@ -617,11 +619,12 @@ export async function generateMaintenanceOccurrence(
           select: { id: true },
         });
 
+        const visitWindow = defaultVisitWindow(dueDate);
         await createDefaultVisit(tx, {
           workOrderId: workOrder.id,
-          startsAt: osloDayStart(toDateOnly(dueDate)),
-          endsAt: osloDayStart(toDateOnly(addDaysUtc(dueDate, 1))),
-          allDay: true,
+          startsAt: visitWindow.startsAt,
+          endsAt: visitWindow.endsAt,
+          allDay: false,
         });
 
         const occurrence = await tx.maintenancePlanOccurrence.create({
@@ -805,6 +808,7 @@ export async function evaluateMeterMaintenance(
     const workOrder = await tx.workOrder.create({
       data: {
         title: plan.title,
+        reference: generateWorkOrderReference(),
         description:
           `Forebyggende vedlikehold utløst av måler: ${input.value}` +
           `${unit ? ` ${unit}` : ""} (terskel ${interval}).`,
@@ -821,11 +825,12 @@ export async function evaluateMeterMaintenance(
       select: { id: true },
     });
 
+    const visitWindow = defaultVisitWindow(dueDate);
     await createDefaultVisit(tx, {
       workOrderId: workOrder.id,
-      startsAt: osloDayStart(toDateOnly(dueDate)),
-      endsAt: osloDayStart(toDateOnly(addDaysUtc(dueDate, 1))),
-      allDay: true,
+      startsAt: visitWindow.startsAt,
+      endsAt: visitWindow.endsAt,
+      allDay: false,
     });
 
     await tx.maintenancePlanOccurrence.create({

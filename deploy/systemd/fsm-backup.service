@@ -1,0 +1,19 @@
+[Unit]
+Description=FSM-platform: kryptert database- og opplastingsbackup
+Documentation=file:/opt/fsm-platform/docs/OPERATIONS.md
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+OnFailure=fsm-alert@%n.service
+
+[Service]
+Type=oneshot
+# Brukeren må være i docker-gruppen og kunne lese /etc/fsm/fsm-backup.env.
+User=fsmbackup
+Group=fsmbackup
+WorkingDirectory=/opt/fsm-platform
+EnvironmentFile=/etc/fsm/fsm-backup.env
+ExecStart=/opt/fsm-platform/scripts/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=2h

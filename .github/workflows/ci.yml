@@ -51,6 +51,8 @@ jobs:
       E2E_CUSTOMER_PASSWORD: "CustomerTest123!"
       NEXTAUTH_SECRET: ci-only-8fK2qZ7mN4vR9xT1cB6wY3pL5sH0jG2d
       AUTH_TRUST_HOST: "true"
+      # Testdatabasen bruker én rolle med DDL; readiness nekter ellers i prod-modus.
+      ALLOW_DB_DDL_ROLE: "true"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -92,17 +94,35 @@ jobs:
       - name: Installer Playwright-nettleser
         run: npx playwright install --with-deps chromium
 
-      - name: E2E
-        run: npm run test:e2e
+      - name: Bygg produksjonsbundle
+        run: npm run build
+
+      - name: E2E mot produksjonsserver
+        # Produksjonsserveren er stabil under E2E; `next dev` rekompilerer midt
+        # i drag- og offline-scenarier og gir falske tidsavbrudd. Seriell
+        # kjøring hindrer at chromium og mobile-375 muterer samme seedede rad.
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          NEXTAUTH_URL: http://127.0.0.1:3000
+        run: |
+          npm run start > /tmp/next-start.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/api/ready > /dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -fsS http://127.0.0.1:3000/api/ready > /dev/null; then
+            cat /tmp/next-start.log
+            exit 1
+          fi
+          npm run test:e2e -- --workers=1
 
       - name: Lint
         run: npm run lint
 
       - name: i18n-sjekk
         run: npm run check:i18n:strict
-
-      - name: Bygg
-        run: npm run build
 
   a11y:
     name: Tilgjengelighet (axe og Lighthouse)
@@ -141,6 +161,8 @@ jobs:
       NEXTAUTH_SECRET: ci-only-8fK2qZ7mN4vR9xT1cB6wY3pL5sH0jG2d
       NEXTAUTH_URL: http://127.0.0.1:3000
       AUTH_TRUST_HOST: "true"
+      # Testdatabasen bruker én rolle med DDL; readiness nekter ellers i prod-modus.
+      ALLOW_DB_DDL_ROLE: "true"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -182,7 +204,7 @@ jobs:
           fi
           npm run test:lighthouse
         env:
-          LIGHTHOUSE_URLS: http://127.0.0.1:3000/logg-inn,http://127.0.0.1:3000/oppdrag,http://127.0.0.1:3000/mine-oppdrag
+          LIGHTHOUSE_URLS: http://127.0.0.1:3000/logg-inn,http://127.0.0.1:3000/oppdrag,http://127.0.0.1:3000/kunder,http://127.0.0.1:3000/enheter,http://127.0.0.1:3000/avtaler,http://127.0.0.1:3000/meldinger,http://127.0.0.1:3000/kalender,http://127.0.0.1:3000/rapporter,http://127.0.0.1:3000/mine-oppdrag
           LIGHTHOUSE_AUTH_EMAIL: admin@example.test
           LIGHTHOUSE_AUTH_PASSWORD: "AdminTest123!"
           LIGHTHOUSE_A11Y_THRESHOLD: "0.95"

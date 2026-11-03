@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { apiError } from "@/lib/api-response";
+import {
+  apiKeyAllowsScope,
+  effectiveApiKeyScopes,
+  requiredScopeForRequest,
+} from "@/lib/api-key-scopes";
 import type { ServiceActor } from "@/server/actor";
 import { hashApiKeyToken, isApiKeyToken } from "@/server/api-keys";
 
@@ -18,7 +23,13 @@ export type ApiActor = ServiceActor & {
 };
 
 export type ApiAuthenticationResult =
-  | { ok: true; actor: ApiActor; apiKeyId: string }
+  | {
+      ok: true;
+      actor: ApiActor;
+      apiKeyId: string;
+      scopes: readonly string[];
+      readOnly: boolean;
+    }
   | { ok: false; response: NextResponse };
 
 const USER_SELECT = {
@@ -83,6 +94,8 @@ export async function authenticateApiRequest(
         id: true,
         revokedAt: true,
         expiresAt: true,
+        scopes: true,
+        readOnly: true,
         user: { select: USER_SELECT },
       },
     });
@@ -115,6 +128,22 @@ export async function authenticateApiRequest(
       return { ok: false, response };
     }
 
+    const pathname = new URL(request.url).pathname;
+    if (!apiKeyAllowsScope(key, request.method, pathname)) {
+      return {
+        ok: false,
+        response: apiError("forbidden", 403, {
+          messageKey: key.readOnly
+            ? "errors.api.apiKey.readOnly"
+            : "errors.api.apiKey.outOfScope",
+          details: {
+            requiredScope: requiredScopeForRequest(request.method, pathname),
+            readOnly: key.readOnly,
+          },
+        }),
+      };
+    }
+
     await prisma.apiKey.update({
       where: { id: key.id },
       data: { lastUsedAt: now },
@@ -137,7 +166,13 @@ export async function authenticateApiRequest(
       roleDefinition: user.roleDefinition,
     };
 
-    return { ok: true, actor, apiKeyId: key.id };
+    return {
+      ok: true,
+      actor,
+      apiKeyId: key.id,
+      scopes: effectiveApiKeyScopes(key.scopes),
+      readOnly: key.readOnly,
+    };
   } catch {
     return {
       ok: false,

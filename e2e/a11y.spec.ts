@@ -18,7 +18,7 @@ const BLOCKING_IMPACTS = new Set(
 );
 
 const A11Y_TAGS = (
-  process.env.E2E_A11Y_TAGS ?? "wcag2a,wcag2aa,wcag21aa,wcag22aa"
+  process.env.E2E_A11Y_TAGS ?? "wcag2a,wcag2aa,wcag21a,wcag21aa,wcag22a,wcag22aa"
 )
   .split(",")
   .map((tag) => tag.trim())
@@ -31,6 +31,9 @@ const OFFICE_ROUTES = [
   "/oppdrag",
   "/bookinger",
   "/kunder",
+  "/enheter",
+  "/avtaler",
+  "/meldinger",
   "/dokumenter",
   "/rapporter",
   "/sok?q=service",
@@ -73,7 +76,13 @@ async function expectNoBlockingA11yIssues(page: Page, context?: string) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => undefined);
     try {
-      results = await new AxeBuilder({ page }).withTags(A11Y_TAGS).analyze();
+      results = await new AxeBuilder({ page })
+        .withTags(A11Y_TAGS)
+        // FullCalendar setter aria-labelledby på rene TD-celler. «Label in
+        // Name» gjelder interaktive kontroller, ikke grid-celler, og gir ellers
+        // falske treff på kalenderens dagnett.
+        .exclude('td[aria-labelledby^="fc-dom-"]')
+        .analyze();
       break;
     } catch (error) {
       if (attempt === 2) throw error;
@@ -225,6 +234,22 @@ async function findReportFormHref(page: Page): Promise<string | null> {
   if (directPath) return directPath;
 
   await page.goto("/mine-oppdrag");
+
+  // Listen har ofte en direkte lenke til skjemaet. Den er raskere og mer
+  // stabil enn å åpne hvert oppdrag og lete etter skjema-knappen.
+  const direct = page
+    .locator('a[href*="/skjema/"]')
+    .filter({ visible: true })
+    .first();
+  if (
+    await direct
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    return direct.getAttribute("href");
+  }
+
   const workOrderLinks = page
     .locator('a[href^="/mine-oppdrag/"]:not([href="/mine-oppdrag/ny"])')
     .filter({ visible: true });
@@ -242,7 +267,7 @@ async function findReportFormHref(page: Page): Promise<string | null> {
   // kjøretiden nede i en database uten rapporter.
   for (const href of hrefs) {
     await page.goto(href);
-    const formHref = await firstHref(page, 'a[href*="/skjema/"]', 2_000);
+    const formHref = await firstHref(page, 'a[href*="/skjema/"]', 10_000);
     if (formHref) return formHref;
   }
   return null;
@@ -309,6 +334,128 @@ test("admin: oppdrags- og kundedetaljer med data fra databasen", async ({
   await expectNoBlockingA11yIssues(page, `kundedetalj ${customerHref}`);
 });
 
+test("admin: utstyr, avtaler, meldinger og rapporter har tilgjengelige detaljsider", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
+  expect(await loginAsAdmin(page)).toBe(true);
+
+  // Utstyr: liste og detalj med målinger, QR og vedlikehold.
+  await page.goto("/enheter");
+  const equipmentHref = await firstHref(
+    page,
+    'a[href^="/enheter/"]:not([href="/enheter/ny"]):not([href^="/enheter/ny/"]):not([href^="/enheter/qr/"])',
+  );
+  if (!equipmentHref) {
+    test.skip(true, "Fant ingen enhet i databasen");
+    return;
+  }
+  await page.goto(equipmentHref);
+  await expect(page.locator("main")).toBeVisible();
+  await expectNoBlockingA11yIssues(page, `enhetsdetalj ${equipmentHref}`);
+
+  // Serviceavtaler vises på kundekortet. Samme side dekker avtalelisten og
+  // avtalepanelet som ellers ikke har en egen detaljside.
+  await page.goto("/avtaler");
+  await expect(page.locator("main")).toBeVisible();
+  await expectNoBlockingA11yIssues(page, "avtaleliste");
+
+  await page.goto("/kunder");
+  const customerHref = await firstHref(
+    page,
+    'a[href^="/kunder/"]:not([href$="/rediger"])',
+  );
+  if (customerHref) {
+    await page.goto(`${customerHref}?tab=avtaler`);
+    await expect(page.locator("main")).toBeVisible();
+    await expectNoBlockingA11yIssues(page, `avtaledetalj ${customerHref}?tab=avtaler`);
+  }
+
+  // Meldinger: trådlisten og den ene seedede samtalen.
+  await page.goto("/meldinger");
+  const threadHref = await firstHref(page, 'a[href^="/meldinger/"]');
+  if (threadHref) {
+    await page.goto(threadHref);
+    await expect(page.locator("main")).toBeVisible();
+    await expectNoBlockingA11yIssues(page, `meldingstråd ${threadHref}`);
+  }
+
+  // Rapporter: detaljvisning og revisjonsoversikt.
+  await page.goto("/rapporter");
+  const reportHref = await firstHref(
+    page,
+    'a[href^="/rapporter/"][href*="?rapport="]',
+  );
+  if (reportHref) {
+    await page.goto(reportHref);
+    await expect(page.locator("main")).toBeVisible();
+    await expectNoBlockingA11yIssues(page, `rapportdetalj ${reportHref}`);
+
+    const reportUrl = new URL(reportHref, "http://e2e.local");
+    const reportId = reportUrl.searchParams.get("rapport");
+    if (reportId) {
+      const revisionsHref = `${reportUrl.pathname}/revisjoner?rapport=${encodeURIComponent(reportId)}`;
+      await page.goto(revisionsHref);
+      await expect(page.locator("main")).toBeVisible();
+      await expectNoBlockingA11yIssues(page, `rapportrevisjoner ${revisionsHref}`);
+    }
+  }
+});
+
+test("admin: bekreftelsesdialog på enhetsdetaljen er tilgjengelig", async ({
+  page,
+}) => {
+  test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
+  expect(await loginAsAdmin(page)).toBe(true);
+
+  await page.goto("/enheter");
+  const equipmentHref = await firstHref(
+    page,
+    'a[href^="/enheter/"]:not([href="/enheter/ny"]):not([href^="/enheter/ny/"]):not([href^="/enheter/qr/"])',
+  );
+  if (!equipmentHref) {
+    test.skip(true, "Fant ingen enhet å åpne dialog for");
+    return;
+  }
+  await page.goto(equipmentHref);
+
+  const rotateButton = page
+    .getByRole("button", { name: "Roter QR-token", exact: true })
+    .first();
+  const hasRotate = await rotateButton
+    .waitFor({ state: "visible", timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!hasRotate) {
+    test.skip(true, "Fant ingen QR-handling å åpne dialog for");
+    return;
+  }
+
+  await rotateButton.click();
+  const dialog = page.getByRole("dialog", { name: "Bekreft handling" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("button", { name: "Avbryt" })).toBeFocused();
+  await expectNoBlockingA11yIssues(page, "enhetsdialog");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(rotateButton).toBeFocused();
+});
+
+test("admin: toastvarselet på enhetslista er tilgjengelig", async ({ page }) => {
+  test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
+  expect(await loginAsAdmin(page)).toBe(true);
+
+  await page.goto("/enheter?meldt=qr-rotated");
+  const toast = page
+    .getByRole("status")
+    .filter({ hasText: /QR-tokenet er rotet|QR token was rotated/ });
+  await expect(toast).toBeVisible();
+  await toast.hover();
+  await expectNoBlockingA11yIssues(page, "enhetstoast");
+});
+
 test("tekniker: oppdragsdetalen har ingen blokkerende a11y-brudd", async ({
   page,
 }) => {
@@ -361,14 +508,30 @@ test("skjemaer for oppretting og redigering er tilgjengelige", async ({ page }) 
 });
 
 test("innstillinger for ansatte og maler er tilgjengelige", async ({ page }) => {
+  test.setTimeout(240_000);
   test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
   const loggedIn = await loginAsAdmin(page);
   expect(loggedIn).toBe(true);
 
   for (const path of [
+    "/innstillinger?tab=branding",
+    "/innstillinger?tab=kart",
     "/innstillinger?tab=ansatte",
     "/innstillinger?tab=maler",
+    "/innstillinger?tab=tags",
+    "/innstillinger?tab=utstyr",
+    "/innstillinger?tab=auditlog",
+    "/innstillinger?tab=statistikk",
+    "/innstillinger?tab=sla",
+    "/innstillinger?tab=sms",
+    "/innstillinger?tab=dispatch",
     "/innstillinger?tab=roller",
+    "/innstillinger?tab=avdelinger",
+    "/innstillinger?tab=api",
+    "/innstillinger?tab=sikkerhet",
+    "/innstillinger?tab=kompetanse",
+    "/innstillinger?tab=bevis",
+    "/innstillinger?tab=kundeoverforing",
   ]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
@@ -379,6 +542,7 @@ test("innstillinger for ansatte og maler er tilgjengelige", async ({ page }) => 
 test("rapportskjemaet er tilgjengelig og kan brukes med tastatur", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   test.skip(!roleCredentials("admin"), "E2E_ADMIN_EMAIL/PASSWORD er ikke satt");
   const loggedIn = await loginAsAdmin(page);
   expect(loggedIn).toBe(true);

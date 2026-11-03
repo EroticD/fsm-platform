@@ -54,15 +54,13 @@
       "months": "{count} months"
     },
     "booking": {
-      "title": "Book an available time",
-      "desc": "Choose a location, service and available time. The booking is confirmed immediately.",
+      "title": "Request a visit",
+      "desc": "Choose a location, service and requested date. Write the desired time in the description. The office or technician will confirm and schedule the visit later.",
       "titleLabel": "Work order title *",
       "titlePlaceholder": "E.g. Annual service",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "What do you need help with?",
       "dateLabel": "Requested date *",
-      "fromLabel": "From",
-      "toLabel": "To",
       "equipmentLabel": "Equipment concerned",
       "equipmentNone": "Not about specific equipment",
       "contactNameLabel": "Contact person *",
@@ -74,7 +72,7 @@
       "reference": "Reference: {reference}",
       "nextTitle": "What happens next?",
       "nextStep1": "The office reviews the request and checks that the equipment and time fit.",
-      "nextStep2": "You receive a confirmation with the final time only after the office has replied. If you picked an available day, we will try to keep it.",
+      "nextStep2": "You receive the final confirmed time only after the office or technician has scheduled the work order.",
       "nextStep3": "You can follow the status under “Your requests”. There you can also cancel or request a new time.",
       "seeRequests": "See your requests",
       "errors": {

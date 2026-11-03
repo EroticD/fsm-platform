@@ -291,7 +291,18 @@
       "activate": "Activate",
       "errorMissingFields": "Fill in name, email and choose a contact.",
       "errorInvalidContact": "The contact does not belong to this customer.",
-      "errorDuplicateEmail": "A user with this email address already exists."
+      "errorDuplicateEmail": "A user with this email address already exists.",
+      "delegation": {
+        "title": "Delegated portal access",
+        "description": "Control what each contact can do in the customer portal. A contact without a saved delegation keeps full access.",
+        "fullAccessFallback": "Full access (default)",
+        "save": "Save delegation",
+        "isActive": "Active portal user",
+        "canBook": "Can book",
+        "canViewDocuments": "Can view documents and reports",
+        "canViewContracts": "Can view contracts",
+        "canViewEquipment": "Can view equipment"
+      }
     },
     "activity": {
       "feedTitle": "Activity feed",
@@ -336,7 +347,12 @@
         "contractCreated": "The service agreement was created.",
         "contractActivated": "The service agreement was activated.",
         "contractPaused": "The service agreement was paused.",
-        "contractDeleted": "The service agreement was deleted."
+        "contractDeleted": "The service agreement was deleted.",
+        "siteCreated": "The site was added.",
+        "siteUpdated": "The site was updated.",
+        "siteDeleted": "The site was deleted.",
+        "sitePrimary": "The site was set as primary.",
+        "delegationSaved": "The portal delegation was saved."
       },
       "error": {
         "invalid": "The form contains invalid or missing fields.",
@@ -344,6 +360,25 @@
         "notFound": "Could not find what you tried to change. It may have been deleted.",
         "unknown": "Something went wrong. Try again."
       }
+    },
+    "sites": {
+      "title": "Sites",
+      "description": "The customer’s locations and addresses. Sites can be selected on work orders, equipment and in the portal.",
+      "name": "Name",
+      "namePlaceholder": "E.g. South warehouse",
+      "address": "Address",
+      "postalCode": "Postal code",
+      "city": "City",
+      "setPrimary": "Set as primary site",
+      "add": "Add site",
+      "empty": "No sites registered.",
+      "primary": "Primary",
+      "noAddress": "No address",
+      "makePrimary": "Make primary",
+      "delete": "Delete site",
+      "deleteConfirm": "Delete the site “{name}”? Work orders and equipment pointing to it will lose the link.",
+      "edit": "Edit site",
+      "save": "Save site"
     }
   }
 }

@@ -42,13 +42,6 @@ const STATUS_CLASSES: Record<PortalBooking["displayStatus"], string> = {
   expired: "border-[var(--line,#dedcd1)] bg-[#efede6] text-[var(--muted,#62685f)]",
 };
 
-const TIME_OPTIONS = Array.from({ length: 23 }, (_, index) => {
-  const minutes = 7 * 60 + index * 30;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-});
-
 function EventList({ booking }: { booking: PortalBooking }) {
   const t = useTranslations("common");
   const locale = useLocale();
@@ -88,14 +81,12 @@ function EventList({ booking }: { booking: PortalBooking }) {
 function BookingRequestCard({
   booking,
   minDate,
-  minFromTime,
   minLeadHours,
   horizonEnd,
   sites,
 }: {
   booking: PortalBooking;
   minDate: string;
-  minFromTime: string;
   minLeadHours: number;
   horizonEnd: string;
   sites: SlotPickerSite[];
@@ -138,15 +129,19 @@ function BookingRequestCard({
   const inProgress = booking.workOrder.status === "IN_PROGRESS";
   const canCancel = booking.canCancel && !closed;
   const canReschedule = booking.canReschedule && !closed;
+  const hasTimeWindow = Boolean(rescheduleFrom && rescheduleTo);
   const rescheduleLeadInvalid =
     !isConfirmed &&
     rescheduleDate !== "" &&
-    (rescheduleDate < minDate ||
-      (rescheduleDate === minDate && rescheduleFrom < minFromTime));
-  const rescheduleWindowInvalid = !isConfirmed && rescheduleTo <= rescheduleFrom;
+    rescheduleDate < minDate;
+  const rescheduleWindowInvalid =
+    !isConfirmed && hasTimeWindow && rescheduleTo <= rescheduleFrom;
   const canSubmitReschedule = isConfirmed
     ? !reschedulePending && rescheduleHeld !== null
-    : !reschedulePending && !rescheduleLeadInvalid && !rescheduleWindowInvalid;
+    : !reschedulePending &&
+      rescheduleDate !== "" &&
+      !rescheduleLeadInvalid &&
+      !rescheduleWindowInvalid;
   const changeError =
     cancelState.status === "error"
       ? cancelState
@@ -183,11 +178,13 @@ function BookingRequestCard({
               {t("portal.bookingRequests.confirmedLabel")}{" "}
             </dt>
             <dd className="inline">
-              {formatDateLocalized(booking.requestedDate, locale)}{" "}
-              {t("portal.bookingRequests.window", {
-                from: booking.requestedFrom,
-                to: booking.requestedTo,
-              })}
+              {formatDateLocalized(booking.requestedDate, locale)}
+              {booking.requestedFrom && booking.requestedTo
+                ? ` ${t("portal.bookingRequests.window", {
+                    from: booking.requestedFrom,
+                    to: booking.requestedTo,
+                  })}`
+                : ""}
             </dd>
           </div>
         ) : (
@@ -196,11 +193,13 @@ function BookingRequestCard({
               {t("portal.bookingRequests.requestedLabel")}{" "}
             </dt>
             <dd className="inline">
-              {formatDateLocalized(booking.requestedDate, locale)}{" "}
-              {t("portal.bookingRequests.window", {
-                from: booking.requestedFrom,
-                to: booking.requestedTo,
-              })}
+              {formatDateLocalized(booking.requestedDate, locale)}
+              {booking.requestedFrom && booking.requestedTo
+                ? ` ${t("portal.bookingRequests.window", {
+                    from: booking.requestedFrom,
+                    to: booking.requestedTo,
+                  })}`
+                : ""}
             </dd>
           </div>
         )}
@@ -441,70 +440,30 @@ function BookingRequestCard({
                     />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div>
-                    <label
-                      htmlFor={`reschedule-date-${booking.id}`}
-                      className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-                    >
-                      {t("portal.booking.dateLabel")}
-                    </label>
-                    <input
-                      id={`reschedule-date-${booking.id}`}
-                      type="date"
-                      name="requestedDate"
-                      required
-                      min={minDate}
-                      value={rescheduleDate}
-                      onChange={(event) => setRescheduleDate(event.target.value)}
-                      className={controlClassName("min-h-11")}
-                    />
+                  <div className="space-y-2">
+                    <div>
+                      <label
+                        htmlFor={`reschedule-date-${booking.id}`}
+                        className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
+                      >
+                        {t("portal.booking.dateLabel")}
+                      </label>
+                      <input
+                        id={`reschedule-date-${booking.id}`}
+                        type="date"
+                        name="requestedDate"
+                        required
+                        min={minDate}
+                        max={horizonEnd}
+                        value={rescheduleDate}
+                        onChange={(event) => setRescheduleDate(event.target.value)}
+                        className={controlClassName("min-h-11")}
+                      />
+                    </div>
+                    <p className="text-xs leading-5 text-[var(--muted,#62685f)]">
+                      {t("portal.bookingWizard.timeInDescription")}
+                    </p>
                   </div>
-                  <div>
-                    <label
-                      htmlFor={`reschedule-from-${booking.id}`}
-                      className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-                    >
-                      {t("portal.booking.fromLabel")}
-                    </label>
-                    <select
-                      id={`reschedule-from-${booking.id}`}
-                      name="requestedFrom"
-                      required
-                      value={rescheduleFrom}
-                      onChange={(event) => setRescheduleFrom(event.target.value)}
-                      className={controlClassName("min-h-11")}
-                    >
-                      {TIME_OPTIONS.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`reschedule-to-${booking.id}`}
-                      className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-[var(--ink,#101310)]"
-                    >
-                      {t("portal.booking.toLabel")}
-                    </label>
-                    <select
-                      id={`reschedule-to-${booking.id}`}
-                      name="requestedTo"
-                      required
-                      value={rescheduleTo}
-                      onChange={(event) => setRescheduleTo(event.target.value)}
-                      className={controlClassName("min-h-11")}
-                    >
-                      {TIME_OPTIONS.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
                 )}
                 {rescheduleLeadInvalid && (
                   <p
@@ -545,7 +504,6 @@ function BookingRequestCard({
 export default function BookingRequests({
   bookings,
   minDate,
-  minFromTime,
   minLeadHours,
   horizonEnd,
   sites,
@@ -553,7 +511,6 @@ export default function BookingRequests({
 }: {
   bookings: PortalBooking[];
   minDate: string;
-  minFromTime: string;
   minLeadHours: number;
   horizonEnd: string;
   sites: SlotPickerSite[];
@@ -585,7 +542,6 @@ export default function BookingRequests({
               key={booking.id}
               booking={booking}
               minDate={minDate}
-              minFromTime={minFromTime}
               minLeadHours={minLeadHours}
               horizonEnd={horizonEnd}
               sites={sites}

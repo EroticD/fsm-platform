@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
 import {
   addDaysUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -15,16 +14,25 @@ const mocks = vi.hoisted(() => ({
       count: vi.fn(),
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      create: vi.fn(),
       updateMany: vi.fn(),
+      update: vi.fn(),
     },
     bookingRequest: {
       count: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    bookingRequestEvent: { create: vi.fn() },
+    bookingRequestEvent: { create: vi.fn(), createMany: vi.fn() },
+    customerSite: {
+      findFirst: vi.fn(),
+      count: vi.fn(),
+      create: vi.fn(),
+      updateMany: vi.fn(),
+    },
     report: { update: vi.fn(), updateMany: vi.fn() },
     customer: { findFirst: vi.fn() },
     contact: { findFirst: vi.fn() },
@@ -57,6 +65,7 @@ vi.mock("./notifications", () => ({
 import {
   acknowledgeReport,
   cancelBooking,
+  createBooking,
   getPortalBookingRequests,
   getPortalReportHistory,
   portalUpcomingWhere,
@@ -89,10 +98,28 @@ beforeEach(() => {
   mocks.prisma.bookingRequest.findFirst.mockResolvedValue(null);
   mocks.prisma.bookingRequest.count.mockResolvedValue(0);
   mocks.prisma.bookingRequest.findMany.mockResolvedValue([]);
+  mocks.prisma.bookingRequest.create.mockResolvedValue({
+    id: "br-1",
+    reference: "B-1",
+  });
   mocks.prisma.bookingRequest.update.mockResolvedValue({});
   mocks.prisma.bookingRequest.updateMany.mockResolvedValue({ count: 1 });
   mocks.prisma.bookingRequestEvent.create.mockResolvedValue({ id: "ev-1" });
-  mocks.prisma.customer.findFirst.mockResolvedValue({ id: "cust-1" });
+  mocks.prisma.bookingRequestEvent.createMany.mockResolvedValue({ count: 1 });
+  mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-1" });
+  mocks.prisma.workOrder.update.mockResolvedValue({});
+  mocks.prisma.customerSite.findFirst.mockResolvedValue(null);
+  mocks.prisma.customerSite.count.mockResolvedValue(0);
+  mocks.prisma.customerSite.create.mockResolvedValue({ id: "site-1" });
+  mocks.prisma.customerSite.updateMany.mockResolvedValue({ count: 0 });
+  mocks.prisma.customer.findFirst.mockResolvedValue({
+    id: "cust-1",
+    name: "Kunde",
+    departmentId: "dep-1",
+    address: "Testveien 1",
+    postalCode: "1234",
+    city: "Oslo",
+  });
   mocks.prisma.contact.findFirst.mockResolvedValue({ id: "contact-1" });
   mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
   mocks.prisma.report.update.mockResolvedValue({});
@@ -624,8 +651,8 @@ describe("kundeportaltjenesten", () => {
         status: "rescheduled",
         reference: "B-1",
         requestedDate: newDate,
-        requestedFrom: "09:00",
-        requestedTo: "11:00",
+        requestedFrom: "",
+        requestedTo: "",
       },
     });
     expect(mocks.allowRequestDb).toHaveBeenCalledWith(
@@ -635,30 +662,19 @@ describe("kundeportaltjenesten", () => {
     );
     expect(mocks.prisma.bookingRequest.update).toHaveBeenCalledWith({
       where: { id: "br-1" },
-      data: expect.objectContaining({ requestedFrom: "09:00", requestedTo: "11:00" }),
+      data: expect.objectContaining({ requestedFrom: "", requestedTo: "" }),
     });
     expect(mocks.prisma.workOrder.updateMany).toHaveBeenCalledWith({
       where: { id: "wo1", customerId: "cust-1", status: "OPEN" },
       data: {
         scheduledFor: expect.any(Date),
-        scheduledTo: expect.any(Date),
+        scheduledTo: null,
       },
     });
 
-    // Standardvisitten flyttes til det nye ønskede tidsvinduet.
-    const dayStart = osloDayStart(newDate);
-    expect(mocks.prisma.visit.update).toHaveBeenCalledWith({
-      where: { id: "visit-1" },
-      data: {
-        startsAt: new Date(dayStart.getTime() + 9 * 60 * 60_000),
-        endsAt: new Date(dayStart.getTime() + 11 * 60 * 60_000),
-        allDay: false,
-      },
-    });
-    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(
-      mocks.prisma,
-      "wo1",
-    );
+    // En ubekreftet forespørsel har ingen visitt før kontoret planlegger.
+    expect(mocks.prisma.visit.update).not.toHaveBeenCalled();
+    expect(mocks.recomputeWorkOrderSchedule).not.toHaveBeenCalled();
     expect(mocks.prisma.bookingRequestEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ type: "RESCHEDULED" }),
     });
@@ -668,35 +684,31 @@ describe("kundeportaltjenesten", () => {
       "Kunde ba om ny tid",
       expect.any(String),
       "/oppdrag/wo1",
-      `booking-reschedule:br-1:${newDate}:09:00:11:00`,
+      `booking-reschedule:br-1:${newDate}::`,
     );
   });
 
-  it("avviser ny tid som starter innenfor minste ledetid", async () => {
+  it("tillater en datoforespørsel uten timebasert ledetid", async () => {
     mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
 
     const result = await rescheduleBooking(customer(), {
       bookingId: "br-1",
       requestedDate: todayInOslo(),
-      requestedFrom: "23:00",
-      requestedTo: "23:59",
     });
 
-    expect(result).toEqual({ ok: false, reason: "invalid" });
-    expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
-    expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
-    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, data: { status: "rescheduled" } });
+    expect(mocks.prisma.bookingRequest.update).toHaveBeenCalled();
   });
 
-  it("er en no-op når tidsvinduet er uendret", async () => {
-    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(ownBooking());
+  it("er en no-op når datoen er uendret", async () => {
+    mocks.prisma.bookingRequest.findFirst.mockResolvedValue(
+      ownBooking({ requestedFrom: "", requestedTo: "" }),
+    );
     const sameDate = toDateOnly(requestedDate);
 
     const result = await rescheduleBooking(customer(), {
       bookingId: "br-1",
       requestedDate: sameDate,
-      requestedFrom: "08:00",
-      requestedTo: "12:00",
     });
 
     expect(result).toEqual({
@@ -705,8 +717,8 @@ describe("kundeportaltjenesten", () => {
         status: "rescheduled",
         reference: "B-1",
         requestedDate: sameDate,
-        requestedFrom: "08:00",
-        requestedTo: "12:00",
+        requestedFrom: "",
+        requestedTo: "",
       },
     });
     expect(mocks.prisma.bookingRequest.update).not.toHaveBeenCalled();
@@ -767,5 +779,74 @@ describe("kundeportaltjenesten", () => {
     expect(mocks.prisma.bookingRequestEvent.create).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
     expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("date-only bestilling med nytt sted", () => {
+  it("oppretter et gjenbrukbart sted og kobler det til bestillingen", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+
+    const result = await createBooking(customer(), {
+      title: "Service",
+      description: "Trenger service",
+      requestedDate: toDateOnly(
+        addDaysUtc(parseDateOnly(todayInOslo())!, 7),
+      ),
+      contactName: "Kari",
+      contactPhone: "90000000",
+      newSiteName: "Nytt lager",
+      newSiteAddress: "Lagergata 2",
+      newSitePostalCode: "1235",
+      newSiteCity: "Oslo",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: "cust-1",
+          name: "Nytt lager",
+          isPrimary: true,
+        }),
+      }),
+    );
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customerId: "cust-1",
+          siteId: "site-1",
+        }),
+      }),
+    );
+    expect(mocks.prisma.bookingRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-1" }),
+      }),
+    );
+  });
+
+  it("gjenbruker et sted med samme navn i stedet for å lage duplikat", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
+    mocks.prisma.customerSite.findFirst.mockResolvedValue({ id: "site-old" });
+
+    const result = await createBooking(customer(), {
+      title: "Service",
+      description: "Trenger service",
+      requestedDate: toDateOnly(
+        addDaysUtc(parseDateOnly(todayInOslo())!, 7),
+      ),
+      contactName: "Kari",
+      contactPhone: "90000000",
+      newSiteName: "Nytt lager",
+      newSiteAddress: "Lagergata 2",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.prisma.customerSite.create).not.toHaveBeenCalled();
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ siteId: "site-old" }),
+      }),
+    );
   });
 });

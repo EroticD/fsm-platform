@@ -17,7 +17,7 @@ const nullableDateTime = {
   format: "date-time",
 } as const;
 
-const openApiDocument = {
+export const openApiDocument = {
   openapi: "3.1.0",
   info: {
     title: "FSM-plattformen REST API",
@@ -70,8 +70,8 @@ const openApiDocument = {
         operationId: "getMe",
         summary: "Hvem nøkkelen handler som",
         description:
-          "Returnerer brukeren som eier nøkkelen, avdelingen og de effektive " +
-          "rettighetene. Nøkkelen arver rettighetene til brukeren.",
+          "Returnerer brukeren som eier nøkkelen, avdelingen, de effektive " +
+          "rettighetene og nøkkelens egne scopes/skrivebeskyttelse.",
         responses: {
           "200": {
             description: "Identitet og rettigheter.",
@@ -133,7 +133,7 @@ const openApiDocument = {
           {
             name: "q",
             in: "query",
-            description: "Fritekstsøk i tittel og kundenavn.",
+            description: "Fritekstsøk i tittel, referanse, ordrenummer og kundenavn.",
             schema: { type: "string" },
           },
           {
@@ -1455,7 +1455,9 @@ const openApiDocument = {
         bearerFormat: "fsm_ API key",
         description:
           "API-nøkkel opprettet i Innstillinger → API-nøkler. Nøkkelen vises " +
-          "bare én gang. Den arver rettighetene til brukeren som opprettet den.",
+          "bare én gang. Den arver rettighetene til brukeren som opprettet den, " +
+          "men er i tillegg begrenset av nøkkelens scopes og eventuell " +
+          "skrivebeskyttelse. Kall utenfor scopene gir 403.",
       },
     },
     parameters: {
@@ -1749,6 +1751,14 @@ const openApiDocument = {
           },
           permissions: { type: "array", items: { type: "string" } },
           customerId: nullableString,
+          key: {
+            type: "object",
+            required: ["scopes", "readOnly"],
+            properties: {
+              scopes: { type: "array", items: { type: "string" } },
+              readOnly: { type: "boolean" },
+            },
+          },
         },
       },
       ContractSummary: {
@@ -2055,6 +2065,7 @@ const openApiDocument = {
         required: [
           "id",
           "title",
+          "reference",
           "status",
           "customer",
           "technicians",
@@ -2066,6 +2077,7 @@ const openApiDocument = {
         properties: {
           id: { type: "string" },
           title: { type: "string" },
+          reference: { type: "string" },
           orderNumber: nullableString,
           status: {
             type: "string",

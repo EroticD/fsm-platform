@@ -390,6 +390,52 @@ const rules: Rule[] = [
     translate: (m, t) =>
       t("auditActions.security.twoFactorReset", { name: m[1] }),
   },
+  {
+    pattern: /^2FA: påkrevd oppsett startet$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorRequiredStarted"),
+  },
+  {
+    pattern: /^2FA: startet påkrevd oppsett$/,
+    translate: (_m, t) =>
+      t("auditActions.security.twoFactorRequiredEnrollmentStarted"),
+  },
+  {
+    pattern: /^2FA: fullførte påkrevd oppsett$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorRequiredCompleted"),
+  },
+  {
+    pattern: /^Logget inn med påkrevd 2FA$/,
+    translate: (_m, t) => t("auditActions.security.loginRequiredTwoFactor"),
+  },
+  {
+    pattern: /^2FA: break-glass nullstilte to-trinns verifisering$/,
+    translate: (_m, t) => t("auditActions.security.twoFactorBreakGlass"),
+  },
+  {
+    pattern: /^Opprettet API-nøkkel: (.*) \((.*)…\)$/,
+    translate: (m, t) =>
+      t("auditActions.security.apiKeyCreated", {
+        name: m[1],
+        prefix: m[2],
+      }),
+  },
+  {
+    pattern: /^Tilbakekalte API-nøkkel: (.*) \((.*)…\)$/,
+    translate: (m, t) =>
+      t("auditActions.security.apiKeyRevoked", {
+        name: m[1],
+        prefix: m[2],
+      }),
+  },
+  {
+    pattern: /^Rotert API-nøkkel: (.*) \((.*)… → (.*)…\)$/,
+    translate: (m, t) =>
+      t("auditActions.security.apiKeyRotated", {
+        name: m[1],
+        oldPrefix: m[2],
+        newPrefix: m[3],
+      }),
+  },
 
   // -------------------------------------------------------------------- brukere
   {
@@ -686,6 +732,24 @@ const rules: Rule[] = [
     pattern: /^Opprettet gjentagende oppdrag fra serviceavtalen «(.*)»$/,
     translate: (m, t) =>
       t("auditActions.contract.recurringCreated", { title: m[1] }),
+  },
+  {
+    pattern: /^Eksporterte kundepakke: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.customerTransfer.exported", { checksum: m[1] }),
+  },
+  {
+    pattern: /^Lastet ned kundepakke: (.*)$/,
+    translate: (m, t) =>
+      t("auditActions.customerTransfer.downloaded", { checksum: m[1] }),
+  },
+  {
+    pattern: /^Importerte kundepakke: (.*) \((\d+) kunder\)$/,
+    translate: (m, t) =>
+      t("auditActions.customerTransfer.imported", {
+        checksum: m[1],
+        count: m[2],
+      }),
   },
 ];
 

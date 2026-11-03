@@ -21,6 +21,7 @@ import { LIMITS, cleanDataImage, cleanMarkdown, cleanText } from "@/lib/sanitize
 import { reportDraftSchema, reportSubmitSchema, reportUnlockSchema } from "@/lib/schemas/report";
 import { deleteUploadIfOwned, storeDataImage } from "@/lib/upload-store";
 import { generateReportNumber } from "@/lib/report-number";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { isTemplateFieldVisible } from "@/lib/template-visibility";
 
 /**
@@ -1112,8 +1113,8 @@ export async function submitReport(
   }
 
   const unitStatus: string[] = [];
-  const unitRows: Array<{
-    productId: string | null;
+  type PreparedUnitRow = {
+    productIdInput: string;
     label: string;
     serialNumber: string | null;
     location: string | null;
@@ -1121,10 +1122,13 @@ export async function submitReport(
     answersJson: string;
     comment: string | null;
     sortOrder: number;
-  }> = [];
+  };
+  // Første pass: samle og validere alt som ikke krever at en ny enhet
+  // opprettes. Enhetene opprettes først etter at påkrevde felt er kontrollert,
+  // slik at en avvist rapport ikke etterlater halvferdige enheter på kunden.
+  const preparedUnits: PreparedUnitRow[] = [];
 
   if (templateRequiresUnits) {
-    const usedProductIds = new Set<string>();
     for (const [index, unit] of parsedUnits.entries()) {
       const label = cleanText(unit.label, { maxLength: LIMITS.title });
       if (!label) continue; // hopper over tomme rader
@@ -1148,34 +1152,12 @@ export async function submitReport(
       }
       unitStatus.push(status);
 
-      const serialNumber = cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null;
-      const location = cleanText(unit.location, { maxLength: LIMITS.line }) || null;
-      const productId = await resolveProductId(workOrder.customerId, {
-        productId: unit.productId || "",
+      preparedUnits.push({
+        productIdInput: unit.productId || "",
         label,
-        serialNumber: serialNumber ?? "",
-        location: location ?? "",
-      });
-
-      // To ulike produkt-id-er kan peke på samme registrerte enhet (for
-      // eksempel når resolveProductId gjenbruker en enhet på serienummer).
-      // Da ville rapporten fått to rader for samme fysiske enhet.
-      if (productId) {
-        if (usedProductIds.has(productId)) {
-          return {
-            ok: false,
-            error: "ugyldig-data",
-            returnTo: returnPathFrom(formData, workOrderId),
-          };
-        }
-        usedProductIds.add(productId);
-      }
-
-      unitRows.push({
-        productId,
-        label,
-        serialNumber,
-        location,
+        serialNumber:
+          cleanText(unit.serialNumber, { maxLength: LIMITS.line }) || null,
+        location: cleanText(unit.location, { maxLength: LIMITS.line }) || null,
         status,
         answersJson: JSON.stringify(readAnswers(formData, fields, unit.key)),
         comment: cleanMarkdown(formData.get(`comment__${unit.key}`)) || null,
@@ -1189,8 +1171,8 @@ export async function submitReport(
     // en nøytral status: det finnes ingen enhet å godkjenne eller melde avvik på.
     const [anonymous] = parsedUnits;
     const key = anonymous?.key || "report";
-    unitRows.push({
-      productId: null,
+    preparedUnits.push({
+      productIdInput: "",
       label: "",
       serialNumber: null,
       location: null,
@@ -1203,7 +1185,7 @@ export async function submitReport(
 
   // Bildefeltene kan inneholde URL-er fra andre oppdrag/kunder. Fjern dem før
   // rapporten lagres, slik at PDF-en ikke lekker filer brukeren ikke eier.
-  await filterOwnedImageAnswers(unitRows, {
+  await filterOwnedImageAnswers(preparedUnits, {
     ownerId: workOrderId,
     departmentId: workOrder.departmentId,
     customerId: workOrder.customerId,
@@ -1214,11 +1196,11 @@ export async function submitReport(
   // bare en hjelp for nettleseren; serveren må avvise manglende påkrevde
   // sjekkpunkter og rapporter uten enheter. Ellers kunne en klient sende inn
   // en «godkjent» rapport med hull i dokumentasjonen.
-  if (unitRows.length === 0) {
+  if (preparedUnits.length === 0) {
     return { ok: false, error: "mangler-enhet", returnTo: returnPathFrom(formData, workOrderId) };
   }
 
-  const hasMissingRequired = unitRows.some((row) => {
+  const hasMissingRequired = preparedUnits.some((row) => {
     let answers: Record<string, unknown>;
     try {
       answers = JSON.parse(row.answersJson) as Record<string, unknown>;
@@ -1243,6 +1225,49 @@ export async function submitReport(
 
   if (hasMissingRequired) {
     return { ok: false, error: "ugyldig-data", returnTo: returnPathFrom(formData, workOrderId) };
+  }
+
+  // Først når alle påkrevde svar er kontrollert, kobles radene til enheter.
+  // Nye enheter opprettes her og blir dermed ikke liggende igjen når rapporten
+  // avvises på grunn av et manglende bilde eller annet påkrevd felt.
+  const unitRows: Array<{
+    productId: string | null;
+    label: string;
+    serialNumber: string | null;
+    location: string | null;
+    status: string;
+    answersJson: string;
+    comment: string | null;
+    sortOrder: number;
+  }> = [];
+  const usedProductIds = new Set<string>();
+  for (const prepared of preparedUnits) {
+    const productId = await resolveProductId(workOrder.customerId, {
+      productId: prepared.productIdInput,
+      label: prepared.label,
+      serialNumber: prepared.serialNumber ?? "",
+      location: prepared.location ?? "",
+    });
+    if (productId) {
+      if (usedProductIds.has(productId)) {
+        return {
+          ok: false,
+          error: "ugyldig-data",
+          returnTo: returnPathFrom(formData, workOrderId),
+        };
+      }
+      usedProductIds.add(productId);
+    }
+    unitRows.push({
+      productId,
+      label: prepared.label,
+      serialNumber: prepared.serialNumber,
+      location: prepared.location,
+      status: prepared.status,
+      answersJson: prepared.answersJson,
+      comment: prepared.comment,
+      sortOrder: prepared.sortOrder,
+    });
   }
 
   // Rapporten er "godkjent" bare når ingen av enhetene har avvik. Uten enheter
@@ -1519,6 +1544,7 @@ export async function submitReport(
           const remediation = await tx.workOrder.create({
             data: {
               title: summary.title,
+              reference: generateWorkOrderReference(),
               description: summary.description,
               // Utbedringsoppdraget er udatert; kontoret planlegger det selv.
               scheduledFor: null,

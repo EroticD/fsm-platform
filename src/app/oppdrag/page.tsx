@@ -334,6 +334,7 @@ export default async function WorkOrdersPage({
     skip: (page - 1) * PAGE_SIZE,
     include: {
       customer: { select: { name: true, address: true, postalCode: true, city: true } },
+      site: { select: { name: true, address: true, postalCode: true, city: true } },
       technicians: { select: { name: true } },
       templates: { select: { id: true } },
       reports: { select: { id: true } },
@@ -628,7 +629,9 @@ export default async function WorkOrdersPage({
                   </thead>
                   <tbody>
                     {orders.map((wo) => {
-                      const address = formatAddress(wo.customer);
+                      const address = wo.site
+                        ? formatAddress(wo.site)
+                        : formatAddress(wo.customer);
                       const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
                       const overdue =
                         scheduledEnd !== null &&
@@ -662,6 +665,9 @@ export default async function WorkOrdersPage({
                               >
                                 {wo.title}
                               </Link>
+                              <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
+                                {t("orders.list.reference")} {wo.reference}
+                              </span>
                               {wo.orderNumber ? (
                                 <span className="whitespace-nowrap rounded border border-[var(--line,#d8d3c5)] bg-white px-1.5 py-0.5 text-xs font-bold text-[#5e6356]">
                                   {t("orders.list.orderNumber")} {wo.orderNumber}
@@ -670,6 +676,7 @@ export default async function WorkOrdersPage({
                             </div>
                             <p className="mt-0.5 truncate text-xs text-[#5e6356]">
                               {wo.customer?.name || t("orders.list.noCustomer")}
+                              {wo.site ? ` · ${wo.site.name}` : ""}
                               {address ? ` · ${address}` : ""}
                             </p>
                           </td>
@@ -771,7 +778,9 @@ export default async function WorkOrdersPage({
             <section className={`${CARD} overflow-hidden md:hidden`}>
               <div className="divide-y divide-[var(--line,#d8d3c5)]">
                 {orders.map((wo) => {
-                  const address = formatAddress(wo.customer);
+                  const address = wo.site
+                    ? formatAddress(wo.site)
+                    : formatAddress(wo.customer);
                   const scheduledEnd = wo.scheduledTo ?? wo.scheduledFor;
                   const overdue =
                     scheduledEnd !== null &&
@@ -803,6 +812,7 @@ export default async function WorkOrdersPage({
                           </p>
                           <p className="truncate text-xs text-[#5e6356]">
                             {wo.customer?.name || t("orders.list.noCustomer")}
+                            {wo.site ? ` · ${wo.site.name}` : ""}
                             {address ? ` · ${address}` : ""}
                           </p>
                         </div>

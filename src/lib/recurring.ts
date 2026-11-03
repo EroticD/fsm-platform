@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { notifyWorkOrderEvent } from "@/server/notifications";
 import { contractIntervalLabel } from "@/lib/contracts";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import {
   addDaysUtc,
   firstOccurrenceOnOrAfter,
@@ -180,6 +181,7 @@ export async function generateRecurringWorkOrderForContract(
         const workOrder = await tx.workOrder.create({
           data: {
             title: contract.title,
+            reference: generateWorkOrderReference(now),
             description: baseDescription,
             departmentId: contract.departmentId,
             customerId: contract.customerId,

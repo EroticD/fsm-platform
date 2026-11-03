@@ -1,0 +1,46 @@
+{
+  "p3": {
+    "offlineLock": {
+      "lockedTitle": "Offline-kladdene er låst",
+      "lockedDescription": "Lås opp med PIN-koden din for å se og sende kladder som ligger på denne enheten.",
+      "setupTitle": "Sett PIN for offline-kladder",
+      "setupDescription": "Kladder med kundenavn, notater, bilder og signaturer krypteres på denne enheten. Du må låse opp med PIN etter omstart eller 15 minutter uten aktivitet.",
+      "legacyTitle": "Ukrypterte kladder funnet",
+      "legacyDescription": "Kladder fra en eldre versjon ligger ukryptert på denne enheten. Sett PIN for å kryptere dem, eller forkast dem. Ingenting slettes uten at du bekrefter.",
+      "orphanedTitle": "PIN-nøkkelen mangler",
+      "orphanedDescription": "Det finnes krypterte kladder, men nøkkelen som kan låse dem opp er borte fra denne nettleseren. Kladdene kan ikke gjenopprettes. Forkast dem for å kunne sette en ny PIN.",
+      "pinLabel": "PIN",
+      "pinConfirmLabel": "Gjenta PIN",
+      "currentPinLabel": "Nåværende PIN",
+      "newPinLabel": "Ny PIN",
+      "setupAction": "Sett PIN",
+      "migrateAction": "Krypter med PIN",
+      "unlockAction": "Lås opp",
+      "changeAction": "Endre PIN",
+      "lockAction": "Lås nå",
+      "discardAction": "Forkast kladdene",
+      "discardConfirm": "Forkaste alle lokale kladder og fjerne PIN-en fra denne enheten? Dette kan ikke angres.",
+      "legacyDiscardAction": "Forkast ukrypterte kladder",
+      "legacyDiscardConfirm": "Forkaste kladder fra en eldre versjon uten å kryptere dem? Dette kan ikke angres.",
+      "closeAction": "Lukk",
+      "pinHint": "Minst {min} sifre. PIN-en lagres ikke og kan ikke gjenopprettes.",
+      "pinMismatch": "PIN-kodene er ikke like.",
+      "pinTooShort": "PIN må ha minst {min} sifre.",
+      "pinInvalid": "PIN kan bare inneholde sifre.",
+      "wrongPin": "Feil PIN. {remaining} forsøk igjen.",
+      "lockedOut": "For mange feilforsøk. Prøv igjen om {seconds} sekunder.",
+      "unlockedStatus": "Kladdene er låst opp.",
+      "changeSuccess": "PIN-en er endret.",
+      "migrated": "{count} kladd(er) ble kryptert.",
+      "cryptoUnavailable": "Kryptering er ikke tilgjengelig i denne nettleseren. Offline-kladder kan ikke lagres trygt.",
+      "keyCorrupt": "PIN-nøkkelen kan ikke leses. Forkast kladdene og sett en ny PIN.",
+      "keyMissing": "Fant ingen PIN for denne brukeren. Sett en ny PIN."
+    }
+  },
+  "orders": {
+    "reportForm": {
+      "stepDraftLocked": "kladd låst",
+      "unlockDraft": "Lås opp kladder"
+    }
+  }
+}

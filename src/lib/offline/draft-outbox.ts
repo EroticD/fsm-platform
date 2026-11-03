@@ -20,6 +20,7 @@ import {
   newestPerReport,
   reportKey,
 } from "./outbox-order";
+import { isOfflineLockedError, removeOfflineKey } from "./crypto";
 import {
   emitSyncEnd,
   emitSyncProgress,
@@ -251,7 +252,15 @@ export async function markDraftSynced(input: {
   if ((draft.syncedAt ?? 0) >= draft.updatedAt) return;
   const next = { ...draft, syncedAt: draft.updatedAt };
   delete next.syncError;
-  await putOfflineDraft(next);
+  try {
+    await putOfflineDraft(next);
+  } catch (error) {
+    if (!isOfflineLockedError(error)) throw error;
+    // Kladden er fra før kryptering og brukeren har ikke satt PIN. Innholdet er
+    // nettopp bekreftet lagret på serveren, så den gamle klartekstkopien kan
+    // fjernes i stedet for å bli liggende ukryptert og evig «ventende».
+    await deleteOfflineDraft(key);
+  }
 }
 
 /**
@@ -281,7 +290,15 @@ async function enqueueUnsyncedDrafts(userId: string): Promise<void> {
     if ((newestByReport.get(key) ?? 0) >= draft.updatedAt) continue;
     const payload = storedDraftOutboxPayload(draft);
     if (!payload) continue;
-    const result = await enqueueOutbox(payload, userId);
+    let result: EnqueueResult;
+    try {
+      result = await enqueueOutbox(payload, userId);
+    } catch (error) {
+      // Klartekstkladd uten PIN: den kan ikke krypteres inn i outboxen ennå.
+      // Låsepanelet ber brukeren sette PIN; ikke avbryt resten av køen.
+      if (isOfflineLockedError(error)) continue;
+      throw error;
+    }
     if (result === "too-large") {
       await putOfflineDraft({ ...draft, syncError: "payload-too-large" });
     }
@@ -474,7 +491,12 @@ export async function retryFailedDrafts(
 export async function clearOfflineUserData(
   userId = currentOfflineUserId(),
 ): Promise<void> {
-  if (userId) await clearOfflineDataForUser(userId);
+  if (userId) {
+    await clearOfflineDataForUser(userId);
+    // Uten poster er den innpakkede nøkkelen verdiløs. Å fjerne den hindrer at
+    // en gammel PIN senere låser opp en ny, tom kladdestore.
+    removeOfflineKey(userId);
+  }
   forgetOfflineUser();
   notifyOutboxChanged();
 }

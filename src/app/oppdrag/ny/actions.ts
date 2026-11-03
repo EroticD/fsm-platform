@@ -23,11 +23,14 @@ export async function createWorkOrder(formData: FormData) {
     departmentId: formData.get("departmentId"),
     customerId: formData.get("customerId"),
     contactId: formData.get("contactId"),
+    siteId: formData.get("siteId"),
     scheduledFor: formData.get("scheduledFor"),
     scheduledTo: formData.get("scheduledTo"),
     technicianIds: formData.getAll("technicianIds"),
     templateIds: formData.getAll("templateIds"),
     tagNames: formData.getAll("tags"),
+    skillIds: formData.getAll("skillIds"),
+    mandatorySkillIds: formData.getAll("mandatorySkillIds"),
   });
 
   if (!result.ok) {

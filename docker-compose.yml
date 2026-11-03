@@ -46,9 +46,12 @@ services:
         condition: service_healthy
     environment:
       # Valgfrie roller: runtime (DML) og migrasjoner (DDL). Uten dem brukes
-      # POSTGRES_USER som før. Se «Databaseroller» i docs/OPERATIONS.md.
+      # POSTGRES_USER som før. Lokal utvikling velger bevisst bort DDL-sjekken;
+      # produksjon er fail-closed og krever separate roller. Se
+      # «Databaseroller» i docs/OPERATIONS.md.
       DATABASE_URL: ${DATABASE_RUNTIME_URL:-postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public}
       DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
+      ALLOW_DB_DDL_ROLE: ${ALLOW_DB_DDL_ROLE:-true}
       # NEXTAUTH_URL må være den offentlige adressen i produksjon.
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       # Valgfri offentlig adresse for PDF-er og origin-sjekk.
@@ -58,6 +61,10 @@ services:
       # NextAuth avviser vertsnavnet.
       AUTH_TRUST_HOST: "true"
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-}
+      METRICS_SECRET: ${METRICS_SECRET:-}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/monitoring/backup-status.json}
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-26}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
       # E-post (valgfritt). Uten SMTP-innstillinger viser appen invitasjonslenker
       # som må deles manuelt.
@@ -103,6 +110,8 @@ services:
     volumes:
       # Opplastede bilder og vedlegg ligger utenfor containeren.
       - fsm_uploads:/app/uploads
+      # Valgfri backupstatus for /api/metrics. Mappen opprettes ved kloning.
+      - ./monitoring:/app/monitoring:ro
 
 volumes:
   fsm_postgres_data:

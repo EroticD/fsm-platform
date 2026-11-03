@@ -122,8 +122,9 @@ visitten:
 4. Trykk **Lagre visitt**.
 
 En visitt varer i maksimalt 31 dager, og sluttid må være etter starttid.
-Overlapp gir **En eller flere montører er allerede tildelt en overlappende
-visitt.** Fullførte og kansellerte visiter er låst. Endre med **Rediger visitt**
+Overlappende visiter er tillatt. Montøren vises som opptatt, men kan fortsatt
+tildeles et nytt oppdrag; bruk kalenderen og kapasitetsvisningen til å vurdere
+belastningen. Fullførte og kansellerte visiter er låst. Endre med **Rediger visitt**
 → **Flytt visitt**, **Tildel montører** eller **Notat og rekkefølge**.
 
 ### HMS-bibliotek og QR-etiketter
@@ -297,7 +298,7 @@ filter** og **Nullstill** gjelder alle datavisningene.
 Kalenderen viser visiter med status **Planlagt**, **Tildelt**, **På vei**, **På
 stedet**, **Fullført** eller **Kansellert**. Dra en visitt til en annen dag
 eller et annet tidsrom for å flytte den. Ved konflikt lagres ikke flyttingen, og
-du får beskjed om overlapp. Fullførte og kansellerte visiter er låst.
+du får beskjed om overlappet. Fullførte og kansellerte visiter er låst.
 
 **Ressursoversikt** viser montører, aktive oppdrag, oppdrag uten montør og nylig
 fullførte. **Ufordelte oppdrag** har **Tildel montør**. Du kan dra kort mellom
@@ -315,7 +316,7 @@ oppdraget.
 **Automatisk tildeling** tørrkjøres med **Tørrkjør**; **Bruk N forslag** lagrer
 først når du velger det. **Foreslå montør** rangerer etter **Kompetanse**,
 **Avstand**, **Reise**, **Ledig**, **SLA** og **Belastning**. Kompetanse, fravær,
-arbeidstid og overlapp er harde krav.
+arbeidstid er harde krav; overlapp er bare en opptatt-markering.
 
 **Kapasitet** (`/kalender/kapasitet`) viser **Planlagt kapasitet mot faktisk
 belastning per avdeling, dag og montør**. Velg **Fra** og **Til**, trykk **Vis**,
@@ -386,7 +387,7 @@ ikke beløp.
 
 Ved hvert intervall opprettes et nytt oppdrag med avtalens tittel, kunde,
 kontaktperson, avdeling og sjekklistemal. Det får status **Planlagt**, en
-heldagsvisitt uten montører, og SLA-klokken starter. Rapporten er ny og tom;
+firetimers standardvisitt uten montører (08:00–12:00), og SLA-klokken starter. Rapporten er ny og tom;
 forrige rapport legges ved som PDF. Har jobben vært nede, brukes siste forfalte
 forekomst. Utløpte avtaler genererer ikke nye oppdrag.
 
@@ -397,21 +398,28 @@ Bookingkøen ligger på `/bookinger` med **Alle**, **Venter**, **Bekreftet** og
 **Sted**, **Tjeneste**, **Montør** og status.
 
 1. Åpne `/bookinger` og filtrer på **Venter**.
-2. Velg **Montør** i **Velg montør**.
-3. Trykk **Bekreft booking**, eller **Avlys** for å avvise.
+2. Fyll inn **Dato**, **Fra** og **Til** for den planlagte visitten. Ønsket
+   dato er forhåndsutfylt, men kan endres.
+3. Velg **Montør** i **Velg montør**. Alle aktive ansatte i avdelingen kan
+   velges; ledighet, fravær og reservasjoner kontrolleres når du bekrefter.
+4. Trykk **Planlegg og bekreft**, eller **Avlys** for å avvise.
 
 Ved bekreftelse settes oppdraget til **Planlagt**, visitten opprettes eller
-oppdateres, og kunden får SMS hvis kontakten har samtykket.
+oppdateres, og kunden får SMS hvis kontakten har samtykket. Hvis montøren
+allerede er opptatt i tidsrommet, blir bookingen stående som **Venter** og du
+får beskjed om å velge en annen tid eller montør.
 
-Kunden booker i portalen. Ledige tider er 30-minutters tidsrom inntil 60 dager
-fram, med minst 24 timers ledetid. Arbeidstid, fravær, visiter og ubekreftede
-reservasjoner trekkes fra; standard er maks tre forslag per montør per dag.
-Mangler arbeidstid, brukes avdelingens åpningstider, deretter hverdager 08–16.
-En valgt time holdes i fem minutter mens kunden fyller ut.
+Kunden velger sted, tjeneste og ønsket dato i portalen, og skriver ønsket
+klokkeslett i beskrivelsen. Kunden kan ikke velge tidsblokk, og bestillingen
+opprettes alltid som et nytt oppdrag med status **Åpen/Ny**. Det opprettes
+ingen visitt eller bekreftet tid. Kontoret planlegger derfor tid og montør
+direkte i bookingkøen; eldre bestillinger som allerede har et lagret
+tidsvindu, kan fortsatt bekreftes med dette vinduet.
 
-En kundebestilling oppretter allerede et oppdrag; det finnes ingen egen
-**Konverter til oppdrag**-knapp. Nye bestillinger bekreftes direkte. Eldre
-**Venter**-forespørsler blir **Planlagt** med visitt når du bekrefter dem.
+Kontoret eller montøren planlegger oppdraget og setter status **Planlagt**.
+Passer ikke tiden, settes det til **Venter** til ny planlegging. Kunden får
+endelig bekreftelse først da. En kundebestilling er allerede et oppdrag; det
+finnes ingen egen **Konverter til oppdrag**-knapp.
 
 ## Rapporter
 
@@ -573,6 +581,50 @@ portalbrukere som har sluttet, og se over utstyr uten målinger eller med utløp
 garanti. SLA-policyer, åpningstider, helligdager og prislister forvaltes av
 administrator; be om endring ved behov.
 
+## Kundeoverføring (bare administrator)
+
+Fanen **Kundeoverføring** ligger under **Innstillinger** og vises bare for en
+aktiv administrator som også har rettigheten **Administrere innstillinger**.
+Kontor, montører og kundeportalbrukere får `403` også om de kaller ruten direkte.
+Fanen brukes til å flytte én eller flere kunder mellom installasjoner – den er
+ikke en sikkerhetskopi.
+
+**Eksport**
+
+1. Åpne **Innstillinger → Kundeoverføring**, søk opp kunden og kryss av.
+2. Velg om filer, revisjonssnapshot, slettede rader og bevaringsplikt skal med.
+   Signaturbilder er av som standard og krever en egen, dokumentert vurdering.
+3. Les personopplysningsvarselet og kryss av bekreftelsen.
+4. Trykk **Start eksport**. Du får en ZIP med `manifest.json`,
+   `checksums.sha256`, datafiler og filer. Pakken er tilgjengelig i 24 timer og
+   kan bare lastes ned av deg.
+5. Verifiser gjerne manuelt med `sha256sum -c checksums.sha256`. Sjekksummene
+   oppdager korrupsjon, men beviser ikke hvem som lagde pakken.
+
+Pakken inneholder aldri passord, passordhasher, 2FA-hemmeligheter, sesjoner
+eller API-nøkler. Portalerbrukere følger med som metadata og importeres
+deaktivert uten passord.
+
+**Import**
+
+1. Last opp ZIP-en. Serveren validerer struktur, sjekksummer, filtyper og
+   referanser, og viser en forhåndsvisning. Ingenting skrives ennå.
+2. Kontroller antall, advarsler og feil. Feil blokkerer importen. For
+   konflikter velger du **hopp over** (standard), **opprett ny** eller – for
+   kunde og utstyr – **oppdater**. Rapporter oppdateres aldri.
+3. Kryss av bekreftelsen og trykk **Importer pakken**. Alle rader og filer
+   skrives i én transaksjon; feiler noe, blir databasen uendret og midlertidige
+   filer ryddes.
+4. Etter importen får hver portalerbruker ny id, er deaktivert og mangler
+   passord. Send vanlig invitasjon eller tilbakestill passord før innlogging.
+   Ansatte og maler opprettes aldri automatisk.
+
+**Begrensninger:** Pakken er begrenset til 500 MiB og 50 MiB per fil, og
+eksporten kjører synkront. Globale dokumenter uten kunde-/utstyrseier følger
+ikke med. Signaturer, SLA-klokker, bookinger, varsler, SMS, sporing og
+rapportkladder er bevisst utelatt. Se `docs/backlog-customer-export-import.md`
+for full liste.
+
 ## Grensesnitt mot tekniker- og administratordelen
 
 | Kontoret gjør | Teknikeren gjør | Hvor det står |
@@ -595,7 +647,7 @@ administratordelen (del 3).
 | Får ikke tildelt | Mangler **Tildele montører**, låst eller bevaringsplikt | Be om rettighet, eller gjenåpne som administrator |
 | Dra og slipp endret ikke dato | Dra og slipp tildeler montør | Flytt visitten i kalenderen |
 | Kalenderen er tom | Ingen visiter, filter eller utenfor ±6 måneder | Nullstill filter, velg **I dag**, kontroller visitt |
-| Overlappende visitt | Montøren er dobbelbooket | Flytt visitten eller velg annen montør |
+| Overlappende visitt | Montøren har flere oppdrag samtidig | Vurder kapasiteten og flytt en visitt ved behov |
 | Rapporten er låst | Innsendt rapport | Be administrator **Lås opp for retting** |
 | Kunden ser ikke rapporten | Ikke låst, eller mangler portal-/dokumenttilgang | Lås rapporten, kontroller portalbruker |
 | Kunden kan ikke booke | Mangler kontakt, aktiv bruker eller ledig tid | Sjekk kontakt, bruker, 24 timer og ledige tidsrom |

@@ -1,0 +1,21 @@
+{
+  "reviews": {
+    "title": "Customer reviews",
+    "subtitle": "Submitted customer reviews, limited to the work orders you can access.",
+    "back": "Back to dashboard",
+    "average": "Average",
+    "count": "Reviews",
+    "thisPage": "On this page",
+    "empty": "No reviews yet",
+    "emptyHint": "Reviews appear here after customers respond to the requests.",
+    "score": "{score} of 5",
+    "noCustomer": "No customer",
+    "openOrder": "Open work order",
+    "noComment": "The customer left no comment.",
+    "showing": "Showing {shown} of {total} reviews",
+    "loadError": "Could not load the reviews.",
+    "railTitle": "Customer reviews",
+    "averageShort": "avg.",
+    "openList": "See all reviews"
+  }
+}

@@ -33,6 +33,7 @@ describeIntegration("HMS-skjema på internt oppdrag", () => {
     // faktisk kan brukes på et internt oppdrag uten kunde.
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("Internt HMS-oppdrag"),
         departmentId,
         customerId: null,

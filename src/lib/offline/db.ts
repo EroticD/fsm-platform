@@ -4,6 +4,12 @@
  * Brukes bare i nettleseren. Alle funksjoner er no-op når IndexedDB ikke er
  * tilgjengelig (eldre nettlesere, private modus), slik at appen fortsatt
  * fungerer uten offline-lagring.
+ *
+ * Siden SEC-01 skrives `payload` alltid som AES-GCM-ciphertext. Oppslag og
+ * lister dekrypterer med den PIN-opplåste nøkkelen og kaster
+ * `OfflineLockedError` når nøkkelen er låst. Metadata (eier, oppdrag, mal og
+ * tid) er fortsatt lesbar uten nøkkel, slik at låse-UI og utløpsrydding kan
+ * fungere uten å eksponere innholdet.
  */
 import {
   isAttemptLimitReached,
@@ -16,6 +22,12 @@ import {
   sortOutboxOldestFirst,
   type ReportIdentity,
 } from "./outbox-order";
+import {
+  decryptOfflinePayload,
+  encryptOfflinePayload,
+  isSealedRecord,
+  OfflineTamperError,
+} from "./crypto";
 
 const DB_NAME = "fsm-offline";
 const DB_VERSION = 1;
@@ -102,7 +114,58 @@ export type OutboxItem = {
   failureReason?: string;
 };
 
-export type EnqueueResult = "queued" | "too-large" | "unavailable";
+export type EnqueueResult =
+  | "queued"
+  | "too-large"
+  | "unavailable"
+  | "locked";
+
+/**
+ * Postene som faktisk ligger i IndexedDB. `payload` er ciphertext for alle
+ * poster som er skrevet etter at SEC-01 ble innført. Eldre poster uten `enc`
+ * er klartekst og migreres ved første opplåsing.
+ */
+type StoredDraft = Omit<OfflineDraft, "payload"> & {
+  payload: string;
+  enc?: string;
+  iv?: string;
+};
+
+type StoredOutboxItem = Omit<OutboxItem, "payload"> & {
+  payload: string;
+  enc?: string;
+  iv?: string;
+};
+
+export type OfflineStorageInspection = {
+  drafts: number;
+  outbox: number;
+  /** Poster som fortsatt ligger i klartekst fra en eldre versjon. */
+  plaintextDrafts: number;
+  plaintextOutbox: number;
+};
+
+export type OfflineMigrationResult = {
+  drafts: number;
+  outbox: number;
+};
+
+function draftAad(draft: Pick<OfflineDraft, "key">): string {
+  return `draft:${draft.key}`;
+}
+
+function outboxAad(id: string): string {
+  return `outbox:${id}`;
+}
+
+async function openStoredPayload(
+  record: { userId: string; payload: string; enc?: string; iv?: string },
+  aad: string,
+): Promise<string> {
+  if (!record.enc) return record.payload;
+  if (!isSealedRecord(record)) throw new OfflineTamperError();
+  return decryptOfflinePayload(record.userId, aad, record);
+}
 
 function hasIndexedDb(): boolean {
   return typeof indexedDB !== "undefined";
@@ -188,8 +251,14 @@ async function deleteOutboxForReport(
 }
 
 export async function putOfflineDraft(draft: OfflineDraft): Promise<void> {
+  const sealed = await encryptOfflinePayload(
+    draft.userId,
+    draftAad(draft),
+    draft.payload,
+  );
+  const stored: StoredDraft = { ...draft, ...sealed };
   await withStore(DRAFT_STORE, "readwrite", async (store) => {
-    store.put(draft);
+    store.put(stored);
     return undefined;
   });
 }
@@ -208,14 +277,21 @@ async function deleteDrafts(keys: string[]): Promise<void> {
  * Selve oppføringen slettes ikke: payloaden er brukerens eneste kopi når den
  * lokale kladden er ryddet, og skal kunne forsøkes eller forkastes bevisst.
  */
-async function markOutboxExpiredForDraft(draft: OfflineDraft): Promise<void> {
+type DraftMetadata = Pick<
+  OfflineDraft,
+  "key" | "userId" | "workOrderId" | "templateId" | "updatedAt"
+>;
+
+async function markOutboxExpiredForDraft(
+  draft: DraftMetadata,
+): Promise<void> {
   const identity: ReportIdentity = {
     workOrderId: draft.workOrderId,
     templateId: draft.templateId,
   };
   await withStore(OUTBOX_STORE, "readwrite", async (store) => {
     const items =
-      (await requestResult<OutboxItem[]>(store.getAll())) ?? [];
+      (await requestResult<StoredOutboxItem[]>(store.getAll())) ?? [];
     const failedAt = Date.now();
     for (const item of items) {
       if (item.userId !== draft.userId || isOutboxTerminal(item)) continue;
@@ -238,7 +314,7 @@ async function markOutboxExpiredForDraft(draft: OfflineDraft): Promise<void> {
  * at et avbrutt ryddeforsøk ikke kan etterlate en automatisk sendbar gammel
  * payload uten lokal kladd.
  */
-async function expireDrafts(drafts: OfflineDraft[]): Promise<void> {
+async function expireDrafts(drafts: DraftMetadata[]): Promise<void> {
   if (drafts.length === 0) return;
   for (const draft of drafts) {
     await markOutboxExpiredForDraft(draft);
@@ -251,12 +327,17 @@ export async function getOfflineDraft(
   now = Date.now(),
 ): Promise<OfflineDraft | null> {
   const result = await withStore(DRAFT_STORE, "readonly", async (store) =>
-    requestResult<OfflineDraft | undefined>(store.get(key)),
+    requestResult<StoredDraft | undefined>(store.get(key)),
   );
-  const draft = result ?? null;
-  if (!draft) return null;
-  if (!isOfflineDraftExpired(draft.updatedAt, now)) return draft;
-  await expireDrafts([draft]);
+  const stored = result ?? null;
+  if (!stored) return null;
+  if (!isOfflineDraftExpired(stored.updatedAt, now)) {
+    return {
+      ...stored,
+      payload: await openStoredPayload(stored, draftAad(stored)),
+    };
+  }
+  await expireDrafts([stored]);
   return null;
 }
 
@@ -272,7 +353,7 @@ export async function listDraftsForUser(
   now = Date.now(),
 ): Promise<OfflineDraft[]> {
   const result = await withStore(DRAFT_STORE, "readonly", async (store) =>
-    requestResult<OfflineDraft[]>(store.getAll()),
+    requestResult<StoredDraft[]>(store.getAll()),
   );
   const drafts = (result ?? []).filter((draft) => draft.userId === userId);
   const fresh = drafts.filter(
@@ -282,7 +363,12 @@ export async function listDraftsForUser(
     isOfflineDraftExpired(draft.updatedAt, now),
   );
   await expireDrafts(expired);
-  return fresh;
+  return Promise.all(
+    fresh.map(async (draft) => ({
+      ...draft,
+      payload: await openStoredPayload(draft, draftAad(draft)),
+    })),
+  );
 }
 
 /**
@@ -311,10 +397,18 @@ export async function enqueueOutbox(
     return "too-large";
   }
 
-  const item: OutboxItem = {
-    id: crypto.randomUUID(),
+  const id = crypto.randomUUID();
+  const sealed = await encryptOfflinePayload(
     userId,
+    outboxAad(id),
     payload,
+  );
+  const item: StoredOutboxItem = {
+    id,
+    userId,
+    payload: sealed.payload,
+    enc: sealed.enc,
+    iv: sealed.iv,
     createdAt: Date.now(),
     attempts: 0,
     ...(identity ?? {}),
@@ -330,7 +424,7 @@ export async function enqueueOutbox(
           resolve();
           return;
         }
-        const existing = cursor.value as OutboxItem;
+        const existing = cursor.value as StoredOutboxItem;
         if (existing.createdAt > newest) newest = existing.createdAt;
         const existingIdentity = itemReportIdentity(existing);
         if (
@@ -353,18 +447,38 @@ export async function enqueueOutbox(
   return result === null ? "unavailable" : "queued";
 }
 
-export async function listOutbox(): Promise<OutboxItem[]> {
+async function readStoredOutbox(
+  userId?: string,
+): Promise<StoredOutboxItem[]> {
   const result = await withStore(OUTBOX_STORE, "readonly", async (store) =>
-    requestResult<OutboxItem[]>(store.getAll()),
+    requestResult<StoredOutboxItem[]>(store.getAll()),
   );
   // IndexedDB sorterer etter primærnøkkel (tilfeldig UUID). Selve outboxen må
   // sendes i kronologisk rekkefølge, ellers kan en eldre kladd vinne.
-  return sortOutboxOldestFirst(result ?? []);
+  return sortOutboxOldestFirst(
+    (result ?? []).filter((item) => !userId || item.userId === userId),
+  );
+}
+
+async function openOutboxItems(
+  items: StoredOutboxItem[],
+): Promise<OutboxItem[]> {
+  return Promise.all(
+    items.map(async (item) => ({
+      ...item,
+      payload: await openStoredPayload(item, outboxAad(item.id)),
+    })),
+  );
+}
+
+export async function listOutbox(): Promise<OutboxItem[]> {
+  return openOutboxItems(await readStoredOutbox());
 }
 
 export async function listOutboxForUser(userId: string): Promise<OutboxItem[]> {
-  const items = await listOutbox();
-  return items.filter((item) => item.userId === userId);
+  // Filtrer på eier før dekryptering. Ellers ville en annen brukers låste
+  // nøkkel blokkert denne brukerens kø.
+  return openOutboxItems(await readStoredOutbox(userId));
 }
 
 export async function countOutboxForUser(userId: string): Promise<number> {
@@ -386,10 +500,10 @@ export async function removeOutbox(id: string): Promise<void> {
  */
 async function updateOutboxItem(
   item: OutboxItem,
-  update: (current: OutboxItem) => OutboxItem,
+  update: (current: StoredOutboxItem) => StoredOutboxItem,
 ): Promise<void> {
   await withStore(OUTBOX_STORE, "readwrite", async (store) => {
-    const current = await requestResult<OutboxItem | undefined>(
+    const current = await requestResult<StoredOutboxItem | undefined>(
       store.get(item.id),
     );
     if (!current || current.attempts !== item.attempts) return undefined;
@@ -440,12 +554,12 @@ export async function resetFailedOutbox(userId: string): Promise<number> {
           resolve();
           return;
         }
-        const item = cursor.value as OutboxItem;
+        const item = cursor.value as StoredOutboxItem;
         if (
           item.userId === userId &&
           (item.failedAt || isAttemptLimitReached(item.attempts))
         ) {
-          const next: OutboxItem = {
+          const next: StoredOutboxItem = {
             ...item,
             attempts: 0,
             nextAttemptAt: 0,
@@ -468,6 +582,127 @@ export async function countOutbox(): Promise<number> {
     requestResult<number>(store.count()),
   );
   return result ?? 0;
+}
+
+/**
+ * Teller poster uten å dekryptere. Brukes av låse-UI-et, som må kunne vise at
+ * det finnes kladder selv når nøkkelen er låst.
+ */
+export async function inspectOfflineStorage(
+  userId?: string,
+): Promise<OfflineStorageInspection> {
+  const [draftRows, outboxRows] = await Promise.all([
+    withStore(DRAFT_STORE, "readonly", async (store) =>
+      requestResult<StoredDraft[]>(store.getAll()),
+    ),
+    withStore(OUTBOX_STORE, "readonly", async (store) =>
+      requestResult<StoredOutboxItem[]>(store.getAll()),
+    ),
+  ]);
+  const drafts = (draftRows ?? []).filter(
+    (draft) => !userId || draft.userId === userId,
+  );
+  const outbox = (outboxRows ?? []).filter(
+    (item) => !userId || item.userId === userId,
+  );
+  return {
+    drafts: drafts.length,
+    outbox: outbox.length,
+    plaintextDrafts: drafts.filter((draft) => !draft.enc).length,
+    plaintextOutbox: outbox.filter((item) => !item.enc).length,
+  };
+}
+
+/**
+ * Krypterer eksisterende klartekstkladder for én bruker. Må kjøres etter at
+ * brukeren har låst opp (eller satt) PIN. Postene skrives én og én, slik at et
+ * avbrutt migreringsforsøk kan fortsette senere uten datatap.
+ */
+export async function migrateOfflineDataForUser(
+  userId: string,
+): Promise<OfflineMigrationResult> {
+  // Les, krypter og skriv i separate transaksjoner. WebCrypto-promiser kan
+  // fullføres etter at IndexedDB-transaksjonen er inaktiv, og da ville skrivingen
+  // blitt avvist. En avbrutt migrering kan trygt kjøres igjen.
+  const draftRows =
+    (await withStore(DRAFT_STORE, "readonly", async (store) =>
+      requestResult<StoredDraft[]>(store.getAll()),
+    )) ?? [];
+  const draftsToSeal = draftRows.filter(
+    (row) => row.userId === userId && !row.enc && typeof row.payload === "string",
+  );
+  const sealedDrafts: StoredDraft[] = [];
+  for (const row of draftsToSeal) {
+    const sealed = await encryptOfflinePayload(
+      userId,
+      draftAad(row),
+      row.payload,
+    );
+    sealedDrafts.push({ ...row, ...sealed });
+  }
+  if (sealedDrafts.length > 0) {
+    await withStore(DRAFT_STORE, "readwrite", async (store) => {
+      for (const row of sealedDrafts) store.put(row);
+      return undefined;
+    });
+  }
+
+  const outboxRows =
+    (await withStore(OUTBOX_STORE, "readonly", async (store) =>
+      requestResult<StoredOutboxItem[]>(store.getAll()),
+    )) ?? [];
+  const outboxToSeal = outboxRows.filter(
+    (row) => row.userId === userId && !row.enc && typeof row.payload === "string",
+  );
+  const sealedOutbox: StoredOutboxItem[] = [];
+  for (const row of outboxToSeal) {
+    // Eldre outbox-poster kan mangle id-feltene. Les dem fra klarteksten før
+    // den krypteres, slik at sammenslåing og sletting fortsatt virker.
+    const identity = itemReportIdentity(row);
+    const sealed = await encryptOfflinePayload(
+      userId,
+      outboxAad(row.id),
+      row.payload,
+    );
+    sealedOutbox.push({
+      ...row,
+      ...sealed,
+      ...(identity && !row.workOrderId ? identity : {}),
+    });
+  }
+  if (sealedOutbox.length > 0) {
+    await withStore(OUTBOX_STORE, "readwrite", async (store) => {
+      for (const row of sealedOutbox) store.put(row);
+      return undefined;
+    });
+  }
+
+  return { drafts: sealedDrafts.length, outbox: sealedOutbox.length };
+}
+
+/** Sletter bare klartekstposter for brukeren, etter et eksplisitt valg. */
+export async function discardPlaintextOfflineDataForUser(
+  userId: string,
+): Promise<void> {
+  for (const storeName of [DRAFT_STORE, OUTBOX_STORE]) {
+    await withStore(storeName, "readwrite", async (store) => {
+      await new Promise<void>((resolve, reject) => {
+        const request = store.openCursor();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve();
+            return;
+          }
+          const value = cursor.value as { userId?: string; enc?: string };
+          if (value.userId === userId && !value.enc) cursor.delete();
+          cursor.continue();
+        };
+      });
+      return undefined;
+    });
+  }
 }
 
 /**

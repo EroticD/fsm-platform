@@ -171,6 +171,48 @@ export async function listSkills(
   return ok(rows.map(toSkillSummary));
 }
 
+export type WorkforceStaffSummary = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+};
+
+/**
+ * Ansatte innenfor aktørens avdelingsomfang, brukt av bemanningsfanen.
+ * Bare `users.view` kreves; detaljerte kompetanse-, arbeidstids- og
+ * fraværslister krever fortsatt `users.manage`.
+ */
+export async function listWorkforceStaff(
+  actor: ServiceActor,
+): Promise<ServiceResult<WorkforceStaffSummary[]>> {
+  if (!can(actor, "users.view")) return fail("forbidden");
+
+  const rows = await prisma.user.findMany({
+    where: staffScopeFor(actor),
+    orderBy: { name: "asc" },
+    take: MAX_TECHNICIANS,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      departmentId: true,
+      department: { select: { name: true } },
+    },
+  });
+
+  return ok(
+    rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      departmentId: row.departmentId,
+      departmentName: row.department?.name ?? null,
+    })),
+  );
+}
+
 export async function createSkill(
   actor: ServiceActor,
   input: SkillInput,
@@ -1101,7 +1143,8 @@ function osloMoment(date: Date): OsloMoment {
  *    begrenset til `staffScopeFor(actor)` – egen avdeling for ikke-admin.
  *    Bare aktive, ikke-kundeportale ansatte i en aktiv avdeling er med.
  * 2. Ansatte med et fravær som overlapper intervallet utelates.
- * 3. Ansatte med en overlappende visitt som ikke er kansellert utelates.
+ * 3. Overlappende visiter er tillatt og utelater ikke ansatte; de er bare
+ *    informasjon om at montøren er opptatt.
  * 4. `skillKeys` krever at ALLE nøklene finnes på den ansatte og er gyldige
  *    ved intervallets start. Dette er bevisst «alle», ikke «minst én».
  * 5. Ukentlig arbeidstid: intervallet kan spenne over flere dager, men bare
@@ -1157,17 +1200,6 @@ export async function availableTechnicians(
         {
           absences: {
             none: { startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
-          },
-        },
-        {
-          visitAssignments: {
-            none: {
-              visit: {
-                status: { not: "CANCELLED" },
-                startsAt: { lt: endsAt },
-                endsAt: { gt: startsAt },
-              },
-            },
           },
         },
         ...skillFilters,

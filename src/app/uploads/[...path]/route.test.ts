@@ -440,4 +440,65 @@ describe("/uploads – kundeportalens delegasjon", () => {
     expect(response.status).toBe(200);
     expect(mocks.createReadStream).toHaveBeenCalled();
   });
+
+  it("gir 403 for avtalefil uten avtaletilgang", async () => {
+    mocks.getCurrentUser.mockResolvedValue(customerUser);
+    mocks.uploadFindUnique.mockResolvedValue({
+      ...workOrderUpload,
+      ownerType: "CONTRACT",
+      ownerId: "contract-1",
+    });
+    mocks.portalDelegationFindUnique.mockResolvedValue({
+      id: "del-1",
+      canBook: true,
+      canViewDocuments: true,
+      canViewContracts: false,
+      canViewEquipment: true,
+      isActive: true,
+    });
+
+    const response = await GET(request(), params());
+
+    expect(response.status).toBe(403);
+    expect(mocks.createReadStream).not.toHaveBeenCalled();
+  });
+
+  it("gir 403 for utstyrsfil uten utstyrstilgang", async () => {
+    mocks.getCurrentUser.mockResolvedValue(customerUser);
+    mocks.uploadFindUnique.mockResolvedValue({
+      ...workOrderUpload,
+      ownerType: "EQUIPMENT",
+      ownerId: "product-1",
+    });
+    mocks.portalDelegationFindUnique.mockResolvedValue({
+      id: "del-1",
+      canBook: true,
+      canViewDocuments: true,
+      canViewContracts: true,
+      canViewEquipment: false,
+      isActive: true,
+    });
+
+    const response = await GET(request(), params());
+
+    expect(response.status).toBe(403);
+    expect(mocks.createReadStream).not.toHaveBeenCalled();
+  });
+
+  it("gir 403 når delegasjonen er inaktiv", async () => {
+    mocks.getCurrentUser.mockResolvedValue(customerUser);
+    mocks.portalDelegationFindUnique.mockResolvedValue({
+      id: "del-1",
+      canBook: true,
+      canViewDocuments: true,
+      canViewContracts: true,
+      canViewEquipment: true,
+      isActive: false,
+    });
+
+    const response = await GET(request(), params());
+
+    expect(response.status).toBe(403);
+    expect(mocks.createReadStream).not.toHaveBeenCalled();
+  });
 });

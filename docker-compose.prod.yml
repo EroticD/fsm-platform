@@ -59,16 +59,26 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # Runtime kan bruke en DML-rolle og migrasjonene en DDL-rolle. Begge
-      # variablene er valgfrie; uten dem brukes POSTGRES_USER som før. Se
-      # «Databaseroller» i docs/OPERATIONS.md.
+      # Runtime skal bruke en DML-rolle og migrasjonene en DDL-rolle. Uten
+      # DATABASE_RUNTIME_URL faller vi tilbake til POSTGRES_USER, men readiness
+      # nekter da å bli grønn fordi rollen kan endre skjema. Eksisterende
+      # installasjoner kan bevisst velge bort sjekken med
+      # ALLOW_DB_DDL_ROLE=true. Se «Databaseroller» i docs/OPERATIONS.md.
       DATABASE_URL: ${DATABASE_RUNTIME_URL:-postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fsm_db}?schema=public}
       DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
+      ALLOW_DB_DDL_ROLE: ${ALLOW_DB_DDL_ROLE:-false}
       NEXTAUTH_URL: ${NEXTAUTH_URL:?Sett NEXTAUTH_URL til https://...}
       APP_URL: ${APP_URL:?Sett APP_URL til https://...}
       TZ: Europe/Oslo
       AUTH_TRUST_HOST: "true"
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      # Antall betrodde proxyer. Påkrevd eksplisitt når TRUST_PROXY=true.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-}
+      # Beskyttet /api/metrics. Uten hemmelighet svarer ruten 503.
+      METRICS_SECRET: ${METRICS_SECRET:-}
+      # Backupstatus skrives av systemd-jobben og leses read-only av appen.
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-/app/monitoring/backup-status.json}
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-26}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Sett NEXTAUTH_SECRET i .env}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
@@ -113,6 +123,9 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - fsm_uploads:/app/uploads
+      # Skrives av backup-jobben på verten, leses av /api/metrics. Mappen må
+      # finnes på verten (se deploy/systemd/README.md).
+      - ./monitoring:/app/monitoring:ro
     # Produksjonsherding. Opplastingsvolumet er skrivbart, mens resten av
     # filsystemet er read-only. /tmp er tmpfs for OCR og Node.
     read_only: true

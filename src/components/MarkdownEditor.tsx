@@ -282,7 +282,11 @@ export default function MarkdownEditor({
               key={button.title}
               type="button"
               title={button.title}
-              aria-label={button.title}
+              // Synlig knappetekst (H2, 1. osv.) må inngå i navnet, ellers
+              // bryter knappen WCAG 2.5.3 Label in Name.
+              aria-label={
+                button.label ? `${button.label} – ${button.title}` : button.title
+              }
               aria-controls={inputId}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runButton(button)}

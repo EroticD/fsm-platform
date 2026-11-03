@@ -3,12 +3,22 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { parseDateOnly, toDateOnly, todayInOslo } from "@/lib/dates";
+import {
+  formatDateLocalized,
+  parseDateOnly,
+  toDateOnly,
+  todayInOslo,
+} from "@/lib/dates";
+import { sendBookingNotification } from "@/lib/email";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { addressHash, geocodeAddress } from "@/lib/geocode";
 import { staffForDepartment } from "@/lib/access";
 import { allowRequestDb } from "@/lib/rate-limit-db";
 import { neutralizeUrls } from "@/lib/neutralize-urls";
+import {
+  bookingReferenceForWorkOrder,
+  generateWorkOrderReference,
+} from "@/lib/work-order-reference";
 import {
   LIMITS,
   cleanMarkdown,
@@ -22,7 +32,6 @@ import {
   canCustomerRescheduleBooking,
 } from "@/lib/booking-status";
 import {
-  BOOKING_TIME_VALUE,
   bookingChangeDeadline as bookingChangeDeadlineAt,
   requestedWindow as requestedWindowAt,
 } from "@/lib/booking-time";
@@ -33,7 +42,7 @@ import {
 } from "./availability";
 import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { trySendBookingConfirmedSms } from "./sms-events";
-import { createDefaultVisit, recomputeWorkOrderSchedule } from "./visits";
+import { recomputeWorkOrderSchedule } from "./visits";
 import {
   fail,
   ok,
@@ -67,7 +76,6 @@ export const BOOKING_MIN_LEAD_HOURS = 24;
 const BOOKING_MAX_DAYS_AHEAD = 60;
 /** Bestillingshistorikken vises i sider, ikke som en stille hard grense. */
 export const PORTAL_BOOKING_PAGE_SIZE = 20;
-const TIME_VALUE = BOOKING_TIME_VALUE;
 
 /**
  * Tjenestetypene kunden velger i slotvelgeren. De er bevisst korte, stabile
@@ -152,13 +160,16 @@ function parseBookingSchedule(input: {
   const from = String(input.requestedFrom ?? "").trim();
   const to = String(input.requestedTo ?? "").trim();
 
-  if (!dateText || !from || !to) return fail("missing_fields");
+  if (!dateText) return fail("missing_fields");
 
   const requestedDate = parseDateOnly(dateText);
   if (!requestedDate) return fail("invalid");
-  if (!TIME_VALUE.test(from) || !TIME_VALUE.test(to) || from >= to) {
-    return fail("invalid");
-  }
+
+  // Kunden kan ikke velge tidsblokk. Selv om en klient sender med tid, lagres
+  // bare datoen; ønsket klokkeslett hører hjemme i beskrivelsen og bekreftes
+  // først når kontoret/montøren planlegger oppdraget.
+  void from;
+  void to;
 
   const today = parseDateOnly(todayInOslo());
   if (!today || requestedDate < today) return fail("invalid");
@@ -167,7 +178,7 @@ function parseBookingSchedule(input: {
   latest.setUTCDate(latest.getUTCDate() + BOOKING_MAX_DAYS_AHEAD);
   if (requestedDate > latest) return fail("invalid");
 
-  return ok({ requestedDate, requestedFrom: from, requestedTo: to });
+  return ok({ requestedDate, requestedFrom: "", requestedTo: "" });
 }
 
 /** Tidspunktet ønsket tidsvindu starter, i Oslo-tid. */
@@ -181,6 +192,138 @@ function requestedWindow(schedule: BookingSchedule): {
   endsAt: Date;
 } {
   return requestedWindowAt(schedule);
+}
+
+/**
+ * Finner eller oppretter et gjenbrukbart sted for bestillingen. Kunden kan
+ * skrive inn et nytt sted i bestillingsskjemaet; da skal det ikke bare bli
+ * tekst på oppdraget, men også dukke opp på kundekortet og i senere
+ * bestillinger. Samme navn hos samme kunde gjenbrukes.
+ */
+async function resolveBookingSite(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  snapshot: {
+    id: string | null;
+    name: string | null;
+    address: string | null;
+    postalCode: string | null;
+    city: string | null;
+  },
+  actor: ServiceActor,
+): Promise<string | null> {
+  if (snapshot.id) return snapshot.id;
+  if (!snapshot.name) return null;
+
+  const existing = await tx.customerSite.findFirst({
+    where: { customerId, name: snapshot.name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const existingCount = await tx.customerSite.count({ where: { customerId } });
+  const site = await tx.customerSite.create({
+    data: {
+      customerId,
+      name: snapshot.name,
+      address: snapshot.address,
+      postalCode: snapshot.postalCode,
+      city: snapshot.city,
+      isPrimary: existingCount === 0,
+    },
+    select: { id: true },
+  });
+  await audit(tx, {
+    entityType: "Customer",
+    entityId: customerId,
+    action: `Opprettet sted fra booking: ${snapshot.name}`,
+    actor: toAuditActor(actor),
+    metadata: { siteId: site.id, fromBooking: true },
+  });
+  return site.id;
+}
+
+/** Stabil revisjonsnøkkel som også brukes som idempotensmarkør for e-post. */
+const BOOKING_EMAIL_AUDIT_ACTION = "Sendte bestillingsbekreftelse på e-post";
+
+/**
+ * Beste-forsøk bekreftelse etter at bookingen er committet. SMTP-feil skal
+ * aldri rulle tilbake bookingen, og revisjonsraden gjør gjentatte kall
+ * idempotente uten å kreve en egen migrering.
+ */
+async function sendBookingConfirmationEmail(input: {
+  actor: ServiceActor;
+  workOrderId: string;
+  reference: string;
+  departmentId: string;
+  customerId: string;
+  customerName: string;
+  title: string;
+  description: string;
+  schedule: BookingSchedule;
+}): Promise<void> {
+  try {
+    const alreadySent = await prisma.auditLog.findFirst({
+      where: {
+        entityType: "WorkOrder",
+        entityId: input.workOrderId,
+        action: BOOKING_EMAIL_AUDIT_ACTION,
+      },
+      select: { id: true },
+    });
+    if (alreadySent) return;
+
+    let contactEmail = input.actor.email?.trim() || null;
+    let locale = "nb";
+    if (input.actor.contactId) {
+      const contact = await prisma.contact.findFirst({
+        where: { id: input.actor.contactId, customerId: input.customerId },
+        select: { email: true, locale: true },
+      });
+      contactEmail = contact?.email?.trim() || contactEmail;
+      locale = contact?.locale || locale;
+    }
+
+    const result = await sendBookingNotification(
+      input.departmentId,
+      contactEmail,
+      {
+        title: input.title,
+        description: input.description,
+        customerName: input.customerName,
+        bookedBy: input.actor.name || input.actor.email || "Kunde",
+        locale,
+        reference: input.reference,
+        date: formatDateLocalized(input.schedule.requestedDate, locale),
+        time:
+          input.schedule.requestedFrom && input.schedule.requestedTo
+            ? `${input.schedule.requestedFrom}–${input.schedule.requestedTo}`
+            : null,
+      },
+    );
+
+    const delivered = contactEmail
+      ? result.customerSent
+      : result.officeSent > 0;
+    if (delivered) {
+      await prisma.auditLog.create({
+        data: {
+          entityType: "WorkOrder",
+          entityId: input.workOrderId,
+          action: BOOKING_EMAIL_AUDIT_ACTION,
+          userName: input.actor.name || input.actor.email || "Ukjent",
+          actorId: input.actor.id || null,
+          metadata: {
+            customerSent: result.customerSent,
+            officeSent: result.officeSent,
+          },
+        },
+      });
+    }
+  } catch (error) {
+    // E-post er en sideeffekt. Bookingen er allerede lagret og skal bestå.
+    console.error("Kunne ikke sende bestillingsbekreftelse:", error);
+  }
 }
 
 /** Fristen for å be om ny tid på bestillingen. */
@@ -197,6 +340,9 @@ export function bookingChangeDeadline(
 
 /** Ønsket start må ligge minst `BOOKING_MIN_LEAD_HOURS` fram i tid. */
 function hasMinimumLeadTime(schedule: BookingSchedule, now = new Date()): boolean {
+  // Dato-only-forespørsler bekreftes ikke av kunden, og trenger derfor ikke
+  // timebasert ledetid. En eventuell tid som er oppgitt må fortsatt ha ledetid.
+  if (!schedule.requestedFrom || !schedule.requestedTo) return true;
   return (
     requestedStart(schedule).getTime() >=
     now.getTime() + BOOKING_MIN_LEAD_HOURS * 60 * 60_000
@@ -226,12 +372,6 @@ function canRescheduleBooking(
     bookingChangeDeadline(requestedDate, requestedFrom),
     now,
   );
-}
-
-/** Kort referanse kunden kan oppgi til kontoret. */
-function bookingReference(workOrderId: string, now = new Date()): string {
-  const day = toDateOnly(now).slice(2).replace(/-/g, "");
-  return `B-${day}-${workOrderId.slice(-6).toUpperCase()}`;
 }
 
 /**
@@ -321,17 +461,10 @@ export async function createBooking(
     : null;
   const holdToken = cleanText(input.holdToken, { maxLength: 200 });
   const technicianId = idFrom(input.technicianId ?? input.preferredTechnicianId);
-  const confirmedBooking = Boolean(holdToken || technicianId);
-  if (confirmedBooking && !technicianId) return fail("invalid");
-
+  // Kunden kan aldri bekrefte en tid. Alle bestillinger starter som en ny,
+  // ubekreftet forespørsel; kontoret/montøren planlegger den senere.
+  const confirmedBooking = false;
   const window = requestedWindow(schedule.data);
-  if (
-    confirmedBooking &&
-    window.endsAt.getTime() - window.startsAt.getTime() !==
-      AVAILABILITY_SLOT_MINUTES * 60_000
-  ) {
-    return fail("invalid");
-  }
 
   // Utstyret må tilhøre kunden. Klienten kan ikke velge fritt blant enheter.
   const equipmentId = idFrom(input.equipmentId);
@@ -468,7 +601,10 @@ export async function createBooking(
     | { kind: "conflict" }
     | { kind: "slot_unavailable" };
   try {
-    outcome = await runSerializable(async (tx) => {
+    // Kundebestillinger er bare nye forespørsler; de trenger ikke
+    // SERIALIZABLE for å fordele en bekreftet time. En vanlig transaksjon
+    // unngår unødvendige serialiseringsfeil når mange kunder bestiller samtidig.
+    outcome = await prisma.$transaction(async (tx) => {
       // Låsen er per kunde og slippes automatisk ved commit/rollback.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:${customerId}`}))`;
 
@@ -507,7 +643,7 @@ export async function createBooking(
           kind: "duplicate",
           id: duplicate.id,
           reference:
-            duplicate.bookingRequest?.reference ?? bookingReference(duplicate.id),
+            duplicate.bookingRequest?.reference ?? bookingReferenceForWorkOrder(duplicate.id),
           status:
             duplicate.bookingRequest?.status === "CONFIRMED"
               ? "CONFIRMED"
@@ -592,28 +728,17 @@ export async function createBooking(
           }
         }
 
-        let bookingSiteId = siteSnapshot.id;
-        if (!bookingSiteId && siteSnapshot.name) {
-          const existingSites = await tx.customerSite.count({
-            where: { customerId },
-          });
-          const site = await tx.customerSite.create({
-            data: {
-              customerId,
-              name: siteSnapshot.name,
-              address: siteSnapshot.address,
-              postalCode: siteSnapshot.postalCode,
-              city: siteSnapshot.city,
-              isPrimary: existingSites === 0,
-            },
-            select: { id: true },
-          });
-          bookingSiteId = site.id;
-        }
+        const bookingSiteId = await resolveBookingSite(
+          tx,
+          customerId,
+          siteSnapshot,
+          actor,
+        );
 
         const workOrder = await tx.workOrder.create({
           data: {
             title,
+            reference: generateWorkOrderReference(),
             description: description || "",
             departmentId,
             customerId,
@@ -649,7 +774,7 @@ export async function createBooking(
         });
         await recomputeWorkOrderSchedule(tx, workOrder.id);
 
-        const reference = bookingReference(workOrder.id);
+        const reference = bookingReferenceForWorkOrder(workOrder.id);
         const booking = await tx.bookingRequest.create({
           data: {
             reference,
@@ -669,6 +794,12 @@ export async function createBooking(
             confirmedAt: new Date(),
           },
           select: { id: true, reference: true },
+        });
+        // Kunden og kontoret skal se samme referanse på bestillingen og
+        // oppdraget. Oppdateringen skjer i samme transaksjon som begge radene.
+        await tx.workOrder.update({
+          where: { id: workOrder.id },
+          data: { reference: booking.reference },
         });
 
         await tx.bookingRequestEvent.createMany({
@@ -732,9 +863,17 @@ export async function createBooking(
         } as const;
       }
 
+      const pendingSiteId = await resolveBookingSite(
+        tx,
+        customerId,
+        siteSnapshot,
+        actor,
+      );
+
       const workOrder = await tx.workOrder.create({
         data: {
           title,
+          reference: generateWorkOrderReference(),
           description: description || "",
           departmentId,
           customerId,
@@ -742,7 +881,7 @@ export async function createBooking(
           contactId: actor.contactId || undefined,
           creatorName: actor.name || actor.email || "Kunde",
           status: "OPEN",
-          siteId: siteSnapshot.id || undefined,
+          siteId: pendingSiteId || undefined,
           address: bookingAddress.address || undefined,
           postalCode: bookingAddress.postalCode || undefined,
           city: bookingAddress.city || undefined,
@@ -750,24 +889,16 @@ export async function createBooking(
           longitude: coordinates?.lng ?? null,
           geoAddressHash,
           scheduledFor: schedule.data.requestedDate,
-          scheduledTo: schedule.data.requestedDate,
+          scheduledTo: null,
           technicians: { connect: [] },
         },
         select: { id: true },
       });
 
-      // Bestillingen er en konkret tidsblokk i kundens ønskede vindu. Kontoret
-      // kan senere flytte den på visit-nivå; `BookingRequest` beholder
-      // fortsatt kundens opprinnelige ønske som snapshot.
-      const defaultVisitId = await createDefaultVisit(tx, {
-        workOrderId: workOrder.id,
-        startsAt: window.startsAt,
-        endsAt: window.endsAt,
-        allDay: false,
-      });
-      await recomputeWorkOrderSchedule(tx, workOrder.id);
-
-      const reference = bookingReference(workOrder.id);
+      // Ingen visitt opprettes før kontoret eller montøren har bekreftet og
+      // planlagt oppdraget. Den ønskede datoen ligger på oppdraget og i
+      // bestillingsforespørselen; ønsket klokkeslett står i beskrivelsen.
+      const reference = bookingReferenceForWorkOrder(workOrder.id);
       const booking = await tx.bookingRequest.create({
         data: {
           reference,
@@ -775,16 +906,21 @@ export async function createBooking(
           customerId,
           ...schedule.data,
           serviceType,
-          siteId: siteSnapshot.id,
+          siteId: pendingSiteId,
           equipmentId: equipmentId || null,
           equipmentLabel,
           preferredTechnicianId: technicianId || null,
           preferredTechnicianName,
           contactName,
           contactPhone,
-          visitId: defaultVisitId,
         },
         select: { id: true, reference: true },
+      });
+      // Kunden og kontoret skal se samme referanse på bestillingen og
+      // oppdraget. Oppdateringen skjer i samme transaksjon som begge radene.
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { reference: booking.reference },
       });
 
       await tx.bookingRequestEvent.create({
@@ -861,13 +997,29 @@ export async function createBooking(
         : "Ny bestilling fra kundeportal",
       confirmed
         ? `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}) hos ${created.technicianName || "montør"}. Tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`
-        : `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket tid: ${toDateOnly(schedule.data.requestedDate)} kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}.`,
+        : `Kunden har booket «${neutralizeUrls(title)}» (${created.reference}). Ønsket dato: ${toDateOnly(schedule.data.requestedDate)}${
+            schedule.data.requestedFrom && schedule.data.requestedTo
+              ? ` kl. ${schedule.data.requestedFrom}–${schedule.data.requestedTo}`
+              : ""
+          }.`,
       `/oppdrag/${created.id}`,
       `booking:${created.id}`,
     );
   } catch (error) {
     console.error("Kunne ikke legge bestillingsvarsel i køen:", error);
   }
+
+  await sendBookingConfirmationEmail({
+    actor,
+    workOrderId: created.id,
+    reference: created.reference,
+    departmentId,
+    customerId,
+    customerName: customer.name,
+    title,
+    description,
+    schedule: schedule.data,
+  });
 
   return ok(created);
 }
@@ -1611,7 +1763,7 @@ export async function rescheduleBooking(
 
         // Bare en ubekreftet sak flyttes direkte. En planlagt sak beholder
         // planen til kontoret har bekreftet den nye tiden.
-        const moved = await tx.workOrder.updateMany({
+        await tx.workOrder.updateMany({
           where: {
             id: booking.data.workOrder.id,
             customerId: access.data.customerId,
@@ -1619,42 +1771,12 @@ export async function rescheduleBooking(
           },
           data: {
             scheduledFor: schedule.data.requestedDate,
-            scheduledTo: schedule.data.requestedDate,
+            scheduledTo: null,
           },
         });
 
-        if (moved.count > 0) {
-          const visits = await tx.visit.findMany({
-            where: { workOrderId: booking.data.workOrder.id },
-            select: { id: true, status: true },
-            orderBy: { sequence: "asc" },
-            take: 50,
-          });
-
-          if (visits.length === 1) {
-            await tx.visit.update({
-              where: { id: visits[0].id },
-              data: {
-                startsAt: window.startsAt,
-                endsAt: window.endsAt,
-                allDay: false,
-              },
-            });
-          } else if (visits.length === 0) {
-            await createDefaultVisit(tx, {
-              workOrderId: booking.data.workOrder.id,
-              startsAt: window.startsAt,
-              endsAt: window.endsAt,
-              allDay: false,
-            });
-          }
-
-          // En bestilling har alltid én standardvisitt. Skulle raden likevel ha
-          // flere (visit-nivå har tatt over), røres de ikke her.
-          if (visits.length <= 1) {
-            await recomputeWorkOrderSchedule(tx, booking.data.workOrder.id);
-          }
-        }
+        // En ubekreftet forespørsel har ingen visitt. Kontoret planlegger
+        // dato og tid når det bekrefter saken.
 
         await audit(tx, {
           entityType: "BookingRequest",

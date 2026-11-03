@@ -709,6 +709,7 @@ export async function performSearch(
       select: {
         id: true,
         title: true,
+        reference: true,
         orderNumber: true,
         description: true,
         creatorName: true,
@@ -915,6 +916,7 @@ export async function performSearch(
       (wo) => wo.id,
       (wo) => [
         wo.title,
+        wo.reference,
         wo.orderNumber,
         wo.description,
         wo.creatorName,
@@ -1004,10 +1006,11 @@ export async function performSearch(
       capped: totals.workOrder.capped,
       items: rankedWorkOrders.map(({ item: wo, score }) => ({
         id: wo.id,
-        title: wo.orderNumber ? `${wo.orderNumber} · ${wo.title}` : wo.title,
+        title: `${wo.reference} · ${wo.title}`,
         // Utdatert reservefelt for eldre konsumenter (bl.a. eksisterende
         // tester). UI-en bruker subtitleParts og oversetter ved visning.
         subtitle: joinInfo([
+          wo.reference,
           wo.orderNumber,
           wo.customer?.name,
           wo.status,
@@ -1017,6 +1020,10 @@ export async function performSearch(
             : null,
         ]),
         subtitleParts: subtitleParts(
+          {
+            key: "components.search.subtitles.workOrderReference",
+            params: { reference: wo.reference },
+          },
           wo.orderNumber
             ? {
                 key: "components.search.subtitles.workOrderNumber",
@@ -1277,10 +1284,12 @@ export async function performSearch(
       capped: totals.document.capped,
       items: rankedDocuments.map(({ item: d, score }) => {
         const hit = documentById.get(d.id);
+        const page = hit?.page ?? null;
+        const pageHash = page ? `#page=${page}` : "";
         // Bare filer i opplastingsmappen kan åpnes direkte. Dokumenttreffet
         // skal ellers gå til dokumentbiblioteket, ikke til råfilen.
         const directHref = d.filePath.startsWith("/uploads/")
-          ? d.filePath
+          ? `${d.filePath}${pageHash}`
           : undefined;
         const documentSnippet =
           d.description?.slice(0, 60) ??
@@ -1305,11 +1314,18 @@ export async function performSearch(
                 }
               : null,
             documentSnippet ? { text: documentSnippet } : null,
+            page
+              ? {
+                  key: "components.search.subtitles.page",
+                  params: { page },
+                }
+              : null,
           ),
-          href: withReturnTo(
-            `/dokumenter?doc=${encodeURIComponent(d.id)}`,
-            returnTo,
-          ),
+          href:
+            withReturnTo(
+              `/dokumenter?doc=${encodeURIComponent(d.id)}`,
+              returnTo,
+            ) + pageHash,
           ...(directHref
             ? {
                 directHref,

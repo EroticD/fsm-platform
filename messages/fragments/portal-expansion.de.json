@@ -140,6 +140,26 @@
         "sitesTitle": "Standorte",
         "noSites": "Es sind keine Standorte registriert.",
         "primary": "Primär"
+      },
+      "sites": {
+        "title": "Meine Standorte",
+        "description": "Verwalten Sie die Standorte, die Sie bei der Servicebuchung auswählen können.",
+        "error": "Der Standort konnte nicht gespeichert werden. Bitte erneut versuchen.",
+        "saved": "Der Standort wurde gespeichert.",
+        "name": "Name",
+        "address": "Adresse",
+        "postalCode": "Postleitzahl",
+        "city": "Ort",
+        "setPrimary": "Als Hauptstandort festlegen",
+        "add": "Standort hinzufügen",
+        "empty": "Noch keine Standorte registriert.",
+        "primary": "Hauptstandort",
+        "noAddress": "Keine Adresse",
+        "makePrimary": "Als Hauptstandort",
+        "delete": "Löschen",
+        "deleteConfirm": "Standort „{name}“ löschen?",
+        "edit": "Bearbeiten",
+        "save": "Speichern"
       }
     }
   }

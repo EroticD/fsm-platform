@@ -25,6 +25,7 @@
           "customerNumber": "#{number}",
           "orgNumber": "Org. no. {number}",
           "workOrderNumber": "Order no. {number}",
+          "workOrderReference": "Reference {reference}",
           "noCustomer": "No customer",
           "tags": "🏷️ {tags}",
           "tagHint": "Show work orders with this tag",
@@ -32,7 +33,8 @@
           "reportHms": "HSE: {type}",
           "templateKind": "Checklist / template",
           "templateReportName": "Report name: {name}",
-          "folderHint": "Folder in the document library"
+          "folderHint": "Folder in the document library",
+          "page": "Page {page}"
         }
       }
     },
@@ -258,7 +260,15 @@
         "unknown": "Unknown",
         "dangerous": "Danger zone",
         "delete": "Delete asset",
-        "deleteConfirm": "Delete the asset permanently? This cannot be undone."
+        "deleteConfirm": "Delete the asset permanently? This cannot be undone.",
+        "site": "Site",
+        "noSite": "No site",
+        "editPlan": "Edit plan",
+        "editPlanHint": "Change the title, interval, lead time, next due date and whether the plan is active.",
+        "planActive": "Plan is active",
+        "savePlan": "Save plan",
+        "deletePlan": "Delete plan",
+        "deletePlanConfirm": "Delete the maintenance plan? Plans that already have occurrences cannot be deleted."
       },
       "form": {
         "title": "New asset",
@@ -276,7 +286,9 @@
         "meterUnit": "Meter unit",
         "meterUnitHint": "For example hours, km or cycles.",
         "submit": "Register asset",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "site": "Site",
+        "noSite": "No site"
       },
       "label": {
         "title": "Asset label",
@@ -341,6 +353,7 @@
         "readingAdded": "The reading was registered.",
         "planCreated": "The maintenance plan was created.",
         "planUpdated": "The maintenance plan was updated.",
+        "planDeleted": "The maintenance plan was deleted.",
         "deleted": "The asset was deleted."
       },
       "planStatus": {

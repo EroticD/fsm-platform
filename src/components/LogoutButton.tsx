@@ -5,6 +5,7 @@ import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import Icon from "@/components/icons";
 import { clearOfflineCaches } from "@/lib/offline/cache";
+import { lockAllOfflineSessions } from "@/lib/offline/crypto";
 
 /**
  * Logger ut gjennom next-auth sin egen signOut, som henter CSRF-token først.
@@ -31,6 +32,10 @@ export default function LogoutButton({
     setBusy(true);
     onNavigate?.();
     try {
+      // Den opplåste nøkkelen skal ikke leve videre i fanen etter utlogging.
+      // Selve ciphertexten og den PIN-innpakkede nøkkelen blir liggende, slik
+      // at samme bruker kan gjenoppta arbeidet etter ny innlogging.
+      lockAllOfflineSessions();
       await clearOfflineCaches();
     } catch {
       // En nettleser uten IndexedDB/CacheStorage skal fortsatt kunne logge ut.

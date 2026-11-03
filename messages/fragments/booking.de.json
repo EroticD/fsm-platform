@@ -20,7 +20,6 @@
         "repair": "Reparatur",
         "inspection": "Inspektion"
       },
-      "slotStep": "3. Freien Termin wählen",
       "legendFree": "Frei",
       "legendSlot": "{minutes} Minuten pro Termin",
       "previousWeek": "Vorherige Woche",
@@ -30,7 +29,6 @@
       "loading": "Freie Termine werden geladen …",
       "noSlots": "An diesem Tag sind keine Termine frei.",
       "tryAnotherDay": "Wählen Sie einen anderen Tag aus der Liste.",
-      "pickSlot": "Wählen Sie einen freien Termin, um ihn fünf Minuten zu reservieren.",
       "held": "Der Termin bei {technician} von {from} bis {to} ist reserviert. Sie haben {minutes} Minuten.",
       "release": "Termin freigeben",
       "selectedSlot": "Gewählter Termin: {technician}, {date} von {from} bis {to}.",
@@ -46,7 +44,10 @@
         "holdFailed": "Der Termin konnte nicht reserviert werden. Bitte versuchen Sie es erneut.",
         "slotTaken": "Jemand hat den Termin gerade belegt. Wählen Sie einen anderen."
       },
-      "leadTimeHint": "Der früheste Beginn ist {date}. Der Termin muss mindestens {hours} Stunden voraus liegen."
+      "dateStep": "3. Gewünschtes Datum wählen",
+      "dateLabel": "Gewünschtes Datum",
+      "dateHint": "Wählen Sie ein Datum zwischen {date} und {horizon}. Sie können auch ein Datum außerhalb der nächsten zwei Wochen wählen.",
+      "timeInDescription": "Kunden können keinen Zeitblock wählen. Schreiben Sie die gewünschte Uhrzeit in die Beschreibung; Büro oder Techniker planen den Auftrag."
     },
     "bookingRequests": {
       "status": {
@@ -59,7 +60,7 @@
     },
     "bookingQueue": {
       "title": "Buchungswarteschlange",
-      "desc": "Bestätigen Sie die Anfrage des Kunden für einen freien Termin oder lehnen Sie sie ab. Bestätigte Buchungen zeigen Status und Techniker.",
+      "desc": "Planen Sie die Kundenanfrage im Auftrag oder lehnen Sie sie ab. Neue Anfragen sind unbestätigt, bis das Büro Zeit und Status festgelegt hat.",
       "empty": "Keine Buchungen in dieser Liste.",
       "filterAll": "Alle",
       "filterPending": "Ausstehend",
@@ -71,7 +72,25 @@
       "site": "Standort",
       "service": "Leistung",
       "technician": "Techniker",
-      "confirm": "Buchung bestätigen",
+      "planAndConfirm": "Planen und bestätigen",
+      "plannedDate": "Datum",
+      "startTime": "Von",
+      "endTime": "Bis",
+      "planHint": "Wählen Sie Datum, Start- und Endzeit sowie Techniker. Verfügbarkeit, Abwesenheiten und Reservierungen werden beim Bestätigen geprüft.",
+      "noStaff": "Im Bereich können keine Mitarbeiter zugewiesen werden.",
+      "planSuccess": "Die Buchung ist geplant und bestätigt.",
+      "alreadyConfirmed": "Die Buchung war bereits bestätigt.",
+      "planErrors": {
+        "noTechnician": "Kein freier Techniker für diesen Zeitraum. Wählen Sie eine andere Zeit oder einen anderen Techniker.",
+        "unavailable": "Der Techniker ist in diesem Zeitraum beschäftigt, abwesend oder nicht verfügbar.",
+        "needsPlanning": "Der Anfrage fehlt eine Uhrzeit. Wählen Sie Datum und Uhrzeit.",
+        "invalidTime": "Der Zeitraum ist ungültig. Das Ende muss nach dem Beginn liegen.",
+        "forbidden": "Sie haben keine Berechtigung, Buchungen zu bestätigen.",
+        "notFound": "Die Buchung wurde nicht gefunden.",
+        "conflict": "Die Buchung wurde geändert. Aktualisieren Sie die Seite und versuchen Sie es erneut.",
+        "invalid": "Die Felder sind ungültig.",
+        "error": "Die Buchung konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
+      },
       "cancel": "Stornieren",
       "noTechnician": "Kein freier Techniker für die gewünschte Zeit",
       "chooseTechnician": "Techniker wählen",

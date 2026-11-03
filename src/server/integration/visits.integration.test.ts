@@ -31,6 +31,7 @@ describeIntegration("Visiter: avledet datoperiode", () => {
 
     const workOrder = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-visitt-oppdrag"),
         departmentId,
         customerId,

@@ -2,9 +2,12 @@ export type SettingsTabKey =
   | "branding"
   | "kart"
   | "ansatte"
+  | "kompetanse"
   | "maler"
   | "tags"
+  | "utstyr"
   | "auditlog"
+  | "bevis"
   | "statistikk"
   | "sla"
   | "sms"
@@ -12,20 +15,24 @@ export type SettingsTabKey =
   | "roller"
   | "avdelinger"
   | "api"
-  | "sikkerhet";
+  | "sikkerhet"
+  | "kundeoverforing";
 
 export type SettingsTabPermissions = {
   canBranding: boolean;
   canMap: boolean;
   canUsers: boolean;
+  canWorkforce: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
+  canEquipment: boolean;
   canAudit: boolean;
   canStats: boolean;
   canSla: boolean;
   canSms: boolean;
   canDispatch: boolean;
   isAdmin: boolean;
+  canCustomerTransfer: boolean;
 };
 
 /** Fanene i den rekkefølgen de vises, med sikkerhet alltid tilgjengelig. */
@@ -33,9 +40,12 @@ const TAB_ORDER: SettingsTabKey[] = [
   "branding",
   "kart",
   "ansatte",
+  "kompetanse",
   "maler",
   "tags",
+  "utstyr",
   "auditlog",
+  "bevis",
   "statistikk",
   "sla",
   "sms",
@@ -44,6 +54,7 @@ const TAB_ORDER: SettingsTabKey[] = [
   "avdelinger",
   "api",
   "sikkerhet",
+  "kundeoverforing",
 ];
 
 export function isSettingsTabAllowed(
@@ -57,12 +68,18 @@ export function isSettingsTabAllowed(
       return permissions.canMap;
     case "ansatte":
       return permissions.canUsers;
+    case "kompetanse":
+      return permissions.canWorkforce;
     case "maler":
       return permissions.canTemplates;
     case "tags":
       return permissions.canTemplates || permissions.canDocuments;
+    case "utstyr":
+      return permissions.canEquipment;
     case "auditlog":
       return permissions.canAudit;
+    case "bevis":
+      return permissions.isAdmin;
     case "statistikk":
       return permissions.canStats;
     case "sla":
@@ -77,6 +94,8 @@ export function isSettingsTabAllowed(
       return permissions.isAdmin;
     case "sikkerhet":
       return true;
+    case "kundeoverforing":
+      return permissions.canCustomerTransfer;
   }
 }
 

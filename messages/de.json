@@ -25,6 +25,7 @@
           "customerNumber": "#{number}",
           "orgNumber": "Org.-Nr. {number}",
           "workOrderNumber": "Auftragsnr. {number}",
+          "workOrderReference": "Referenz {reference}",
           "noCustomer": "Kein Kunde",
           "tags": "🏷️ {tags}",
           "tagHint": "Aufträge mit diesem Tag anzeigen",
@@ -33,6 +34,7 @@
           "templateKind": "Checkliste / Vorlage",
           "templateReportName": "Berichtsname: {name}",
           "folderHint": "Ordner in der Dokumentenbibliothek",
+          "page": "Seite {page}",
           "workOrderTitle": "Auftrag: {title}",
           "folderPath": "📁 {path}"
         },
@@ -473,6 +475,29 @@
           "submitting": "Anmeldung läuft..."
         }
       },
+      "enrollment": {
+        "title": "Zwei-Faktor-Authentifizierung ist erforderlich",
+        "desc": "Die Sicherheitsrichtlinie Ihrer Rolle verlangt Zwei-Faktor-Authentifizierung für {companyName}, bevor Sie sich anmelden können.",
+        "startDesc": "Sie scannen einen QR-Code und bestätigen mit einem Einmalcode. Das dauert weniger als eine Minute.",
+        "start": "Einrichtung starten",
+        "starting": "Wird gestartet …",
+        "step1": "1. Scannen Sie den QR-Code mit Ihrer Authenticator-App.",
+        "qrAlt": "QR-Code für die erforderliche Zwei-Faktor-Authentifizierung",
+        "manualToggle": "Kein Scannen möglich? Schlüssel anzeigen",
+        "codeLabel": "Einmalcode aus der App",
+        "confirm": "Bestätigen und anmelden",
+        "confirming": "Wird bestätigt …",
+        "backToLogin": "Zurück zur Anmeldung",
+        "errors": {
+          "expired": "Die Sitzung ist abgelaufen. Melden Sie sich erneut an.",
+          "invalid_code": "Falscher Einmalcode. Versuchen Sie es erneut.",
+          "setup_expired": "Die Einrichtung ist abgelaufen. Starten Sie sie erneut.",
+          "forbidden": "Das Konto kann nicht verwendet werden. Wenden Sie sich an einen Administrator.",
+          "already_enabled": "Die Zwei-Faktor-Authentifizierung ist bereits aktiviert. Melden Sie sich erneut an.",
+          "TooManyAttempts": "Zu viele Versuche. Warten Sie einige Minuten und versuchen Sie es erneut.",
+          "default": "Die Einrichtung konnte nicht abgeschlossen werden."
+        }
+      },
       "forgot": {
         "title": "Passwort vergessen?",
         "rateLimited": "Zu viele Versuche. Warten Sie 15 Minuten, bevor Sie es erneut versuchen.",
@@ -569,7 +594,7 @@
         "invalidFileType": "Ungültiger Dateityp. Nur Bilder und PDF sind erlaubt.",
         "mimeMismatch": "Der Dateiinhalt passt nicht zum Dateityp.",
         "imageProcessingFailed": "Die Datei konnte nicht als Bild verarbeitet werden.",
-        "storageQuotaExceeded": "Das tägliche Speicherkontingent ist erreicht. Versuchen Sie es später erneut.",
+        "storageQuotaExceeded": "Das Speicherkontingent ist erreicht. Geben Sie Speicher frei oder wenden Sie sich an einen Administrator.",
         "workOrderLocked": "Der Auftrag ist gesperrt.",
         "legalHold": "Für den Auftrag gilt eine Aufbewahrungspflicht.",
         "departmentInactive": "Die Abteilung ist deaktiviert.",
@@ -624,7 +649,8 @@
           "forbidden": "Kein Zugriff auf Berichte.",
           "notFound": "Bericht nicht gefunden.",
           "invalidLocked": "Ungültiger Wert für locked.",
-          "invalidAcknowledged": "Ungültiger Wert für acknowledged."
+          "invalidAcknowledged": "Ungültiger Wert für acknowledged.",
+          "activeContent": "Das PDF enthält aktiven Inhalt, der nicht ausgeliefert werden kann."
         },
         "visits": {
           "forbidden": "Kein Zugriff auf den Termin.",
@@ -654,7 +680,9 @@
         "apiKey": {
           "invalid": "Ungültiger oder abgelaufener API-Schlüssel.",
           "missing": "Bearer-Token fehlt.",
-          "authFailed": "Die API-Anfrage konnte nicht authentifiziert werden."
+          "authFailed": "Die API-Anfrage konnte nicht authentifiziert werden.",
+          "outOfScope": "Der API-Schlüssel hat keinen Scope für diesen Endpunkt.",
+          "readOnly": "Der API-Schlüssel ist schreibgeschützt und kann nur lesen."
         },
         "attachment": {
           "notFound": "Anhang nicht gefunden.",
@@ -682,7 +710,7 @@
           "noFile": "Keine Datei ausgewählt.",
           "invalidType": "Ungültiger Dateityp. Nur Bilder und PDF sind erlaubt.",
           "mimeMismatch": "Der Dateiinhalt passt nicht zum Dateityp.",
-          "quota": "Das tägliche Speicherkontingent ist erreicht. Versuchen Sie es später erneut.",
+          "quota": "Das Speicherkontingent ist erreicht. Geben Sie Speicher frei oder wenden Sie sich an einen Administrator.",
           "imageFailed": "Die Datei konnte nicht als Bild verarbeitet werden.",
           "saveFailed": "Die Datei konnte nicht gespeichert werden.",
           "failed": "Die Datei konnte nicht hochgeladen werden.",
@@ -778,6 +806,7 @@
         "search": "Suchen",
         "reset": "Zurücksetzen",
         "orderNumber": "Auftragsnr.",
+        "reference": "Referenz",
         "filterTag": "Tag: {tag}",
         "clearTag": "Tag-Filter entfernen",
         "emptyTitle": "Keine Aufträge in dieser Ansicht.",
@@ -839,7 +868,10 @@
         "addressLabel": "Adresse",
         "postalCodeLabel": "PLZ",
         "cityLabel": "Ort",
-        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden."
+        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden.",
+        "siteLabel": "Standort",
+        "noSite": "Kein Standort (Kundenadresse verwenden)",
+        "siteHint": "Wählen Sie einen registrierten Standort. Die Adresse dient als Fallback, wenn der Standort keine Adresse hat."
       },
       "customerSelect": {
         "label": "Kunde auswählen",
@@ -877,6 +909,7 @@
         "goToDashboard": "Zum Dashboard",
         "saveTags": "💾 Tags speichern",
         "noDate": "Kein Datum ausgewählt",
+        "reference": "Referenz",
         "noAddress": "Keine Adresse hinterlegt",
         "assign": "Zuweisen",
         "moveDate": "Datum verschieben",
@@ -1069,7 +1102,8 @@
           "resolvedAt": "Gelöst",
           "timeLeft": "{minutes} Minuten übrig",
           "overdue": "{minutes} Minuten über der Frist"
-        }
+        },
+        "site": "Standort"
       },
       "edit": {
         "notFoundTitle": "Der Auftrag existiert nicht",
@@ -1101,7 +1135,10 @@
         "addressLabel": "Adresse",
         "postalCodeLabel": "PLZ",
         "cityLabel": "Ort",
-        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden."
+        "locationHint": "Leer lassen, um die Kundenadresse zu verwenden.",
+        "siteLabel": "Standort",
+        "noSite": "Kein Standort (Kundenadresse verwenden)",
+        "siteHint": "Wählen Sie einen registrierten Standort für den Auftrag."
       },
       "fieldList": {
         "greeting": "Hallo, {name}",
@@ -1356,7 +1393,7 @@
         "stepDraftIdle": "Entwurf wird automatisch gespeichert",
         "unitDetails": "Gerätedetails",
         "swipeUnitLabelMissing": "Abschluss nicht möglich: Die Einheit hat keinen Namen.",
-      "swipeCompleteHint": "Nach rechts wischen oder „Einheit abschließen“ antippen",
+        "swipeCompleteHint": "Nach rechts wischen oder „Einheit abschließen“ antippen",
         "swipeProgress": "{percent} % – weiter wischen",
         "swipeReleaseHint": "Loslassen zum Abschließen",
         "swipeReleaseShort": "Loslassen",
@@ -1973,7 +2010,18 @@
         "activate": "Aktivieren",
         "errorMissingFields": "Geben Sie Name und E-Mail ein und wählen Sie einen Kontakt.",
         "errorInvalidContact": "Der Kontakt gehört nicht zu diesem Kunden.",
-        "errorDuplicateEmail": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits."
+        "errorDuplicateEmail": "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
+        "delegation": {
+          "title": "Delegierter Portalzugriff",
+          "description": "Legen Sie fest, was jeder Kontakt im Kundenportal tun darf. Ein Kontakt ohne gespeicherte Delegation behält vollen Zugriff.",
+          "fullAccessFallback": "Voller Zugriff (Standard)",
+          "save": "Delegation speichern",
+          "isActive": "Aktiver Portalbenutzer",
+          "canBook": "Darf buchen",
+          "canViewDocuments": "Darf Dokumente und Berichte sehen",
+          "canViewContracts": "Darf Verträge sehen",
+          "canViewEquipment": "Darf Geräte sehen"
+        }
       },
       "activity": {
         "feedTitle": "Aktivitäts-Feed",
@@ -2024,7 +2072,12 @@
           "contractTerminated": "Der Servicevertrag wurde beendet.",
           "contractRenewed": "Der Servicevertrag wurde verlängert.",
           "contractLineCreated": "Die Vertragsposition wurde hinzugefügt.",
-          "contractLineDeleted": "Die Vertragsposition wurde entfernt."
+          "contractLineDeleted": "Die Vertragsposition wurde entfernt.",
+          "siteCreated": "Der Standort wurde hinzugefügt.",
+          "siteUpdated": "Der Standort wurde aktualisiert.",
+          "siteDeleted": "Der Standort wurde gelöscht.",
+          "sitePrimary": "Der Standort wurde als Hauptstandort festgelegt.",
+          "delegationSaved": "Die Portal-Delegation wurde gespeichert."
         },
         "error": {
           "invalid": "Das Formular enthält ungültige oder fehlende Felder.",
@@ -2033,6 +2086,25 @@
           "unknown": "Etwas ist schiefgelaufen. Versuchen Sie es erneut.",
           "conflict": "Die Aktion steht im Konflikt mit einer anderen Änderung. Seite neu laden."
         }
+      },
+      "sites": {
+        "title": "Standorte",
+        "description": "Standorte und Adressen des Kunden. Sie können in Aufträgen, Geräten und im Kundenportal ausgewählt werden.",
+        "name": "Name",
+        "namePlaceholder": "z. B. Lager Süd",
+        "address": "Adresse",
+        "postalCode": "Postleitzahl",
+        "city": "Ort",
+        "setPrimary": "Als Hauptstandort festlegen",
+        "add": "Standort hinzufügen",
+        "empty": "Keine Standorte registriert.",
+        "primary": "Hauptstandort",
+        "noAddress": "Keine Adresse",
+        "makePrimary": "Als Hauptstandort",
+        "delete": "Standort löschen",
+        "deleteConfirm": "Standort „{name}“ löschen? Aufträge und Geräte verlieren die Verknüpfung.",
+        "edit": "Standort bearbeiten",
+        "save": "Standort speichern"
       }
     },
     "documents": {
@@ -2239,7 +2311,9 @@
         "security": "Sicherheit",
         "map": "Karte",
         "api": "API-Schlüssel",
-        "sla": "SLA und Geschäftszeiten"
+        "sla": "SLA und Geschäftszeiten",
+        "equipment": "Ausstattung",
+        "evidence": "Nachweise"
       },
       "branding": {
         "title": "White-Label-Einstellungen",
@@ -2308,7 +2382,35 @@
         "fromDate": "Von Datum",
         "toDate": "Bis Datum",
         "search": "Suchen",
-        "reset": "Zurücksetzen"
+        "reset": "Zurücksetzen",
+        "retentionTitle": "Aufbewahrung und Export",
+        "retentionDesc": "Auditprotokolle, die älter als die Aufbewahrungsfrist sind, werden automatisch gelöscht. Zeilen mit Aufbewahrungspflicht bleiben erhalten. 0 schaltet das automatische Löschen aus.",
+        "retentionDays": "Tage",
+        "save": "Speichern",
+        "retentionSaved": "Die Aufbewahrungsfrist wurde gespeichert.",
+        "exportTitle": "Auditprotokoll exportieren",
+        "exportDesc": "Lädt ein ZIP-Archiv mit SHA-256-Manifest und Hash-Kette herunter. Der Export wird selbst protokolliert.",
+        "exportButton": "Archiv herunterladen",
+        "holdTitle": "Aufbewahrungspflicht",
+        "holdDesc": "Schützt eine Auditzeile oder eine ganze Entität vor automatischem Löschen. Die Historie selbst wird nicht verändert.",
+        "holdLogId": "Protokoll-ID",
+        "holdReason": "Grund (erforderlich)",
+        "holdSet": "Sperre setzen",
+        "holdRelease": "Aufheben",
+        "holdSaved": "Die Aufbewahrungspflicht wurde erfasst.",
+        "holdReleased": "Die Aufbewahrungspflicht wurde aufgehoben.",
+        "holdError": "Die Aktion konnte nicht ausgeführt werden. Prüfen Sie die Angaben."
+      },
+      "evidence": {
+        "title": "Nachweispaket für Auftrag",
+        "desc": "Lädt einen Auftrag mit Kunde, Berichten, Revisionen, Anhängen und relevanten Auditzeilen herunter. Das Paket ist mit einem SHA-256-Manifest versiegelt und offline prüfbar.",
+        "empty": "Es gibt noch keine Aufträge zum Exportieren.",
+        "selectWorkOrder": "Auftrag auswählen",
+        "selectPlaceholder": "Auftrag auswählen …",
+        "exportButton": "Nachweispaket herunterladen",
+        "contentsTitle": "Inhalt des Pakets",
+        "contents": "work-order.json, customer.json, Berichte mit Revisionen, Anhänge und Signaturen, audit/audit.jsonl, manifest.json und manifest.sha256. Fehlende Dateien werden mit Grund aufgeführt.",
+        "verifyHint": "Prüfen Sie mit sha256sum -c manifest.sha256 und vergleichen Sie die Dateien in manifest.json. Ändert sich eine Datei, schlägt die Prüfung fehl."
       },
       "statistics": {
         "title": "Statistik",
@@ -2424,7 +2526,15 @@
         "name": "Name",
         "namePlaceholder": "z. B. Feld-App-Integration",
         "expiresAt": "Läuft ab (optional)",
-        "expiresHint": "Leer lassen für einen Schlüssel ohne Ablaufdatum.",
+        "expiresHint": "Leer lassen für die Standardlebensdauer von {days} Tagen. Die maximale Lebensdauer beträgt 365 Tage.",
+        "scopesLabel": "Worauf der Schlüssel zugreifen darf",
+        "scopesHint": "Der Schlüssel erbt die Berechtigungen des Benutzers, kann aber nur die ausgewählten Scope-Bereiche nutzen. Mindestens einen auswählen.",
+        "scopesColumn": "Scopes",
+        "readOnly": "Schreibgeschützt",
+        "readOnlyHint": "Nur Lesen (GET). Alle Änderungen werden mit 403 abgelehnt.",
+        "rotate": "Schlüssel rotieren",
+        "rotating": "Wird rotiert …",
+        "rotatedTitle": "Der Schlüssel \"{name}\" wurde rotiert",
         "create": "Schlüssel erstellen",
         "creating": "Wird erstellt …",
         "createdTitle": "Schlüssel erstellt",
@@ -2445,6 +2555,23 @@
         "active": "Aktiv",
         "expired": "Abgelaufen",
         "revoked": "Widerrufen",
+        "scopes": {
+          "workordersRead": "Aufträge – lesen",
+          "workordersWrite": "Aufträge – schreiben",
+          "visitsRead": "Besuche – lesen",
+          "visitsWrite": "Besuche – schreiben",
+          "customersRead": "Kunden – lesen",
+          "contractsRead": "Verträge – lesen",
+          "contractsWrite": "Verträge – schreiben",
+          "slaRead": "SLA – lesen",
+          "equipmentRead": "Geräte – lesen",
+          "equipmentWrite": "Geräte – schreiben",
+          "maintenanceRead": "Wartung – lesen",
+          "maintenanceWrite": "Wartung – schreiben",
+          "reportsRead": "Berichte – lesen",
+          "documentsRead": "Dokumente – lesen",
+          "allLegacy": "Alle (älterer Schlüssel ohne Einschränkung)"
+        },
         "revoke": "Widerrufen",
         "revokeConfirm": "API-Schlüssel \"{name}\" widerrufen? Integrationen, die ihn verwenden, funktionieren sofort nicht mehr.",
         "revokeLabel": "Schlüssel widerrufen",
@@ -2778,6 +2905,28 @@
           "notFound": "Die zu ändernde Zeile wurde nicht gefunden.",
           "conflict": "Der Eintrag existiert bereits."
         }
+      },
+      "equipmentCategories": {
+        "title": "Gerätekategorien",
+        "description": "Kategorien und Hierarchie für Geräte und Einheiten verwalten. Kategorien werden beim Anlegen und Filtern von Geräten verwendet.",
+        "createTitle": "Neue Kategorie",
+        "name": "Kategoriename",
+        "namePlaceholder": "Z. B. Pumpen",
+        "parent": "Übergeordnete Kategorie",
+        "noParent": "Keine übergeordnete Kategorie",
+        "create": "Kategorie erstellen",
+        "edit": "Bearbeiten",
+        "save": "Speichern",
+        "delete": "Löschen",
+        "deleteConfirm": "Kategorie „{name}“ löschen?",
+        "inUse": "Die Kategorie wird verwendet und kann nicht gelöscht werden.",
+        "products": "{count} Einheiten",
+        "children": "{count} Unterkategorien",
+        "empty": "Es wurden noch keine Kategorien erstellt.",
+        "readOnly": "Sie können Kategorien ansehen, aber nicht ändern. Wenden Sie sich an einen Benutzer mit Bearbeitungsrechten für Geräte.",
+        "created": "Kategorie erstellt.",
+        "updated": "Kategorie aktualisiert.",
+        "deleted": "Kategorie gelöscht."
       }
     },
     "users": {
@@ -3411,15 +3560,13 @@
         "months": "{count} Monate"
       },
       "booking": {
-        "title": "Freie Zeit buchen",
-        "desc": "Wählen Sie Standort, Leistung und einen freien Termin. Die Buchung wird sofort bestätigt.",
+        "title": "Besuch anfragen",
+        "desc": "Wählen Sie Standort, Leistung und gewünschtes Datum. Schreiben Sie die gewünschte Uhrzeit in die Beschreibung. Büro oder Techniker bestätigen und planen den Besuch später.",
         "titleLabel": "Auftragstitel *",
         "titlePlaceholder": "Z. B. Jahreswartung",
         "descriptionLabel": "Beschreibung",
         "descriptionPlaceholder": "Wobei benötigen Sie Hilfe?",
         "dateLabel": "Gewünschtes Datum *",
-        "fromLabel": "Von",
-        "toLabel": "Bis",
         "equipmentLabel": "Betroffenes Gerät",
         "equipmentNone": "Kein bestimmtes Gerät",
         "contactNameLabel": "Ansprechpartner *",
@@ -3431,7 +3578,7 @@
         "reference": "Referenz: {reference}",
         "nextTitle": "Wie geht es weiter?",
         "nextStep1": "Das Büro prüft die Anfrage und stellt sicher, dass Gerät und Zeitpunkt passen.",
-        "nextStep2": "Sie erhalten eine Bestätigung mit der endgültigen Zeit erst, nachdem das Büro geantwortet hat. Wenn Sie einen verfügbaren Tag ausgewählt haben, werden wir versuchen, diesen beizubehalten.",
+        "nextStep2": "Die endgültige bestätigte Zeit erhalten Sie erst, nachdem Büro oder Techniker den Auftrag geplant haben.",
         "nextStep3": "Sie können den Status unter “Ihre Anfragen” verfolgen. Dort können Sie auch stornieren oder eine neue Zeit anfordern.",
         "seeRequests": "Ihre Anfragen anzeigen",
         "errors": {
@@ -3715,7 +3862,15 @@
         "twoFactorEnabled": "Zwei-Faktor-Authentifizierung aktiviert",
         "twoFactorDisabled": "Zwei-Faktor-Authentifizierung deaktiviert",
         "twoFactorRecoveryRegenerated": "Neue Zwei-Faktor-Wiederherstellungscodes erzeugt",
-        "twoFactorReset": "Zwei-Faktor-Authentifizierung für {name} zurückgesetzt"
+        "twoFactorReset": "Zwei-Faktor-Authentifizierung für {name} zurückgesetzt",
+        "twoFactorRequiredStarted": "2FA: erforderliche Einrichtung gestartet",
+        "twoFactorRequiredEnrollmentStarted": "2FA: erforderliche Einrichtung gestartet",
+        "twoFactorRequiredCompleted": "2FA: erforderliche Einrichtung abgeschlossen",
+        "loginRequiredTwoFactor": "Mit erforderlicher 2FA angemeldet",
+        "twoFactorBreakGlass": "2FA: Break-glass hat die Zwei-Faktor-Authentifizierung zurückgesetzt",
+        "apiKeyCreated": "API-Schlüssel erstellt: {name} ({prefix}…)",
+        "apiKeyRevoked": "API-Schlüssel widerrufen: {name} ({prefix}…)",
+        "apiKeyRotated": "API-Schlüssel rotiert: {name} ({oldPrefix}… → {newPrefix}…)"
       },
       "users": {
         "created": "Benutzer erstellt: {name} ({role})",
@@ -3898,7 +4053,15 @@
         "unknown": "Unbekannt",
         "dangerous": "Gefahrenbereich",
         "delete": "Anlage löschen",
-        "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden."
+        "deleteConfirm": "Anlage dauerhaft löschen? Dies kann nicht rückgängig gemacht werden.",
+        "site": "Standort",
+        "noSite": "Kein Standort",
+        "editPlan": "Plan bearbeiten",
+        "editPlanHint": "Titel, Intervall, Vorlaufzeit, nächste Fälligkeit und Aktivität des Plans ändern.",
+        "planActive": "Plan ist aktiv",
+        "savePlan": "Plan speichern",
+        "deletePlan": "Plan löschen",
+        "deletePlanConfirm": "Wartungsplan löschen? Pläne mit bereits erzeugten Vorkommen können nicht gelöscht werden."
       },
       "form": {
         "title": "Neue Anlage",
@@ -3916,7 +4079,9 @@
         "meterUnit": "Zählereinheit",
         "meterUnitHint": "Zum Beispiel Stunden, km oder Zyklen.",
         "submit": "Anlage erfassen",
-        "cancel": "Abbrechen"
+        "cancel": "Abbrechen",
+        "site": "Standort",
+        "noSite": "Kein Standort"
       },
       "label": {
         "title": "Anlagenetikett",
@@ -3981,6 +4146,7 @@
         "readingAdded": "Der Messwert wurde erfasst.",
         "planCreated": "Der Wartungsplan wurde erstellt.",
         "planUpdated": "Der Wartungsplan wurde aktualisiert.",
+        "planDeleted": "Der Wartungsplan wurde gelöscht.",
         "deleted": "Die Anlage wurde gelöscht."
       },
       "planStatus": {

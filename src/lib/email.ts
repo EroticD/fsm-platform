@@ -306,7 +306,116 @@ type BookingInfo = {
   description?: string | null;
   customerName: string;
   bookedBy: string;
+  /** Kontaktens språk. Ukjent eller manglende verdi faller tilbake til norsk. */
+  locale?: string | null;
+  reference?: string | null;
+  date?: string | null;
+  time?: string | null;
 };
+
+type BookingEmailLocale = "nb" | "en" | "pl" | "de";
+
+const BOOKING_EMAIL_COPY: Record<
+  BookingEmailLocale,
+  {
+    customerHeading: string;
+    customerSubject: string;
+    customerIntro: string;
+    officeHeading: string;
+    officeIntro: string;
+    labels: {
+      order: string;
+      customer: string;
+      bookedBy: string;
+      description: string;
+      reference: string;
+      date: string;
+      time: string;
+    };
+    footer: string;
+  }
+> = {
+  nb: {
+    customerHeading: "Bestilling mottatt",
+    customerSubject: "Vi har mottatt bestillingen din: {title}",
+    customerIntro:
+      "Takk for bestillingen. Vi tar kontakt for å avtale dato.",
+    officeHeading: "Ny bestilling fra kundeportal",
+    officeIntro:
+      "En kunde har booket et nytt oppdrag. Det ligger klart for planlegging under «Oppdrag».",
+    labels: {
+      order: "Oppdrag",
+      customer: "Kunde",
+      bookedBy: "Booket av",
+      description: "Beskrivelse",
+      reference: "Referanse",
+      date: "Dato",
+      time: "Tid",
+    },
+    footer: "Dette er en automatisk generert e-post fra",
+  },
+  en: {
+    customerHeading: "Booking received",
+    customerSubject: "We have received your booking: {title}",
+    customerIntro:
+      "Thank you for your booking. We will contact you to agree on a date.",
+    officeHeading: "New booking from the customer portal",
+    officeIntro:
+      "A customer has booked a new job. It is ready for planning under Work orders.",
+    labels: {
+      order: "Job",
+      customer: "Customer",
+      bookedBy: "Booked by",
+      description: "Description",
+      reference: "Reference",
+      date: "Date",
+      time: "Time",
+    },
+    footer: "This is an automatically generated e-mail from",
+  },
+  pl: {
+    customerHeading: "Otrzymano rezerwację",
+    customerSubject: "Otrzymaliśmy Twoją rezerwację: {title}",
+    customerIntro:
+      "Dziękujemy za rezerwację. Skontaktujemy się, aby ustalić termin.",
+    officeHeading: "Nowa rezerwacja z portalu klienta",
+    officeIntro:
+      "Klient zarezerwował nowe zlecenie. Jest gotowe do zaplanowania w sekcji Zlecenia.",
+    labels: {
+      order: "Zlecenie",
+      customer: "Klient",
+      bookedBy: "Zarezerwował",
+      description: "Opis",
+      reference: "Referencja",
+      date: "Data",
+      time: "Godzina",
+    },
+    footer: "To jest automatycznie wygenerowana wiadomość od",
+  },
+  de: {
+    customerHeading: "Buchung erhalten",
+    customerSubject: "Wir haben Ihre Buchung erhalten: {title}",
+    customerIntro:
+      "Vielen Dank für Ihre Buchung. Wir melden uns, um einen Termin zu vereinbaren.",
+    officeHeading: "Neue Buchung aus dem Kundenportal",
+    officeIntro:
+      "Ein Kunde hat einen neuen Auftrag gebucht. Er steht unter Aufträge zur Planung bereit.",
+    labels: {
+      order: "Auftrag",
+      customer: "Kunde",
+      bookedBy: "Gebucht von",
+      description: "Beschreibung",
+      reference: "Referenz",
+      date: "Datum",
+      time: "Zeit",
+    },
+    footer: "Dies ist eine automatisch generierte E-Mail von",
+  },
+};
+
+function bookingEmailLocale(value: string | null | undefined): BookingEmailLocale {
+  return value === "en" || value === "pl" || value === "de" ? value : "nb";
+}
 
 /**
  * Varsler kontoret i destinasjonsavdelingen om en ny kundebestilling, og
@@ -330,12 +439,18 @@ export async function sendBookingNotification(
   const companyName = escapeHtml(cleanText(branding?.companyName, { maxLength: LIMITS.title }) || "FSM System");
   const transporter = createTransporter();
 
+  const copy = BOOKING_EMAIL_COPY[bookingEmailLocale(booking.locale)];
   const safeTitle = escapeHtml(neutralizeUrls(booking.title));
   const safeCustomer = escapeHtml(neutralizeUrls(booking.customerName));
   const safeBookedBy = escapeHtml(neutralizeUrls(booking.bookedBy));
   const safeDescription = booking.description
     ? escapeHtml(neutralizeUrls(booking.description))
     : "";
+  const safeReference = booking.reference
+    ? escapeHtml(neutralizeUrls(booking.reference))
+    : "";
+  const safeDate = booking.date ? escapeHtml(neutralizeUrls(booking.date)) : "";
+  const safeTime = booking.time ? escapeHtml(neutralizeUrls(booking.time)) : "";
 
   const shell = (heading: string, body: string) => `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
@@ -350,16 +465,18 @@ export async function sendBookingNotification(
       </div>
       ${body}
       <div style="margin-top: 32px; text-align: center; font-size: 11px; color: #9ca3af;">
-        <p>Dette er en automatisk generert e-post fra ${companyName}.</p>
+        <p>${copy.footer} ${companyName}.</p>
       </div>
     </div>`;
 
   const detail = `
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;color:#374151;font-size:14px;line-height:1.6;">
-      <p style="margin:0 0 8px;"><strong>Oppdrag:</strong> ${safeTitle}</p>
-      <p style="margin:0 0 8px;"><strong>Kunde:</strong> ${safeCustomer}</p>
-      <p style="margin:0 0 8px;"><strong>Booket av:</strong> ${safeBookedBy}</p>
-      ${safeDescription ? `<p style="margin:0;"><strong>Beskrivelse:</strong><br/>${safeDescription.replace(/\n/g, "<br/>")}</p>` : ""}
+      <p style="margin:0 0 8px;"><strong>${copy.labels.order}:</strong> ${safeTitle}</p>
+      <p style="margin:0 0 8px;"><strong>${copy.labels.customer}:</strong> ${safeCustomer}</p>
+      <p style="margin:0 0 8px;"><strong>${copy.labels.bookedBy}:</strong> ${safeBookedBy}</p>
+      ${safeReference ? `<p style="margin:0 0 8px;"><strong>${copy.labels.reference}:</strong> ${safeReference}</p>` : ""}
+      ${safeDate ? `<p style="margin:0 0 8px;"><strong>${copy.labels.date}:</strong> ${safeDate}${safeTime ? ` · ${safeTime}` : ""}</p>` : ""}
+      ${safeDescription ? `<p style="margin:0;"><strong>${copy.labels.description}:</strong><br/>${safeDescription.replace(/\n/g, "<br/>")}</p>` : ""}
     </div>`;
 
   const office = await prisma.user.findMany({
@@ -387,8 +504,8 @@ export async function sendBookingNotification(
         to: recipient,
         subject: `Ny bestilling: ${safeTitle} – ${safeCustomer}`,
         html: shell(
-          "Ny bestilling fra kundeportal",
-          `<p style="color:#374151;font-size:14px;line-height:1.6;">En kunde har booket et nytt oppdrag. Det ligger klart for planlegging under «Oppdrag».</p>${detail}`,
+          copy.officeHeading,
+          `<p style="color:#374151;font-size:14px;line-height:1.6;">${copy.officeIntro}</p>${detail}`,
         ),
       });
       officeSent += 1;
@@ -406,10 +523,10 @@ export async function sendBookingNotification(
       await transporter.sendMail({
         from: `"${companyName}" <${process.env.SMTP_USER}>`,
         to: customerEmail,
-        subject: `Vi har mottatt bestillingen din: ${safeTitle}`,
+        subject: copy.customerSubject.replace("{title}", safeTitle),
         html: shell(
-          "Bestilling mottatt",
-          `<p style="color:#374151;font-size:14px;line-height:1.6;">Takk for bestillingen. Vi tar kontakt for å avtale dato.</p>${detail}`,
+          copy.customerHeading,
+          `<p style="color:#374151;font-size:14px;line-height:1.6;">${copy.customerIntro}</p>${detail}`,
         ),
       });
       customerSent = true;

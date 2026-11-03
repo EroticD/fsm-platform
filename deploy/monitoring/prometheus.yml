@@ -1,0 +1,36 @@
+# Eksempel på Prometheus-konfigurasjon for FSM-plattformen.
+#
+# METRICS_SECRET leses fra en fil med 0600-rettigheter, ikke fra kommandolinjen.
+# Filen må inneholde bare hemmeligheten (uten «Bearer»).
+#
+#   install -m 600 /dev/null /etc/prometheus/fsm-metrics-token
+#   printf '%s\n' "$METRICS_SECRET" | sudo tee /etc/prometheus/fsm-metrics-token >/dev/null
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/fsm-alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["127.0.0.1:9093"]
+
+scrape_configs:
+  - job_name: fsm
+    metrics_path: /api/metrics
+    params:
+      format: ["prometheus"]
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/fsm-metrics-token
+    static_configs:
+      - targets: ["127.0.0.1:3000"]
+
+  # Valgfritt: node_exporter gir disk/CPU/minne og kan også lese
+  # backup-freshness.sh sin textfile (fsm-backup.prom).
+  - job_name: node
+    static_configs:
+      - targets: ["127.0.0.1:9100"]

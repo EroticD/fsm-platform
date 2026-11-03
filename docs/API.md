@@ -33,13 +33,36 @@ bare en SHA-256-hash og et kort visningsprefiks, aldri selve nøkkelen.
 > serverlogger.
 
 En nøkkel kan tilbakekalles fra samme fane. Tilbakekalling virker umiddelbart.
-Utløpte og tilbakekalte nøkler gir `401 unauthorized`.
+Utløpte og tilbakekalte nøkler gir `401 unauthorized`. Du kan også **rotere** en
+nøkkel: den gamle tilbakekalles og en ny med samme scopes og skrivebeskyttelse
+opprettes. Det nye tokenet vises én gang. Sist brukt og utløpsdato vises i
+listen, og opprettelse, tilbakekalling og rotasjon havner i aktivitetsloggen.
 
-### Rettigheter (scopes)
+### Rettigheter og scopes
 
-API-et har ikke egne scopes. **Nøkkelen arver nøyaktig rettighetene til
-brukeren som opprettet den**, inkludert avdelings- og kundeomfanget. Det
-betyr blant annet:
+**Nøkkelen arver rettighetene til brukeren som opprettet den**, inkludert
+avdelings- og kundeomfanget. I tillegg har hver nøkkel eksplisitte scopes, og
+kan merkes skrivebeskyttet. En nøkkel med bare lese-scopes får `403` på
+skriveendepunkter, og en skrivebeskyttet nøkkel får `403` på alle andre metoder
+enn `GET`/`HEAD` – selv om eieren har rettigheten.
+
+| Scope | Dekker |
+| --- | --- |
+| `workorders:read` / `workorders:write` | Oppdrag, detaljer og endringer |
+| `visits:read` / `visits:write` | Visiter, også under `/work-orders/{id}/visits` |
+| `customers:read` | Kunder |
+| `contracts:read` / `contracts:write` | Serviceavtaler og PDF |
+| `sla:read` | SLA-policyer |
+| `equipment:read` / `equipment:write` | Utstyr og målinger |
+| `maintenance:read` / `maintenance:write` | Vedlikeholdsplaner |
+| `reports:read` | Rapporter og PDF |
+| `documents:read` | Dokumenter |
+
+Nøkler opprettet før scopes ble innført har tom liste og regnes som «alle
+scopes» til de roteres. Nye nøkler må ha minst ett scope. Standard levetid er
+90 dager (`API_KEY_DEFAULT_LIFETIME_DAYS`), og maks er 365 dager
+(`API_KEY_MAX_LIFETIME_DAYS`). Se tabellen under for hvilket scope hvert
+endepunkt krever:
 
 | Endepunkt | Påkrevd rettighet |
 | --- | --- |
@@ -241,7 +264,7 @@ oppdrag har en `visits`-liste med opptil 20 visiter; bruk
 | `status` | streng | `PLANNED`, `IN_PROGRESS`, `WAITING`, `COMPLETED`, `CANCELLED`, `OPEN`, `PENDING` |
 | `customerId` | streng | Filtrer på kunde |
 | `technicianId` | streng | Filtrer på tildelt montør |
-| `q` | streng | Søk i tittel og kundenavn |
+| `q` | streng | Søk i tittel, oppdragsreferanse, ordrenummer og kundenavn |
 | `scheduledFrom` | dato | `YYYY-MM-DD`, fra og med |
 | `scheduledTo` | dato | `YYYY-MM-DD`, til og med |
 | `updatedSince` | dato-tid | Bare oppdrag endret etter tidspunktet (ISO 8601) |
@@ -678,7 +701,8 @@ verdien. Flytting som lager en syklus avvises med `409` og
 
 ### `GET/POST /equipment/{id}/meters`
 
-Målinger er desimaler med kilde `MANUAL`, `VISIT` eller `IMPORT`.
+Målinger er desimaler med kilde `MANUAL`, `VISIT` eller `IMPORT`. Listen
+støtter `page` og `limit`; registrering svarer `201` med den nye målingen.
 
 ```json
 {
@@ -695,6 +719,9 @@ to målinger kommer samtidig. Utfaset utstyr gir `409` med
 `equipment.errors.retired`.
 
 ### `GET/POST /maintenance-plans`
+
+Listeendepunktet støtter `productId`, `customerId`, `trigger`, `active`,
+`page` og `limit`. Oppretting svarer `201` med den nye planen.
 
 ```json
 {
@@ -782,6 +809,11 @@ curl -s -X POST "$FSM_BASE_URL/api/v1/contracts" \
 
 Svarer `201` med `Location: /api/v1/contracts/{id}`. `contractNumber` er unik
 når den er satt; duplikat gir `409 conflict`.
+
+### `GET /contracts/{id}`
+
+Returnerer avtalen med linjer, prisliste, SLA og kunde. Ukjent eller
+utilgjengelig id gir `404 not_found`.
 
 ### `PATCH /contracts/{id}`
 

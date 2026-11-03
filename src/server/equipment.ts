@@ -207,6 +207,9 @@ export async function listEquipment(
         customer: { select: { id: true, name: true } },
         category: { select: { id: true, name: true } },
         parent: { select: { id: true, model: true } },
+        site: {
+          select: { id: true, name: true, address: true, postalCode: true, city: true },
+        },
         _count: {
           select: {
             children: true,
@@ -239,12 +242,18 @@ export type EquipmentListData = Extract<
  * og detaljsiden bruker den til å bygge en foreldresti. Selve visningen er
  * begrenset til 500 enheter, som er langt over hva en normal kunde har.
  */
-export async function listEquipmentForest(actor: ServiceActor) {
+export async function listEquipmentForest(
+  actor: ServiceActor,
+  params: { customerId?: string } = {},
+) {
   const denied = requirePermission(actor, "equipment.view");
   if (denied) return denied;
 
+  const customerId = cleanId(params.customerId);
   const items = await prisma.product.findMany({
-    where: equipmentScopeFor(actor),
+    where: {
+      AND: [equipmentScopeFor(actor), ...(customerId ? [{ customerId }] : [])],
+    },
     orderBy: [{ model: "asc" }, { id: "asc" }],
     take: EQUIPMENT_TREE_LIMIT,
     include: {
@@ -373,6 +382,9 @@ export async function getEquipment(actor: ServiceActor, equipmentId: string) {
       },
       category: { select: { id: true, name: true, parentId: true } },
       parent: { select: { id: true, model: true, serialNumber: true } },
+      site: {
+        select: { id: true, name: true, address: true, postalCode: true, city: true },
+      },
       children: {
         orderBy: [{ model: "asc" }, { id: "asc" }],
         take: 100,
@@ -662,6 +674,19 @@ async function validateCategoryReference(
     : fail("invalid", { code: EQUIPMENT_ERROR_CODES.invalidCategory });
 }
 
+async function validateSiteReference(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  siteId: string | null,
+): Promise<string | null | ServiceFailure> {
+  if (!siteId) return null;
+  const site = await tx.customerSite.findFirst({
+    where: { id: siteId, customerId },
+    select: { id: true },
+  });
+  return site ? site.id : fail("invalid", { code: EQUIPMENT_ERROR_CODES.customerMismatch });
+}
+
 async function validateParentReference(
   tx: Prisma.TransactionClient,
   customerId: string,
@@ -712,6 +737,7 @@ export type EquipmentCreateInput = {
   location?: unknown;
   categoryId?: unknown;
   parentId?: unknown;
+  siteId?: unknown;
   installDate?: unknown;
   warrantyUntil?: unknown;
   status?: unknown;
@@ -733,6 +759,7 @@ export async function createEquipment(
     location: cleanText(input.location, { maxLength: LIMITS.line }),
     categoryId: cleanId(input.categoryId),
     parentId: cleanId(input.parentId),
+    siteId: cleanId(input.siteId),
     installDate: cleanText(input.installDate, { maxLength: 10 }),
     warrantyUntil: cleanText(input.warrantyUntil, { maxLength: 10 }),
     status: cleanText(input.status, { maxLength: 20 }) || "ACTIVE",
@@ -780,6 +807,13 @@ export async function createEquipment(
       );
       if (parentFailure) return parentFailure;
 
+      const siteId = await validateSiteReference(
+        tx,
+        data.customerId,
+        data.siteId ?? null,
+      );
+      if (siteId && typeof siteId === "object") return siteId;
+
       const created = await tx.product.create({
         data: {
           customerId: data.customerId,
@@ -788,6 +822,7 @@ export async function createEquipment(
           location: data.location || null,
           categoryId: data.categoryId ?? null,
           parentId: data.parentId ?? null,
+          siteId,
           installDate,
           warrantyUntil,
           status: data.status,
@@ -803,7 +838,7 @@ export async function createEquipment(
         entityId: created.id,
         action: `Opprettet utstyr: ${data.model}${data.serialNumber ? ` (SN: ${data.serialNumber})` : ""}`,
         actor: toAuditActor(actor),
-        metadata: { customerId: data.customerId, parentId: data.parentId ?? null },
+        metadata: { customerId: data.customerId, parentId: data.parentId ?? null, siteId },
       });
 
       return ok({ id: created.id });
@@ -821,6 +856,7 @@ export type EquipmentUpdateInput = {
   location?: unknown;
   categoryId?: unknown;
   parentId?: unknown;
+  siteId?: unknown;
   installDate?: unknown;
   warrantyUntil?: unknown;
   status?: unknown;
@@ -857,6 +893,7 @@ export async function updateEquipment(
       ? cleanId(input.categoryId)
       : undefined,
     parentId: hasOwn(input, "parentId") ? cleanId(input.parentId) : undefined,
+    siteId: hasOwn(input, "siteId") ? cleanId(input.siteId) : undefined,
     installDate: hasOwn(input, "installDate")
       ? cleanText(input.installDate, { maxLength: 10 })
       : undefined,
@@ -888,6 +925,7 @@ export async function updateEquipment(
           model: true,
           customerId: true,
           parentId: true,
+          siteId: true,
           categoryId: true,
           installDate: true,
           warrantyUntil: true,
@@ -961,6 +999,21 @@ export async function updateEquipment(
         if (parentFailure) return parentFailure;
         update.parent = parentId
           ? { connect: { id: parentId } }
+          : { disconnect: true };
+      }
+
+      if (data.siteId !== undefined) {
+        const siteId = data.siteId || null;
+        const validatedSite = await validateSiteReference(
+          tx,
+          current.customerId,
+          siteId,
+        );
+        if (validatedSite && typeof validatedSite === "object") {
+          return validatedSite;
+        }
+        update.site = validatedSite
+          ? { connect: { id: validatedSite } }
           : { disconnect: true };
       }
 
@@ -1567,7 +1620,7 @@ export async function getEquipmentFormOptions(actor: ServiceActor) {
   const denied = requirePermission(actor, "equipment.view");
   if (denied) return denied;
 
-  const [customers, categories, equipment] = await Promise.all([
+  const [customers, categories, equipment, sites] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
@@ -1591,9 +1644,21 @@ export async function getEquipmentFormOptions(actor: ServiceActor) {
         customer: { select: { name: true } },
       },
     }),
+    prisma.customerSite.findMany({
+      where: { customer: { deletedAt: null } },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      take: 1000,
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        customerId: true,
+        customer: { select: { name: true } },
+      },
+    }),
   ]);
 
-  return ok({ customers, categories, equipment });
+  return ok({ customers, categories, equipment, sites });
 }
 
 /** Brukes av API-et for å velge riktig HTTP-status uten å gjette. */

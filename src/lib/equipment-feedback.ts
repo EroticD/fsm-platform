@@ -16,6 +16,7 @@ const EQUIPMENT_ERROR_FALLBACKS: Record<ServiceError, string> = {
   file_not_found: "assets.errors.notFound",
   customer_not_found: "assets.errors.notFound",
   deadline_passed: "assets.errors.generic",
+  too_large: "assets.errors.generic",
 };
 
 /** Oversetter en tjenestefeil til en i18n-nøkkel under `assets.errors`. */
@@ -43,6 +44,7 @@ export const EQUIPMENT_FEEDBACK_KEYS: Record<string, string> = {
   "reading-added": "assets.feedback.readingAdded",
   "plan-created": "assets.feedback.planCreated",
   "plan-updated": "assets.feedback.planUpdated",
+  "plan-deleted": "assets.feedback.planDeleted",
   deleted: "assets.feedback.deleted",
 };
 

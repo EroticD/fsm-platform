@@ -215,7 +215,7 @@ describe("createVisit", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("avviser en montør som er tildelt en overlappende visitt", async () => {
+  it("tillater en montør som er tildelt en overlappende visitt", async () => {
     const conflictStart = new Date("2026-10-30T10:00:00.000Z");
     const conflictEnd = new Date("2026-10-30T12:00:00.000Z");
     mocks.prisma.visit.findMany.mockResolvedValue([
@@ -235,24 +235,14 @@ describe("createVisit", () => {
       technicianIds: ["tech-1"],
     });
 
-    expect(result).toEqual({
-      ok: false,
-      reason: "conflict",
-      details: {
-        code: "visits.errors.overlap",
-        conflicts: [
-          {
-            visitId: "visit-2",
-            workOrderId: "wo-2",
-            startsAt: conflictStart.toISOString(),
-            endsAt: conflictEnd.toISOString(),
-            technicianIds: ["tech-1"],
-          },
-        ],
-      },
+    expect(result).toMatchObject({ ok: true });
+    expect(mocks.prisma.visit.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        workOrderId: "wo-1",
+        technicians: { create: [{ userId: "tech-1" }] },
+      }),
     });
-    expect(mocks.prisma.visit.create).not.toHaveBeenCalled();
-    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.audit).toHaveBeenCalled();
   });
 
   it("avviser en montør utenfor oppdragets avdeling", async () => {

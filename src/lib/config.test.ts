@@ -105,4 +105,48 @@ describe("validateProductionConfig", () => {
     });
     expect(errors.join(" ")).toContain("NEXTAUTH_SECRET is missing");
   });
+
+  it("krever eksplisitt hoppantall når proxy er betrodd", () => {
+    const errors = validateProductionConfig({
+      NODE_ENV: "production",
+      NEXTAUTH_URL: "https://fsm.example",
+      NEXTAUTH_SECRET: STRONG_SECRET,
+      TRUST_PROXY: "true",
+    });
+    expect(errors.join(" ")).toContain("TRUST_PROXY_HOPS");
+  });
+
+  it("godtar eksplisitt hoppantall i produksjon", () => {
+    expect(
+      validateProductionConfig({
+        NODE_ENV: "production",
+        NEXTAUTH_URL: "https://fsm.example",
+        NEXTAUTH_SECRET: STRONG_SECRET,
+        TRUST_PROXY: "true",
+        TRUST_PROXY_HOPS: "2",
+      }),
+    ).toEqual([]);
+  });
+
+  it("avviser hopp uten at proxy er betrodd", () => {
+    const errors = validateProductionConfig({
+      NODE_ENV: "production",
+      NEXTAUTH_URL: "https://fsm.example",
+      NEXTAUTH_SECRET: STRONG_SECRET,
+      TRUST_PROXY: "false",
+      TRUST_PROXY_HOPS: "1",
+    });
+    expect(errors.join(" ")).toContain("ambiguous");
+  });
+
+  it("avviser ugyldige proxyverdier", () => {
+    const errors = validateProductionConfig({
+      NODE_ENV: "production",
+      NEXTAUTH_URL: "https://fsm.example",
+      NEXTAUTH_SECRET: STRONG_SECRET,
+      TRUST_PROXY: "ja",
+      TRUST_PROXY_HOPS: "mange",
+    });
+    expect(errors.join(" ")).toContain("TRUST_PROXY must be true or false");
+  });
 });

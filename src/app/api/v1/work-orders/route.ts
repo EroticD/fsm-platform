@@ -55,6 +55,7 @@ const EMBEDDED_VISIT_SELECT = {
 const SUMMARY_SELECT = {
   id: true,
   title: true,
+  reference: true,
   orderNumber: true,
   status: true,
   scheduledFor: true,
@@ -118,6 +119,7 @@ type EmbeddedSlaSource = {
 type SummarySource = {
   id: string;
   title: string;
+  reference: string;
   orderNumber: string | null;
   status: string;
   scheduledFor: Date | null;
@@ -172,6 +174,7 @@ function toSummary(row: SummarySource) {
   return {
     id: row.id,
     title: row.title,
+    reference: row.reference,
     orderNumber: row.orderNumber,
     status: row.status,
     scheduledFor: dateOnlyOrNull(row.scheduledFor),
@@ -269,7 +272,12 @@ export async function GET(request: Request) {
   if (query) {
     const contains = { contains: query, mode: "insensitive" as const };
     filters.push({
-      OR: [{ title: contains }, { customer: { name: contains } }],
+      OR: [
+        { title: contains },
+        { reference: contains },
+        { orderNumber: contains },
+        { customer: { name: contains } },
+      ],
     });
   }
   if (from.value || to.value) {

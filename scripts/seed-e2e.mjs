@@ -483,9 +483,12 @@ async function main() {
 
   const createWorkOrder = (input) => {
     const scheduledFor = dateOnly(input.offsetDays);
+    const referenceDate = scheduledFor.toISOString().slice(2, 10).replace(/-/g, "");
+    const reference = `O-${referenceDate}-${randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 
     return prisma.workOrder.create({
       data: {
+        reference,
         title: input.title,
         description: input.description ?? null,
         scheduledFor,
@@ -754,6 +757,40 @@ async function main() {
         createdAt: dateTimeAtNoon(0),
       },
     ],
+  });
+
+  // Én ferdig samtale, slik at meldingslista og tråddetaljen alltid har data
+  // i E2E-databasen. Tråden kaskades bort når kunden slettes i neste seed.
+  await prisma.messageThread.create({
+    data: {
+      threadKey: `customer:${nordvik.id}:contact:${kari.id}:wo:${order3.id}`,
+      customerId: nordvik.id,
+      departmentId: department.id,
+      workOrderId: order3.id,
+      contactId: kari.id,
+      subject: "Feilsøking – portåpner",
+      unreadCount: 1,
+      lastMessageAt: dateTimeAtNoon(-1),
+      messages: {
+        create: [
+          {
+            direction: "INBOUND",
+            channel: "SMS",
+            body: "Hei, porten stopper fortsatt halvveis. Kan dere se på den?",
+            fromAddress: "+47 22 00 00 01",
+            createdAt: dateTimeAtNoon(-1),
+          },
+          {
+            direction: "OUTBOUND",
+            channel: "SMS",
+            body: "Vi har bestilt ny motor og kommer tilbake så snart den er på lager.",
+            authorUserId: admin.id,
+            toAddress: "+47 22 00 00 01",
+            createdAt: dateTimeAtNoon(0),
+          },
+        ],
+      },
+    },
   });
 
   await prisma.notification.create({

@@ -21,6 +21,7 @@ import {
   setVisitStatus,
 } from "@/server/visits";
 import { createWorkOrder } from "@/server/work-orders";
+import { defaultVisitWindow } from "@/lib/visit-window";
 import { getCustomerDetail } from "@/server/customers";
 
 const describeIntegration = integrationEnabled ? describe : describe.skip;
@@ -158,6 +159,7 @@ describeIntegration("Avtaler, dekning og SLA", () => {
     const scheduled = addDaysUtc(new Date(), 1);
     const order = await prisma.workOrder.create({
       data: {
+        reference: unique("REF"),
         title: unique("IT-SLA-oppdrag"),
         departmentId: departmentA,
         customerId: customer,
@@ -293,6 +295,18 @@ describeIntegration("Avtaler, dekning og SLA", () => {
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+
+    const scheduledFor = toDateOnly(new Date());
+    const window = defaultVisitWindow(new Date(`${scheduledFor}T00:00:00.000Z`));
+    const visit = await prisma.visit.findFirst({
+      where: { workOrderId: result.id },
+      select: { startsAt: true, endsAt: true, allDay: true },
+    });
+    expect(visit).toMatchObject({
+      startsAt: window.startsAt,
+      endsAt: window.endsAt,
+      allDay: false,
+    });
 
     const clock = await prisma.slaClock.findFirst({
       where: { workOrderId: result.id },

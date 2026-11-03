@@ -7,6 +7,9 @@ const cleanup = vi.hoisted(() =>
 vi.mock("@/lib/upload-cleanup", () => ({
   cleanupAbandonedUploads: cleanup,
 }));
+vi.mock("@/lib/upload-multipart", () => ({
+  cleanupUploadTempFiles: vi.fn(async () => ({ removed: 2 })),
+}));
 
 import { GET } from "./route";
 
@@ -47,6 +50,7 @@ describe("/api/cron/cleanup", () => {
       ok: true,
       checked: 3,
       released: 1,
+      tempRemoved: 2,
     });
     expect(cleanup).toHaveBeenCalledTimes(1);
   });

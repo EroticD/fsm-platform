@@ -90,7 +90,8 @@
         "forbidden": "You do not have access to reports.",
         "notFound": "Report not found.",
         "invalidLocked": "Invalid value for locked.",
-        "invalidAcknowledged": "Invalid value for acknowledged."
+        "invalidAcknowledged": "Invalid value for acknowledged.",
+        "activeContent": "The PDF contains active content that cannot be delivered."
       },
       "visits": {
         "forbidden": "You do not have access to the visit.",
@@ -120,7 +121,9 @@
       "apiKey": {
         "invalid": "Invalid or expired API key.",
         "missing": "Missing Bearer token.",
-        "authFailed": "Could not authenticate the API request."
+        "authFailed": "Could not authenticate the API request.",
+        "outOfScope": "The API key does not have a scope for this endpoint.",
+        "readOnly": "The API key is read-only and can only read."
       },
       "attachment": {
         "notFound": "Attachment not found.",

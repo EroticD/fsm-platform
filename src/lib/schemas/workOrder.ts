@@ -22,6 +22,11 @@ const idListSchema = z
   .max(200, "orders.errors.tooManyRows")
   .default([]);
 
+const skillIdsSchema = z
+  .array(idSchema)
+  .max(100, "orders.errors.tooManyRows")
+  .default([]);
+
 /** Opprette et oppdrag fra kontoret. */
 export const workOrderCreateSchema = z
   .object({
@@ -34,17 +39,28 @@ export const workOrderCreateSchema = z
     departmentId: idSchema,
     customerId: optionalIdSchema,
     contactId: optionalIdSchema,
+    siteId: optionalIdSchema,
     scheduledFor: dateOnlySchema,
     scheduledTo: optionalDateOnlySchema,
     technicianIds: idListSchema,
     templateIds: idListSchema,
     tagNames: tagNamesSchema,
+    skillIds: skillIdsSchema,
+    mandatorySkillIds: skillIdsSchema,
   })
   .refine(
     (data) => !data.scheduledTo || data.scheduledTo >= data.scheduledFor,
     {
       message: "orders.errors.endBeforeStart",
       path: ["scheduledTo"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.mandatorySkillIds.every((id) => data.skillIds.includes(id)),
+    {
+      message: "orders.skills.invalidMandatory",
+      path: ["mandatorySkillIds"],
     },
   );
 
@@ -63,10 +79,13 @@ export const workOrderUpdateSchema = z
     // kunde kan lagres uten å måtte knyttes til en kunde.
     customerId: optionalIdSchema,
     contactId: optionalIdSchema,
+    siteId: optionalIdSchema,
     scheduledFor: optionalDateOnlySchema,
     scheduledTo: optionalDateOnlySchema,
     technicianIds: idListSchema,
     tagNames: tagNamesSchema,
+    skillIds: skillIdsSchema,
+    mandatorySkillIds: skillIdsSchema,
   })
   .refine(
     (data) =>
@@ -76,6 +95,14 @@ export const workOrderUpdateSchema = z
     {
       message: "orders.errors.endBeforeStart",
       path: ["scheduledTo"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.mandatorySkillIds.every((id) => data.skillIds.includes(id)),
+    {
+      message: "orders.skills.invalidMandatory",
+      path: ["mandatorySkillIds"],
     },
   );
 

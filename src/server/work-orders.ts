@@ -8,6 +8,7 @@ import { notifyUser, notifyWorkOrderEvent } from "./notifications";
 import { getDefaultDepartmentId } from "@/lib/departments";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { normalizeOrderNumber } from "@/lib/order-number";
+import { generateWorkOrderReference } from "@/lib/work-order-reference";
 import { addressHash, effectiveAddress, geocodeAddress } from "@/lib/geocode";
 import {
   staffForDepartment,
@@ -21,6 +22,7 @@ import {
   parseDateOnly,
   toDateOnly,
 } from "@/lib/dates";
+import { defaultVisitWindow } from "@/lib/visit-window";
 import {
   LIMITS,
   cleanEmail,
@@ -226,6 +228,41 @@ function cleanTagNames(values: unknown[]): string[] {
     .filter(Boolean);
 }
 
+type NormalizedSkillRequirements = {
+  skillIds: string[];
+  mandatorySkillIds: string[];
+};
+
+/**
+ * Normaliserer kompetansekravene fra skjemaet. En kompetanse som er merket
+ * påkrevd må også være valgt; ellers avvises hele skjemaet i stedet for at
+ * kravet stille forsvinner.
+ */
+function normalizeSkillRequirements(input: {
+  skillIds?: unknown[];
+  mandatorySkillIds?: unknown[];
+}): NormalizedSkillRequirements | null {
+  const skillIds = Array.from(
+    new Set((input.skillIds ?? []).map(rawId).filter(Boolean)),
+  ).slice(0, 100);
+  const mandatorySkillIds = Array.from(
+    new Set((input.mandatorySkillIds ?? []).map(rawId).filter(Boolean)),
+  ).slice(0, 100);
+  if (mandatorySkillIds.some((id) => !skillIds.includes(id))) return null;
+  return { skillIds, mandatorySkillIds };
+}
+
+/** Alle kompetanse-id-ene må finnes i katalogen før de lagres på oppdraget. */
+async function skillsExist(ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  const found = await prisma.skill.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+    take: 100,
+  });
+  return found.length === ids.length;
+}
+
 /**
  * Kontrollerer datoperioden før hovedskjemaet. Da får brukeren en presis
  * melding om sluttdatoen i stedet for at en ugyldig periode blir stille
@@ -365,11 +402,14 @@ export type CreateWorkOrderInput = {
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
+  siteId?: unknown;
   scheduledFor: unknown;
   scheduledTo: unknown;
   technicianIds: unknown[];
   templateIds: unknown[];
   tagNames: unknown[];
+  skillIds?: unknown[];
+  mandatorySkillIds?: unknown[];
 };
 
 /**
@@ -413,6 +453,24 @@ export async function createWorkOrder(
     if (!contact || contact.customerId !== customerId) validContactId = "";
   }
 
+  // Stedet må tilhøre den valgte kunden. Et internt oppdrag uten kunde kan
+  // ikke peke på en kundes sted.
+  const requestedSiteId = rawId(input.siteId);
+  const site = requestedSiteId
+    ? await prisma.customerSite.findFirst({
+        where: { id: requestedSiteId, customerId: customerId || "__none__" },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+        },
+      })
+    : null;
+  if (requestedSiteId && !site) return { ok: false, error: "ugyldig-data" };
+  const siteId = site?.id ?? null;
+
   const requestedTechnicianIds = input.technicianIds
     .map(rawId)
     .filter(Boolean);
@@ -435,6 +493,12 @@ export async function createWorkOrder(
   const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
   if (rangeError) return { ok: false, error: rangeError };
 
+  const skillRequirements = normalizeSkillRequirements(input);
+  if (!skillRequirements) return { ok: false, error: "ugyldig-data" };
+  if (!(await skillsExist(skillRequirements.skillIds))) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+
   const parsed = workOrderCreateSchema.safeParse({
     title: cleanText(input.title, { maxLength: LIMITS.title }),
     orderNumber: cleanText(input.orderNumber, { maxLength: LIMITS.line }),
@@ -450,6 +514,8 @@ export async function createWorkOrder(
     technicianIds,
     templateIds: input.templateIds.map(rawId).filter(Boolean),
     tagNames: cleanTagNames(input.tagNames),
+    skillIds: skillRequirements.skillIds,
+    mandatorySkillIds: skillRequirements.mandatorySkillIds,
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
 
@@ -475,7 +541,7 @@ export async function createWorkOrder(
     address: parsed.data.address,
     postalCode: parsed.data.postalCode,
     city: parsed.data.city,
-    customer: customerAddress,
+    customer: site ?? customerAddress,
   });
   const geoHash = addressHash(address.query);
   const coordinates = geoHash ? await geocodeAddress(address.query) : null;
@@ -486,6 +552,7 @@ export async function createWorkOrder(
       const newWorkOrder = await tx.workOrder.create({
         data: {
           title,
+          reference: generateWorkOrderReference(),
           orderNumber,
           orderNumberNormalized,
           description: description || "",
@@ -498,6 +565,7 @@ export async function createWorkOrder(
           departmentId,
           customerId: customerId || undefined,
           contactId: parsed.data.contactId || undefined,
+          siteId: siteId || undefined,
           scheduledFor,
           scheduledTo,
           creatorName: user.name || user.email || "Kontor",
@@ -514,6 +582,15 @@ export async function createWorkOrder(
               create: { name },
             })),
           },
+          skillRequirements:
+            parsed.data.skillIds.length > 0
+              ? {
+                  create: parsed.data.skillIds.map((skillId) => ({
+                    skillId,
+                    mandatory: parsed.data.mandatorySkillIds.includes(skillId),
+                  })),
+                }
+              : undefined,
         },
         select: { id: true },
       });
@@ -521,12 +598,14 @@ export async function createWorkOrder(
       // Et datofestet oppdrag har alltid minst én planlagt visitt. Visiten er
       // den tildelbare tidsblokken; `scheduledFor`/`scheduledTo` avledes av
       // visitene og holdes i takt i samme transaksjon.
-      const visitWindow = allDayVisitWindow(scheduledFor, scheduledTo);
+      // Et nytt oppdrag starter med en redigerbar firetimersblokk samme dag,
+      // ikke en heldagsvisitt. Kontoret kan justere tidene i etterkant.
+      const visitWindow = defaultVisitWindow(scheduledFor);
       await createDefaultVisit(tx, {
         workOrderId: newWorkOrder.id,
         startsAt: visitWindow.startsAt,
         endsAt: visitWindow.endsAt,
-        allDay: true,
+        allDay: false,
         technicianIds,
       });
       await recomputeWorkOrderSchedule(tx, newWorkOrder.id);
@@ -542,6 +621,7 @@ export async function createWorkOrder(
         actor: auditActor(user),
         metadata: {
           customerId: customerId || null,
+          ...(siteId ? { siteId } : {}),
           orderNumber,
           orderNumberNormalized,
         },
@@ -573,10 +653,13 @@ export type UpdateWorkOrderInput = {
   departmentId: unknown;
   customerId: unknown;
   contactId: unknown;
+  siteId?: unknown;
   scheduledFor: unknown;
   scheduledTo: unknown;
   technicianIds: unknown[];
   tagNames: unknown[];
+  skillIds?: unknown[];
+  mandatorySkillIds?: unknown[];
 };
 
 /** Redigerer tittel, kunde, dato, avdeling, montører og tags på et oppdrag. */
@@ -595,6 +678,7 @@ export async function updateWorkOrder(
       id: true,
       departmentId: true,
       customerId: true,
+      siteId: true,
       status: true,
       legalHold: true,
       orderNumber: true,
@@ -661,6 +745,12 @@ export async function updateWorkOrder(
   const rangeError = dateRangeError(scheduledForInput, scheduledToInput);
   if (rangeError) return { ok: false, error: rangeError };
 
+  const skillRequirements = normalizeSkillRequirements(input);
+  if (!skillRequirements) return { ok: false, error: "ugyldig-data" };
+  if (!(await skillsExist(skillRequirements.skillIds))) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+
   const parsed = workOrderUpdateSchema.safeParse({
     id: workOrderId,
     title: cleanText(input.title, { maxLength: LIMITS.title }),
@@ -672,10 +762,13 @@ export async function updateWorkOrder(
     departmentId,
     customerId: rawId(input.customerId),
     contactId: rawId(input.contactId),
+    siteId: rawId(input.siteId),
     scheduledFor: scheduledForInput,
     scheduledTo: scheduledToInput,
     technicianIds: validTechnicianIds,
     tagNames,
+    skillIds: skillRequirements.skillIds,
+    mandatorySkillIds: skillRequirements.mandatorySkillIds,
   });
   if (!parsed.success) return { ok: false, error: "ugyldig-data" };
 
@@ -688,6 +781,7 @@ export async function updateWorkOrder(
     city,
     customerId,
     contactId,
+    siteId: requestedSiteId,
     scheduledFor,
     scheduledTo,
   } = parsed.data;
@@ -736,6 +830,35 @@ export async function updateWorkOrder(
     if (!contact || contact.customerId !== customerId) validContactId = undefined;
   }
 
+  // Stedet må tilhøre kunden oppdraget skal ligge hos. Når feltet ikke er
+  // sendt i det hele tatt beholder vi dagens sted; en tom verdi fjerner det.
+  // En kundeflytting uten nytt sted rydder bort det gamle stedet.
+  const siteFieldProvided = Object.prototype.hasOwnProperty.call(
+    input,
+    "siteId",
+  );
+  const candidateSiteId = siteFieldProvided
+    ? requestedSiteId
+    : customerChanged
+      ? undefined
+      : (currentWorkOrder.siteId ?? undefined);
+  const site = candidateSiteId
+    ? await prisma.customerSite.findFirst({
+        where: { id: candidateSiteId, customerId: nextCustomerId || "__none__" },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+        },
+      })
+    : null;
+  if (candidateSiteId && !site) {
+    return { ok: false, error: "ugyldig-data" };
+  }
+  const nextSiteId = site?.id ?? null;
+
   const customerAddress = customerId
     ? await prisma.customer.findUnique({
         where: { id: customerId },
@@ -746,7 +869,7 @@ export async function updateWorkOrder(
     address: explicitAddress,
     postalCode,
     city,
-    customer: customerAddress,
+    customer: site ?? customerAddress,
   });
   const geoHash = addressHash(effective.query);
   const coordinates =
@@ -792,6 +915,7 @@ export async function updateWorkOrder(
           // Tom kunde betyr et internt oppdrag, ikke en uendret kunde.
           customerId: nextCustomerId,
           contactId: validContactId || null,
+          siteId: nextSiteId,
           scheduledFor: scheduledForDate,
           scheduledTo: nextScheduledTo,
           technicians: { set: validTechnicianIds.map((id) => ({ id })) },
@@ -804,6 +928,19 @@ export async function updateWorkOrder(
           },
         },
       });
+
+      // Kompetansekravene erstattes i samme transaksjon. En feil senere i
+      // transaksjonen ruller da både oppdraget og kravene tilbake.
+      await tx.workOrderSkill.deleteMany({ where: { workOrderId } });
+      if (parsed.data.skillIds.length > 0) {
+        await tx.workOrderSkill.createMany({
+          data: parsed.data.skillIds.map((skillId) => ({
+            workOrderId,
+            skillId,
+            mandatory: parsed.data.mandatorySkillIds.includes(skillId),
+          })),
+        });
+      }
 
       if (datesChanged) {
         if (!scheduledForDate) {
@@ -853,6 +990,10 @@ export async function updateWorkOrder(
             to: orderNumberValue,
           },
           orderNumberNormalized,
+          siteId: {
+            from: currentWorkOrder.siteId ?? null,
+            to: nextSiteId,
+          },
           // Bare id-er, aldri kundedata. Bare med når kunden faktisk endres.
           ...(customerChanged
             ? {
@@ -1700,6 +1841,7 @@ export async function cloneWorkOrder(
       technicians: { select: { id: true } },
       templates: { select: { id: true } },
       tags: { select: { name: true } },
+      skillRequirements: { select: { skillId: true, mandatory: true } },
       visits: {
         select: {
           sequence: true,
@@ -1720,6 +1862,7 @@ export async function cloneWorkOrder(
       const created = await tx.workOrder.create({
         data: {
           title: source.title,
+          reference: generateWorkOrderReference(),
           // Ordrenummeret er unikt per avdeling og hører til det opprinnelige
           // oppdraget. En klone starter derfor uten ordrenummer, og kontoret
           // setter et nytt hvis klonen skal ha et eksternt nummer.
@@ -1742,6 +1885,15 @@ export async function cloneWorkOrder(
               create: { name: tag.name },
             })),
           },
+          skillRequirements:
+            (source.skillRequirements ?? []).length > 0
+              ? {
+                  create: source.skillRequirements.map((entry) => ({
+                    skillId: entry.skillId,
+                    mandatory: entry.mandatory,
+                  })),
+                }
+              : undefined,
         },
         select: { id: true },
       });
@@ -1771,16 +1923,13 @@ export async function cloneWorkOrder(
         }
       } else if (source.scheduledFor) {
         // Eldre oppdrag kan mangle visitt selv om de har dato. Da lager
-        // klonen én standard all-day-visitt, med samme montører som oppdraget.
-        const window = allDayVisitWindow(
-          source.scheduledFor,
-          source.scheduledTo,
-        );
+        // klonen en standard firetimersblokk, med samme montører som oppdraget.
+        const window = defaultVisitWindow(source.scheduledFor);
         await createDefaultVisit(tx, {
           workOrderId: created.id,
           startsAt: window.startsAt,
           endsAt: window.endsAt,
-          allDay: true,
+          allDay: false,
           technicianIds: source.technicians.map((technician) => technician.id),
         });
       }

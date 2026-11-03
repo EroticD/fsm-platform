@@ -3,16 +3,45 @@ import {
   EXPIRED_DRAFT_FAILURE_REASON,
   enqueueOutbox,
   getOfflineDraft,
+  inspectOfflineStorage,
   listDraftsForUser,
   listOutbox,
   listOutboxForUser,
+  migrateOfflineDataForUser,
   OFFLINE_DRAFT_MAX_AGE_DAYS,
   OFFLINE_DRAFT_MAX_AGE_MS,
   putOfflineDraft,
 } from "./db";
 import { MAX_OUTBOX_PAYLOAD_BYTES } from "./outbox-order";
+import {
+  createOfflineKey,
+  lockAllOfflineSessions,
+  lockOfflineSession,
+  OFFLINE_ENCRYPTION_VERSION,
+  OfflineLockedError,
+  unlockOfflineKey,
+} from "./crypto";
 
-type Row = { id?: string; key?: string };
+const TEST_PIN = "123456";
+const TEST_ITERATIONS = 1_000;
+
+function installLocalStorage() {
+  const values = new Map<string, string>();
+  const fake = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => void values.set(key, value),
+    removeItem: (key: string) => void values.delete(key),
+    clear: () => values.clear(),
+    key: (index: number) => [...values.keys()][index] ?? null,
+    get length() {
+      return values.size;
+    },
+  };
+  vi.stubGlobal("localStorage", fake);
+  return fake;
+}
+
+type Row = { id?: string; key?: string; [key: string]: unknown };
 
 function installFakeIndexedDb() {
   const stores = new Map<string, Map<string, Row>>([
@@ -137,9 +166,13 @@ function installFakeIndexedDb() {
 
 let stores: ReturnType<typeof installFakeIndexedDb>;
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.unstubAllGlobals();
+  lockAllOfflineSessions();
+  installLocalStorage();
   stores = installFakeIndexedDb();
+  await createOfflineKey("u1", TEST_PIN, { iterations: TEST_ITERATIONS });
+  await createOfflineKey("u2", TEST_PIN, { iterations: TEST_ITERATIONS });
 });
 
 describe("enqueueOutbox", () => {
@@ -318,5 +351,187 @@ describe("utløp for lokale kladder", () => {
     expect(items).toHaveLength(1);
     expect(items[0].failedAt).toBeUndefined();
     expect(items[0].failureReason).toBeUndefined();
+  });
+});
+
+describe("offline-lagring – kryptering ved skriving", () => {
+  it("skriver aldri kundenavn, notater eller signaturer i klartekst", async () => {
+    const payload = JSON.stringify({
+      notes: "Kunde Ola Nordmann, Storgata 1",
+      signature: "data:image/png;base64,c2lnbmF0dXJl",
+      units: [{ serial: "SN-123" }],
+    });
+
+    await putOfflineDraft({
+      key: "u1:wo1:tpl1",
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload,
+      updatedAt: Date.now(),
+    });
+    await enqueueOutbox(
+      JSON.stringify({ workOrderId: "wo1", templateId: "tpl1", notes: payload }),
+      "u1",
+    );
+
+    const storedDraft = stores.get("drafts")?.get("u1:wo1:tpl1") as Record<
+      string,
+      unknown
+    >;
+    expect(storedDraft.enc).toBe(OFFLINE_ENCRYPTION_VERSION);
+    expect(JSON.stringify(storedDraft)).not.toContain("Ola Nordmann");
+    expect(JSON.stringify(storedDraft)).not.toContain("Storgata");
+    expect(JSON.stringify(storedDraft)).not.toContain("c2lnbmF0dXJl");
+
+    const storedOutbox = [...(stores.get("outbox")?.values() ?? [])][0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(storedOutbox?.enc).toBe(OFFLINE_ENCRYPTION_VERSION);
+    expect(JSON.stringify(storedOutbox)).not.toContain("Ola Nordmann");
+
+    await expect(
+      getOfflineDraft("u1:wo1:tpl1"),
+    ).resolves.toMatchObject({ payload });
+    const items = await listOutboxForUser("u1");
+    expect(JSON.parse(items[0].payload).notes).toBe(payload);
+  });
+
+  it("krever opplåsing før kladden kan leses, og gjenoppretter eksakt payload", async () => {
+    const payload = JSON.stringify({ notes: "nøyaktig innhold", units: [1, 2] });
+    await putOfflineDraft({
+      key: "u1:wo1:tpl1",
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload,
+      updatedAt: Date.now(),
+    });
+
+    lockOfflineSession("u1");
+    await expect(getOfflineDraft("u1:wo1:tpl1")).rejects.toBeInstanceOf(
+      OfflineLockedError,
+    );
+    await expect(listDraftsForUser("u1")).rejects.toBeInstanceOf(
+      OfflineLockedError,
+    );
+
+    await unlockOfflineKey("u1", TEST_PIN);
+    await expect(getOfflineDraft("u1:wo1:tpl1")).resolves.toMatchObject({
+      payload,
+    });
+  });
+});
+
+describe("offline-lagring – migrering av klartekst", () => {
+  it("krypterer gamle kladder og outbox-poster uten å endre innholdet", async () => {
+    const legacyDraftPayload = JSON.stringify({ notes: "gammel kladd" });
+    stores.get("drafts")?.set("u1:wo9:tpl9", {
+      key: "u1:wo9:tpl9",
+      userId: "u1",
+      workOrderId: "wo9",
+      templateId: "tpl9",
+      payload: legacyDraftPayload,
+      updatedAt: Date.now(),
+    });
+    const legacyOutboxPayload = JSON.stringify({
+      workOrderId: "wo9",
+      templateId: "tpl9",
+      notes: "gammel outbox",
+    });
+    stores.get("outbox")?.set("legacy-out", {
+      id: "legacy-out",
+      userId: "u1",
+      payload: legacyOutboxPayload,
+      createdAt: Date.now(),
+      attempts: 0,
+    });
+
+    expect(await inspectOfflineStorage("u1")).toMatchObject({
+      drafts: 1,
+      outbox: 1,
+      plaintextDrafts: 1,
+      plaintextOutbox: 1,
+    });
+
+    await expect(migrateOfflineDataForUser("u1")).resolves.toEqual({
+      drafts: 1,
+      outbox: 1,
+    });
+
+    expect(await inspectOfflineStorage("u1")).toMatchObject({
+      plaintextDrafts: 0,
+      plaintextOutbox: 0,
+    });
+    const storedDraft = stores.get("drafts")?.get("u1:wo9:tpl9") as Record<
+      string,
+      unknown
+    >;
+    expect(storedDraft.enc).toBe(OFFLINE_ENCRYPTION_VERSION);
+    await expect(getOfflineDraft("u1:wo9:tpl9")).resolves.toMatchObject({
+      payload: legacyDraftPayload,
+    });
+
+    const storedOutbox = stores.get("outbox")?.get("legacy-out") as Record<
+      string,
+      unknown
+    >;
+    expect(storedOutbox.enc).toBe(OFFLINE_ENCRYPTION_VERSION);
+    expect(storedOutbox.workOrderId).toBe("wo9");
+    expect(storedOutbox.templateId).toBe("tpl9");
+    const migrated = await listOutboxForUser("u1");
+    expect(migrated[0].payload).toBe(legacyOutboxPayload);
+  });
+
+  it("nekter å migrere mens nøkkelen er låst", async () => {
+    stores.get("drafts")?.set("u1:wo9:tpl9", {
+      key: "u1:wo9:tpl9",
+      userId: "u1",
+      workOrderId: "wo9",
+      templateId: "tpl9",
+      payload: JSON.stringify({ notes: "klartekst" }),
+      updatedAt: Date.now(),
+    });
+    lockOfflineSession("u1");
+
+    await expect(migrateOfflineDataForUser("u1")).rejects.toBeInstanceOf(
+      OfflineLockedError,
+    );
+  });
+
+  it("lar en annen brukers låste nøkkel ikke blokkere min kø", async () => {
+    await enqueueOutbox(
+      JSON.stringify({ workOrderId: "wo1", templateId: "tpl1", notes: "min" }),
+      "u1",
+    );
+    await enqueueOutbox(
+      JSON.stringify({ workOrderId: "wo2", templateId: "tpl2", notes: "deres" }),
+      "u2",
+    );
+
+    lockOfflineSession("u2");
+
+    const mine = await listOutboxForUser("u1");
+    expect(mine).toHaveLength(1);
+    expect(JSON.parse(mine[0].payload).notes).toBe("min");
+    await expect(listOutboxForUser("u2")).rejects.toBeInstanceOf(
+      OfflineLockedError,
+    );
+  });
+
+  it("skiller brukere selv om de deler nettleserprofil", async () => {
+    await putOfflineDraft({
+      key: "u1:wo1:tpl1",
+      userId: "u1",
+      workOrderId: "wo1",
+      templateId: "tpl1",
+      payload: JSON.stringify({ notes: "bare u1" }),
+      updatedAt: Date.now(),
+    });
+
+    await expect(listDraftsForUser("u2")).resolves.toEqual([]);
+    await expect(getOfflineDraft("u1:wo1:tpl1")).resolves.toMatchObject({
+      userId: "u1",
+    });
   });
 });

@@ -20,7 +20,6 @@
         "repair": "Naprawa",
         "inspection": "Przegląd"
       },
-      "slotStep": "3. Wybierz wolny termin",
       "legendFree": "Wolne",
       "legendSlot": "{minutes} minut na termin",
       "previousWeek": "Poprzedni tydzień",
@@ -30,7 +29,6 @@
       "loading": "Ładowanie wolnych terminów …",
       "noSlots": "Brak wolnych terminów tego dnia.",
       "tryAnotherDay": "Wybierz inny dzień z listy powyżej.",
-      "pickSlot": "Wybierz wolny termin, aby zarezerwować go na pięć minut.",
       "held": "Termin u {technician} od {from} do {to} jest zarezerwowany. Masz {minutes} minut.",
       "release": "Zwolnij termin",
       "selectedSlot": "Wybrany termin: {technician}, {date} od {from} do {to}.",
@@ -46,7 +44,10 @@
         "holdFailed": "Nie udało się zarezerwować terminu. Spróbuj ponownie.",
         "slotTaken": "Ktoś właśnie zajął ten termin. Wybierz inny."
       },
-      "leadTimeHint": "Najwcześniejszy start to {date}. Termin musi być co najmniej {hours} godzin wcześniej."
+      "dateStep": "3. Wybierz żądaną datę",
+      "dateLabel": "Żądana data",
+      "dateHint": "Wybierz datę od {date} do {horizon}. Możesz wybrać datę poza następnymi dwoma tygodniami.",
+      "timeInDescription": "Klient nie może wybrać bloku czasu. Wpisz żądaną godzinę w opisie; biuro lub technik zaplanuje zlecenie."
     },
     "bookingRequests": {
       "status": {
@@ -59,7 +60,7 @@
     },
     "bookingQueue": {
       "title": "Kolejka rezerwacji",
-      "desc": "Potwierdź prośbę klienta na wolnym terminie lub odrzuć ją. Potwierdzone rezerwacje pokazują status i technika.",
+      "desc": "Zaplanuj zgłoszenie klienta w zleceniu lub je odrzuć. Nowe zgłoszenia są niepotwierdzone, dopóki biuro nie ustawi czasu i statusu.",
       "empty": "Brak rezerwacji na tej liście.",
       "filterAll": "Wszystkie",
       "filterPending": "Oczekujące",
@@ -71,7 +72,25 @@
       "site": "Lokalizacja",
       "service": "Usługa",
       "technician": "Technik",
-      "confirm": "Potwierdź rezerwację",
+      "planAndConfirm": "Zaplanuj i potwierdź",
+      "plannedDate": "Data",
+      "startTime": "Od",
+      "endTime": "Do",
+      "planHint": "Wybierz datę, godzinę rozpoczęcia i zakończenia oraz technika. Dostępność, nieobecności i rezerwacje są sprawdzane po potwierdzeniu.",
+      "noStaff": "Brak pracowników w dziale, których można przypisać.",
+      "planSuccess": "Rezerwacja została zaplanowana i potwierdzona.",
+      "alreadyConfirmed": "Rezerwacja była już potwierdzona.",
+      "planErrors": {
+        "noTechnician": "Brak wolnego technika w tym przedziale czasu. Wybierz inny termin lub technika.",
+        "unavailable": "Technik jest zajęty, nieobecny lub niedostępny w tym przedziale czasu.",
+        "needsPlanning": "Zgłoszenie nie ma godziny. Wybierz datę i godzinę.",
+        "invalidTime": "Nieprawidłowy przedział czasu. Koniec musi być po początku.",
+        "forbidden": "Nie masz uprawnień do potwierdzania rezerwacji.",
+        "notFound": "Nie znaleziono rezerwacji.",
+        "conflict": "Rezerwacja została zmieniona. Odśwież stronę i spróbuj ponownie.",
+        "invalid": "Pola są nieprawidłowe.",
+        "error": "Nie udało się potwierdzić rezerwacji. Spróbuj ponownie."
+      },
       "cancel": "Anuluj",
       "noTechnician": "Brak wolnego technika w żądanym terminie",
       "chooseTechnician": "Wybierz technika",

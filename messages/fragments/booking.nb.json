@@ -20,7 +20,6 @@
         "repair": "Reparasjon",
         "inspection": "Inspeksjon"
       },
-      "slotStep": "3. Velg ledig time",
       "legendFree": "Ledig",
       "legendSlot": "{minutes} minutter per time",
       "previousWeek": "Forrige uke",
@@ -30,7 +29,6 @@
       "loading": "Henter ledige timer …",
       "noSlots": "Ingen ledige timer denne dagen.",
       "tryAnotherDay": "Velg en annen dag i listen over.",
-      "pickSlot": "Velg en ledig time for å reservere den i fem minutter.",
       "held": "Timen er reservert hos {technician} kl. {from}–{to}. Du har {minutes} minutter på deg.",
       "release": "Frigjør timen",
       "selectedSlot": "Valgt time: {technician}, {date} kl. {from}–{to}.",
@@ -46,7 +44,10 @@
         "holdFailed": "Timen kunne ikke reserveres. Prøv igjen.",
         "slotTaken": "Timen ble nettopp tatt av en annen. Velg en ny time."
       },
-      "leadTimeHint": "Tidligste start er {date}. Timen må være minst {hours} timer fram i tid."
+      "dateStep": "3. Velg ønsket dato",
+      "dateLabel": "Ønsket dato",
+      "dateHint": "Velg en dato mellom {date} og {horizon}. Du kan velge en dato utenom de to neste ukene.",
+      "timeInDescription": "Kunden kan ikke velge tidsblokk. Skriv ønsket klokkeslett i beskrivelsen, så planlegger kontoret eller montøren oppdraget."
     },
     "bookingRequests": {
       "status": {
@@ -59,7 +60,7 @@
     },
     "bookingQueue": {
       "title": "Bookingkø",
-      "desc": "Bekreft kundens forespørsel mot en ledig time, eller avvis den. Bekreftede bookinger vises med status og montør.",
+      "desc": "Planlegg kundens forespørsel i oppdraget, eller avvis den. Nye bestillinger er alltid ubekreftede til kontoret har satt tid og status.",
       "empty": "Ingen bookinger i denne listen.",
       "filterAll": "Alle",
       "filterPending": "Venter",
@@ -71,7 +72,25 @@
       "site": "Sted",
       "service": "Tjeneste",
       "technician": "Montør",
-      "confirm": "Bekreft booking",
+      "planAndConfirm": "Planlegg og bekreft",
+      "plannedDate": "Dato",
+      "startTime": "Fra",
+      "endTime": "Til",
+      "planHint": "Velg dato, start- og sluttid og montør. Ledighet, fravær og reservasjoner kontrolleres når du bekrefter.",
+      "noStaff": "Ingen ansatte i avdelingen kan tildeles.",
+      "planSuccess": "Bookingen er planlagt og bekreftet.",
+      "alreadyConfirmed": "Bookingen var allerede bekreftet.",
+      "planErrors": {
+        "noTechnician": "Ingen ledig montør i dette tidsrommet. Velg en annen tid eller montør.",
+        "unavailable": "Montøren er opptatt, fraværende eller utilgjengelig i dette tidsrommet.",
+        "needsPlanning": "Forespørselen mangler tid. Velg dato og klokkeslett.",
+        "invalidTime": "Tidsrommet er ugyldig. Slutt må være etter start.",
+        "forbidden": "Du har ikke tilgang til å bekrefte bookinger.",
+        "notFound": "Bookingen ble ikke funnet.",
+        "conflict": "Bookingen er endret. Oppdater siden og prøv igjen.",
+        "invalid": "Feltene er ugyldige.",
+        "error": "Bookingen kunne ikke bekreftes. Prøv igjen."
+      },
       "cancel": "Avlys",
       "noTechnician": "Ingen ledig montør for ønsket tid",
       "chooseTechnician": "Velg montør",

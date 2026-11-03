@@ -88,12 +88,12 @@ The role chapters describe each step in detail. Here you can see how the roles a
 
 ### 2. Customer portal booking → work order and notification → dispatch → technician
 
-1. **The customer portal user** selects a site, service, available slot and optionally equipment in "Bookings". The slot is held for five minutes while the form is completed.
-2. **The system** confirms the booking, creates a work order and visit in the customer's department and notifies the office. The customer can receive an SMS confirmation if consent is registered.
-3. **The office** sees the booking in "Bookings". Older or manually created requests may remain `PENDING` and are confirmed against an available technician or cancelled. The office can also move or assign the visit through the calendar or dispatch.
-4. **The technician** receives an assignment notification and sees the visit under "Today". Cancellation triggers a new notification. Moving a visit does not notify; only changing the work order date and confirming or cancelling a booking notify.
+1. **The customer portal user** selects a site, service and requested date under "Bookings". The desired time is written in the description; the customer cannot select a time block.
+2. **The system** creates a new work order with status `OPEN` and an unconfirmed booking request. No visit or confirmed time is created, and the office is notified.
+3. **The office or technician** plans the work order and sets the status to **Planned**, or **Waiting** if the time does not fit. Only then are the date and time confirmed.
+4. **The technician** receives an assignment notification and sees the visit under "Today". Cancellation triggers a new notification.
 
-> **Tip:** A confirmed booking is already a work order and a visit. The office does not need to create the work order again.
+> **Tip:** A customer booking is a request, not a confirmed appointment. The office must plan it before the customer gets a final time.
 
 ### 3. Office creates a work order → calendar, board and assignment → field
 

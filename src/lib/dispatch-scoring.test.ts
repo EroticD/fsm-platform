@@ -84,6 +84,27 @@ describe("dispatch-scoring", () => {
     expect(ranking.best?.id).toBe("med-kompetanse");
   });
 
+  it("lar ønsket kompetanse mangle uten å gjøre montøren inhabil", () => {
+    const ranking = rankDispatchCandidates({
+      visit: visit({
+        requiredSkills: [
+          { skillId: "skill-electric", mandatory: true },
+          { skillId: "skill-lift", mandatory: false },
+        ],
+      }),
+      candidates: [
+        candidate("uten-lift", {
+          skills: [{ skillId: "skill-electric", validUntil: null }],
+        }),
+      ],
+    });
+
+    const row = ranking.candidates.find((entry) => entry.id === "uten-lift");
+    expect(row?.eligible).toBe(true);
+    expect(row?.excludedReason).toBeNull();
+    expect(row?.missingSkillIds).toEqual([]);
+  });
+
   it("utelater montører med fravær i visittens tidsrom", () => {
     const ranking = rankDispatchCandidates({
       visit: visit(),

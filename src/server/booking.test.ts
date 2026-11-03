@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceActor } from "./actor";
 import {
   addDaysUtc,
-  osloDayStart,
   parseDateOnly,
   toDateOnly,
   todayInOslo,
@@ -14,16 +13,21 @@ const mocks = vi.hoisted(() => ({
       findFirst: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     customer: { findFirst: vi.fn() },
+    contact: { findFirst: vi.fn() },
+    portalDelegation: { findUnique: vi.fn() },
     product: { findFirst: vi.fn() },
     user: { findFirst: vi.fn() },
     bookingRequest: { create: vi.fn() },
     bookingRequestEvent: { create: vi.fn() },
+    auditLog: { findFirst: vi.fn(), create: vi.fn() },
     $executeRaw: vi.fn(async () => 1),
     $transaction: vi.fn(),
   },
   audit: vi.fn(),
+  sendBookingNotification: vi.fn(),
   allowRequestDb: vi.fn(),
   getDefaultDepartmentId: vi.fn(),
   notifyWorkOrderEvent: vi.fn(),
@@ -51,6 +55,9 @@ vi.mock("./notifications", () => ({
 }));
 vi.mock("./sms-events", () => ({
   trySendBookingConfirmedSms: mocks.trySendBookingConfirmedSms,
+}));
+vi.mock("@/lib/email", () => ({
+  sendBookingNotification: mocks.sendBookingNotification,
 }));
 
 import { createBooking } from "./portal";
@@ -94,9 +101,11 @@ beforeEach(() => {
   mocks.prisma.workOrder.findFirst.mockResolvedValue(null);
   mocks.prisma.workOrder.count.mockResolvedValue(0);
   mocks.prisma.workOrder.create.mockResolvedValue({ id: "wo-1" });
+  mocks.prisma.workOrder.update.mockResolvedValue({ id: "wo-1" });
   mocks.prisma.customer.findFirst.mockResolvedValue({
     id: "cust-1",
     departmentId: null,
+    name: "Kunde AS",
   });
   mocks.prisma.product.findFirst.mockResolvedValue(null);
   mocks.prisma.user.findFirst.mockResolvedValue({ name: "Tekniker" });
@@ -115,6 +124,17 @@ beforeEach(() => {
   });
   mocks.createDefaultVisit.mockResolvedValue(undefined);
   mocks.recomputeWorkOrderSchedule.mockResolvedValue(undefined);
+  mocks.prisma.contact.findFirst.mockResolvedValue({
+    email: "kari@example.test",
+    locale: "nb",
+  });
+  mocks.prisma.portalDelegation.findUnique.mockResolvedValue(null);
+  mocks.prisma.auditLog.findFirst.mockResolvedValue(null);
+  mocks.prisma.auditLog.create.mockResolvedValue({ id: "audit-email" });
+  mocks.sendBookingNotification.mockResolvedValue({
+    officeSent: 1,
+    customerSent: true,
+  });
 });
 
 describe("createBooking", () => {
@@ -146,20 +166,18 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
   });
 
-  it("avviser bestilling som starter innenfor minste ledetid", async () => {
+  it("tillater en datoforespørsel uten timebasert ledetid", async () => {
     const result = await createBooking(customer(), {
       ...booking,
-      // Dagens dato kl. 23:00 er alltid mindre enn 24 timer fram, uansett
-      // når på døgnet testen kjøres.
+      // Kunden velger bare dato; eventuell oppgitt tid ignoreres.
       requestedDate: todayInOslo(),
       requestedFrom: "23:00",
       requestedTo: "23:59",
     });
 
-    expect(result).toEqual({ ok: false, reason: "invalid" });
-    expect(mocks.allowRequestDb).not.toHaveBeenCalled();
-    expect(mocks.prisma.workOrder.create).not.toHaveBeenCalled();
-    expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, data: { status: "PENDING" } });
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalled();
+    expect(mocks.notifyWorkOrderEvent).toHaveBeenCalled();
   });
 
   it("avviser den sjette bestillingen innenfor en time", async () => {
@@ -292,6 +310,7 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: booking.title,
+        reference: expect.stringMatching(/^O-\d{6}-[A-Z0-9]{8}$/),
         description: booking.description,
         departmentId: "dep-1",
         customerId: "cust-1",
@@ -299,6 +318,10 @@ describe("createBooking", () => {
         creatorName: "Kunde",
       }),
       select: { id: true },
+    });
+    expect(mocks.prisma.workOrder.update).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      data: { reference: "B-TEST-1" },
     });
     expect(mocks.audit).toHaveBeenCalledWith(
       mocks.prisma,
@@ -308,18 +331,10 @@ describe("createBooking", () => {
       }),
     );
 
-    // Bestillingens ønskede tidsvindu blir oppdragets første visitt.
-    const dayStart = osloDayStart(requestedDate);
-    expect(mocks.createDefaultVisit).toHaveBeenCalledWith(mocks.prisma, {
-      workOrderId: "wo-1",
-      startsAt: new Date(dayStart.getTime() + 8 * 60 * 60_000),
-      endsAt: new Date(dayStart.getTime() + 12 * 60 * 60_000),
-      allDay: false,
-    });
-    expect(mocks.recomputeWorkOrderSchedule).toHaveBeenCalledWith(
-      mocks.prisma,
-      "wo-1",
-    );
+    // En kundebestilling er bare en ny forespørsel. Det opprettes ingen visitt
+    // eller bekreftet tid før kontoret/montøren planlegger oppdraget.
+    expect(mocks.createDefaultVisit).not.toHaveBeenCalled();
+    expect(mocks.recomputeWorkOrderSchedule).not.toHaveBeenCalled();
     expect(mocks.notifyWorkOrderEvent).toHaveBeenCalledWith(
       "wo-1",
       "BOOKING",
@@ -351,6 +366,64 @@ describe("createBooking", () => {
     expect(mocks.prisma.workOrder.create).toHaveBeenCalledTimes(1);
     expect(mocks.audit).toHaveBeenCalledTimes(1);
     expect(mocks.notifyWorkOrderEvent).not.toHaveBeenCalled();
+  });
+
+  it("sender én lokalisert bekreftelse til kontaktens e-post", async () => {
+    const result = await createBooking(
+      customer({ contactId: "contact-1" }),
+      booking,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mocks.sendBookingNotification).toHaveBeenCalledTimes(1);
+    expect(mocks.sendBookingNotification).toHaveBeenCalledWith(
+      "dep-1",
+      "kari@example.test",
+      expect.objectContaining({
+        title: booking.title,
+        customerName: "Kunde AS",
+        locale: "nb",
+        reference: "B-TEST-1",
+      }),
+    );
+    expect(mocks.prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        entityType: "WorkOrder",
+        entityId: "wo-1",
+        action: "Sendte bestillingsbekreftelse på e-post",
+      }),
+    });
+  });
+
+  it("er idempotent når bekreftelsen allerede er markert sendt", async () => {
+    mocks.prisma.auditLog.findFirst.mockResolvedValue({ id: "audit-marker" });
+
+    const result = await createBooking(customer(), booking);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.sendBookingNotification).not.toHaveBeenCalled();
+    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("ruller ikke tilbake bookingen når SMTP feiler", async () => {
+    mocks.sendBookingNotification.mockRejectedValue(new Error("SMTP nede"));
+
+    const result = await createBooking(customer(), booking);
+
+    expect(result).toMatchObject({ ok: true, data: { id: "wo-1" } });
+    expect(mocks.prisma.workOrder.create).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("sender ikke bekreftelse på nytt for en duplikatbestilling", async () => {
+    mocks.prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-existing",
+      bookingRequest: { reference: "B-EXISTING" },
+    });
+
+    await createBooking(customer(), booking);
+
+    expect(mocks.sendBookingNotification).not.toHaveBeenCalled();
   });
 
   it("bruker alltid aktørens egen customerId", async () => {

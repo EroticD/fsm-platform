@@ -83,7 +83,7 @@ describe("generateDaySlots", () => {
     }
   });
 
-  it("blokkerer aktive visiter og slipper tiden etter", () => {
+  it("blokkerer en timevisitt og slipper tiden etter", () => {
     const result = generateDaySlots({
       date: monday,
       now,
@@ -103,7 +103,7 @@ describe("generateDaySlots", () => {
     ]);
   });
 
-  it("en heldagsvisitt stenger hele dagen", () => {
+  it("en heldagsvisitt stenger ikke hele dagen", () => {
     const result = generateDaySlots({
       date: monday,
       now,
@@ -116,7 +116,11 @@ describe("generateDaySlots", () => {
         }),
       ],
     });
-    expect(result.slots).toHaveLength(0);
+    expect(result.slots.map((slot) => slot.from)).toEqual([
+      "08:00",
+      "08:30",
+      "09:00",
+    ]);
   });
 
   it("håndterer en flerdagersvisitt som startet dagen før", () => {

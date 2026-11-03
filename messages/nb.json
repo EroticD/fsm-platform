@@ -25,6 +25,7 @@
           "customerNumber": "#{number}",
           "orgNumber": "Org.nr {number}",
           "workOrderNumber": "Ordrenr. {number}",
+          "workOrderReference": "Referanse {reference}",
           "noCustomer": "Uten kunde",
           "tags": "🏷️ {tags}",
           "tagHint": "Vis oppdrag med denne taggen",
@@ -32,7 +33,8 @@
           "reportHms": "HMS: {type}",
           "templateKind": "Sjekkliste / mal",
           "templateReportName": "Rapportnavn: {name}",
-          "folderHint": "Mappe i dokumentbiblioteket"
+          "folderHint": "Mappe i dokumentbiblioteket",
+          "page": "Side {page}"
         }
       }
     },
@@ -258,7 +260,15 @@
         "unknown": "Ukjent",
         "dangerous": "Fareområde",
         "delete": "Slett enhet",
-        "deleteConfirm": "Slette enheten permanent? Dette kan ikke angres."
+        "deleteConfirm": "Slette enheten permanent? Dette kan ikke angres.",
+        "site": "Sted",
+        "noSite": "Ingen sted",
+        "editPlan": "Rediger plan",
+        "editPlanHint": "Endre tittel, intervall, ledetid, neste forfall og om planen er aktiv.",
+        "planActive": "Planen er aktiv",
+        "savePlan": "Lagre plan",
+        "deletePlan": "Slett plan",
+        "deletePlanConfirm": "Slette vedlikeholdsplanen? Planer som allerede har forekomster kan ikke slettes."
       },
       "form": {
         "title": "Ny enhet",
@@ -276,7 +286,9 @@
         "meterUnit": "Måleenhet",
         "meterUnitHint": "For eksempel timer, km eller sykluser.",
         "submit": "Registrer enhet",
-        "cancel": "Avbryt"
+        "cancel": "Avbryt",
+        "site": "Sted",
+        "noSite": "Ingen sted"
       },
       "label": {
         "title": "Utstyrsmerking",
@@ -341,6 +353,7 @@
         "readingAdded": "Målingen er registrert.",
         "planCreated": "Vedlikeholdsplanen er opprettet.",
         "planUpdated": "Vedlikeholdsplanen er oppdatert.",
+        "planDeleted": "Vedlikeholdsplanen er slettet.",
         "deleted": "Enheten er slettet."
       },
       "planStatus": {

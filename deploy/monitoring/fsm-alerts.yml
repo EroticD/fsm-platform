@@ -1,0 +1,83 @@
+groups:
+  - name: fsm-platform
+    rules:
+      - alert: FsmScrapeDown
+        expr: up{job="fsm"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FSM metrics-endepunktet svarer ikke"
+          description: "Prometheus får ikke scrapet /api/metrics. Sjekk containeren, proxyen og METRICS_SECRET."
+
+      - alert: FsmNotReady
+        expr: fsm_ready == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FSM er ikke klar"
+          description: "Database eller opplastingsvolum er utilgjengelig. Sjekk /api/ready, logger og Postgres."
+
+      - alert: FsmAppRestarting
+        expr: fsm_process_uptime_seconds < 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "FSM-prosessen restarter ofte"
+          description: "Process uptime er under 5 minutter. Sjekk RestartCount, OOM, migrasjonssperre og logger."
+
+      - alert: FsmDiskLow
+        expr: fsm_disk_used_ratio > 0.80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Opplastingsvolumet er over 80 % fullt"
+          description: "Rydd gamle backupfiler eller øk volumet. Ikke kjør docker system prune --volumes."
+
+      - alert: FsmBackupStale
+        expr: fsm_backup_fresh == 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Siste backup er ikke fersk"
+          description: "Backup er eldre enn BACKUP_MAX_AGE_HOURS, mangler eller har feil statusfil. Se backup-freshness.sh og journalctl -u fsm-backup.service."
+
+      - alert: FsmBackupAgeHigh
+        expr: fsm_backup_age_seconds > 93600
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup er over 26 timer gammel"
+          description: "Daglig backup har ikke fullført. Sjekk timeren og varslingskanalen."
+
+      - alert: FsmDocumentJobsFailed
+        expr: fsm_document_jobs{status="failed"} > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dokumentjobber har feilet permanent"
+          description: "PDF-tekst/OCR har gitt opp etter tre forsøk. Se DocumentJob.lastError og /tmp."
+
+      - alert: FsmSmsDeadLetters
+        expr: fsm_sms_messages{status="dead_letter"} > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SMS-meldinger er dead-lettered"
+          description: "Sjekk SmsMessage.lastError, leverandørkonfigurasjon og SMS_ALLOWLIST."
+
+      - alert: FsmNotificationEmailFailures
+        expr: fsm_notification_email_failures > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Varsler har gitt opp e-postutsending"
+          description: "Fem forsøk er brukt opp. Sjekk SMTP, Notification.emailError og varselinnstillingene."

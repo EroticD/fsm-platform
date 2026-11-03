@@ -22,6 +22,29 @@
         "submitting": "Signing in..."
       }
     },
+    "enrollment": {
+      "title": "Two-factor authentication is required",
+      "desc": "Your role's security policy requires two-factor authentication for {companyName} before you can sign in.",
+      "startDesc": "You will scan a QR code and confirm with a one-time code. It takes less than a minute.",
+      "start": "Start setup",
+      "starting": "Starting …",
+      "step1": "1. Scan the QR code with your authenticator app.",
+      "qrAlt": "QR code for required two-factor authentication",
+      "manualToggle": "Can't scan? Show the key",
+      "codeLabel": "One-time code from the app",
+      "confirm": "Confirm and sign in",
+      "confirming": "Confirming …",
+      "backToLogin": "Back to login",
+      "errors": {
+        "expired": "The session has expired. Log in again.",
+        "invalid_code": "Incorrect one-time code. Try again.",
+        "setup_expired": "The setup has expired. Start the setup again.",
+        "forbidden": "The account cannot be used. Contact an administrator.",
+        "already_enabled": "Two-factor authentication is already enabled. Log in again.",
+        "TooManyAttempts": "Too many attempts. Wait a few minutes and try again.",
+        "default": "Could not complete the setup."
+      }
+    },
     "forgot": {
       "title": "Forgot password?",
       "rateLimited": "Too many attempts. Wait 15 minutes before trying again.",

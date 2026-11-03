@@ -10,14 +10,17 @@ type SettingsTabsProps = {
   canBranding: boolean;
   canMap: boolean;
   canUsers: boolean;
+  canWorkforce: boolean;
   canTemplates: boolean;
   canDocuments: boolean;
+  canEquipment: boolean;
   canAudit: boolean;
   canStats: boolean;
   canSla: boolean;
   canSms: boolean;
   canDispatch: boolean;
   isAdmin: boolean;
+  canCustomerTransfer: boolean;
 };
 
 const linkClass = (active: boolean) =>
@@ -53,14 +56,17 @@ export default function SettingsTabs({
   canBranding,
   canMap,
   canUsers,
+  canWorkforce,
   canTemplates,
   canDocuments,
+  canEquipment,
   canAudit,
   canStats,
   canSla,
   canSms,
   canDispatch,
   isAdmin,
+  canCustomerTransfer,
 }: SettingsTabsProps) {
   const t = useTranslations("common");
   const navRef = useRef<HTMLElement>(null);
@@ -140,6 +146,17 @@ export default function SettingsTabs({
             {t("settings.tabs.employees")}
           </Link>
         )}
+        {canWorkforce && (
+          <Link
+            href="?tab=kompetanse"
+            ref={currentTab === "kompetanse" ? activeRef : undefined}
+            className={linkClass(currentTab === "kompetanse")}
+            aria-current={currentTab === "kompetanse" ? "page" : undefined}
+          >
+            <Icon name="shield" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.workforce")}
+          </Link>
+        )}
         {canTemplates && (
           <Link
             href="?tab=maler"
@@ -162,6 +179,17 @@ export default function SettingsTabs({
             {t("settings.tabs.tags")}
           </Link>
         )}
+        {canEquipment && (
+          <Link
+            href="?tab=utstyr"
+            ref={currentTab === "utstyr" ? activeRef : undefined}
+            className={linkClass(currentTab === "utstyr")}
+            aria-current={currentTab === "utstyr" ? "page" : undefined}
+          >
+            <Icon name="wrench" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.equipment")}
+          </Link>
+        )}
         {canAudit && (
           <Link
             href="?tab=auditlog"
@@ -177,6 +205,17 @@ export default function SettingsTabs({
           <Link href="/sok/analyse" className={linkClass(false)}>
             <Icon name="chart" className="h-4 w-4 shrink-0" />
             {t("searchAdmin.linkLabel")}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="?tab=bevis"
+            ref={currentTab === "bevis" ? activeRef : undefined}
+            className={linkClass(currentTab === "bevis")}
+            aria-current={currentTab === "bevis" ? "page" : undefined}
+          >
+            <Icon name="folder" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.evidence")}
           </Link>
         )}
         {canStats && (
@@ -254,6 +293,17 @@ export default function SettingsTabs({
           >
             <ApiKeyIcon className="h-4 w-4 shrink-0" />
             {t("settings.tabs.api")}
+          </Link>
+        )}
+        {canCustomerTransfer && (
+          <Link
+            href="?tab=kundeoverforing"
+            ref={currentTab === "kundeoverforing" ? activeRef : undefined}
+            className={linkClass(currentTab === "kundeoverforing")}
+            aria-current={currentTab === "kundeoverforing" ? "page" : undefined}
+          >
+            <Icon name="folder" className="h-4 w-4 shrink-0" />
+            {t("settings.tabs.customerTransfer")}
           </Link>
         )}
         <Link

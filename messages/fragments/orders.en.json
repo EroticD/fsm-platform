@@ -47,6 +47,7 @@
       "search": "Search",
       "reset": "Reset",
       "orderNumber": "Order no.",
+      "reference": "Reference",
       "filterTag": "Tag: {tag}",
       "clearTag": "Clear tag filter",
       "emptyTitle": "No work orders in this view.",
@@ -108,7 +109,10 @@
       "addressLabel": "Address",
       "postalCodeLabel": "Postal code",
       "cityLabel": "City",
-      "locationHint": "Leave blank to use the customer address."
+      "locationHint": "Leave blank to use the customer address.",
+      "siteLabel": "Site",
+      "noSite": "No site (use customer address)",
+      "siteHint": "Choose a registered site. The address is used as a fallback when the site has no address."
     },
     "customerSelect": {
       "label": "Select customer",
@@ -146,6 +150,7 @@
       "goToDashboard": "Go to the dashboard",
       "saveTags": "💾 Save tags",
       "noDate": "No date selected",
+      "reference": "Reference",
       "noAddress": "No address registered",
       "assign": "Assign",
       "moveDate": "Move date",
@@ -323,7 +328,8 @@
           "conflict": "The visit cannot be saved because it conflicts with another visit.",
           "generic": "The visit could not be saved. Check the fields and try again."
         }
-      }
+      },
+      "site": "Site"
     },
     "edit": {
       "notFoundTitle": "The work order does not exist",
@@ -355,7 +361,10 @@
       "addressLabel": "Address",
       "postalCodeLabel": "Postal code",
       "cityLabel": "City",
-      "locationHint": "Leave blank to use the customer address."
+      "locationHint": "Leave blank to use the customer address.",
+      "siteLabel": "Site",
+      "noSite": "No site (use customer address)",
+      "siteHint": "Choose a registered site for the work order."
     },
     "fieldList": {
       "greeting": "Hi, {name}",
@@ -972,7 +981,15 @@
       "twoFactorEnabled": "Enabled two-factor authentication",
       "twoFactorDisabled": "Disabled two-factor authentication",
       "twoFactorRecoveryRegenerated": "Generated new two-factor recovery codes",
-      "twoFactorReset": "Reset two-factor authentication for {name}"
+      "twoFactorReset": "Reset two-factor authentication for {name}",
+      "twoFactorRequiredStarted": "2FA: required setup started",
+      "twoFactorRequiredEnrollmentStarted": "2FA: started required setup",
+      "twoFactorRequiredCompleted": "2FA: completed required setup",
+      "loginRequiredTwoFactor": "Signed in with required 2FA",
+      "twoFactorBreakGlass": "2FA: break-glass reset two-factor authentication",
+      "apiKeyCreated": "Created API key: {name} ({prefix}…)",
+      "apiKeyRevoked": "Revoked API key: {name} ({prefix}…)",
+      "apiKeyRotated": "Rotated API key: {name} ({oldPrefix}… → {newPrefix}…)"
     },
     "users": {
       "created": "Created user: {name} ({role})",

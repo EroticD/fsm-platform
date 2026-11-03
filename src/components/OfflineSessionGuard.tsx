@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { clearOfflineSessionCaches } from "@/lib/offline/cache";
+import { lockAllOfflineSessions } from "@/lib/offline/crypto";
 
 /**
  * Minste tid mellom to øktkontroller. Kontrollen kjøres ved oppstart, når fanen
@@ -49,6 +50,7 @@ export default function OfflineSessionGuard() {
         });
 
         if (response.status === 401 || response.status === 403) {
+          lockAllOfflineSessions();
           await clearOfflineSessionCaches();
           return;
         }
@@ -56,6 +58,7 @@ export default function OfflineSessionGuard() {
 
         const session: unknown = await response.json();
         if (!hasActiveSession(session)) {
+          lockAllOfflineSessions();
           await clearOfflineSessionCaches();
         }
       } catch {

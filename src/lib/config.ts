@@ -66,5 +66,28 @@ export function validateProductionConfig(
     );
   }
 
+  // Proxykonfigurasjonen må ikke være tvetydig i produksjon. En glemt
+  // TRUST_PROXY gjør IP-rate-limits inaktive, mens et feil antall hopp kan
+  // gjøre en klientstyrt X-Forwarded-For-verdi til rate-limit-nøkkel.
+  const trustProxyRaw = (env.TRUST_PROXY ?? "").trim();
+  if (trustProxyRaw && trustProxyRaw !== "true" && trustProxyRaw !== "false") {
+    errors.push("TRUST_PROXY must be true or false");
+  }
+
+  const hopsRaw = (env.TRUST_PROXY_HOPS ?? "").trim();
+  if (trustProxyRaw === "true") {
+    if (!hopsRaw) {
+      errors.push(
+        "TRUST_PROXY_HOPS must be set explicitly when TRUST_PROXY=true (1 for one proxy)",
+      );
+    } else if (!/^[1-9][0-9]?$/.test(hopsRaw) || Number(hopsRaw) > 10) {
+      errors.push("TRUST_PROXY_HOPS must be an integer between 1 and 10");
+    }
+  } else if (hopsRaw) {
+    errors.push(
+      "TRUST_PROXY_HOPS is set but TRUST_PROXY is not true - ambiguous configuration",
+    );
+  }
+
   return errors;
 }

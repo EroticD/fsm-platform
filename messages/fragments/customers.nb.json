@@ -291,7 +291,18 @@
       "activate": "Aktiver",
       "errorMissingFields": "Fyll ut navn, e-post og velg en kontaktperson.",
       "errorInvalidContact": "Kontaktpersonen tilhører ikke denne kunden.",
-      "errorDuplicateEmail": "Det finnes allerede en bruker med denne e-postadressen."
+      "errorDuplicateEmail": "Det finnes allerede en bruker med denne e-postadressen.",
+      "delegation": {
+        "title": "Delegert portaltilgang",
+        "description": "Tilpass hva hver kontaktperson kan gjøre i kundeportalen. En kontakt uten lagret delegasjon beholder full tilgang.",
+        "fullAccessFallback": "Full tilgang (standard)",
+        "save": "Lagre delegasjon",
+        "isActive": "Aktiv portalbruker",
+        "canBook": "Kan bestille",
+        "canViewDocuments": "Kan se dokumenter og rapporter",
+        "canViewContracts": "Kan se avtaler",
+        "canViewEquipment": "Kan se utstyr"
+      }
     },
     "activity": {
       "feedTitle": "Aktivitetsstrøm",
@@ -336,7 +347,12 @@
         "contractCreated": "Serviceavtalen er opprettet.",
         "contractActivated": "Serviceavtalen er aktivert.",
         "contractPaused": "Serviceavtalen er satt på pause.",
-        "contractDeleted": "Serviceavtalen er slettet."
+        "contractDeleted": "Serviceavtalen er slettet.",
+        "siteCreated": "Stedet er lagt til.",
+        "siteUpdated": "Stedet er oppdatert.",
+        "siteDeleted": "Stedet er slettet.",
+        "sitePrimary": "Stedet er satt som primært.",
+        "delegationSaved": "Portaldelegeringen er lagret."
       },
       "error": {
         "invalid": "Skjemaet inneholder ugyldige eller manglende felt.",
@@ -344,6 +360,25 @@
         "notFound": "Fant ikke det du prøvde å endre. Det kan være slettet.",
         "unknown": "Noe gikk galt. Prøv igjen."
       }
+    },
+    "sites": {
+      "title": "Steder",
+      "description": "Kundens anlegg og adresser. Stedene kan velges på oppdrag, utstyr og i kundeportalen.",
+      "name": "Navn",
+      "namePlaceholder": "F.eks. Lager sør",
+      "address": "Adresse",
+      "postalCode": "Postnummer",
+      "city": "Sted",
+      "setPrimary": "Sett som primærsted",
+      "add": "Legg til sted",
+      "empty": "Ingen steder registrert.",
+      "primary": "Primær",
+      "noAddress": "Ingen adresse",
+      "makePrimary": "Gjør primær",
+      "delete": "Slett sted",
+      "deleteConfirm": "Slette stedet «{name}»? Oppdrag og utstyr som peker på stedet mister koblingen.",
+      "edit": "Endre sted",
+      "save": "Lagre sted"
     }
   }
 }

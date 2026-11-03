@@ -1,0 +1,112 @@
+{
+  "settings": {
+    "tabs": {
+      "workforce": "Bemanning & kompetanse"
+    },
+    "workforce": {
+      "error": "Endringen kunne ikke lagres. Kontroller feltene og prøv igjen.",
+      "saved": "Endringen er lagret.",
+      "edit": "Rediger",
+      "readOnly": "Les mer",
+      "readOnlyHint": "Du har lesetilgang, men mangler rettigheten som kreves for å endre denne delen.",
+      "weekdays": {
+        "mon": "Mandag",
+        "tue": "Tirsdag",
+        "wed": "Onsdag",
+        "thu": "Torsdag",
+        "fri": "Fredag",
+        "sat": "Lørdag",
+        "sun": "Søndag"
+      },
+      "skills": {
+        "title": "Kompetansekatalog",
+        "hint": "Kompetanser brukes av dispatch til å kreve og matche riktig fagkunnskap. Nøkkelen er stabil og brukes i API-er og importfiler.",
+        "empty": "Ingen kompetanser er registrert ennå.",
+        "usage": "{users} ansatte · {orders} oppdrag",
+        "key": "Nøkkel",
+        "keyPlaceholder": "f.eks. hms.sja",
+        "label": "Navn",
+        "category": "Kategori",
+        "create": "Opprett kompetanse",
+        "save": "Lagre",
+        "delete": "Slett"
+      },
+      "staff": {
+        "title": "Ansattes kompetanse, arbeidstid og fravær",
+        "hint": "Velg en ansatt for å se og vedlikeholde kompetanse, ukentlig arbeidstid og fravær. Endringene brukes umiddelbart av dispatch.",
+        "select": "Ansatt",
+        "show": "Vis",
+        "noStaff": "Ingen ansatte i din avdeling.",
+        "noDepartment": "uten avdeling",
+        "departmentFallback": "Avdeling: {department}. Arbeidstid og fravær gjelder denne ansatte; avdelingen brukes når kapasitet ikke er satt per person."
+      },
+      "userSkills": {
+        "title": "Kompetanse",
+        "hint": "Kryss av kompetansene den ansatte har. Nivå er valgfritt (1–5), og gyldighetsdato brukes når dispatch vurderer kompetansen på oppdragsstart.",
+        "noSkills": "Legg først til kompetanser i katalogen over.",
+        "skill": "Kompetanse",
+        "level": "Nivå",
+        "validUntil": "Gyldig til",
+        "levelFor": "Nivå for {skill}",
+        "validUntilFor": "Gyldig til for {skill}",
+        "save": "Lagre kompetanse",
+        "hidden": "Detaljer om den ansattes kompetanse krever rettigheten «administrere ansatte»."
+      },
+      "availability": {
+        "title": "Ukentlig arbeidstid",
+        "hint": "Tidene er lokal tid i Oslo. La begge feltene stå tomme for en dag uten arbeidstid. Vinduer på samme dag kan ikke overlappe, men de kan støte mot hverandre.",
+        "from": "Fra",
+        "to": "Til",
+        "fromFor": "Starttid {day}",
+        "toFor": "Sluttid {day}",
+        "save": "Lagre arbeidstid"
+      },
+      "absences": {
+        "title": "Fravær",
+        "hint": "Fravær blokkerer tildeling i perioden. Nøyaktig samme start og slutt avvises som duplikat; delvise overlapp er tillatt.",
+        "empty": "Ingen fravær er registrert.",
+        "start": "Fra",
+        "end": "Til",
+        "kind": "Type",
+        "note": "Notat",
+        "create": "Registrer fravær",
+        "save": "Lagre",
+        "delete": "Slett",
+        "kinds": {
+          "ferie": "Ferie",
+          "sykdom": "Sykdom",
+          "kurs": "Kurs",
+          "annet": "Annet"
+        }
+      },
+      "capacity": {
+        "title": "Kapasitetsplaner",
+        "hint": "Sett tilgjengelige minutter per avdeling eller per tekniker. 0 betyr en bevisst stengt dag. En teknikerrad overstyrer avdelingsraden for samme dag.",
+        "fallbackHint": "Mangler en eksplisitt rad, bruker kapasitetsvisningen avdelingsraden, deretter åpningstidene. Teknikere uten egen rad følger avdelingens standard.",
+        "department": "Avdeling",
+        "from": "Fra",
+        "to": "Til",
+        "date": "Dato",
+        "technician": "Tekniker",
+        "departmentWide": "Hele avdelingen",
+        "minutes": "Minutter",
+        "current": "Satt til {minutes} minutter",
+        "save": "Lagre",
+        "delete": "Slett",
+        "empty": "Ingen eksplisitte kapasitetsplaner i perioden.",
+        "filter": "Vis periode"
+      }
+    }
+  },
+  "orders": {
+    "skills": {
+      "title": "Kompetansekrav",
+      "hint": "Velg kompetansene oppdraget krever. Kryss også av «Påkrevd» for kompetanse som må være gyldig for tildeling; ukryssede krav er ønskelige og påvirker bare rangeringen.",
+      "empty": "Ingen kompetanser er registrert. Legg dem til under Innstillinger → Bemanning & kompetanse.",
+      "mandatory": "Påkrevd",
+      "requiredBadge": "Påkrevd",
+      "optionalBadge": "Ønsket",
+      "invalidMandatory": "En kompetanse kan ikke være påkrevd uten å være valgt."
+    }
+  }
+}

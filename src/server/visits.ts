@@ -304,70 +304,6 @@ async function validTechnicians(
   return { users };
 }
 
-/**
- * Finner aktive visiter som overlapper tidsrommet for de angitte montørene.
- *
- * Intervallene er halvåpne `[startsAt, endsAt)`. En visitt som slutter nøyaktig
- * når neste starter er derfor ikke et sammenstøt. Kansellerte visiter og
- * visiter på mykt slettede oppdrag holdes utenfor.
- */
-async function findOverlaps(
-  tx: Prisma.TransactionClient,
-  input: {
-    startsAt: Date;
-    endsAt: Date;
-    technicianIds: string[];
-    excludeVisitId?: string;
-  },
-): Promise<VisitOverlapConflict[]> {
-  if (input.technicianIds.length === 0) return [];
-
-  const conflicts = await tx.visit.findMany({
-    where: {
-      ...(input.excludeVisitId ? { id: { not: input.excludeVisitId } } : {}),
-      status: { not: "CANCELLED" },
-      startsAt: { lt: input.endsAt },
-      endsAt: { gt: input.startsAt },
-      technicians: { some: { userId: { in: input.technicianIds } } },
-      workOrder: { deletedAt: null },
-    },
-    select: {
-      id: true,
-      workOrderId: true,
-      startsAt: true,
-      endsAt: true,
-      technicians: {
-        where: { userId: { in: input.technicianIds } },
-        select: { userId: true },
-      },
-    },
-    orderBy: { startsAt: "asc" },
-    take: 50,
-  });
-
-  return conflicts
-    .filter((visit) =>
-      visitRangesOverlap(
-        { startsAt: input.startsAt, endsAt: input.endsAt },
-        { startsAt: visit.startsAt, endsAt: visit.endsAt },
-      ),
-    )
-    .map((visit) => ({
-      visitId: visit.id,
-      workOrderId: visit.workOrderId,
-      startsAt: visit.startsAt.toISOString(),
-      endsAt: visit.endsAt.toISOString(),
-      technicianIds: visit.technicians.map((technician) => technician.userId),
-    }));
-}
-
-function overlapFailure(conflicts: VisitOverlapConflict[]): ServiceFailure {
-  return fail("conflict", {
-    code: VISIT_ERROR_CODES.overlap,
-    conflicts,
-  });
-}
-
 const osloTimeFormatter = new Intl.DateTimeFormat("nb-NO", {
   timeZone: "Europe/Oslo",
   hour: "2-digit",
@@ -401,8 +337,9 @@ function technicianNames(
  * Oppretter en visitt på et oppdrag.
  *
  * Krever `workorders.edit`. Montørene må være aktive ansatte i oppdragets
- * avdeling, og ingen av dem kan allerede være tildelt en overlappende visitt.
- * Oppdragets avledede datoperiode oppdateres i samme transaksjon.
+ * avdeling. Overlappende visiter er tillatt; de viser at montøren er opptatt,
+ * ikke at vedkommende er utilgjengelig. Oppdragets avledede datoperiode
+ * oppdateres i samme transaksjon.
  */
 export async function createVisit(
   actor: ServiceActor,
@@ -444,13 +381,6 @@ export async function createVisit(
       technicianIds,
     );
     if (lookup.failure) return lookup.failure;
-
-    const conflicts = await findOverlaps(tx, {
-      startsAt,
-      endsAt,
-      technicianIds,
-    });
-    if (conflicts.length > 0) return overlapFailure(conflicts);
 
     const visit = await tx.visit.create({
       data: {
@@ -572,8 +502,7 @@ export async function updateVisit(
 
 /**
  * Flytter visitten i tid. Krever `workorders.assign` fordi flytting er en
- * planleggingshandling. Montørene på visitten kontrolleres mot overlapp på
- * nytt før oppdateringen.
+ * planleggingshandling. Overlapp er tillatt og stopper ikke flyttingen.
  */
 export async function moveVisit(
   actor: ServiceActor,
@@ -601,14 +530,6 @@ export async function moveVisit(
     const technicianIds = current.technicians.map(
       (technician) => technician.userId,
     );
-    const conflicts = await findOverlaps(tx, {
-      startsAt,
-      endsAt,
-      technicianIds,
-      excludeVisitId: id,
-    });
-    if (conflicts.length > 0) return overlapFailure(conflicts);
-
     const visit = await tx.visit.update({
       where: { id },
       data: { startsAt, endsAt },
@@ -644,7 +565,7 @@ export async function moveVisit(
 
 /**
  * Erstatter montørlisten på visitten. Alle id-ene må være aktive ansatte i
- * oppdragets avdeling, og ingen kan ha en overlappende visitt fra før.
+ * oppdragets avdeling. Overlappende visiter er tillatt.
  */
 export async function assignVisit(
   actor: ServiceActor,
@@ -668,8 +589,8 @@ export async function assignVisit(
 /**
  * Transaksjonsbevisst tildeling. Dispatch bruker denne når flere visiter skal
  * tildeles i én transaksjon; da kan den ikke kalle `assignVisit`, som åpner en
- * ny transaksjon. Funksjonen kontrollerer fortsatt avdeling, overlapp og
- * revisjonslogg, men lar kalleren eie transaksjonen og rettighetsvakten.
+ * ny transaksjon. Funksjonen kontrollerer fortsatt avdeling og revisjonslogg,
+ * men lar kalleren eie transaksjonen og rettighetsvakten. Overlapp er tillatt.
  *
  * `scoreSnapshot` legges på revisjonsraden, slik at en automatisk tildeling
  * alltid kan forklares i ettertid.
@@ -699,14 +620,6 @@ export async function assignVisitInTransaction(
     technicianIds,
   );
   if (lookup.failure) return lookup.failure;
-
-  const conflicts = await findOverlaps(tx, {
-    startsAt: current.startsAt,
-    endsAt: current.endsAt,
-    technicianIds,
-    excludeVisitId: id,
-  });
-  if (conflicts.length > 0) return overlapFailure(conflicts);
 
   const previousIds = current.technicians.map(
     (technician) => technician.userId,

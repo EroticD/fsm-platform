@@ -17,6 +17,7 @@ import { BRAND_COLORS } from "@/lib/brand";
 import { readableTextColor } from "@/lib/colors";
 import ToastProvider from "@/components/ToastProvider";
 import OfflineBanner from "@/components/OfflineBanner";
+import OfflineDraftLock from "@/components/OfflineDraftLock";
 import OfflineSessionGuard from "@/components/OfflineSessionGuard";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 
@@ -124,6 +125,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
             <OfflineBanner userId={currentUser?.id} />
+            <OfflineDraftLock userId={currentUser?.id} />
             <BrandedHeader
               showNav
               role={role}

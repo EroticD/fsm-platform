@@ -17,11 +17,13 @@ function request(
   origin?: string,
   authorization?: string,
   secFetchSite?: string,
+  referer?: string,
 ) {
   const headers = new Headers();
   if (origin) headers.set("origin", origin);
   if (authorization) headers.set("authorization", authorization);
   if (secFetchSite) headers.set("sec-fetch-site", secFetchSite);
+  if (referer) headers.set("referer", referer);
   return new Request("http://localhost:3000/api/test", {
     method: "POST",
     headers,
@@ -50,6 +52,19 @@ describe("assertSameOrigin", () => {
   it("avviser manglende origin uten gyldig bearer", () => {
     expect(assertSameOrigin(request())).toBe(false);
     expect(assertSameOrigin(request(undefined, "Bearer vilkårlig"))).toBe(false);
+  });
+
+  it("godtar manglende origin når Referer er samme origin", () => {
+    expect(
+      assertSameOrigin(
+        request(undefined, undefined, undefined, "http://localhost:3000/kalender"),
+      ),
+    ).toBe(true);
+    expect(
+      assertSameOrigin(
+        request(undefined, undefined, undefined, "https://evil.example/kalender"),
+      ),
+    ).toBe(false);
   });
 
   it("godtar manglende origin med gyldig CRON_SECRET", () => {

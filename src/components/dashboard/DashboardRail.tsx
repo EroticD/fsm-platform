@@ -71,6 +71,7 @@ export default function DashboardRail({
   nextOrder,
   team,
   counts,
+  reviewSummary,
   updatedAt,
   locale,
   canAssign,
@@ -85,6 +86,7 @@ export default function DashboardRail({
     todayRemaining: number;
     todayInProgress: number;
   };
+  reviewSummary: { average: number | null; count: number };
   updatedAt: string;
   locale: string;
   canAssign: boolean;
@@ -379,6 +381,38 @@ export default function DashboardRail({
             </span>
           </Link>
         </div>
+      </section>
+
+      <section className="office-card p-4" aria-labelledby="reviews-title">
+        <div className="flex items-center justify-between gap-3">
+          <h2
+            id="reviews-title"
+            className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--muted,#62685f)]"
+          >
+            {t("reviews.railTitle")}
+          </h2>
+          <span className="rounded-full border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] px-2 py-0.5 text-[11px] font-black tabular-nums text-[var(--ink,#101310)]">
+            {reviewSummary.count}
+          </span>
+        </div>
+        <p className="mt-2 text-2xl font-black tracking-tight text-[var(--ink,#101310)]">
+          {reviewSummary.average === null
+            ? "–"
+            : reviewSummary.average.toLocaleString(locale, {
+                maximumFractionDigits: 1,
+              })}
+          <span className="ml-1 text-xs font-bold text-[var(--muted,#62685f)]">
+            {t("reviews.averageShort")}
+          </span>
+        </p>
+        <Link
+          href="/anmeldelser"
+          prefetch={false}
+          className="mt-3 flex min-h-11 items-center justify-between gap-2 rounded-[10px] border border-[var(--line,#dedcd1)] px-3 py-2 text-xs font-bold text-[var(--ink,#101310)] transition hover:bg-[var(--paper,#f2efe6)]"
+        >
+          {t("reviews.openList")}
+          <Icon name="arrowRight" className="h-4 w-4" />
+        </Link>
       </section>
 
       <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted,#62685f)]">

@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
+  createPortalSite,
   createPortalTrackingLink,
+  deletePortalSite,
   requestPortalReview,
   sendPortalMessage,
+  setPortalPrimarySite,
+  updatePortalSite,
 } from "@/server/portal-expansion";
 
 export type PortalMessageState =
@@ -61,4 +65,56 @@ export async function sendPortalMessageAction(
   }
   revalidatePath("/kundeportal/meldinger");
   return { status: "success" };
+}
+
+function siteRedirect(result: { ok: boolean; reason?: string }, saved = false) {
+  if (!result.ok) {
+    const reason = portalError(result.reason ?? "error");
+    redirect(`/kundeportal/bestillinger?feil=${reason}#steder`);
+  }
+  if (saved) {
+    revalidatePath("/kundeportal");
+    revalidatePath("/kundeportal/bestillinger");
+  }
+  redirect("/kundeportal/bestillinger?lagret=1#steder");
+}
+
+export async function createPortalSiteAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  const result = await createPortalSite(user, {
+    name: formData.get("name"),
+    address: formData.get("address"),
+    postalCode: formData.get("postalCode"),
+    city: formData.get("city"),
+    isPrimary: formData.get("isPrimary"),
+  });
+  siteRedirect(result, true);
+}
+
+export async function updatePortalSiteAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  const result = await updatePortalSite(user, formData.get("id"), {
+    name: formData.get("name"),
+    address: formData.get("address"),
+    postalCode: formData.get("postalCode"),
+    city: formData.get("city"),
+    isPrimary: formData.get("isPrimary"),
+  });
+  siteRedirect(result, true);
+}
+
+export async function deletePortalSiteAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  const result = await deletePortalSite(user, formData.get("id"));
+  siteRedirect(result, true);
+}
+
+export async function setPortalPrimarySiteAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
+  const result = await setPortalPrimarySite(user, formData.get("id"));
+  siteRedirect(result, true);
 }

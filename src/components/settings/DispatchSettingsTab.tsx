@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Icon from "@/components/icons";
+import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import type {
   DispatchPolicyView,
   TerritoryView,
@@ -26,6 +27,8 @@ const LABEL =
 const CARD = "office-card space-y-4 p-4 sm:p-5";
 const BUTTON =
   "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-[var(--ink,#101310)] px-3 py-2 text-xs font-bold text-[var(--paper,#f2efe6)] transition hover:opacity-85";
+const DANGER_BUTTON =
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-white px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]";
 const WEIGHTS = [
   "skills",
   "distance",
@@ -34,6 +37,26 @@ const WEIGHTS = [
   "sla",
   "load",
 ] as const;
+
+function weightField(key: (typeof WEIGHTS)[number]) {
+  return `weight${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+}
+
+function activeBadge(active: boolean, t: (key: string) => string) {
+  return (
+    <span
+      className={`rounded-full border px-2 py-0.5 text-2xs font-bold ${
+        active
+          ? "border-[#a9c96a] bg-[#eef7d6] text-[#283509]"
+          : "border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] text-[var(--muted,#62685f)]"
+      }`}
+    >
+      {active
+        ? t("settings.dispatch.active")
+        : t("settings.dispatch.inactive")}
+    </span>
+  );
+}
 
 export default async function DispatchSettingsTab({
   policies,
@@ -47,7 +70,80 @@ export default async function DispatchSettingsTab({
   deleteTerritory,
 }: Props) {
   const t = await getTranslations("common");
-  const policy = policies[0] ?? null;
+  const departmentName = (id: string) =>
+    departments.find((department) => department.id === id)?.name ?? id;
+  const departmentSelect = (selected: string) => (
+    <select name="departmentId" defaultValue={selected} className={INPUT} required>
+      {departments.map((department) => (
+        <option key={department.id} value={department.id}>
+          {department.name}
+        </option>
+      ))}
+    </select>
+  );
+
+  const policyForm = (
+    policy: DispatchPolicyView | null,
+    onSave: (formData: FormData) => Promise<void>,
+    heading: string,
+    submitLabel: string,
+  ) => (
+    <form action={onSave} className="space-y-4">
+      <input type="hidden" name="id" value={policy?.id ?? ""} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className={LABEL}>{t("settings.dispatch.department")}</span>
+          {departmentSelect(policy?.departmentId ?? departmentId)}
+        </label>
+        <label className="block">
+          <span className={LABEL}>{t("settings.dispatch.mode")}</span>
+          <select name="mode" defaultValue={policy?.mode ?? "SKILLS"} className={INPUT}>
+            <option value="SKILLS">{t("settings.dispatch.modes.skills")}</option>
+            <option value="DISTANCE">{t("settings.dispatch.modes.distance")}</option>
+            <option value="EARLIEST">{t("settings.dispatch.modes.earliest")}</option>
+            <option value="CUSTOM">{t("settings.dispatch.modes.custom")}</option>
+          </select>
+        </label>
+      </div>
+
+      <fieldset>
+        <legend className={LABEL}>{t("settings.dispatch.weights")}</legend>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {WEIGHTS.map((key) => (
+            <label key={key} className="block">
+              <span className="mb-1 block text-[11px] font-bold text-[var(--muted,#62685f)]">
+                {t(`settings.dispatch.weightLabels.${key}`)}
+              </span>
+              <input
+                type="number"
+                name={weightField(key)}
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={policy?.weights[key] ?? 10}
+                className={INPUT}
+              />
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--ink,#101310)]">
+        <input
+          type="checkbox"
+          name="isActive"
+          defaultChecked={policy?.isActive ?? true}
+          className="h-5 w-5 rounded border-[var(--line,#dedcd1)]"
+        />
+        {t("settings.dispatch.active")}
+      </label>
+
+      <button type="submit" className={BUTTON} aria-label={heading}>
+        <Icon name="check" className="h-4 w-4" />
+        {submitLabel}
+      </button>
+    </form>
+  );
 
   return (
     <div className="space-y-5">
@@ -79,76 +175,54 @@ export default async function DispatchSettingsTab({
           </p>
         </div>
 
-        <form action={savePolicy} className="space-y-4">
-          <input type="hidden" name="id" value={policy?.id ?? ""} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className={LABEL}>{t("settings.dispatch.department")}</span>
-              <select
-                name="departmentId"
-                defaultValue={policy?.departmentId ?? departmentId}
-                className={INPUT}
-                required
-              >
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className={LABEL}>{t("settings.dispatch.mode")}</span>
-              <select
-                name="mode"
-                defaultValue={policy?.mode ?? "SKILLS"}
-                className={INPUT}
-              >
-                <option value="SKILLS">
-                  {t("settings.dispatch.modes.skills")}
-                </option>
-                <option value="DISTANCE">
-                  {t("settings.dispatch.modes.distance")}
-                </option>
-                <option value="EARLIEST">
-                  {t("settings.dispatch.modes.earliest")}
-                </option>
-                <option value="CUSTOM">
-                  {t("settings.dispatch.modes.custom")}
-                </option>
-              </select>
-            </label>
+        {policies.length > 0 ? (
+          <ul className="space-y-2">
+            {policies.map((policy) => (
+              <li key={policy.id}>
+                <details className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
+                  <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-[var(--ink,#101310)]">
+                        {departmentName(policy.departmentId)} ·{" "}
+                        {t(`settings.dispatch.modes.${policy.mode.toLowerCase()}`)}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--muted,#62685f)]">
+                        {t("settings.dispatch.editPolicy")}
+                      </span>
+                    </span>
+                    {activeBadge(policy.isActive, t)}
+                  </summary>
+                  <div className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                    {policyForm(
+                      policy,
+                      savePolicy,
+                      `${departmentName(policy.departmentId)} ${policy.mode}`,
+                      t("settings.dispatch.savePolicy"),
+                    )}
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm italic text-[var(--muted,#62685f)]">
+            {t("settings.dispatch.noPolicies")}
+          </p>
+        )}
+
+        <details className="border-t border-[var(--line,#dedcd1)] pt-4">
+          <summary className="min-h-11 cursor-pointer list-none text-sm font-bold text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
+            {t("settings.dispatch.newPolicy")}
+          </summary>
+          <div className="mt-3">
+            {policyForm(
+              null,
+              savePolicy,
+              t("settings.dispatch.newPolicy"),
+              t("settings.dispatch.createPolicy"),
+            )}
           </div>
-
-          <fieldset>
-            <legend className={LABEL}>
-              {t("settings.dispatch.weights")}
-            </legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {WEIGHTS.map((key) => (
-                <label key={key} className="block">
-                  <span className="mb-1 block text-[11px] font-bold text-[var(--muted,#62685f)]">
-                    {t(`settings.dispatch.weightLabels.${key}`)}
-                  </span>
-                  <input
-                    type="number"
-                    name={`weight${key.charAt(0).toUpperCase()}${key.slice(1)}`}
-                    min={0}
-                    max={100}
-                    step={1}
-                    defaultValue={policy?.weights[key] ?? 10}
-                    className={INPUT}
-                  />
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <button type="submit" className={BUTTON}>
-            <Icon name="check" className="h-4 w-4" />
-            {t("settings.dispatch.savePolicy")}
-          </button>
-        </form>
+        </details>
       </section>
 
       <section aria-labelledby="dispatch-territories-title" className={CARD}>
@@ -168,37 +242,129 @@ export default async function DispatchSettingsTab({
         {territories.length > 0 ? (
           <ul className="space-y-2">
             {territories.map((territory) => (
-              <li
-                key={territory.id}
-                className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-[var(--ink,#101310)]">
-                    {territory.name}
-                  </p>
-                  <p className="mt-0.5 text-xs text-[var(--muted,#62685f)]">
-                    {t("settings.dispatch.territorySummary", {
-                      postal: territory.postalPrefixes.join(", ") || "–",
-                      municipalities:
-                        territory.municipalityCodes.join(", ") || "–",
-                      radius: territory.radiusKm ?? "–",
-                    })}
-                  </p>
-                </div>
-                <form action={deleteTerritory}>
-                  <input type="hidden" name="id" value={territory.id} />
-                  <input
-                    type="hidden"
-                    name="departmentId"
-                    value={territory.departmentId}
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#e7b5ae] bg-white px-3 py-2 text-xs font-bold text-[var(--risk-text,#b42318)] transition hover:bg-[#fdf4f2]"
+              <li key={territory.id}>
+                <details className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3">
+                  <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-start justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-[var(--ink,#101310)]">
+                        {territory.name}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--muted,#62685f)]">
+                        {t("settings.dispatch.territorySummary", {
+                          postal: territory.postalPrefixes.join(", ") || "–",
+                          municipalities:
+                            territory.municipalityCodes.join(", ") || "–",
+                          radius: territory.radiusKm ?? "–",
+                        })}
+                      </span>
+                    </span>
+                    {activeBadge(territory.isActive, t)}
+                  </summary>
+                  <form action={saveTerritory} className="mt-3 space-y-3 border-t border-[var(--line,#dedcd1)] pt-3">
+                    <input type="hidden" name="id" value={territory.id} />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className={LABEL}>{t("settings.dispatch.department")}</span>
+                        {departmentSelect(territory.departmentId)}
+                      </label>
+                      <label className="block">
+                        <span className={LABEL}>{t("settings.dispatch.territoryName")}</span>
+                        <input
+                          name="name"
+                          required
+                          maxLength={120}
+                          defaultValue={territory.name}
+                          className={INPUT}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className={LABEL}>{t("settings.dispatch.postalPrefixes")}</span>
+                        <input
+                          name="postalPrefixes"
+                          defaultValue={territory.postalPrefixes.join(", ")}
+                          placeholder={t("settings.dispatch.postalPrefixesPlaceholder")}
+                          className={INPUT}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className={LABEL}>{t("settings.dispatch.municipalityCodes")}</span>
+                        <input
+                          name="municipalityCodes"
+                          defaultValue={territory.municipalityCodes.join(", ")}
+                          placeholder={t("settings.dispatch.municipalityCodesPlaceholder")}
+                          className={INPUT}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className={LABEL}>{t("settings.dispatch.radiusKm")}</span>
+                        <input
+                          type="number"
+                          name="radiusKm"
+                          min={0}
+                          max={500}
+                          step={1}
+                          defaultValue={territory.radiusKm ?? ""}
+                          className={INPUT}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className={LABEL}>{t("settings.dispatch.center")}</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            name="centerLat"
+                            min={-90}
+                            max={90}
+                            step="0.000001"
+                            defaultValue={territory.centerLat ?? ""}
+                            placeholder={t("settings.dispatch.latitude")}
+                            className={INPUT}
+                          />
+                          <input
+                            type="number"
+                            name="centerLng"
+                            min={-180}
+                            max={180}
+                            step="0.000001"
+                            defaultValue={territory.centerLng ?? ""}
+                            placeholder={t("settings.dispatch.longitude")}
+                            className={INPUT}
+                          />
+                        </div>
+                      </label>
+                    </div>
+                    <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--ink,#101310)]">
+                      <input
+                        type="checkbox"
+                        name="isActive"
+                        defaultChecked={territory.isActive}
+                        className="h-5 w-5 rounded border-[var(--line,#dedcd1)]"
+                      />
+                      {t("settings.dispatch.active")}
+                    </label>
+                    <button type="submit" className={BUTTON}>
+                      <Icon name="check" className="h-4 w-4" />
+                      {t("settings.dispatch.saveTerritoryChanges")}
+                    </button>
+                  </form>
+                  <ConfirmSubmitForm
+                    action={deleteTerritory}
+                    confirmMessage={t("settings.dispatch.deleteTerritoryConfirm")}
+                    confirmLabel={t("settings.dispatch.deleteTerritory")}
+                    danger
+                    className="mt-3 border-t border-[var(--line,#dedcd1)] pt-3"
                   >
-                    {t("settings.dispatch.deleteTerritory")}
-                  </button>
-                </form>
+                    <input type="hidden" name="id" value={territory.id} />
+                    <input
+                      type="hidden"
+                      name="departmentId"
+                      value={territory.departmentId}
+                    />
+                    <button type="submit" className={DANGER_BUTTON}>
+                      {t("settings.dispatch.deleteTerritory")}
+                    </button>
+                  </ConfirmSubmitForm>
+                </details>
               </li>
             ))}
           </ul>
@@ -208,87 +374,86 @@ export default async function DispatchSettingsTab({
           </p>
         )}
 
-        <form action={saveTerritory} className="space-y-3 border-t border-[var(--line,#dedcd1)] pt-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className={LABEL}>{t("settings.dispatch.department")}</span>
-              <select
-                name="departmentId"
-                defaultValue={departmentId}
-                className={INPUT}
-                required
-              >
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className={LABEL}>{t("settings.dispatch.territoryName")}</span>
-              <input name="name" required maxLength={120} className={INPUT} />
-            </label>
-            <label className="block">
-              <span className={LABEL}>
-                {t("settings.dispatch.postalPrefixes")}
-              </span>
-              <input
-                name="postalPrefixes"
-                placeholder={t("settings.dispatch.postalPrefixesPlaceholder")}
-                className={INPUT}
-              />
-            </label>
-            <label className="block">
-              <span className={LABEL}>
-                {t("settings.dispatch.municipalityCodes")}
-              </span>
-              <input
-                name="municipalityCodes"
-                placeholder={t("settings.dispatch.municipalityCodesPlaceholder")}
-                className={INPUT}
-              />
-            </label>
-            <label className="block">
-              <span className={LABEL}>{t("settings.dispatch.radiusKm")}</span>
-              <input
-                type="number"
-                name="radiusKm"
-                min={0}
-                max={500}
-                step={1}
-                className={INPUT}
-              />
-            </label>
-            <label className="block">
-              <span className={LABEL}>{t("settings.dispatch.center")}</span>
-              <div className="grid grid-cols-2 gap-2">
+        <details className="border-t border-[var(--line,#dedcd1)] pt-4">
+          <summary className="min-h-11 cursor-pointer list-none text-sm font-bold text-[var(--ink,#101310)] [&::-webkit-details-marker]:hidden">
+            {t("settings.dispatch.newTerritory")}
+          </summary>
+          <form action={saveTerritory} className="mt-3 space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className={LABEL}>{t("settings.dispatch.department")}</span>
+                {departmentSelect(departmentId)}
+              </label>
+              <label className="block">
+                <span className={LABEL}>{t("settings.dispatch.territoryName")}</span>
+                <input name="name" required maxLength={120} className={INPUT} />
+              </label>
+              <label className="block">
+                <span className={LABEL}>{t("settings.dispatch.postalPrefixes")}</span>
                 <input
-                  type="number"
-                  name="centerLat"
-                  min={-90}
-                  max={90}
-                  step="0.000001"
-                  placeholder={t("settings.dispatch.latitude")}
+                  name="postalPrefixes"
+                  placeholder={t("settings.dispatch.postalPrefixesPlaceholder")}
                   className={INPUT}
                 />
+              </label>
+              <label className="block">
+                <span className={LABEL}>{t("settings.dispatch.municipalityCodes")}</span>
                 <input
-                  type="number"
-                  name="centerLng"
-                  min={-180}
-                  max={180}
-                  step="0.000001"
-                  placeholder={t("settings.dispatch.longitude")}
+                  name="municipalityCodes"
+                  placeholder={t("settings.dispatch.municipalityCodesPlaceholder")}
                   className={INPUT}
                 />
-              </div>
+              </label>
+              <label className="block">
+                <span className={LABEL}>{t("settings.dispatch.radiusKm")}</span>
+                <input
+                  type="number"
+                  name="radiusKm"
+                  min={0}
+                  max={500}
+                  step={1}
+                  className={INPUT}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>{t("settings.dispatch.center")}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    name="centerLat"
+                    min={-90}
+                    max={90}
+                    step="0.000001"
+                    placeholder={t("settings.dispatch.latitude")}
+                    className={INPUT}
+                  />
+                  <input
+                    type="number"
+                    name="centerLng"
+                    min={-180}
+                    max={180}
+                    step="0.000001"
+                    placeholder={t("settings.dispatch.longitude")}
+                    className={INPUT}
+                  />
+                </div>
+              </label>
+            </div>
+            <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-[var(--ink,#101310)]">
+              <input
+                type="checkbox"
+                name="isActive"
+                defaultChecked
+                className="h-5 w-5 rounded border-[var(--line,#dedcd1)]"
+              />
+              {t("settings.dispatch.active")}
             </label>
-          </div>
-          <button type="submit" className={BUTTON}>
-            <Icon name="plus" className="h-4 w-4" />
-            {t("settings.dispatch.saveTerritory")}
-          </button>
-        </form>
+            <button type="submit" className={BUTTON}>
+              <Icon name="plus" className="h-4 w-4" />
+              {t("settings.dispatch.saveTerritory")}
+            </button>
+          </form>
+        </details>
       </section>
     </div>
   );

@@ -58,7 +58,8 @@ export default async function EditWorkOrderPage({
       customer: true,
       technicians: { include: { department: true } },
       templates: true,
-      tags: true
+      tags: true,
+      skillRequirements: { include: { skill: true } }
     }
   });
 
@@ -101,6 +102,31 @@ export default async function EditWorkOrderPage({
     take: 100,
   });
   const tags = await prisma.tag.findMany({ orderBy: { name: "asc" } });
+  const skills = await prisma.skill.findMany({
+    orderBy: [{ category: "asc" }, { label: "asc" }],
+    select: { id: true, key: true, label: true, category: true },
+    take: 500,
+  });
+  const selectedSkillIds = new Set(
+    (workOrder.skillRequirements ?? []).map((entry) => entry.skillId),
+  );
+  const mandatorySkillIds = new Set(
+    (workOrder.skillRequirements ?? [])
+      .filter((entry) => entry.mandatory)
+      .map((entry) => entry.skillId),
+  );
+  const sites = await prisma.customerSite.findMany({
+    where: { customer: { deletedAt: null } },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 1000,
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      customerId: true,
+      customer: { select: { name: true } },
+    },
+  });
   // Kontaktene til den valgte kunden, slik at valgt kontakt vises umiddelbart
   // og overlever en feil i det etterfølgende kontakt-søket.
   const selectedCustomerContacts = workOrder.customerId
@@ -287,6 +313,30 @@ export default async function EditWorkOrderPage({
                 </p>
               </div>
 
+              <div>
+                <label htmlFor="office-edit-site" className={LABEL}>
+                  {t("orders.edit.siteLabel")}
+                </label>
+                <select
+                  id="office-edit-site"
+                  name="siteId"
+                  defaultValue={workOrder.siteId ?? ""}
+                  aria-describedby="office-edit-site-hint"
+                  className={controlClassName("min-h-11")}
+                >
+                  <option value="">{t("orders.edit.noSite")}</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name} · {site.customer.name}
+                      {site.address ? ` — ${site.address}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p id="office-edit-site-hint" className={HINT}>
+                  {t("orders.edit.siteHint")}
+                </p>
+              </div>
+
               <div
                 className="rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-3"
                 aria-describedby="office-edit-location-hint"
@@ -437,6 +487,60 @@ export default async function EditWorkOrderPage({
                     <p className="p-2 text-sm text-[var(--muted,#62685f)]">
                       {t("orders.edit.noEmployees")}
                     </p>
+                  )}
+                </div>
+              </div>
+
+              <div
+                role="group"
+                aria-labelledby="office-edit-skills-title"
+                aria-describedby="office-edit-skills-hint"
+              >
+                <p
+                  id="office-edit-skills-title"
+                  className="mb-1 text-sm font-bold text-[var(--ink,#101310)]"
+                >
+                  {t("orders.skills.title")}
+                </p>
+                <p id="office-edit-skills-hint" className={HINT}>
+                  {t("orders.skills.hint")}
+                </p>
+                <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-[var(--line,#dedcd1)] bg-[var(--paper,#f2efe6)] p-2">
+                  {skills.length === 0 ? (
+                    <p className="p-2 text-sm text-[var(--muted,#62685f)]">
+                      {t("orders.skills.empty")}
+                    </p>
+                  ) : (
+                    skills.map((skill) => (
+                      <div
+                        key={skill.id}
+                        className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] px-2 py-1.5 hover:bg-[var(--surface,#fffdf8)]"
+                      >
+                        <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="skillIds"
+                            value={skill.id}
+                            defaultChecked={selectedSkillIds.has(skill.id)}
+                            className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                          />
+                          <span className="min-w-0 break-words text-sm font-medium text-[var(--ink,#101310)]">
+                            {skill.label}
+                            {skill.category ? ` · ${skill.category}` : ""}
+                          </span>
+                        </label>
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-[var(--muted,#62685f)]">
+                          <input
+                            type="checkbox"
+                            name="mandatorySkillIds"
+                            value={skill.id}
+                            defaultChecked={mandatorySkillIds.has(skill.id)}
+                            className="h-4 w-4 shrink-0 rounded accent-[var(--ink,#101310)]"
+                          />
+                          {t("orders.skills.mandatory")}
+                        </label>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
