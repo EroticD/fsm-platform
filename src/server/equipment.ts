@@ -208,7 +208,15 @@ export async function listEquipment(
         category: { select: { id: true, name: true } },
         parent: { select: { id: true, model: true } },
         site: {
-          select: { id: true, name: true, address: true, postalCode: true, city: true },
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            postalCode: true,
+            city: true,
+            latitude: true,
+            longitude: true,
+          },
         },
         _count: {
           select: {
@@ -377,13 +385,24 @@ export async function getEquipment(actor: ServiceActor, equipmentId: string) {
           id: true,
           name: true,
           phone: true,
+          address: true,
+          postalCode: true,
+          city: true,
           departmentId: true,
         },
       },
       category: { select: { id: true, name: true, parentId: true } },
       parent: { select: { id: true, model: true, serialNumber: true } },
       site: {
-        select: { id: true, name: true, address: true, postalCode: true, city: true },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          postalCode: true,
+          city: true,
+          latitude: true,
+          longitude: true,
+        },
       },
       children: {
         orderBy: [{ model: "asc" }, { id: "asc" }],

@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "scan": "Scan"
+  },
+  "fieldTools": {
+    "scan": "Scan",
+    "today": "Today",
+    "customers": "Customers and equipment",
+    "online": "Online",
+    "offline": "Offline",
+    "installed": "Installed app",
+    "navigate": "Navigate",
+    "navigateTo": "Navigate to {address}",
+    "call": "Call",
+    "callAria": "Call {phone}",
+    "copyAddress": "Copy address",
+    "copied": "Address copied",
+    "copyFailed": "Could not copy",
+    "newTab": "Opens in the map app or a new tab"
+  },
+  "scanner": {
+    "title": "Scan",
+    "intro": "Scan the equipment QR code, or enter an equipment ID, work order reference or order number.",
+    "start": "Start camera",
+    "stop": "Stop camera",
+    "scanning": "Point the camera at the QR code …",
+    "starting": "Starting camera …",
+    "unsupported": "This browser cannot scan with the camera. Enter the code manually below.",
+    "denied": "Camera access is blocked. Allow it in the browser settings, or enter the code manually.",
+    "unavailable": "No camera was found. Enter the code manually below.",
+    "error": "Could not read the code. Try again, or enter it manually.",
+    "duplicate": "This code has already been read. Hold it steady, or try another code.",
+    "manualLabel": "Code or reference",
+    "manualPlaceholder": "For example O-261103-ABCD1234 or an equipment ID",
+    "manualSubmit": "Look up",
+    "manualHint": "You can also paste the full link from the QR label.",
+    "videoAria": "Camera for scanning",
+    "backToField": "Back to Today",
+    "errors": {
+      "invalid": "The code is not a valid equipment or work order reference.",
+      "notFound": "No equipment or work order matches this code. Check the label, or ask the office.",
+      "forbidden": "You do not have access to what this code points to."
+    }
+  },
+  "components": {
+    "serviceWorker": {
+      "updateReady": "A new version of the field app is ready.",
+      "update": "Update",
+      "later": "Later"
+    }
+  },
+  "orders": {
+    "fieldList": {
+      "navigate": "Navigate",
+      "navigateAria": "Navigate to {address}"
+    },
+    "fieldDetail": {
+      "navigate": "Navigate"
+    }
+  }
+}

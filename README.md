@@ -24,9 +24,11 @@ signerte servicerapporten kan lastes ned som PDF.
 - **Dokumentbibliotek, OCR, tags og globalt søk** – PDF-er med mapper, tags og
   versjonering; innholdet indekseres (OCR for skannede filer), og fuzzy-søket
   lenker direkte til riktig side i PDF-en.
-- **PWA, 2FA og Markdown** – installerbar feltapp med offline-side, to-trinns
+- **PWA, nativeskall, 2FA og Markdown** – installerbar feltapp med offline-side,
+  hurtigvalg for «Mine oppdrag», «Skann» og «I dag», QR-/strekkodeskanner med
+  manuell reserve, og et tynt Capacitor-skall for Android/iOS. To-trinns
   verifisering (TOTP) for alle innloggede, og Markdown i fritekst som vises likt
-  på nettsiden og i PDF-en.
+  på nettsiden og i PDF-en. Se [`docs/NATIVE.md`](docs/NATIVE.md).
 
 ## Skjermbilder
 

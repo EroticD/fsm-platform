@@ -789,3 +789,30 @@ ekstern kopi og restore-test er automatisert og varsler ved feil.
 8. **Restart:** først når årsaken er funnet,
    `docker compose -f docker-compose.prod.yml up -d app`. Ved DB-utfall: start
    Postgres først, deretter appen.
+
+## Native feltapp (Capacitor)
+
+Feltappen kan pakkes som Android- og iOS-app med Capacitor. Skallet laster den
+driftede HTTPS-adressen i en WebView; appen er fortsatt server-rendret og kan
+ikke eksporteres statisk. Full oppskrift, signering og hva som gjenstår ligger i
+[`NATIVE.md`](NATIVE.md).
+
+```bash
+npm ci
+npx cap add android          # én gang per klone; android/ er ikke i git
+npx cap add ios              # krever macOS + Xcode
+CAPACITOR_SERVER_URL=https://felt.example.no npm run native:sync
+npm run native:build:android # debug-AAB/APK med debug-nøkkel
+npm run native:open:android  # eller native:open:ios på macOS
+```
+
+- `CAPACITOR_SERVER_URL` må være HTTPS. `cleartext` er av.
+- Kamera i WebView krever `CAMERA`-tillatelse på Android og
+  `NSCameraUsageDescription` på iOS. Uten tillatelse bruker skanneren manuell
+  inntasting.
+- Signeringsnøkler, `google-services.json`, `GoogleService-Info.plist` og
+  Apple-sertifikater skal ikke i git eller i CI-loggen.
+- Push (FCM/APNs) er ikke satt opp. Butikkklar signering og oppføring gjenstår;
+  se `NATIVE.md`.
+- Etter en ny appversjon: `npm run native:sync`, bygg på nytt og rull ut. PWA-en
+  oppdateres separat gjennom service worker-meldingen i appen.

@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "scan": "Scannen"
+  },
+  "fieldTools": {
+    "scan": "Scannen",
+    "today": "Heute",
+    "customers": "Kunden und Geräte",
+    "online": "Online",
+    "offline": "Offline",
+    "installed": "Installierte App",
+    "navigate": "Navigieren",
+    "navigateTo": "Nach {address} navigieren",
+    "call": "Anrufen",
+    "callAria": "{phone} anrufen",
+    "copyAddress": "Adresse kopieren",
+    "copied": "Adresse kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "newTab": "Öffnet in der Karten-App oder einem neuen Tab"
+  },
+  "scanner": {
+    "title": "Scannen",
+    "intro": "Scannen Sie den QR-Code am Gerät oder geben Sie Geräte-ID, Auftragsreferenz oder Auftragsnummer ein.",
+    "start": "Kamera starten",
+    "stop": "Kamera stoppen",
+    "scanning": "Kamera auf den QR-Code richten …",
+    "starting": "Kamera wird gestartet …",
+    "unsupported": "Dieser Browser kann nicht mit der Kamera scannen. Geben Sie den Code unten manuell ein.",
+    "denied": "Der Kamerazugriff ist blockiert. Erlauben Sie ihn in den Browsereinstellungen oder geben Sie den Code manuell ein.",
+    "unavailable": "Keine Kamera gefunden. Geben Sie den Code unten manuell ein.",
+    "error": "Der Code konnte nicht gelesen werden. Versuchen Sie es erneut oder geben Sie ihn manuell ein.",
+    "duplicate": "Dieser Code wurde bereits gelesen. Halten Sie ihn ruhig oder versuchen Sie einen anderen Code.",
+    "manualLabel": "Code oder Referenz",
+    "manualPlaceholder": "Zum Beispiel O-261103-ABCD1234 oder eine Geräte-ID",
+    "manualSubmit": "Nachschlagen",
+    "manualHint": "Sie können auch den vollständigen Link vom QR-Etikett einfügen.",
+    "videoAria": "Kamera zum Scannen",
+    "backToField": "Zurück zu Heute",
+    "errors": {
+      "invalid": "Der Code enthält keine gültige Geräte- oder Auftragsreferenz.",
+      "notFound": "Kein Gerät und kein Auftrag passt zu diesem Code. Prüfen Sie das Etikett oder fragen Sie das Büro.",
+      "forbidden": "Sie haben keinen Zugriff auf das, worauf dieser Code zeigt."
+    }
+  },
+  "components": {
+    "serviceWorker": {
+      "updateReady": "Eine neue Version der Feld-App ist bereit.",
+      "update": "Aktualisieren",
+      "later": "Später"
+    }
+  },
+  "orders": {
+    "fieldList": {
+      "navigate": "Navigieren",
+      "navigateAria": "Nach {address} navigieren"
+    },
+    "fieldDetail": {
+      "navigate": "Navigieren"
+    }
+  }
+}

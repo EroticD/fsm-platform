@@ -22,6 +22,9 @@ import ConfirmSubmitForm from "@/components/ConfirmSubmitForm";
 import ErrorBanner from "@/components/ErrorBanner";
 import SubmitButton from "@/components/SubmitButton";
 import Icon, { type IconName } from "@/components/icons";
+import NavigateLink from "@/components/NavigateLink";
+import { buildPhoneUrl } from "@/lib/maps-links";
+import CopyAddressButton from "@/components/CopyAddressButton";
 import EquipmentDocuments from "@/components/equipment/EquipmentDocuments";
 import MeterChart from "@/components/equipment/MeterChart";
 import {
@@ -139,6 +142,21 @@ export default async function EquipmentDetailPage({
     daysUntilWarranty !== null && daysUntilWarranty >= 0 && daysUntilWarranty <= 30;
 
   const parentOptions = options.equipment.filter((asset) => asset.id !== id);
+  const mapTarget = {
+    latitude: equipment.site?.latitude ?? null,
+    longitude: equipment.site?.longitude ?? null,
+    address: equipment.site?.address || equipment.customer.address,
+    postalCode: equipment.site?.postalCode || equipment.customer.postalCode,
+    city: equipment.site?.city || equipment.customer.city,
+  };
+  const mapQuery = [
+    mapTarget.address,
+    mapTarget.postalCode,
+    mapTarget.city,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const customerPhoneHref = buildPhoneUrl(equipment.customer.phone);
   const latestReadings = equipment.meterReadings.slice(0, 5);
   const planTrigger = (trigger: string) => t(`assets.triggers.${trigger}`);
 
@@ -205,6 +223,28 @@ export default async function EquipmentDetailPage({
                 <Icon name="arrowRight" className="h-4 w-4 rotate-180" />
                 {t("assets.detail.back")}
               </Link>
+              {customerPhoneHref && (
+                <a
+                  href={customerPhoneHref}
+                  aria-label={t("fieldTools.callAria", {
+                    phone: equipment.customer.phone ?? "",
+                  })}
+                  className={INK_BUTTON}
+                >
+                  <Icon name="phone" className="h-4 w-4" />
+                  {t("fieldTools.call")}
+                </a>
+              )}
+              <NavigateLink
+                latitude={mapTarget.latitude}
+                longitude={mapTarget.longitude}
+                address={mapTarget.address}
+                postalCode={mapTarget.postalCode}
+                city={mapTarget.city}
+                label={t("fieldTools.navigate")}
+                newTabLabel={t("fieldTools.newTab")}
+                className={INK_BUTTON}
+              />
               <Link href={`/enheter/${equipment.id}/etikett`} className={SIGNAL_BUTTON}>
                 <Icon name="file" className="h-4 w-4" />
                 {t("assets.detail.printLabel")}
@@ -264,6 +304,17 @@ export default async function EquipmentDetailPage({
                 {equipment.site
                   ? `${equipment.site.name}${equipment.site.address ? ` · ${equipment.site.address}` : ""}`
                   : t("assets.detail.noSite")}
+                {mapQuery && (
+                  <span className="mt-2 block">
+                    <CopyAddressButton
+                      value={mapQuery}
+                      label={t("fieldTools.copyAddress")}
+                      copiedLabel={t("fieldTools.copied")}
+                      failedLabel={t("fieldTools.copyFailed")}
+                      className="border-[var(--line,#dedcd1)] bg-transparent text-[var(--ink,#101310)] hover:bg-[var(--paper,#f2efe6)]"
+                    />
+                  </span>
+                )}
               </dd>
             </div>
             <div>

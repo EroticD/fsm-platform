@@ -47,6 +47,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   rapporter: "nav.reports",
   enheter: "nav.units",
   sok: "nav.search",
+  skann: "nav.scan",
   sikkerhet: "nav.security",
   brukere: "nav.users",
 };
@@ -292,6 +293,16 @@ export default function BrandedHeader({
             <div className="hidden w-52 shrink-0 lg:block xl:w-72">
               <GlobalSearch />
             </div>
+          )}
+          {showNav && isField && (
+            <Link
+              href="/skann"
+              aria-label={t("nav.scan")}
+              title={t("nav.scan")}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[#2a3328] bg-white/5 text-[var(--paper)] transition hover:border-signal/60 hover:bg-white/10"
+            >
+              <Icon name="camera" className="h-5 w-5" />
+            </Link>
           )}
           <NotificationBell role={role} />
           {showNav && (
