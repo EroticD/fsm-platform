@@ -26,6 +26,22 @@ Versjoner følger `package.json` og git-taggene `v<versjon>`.
 - PWA-forbedringer, installasjons-/oppdateringsflyt og Capacitor-skalldokumentasjon
   for Android/iOS.
 
+### Eksisterende QR-koder på utstyr
+- Kunder kan registrere QR-verdier som allerede sitter på porter, dører og
+  maskiner, med valgfri etikett og flere koder per enhet.
+- Feltappens skanner slår opp egne token/referanser først, deretter de
+  registrerte eksterne kodene, og autoriserer alltid enheten på nytt.
+- Kodeverdier er globalt unike, kan slettes eksplisitt og følger med i
+  kundeoverføringspakken.
+
+### PDF-rapporter
+- Rettet feil der bilder og signaturer manglet i ferdige PDF-er: PDF-byggeren
+  tolket arbeidsoppdraget feil og hoppet over bildeforberedelsen.
+- Data-URL-bilder og lokalt opplastede bilder bygges nå inn, også i
+  revisjons-PDF-er. Cached PDF-er regenereres automatisk.
+- Manglende bilder gir en synlig advarsel i PDF-en og en stabil
+  driftslogg-hendelse i stedet for stille utelatelse.
+
 ### Rute og sanntids ETA
 - Ruteplanlegger `/kalender/rute` med nearest-neighbour + 2-opt, kjøretid,
   distanse, ventetid og ETA per stopp; valgfri OSRM med lokal fallback.
